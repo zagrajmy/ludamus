@@ -56,14 +56,13 @@ def _member_dto(user, party, *, viewer=None, **overrides):
     return PartyMemberDTO(**values)
 
 
-def _party_dto(party, viewer, members, *, is_default):
+def _party_dto(party, viewer, members):
     return PartyDTO(
         pk=party.pk,
         name=party.name,
         leader_pk=party.leader_id,
         leader_name=party.leader.get_full_name(),
         is_leader=party.leader_id == viewer.pk,
-        is_default=is_default,
         is_active_member=any(
             member.user_pk == viewer.pk
             and member.status == PartyMembershipStatus.ACTIVE
@@ -74,10 +73,10 @@ def _party_dto(party, viewer, members, *, is_default):
     )
 
 
-def _entry(party, viewer, members, *, is_default):
+def _entry(party, viewer, members):
     active = [m for m in members if m.status == PartyMembershipStatus.ACTIVE]
     return {
-        "party": _party_dto(party, viewer, members, is_default=is_default),
+        "party": _party_dto(party, viewer, members),
         "stack": active[:5],
         "stack_overflow": max(0, len(active) - 5),
         "active_count": len(active),
@@ -135,14 +134,7 @@ class TestPartiesPageView:
             response,
             HTTPStatus.OK,
             context_data=_base_context(
-                parties=[
-                    _entry(
-                        party,
-                        active_user,
-                        [_member_dto(active_user, party)],
-                        is_default=True,
-                    )
-                ],
+                parties=[_entry(party, active_user, [_member_dto(active_user, party)])],
                 companions=[_companion_row(companion)],
                 companions_count=1,
             ),
@@ -173,7 +165,6 @@ class TestPartiesPageView:
                         party,
                         active_user,
                         [_member_dto(friend, party), _member_dto(active_user, party)],
-                        is_default=False,
                     )
                 ]
             ),

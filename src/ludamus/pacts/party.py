@@ -57,9 +57,6 @@ class PartyDTO(BaseModel):
     leader_name: str
     # Viewer-relative: whether the requesting user leads this party.
     is_leader: bool
-    # Viewer-relative: the viewer's first led party — the one that sponsors
-    # their companions.
-    is_default: bool
     is_active_member: bool
     created_at: datetime
     members: list[PartyMemberDTO]

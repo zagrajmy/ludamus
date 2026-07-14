@@ -303,7 +303,6 @@ def _party(pk, *, name="", is_leader=False, leader_name="Lena Leader", members=(
         leader_pk=VIEWER_PK if is_leader else FOREIGN_LEADER_PK,
         leader_name=leader_name,
         is_leader=is_leader,
-        is_default=is_leader,
         is_active_member=True,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=list(members),

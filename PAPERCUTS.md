@@ -101,3 +101,6 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran test:postgres for the new party-invite concurrency check; the
   task assumes PostgreSQL is already running and all six marked tests failed at
   setup with connection refused.
+- 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
+  because only mise test tasks load .env.test; use the task or load its
+  environment explicitly.

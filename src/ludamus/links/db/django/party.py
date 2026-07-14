@@ -37,7 +37,7 @@ else:
     User = get_user_model()
 
 
-def _party_dto(party: Party, *, viewer_pk: int, is_default: bool) -> PartyDTO:
+def _party_dto(party: Party, *, viewer_pk: int) -> PartyDTO:
     members = [
         PartyMemberDTO(
             membership_pk=membership.pk,
@@ -67,7 +67,6 @@ def _party_dto(party: Party, *, viewer_pk: int, is_default: bool) -> PartyDTO:
         leader_pk=party.leader_id,
         leader_name=party.leader.get_full_name(),
         is_leader=party.leader_id == viewer_pk,
-        is_default=is_default,
         is_active_member=any(
             member.user_pk == viewer_pk
             and member.status == PartyMembershipStatus.ACTIVE
@@ -101,17 +100,7 @@ class PartyRepository(PartyRepositoryProtocol):
             .distinct()
             .order_by("pk")
         )
-        # The viewer's first led party by pk is their default one — the party
-        # that sponsors companions (see `_default_led_party` in the crowd repo).
-        default_party_pk = next(
-            (party.pk for party in parties if party.leader_id == viewer_pk), None
-        )
-        party_dtos = [
-            _party_dto(
-                party, viewer_pk=viewer_pk, is_default=party.pk == default_party_pk
-            )
-            for party in parties
-        ]
+        party_dtos = [_party_dto(party, viewer_pk=viewer_pk) for party in parties]
         invites = [
             PartyInviteDTO(
                 membership_pk=membership.pk,
@@ -154,15 +143,7 @@ class PartyRepository(PartyRepositoryProtocol):
         )
         if party is None:
             return None
-        default_party_pk = (
-            Party.objects.filter(leader_id=viewer_pk)
-            .order_by("pk")
-            .values_list("pk", flat=True)
-            .first()
-        )
-        return _party_dto(
-            party, viewer_pk=viewer_pk, is_default=party.pk == default_party_pk
-        )
+        return _party_dto(party, viewer_pk=viewer_pk)
 
     @staticmethod
     def create(*, leader_pk: int, name: str) -> int:
@@ -254,7 +235,9 @@ class PartyRepository(PartyRepositoryProtocol):
             name=party.name,
             leader_name=party.leader.get_full_name(),
             already_member=PartyMembership.objects.filter(
-                party_id=party.pk, member_id=viewer_pk
+                party_id=party.pk,
+                member_id=viewer_pk,
+                status=PartyMembershipStatus.ACTIVE,
             ).exists(),
         )
 
@@ -264,7 +247,7 @@ class PartyRepository(PartyRepositoryProtocol):
             return None
         if (party := Party.objects.filter(invite_token=token).first()) is None:
             return None
-        membership, created = PartyMembership.objects.get_or_create(
+        membership, created = PartyMembership.objects.select_for_update().get_or_create(
             party_id=party.pk,
             member_id=user_pk,
             defaults={
@@ -305,9 +288,18 @@ class PartyRepository(PartyRepositoryProtocol):
 
     @staticmethod
     def decline_invite(*, membership_pk: int, user_pk: int) -> bool:
-        deleted, __ = PartyMembership.objects.filter(
-            pk=membership_pk, member_id=user_pk, status=PartyMembershipStatus.INVITED
-        ).delete()
+        membership = (
+            PartyMembership.objects.select_for_update()
+            .filter(
+                pk=membership_pk,
+                member_id=user_pk,
+                status=PartyMembershipStatus.INVITED,
+            )
+            .first()
+        )
+        if membership is None:
+            return False
+        deleted, __ = membership.delete()
         return bool(deleted)
 
     @staticmethod
@@ -315,9 +307,8 @@ class PartyRepository(PartyRepositoryProtocol):
         *, leader_pk: int, party_pk: int, membership_pk: int
     ) -> PartyMembershipStatus | None:
         membership = (
-            PartyMembership.objects.filter(
-                pk=membership_pk, party_id=party_pk, party__leader_id=leader_pk
-            )
+            PartyMembership.objects.select_for_update()
+            .filter(pk=membership_pk, party_id=party_pk, party__leader_id=leader_pk)
             .exclude(member_id=leader_pk)
             .first()
         )

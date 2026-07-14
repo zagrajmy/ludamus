@@ -67,7 +67,6 @@ class TestPartyDetailPageView:
                     party,
                     active_user,
                     [_member_dto(active_user, party), _member_dto(companion, party)],
-                    is_default=True,
                 ),
                 invite_token=party.invite_token,
             ),
@@ -98,7 +97,6 @@ class TestPartyDetailPageView:
                     party,
                     active_user,
                     [_member_dto(friend, party), _member_dto(active_user, party)],
-                    is_default=False,
                 )
             ),
             template_name=TEMPLATE,
@@ -288,7 +286,6 @@ class TestPartyDetailSessionHistory:
                     party,
                     active_user,
                     [_member_dto(active_user, party), _member_dto(companion, party)],
-                    is_default=True,
                 ),
                 invite_token=party.invite_token,
                 history=[
@@ -396,7 +393,6 @@ class TestPartyDetailSessionHistory:
                     party,
                     active_user,
                     [_member_dto(active_user, party), _member_dto(companion, party)],
-                    is_default=True,
                 ),
                 invite_token=party.invite_token,
             ),
@@ -427,7 +423,6 @@ class TestPartyDetailSessionHistory:
                     party,
                     active_user,
                     [_member_dto(active_user, party), _member_dto(companion, party)],
-                    is_default=True,
                 ),
                 invite_token=party.invite_token,
                 history=[

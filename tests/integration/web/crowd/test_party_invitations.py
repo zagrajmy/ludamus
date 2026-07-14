@@ -312,10 +312,7 @@ class TestPartyCompanionAddActionView:
             messages=[(messages.ERROR, "No companion matches that display name.")],
             context_data={
                 "party": _party_dto(
-                    party,
-                    active_user,
-                    [_member_dto(active_user, party)],
-                    is_default=True,
+                    party, active_user, [_member_dto(active_user, party)]
                 ),
                 "rename_form": ANY,
                 "invite_form": ANY,
@@ -568,7 +565,7 @@ class TestPartyJoinPageView:
             messages=[(messages.INFO, "You're already in this party.")],
         )
 
-    def test_post_activates_existing_invitation(
+    def test_invited_user_gets_join_page_and_post_activates(
         self, authenticated_client, active_user
     ):
         leader = UserFactory(username="leader")
@@ -578,8 +575,23 @@ class TestPartyJoinPageView:
             party=party, member=active_user, status=PartyMembershipStatus.INVITED
         )
 
+        get_response = authenticated_client.get(self._url("accept-me"))
         response = authenticated_client.post(self._url("accept-me"))
 
+        assert_response(
+            get_response,
+            HTTPStatus.OK,
+            context_data={
+                "party": InvitablePartyDTO(
+                    pk=party.pk,
+                    name="",
+                    leader_name=leader.get_full_name(),
+                    already_member=False,
+                ),
+                "token": "accept-me",
+            },
+            template_name="crowd/user/party_join.html",
+        )
         invitation.refresh_from_db()
         assert invitation.status == PartyMembershipStatus.ACTIVE
         assert_response(
