@@ -54,3 +54,9 @@ If you fix a papercut, remove it.
 - 2026-07-14: Tried `mise run pytest` for a focused test after `mise tasks`
   guidance; no such task exists, so focused pytest invocation still requires
   discovering another command.
+- 2026-07-14: Catbox rejected PR screenshot uploads using the documented image-
+  upload command with HTTP 412; the screenshot workflow needs a reliable host or
+  required request headers documented.
+- 2026-07-14: Built a screenshot asset commit, then zsh parsed
+  `$asset_commit:refs/...` as a variable modifier and corrupted the push
+  refspec; brace variables immediately before colons in zsh.
