@@ -9,6 +9,7 @@ from django.urls import reverse
 from ludamus.adapters.db.django.models import (
     DomainEnrollmentConfig,
     Notification,
+    Party,
     SessionParticipation,
     SessionParticipationStatus,
     UserEnrollmentConfig,
@@ -160,6 +161,70 @@ class TestFillFreedSeats:
         assert result.promoted == [participation.pk]
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
+
+    def test_shadowbanned_waiter_not_promoted(self, session, waiter):
+        banner = UserFactory(username="presenter", email="presenter@example.com")
+        session.presenter = banner
+        session.participants_limit = 1
+        session.save()
+        banner.shadowbanned.add(waiter)
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert not result.promoted
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.WAITING.value
+
+    def test_promotion_respects_membership_across_distinct_parties(
+        self, session, enrollment_config
+    ):
+        manager = UserFactory(username="slot-mgr", email="slot-mgr@example.com")
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=manager.email,
+            allowed_slots=1,
+        )
+        party_a = Party.objects.create(leader=manager, name="A")
+        party_b = Party.objects.create(leader=manager, name="B")
+        members = [
+            UserFactory(
+                username="comp-a",
+                email="comp-a@example.com",
+                user_type=UserType.CONNECTED,
+                manager=manager,
+            ),
+            UserFactory(
+                username="comp-b",
+                email="comp-b@example.com",
+                user_type=UserType.CONNECTED,
+                manager=manager,
+            ),
+        ]
+        session.participants_limit = 5
+        session.save()
+        first = SessionParticipation.objects.create(
+            session=session,
+            user=members[0],
+            party_id=party_a.pk,
+            status=SessionParticipationStatus.WAITING,
+        )
+        second = SessionParticipation.objects.create(
+            session=session,
+            user=members[1],
+            party_id=party_b.pk,
+            status=SessionParticipationStatus.WAITING,
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert result.promoted == [first.pk]
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert first.status == SessionParticipationStatus.CONFIRMED.value
+        assert second.status == SessionParticipationStatus.WAITING.value
 
 
 @pytest.mark.usefixtures("enrollment_config", "agenda_item")
@@ -478,8 +543,8 @@ class TestPromotionRepositoryUnscheduledSession:
 
 # lock+select session, most-liberal config, waiting list, sponsors, batched
 # conflicts, active configs, user-config __in, domain-config __in, companions +
-# used slots (one config-holding owner), available-seats count.
-STATE_QUERIES = 11
+# used slots (one config-holding owner), available-seats count, shadowban ids.
+STATE_QUERIES = 12
 BASE_WAITERS = 3
 GROWN_WAITERS = 5
 

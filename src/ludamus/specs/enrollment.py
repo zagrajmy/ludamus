@@ -8,6 +8,7 @@ members fit at once).
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,9 +16,16 @@ if TYPE_CHECKING:
 
 
 def _is_eligible(
-    participant: WaitingParticipantDTO, *, presenter_id: int | None
+    participant: WaitingParticipantDTO,
+    *,
+    presenter_id: int | None,
+    shadowbanned_user_ids: frozenset[int],
 ) -> bool:
-    return participant.user_id != presenter_id and not participant.has_conflict
+    return (
+        participant.user_id != presenter_id
+        and not participant.has_conflict
+        and participant.user_id not in shadowbanned_user_ids
+    )
 
 
 def _group_into_parties(
@@ -36,11 +44,37 @@ def _group_into_parties(
     return parties
 
 
+def _initial_slots_by_owner(waiting: list[WaitingParticipantDTO]) -> dict[int, int]:
+    slots_by_owner: dict[int, int] = {}
+    for participant in waiting:
+        if participant.recipient_user_id not in slots_by_owner:
+            slots_by_owner[participant.recipient_user_id] = (
+                participant.owner_slots_remaining
+            )
+    return slots_by_owner
+
+
+def _membership_slot_action(
+    eligible: list[WaitingParticipantDTO], slots_by_owner: dict[int, int]
+) -> str:
+    slots_needed = Counter(p.recipient_user_id for p in eligible)
+    shortfall = [
+        owner
+        for owner, needed in slots_needed.items()
+        if needed > slots_by_owner.get(owner, 0)
+    ]
+    if not shortfall:
+        return "fit"
+    if all(slots_by_owner.get(owner, 0) <= 0 for owner in shortfall):
+        return "skip"
+    return "stop"
+
+
 def select_promotable_parties(
     state: PromotionStateDTO,
 ) -> list[list[WaitingParticipantDTO]]:
     # Walks parties front-to-back filling `available_seats`. A party with no
-    # still-eligible members (conflict / presenter) or no remaining
+    # still-eligible members (conflict / presenter / shadowban) or no remaining
     # membership slots is skipped — it can never be promoted now, so it does not
     # hold the line. Otherwise the party is promoted only if all its eligible
     # members fit the remaining seats *and* membership allowance at once; the
@@ -50,18 +84,31 @@ def select_promotable_parties(
     if seats_remaining <= 0:
         return selected
 
+    slots_by_owner = _initial_slots_by_owner(state.waiting)
+
     for party in _group_into_parties(state.waiting):
         eligible = [
-            p for p in party if _is_eligible(p, presenter_id=state.presenter_id)
+            p
+            for p in party
+            if _is_eligible(
+                p,
+                presenter_id=state.presenter_id,
+                shadowbanned_user_ids=state.shadowbanned_user_ids,
+            )
         ]
         if not eligible:
             continue
-        if (slots_remaining := min(p.owner_slots_remaining for p in eligible)) <= 0:
-            continue
-        if len(eligible) > seats_remaining or len(eligible) > slots_remaining:
+        match _membership_slot_action(eligible, slots_by_owner):
+            case "skip":
+                continue
+            case "stop":
+                break
+        if len(eligible) > seats_remaining:
             break
         selected.append(eligible)
         seats_remaining -= len(eligible)
+        for owner, count in Counter(p.recipient_user_id for p in eligible).items():
+            slots_by_owner[owner] -= count
         if seats_remaining <= 0:
             break
 

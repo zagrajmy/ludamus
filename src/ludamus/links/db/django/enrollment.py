@@ -22,6 +22,7 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
+from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
@@ -154,6 +155,12 @@ class ParticipationPromotionRepository:
                 )
             )
 
+        shadowbanned_user_ids = frozenset(
+            ShadowbanRepository.banned_user_ids(session.presenter_id)
+            if session.presenter_id
+            else ()
+        )
+
         return PromotionStateDTO(
             session_id=session.pk,
             session_title=session.title,
@@ -163,6 +170,7 @@ class ParticipationPromotionRepository:
             presenter_id=session.presenter_id,
             available_seats=config.get_available_slots(session),
             waiting=waiting,
+            shadowbanned_user_ids=shadowbanned_user_ids,
         )
 
     @staticmethod
