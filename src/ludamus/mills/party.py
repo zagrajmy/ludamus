@@ -21,7 +21,7 @@ from ludamus.pacts.party import (
     InviteOutcome,
     PartyConsentMode,
     PartyInviteNotification,
-    PartyJoinOutcome,
+    PartyJoinResult,
     PartyMembershipStatus,
     PartyServiceProtocol,
     SelectedEnrollmentPartyDTO,
@@ -33,7 +33,6 @@ if TYPE_CHECKING:
         PartiesOverviewDTO,
         PartyDTO,
         PartyEnrolledNotification,
-        PartyEventHistoryDTO,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
     )
@@ -53,11 +52,6 @@ class PartyService(PartyServiceProtocol):
 
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO:
         return self._parties.overview(viewer_pk)
-
-    def session_history(
-        self, *, party_pk: int, viewer_pk: int
-    ) -> list[PartyEventHistoryDTO] | None:
-        return self._parties.session_history(party_pk=party_pk, viewer_pk=viewer_pk)
 
     def create(self, *, leader_pk: int, name: str) -> int:
         with self._transaction.atomic():
@@ -155,7 +149,7 @@ class PartyService(PartyServiceProtocol):
             token=token, viewer_pk=viewer_pk
         )
 
-    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinOutcome:
+    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinResult | None:
         with self._transaction.atomic():
             return self._parties.join_via_token(token=token, user_pk=user_pk)
 

@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 
-from django.db.models import Count, IntegerField, OuterRef, Subquery
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.adapters.db.django.models import (
+    SPACE_MAX_DEPTH,
     AgendaItem,
     DomainEnrollmentConfig,
     EnrollmentConfig,
@@ -11,10 +12,12 @@ from ludamus.adapters.db.django.models import (
     EventIntegration,
     EventSettings,
     Session,
+    SessionParticipation,
     Space,
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
@@ -27,6 +30,8 @@ from ludamus.pacts import (
     EventStatsData,
     EventUpdateData,
     NotFoundError,
+    SessionDTO,
+    SessionParticipationStatus,
     SessionStatus,
     UserEnrollmentConfigData,
     UserEnrollmentConfigDTO,
@@ -38,7 +43,12 @@ from ludamus.pacts.chronology import (
     EventIntegrationUpdateData,
     IntegrationImplementationId,
     IntegrationKind,
+    PartyEventHistoryDTO,
+    PartySessionHistoryDTO,
+    PartySessionHistoryRepositoryProtocol,
+    PartySessionSeatDTO,
 )
+from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -46,6 +56,103 @@ def event_dto(event: Event) -> EventDTO:
     description = settings.description if settings is not None else ""
     dto = EventDTO.model_validate(event)
     return dto.model_copy(update={"proposal_description": description})
+
+
+class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
+    @staticmethod
+    def list_for_party(*, party_pk: int, viewer_pk: int) -> list[PartyEventHistoryDTO]:
+        session_ids = (
+            SessionParticipation.objects.filter(
+                party_id=party_pk, status=SessionParticipationStatus.CONFIRMED
+            )
+            .values_list("session_id", flat=True)
+            .distinct()
+        )
+        sessions = (
+            Session.objects.filter(pk__in=session_ids, agenda_item__isnull=False)
+            .annotate(
+                enrolled_count_cached=Count(
+                    "session_participations",
+                    filter=Q(
+                        session_participations__status__in=(
+                            SessionParticipationStatus.CONFIRMED,
+                            SessionParticipationStatus.OFFERED,
+                        )
+                    ),
+                ),
+                waiting_count_cached=Count(
+                    "session_participations",
+                    filter=Q(
+                        session_participations__status=SessionParticipationStatus.WAITING
+                    ),
+                ),
+            )
+            .select_related(
+                "event",
+                "presenter",
+                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+            )
+            .prefetch_related(
+                "event__enrollment_configs", "session_participations__user"
+            )
+            .order_by("agenda_item__start_time")
+        )
+        groups: dict[int, PartyEventHistoryDTO] = {}
+        for session in sessions:
+            item = _party_session_history(session, viewer_pk=viewer_pk)
+            if (group := groups.get(session.event_id)) is None:
+                groups[session.event_id] = PartyEventHistoryDTO(
+                    event_pk=session.event_id,
+                    event_name=session.event.name,
+                    event_slug=session.event.slug,
+                    sessions=[item],
+                )
+            else:
+                group.sessions.append(item)
+        return sorted(
+            groups.values(),
+            key=lambda group: group.sessions[-1].agenda_item.start_time,
+            reverse=True,
+        )
+
+
+def _party_session_history(
+    session: Session, *, viewer_pk: int
+) -> PartySessionHistoryDTO:
+    space = session.agenda_item.space
+    participations = list(session.session_participations.all())
+    return PartySessionHistoryDTO(
+        session=SessionDTO.model_validate(session),
+        agenda_item=AgendaItemDTO.model_validate(session.agenda_item),
+        presenter=(
+            user_dto(session.presenter) if session.presenter is not None else None
+        ),
+        participations=[
+            PartySessionSeatDTO(
+                user=user_dto(participation.user),
+                status=participation.status,
+                creation_time=participation.creation_time,
+            )
+            for participation in participations
+        ],
+        location=LocationData(
+            space_name=space.name,
+            parent_slug=space.parent.slug if space.parent else "",
+            parent_name=space.parent.name if space.parent else "",
+            path=str(space),
+        ),
+        enrolled_count=session.enrolled_count,
+        waiting_count=session.waiting_count,
+        is_full=session.is_full,
+        is_enrollment_available=session.is_enrollment_available,
+        effective_participants_limit=session.effective_participants_limit,
+        full_participant_info=session.full_participant_info,
+        viewer_enrolled=any(
+            participation.user_id == viewer_pk
+            and participation.status == SessionParticipationStatus.CONFIRMED
+            for participation in participations
+        ),
+    )
 
 
 class EventRepository(EventRepositoryProtocol):

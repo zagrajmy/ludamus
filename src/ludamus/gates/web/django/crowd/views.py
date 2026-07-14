@@ -24,7 +24,6 @@ from ludamus.pacts.party import (
     DeletePartyOutcome,
     InviteOutcome,
     PartyConsentMode,
-    PartyJoinOutcome,
     PartyMembershipStatus,
 )
 
@@ -222,22 +221,17 @@ class PartyJoinPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def post(request: AuthenticatedRootRequest, token: str) -> HttpResponse:
-        outcome = request.services.parties.join_via_link(
+        result = request.services.parties.join_via_link(
             token=token, user_pk=request.context.current_user_id
         )
-        if outcome == PartyJoinOutcome.INVALID:
+        if result is None:
             messages.error(request, _("This invite link is invalid."))
             return redirect("web:crowd:profile-parties")
-        party = request.services.parties.read_invitable_party(
-            token=token, viewer_pk=request.context.current_user_id
-        )
-        if outcome == PartyJoinOutcome.JOINED:
+        if result.joined:
             messages.success(request, _("You joined the party."))
         else:
             messages.info(request, _("You're already in this party."))
-        if party is not None:
-            return redirect("web:crowd:party-detail", pk=party.pk)
-        return redirect("web:crowd:profile-parties")
+        return redirect("web:crowd:party-detail", pk=result.party_pk)
 
 
 class PartyInviteAcceptActionView(LoginRequiredMixin, View):

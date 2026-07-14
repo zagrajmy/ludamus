@@ -12,6 +12,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -149,6 +150,8 @@ class TestPartyDetailSessionHistory:
     def test_history_groups_party_sessions_by_event(
         self, authenticated_client, active_user, companion, session, agenda_item
     ):
+        active_user.use_gravatar = True
+        active_user.save(update_fields=["use_gravatar"])
         party = sponsor_user(leader=active_user, member=active_user)
         sponsor_user(leader=active_user, member=companion)
         session.title = "Wspólna Wyprawa"
@@ -184,6 +187,9 @@ class TestPartyDetailSessionHistory:
         [card] = group["cards"]
         assert card.session.pk == session.pk
         assert card.user_enrolled
+        assert card.session_participations[0].user.avatar_url == gravatar_url(
+            active_user.email
+        )
         assert card.agenda_item.start_time == agenda_item.start_time
         assert not card.pretend_full
 

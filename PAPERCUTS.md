@@ -76,3 +76,8 @@ If you fix a papercut, remove it.
 - 2026-07-14: Updating the PR body with gh pr edit failed on the deprecated
   Projects Classic GraphQL field; gh api with a PTY stdin payload also produced
   HTTP 400. A direct REST PATCH with a form field worked.
+- 2026-07-14: Ran mise run fallow during PR review → task failed because the
+  fallow binary is not installed; task output only suggests aube install.
+- 2026-07-14: Running pytest directly to isolate coverage skipped mise test
+  environment loading and failed because ENV was unset; source .env.test or
+  provide a targeted mise task.

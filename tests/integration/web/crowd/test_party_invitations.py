@@ -373,6 +373,37 @@ class TestPartyJoinPageView:
             messages=[(messages.INFO, "You're already in this party.")],
         )
 
+    def test_post_activates_existing_invitation(
+        self, authenticated_client, active_user
+    ):
+        leader = UserFactory(username="leader")
+        party = Party.objects.create(leader=leader, invite_token="accept-me")
+        PartyMembership.objects.create(party=party, member=leader)
+        invitation = PartyMembership.objects.create(
+            party=party, member=active_user, status=PartyMembershipStatus.INVITED
+        )
+
+        response = authenticated_client.post(self._url("accept-me"))
+
+        invitation.refresh_from_db()
+        assert invitation.status == PartyMembershipStatus.ACTIVE
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_detail_url(party),
+            messages=[(messages.SUCCESS, "You joined the party.")],
+        )
+
+    def test_post_invalid_token(self, authenticated_client):
+        response = authenticated_client.post(self._url("nope"))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:crowd:profile-parties"),
+            messages=[(messages.ERROR, "This invite link is invalid.")],
+        )
+
 
 class TestPartyInviteResponseActionViews:
     def _invite(self, active_user):

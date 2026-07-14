@@ -10,8 +10,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.crowd import CompanionDTO, UserDTO
-from ludamus.pacts.legacy import AgendaItemDTO, LocationData, SessionDTO
+from ludamus.pacts.crowd import CompanionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
@@ -135,12 +134,6 @@ class CompanionAddOutcome(StrEnum):
     AMBIGUOUS_NAME = "ambiguous_name"
 
 
-class PartyJoinOutcome(StrEnum):
-    JOINED = "joined"
-    ALREADY_MEMBER = "already_member"
-    INVALID = "invalid"
-
-
 class DeletePartyOutcome(StrEnum):
     DELETED = "deleted"
     HAS_COMPANIONS = "has_companions"
@@ -187,37 +180,14 @@ class InvitablePartyDTO(BaseModel):
     already_member: bool
 
 
+class PartyJoinResult(BaseModel):
+    party_pk: int
+    joined: bool
+
+
 class LedPartyDTO(BaseModel):
     name: str
     leader_name: str
-
-
-class PartySessionSeatDTO(BaseModel):
-    user: UserDTO
-    status: str
-    creation_time: datetime
-
-
-class PartySessionHistoryDTO(BaseModel):
-    session: SessionDTO
-    agenda_item: AgendaItemDTO
-    presenter: UserDTO | None
-    participations: list[PartySessionSeatDTO]
-    location: LocationData
-    enrolled_count: int
-    waiting_count: int
-    is_full: bool
-    is_enrollment_available: bool
-    effective_participants_limit: int
-    full_participant_info: str
-    viewer_enrolled: bool
-
-
-class PartyEventHistoryDTO(BaseModel):
-    event_pk: int
-    event_name: str
-    event_slug: str
-    sessions: list[PartySessionHistoryDTO]
 
 
 class PartyRepositoryProtocol(Protocol):
@@ -244,7 +214,9 @@ class PartyRepositoryProtocol(Protocol):
         *, token: str, viewer_pk: int
     ) -> InvitablePartyDTO | None: ...
     @staticmethod
-    def join_via_token(*, token: str, user_pk: int) -> PartyJoinOutcome: ...
+    def join_via_token(*, token: str, user_pk: int) -> PartyJoinResult | None: ...
+    @staticmethod
+    def can_view(*, party_pk: int, viewer_pk: int) -> bool: ...
     @staticmethod
     def membership_exists(*, party_pk: int, user_pk: int) -> bool: ...
     @staticmethod
@@ -271,10 +243,6 @@ class PartyRepositoryProtocol(Protocol):
     ) -> list[CompanionDTO]: ...
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
-    @staticmethod
-    def session_history(
-        *, party_pk: int, viewer_pk: int
-    ) -> list[PartyEventHistoryDTO] | None: ...
 
 
 class PartyNotifierProtocol(Protocol):
@@ -300,7 +268,7 @@ class PartyServiceProtocol(Protocol):
     def read_invitable_party(
         self, *, token: str, viewer_pk: int
     ) -> InvitablePartyDTO | None: ...
-    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinOutcome: ...
+    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinResult | None: ...
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool: ...
     def decline_invite(self, *, user_pk: int, membership_pk: int) -> bool: ...
     def remove_member(
@@ -316,6 +284,3 @@ class PartyServiceProtocol(Protocol):
     def announce_member_enrolled(
         self, notification: PartyEnrolledNotification
     ) -> None: ...
-    def session_history(
-        self, *, party_pk: int, viewer_pk: int
-    ) -> list[PartyEventHistoryDTO] | None: ...

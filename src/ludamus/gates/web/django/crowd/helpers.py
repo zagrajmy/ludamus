@@ -88,7 +88,10 @@ def build_party_detail_context(
     if (party := next((p for p in overview.parties if p.pk == pk), None)) is None:
         return None
     history_groups = (
-        request.services.parties.session_history(party_pk=pk, viewer_pk=viewer_pk) or []
+        request.services.party_session_history.list_for_party(
+            party_pk=pk, viewer_pk=viewer_pk
+        )
+        or []
     )
     banned_event_ids = request.services.event_bans.banned_event_ids(
         event_ids={group.event_pk for group in history_groups}, user_id=viewer_pk

@@ -11,7 +11,7 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     Shadowban,
 )
-from ludamus.links.gravatar import gravatar_url
+from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts import NotFoundError, SessionParticipationStatus
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.safety import (
@@ -41,12 +41,6 @@ def _resolve_user(identifier: str) -> User | None:
         .order_by("pk")
         .first()
     )
-
-
-def _candidate_avatar_url(player: User) -> str:
-    if player.use_gravatar:
-        return gravatar_url(player.email) or ""
-    return player.avatar_url or gravatar_url(player.email) or ""
 
 
 def _met_sessions_by_player(
@@ -134,7 +128,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
                 full_name=player.full_name,
                 username=player.username,
                 slug=player.slug,
-                avatar_url=_candidate_avatar_url(player),
+                avatar_url=display_avatar_url(player),
                 is_shadowbanned=player.pk in banned_ids,
                 met_sessions=met_by_player[player.pk],
             )

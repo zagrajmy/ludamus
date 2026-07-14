@@ -16,8 +16,8 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionFieldValueDTO,
     )
+    from ludamus.pacts.chronology import PartyEventHistoryDTO, PartySessionHistoryDTO
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.party import PartyEventHistoryDTO, PartySessionHistoryDTO
 
 
 @dataclass

@@ -12,10 +12,13 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
+    LocationData,
     SessionContentEditData,
+    SessionDTO,
     SessionFieldValueData,
     SessionSelfEditContext,
     SpaceDTO,
@@ -237,6 +240,47 @@ class ProposalStatusServiceProtocol(Protocol):
     def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
     def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
     def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
+class PartySessionSeatDTO(BaseModel):
+    user: UserDTO
+    status: str
+    creation_time: datetime
+
+
+class PartySessionHistoryDTO(BaseModel):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[PartySessionSeatDTO]
+    location: LocationData
+    enrolled_count: int
+    waiting_count: int
+    is_full: bool
+    is_enrollment_available: bool
+    effective_participants_limit: int
+    full_participant_info: str
+    viewer_enrolled: bool
+
+
+class PartyEventHistoryDTO(BaseModel):
+    event_pk: int
+    event_name: str
+    event_slug: str
+    sessions: list[PartySessionHistoryDTO]
+
+
+class PartySessionHistoryRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_for_party(
+        *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO]: ...
+
+
+class PartySessionHistoryServiceProtocol(Protocol):
+    def list_for_party(
+        self, *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO] | None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5

@@ -60,6 +60,10 @@ class Repositories:
         return PartyRepository()
 
     @cached_property
+    def party_session_history(self) -> repositories.PartySessionHistoryRepository:
+        return repositories.PartySessionHistoryRepository()
+
+    @cached_property
     def announcements(self) -> repositories.AnnouncementsRepository:
         return repositories.AnnouncementsRepository()
 
