@@ -1,3 +1,41 @@
+/**
+ * Addressable modals. A trigger link's first query param is the source of truth
+ * for open state, so every modal is shareable, bookmarkable, and closes on Back.
+ *
+ * Prefer this over an imperative open handler: `syncModalsFromUrl` opens whichever
+ * modal matches the URL on load / popstate, `openModal` writes the param, and
+ * `closeModal` clears it. Nothing else needs to know a modal exists.
+ *
+ * @usage
+ *   <a href="?invite=5" aria-controls="invite-modal-5" aria-haspopup="dialog">Invite</a>
+ *   <dialog id="invite-modal-5" class="modal">…</dialog>
+ *
+ * To reopen a modal after a failed POST, render the response at that same
+ * `?param=value` — point the form's action at it (`action="…?add-companion=1"`)
+ * and `syncModalsFromUrl` reopens it on load, errors and all. No server-set flag.
+ *
+ * Triggers must be same-path query links (`?x=y`), not buttons: the Navigation API
+ * interception below only fires for anchor navigations to the current pathname.
+ */
+interface NavigateEvent {
+  canIntercept: boolean;
+  destination: { url: string };
+  hashChange: boolean;
+  intercept: (options?: {
+    focusReset?: "after-transition" | "manual";
+    handler?: () => Promise<void> | void;
+    scroll?: "after-transition" | "manual";
+  }) => void;
+  navigationType: "push" | "reload" | "replace" | "traverse";
+}
+
+interface Navigation {
+  addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
+}
+
+/** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
+const { navigation } = globalThis as { navigation?: Navigation };
+
 const openingModals = new Set<string>();
 
 const getDialog = (id: string): HTMLDialogElement => {
@@ -253,7 +291,7 @@ const syncModalsFromUrl = (): void => {
     closeModal(dialog.id, { animate: false, updateUrl: false });
   }
 
-  for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const href = link.getAttribute("href");
     const modalId = link.getAttribute("aria-controls");
     if (!href || !modalId) continue;
@@ -282,6 +320,41 @@ document.addEventListener(
   },
   true,
 );
+
+if (navigation) {
+  navigation.addEventListener("navigate", (e) => {
+    if (e.navigationType !== "push") return;
+    if (!e.canIntercept || e.hashChange) return;
+    const url = new URL(e.destination.url);
+    if (url.origin !== location.origin || url.pathname !== location.pathname) return;
+
+    for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+      const href = link.getAttribute("href");
+      const modalId = link.getAttribute("aria-controls");
+      if (!href || !modalId) continue;
+
+      const hrefUrl = new URL(href, location.href);
+      if (hrefUrl.pathname !== url.pathname) continue;
+
+      const matches =
+        hrefUrl.searchParams.size > 0 &&
+        [...hrefUrl.searchParams].every(([k, v]) => url.searchParams.get(k) === v);
+      if (!matches) continue;
+
+      const target = document.getElementById(modalId);
+      if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
+
+      e.intercept({
+        focusReset: "manual",
+        async handler() {
+          await openModal(modalId, { updateUrl: false });
+        },
+        scroll: "manual",
+      });
+      return;
+    }
+  });
+}
 
 const stopModalCloseEvent = (event: Event): void => {
   event.preventDefault();
@@ -312,23 +385,6 @@ const setupModalCloseTriggers = (): void => {
   }
 };
 
-const setupModalOpenTriggers = (): void => {
-  for (const trigger of document.querySelectorAll<HTMLElement>("[data-modal-open]")) {
-    trigger.addEventListener("click", (event) => {
-      const id = trigger.dataset.modalOpen;
-      if (!id) return;
-      event.preventDefault();
-      void openModal(id);
-    });
-  }
-};
-
-const openModalsMarkedForLoad = (): void => {
-  for (const dialog of document.querySelectorAll<HTMLElement>("dialog.modal[data-open-on-load]")) {
-    void openModal(dialog.id, { updateUrl: false });
-  }
-};
-
 document.addEventListener("click", (event) => {
   const eventTarget = event.target;
   if (!(eventTarget instanceof Element)) return;
@@ -350,36 +406,22 @@ globalThis.addEventListener("popstate", syncModalsFromUrl);
 
 syncModalsFromUrl();
 setupModalCloseTriggers();
-setupModalOpenTriggers();
-openModalsMarkedForLoad();
 
 const setupFallbackLinkHandlers = (): void => {
-  for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
+  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const modalId = link.getAttribute("aria-controls");
     if (!modalId) continue;
 
     const target = document.getElementById(modalId);
     if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
 
-    link.addEventListener("click", (e: MouseEvent) => {
-      if (
-        e.defaultPrevented ||
-        e.button !== 0 ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.shiftKey ||
-        e.altKey ||
-        (link.target && link.target !== "_self") ||
-        link.hasAttribute("download")
-      ) {
-        return;
-      }
+    link.addEventListener("click", (e) => {
       e.preventDefault();
       void openModal(modalId);
     });
   }
 };
 
-setupFallbackLinkHandlers();
+if (!navigation) setupFallbackLinkHandlers();
 
 export { closeModal, openModal };

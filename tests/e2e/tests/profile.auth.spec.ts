@@ -70,19 +70,19 @@ test.describe("Profile — Parties (parties.html)", () => {
     const companionName = `E2E Companion ${Date.now()}`;
     await page.goto("/crowd/profile/parties/");
 
-    await page.getByRole("button", { name: "Add companion", exact: true }).first().click();
+    await page.getByRole("link", { name: "Add companion", exact: true }).click();
     const companionDialog = page.getByRole("dialog", { name: "Add companion" });
     await companionDialog.getByLabel("Display name").fill(companionName);
     await companionDialog.getByRole("button", { name: "Add companion", exact: true }).click();
 
-    await page.getByRole("button", { name: "Create party", exact: true }).first().click();
+    await page.getByRole("link", { name: "Create party", exact: true }).click();
     const partyDialog = page.getByRole("dialog", { name: "Create party" });
     const partyName = `E2E Party ${Date.now()}`;
     await partyDialog.getByLabel("Party name").fill(partyName);
     await partyDialog.getByRole("button", { name: "Create party", exact: true }).click();
     await expect(page).toHaveURL(/\/crowd\/profile\/parties\/\d+\//);
 
-    await page.getByRole("button", { name: "Add companion", exact: true }).click();
+    await page.getByRole("link", { name: "Add companion", exact: true }).click();
     const addDialog = page.getByRole("dialog", { name: "Add companion" });
     await addDialog.getByLabel("Companion display name").fill(companionName);
     await addDialog.getByRole("button", { name: "Add companion", exact: true }).click();

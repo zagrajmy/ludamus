@@ -12,12 +12,13 @@
                 {% translate "A party signs up for sessions together and moves up a waiting list together." %}
             </p>
         </div>
-        <button type="button"
-                class="btn btn-primary shrink-0"
-                data-modal-open="new-party-modal">
+        <a href="?new-party=1"
+           class="btn btn-primary shrink-0"
+           aria-controls="new-party-modal"
+           aria-haspopup="dialog">
             {% icon "plus-circle" class="w-4 h-4" %}
             {% translate "Create party" %}
-        </button>
+        </a>
     </div>
     <dialog id="new-party-modal"
             class="modal w-[calc(100%-2rem)] max-w-md p-0"
@@ -109,12 +110,13 @@
                     </div>
                     <div class="order-2 flex items-start gap-1.5 justify-end sm:order-3 sm:items-center">
                         {% if entry.party.is_leader %}
-                            <button type="button"
-                                    class="btn btn-secondary px-3 py-2 text-sm rounded-xl"
-                                    data-modal-open="invite-modal-{{ entry.party.pk }}">
+                            <a href="?invite={{ entry.party.pk }}"
+                               class="btn btn-secondary px-3 py-2 text-sm rounded-xl"
+                               aria-controls="invite-modal-{{ entry.party.pk }}"
+                               aria-haspopup="dialog">
                                 {% icon "user-plus" class="w-4 h-4" %}
                                 {% translate "Invite" %}
-                            </button>
+                            </a>
                             <div class="relative" data-menu>
                                 <button type="button"
                                         class="btn btn-secondary px-2 py-2 text-sm rounded-xl"
@@ -128,12 +130,13 @@
                                      data-menu-panel
                                      hidden
                                      class="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border border-border bg-bg-secondary overflow-hidden shadow-(--shadow-elevated)">
-                                    <button type="button"
-                                            class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left text-foreground-secondary hover:bg-bg-tertiary"
-                                            data-modal-open="rename-modal-{{ entry.party.pk }}">
+                                    <a href="?rename={{ entry.party.pk }}"
+                                       class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left text-foreground-secondary hover:bg-bg-tertiary"
+                                       aria-controls="rename-modal-{{ entry.party.pk }}"
+                                       aria-haspopup="dialog">
                                         {% icon "pencil" class="w-4 h-4 opacity-60" %}
                                         {% translate "Rename" %}
-                                    </button>
+                                    </a>
                                     <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
                                        class="flex items-center gap-2 px-3.5 py-2.5 text-sm text-foreground-secondary hover:bg-bg-tertiary">
                                         {% icon "clock" class="w-4 h-4 opacity-60" %}
@@ -232,12 +235,13 @@
                 </p>
             </div>
             {% if can_add_companion %}
-                <button type="button"
-                        class="btn btn-secondary  shrink-0"
-                        data-modal-open="add-companion-modal">
+                <a href="?add-companion=1"
+                   class="btn btn-secondary  shrink-0"
+                   aria-controls="add-companion-modal"
+                   aria-haspopup="dialog">
                     {% icon "plus-circle" class="w-4 h-4" %}
                     {% translate "Add companion" %}
-                </button>
+                </a>
             {% endif %}
         </div>
         {% if not can_add_companion %}
@@ -248,9 +252,9 @@
         {% if can_add_companion %}
             <dialog id="add-companion-modal"
                     class="modal w-[calc(100%-2rem)] max-w-md p-0"
-                    aria-labelledby="add-companion-modal-title"
-                    {% if create_companion_form.is_bound %}data-open-on-load{% endif %}>
-                <form action="{% url 'web:crowd:profile-companions' %}" method="post">
+                    aria-labelledby="add-companion-modal-title">
+                {# action carries ?add-companion=1 so a failed submit reopens the modal via syncModalsFromUrl #}
+                <form action="{% url 'web:crowd:profile-companions' %}?add-companion=1" method="post">
                     {% csrf_token %}
                     <div class="px-6 pt-5 pb-4">
                         <h3 id="add-companion-modal-title" class="font-semibold text-foreground">{% translate "Add companion" %}</h3>

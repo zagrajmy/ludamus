@@ -17,13 +17,14 @@
             </a>
             <div class="flex gap-1 shrink-0">
                 {% if party.is_leader %}
-                    <button type="button"
-                            class="icon-btn"
-                            title="{% translate "Rename party" %}"
-                            data-modal-open="party-rename-modal">
+                    <a href="?rename=1"
+                       class="icon-btn"
+                       title="{% translate "Rename party" %}"
+                       aria-controls="party-rename-modal"
+                       aria-haspopup="dialog">
                         {% icon "pencil" class="w-3.5 h-3.5" %}
                         <span class="sr-only">{% translate "Rename party" %}</span>
-                    </button>
+                    </a>
                     <form method="post"
                           action="{% url 'web:crowd:parties-delete' pk=party.pk %}"
                           data-confirm="{% translate "Delete this party? Members keep their own accounts." %}"
@@ -64,18 +65,20 @@
             </div>
             {% if party.is_leader %}
                 <div class="flex flex-col gap-2 sm:flex-row">
-                    <button type="button"
-                            class="btn btn-secondary shrink-0"
-                            data-modal-open="party-companion-modal">
+                    <a href="?add-companion=1"
+                       class="btn btn-secondary shrink-0"
+                       aria-controls="party-companion-modal"
+                       aria-haspopup="dialog">
                         {% icon "user-group" class="w-4 h-4" %}
                         {% translate "Add companion" %}
-                    </button>
-                    <button type="button"
-                            class="btn btn-primary shrink-0"
-                            data-modal-open="party-invite-modal">
+                    </a>
+                    <a href="?invite=1"
+                       class="btn btn-primary shrink-0"
+                       aria-controls="party-invite-modal"
+                       aria-haspopup="dialog">
                         {% icon "user-plus" class="w-4 h-4" %}
                         {% translate "Invite a member" %}
-                    </button>
+                    </a>
                 </div>
             {% endif %}
         </div>
