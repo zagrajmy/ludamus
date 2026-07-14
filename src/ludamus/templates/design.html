@@ -14,15 +14,36 @@
 {% endblock header %}
 {% block body %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border border border-border">
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+        <div class="relative sm:col-span-2 lg:col-span-3 bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
                 <code class="text-xs text-foreground-muted">.btn</code>
                 <code class="text-xs text-foreground-muted">tessera_button</code>
             </div>
-            <div class="flex flex-wrap items-center justify-center gap-2">
-                <button type="button" class="btn btn-primary">Primary</button>
-                <button type="button" class="btn btn-secondary">Secondary</button>
-                <button type="button" class="btn btn-danger">Danger</button>
+            <div class="grid w-full max-w-5xl grid-cols-2 gap-6 lg:grid-cols-4">
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">.btn</code>
+                    <button type="button" class="btn btn-primary">Primary</button>
+                    <button type="button" class="btn btn-secondary">Secondary</button>
+                    <button type="button" class="btn btn-danger">Danger</button>
+                </div>
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">sm</code>
+                    {% tessera_button text="Primary" variant="primary" size="sm" %}
+                    {% tessera_button text="Secondary" variant="secondary" size="sm" %}
+                    {% tessera_button text="Danger" variant="danger" size="sm" %}
+                </div>
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">md</code>
+                    {% tessera_button text="Primary" variant="primary" size="md" %}
+                    {% tessera_button text="Secondary" variant="secondary" size="md" %}
+                    {% tessera_button text="Danger" variant="danger" size="md" %}
+                </div>
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">lg</code>
+                    {% tessera_button text="Primary" variant="primary" size="lg" %}
+                    {% tessera_button text="Secondary" variant="secondary" size="lg" %}
+                    {% tessera_button text="Danger" variant="danger" size="lg" %}
+                </div>
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
