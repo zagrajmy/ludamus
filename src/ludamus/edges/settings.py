@@ -345,7 +345,7 @@ CSP_POLICY: dict[str, list[str]] = {
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or
 # absent policy would let a broken nonce/hx-on regression through silently.
-# ENABLE_CSP lets tests/e2e/.env.e2e opt in without pulling in the rest of
+# ENABLE_CSP lets the root .env.e2e opt in without pulling in the rest of
 # the production-only hardening (HTTPS redirect, secure cookies, HSTS),
 # which would break the plain-HTTP e2e server. Defaults to False everywhere
 # else, so test_no_csp_headers_by_default's regression guard is unaffected.

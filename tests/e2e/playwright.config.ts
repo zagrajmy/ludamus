@@ -106,10 +106,10 @@ export default defineConfig({
         // and Firefox's request context doesn't reliably use the `use.proxy`
         // config the sandbox's egress proxy requires (Chromium does, and
         // passes cleanly with zero CSP violations — this isn't a CSP or
-        // product bug, verified with page-level request tracing). Real
-        // Firefox users have normal internet access; only this proxied
-        // sandbox is affected.
-        /csp-violations\.spec\.ts/,
+        // product bug, verified with page-level request tracing). So exclude
+        // it from Firefox ONLY when a proxy is present; real CI (normal
+        // internet, no HTTPS_PROXY) keeps Firefox CSP coverage.
+        ...(proxyServer ? [/csp-violations\.spec\.ts/] : []),
       ],
       use: { ...devices["Desktop Firefox"] },
     },
