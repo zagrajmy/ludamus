@@ -136,7 +136,9 @@ class Services:
     @cached_property
     def party_session_history(self) -> PartySessionHistoryService:
         return PartySessionHistoryService(
-            parties=self._repos.parties, history=self._repos.party_session_history
+            transaction=self._transaction,
+            parties=self._repos.parties,
+            history=self._repos.party_session_history,
         )
 
     @cached_property

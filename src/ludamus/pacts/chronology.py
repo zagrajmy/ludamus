@@ -20,6 +20,7 @@ from ludamus.pacts.legacy import (
     SessionContentEditData,
     SessionDTO,
     SessionFieldValueData,
+    SessionParticipationStatus,
     SessionSelfEditContext,
     SpaceDTO,
 )
@@ -245,7 +246,7 @@ class ProposalStatusServiceProtocol(Protocol):
 
 class PartySessionSeatDTO(BaseModel):
     user: UserDTO
-    status: str
+    status: SessionParticipationStatus
     creation_time: datetime
 
 

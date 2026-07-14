@@ -1008,7 +1008,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "selected_party": selection.selected,
             "companions": selection.companions,
             "user_data": self._get_user_participation_data(
-                session, selection.companions, members
+                session=session, companions=selection.companions, members=members
             ),
             # Frontload the decision: warn the viewer up top if players they
             # shadowbanned are already signed up to this session.
@@ -1097,6 +1097,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     def _get_user_participation_data(
         self,
+        *,
         session: Session,
         companions: list[CompanionDTO],
         members: list[RosterMember],

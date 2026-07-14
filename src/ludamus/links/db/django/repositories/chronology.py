@@ -130,7 +130,7 @@ def _party_session_history(
         participations=[
             PartySessionSeatDTO(
                 user=user_dto(participation.user),
-                status=participation.status,
+                status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,
             )
             for participation in participations
