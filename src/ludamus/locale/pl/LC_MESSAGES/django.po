@@ -1888,16 +1888,16 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 msgid "Companion display name"
-msgstr "Nazwa wyświetlana towarzysza"
+msgstr "Nazwa towarzysza"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-msgid "Enter one of your companions exactly as they are named."
-msgstr "Podaj nazwę jednego ze swoich towarzyszy dokładnie tak, jak została zapisana."
+msgid "Enter one of your companions names."
+msgstr "Podaj nazwę jednego ze swoich towarzyszy."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid ""
 "This email address is already in use. Please use a different email address."
-msgstr "Ten adres email został już użyty na innym koncie."
+msgstr "Ten adres email został już użyty. Podaj inny addres email."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
 msgid "Profile updated successfully!"
