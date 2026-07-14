@@ -24,12 +24,12 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.adapters.web.django.entities import (
+from ludamus.adapters.web.django.views import EventPageView
+from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
 )
-from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url

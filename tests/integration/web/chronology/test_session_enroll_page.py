@@ -19,7 +19,9 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.adapters.web.django.entities import SessionUserParticipationData
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    SessionUserParticipationData,
+)
 from ludamus.inits.services import Services
 from ludamus.pacts.crowd import CompanionDTO, UserDTO
 from ludamus.pacts.legacy import NotificationKind

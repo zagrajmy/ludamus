@@ -4,8 +4,11 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.adapters.db.django.models import MAX_COMPANIONS
-from ludamus.adapters.web.django.entities import ParticipationInfo, SessionData
-from ludamus.adapters.web.django.safety_presentation import fake_full_card
+from ludamus.gates.web.django.chronology.event_presentation import (
+    ParticipationInfo,
+    SessionData,
+    fake_full_card,
+)
 from ludamus.gates.web.django.crowd.forms import (
     CompanionForm,
     PartyCompanionForm,

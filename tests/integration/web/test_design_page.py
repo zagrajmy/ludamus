@@ -6,7 +6,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.adapters.web.django.entities import (
+from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     ParticipationInfo,
     SessionData,

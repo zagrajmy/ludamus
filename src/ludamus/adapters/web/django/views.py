@@ -34,25 +34,27 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.adapters.web.django.entities import (
-    EventInfo,
-    ParticipationInfo,
-    PartyMemberFlags,
-    SessionData,
-    SessionUserParticipationData,
-    build_display_field_row,
-    build_room_lanes,
-    build_schedule_days,
-    group_sessions_by_state,
-)
 from ludamus.adapters.web.django.forms import (
     INCLUDE_VALUE,
     EnrollmentRoster,
     RosterMember,
 )
-from ludamus.adapters.web.django.safety_presentation import (
+from ludamus.adapters.web.django.safety_presentation import fake_full_session
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    PartyMemberFlags,
+    SessionUserParticipationData,
+)
+from ludamus.gates.web.django.chronology.event_presentation import (
+    EventInfo,
+    ParticipationInfo,
+    SessionData,
+    build_display_field_row,
     fake_full_card,
-    fake_full_session,
+)
+from ludamus.gates.web.django.chronology.schedule import (
+    build_room_lanes,
+    build_schedule_days,
+    group_sessions_by_state,
 )
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
