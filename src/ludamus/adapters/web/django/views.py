@@ -49,7 +49,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
-    fake_full_card,
+    mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     build_room_lanes,
@@ -343,12 +343,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # hour grouping reuses them instead of rebuilding every DTO.
         sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
 
-        if banned_by:
-            sessions_data = {
-                sid: fake_full_card(data) if data.presenter.pk in banned_by else data
-                for sid, data in sessions_data.items()
-            }
-
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
         # full and they are never told they are banned.
@@ -357,10 +351,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 event_id=self.object.pk, user_id=current_user_id
             )
         )
-        if event_banned:
-            sessions_data = {
-                sid: fake_full_card(data) for sid, data in sessions_data.items()
-            }
+        sessions_data = {
+            sid: mask_session_card(
+                data, event_banned=event_banned, banned_presenter_ids=banned_by
+            )
+            for sid, data in sessions_data.items()
+        }
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 

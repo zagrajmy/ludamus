@@ -1,4 +1,4 @@
-"""{% tab_shell_body %} / {% end_tab_shell %} — tab shell layout wrappers."""
+"""Tab shell layout wrappers."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from django import template
 from django.template.loader import render_to_string
-from django.utils.html import format_html
 from django.utils.safestring import SafeString
 
 from ._registry import register
@@ -14,6 +13,8 @@ from ._utils import parse_tag_attrs
 
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
+
+_TAB_SHELL_TOKEN_LENGTH = 2
 
 
 class TabShellBodyNode(template.Node):
@@ -45,14 +46,30 @@ def tab_shell_body(parser: Parser, token: Token) -> TabShellBodyNode:
     return TabShellBodyNode(nodelist, attrs)
 
 
-@register.simple_tag(takes_context=True)
-def tab_shell(context: template.Context, tabs_partial: str) -> str:
-    context_data = {str(key): value for key, value in context.flatten().items()}
-    context_data["tabs_partial"] = tabs_partial
-    rendered_bar = render_to_string("components/tab-shell-bar.html", context_data)
-    return format_html('<div class="overflow-hidden">{}', rendered_bar)
+class TabShellNode(template.Node):
+    def __init__(
+        self, nodelist: template.NodeList, tabs_partial: FilterExpression
+    ) -> None:
+        self.nodelist = nodelist
+        self.tabs_partial = tabs_partial
+
+    def render(self, context: template.Context) -> str:
+        context_data = {str(key): value for key, value in context.flatten().items()}
+        context_data.update(
+            {
+                "tabs_partial": self.tabs_partial.resolve(context),
+                "content": SafeString(self.nodelist.render(context)),
+            }
+        )
+        return render_to_string("components/tab-shell.html", context_data)
 
 
-@register.simple_tag
-def end_tab_shell() -> str:
-    return SafeString("</div>")
+@register.tag
+def tab_shell(parser: Parser, token: Token) -> TabShellNode:
+    bits = token.split_contents()
+    if len(bits) != _TAB_SHELL_TOKEN_LENGTH:
+        msg = "'tab_shell' tag requires exactly one tabs partial"
+        raise template.TemplateSyntaxError(msg)
+    nodelist = parser.parse(("end_tab_shell",))
+    parser.delete_first_token()
+    return TabShellNode(nodelist, parser.compile_filter(bits[1]))

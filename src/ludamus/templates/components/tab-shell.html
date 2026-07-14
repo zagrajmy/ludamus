@@ -1,4 +1,8 @@
 <div class="overflow-hidden rounded-2xl border border-border">
     {% include "components/tab-shell-bar.html" with tabs_partial=tabs_partial %}
-    {% include "components/tab-shell-body.html" with body_partial=body_partial %}
+    {% if content|default:"" %}
+        {{ content }}
+    {% else %}
+        {% include "components/tab-shell-body.html" with body_partial=body_partial %}
+    {% endif %}
 </div>

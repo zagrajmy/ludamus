@@ -119,6 +119,9 @@ class EventBanService:
     def is_banned(self, *, event_id: int, user_id: int) -> bool:
         return self._repo.is_banned(event_id=event_id, user_id=user_id)
 
+    def banned_event_ids(self, *, event_ids: set[int], user_id: int) -> set[int]:
+        return self._repo.banned_event_ids(event_ids=event_ids, user_id=user_id)
+
     def ban(self, *, event_id: int, identifier: str, reason: str) -> bool:
         if not (identifier := identifier.strip()):
             return False

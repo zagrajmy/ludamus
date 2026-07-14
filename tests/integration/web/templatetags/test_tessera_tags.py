@@ -401,12 +401,24 @@ class TestTabShellBody:
         assert "bg-bg-secondary" in html
         assert "Tab shell body" in html
 
-    def test_end_tab_shell_closes_overflow_wrapper(self) -> None:
+    def test_tab_shell_renders_one_valid_component_boundary(self) -> None:
         tpl = Template(
-            '{% load tessera %}<div class="overflow-hidden">{% end_tab_shell %}'
+            "{% load tessera %}"
+            '{% tab_shell "components/design/_tab_shell_tabs.html" %}'
+            "{% tab_shell_body %}Hello{% end_tab_shell_body %}"
+            "{% end_tab_shell %}"
         )
         html = tpl.render(Context())
-        assert html == '<div class="overflow-hidden"></div>'
+        assert "overflow-hidden rounded-2xl border border-border" in html
+        assert "Personal" in html
+        assert "Hello" in html
+
+    def test_tab_shell_requires_closing_tag(self) -> None:
+        with pytest.raises(TemplateSyntaxError):
+            Template(
+                "{% load tessera %}"
+                '{% tab_shell "components/design/_tab_shell_tabs.html" %}'
+            )
 
 
 ICON_TOGGLE_ICONS = 2

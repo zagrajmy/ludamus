@@ -70,3 +70,6 @@ If you fix a papercut, remove it.
 - 2026-07-14: Guessed the focused test belonged to TestSessionEnrollPage from
   its filename; pytest collected zero because the actual class is
   TestDesiredStateRouting. Locate node IDs before invoking focused tests.
+- 2026-07-14: Ran a standalone Django metadata check after sourcing .env.test;
+  DJANGO_SETTINGS_MODULE was still unset, so setup failed before printing the
+  table name.

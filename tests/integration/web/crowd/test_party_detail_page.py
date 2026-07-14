@@ -6,13 +6,21 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from ludamus.adapters.db.django.models import (
+    EventBan,
     Party,
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
 )
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from tests.integration.conftest import SpaceFactory, UserFactory, sponsor_user
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EventFactory,
+    SessionFactory,
+    SpaceFactory,
+    UserFactory,
+    sponsor_user,
+)
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.crowd.test_profile_parties_page import (
     _member_dto,
@@ -214,6 +222,32 @@ class TestPartyDetailSessionHistory:
             "Root > Branch > Leaf"
         )
 
+    def test_event_ban_lookup_is_one_query_across_history_groups(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        _ = agenda_item
+        party = sponsor_user(leader=active_user, member=active_user)
+        self._enroll_party(party, session, active_user)
+        authenticated_client.get(_url(party))
+
+        with CaptureQueriesContext(connection) as one_group_queries:
+            authenticated_client.get(_url(party))
+
+        other_event = EventFactory()
+        other_session = SessionFactory(event=other_event)
+        AgendaItemFactory(session=other_session, space=SpaceFactory(event=other_event))
+        self._enroll_party(party, other_session, active_user)
+        with CaptureQueriesContext(connection) as two_group_queries:
+            authenticated_client.get(_url(party))
+
+        one_group_count = sum(
+            '"event_ban"' in query["sql"] for query in one_group_queries
+        )
+        two_group_count = sum(
+            '"event_ban"' in query["sql"] for query in two_group_queries
+        )
+        assert one_group_count == two_group_count == 1
+
     def test_history_skips_solo_enrollments(
         self, authenticated_client, active_user, companion, session, agenda_item
     ):
@@ -286,3 +320,21 @@ class TestPartyDetailSessionHistory:
         assert card.pretend_full
         assert card.is_full
         assert all(p.user.pk < 0 for p in card.session_participations)
+
+    def test_history_card_is_pretend_full_when_viewer_is_event_banned(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        _ = agenda_item
+        party = sponsor_user(leader=active_user, member=active_user)
+        self._enroll_party(party, session, active_user)
+        EventBan.objects.create(event=session.event, user=active_user)
+
+        response = authenticated_client.get(_url(party))
+
+        [group] = response.context["history"]
+        [card] = group["cards"]
+        assert card.pretend_full
+        assert card.is_full
+        assert all(
+            participation.user.pk < 0 for participation in card.session_participations
+        )

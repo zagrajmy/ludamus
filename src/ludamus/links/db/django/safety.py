@@ -288,6 +288,14 @@ class EventBanRepository(EventBanRepositoryProtocol):
         return EventBan.objects.filter(event_id=event_id, user_id=user_id).exists()
 
     @staticmethod
+    def banned_event_ids(*, event_ids: set[int], user_id: int) -> set[int]:
+        return set(
+            EventBan.objects.filter(
+                event_id__in=event_ids, user_id=user_id
+            ).values_list("event_id", flat=True)
+        )
+
+    @staticmethod
     def ban(*, event_id: int, identifier: str, reason: str) -> bool:
         if (user := _resolve_user(identifier)) is None:
             return False

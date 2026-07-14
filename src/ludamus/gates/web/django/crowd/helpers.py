@@ -1,29 +1,21 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.adapters.db.django.models import MAX_COMPANIONS
-from ludamus.gates.web.django.chronology.event_presentation import (
-    ParticipationInfo,
-    SessionData,
-    fake_full_card,
-)
+from ludamus.gates.web.django.chronology.event_presentation import present_party_history
 from ludamus.gates.web.django.crowd.forms import (
     CompanionForm,
     PartyCompanionForm,
     PartyInviteForm,
     PartyNameForm,
 )
-from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts.party import PartyMembershipStatus
 
 if TYPE_CHECKING:
     from django import forms
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest
-    from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.party import PartySessionHistoryDTO
 
 COMPANION_CREATE_AUTO_ID = "companion_%s"
 STACK_LIMIT = 5
@@ -86,35 +78,26 @@ def build_parties_context(
 
 
 def build_party_detail_context(
-    request: AuthenticatedRootRequest, *, pk: int
+    request: AuthenticatedRootRequest,
+    *,
+    pk: int,
+    companion_form: PartyCompanionForm | None = None,
 ) -> dict[str, object] | None:
     viewer_pk = request.context.current_user_id
     overview = request.services.parties.overview(viewer_pk)
     if (party := next((p for p in overview.parties if p.pk == pk), None)) is None:
         return None
-    banned_by = request.services.shadowban.banning_owner_ids(viewer_pk)
-    history = []
-    for group in (
+    history_groups = (
         request.services.parties.session_history(party_pk=pk, viewer_pk=viewer_pk) or []
-    ):
-        event_banned = request.services.event_bans.is_banned(
-            event_id=group.event_pk, user_id=viewer_pk
-        )
-        cards = []
-        for item in group.sessions:
-            card = _history_card(item)
-            if event_banned or (
-                item.presenter is not None and item.presenter.pk in banned_by
-            ):
-                card = fake_full_card(card)
-            cards.append(card)
-        history.append(
-            {
-                "event_name": group.event_name,
-                "event_slug": group.event_slug,
-                "cards": cards,
-            }
-        )
+    )
+    banned_event_ids = request.services.event_bans.banned_event_ids(
+        event_ids={group.event_pk for group in history_groups}, user_id=viewer_pk
+    )
+    history = present_party_history(
+        history_groups,
+        banned_event_ids=banned_event_ids,
+        banned_presenter_ids=request.services.shadowban.banning_owner_ids(viewer_pk),
+    )
     return {
         "party": party,
         "rename_form": (
@@ -128,7 +111,7 @@ def build_party_detail_context(
             else None
         ),
         "companion_form": (
-            PartyCompanionForm(auto_id=f"companion_{party.pk}_%s")
+            (companion_form or PartyCompanionForm(auto_id=f"companion_{party.pk}_%s"))
             if party.is_leader
             else None
         ),
@@ -140,55 +123,3 @@ def build_party_detail_context(
         "history": history,
         "profile_active_tab": "parties",
     }
-
-
-def _user_info(user: UserDTO) -> UserInfo:
-    return UserInfo(
-        avatar_url=user.avatar_url or None,
-        discord_username=user.discord_username,
-        full_name=user.full_name,
-        name=user.name,
-        pk=user.pk,
-        slug=user.slug,
-        username=user.username,
-    )
-
-
-def _history_card(item: PartySessionHistoryDTO) -> SessionData:
-    now = datetime.now(tz=UTC)
-    if item.presenter is not None:
-        presenter = _user_info(item.presenter)
-    else:
-        name = item.session.display_name
-        presenter = UserInfo(
-            avatar_url=None,
-            discord_username="",
-            full_name=name,
-            name=name,
-            pk=0,
-            slug="",
-            username=name,
-        )
-    return SessionData(
-        agenda_item=item.agenda_item,
-        is_enrollment_available=item.is_enrollment_available,
-        presenter=presenter,
-        session=item.session,
-        is_full=item.is_full,
-        full_participant_info=item.full_participant_info,
-        effective_participants_limit=item.effective_participants_limit,
-        enrolled_count=item.enrolled_count,
-        session_participations=[
-            ParticipationInfo(
-                user=_user_info(seat.user),
-                status=seat.status,
-                creation_time=seat.creation_time,
-            )
-            for seat in item.participations
-        ],
-        loc=item.location,
-        user_enrolled=item.viewer_enrolled,
-        waiting_count=item.waiting_count,
-        is_ongoing=item.agenda_item.start_time <= now < item.agenda_item.end_time,
-        is_ended=item.agenda_item.end_time <= now,
-    )
