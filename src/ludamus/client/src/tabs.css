@@ -39,25 +39,3 @@
     pointer-events: auto;
   }
 }
-
-@layer utilities {
-  .tab-nav-link[aria-selected="false"]:hover {
-    color: var(--color-foreground);
-    background-color: var(--color-warm-100);
-  }
-
-  .dark .tab-nav-link[aria-selected="false"]:hover {
-    background-color: var(--color-bg-tertiary);
-  }
-
-  .tab-nav-link[aria-selected="true"] {
-    padding-top: 0.625rem;
-    padding-bottom: 0.625rem;
-    margin-bottom: -1px;
-    position: relative;
-    z-index: 10;
-    background-color: var(--color-bg-secondary);
-    color: var(--color-foreground);
-    box-shadow: 0 -1px 3px 0 rgba(0, 0, 0, 0.06);
-  }
-}

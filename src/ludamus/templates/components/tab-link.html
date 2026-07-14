@@ -1,5 +1,5 @@
 {% load tessera %}
-<a class="{% if variant == 'segment' %}flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:py-2 text-sm font-semibold whitespace-nowrap text-foreground-muted transition-colors hover:text-foreground aria-selected:bg-bg-secondary aria-selected:text-foreground aria-selected:shadow-sm{% else %}tab-nav-link inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-4 py-2 text-sm font-medium text-foreground-muted transition-colors{% endif %}"
+<a class="{% if variant == 'segment' %}flex items-center gap-1.5 rounded-xl px-3 py-1.5 sm:py-2 text-sm font-semibold whitespace-nowrap text-foreground-muted transition-colors hover:text-foreground aria-selected:bg-bg-secondary aria-selected:text-foreground aria-selected:shadow-sm{% else %}tab-nav-link inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-4 py-2 text-sm font-medium text-foreground-muted transition-colors aria-[selected=false]:hover:bg-warm-100 aria-[selected=false]:hover:text-foreground dark:aria-[selected=false]:hover:bg-bg-tertiary aria-selected:relative aria-selected:z-10 aria-selected:-mb-px aria-selected:bg-bg-secondary aria-selected:py-2.5 aria-selected:text-foreground aria-selected:shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]{% endif %}"
    role="tab"
    href="{{ href }}"
    aria-selected="{% if active %}true{% else %}false{% endif %}"

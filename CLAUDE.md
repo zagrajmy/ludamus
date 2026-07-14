@@ -22,13 +22,13 @@ description — run it rather than trusting a hardcoded list here. Most used:
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
-  `extra_class` for page layout only. No utility copy-paste into CSS — CSS for
-  what Tailwind can't (state, scroll, JS panels).
+  `extra_class` for page layout only. No utility copy-paste into CSS.
 - For any user-facing UI work (pages, forms, tables, modals, empty/error states,
   copy), use the `product-design` skill (`.claude/skills/product-design/`)
   _before_ building — it routes to the component catalog, reachable-states
   checklist, Polish copy rules, and a verification checklist.
 - No single-line files.
+- Tailwind is here to lower CSS output size. Prefer Tailwind over CSS files.
 
 ## Debt metrics (tingle)
 

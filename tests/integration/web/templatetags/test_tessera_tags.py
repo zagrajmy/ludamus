@@ -327,7 +327,7 @@ class TestTabs:
         )
         html = tpl.render(Context())
         assert 'class="tab-nav-link ' in html
-        assert "bg-bg-secondary" not in html
+        assert "aria-selected:bg-bg-secondary" in html
 
     def test_active_tab_from_context(self) -> None:
         tpl = Template(
