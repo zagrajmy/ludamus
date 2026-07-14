@@ -46,9 +46,8 @@ _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
 
 
 class AliveManager(models.Manager[_SoftDeleteT]):
-    # The default `objects` manager hides soft-deleted rows so every existing
-    # read (including reverse relations like `category.sessions`) excludes them
-    # automatically. Reach soft-deleted rows through `all_objects`.
+    # Default `objects` hides soft-deleted rows from every read, including reverse
+    # relations like `category.sessions`; use `all_objects` to reach them.
     def get_queryset(self) -> models.QuerySet[_SoftDeleteT]:
         return super().get_queryset().filter(deleted_at__isnull=True)
 
@@ -779,6 +778,8 @@ class SessionManager(AliveManager["Session"]):
             return set()
         start = session.agenda_item.start_time
         end = session.agenda_item.end_time
+        # Superset-safe: never misses a genuine conflict; extra ids the join might
+        # return are harmless since callers only probe membership of their own user_ids.
         return set(
             self.get_queryset()
             .filter(
