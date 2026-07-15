@@ -470,10 +470,10 @@
     {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
         {% include "chronology/_pending_proposals.html" %}
     {% endif %}
-    <!-- Session Detail Modals -->
-    {% for data in sessions %}
-        {% include "chronology/parts/session-modal.html" %}
-    {% endfor %}
+    {# Session detail modals are fetched on first open (see modal.ts): the URL #}
+    {# template carries a `0` session-id placeholder, injected dialogs land here. #}
+    <div id="session-modals"
+         data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
     <div class="mt-8">
         <a href="{% url 'web:events' %}" class="btn btn-secondary">
