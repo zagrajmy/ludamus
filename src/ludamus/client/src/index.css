@@ -174,10 +174,6 @@ body {
   cursor: grabbing;
 }
 
-.schedule-rail-hour {
-  -webkit-touch-callout: none;
-}
-
 .room-lanes {
   --axis-w: 3.25rem;
   --col-min: 10rem;
