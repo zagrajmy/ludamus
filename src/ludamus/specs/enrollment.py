@@ -9,7 +9,7 @@ members fit at once).
 from __future__ import annotations
 
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import PromotionStateDTO, WaitingParticipantDTO
@@ -56,7 +56,7 @@ def _initial_slots_by_owner(waiting: list[WaitingParticipantDTO]) -> dict[int, i
 
 def _membership_slot_action(
     eligible: list[WaitingParticipantDTO], slots_by_owner: dict[int, int]
-) -> str:
+) -> Literal["fit", "skip", "stop"]:
     slots_needed = Counter(p.recipient_user_id for p in eligible)
     shortfall = [
         owner
