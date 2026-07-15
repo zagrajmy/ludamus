@@ -49,9 +49,6 @@ SHEETS_META_URL = (
 SHEETS_VALUES_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
 )
-SHEETS_CLEAR_URL = (
-    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}:clear"
-)
 SHEETS_UPDATE_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
     "?valueInputOption=RAW"
@@ -398,6 +395,14 @@ def _a1_quote(title: str) -> str:
     return "'" + title.replace("'", "''") + "'"
 
 
+def _pad_to_extent(
+    *, rows: list[list[str]], height: int, width: int
+) -> list[list[str]]:
+    width = max([width, *(len(row) for row in rows)])
+    padded = [[*row, *[""] * (width - len(row))] for row in rows]
+    return padded + [[""] * width] * (height - len(padded))
+
+
 class GoogleSheetsWriter(SheetWriterProtocol):
     """Replaces the first tab of a spreadsheet with the given rows."""
 
@@ -413,29 +418,42 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             raise SheetExportError(str(exc)) from exc
         # A1-quote the tab title: a bare title that parses as a cell reference
         # (a tab named "A1") or contains an apostrophe would otherwise be read
-        # as a range, clearing a single cell instead of the tab.
+        # as a range, writing a single cell instead of the tab.
         title = _a1_quote(self._first_tab_title(session, spreadsheet_id))
-        # Clear the whole tab first so rows from a previous, longer export
-        # don't linger below the fresh data.
-        self._call(
-            what="Spreadsheet clear",
-            send=lambda: session.post(
-                SHEETS_CLEAR_URL.format(
-                    sheet_id=spreadsheet_id, range=quote(title, safe="")
-                ),
-                timeout=30,
-            ),
+        height, width = self._old_extent(
+            session=session, spreadsheet_id=spreadsheet_id, title=title
         )
+        # A single atomic write: padding with "" out to the previous data's
+        # extent overwrites stale cells left by a longer or wider export, and
+        # a failed request leaves the old data fully intact.
         self._call(
             what="Spreadsheet write",
             send=lambda: session.put(
                 SHEETS_UPDATE_URL.format(
                     sheet_id=spreadsheet_id, range=quote(f"{title}!A1", safe="")
                 ),
-                json={"values": rows},
+                json={"values": _pad_to_extent(rows=rows, height=height, width=width)},
                 timeout=30,
             ),
         )
+
+    def _old_extent(
+        self, *, session: AuthorizedSession, spreadsheet_id: str, title: str
+    ) -> tuple[int, int]:
+        # A bare tab name (no A1 column bounds) returns the tab's whole data
+        # region, so the extent is not capped at column Z or cut short by
+        # blank cells in column A.
+        response = self._call(
+            what="Spreadsheet read",
+            send=lambda: session.get(
+                SHEETS_VALUES_URL.format(
+                    sheet_id=spreadsheet_id, range=quote(title, safe="")
+                ),
+                timeout=10,
+            ),
+        )
+        values = response.json().get("values") or []
+        return len(values), max((len(row) for row in values), default=0)
 
     def _first_tab_title(self, session: AuthorizedSession, spreadsheet_id: str) -> str:
         response = self._call(

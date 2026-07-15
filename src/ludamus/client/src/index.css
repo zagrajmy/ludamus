@@ -20,6 +20,7 @@
 
   --color-warm-50: #fdfcfb;
   --color-warm-100: #f7f5f3;
+  --color-warm-150: #f3f0ed;
   --color-warm-200: #f0ece8;
   --color-warm-300: #e4ddd6;
   --color-warm-400: #c9bfb3;
@@ -64,7 +65,6 @@
   --color-neutral-900: #171717;
   --color-neutral-950: #0a0a0a;
 
-  /* Disable unused gray palettes - use neutral only */
   --color-slate-*: initial;
   --color-gray-*: initial;
   --color-zinc-*: initial;
@@ -93,15 +93,8 @@
     1 100%
   );
 
-  /* Strong ease-out for exits/dismissals — starts fast so the motion feels
-     responsive, settles without the spring's overshoot. */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
-  /* Card <-> modal View Transition morph — the knobs to fiddle with. Strong
-     ease-out: launches fast and glides to rest, so the modal feels like it
-     snaps open the moment you tap. Alternatives to try:
-       cubic-bezier(0.32, 0.72, 0, 1)  (Vaul / iOS drawer — cleaner tail)
-       cubic-bezier(0.2, 0, 0, 1)      (Material "emphasized" — heavier/weighted) */
   --vt-morph-duration: 0.32s;
   --vt-morph-exit-duration: 0.26s;
   --vt-morph-ease: var(--ease-out);
@@ -160,16 +153,9 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* App-shell: <body> is a fixed viewport box and the inner .app-scroll element
-   owns the page scroll, so the document never scrolls under a top-layer dialog.
-   That removes the iOS top-layer hit-test offset (dead Close button) and lets a
-   modal lock the background by freezing .app-scroll's overflow — no body pin, no
-   scroll save/restore, so the page can't jump or flash the top on open/close.
-   Layouts that still scroll the document (panel, print) opt out of both. */
 .app-shell {
   height: 100dvh;
   overflow: hidden;
-  /* No scrollbar lives on <body> here, so don't reserve a blank gutter strip. */
   scrollbar-gutter: auto;
 }
 
@@ -183,27 +169,111 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Snap the app scroller to whole hours on the compact event schedule so a tap
-   or drag on the hour rail lands on a section rather than mid-row. Proximity
-   (not mandatory) keeps the header and filter bar freely scrollable. Added by
-   event-timeline.ts only when a compact schedule is on the page, so other
-   pages never opt the shared scroller into snapping. */
-.app-scroll.schedule-snap {
-  scroll-snap-type: y proximity;
+.schedule-rail.is-scrubbing,
+.schedule-rail.is-scrubbing * {
+  cursor: grabbing;
 }
 
-/* Lock the page scroll while any modal is open. Freezing the container keeps its
-   offset and moves nothing (no body pin, no scroll save/restore), so the page
-   can't jump or flash the top on open/close. `scrollbar-gutter: stable` above
-   reserves the scrollbar space so flipping overflow doesn't shift the layout.
-   The dialog lives in the top layer, so this never clips it. */
+.room-lanes {
+  --axis-w: 3.25rem;
+  --col-min: 10rem;
+}
+
+@media (min-width: 1024px) {
+  .room-lanes {
+    --col-min: 11.25rem;
+  }
+}
+
+.room-lanes-grid {
+  display: grid;
+  grid-template-columns: var(--axis-w) repeat(var(--rooms), minmax(var(--col-min), 1fr));
+  width: max(100%, calc(var(--axis-w) + var(--rooms) * var(--col-min)));
+}
+
+.room-lanes-body {
+  grid-template-rows: repeat(var(--rows), minmax(3.5rem, auto));
+}
+
+.room-lanes-line:first-of-type {
+  border-top: 0;
+}
+
+.room-lanes-head {
+  mask-image: linear-gradient(
+    90deg,
+    black 0,
+    black var(--axis-w),
+    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+    black calc(100% - var(--fade-size-end, 0px)),
+    hsl(0 0% 0% / var(--fade-end-opacity))
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    black 0,
+    black var(--axis-w),
+    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+    black calc(100% - var(--fade-size-end, 0px)),
+    hsl(0 0% 0% / var(--fade-end-opacity))
+  );
+}
+
+.room-lanes-scroll {
+  mask-image:
+    linear-gradient(
+      90deg,
+      black 0,
+      black var(--axis-w),
+      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+      black calc(100% - var(--fade-size-end, 0px)),
+      hsl(0 0% 0% / var(--fade-end-opacity))
+    ),
+    linear-gradient(black, black);
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      black 0,
+      black var(--axis-w),
+      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+      black calc(100% - var(--fade-size-end, 0px)),
+      hsl(0 0% 0% / var(--fade-end-opacity))
+    ),
+    linear-gradient(black, black);
+  mask-size:
+    100% calc(100% - var(--room-lanes-sb, 0px)),
+    100% var(--room-lanes-sb, 0px);
+  -webkit-mask-size:
+    100% calc(100% - var(--room-lanes-sb, 0px)),
+    100% var(--room-lanes-sb, 0px);
+  mask-position:
+    top left,
+    bottom left;
+  -webkit-mask-position:
+    top left,
+    bottom left;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+}
+
+.room-lanes-rule {
+  justify-self: start;
+  width: 1px;
+  background: color-mix(in oklch, var(--color-border) 60%, transparent);
+  pointer-events: none;
+}
+
+.dark .room-lanes-rule {
+  background: color-mix(in oklch, var(--color-border) 35%, transparent);
+}
+
 body:has(dialog.modal[open]) .app-scroll {
   overflow: hidden;
 }
 
-/* Paged media must flow down the document, not live inside a fixed-height
-   scrollport — otherwise only the first viewport prints. Collapse the app-shell
-   box back to normal flow for printing. */
 @media print {
   .app-shell {
     height: auto;
@@ -224,26 +294,11 @@ button {
 
 :root {
   color-scheme: light;
-  /*
-   * Theme-aware shadow + gradient tokens, overridden under .dark below. Kept as
-   * plain custom properties (deliberately NOT @theme --shadow-*): Tailwind v4
-   * inlines named @theme shadow values into utilities at build time, which would
-   * freeze the light value and defeat the .dark override. Consume them via the
-   * arbitrary utility shadow-(--shadow-card), which emits --tw-shadow and so
-   * still composes with ring-* / inset-shadow utilities.
-   */
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
   --shadow-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
-/*
- * Single theming trigger: the .dark / .light class on <html> (set by the
- * inline boot script in base.html, which seeds from localStorage and falls
- * back to the OS preference). No prefers-color-scheme branch here — that was a
- * redundant, colors-only second source of truth that drifted from the .dark
- * class path. Trade-off: dark mode requires JS (the theme switcher does too).
- */
 .dark {
   color-scheme: dark;
   --color-background: #0a0a0a;
@@ -263,18 +318,18 @@ button {
   --color-secondary-light: #134e45;
   --color-success: #4ade80;
   --color-success-light: #14532d;
-  --color-success-bg: #052e16;
+  --color-success-bg: #052e16a2;
   --color-success-text: #86efac;
   --color-warning: #fbbf24;
   --color-warning-light: #44380f;
-  --color-warning-bg: #292211;
+  --color-warning-bg: #292211ad;
   --color-warning-text: #fbbf24;
   --color-danger-light: #450a0a;
-  --color-danger-bg: #2d0808;
+  --color-danger-bg: #3c0d0de1;
   --color-danger-text: #fca5a5;
   --color-info: #60a5fa;
   --color-info-light: #1e3a5f;
-  --color-info-bg: #0c1e36;
+  --color-info-bg: #0c1e36ad;
   --color-info-text: #93c5fd;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -293,7 +348,6 @@ select:focus-visible {
   border-color: var(--color-border-focus) !important;
 }
 
-/* Prevent iOS Safari from zooming into inputs on focus (requires font-size >= 16px) */
 @media (max-width: 640px) {
   input,
   textarea,
@@ -328,6 +382,77 @@ button:active {
 }
 
 @layer components {
+  .flash-region {
+    position: fixed;
+    top: max(1rem, env(safe-area-inset-top));
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    z-index: 60;
+    height: 0;
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    pointer-events: auto;
+    overflow: visible;
+    transform: translateX(-50%);
+  }
+
+  .flash-region .alert {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    pointer-events: auto;
+    overflow-wrap: anywhere;
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-100%) scale(0.98);
+    transform-origin: top center;
+    transition:
+      transform 0.26s var(--ease-out),
+      opacity 0.26s var(--ease-out),
+      height 0.26s var(--ease-out),
+      box-shadow 0.2s var(--ease-out);
+    will-change: transform, opacity;
+  }
+
+  .flash-region .alert[data-flash-mounted="false"] {
+    opacity: 0;
+  }
+
+  .flash-region .alert[data-flash-mounted="true"] {
+    opacity: 1;
+  }
+
+  .flash-region .alert[data-flash-visible="false"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .flash-region[data-flash-expanded="false"] .alert[data-flash-front="false"] > * {
+    opacity: 0;
+    transition: opacity 0.26s var(--ease-out);
+  }
+
+  .flash-region .alert[data-flash-closing="true"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (min-width: 640px) {
+    .flash-region {
+      top: max(1.5rem, env(safe-area-inset-top));
+      max-height: calc(100dvh - 3rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flash-region .alert,
+    .flash-region .alert[data-flash-mounted="false"] {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
   .alert {
     border-radius: 0.5rem;
     padding: 1rem;
@@ -369,9 +494,7 @@ button:active {
   .btn {
     --bg: var(--color-primary);
     --y: 2px;
-    /* translucent shade derived from --color-border */
     --shade: hsla(30deg, 20.6%, 23%, 0.25);
-    /* top highlight + gloss; variants tune these */
     --hl1: rgba(255, 255, 255, 0.085);
     --hl2: transparent;
 
@@ -383,16 +506,11 @@ button:active {
     border-radius: 1rem;
     padding: 0.625rem 1rem;
     font-weight: 500;
-    /* translate + scale (press) and box-shadow (depth via --y) animate on state.
-       These are the properties the :hover / :active rules actually set, so they
-       must all be listed here for the base (hover-out, release) transition to
-       animate symmetrically with hover-in — not snap. */
     transition:
       translate 0.15s,
       scale 0.15s,
       box-shadow 0.15s;
     background-color: var(--bg);
-    /* optical vertical centering (trims Outfit's half-leading) */
     text-box: trim-both cap alphabetic;
     box-shadow:
       inset 0 1px 0 0 var(--hl1),
@@ -407,27 +525,16 @@ button:active {
 
     &:active {
       @apply translate-y-0.5 scale-[99.4%];
-      /* Collapse the lip via --y, not a box-shadow swap: equal layer counts
-         keep box-shadow from snapping a layer in/out, so it stays in sync with
-         the transform (the swap jittered). */
-      --y: 0px; /* 0px, not 0, so the focus-ring calc() below stays valid */
+      --y: 0px;
     }
 
     &:focus {
       outline: none;
     }
 
-    &:focus-visible:after {
-      /* Only `bottom` shifts across hover/active states. */
-      @apply pointer-events-none transition-[bottom] duration-150;
-      content: "";
-      position: absolute;
-      inset: -2px;
-      /* track the 3D lip via --y so the ring follows it in every state
-         (incl. hover-while-pressed), no per-state overrides */
-      bottom: calc(-2px - var(--y));
-      border: 1px solid var(--color-primary);
-      border-radius: 18px;
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
     }
   }
 
@@ -440,9 +547,6 @@ button:active {
     cursor: not-allowed;
   }
 
-  /* Filled buttons: vertical gradient face (brand colour, lighter top → deeper
-     bottom), white label, top highlight, text-shadow. --bg is the bottom stop
-     so the shared lip matches. No ring — it read as a grey line on light bg. */
   .btn-primary {
     --bg: #ef4f2d;
     --hl1: rgba(255, 255, 255, 0.3);
@@ -463,7 +567,6 @@ button:active {
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
   }
 
-  /* Dark: heavier label + deeper text-shadow survive halation; highlight eases off. */
   .dark .btn-primary,
   .dark .btn-danger {
     --hl1: rgba(255, 255, 255, 0.22);
@@ -473,8 +576,6 @@ button:active {
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
   }
 
-  /* Secondary: tonal match — light fill, dark text, border. Subtle translucent
-     gradient (token-linked), no top highlight; its border does the edge. */
   .btn-secondary {
     --bg: var(--color-bg-secondary);
     --shade: hsla(30deg, 20.6%, 35%, 0.25);
@@ -521,12 +622,9 @@ button:active {
   }
 
   .dark .icon-btn:hover {
-    box-shadow: inset 0 -2px 1px -1px var(--color-border);
+    box-shadow: inset 0 -2px 0px -1px var(--color-border);
   }
 
-  /* Bare icon trigger — no surface of its own: the surrounding row or tile
-     provides one (e.g. the schedule bookmark toggles). Keeps the base
-     padding, focus ring, and color transitions. */
   .icon-btn-clear,
   .icon-btn-clear:hover,
   .dark .icon-btn-clear:hover {
@@ -558,21 +656,12 @@ button:active {
   }
 }
 
-/*
- * Chromium paints the native <select> popup with the element's computed
- * background-color, not the page's color-scheme: Tailwind preflight makes form
- * controls transparent, which composites the popup over white — in dark mode
- * that means near-white option text on a white popup. An explicit background
- * restores a readable popup in both themes. Kept in @layer base so bg-*
- * utilities on individual selects still win.
- */
 @layer base {
   select {
     background-color: var(--color-bg-secondary);
   }
 }
 
-/* Select dropdown chevron fix */
 select:not([multiple]):not([size]) {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

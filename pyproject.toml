@@ -43,7 +43,7 @@ requests = "^2.32.5"
 segno = "^1.6.6"
 whitenoise = "^6.12.0"
 django-storages = { extras = ["google"], version = "^1.14.6" }
-dbos = ">=2.23.0"
+dbos = ">=2.23.0,<3"
 unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
@@ -80,6 +80,7 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
+tingle = "^0.1.0"
 
 [tool.black]
 line-length = 88
@@ -401,6 +402,7 @@ exclude = [
 ]
 ignore_names = [
     # Used in templates
+    "bookmark_count",
     "has_guests",
     "has_secret",
     "is_live",

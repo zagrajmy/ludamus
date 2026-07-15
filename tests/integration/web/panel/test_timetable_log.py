@@ -93,6 +93,7 @@ class TestTimetableLogPageView:
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
                 },
+                "active_tab": "log",
             },
         )
 

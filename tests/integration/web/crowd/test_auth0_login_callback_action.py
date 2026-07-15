@@ -22,7 +22,6 @@ class TestAuth0LoginCallbackActionView:
         state_data = {
             "redirect_to": redirect_to,
             "created_at": datetime.now(UTC).isoformat(),
-            "csrf_token": "test_csrf_token",
         }
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
         return state_token
@@ -38,7 +37,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -62,7 +61,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -83,7 +82,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="https://www.testserver/crowd/profile/",
+            url="https://www.testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -131,7 +130,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 
@@ -201,7 +200,6 @@ class TestAuth0LoginCallbackActionView:
         state_data = {
             "redirect_to": None,
             "created_at": (datetime.now(UTC) - timedelta(minutes=15)).isoformat(),
-            "csrf_token": "test_csrf_token",
         }
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
 
@@ -346,7 +344,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -386,7 +384,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         new_user = User.objects.get(username=f"auth0|{sub}")

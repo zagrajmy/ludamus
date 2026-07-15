@@ -9,7 +9,6 @@ from django.urls import reverse
 
 from ludamus.adapters.db.django.models import Connection, Discount, Facilitator
 from ludamus.links.db.django.repositories import ConnectionsRepository
-from ludamus.links.google_docs import SHEETS_CLEAR_URL
 from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
@@ -669,15 +668,22 @@ class TestDiscountDeleteActionView:
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/target-sheet/edit#gid=0"
 
 
-def _google_write_session(*, clear_ok=True, clear_status=200, clear_text=""):
-    session = MagicMock()
-    session.get.return_value = MagicMock(
+def _google_write_session(*, write_ok=True, write_status=200, write_text=""):
+    meta = MagicMock(
         ok=True, json=lambda: {"sheets": [{"properties": {"title": "Sheet1"}}]}
     )
-    session.post.return_value = MagicMock(
-        ok=clear_ok, status_code=clear_status, text=clear_text
+    old_values = MagicMock(ok=True, json=lambda: {"values": []})
+
+    def get(url: str, **_kwargs: object) -> MagicMock:
+        if "/values/" in url:
+            return old_values
+        return meta
+
+    session = MagicMock()
+    session.get.side_effect = get
+    session.put.return_value = MagicMock(
+        ok=write_ok, status_code=write_status, text=write_text
     )
-    session.put.return_value = MagicMock(ok=True)
     return session
 
 
@@ -788,10 +794,7 @@ class TestDiscountExportPageView:
             messages=[(messages.SUCCESS, "Accreditation sheet exported (1 creator).")],
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
-        session.post.assert_called_once_with(
-            SHEETS_CLEAR_URL.format(sheet_id="target-sheet", range="%27Sheet1%27"),
-            timeout=30,
-        )
+        session.post.assert_not_called()
         session.put.assert_called_once_with(
             "https://sheets.googleapis.com/v4/spreadsheets/target-sheet"
             "/values/%27Sheet1%27%21A1?valueInputOption=RAW",
@@ -816,7 +819,7 @@ class TestDiscountExportPageView:
         sphere.managers.add(active_user)
         _make_facilitator(event)
         session = _google_write_session(
-            clear_ok=False, clear_status=403, clear_text="no edit"
+            write_ok=False, write_status=403, write_text="no edit"
         )
 
         response = self._post(
@@ -831,14 +834,14 @@ class TestDiscountExportPageView:
                 (
                     messages.ERROR,
                     (
-                        "Export failed: Spreadsheet clear request failed "
+                        "Export failed: Spreadsheet write request failed "
                         "with 403: no edit"
                     ),
                 )
             ],
             context_data={**_base_context(event), "form": ANY, "has_connections": True},
         )
-        session.put.assert_not_called()
+        session.post.assert_not_called()
 
     def test_post_shows_error_when_connection_vanishes_mid_export(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

@@ -67,12 +67,13 @@
                             {% csrf_token %}
                             <input type="hidden" name="user_{{ viewer_pk }}" value="waitlist">
                             <button type="submit"
-                                    class="btn text-sm bg-warning text-white rounded-r-none">
+                                    class="btn text-sm btn-secondary rounded-r-none border-r-0">
                                 {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "Join waiting list" %}
                             </button>
                         </form>
+                        <span class="after:content-[''] after:block after:w-px after:h-[calc(100%+2px)] after:bg-border/80"></span>
                         <a href="{{ enroll_url }}"
-                           class="btn text-sm bg-warning text-white rounded-l-none border-l border-white/30"
+                           class="btn text-sm btn-secondary rounded-l-none border-l-0"
                            title="{% translate "Enroll with others…" %}">{% translate "with others" %}</a>
                     </span>
                 {% else %}
@@ -89,8 +90,9 @@
                                 {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
                             </button>
                         </form>
+                        <span class="w-px before:block before:top-0 before:-bottom-0.5 relative before:absolute before:inset-0 after:block after:absolute after:inset-0 after:top-0 after:z-10 after:bg-[hsl(9,90%,69%)] before:bg-[#C54B2F]"></span>
                         <a href="{{ enroll_url }}"
-                           class="btn btn-primary text-sm rounded-l-none border-l border-white/30"
+                           class="btn btn-primary text-sm rounded-l-none border-l-0"
                            title="{% translate "Enroll with others…" %}">{% translate "with others" %}</a>
                     </span>
                 {% endif %}

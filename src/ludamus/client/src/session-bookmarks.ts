@@ -14,13 +14,21 @@ const BOOKMARKED_COLOR = ["text-coral-600", "dark:text-coral-400"];
 const bookmarkUrl = (template: string, sessionId: string): string =>
   template.replace(/0\/bookmark\/?$/, `${sessionId}/bookmark/`);
 
-const paint = (button: HTMLElement, bookmarked: boolean): void => {
+// Renders one authoritative state; the caller owns which count to show — the
+// optimistic ±1 guess, the server's fresh total, or the exact pre-flip number
+// on revert.
+const paint = (button: HTMLElement, bookmarked: boolean, count: number): void => {
+  const countEl = button.querySelector<HTMLElement>(".bookmark-count");
+  if (countEl) {
+    countEl.textContent = String(count);
+    countEl.classList.toggle("hidden", count === 0);
+  }
   button.setAttribute("aria-pressed", String(bookmarked));
   button.classList.toggle(BOOKMARKED_COLOR[0], bookmarked);
   button.classList.toggle(BOOKMARKED_COLOR[1], bookmarked);
   button.querySelector(".bookmark-icon-outline")?.classList.toggle("hidden", bookmarked);
   button.querySelector(".bookmark-icon-solid")?.classList.toggle("hidden", !bookmarked);
-  const card = button.closest<HTMLElement>(".session-card");
+  const card = button.closest<HTMLElement>(".session");
   if (card) card.dataset.bookmarked = String(bookmarked);
 };
 
@@ -35,8 +43,9 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   if (!sessionId || !template) return;
 
   const previous = button.getAttribute("aria-pressed") === "true";
+  const previousCount = Number(button.querySelector(".bookmark-count")?.textContent ?? 0);
   inFlight.add(button);
-  paint(button, !previous); // Optimistic flip.
+  paint(button, !previous, previousCount + (previous ? -1 : 1)); // Optimistic flip.
   try {
     const response = await fetch(bookmarkUrl(template, sessionId), {
       headers: { "X-CSRFToken": root.dataset.csrf ?? "" },
@@ -49,13 +58,15 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
     if (
       typeof data !== "object" ||
       data === null ||
-      typeof (data as Record<string, unknown>).bookmarked !== "boolean"
+      typeof (data as Record<string, unknown>).bookmarked !== "boolean" ||
+      typeof (data as Record<string, unknown>).count !== "number"
     ) {
       throw new TypeError("Bookmark toggle: unexpected response");
     }
-    paint(button, (data as { bookmarked: boolean }).bookmarked);
+    const { bookmarked, count } = data as { bookmarked: boolean; count: number };
+    paint(button, bookmarked, count);
   } catch (error) {
-    paint(button, previous); // Revert the optimistic flip.
+    paint(button, previous, previousCount); // Revert the optimistic flip.
     console.error(error);
   } finally {
     inFlight.delete(button);

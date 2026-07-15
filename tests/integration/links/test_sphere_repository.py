@@ -26,9 +26,3 @@ class TestSphereRepositoryRead:
     def test_single_query(self, sphere, django_assert_num_queries):
         with django_assert_num_queries(1):
             SphereRepository.read(sphere.pk)
-
-
-class TestSphereRepositoryReadSite:
-    def test_raises_not_found_for_unknown_pk(self):
-        with pytest.raises(NotFoundError):
-            SphereRepository.read_site(999_999)

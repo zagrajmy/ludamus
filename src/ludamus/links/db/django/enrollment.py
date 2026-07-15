@@ -22,6 +22,7 @@ from ludamus.adapters.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
+from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
@@ -118,13 +119,25 @@ class ParticipationPromotionRepository:
             .order_by("creation_time")
         )
         sponsors = sponsors_by_member(p.user for p in participations)
+        conflicted = Session.objects.conflicted_user_ids(
+            session, [p.user_id for p in participations]
+        )
+        recipients = {
+            p.user.pk: sponsors.get(p.user.pk, p.user) for p in participations
+        }
+        user_allowed, domain_allowed = self._config_allowances(
+            event, {r.email or "" for r in recipients.values()}
+        )
         for participation in participations:
             user = participation.user
             sponsor = sponsors.get(user.pk)
-            recipient = sponsor if sponsor is not None else user
+            recipient = recipients[user.pk]
             if recipient.pk not in slots_by_owner:
                 slots_by_owner[recipient.pk] = self._slots_remaining(
-                    recipient, event, event_dto
+                    owner=recipient,
+                    event_dto=event_dto,
+                    user_allowed=user_allowed,
+                    domain_allowed=domain_allowed,
                 )
             waiting.append(
                 WaitingParticipantDTO(
@@ -135,14 +148,18 @@ class ParticipationPromotionRepository:
                     full_name=user.get_full_name(),
                     email=user.email or "",
                     creation_time=participation.creation_time,
-                    has_conflict=Session.objects.has_conflicts(
-                        session, UserDTO.model_validate(user)
-                    ),
+                    has_conflict=participation.user_id in conflicted,
                     owner_slots_remaining=slots_by_owner[recipient.pk],
                     recipient_user_id=recipient.pk,
                     recipient_email=recipient.email or "",
                 )
             )
+
+        shadowbanned_user_ids = frozenset(
+            ShadowbanRepository.banned_user_ids(session.presenter_id)
+            if session.presenter_id
+            else ()
+        )
 
         return PromotionStateDTO(
             session_id=session.pk,
@@ -153,31 +170,49 @@ class ParticipationPromotionRepository:
             presenter_id=session.presenter_id,
             available_seats=config.get_available_slots(session),
             waiting=waiting,
+            shadowbanned_user_ids=shadowbanned_user_ids,
         )
 
     @staticmethod
-    def _slots_remaining(owner: User, event: Event, event_dto: EventDTO) -> int:
+    def _config_allowances(
+        event: Event, owner_emails: set[str]
+    ) -> tuple[dict[str, int], dict[str, int]]:
+        emails = {email for email in owner_emails if email}
+        domains = {email.split("@")[1] for email in emails if "@" in email}
+        configs = event.get_active_enrollment_configs()
+        user_allowed: dict[str, int] = {}
+        user_rows = UserEnrollmentConfig.objects.filter(
+            enrollment_config__in=configs, user_email__in=emails
+        ).values_list("user_email", "allowed_slots")
+        for email, slots in user_rows:
+            user_allowed[email] = user_allowed.get(email, 0) + slots
+        domain_allowed: dict[str, int] = {}
+        domain_rows = DomainEnrollmentConfig.objects.filter(
+            enrollment_config__in=configs, domain__in=domains
+        ).values_list("domain", "allowed_slots_per_user")
+        for domain, slots in domain_rows:
+            domain_allowed[domain] = domain_allowed.get(domain, 0) + slots
+        return user_allowed, domain_allowed
+
+    @staticmethod
+    def _slots_remaining(
+        *,
+        owner: User,
+        event_dto: EventDTO,
+        user_allowed: dict[str, int],
+        domain_allowed: dict[str, int],
+    ) -> int:
         if not owner.email:
             return UNLIMITED_SLOTS
-        allowed = 0
-        has_config = False
         domain = owner.email.split("@")[1] if "@" in owner.email else ""
-        for config in event.get_active_enrollment_configs():
-            user_config = UserEnrollmentConfig.objects.filter(
-                enrollment_config=config, user_email=owner.email
-            ).first()
-            if user_config:
-                allowed += user_config.allowed_slots
-                has_config = True
-            if domain:
-                domain_config = DomainEnrollmentConfig.objects.filter(
-                    enrollment_config=config, domain=domain
-                ).first()
-                if domain_config:
-                    allowed += domain_config.allowed_slots_per_user
-                    has_config = True
+        has_config = owner.email in user_allowed or (
+            bool(domain) and domain in domain_allowed
+        )
         if not has_config:
             return UNLIMITED_SLOTS
+        allowed = user_allowed.get(owner.email, 0)
+        if domain:
+            allowed += domain_allowed.get(domain, 0)
         # The owner's seat allowance covers themselves plus every login-less
         # companion they sponsor (members of parties they lead).
         companions = active_companions(owner.slug)

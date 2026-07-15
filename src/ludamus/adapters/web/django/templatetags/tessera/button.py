@@ -8,7 +8,7 @@ from django.utils.safestring import mark_safe
 from .icon import icon as render_icon
 
 _SIZE_CLASSES = {
-    "sm": "px-3 py-1.5 text-xs",
+    "sm": "px-3 py-1.5 text-xs gap-1.5 rounded-xl",
     "md": "px-4 py-2 text-sm",
     "lg": "px-6 py-3 text-base",
 }

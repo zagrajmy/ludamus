@@ -55,8 +55,8 @@ class RequestContextMiddleware:
             request.context = AuthenticatedRequestContext(
                 root_sphere_id=root_sphere.pk,
                 current_sphere_id=current_sphere.pk,
-                root_site_id=root_sphere.site_id,
-                current_site_id=current_sphere.site_id,
+                root_site_id=root_sphere.site.pk,
+                current_site_id=current_sphere.site.pk,
                 current_user_slug=request.user.slug,
                 current_user_id=request.user.pk,
             )
@@ -64,8 +64,8 @@ class RequestContextMiddleware:
             request.context = RequestContext(
                 root_sphere_id=root_sphere.pk,
                 current_sphere_id=current_sphere.pk,
-                root_site_id=root_sphere.site_id,
-                current_site_id=current_sphere.site_id,
+                root_site_id=root_sphere.site.pk,
+                current_site_id=current_sphere.site.pk,
             )
 
         return self.get_response(request)

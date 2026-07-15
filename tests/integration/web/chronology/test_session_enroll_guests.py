@@ -13,7 +13,9 @@ from ludamus.adapters.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.adapters.web.django.entities import SessionUserParticipationData
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    SessionUserParticipationData,
+)
 from ludamus.inits.services import Services
 from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.conftest import UserFactory
@@ -55,7 +57,7 @@ def _page_context(viewer, agenda_item):
     return {
         "party_choices": selection.choices,
         "selected_party": selection.selected,
-        "connected_users": [],
+        "companions": [],
         "event": agenda_item.session.event,
         "form": ANY,
         "session": agenda_item.session,
@@ -244,7 +246,7 @@ class TestGuestEnrollment:
             ],
         )
 
-    @pytest.mark.usefixtures("connected_user")
+    @pytest.mark.usefixtures("party_companion")
     def test_guests_join_the_selected_party_group(
         self, authenticated_client, active_user, agenda_item, enrollment_config
     ):

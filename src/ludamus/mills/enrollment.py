@@ -523,11 +523,9 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
     def _update_name(self, user: UserDTO, name: str) -> None:
         if name:
             user.name = name
+            self._user_repository.update(user.slug, UserData(name=name))
         if not user.name:
             raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.NAME_REQUIRED)
-        # Mirrors the legacy view: the raw submitted value is written even
-        # when blank, so a cancel posted without a name field clears it.
-        self._user_repository.update(user.slug, UserData(name=name))
 
 
 def _refresh_user_config_from_api(

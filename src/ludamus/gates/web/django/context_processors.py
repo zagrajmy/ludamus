@@ -82,7 +82,7 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
     ):
         return CurrentUserContextData(current_user=None)
 
-    user_dto = request.di.uow.active_users.read(request.context.current_user_slug)
+    user_dto = request.services.profile.read(request.context.current_user_slug)
     return CurrentUserContextData(
         current_user=user_dto,
         current_user_info=UserInfo.from_user_dto(

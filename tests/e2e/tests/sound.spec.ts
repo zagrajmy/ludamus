@@ -7,27 +7,31 @@ import { expect, test } from "@playwright/test";
 
 test.describe("interface sound toggle", () => {
   const toggle = (page: import("@playwright/test").Page) =>
-    page.getByRole("button", { name: /interface sound/i });
+    page.getByRole("checkbox", { name: /interface sound/i });
+  const pressToggle = async (page: import("@playwright/test").Page): Promise<void> => {
+    await toggle(page).locator("xpath=ancestor::label[1]").click();
+  };
 
-  test("starts off and turns on when the user presses it", async ({ page }) => {
+  test("starts on and turns off when the user presses it", async ({ page }) => {
     await page.goto("/design/");
 
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle(page)).toBeChecked();
 
-    await toggle(page).click();
+    await pressToggle(page);
 
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle(page)).not.toBeChecked();
   });
 
   test("remembers the choice across a page reload", async ({ page }) => {
     await page.goto("/design/");
 
-    await toggle(page).click();
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle(page)).toBeChecked();
+    await pressToggle(page);
+    await expect(toggle(page)).not.toBeChecked();
 
     await page.reload();
 
-    await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle(page)).not.toBeChecked();
   });
 });
 

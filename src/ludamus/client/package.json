@@ -28,6 +28,7 @@
     "vite": "8.0.16"
   },
   "dependencies": {
+    "cuelume": "0.1.0",
     "slugify": "1.6.6"
   }
 }

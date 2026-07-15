@@ -9,15 +9,8 @@
 {% endblock page_title %}
 {% block content %}
     <!-- Timetable sub-page tabs -->
-    <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-        {% tabs %}
-        {% tab "timetable" href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-    {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-{% tab "overview" active=True href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-{% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    {% tab_shell "panel/_timetable_tabs.html" %}
+    {% tab_shell_body %}
     <!-- Hours-to-fill section -->
     <section class="mb-8">
         <h2 class="text-base font-semibold mb-3">{% translate "Hours to fill" %}</h2>
@@ -151,5 +144,6 @@
             <p class="text-sm text-foreground-muted">{% translate "No tracks for this event." %}</p>
         {% endif %}
     </section>
-</div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% endblock content %}

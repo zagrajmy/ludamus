@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from ludamus.pacts.crowd import (
-        ConnectedUserRepositoryProtocol,
+        CompanionRepositoryProtocol,
         UserDTO,
         UserRepositoryProtocol,
     )
@@ -414,7 +414,6 @@ class SphereDTO(BaseModel):
     name: str
     pk: int
     site: SiteDTO
-    site_id: int
 
     @field_validator("logo", mode="before")
     @classmethod
@@ -807,8 +806,6 @@ class SphereRepositoryProtocol(Protocol):
     def read_by_domain(domain: str) -> SphereDTO: ...
     @staticmethod
     def read(pk: int) -> SphereDTO: ...
-    @staticmethod
-    def read_site(sphere_id: int) -> SiteDTO: ...
     @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod
@@ -1460,7 +1457,7 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def anonymous_users(self) -> UserRepositoryProtocol: ...
     @property
-    def connected_users(self) -> ConnectedUserRepositoryProtocol: ...
+    def companions(self) -> CompanionRepositoryProtocol: ...
     @property
     def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
     @property

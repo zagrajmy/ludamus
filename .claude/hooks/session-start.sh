@@ -60,7 +60,10 @@ fi
 if ! command -v python3.14 > /dev/null 2>&1 \
   || ! command -v pipx > /dev/null 2>&1; then
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -q > /dev/null || echo "WARN: apt-get update failed"
+  # --allow-releaseinfo-change: image PPAs occasionally change their metadata
+  # (e.g. ondrej/php renamed its Label), which otherwise fails the update.
+  apt-get update -q --allow-releaseinfo-change > /dev/null \
+    || echo "WARN: apt-get update failed"
   apt-get install -y -q python3.14 python3.14-venv pipx > /dev/null \
     || echo "WARN: apt-get install python3.14/pipx failed; Python tooling may be unavailable"
 fi
@@ -70,6 +73,29 @@ fi
 # setup still runs.
 mise trust || echo "WARN: 'mise trust' failed"
 mise install || echo "WARN: 'mise install' failed; some tools may be unavailable"
+
+# The sandbox image pre-bakes GitHub-layout installs of some aliased tools
+# (shellcheck, actionlint, hadolint at last check). mise then skips installing
+# them, but their on-disk layout doesn't match the [tool_alias] backend, so
+# mise can't list their bin paths: no shims are generated and `mise run` tasks
+# drop them from PATH (hk dies with "actionlint: not found"). A missing shim
+# is the reliable symptom — purge the clashing install and re-run
+# `mise install` so the alias backend re-provisions it. Pre-baked installs
+# whose layout happens to satisfy the alias (hk) keep their shim and are left
+# alone, avoiding a pointless cargo rebuild.
+purged=""
+while IFS= read -r tool; do
+  if [ ! -e "$HOME/.local/share/mise/shims/$tool" ]; then
+    rm -rf "$HOME/.local/share/mise/installs/$tool"
+    purged="$purged $tool"
+  fi
+done < <(sed -n '/^\[tool_alias\]/,/^\[/s/^\([a-zA-Z0-9_-]\{1,\}\)[[:space:]]*=.*/\1/p' \
+  mise.sandbox.toml)
+if [ -n "$purged" ]; then
+  echo "Re-provisioning aliased tools with missing shims:$purged"
+  mise install \
+    || echo "WARN: 'mise install' retry failed; broken tools:$purged"
+fi
 
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"
@@ -81,6 +107,10 @@ mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may
 mise exec -- hk install --mise || echo "WARN: 'hk install' failed; git hooks not installed"
 
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
-# share the Chromium it provisions.
+# share the Chromium it provisions. The task's `--with-deps` needs apt, which
+# breaks whenever an image PPA changes its metadata; the image already ships
+# every OS lib Chromium needs, so fall back to a dependency-less browser
+# download (the Playwright CDN is reachable through the egress proxy).
 mise run test:e2e:install \
+  || mise exec -- aube exec -C tests/e2e playwright install \
   || echo "WARN: Playwright install failed; e2e suite and agent-browser screenshots unavailable"

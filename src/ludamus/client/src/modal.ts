@@ -1,3 +1,22 @@
+/**
+ * Addressable modals. A trigger link's first query param is the source of truth
+ * for open state, so every modal is shareable, bookmarkable, and closes on Back.
+ *
+ * Prefer this over an imperative open handler: `syncModalsFromUrl` opens whichever
+ * modal matches the URL on load / popstate, `openModal` writes the param, and
+ * `closeModal` clears it. Nothing else needs to know a modal exists.
+ *
+ * @usage
+ *   <a href="?invite=5" aria-controls="invite-modal-5" aria-haspopup="dialog">Invite</a>
+ *   <dialog id="invite-modal-5" class="modal">…</dialog>
+ *
+ * To reopen a modal after a failed POST, render the response at that same
+ * `?param=value` — point the form's action at it (`action="…?add-companion=1"`)
+ * and `syncModalsFromUrl` reopens it on load, errors and all. No server-set flag.
+ *
+ * Triggers must be same-path query links (`?x=y`), not buttons: the Navigation API
+ * interception below only fires for anchor navigations to the current pathname.
+ */
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
@@ -97,7 +116,7 @@ const ignoreSkippedTransition = (error: unknown): void => {
 };
 
 const MORPH_NAME = "session-morph";
-const CARD_SUPPRESSED = "session-card-suppressed";
+const CARD_SUPPRESSED = "session-suppressed";
 // <html> classes that scope the page-blur keyframes to a morph's lifetime (see
 // modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
 const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
@@ -106,7 +125,7 @@ const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
   const card = document.querySelector(
-    `.session-card[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
+    `.session[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
   );
   return card instanceof HTMLElement ? card : null;
 };
@@ -121,6 +140,7 @@ const releaseSessionCard = (id: string): void => {
 
 const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
+  card.dataset.noMorph === undefined &&
   !prefersReducedMotion() &&
   typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
 

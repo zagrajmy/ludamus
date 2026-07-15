@@ -21,10 +21,25 @@ description — run it rather than trusting a hardcoded list here. Most used:
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
+- Tailwind = component look. Partials in `templates/components/`;
+  `extra_class` for page layout only. No utility copy-paste into CSS.
 - For any user-facing UI work (pages, forms, tables, modals, empty/error states,
   copy), use the `product-design` skill (`.claude/skills/product-design/`)
-  *before* building — it routes to the component catalog, reachable-states
+  _before_ building — it routes to the component catalog, reachable-states
   checklist, Polish copy rules, and a verification checklist.
+- No single-line files.
+- Tailwind is here to lower CSS output size. Prefer Tailwind over CSS files.
+
+## Debt metrics (tingle)
+
+`tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
+legacy LOC, …). `tingle stat --diff` / `tingle report --diff` show what your
+branch adds vs `main`.
+
+`tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
+grow on net — paying debt in one offsets taking it on in another. Read the
+added occurrences it prints and remove what you can. A justified addition is
+fine; say so in the PR. Don't game a counter to keep a number flat.
 
 ## Papercuts
 

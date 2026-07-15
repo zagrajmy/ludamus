@@ -29,7 +29,6 @@ class TestAuth0LoginActionView:
         assert cached_data == {
             "redirect_to": None,
             "created_at": cached_data["created_at"],
-            "csrf_token": "",
         }
 
     @patch("ludamus.gates.web.django.crowd.auth.oauth")

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
+        PartySessionHistoryServiceProtocol,
         ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
@@ -91,6 +92,8 @@ class ServicesProtocol(Protocol):
     def companions(self) -> CompanionsServiceProtocol: ...
     @property
     def parties(self) -> PartyServiceProtocol: ...
+    @property
+    def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property

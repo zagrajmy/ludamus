@@ -1,4 +1,11 @@
 @layer components {
+  .tab-nav-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 1px;
+    margin-bottom: -1px;
+  }
+
   .tab-list {
     display: flex;
     border-bottom: 1px solid var(--color-border);
