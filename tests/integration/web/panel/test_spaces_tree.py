@@ -176,6 +176,23 @@ class TestSpaceCreate:
             },
         )
 
+    def test_create_room_with_location(self, manager_client, event):
+        response = manager_client.post(
+            self._root_url(event),
+            data={"name": "Room A", "location": "Building B, room 214"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space created successfully.")],
+            url=_venues_url(event),
+        )
+        assert (
+            Space.objects.get(event=event, name="Room A").location
+            == "Building B, room 214"
+        )
+
     def test_create_child(self, manager_client, event):
         root = _root(event)
         capacity = 20
@@ -287,6 +304,22 @@ class TestSpaceEdit:
         node.refresh_from_db()
         assert node.name == "Grand Hall"
         assert node.slug == "grand-hall"
+
+    def test_edit_sets_location(self, manager_client, event):
+        node = _root(event, "Hall")
+
+        response = manager_client.post(
+            self._url(event, node.pk), data={"name": "Hall", "location": "2nd floor"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space updated successfully.")],
+            url=_venues_url(event),
+        )
+        node.refresh_from_db()
+        assert node.location == "2nd floor"
 
     def test_get_edit_form(self, manager_client, event):
         node = _root(event, "Hall")
