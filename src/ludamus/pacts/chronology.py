@@ -251,18 +251,21 @@ class PartySessionSeatDTO(BaseModel):
     creation_time: datetime
 
 
-class PartySessionHistoryDTO(BaseModel):
-    session: SessionDTO
-    agenda_item: AgendaItemDTO
-    presenter: UserDTO | None
-    participations: list[PartySessionSeatDTO]
-    location: LocationData
+class SessionCardStatsDTO(BaseModel):
     enrolled_count: int
     waiting_count: int
     is_full: bool
     is_enrollment_available: bool
     effective_participants_limit: int
     full_participant_info: str
+
+
+class PartySessionHistoryDTO(SessionCardStatsDTO):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[PartySessionSeatDTO]
+    location: LocationData
     viewer_enrolled: bool
 
 
@@ -300,7 +303,7 @@ class SessionModalSeatDTO(BaseModel):
     is_shadowbanned: bool = False
 
 
-class SessionModalDTO(BaseModel):
+class SessionModalDTO(SessionCardStatsDTO):
     model_config = ConfigDict(from_attributes=True)
 
     session: SessionDTO
@@ -309,12 +312,6 @@ class SessionModalDTO(BaseModel):
     participations: list[SessionModalSeatDTO]
     location: LocationData
     field_values: list[SessionFieldValueDTO]
-    enrolled_count: int
-    waiting_count: int
-    is_full: bool
-    is_enrollment_available: bool
-    effective_participants_limit: int
-    full_participant_info: str
     viewer_enrolled: bool
     viewer_waiting: bool
     can_edit: bool

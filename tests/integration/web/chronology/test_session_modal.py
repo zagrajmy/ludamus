@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
@@ -7,7 +8,7 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.event_presentation import SessionData
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import AgendaItemDTO, LocationData, SessionDTO
+from ludamus.pacts import AgendaItemDTO, EventDTO, LocationData, SessionDTO
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, assert_response_404
@@ -66,7 +67,7 @@ class TestSessionModalComponentView:
                 "data": _expected_session_data(
                     agenda_item=agenda_item, session=session, presenter=active_user
                 ),
-                "event": response.context_data["event"],
+                "event": EventDTO.model_validate(event),
                 "event_banned": False,
             },
             contains=[session.title, f'id="session-{session.pk}"'],
@@ -79,6 +80,23 @@ class TestSessionModalComponentView:
         response = client.get(_url(event, agenda_item.session.pk))
 
         assert_response_404(response)
+
+    def test_unpublished_event_ok_for_manager(
+        self, authenticated_client, active_user, sphere, agenda_item, event
+    ):
+        sphere.managers.add(active_user)
+        event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
+        event.save()
+
+        response = authenticated_client.get(_url(event, agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/parts/session-modal.html",
+            context_data=ANY,
+            contains=f'id="session-{agenda_item.session.pk}"',
+        )
 
     def test_unscheduled_session_404(self, client, event, session):
         response = client.get(_url(event, session.pk))

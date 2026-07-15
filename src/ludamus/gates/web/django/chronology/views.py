@@ -26,7 +26,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.forms import SessionEditForm
-from ludamus.gates.web.django.helpers import get_client_ip
+from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import (
     ProposeSessionService,
@@ -1030,13 +1030,6 @@ class SessionBookmarkToggleView(View):
 
 
 class SessionModalComponentView(View):
-    """Lazy-loaded session detail modal fragment for the event page.
-
-    GET returns the `<dialog>` fragment for a single scheduled session so the
-    event page can fetch it on first open instead of pre-rendering every modal.
-    Read-only; `request.services.*` only.
-    """
-
     request: RootRequest
 
     def get(
@@ -1070,11 +1063,7 @@ class SessionModalComponentView(View):
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        published = (
-            event.publication_time is not None
-            and event.publication_time <= datetime.now(tz=UTC)
-        )
-        if not published and not self._is_manager():
+        if not is_event_published(event) and not self._is_manager():
             raise Http404
         return event
 

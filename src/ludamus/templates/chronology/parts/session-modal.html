@@ -152,7 +152,7 @@
                  inert>
                 <!-- Enrolled Participants -->
                 {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
-                    {% if confirmed_participants %}
+                    {% if data.enrolled_count %}
                         <h3 class="font-semibold mb-3 text-foreground-secondary">
                             {% if data.is_unlimited %}
                                 {% translate "Enrolled" %} ({{ data.enrolled_count }})
@@ -263,7 +263,8 @@
                             </a>
                         {% endif %}
                     {% else %}
-                        <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri }}"
+                        {% url 'web:chronology:event' slug=event.slug as event_url %}
+                        <a href="{% url 'web:crowd:auth0:login' %}?next={{ event_url }}%3Fsession%3D{{ data.session.pk }}"
                            class="btn btn-primary text-sm">
                             {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
                         </a>

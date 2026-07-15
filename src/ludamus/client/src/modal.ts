@@ -312,17 +312,24 @@ const numberWaitingPositions = (root: ParentNode): void => {
 // Tabs, click-outside and Escape are delegated on document, so injected modals
 // get those free. The close (×) button, waiting-list numbering and HTMX binding
 // are per-element and must be wired on the fetched fragment.
-const wireInjectedModal = (dialog: HTMLElement): void => {
-  for (const trigger of dialog.querySelectorAll("[data-modal-close]")) {
+const wireCloseButtons = (root: ParentNode): void => {
+  for (const trigger of root.querySelectorAll("[data-modal-close]")) {
     trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
     trigger.addEventListener("click", closeFromTrigger, { capture: true });
   }
+};
+
+const wireInjectedModal = (dialog: HTMLElement): void => {
+  wireCloseButtons(dialog);
   numberWaitingPositions(dialog);
   htmx.process(dialog);
 };
 
 const fetchModal = async (id: string, url: string): Promise<boolean> => {
-  const response = await fetch(url, { headers: { "X-Requested-With": "fetch" } });
+  const response = await fetch(url, {
+    headers: { "X-Requested-With": "fetch" },
+    signal: AbortSignal.timeout(10_000),
+  });
   if (!response.ok) throw new Error(`modal ${id}: HTTP ${response.status}`);
   const html = await response.text();
   const template = document.createElement("template");
@@ -433,7 +440,14 @@ if (navigation) {
       e.intercept({
         focusReset: "manual",
         async handler() {
-          if (await ensureModalLoaded(modalId)) await openModal(modalId, { updateUrl: false });
+          if (await ensureModalLoaded(modalId)) {
+            await openModal(modalId, { updateUrl: false });
+          } else {
+            // Lazy fetch failed: fall back to a real navigation to the trigger
+            // href. That page's deep-link path retries without re-intercepting,
+            // so there is no loop.
+            globalThis.location.assign(href);
+          }
         },
         scroll: "manual",
       });
@@ -465,10 +479,7 @@ const closeFromTrigger = (event: Event): void => {
 };
 
 const setupModalCloseTriggers = (): void => {
-  for (const trigger of document.querySelectorAll("[data-modal-close]")) {
-    trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
-    trigger.addEventListener("click", closeFromTrigger, { capture: true });
-  }
+  wireCloseButtons(document);
 };
 
 document.addEventListener("click", (event) => {
@@ -496,7 +507,8 @@ setupModalCloseTriggers();
 const setupFallbackLinkHandlers = (): void => {
   for (const link of document.querySelectorAll("a[href][aria-controls]")) {
     const modalId = link.getAttribute("aria-controls");
-    if (!modalId) continue;
+    const href = link.getAttribute("href");
+    if (!modalId || !href) continue;
 
     const target = document.getElementById(modalId);
     if (
@@ -509,6 +521,7 @@ const setupFallbackLinkHandlers = (): void => {
       e.preventDefault();
       void ensureModalLoaded(modalId).then((ok) => {
         if (ok) void openModal(modalId);
+        else globalThis.location.assign(href);
       });
     });
   }

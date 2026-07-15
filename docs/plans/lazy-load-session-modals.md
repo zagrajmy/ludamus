@@ -100,11 +100,8 @@ two paths converge. Tracked, not hidden — noted so the divergence window is
 explicit.
 
 1. **Remove** the modal `{% for %}` loop from `event.html` (Step 3). Cards/rows
-   keep rendering from `sessions` / `schedule_days`.
-
-2. **Remove** the modal `{% for %}` loop from `event.html`. Cards/rows keep
-   rendering from `sessions` / `schedule_days` (that `SessionData` is cheap; the
-   modal *template* was the cost).
+   keep rendering from `sessions` / `schedule_days` (that `SessionData` is cheap;
+   the modal *template* was the cost).
 
 ### Cache
 
@@ -117,9 +114,11 @@ live enrollment/waiting data; start with **no** browser caching on the component
 Triggers stay unchanged: `<a href="?session=<pk>" aria-controls="session-<pk>">`.
 
 - Add `ensureModalLoaded(id)`: if `#session-<pk>` is absent, `fetch` the endpoint
-  (URL derived from the trigger or a `data-modal-src` attr), inject the returned
-  `<dialog>` into a container, and resolve once present. Injected modals stay in
-  the DOM (cache) so reopen + morph-close are instant.
+  (URL derived from the container's `data-session-modal-url` attribute — a
+  `reverse()`d URL with a `/session/0/` placeholder that is replaced with the
+  requested session id), inject the returned `<dialog>` into that container, and
+  resolve once present. Injected modals stay in the DOM (cache) so reopen +
+  morph-close are instant.
 - `await ensureModalLoaded(id)` before `openModal(id)` in all three entry points:
   the Navigation API `navigate` interception, the old-browser click fallback, and
   `syncModalsFromUrl` (deep-link `?session=<pk>` on load / popstate). The morph
