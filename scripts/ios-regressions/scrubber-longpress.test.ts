@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 import type {
   AgentDeviceClient,
   AgentDeviceSelectionOptions,
@@ -7,6 +5,7 @@ import type {
   SnapshotNode,
 } from "agent-device";
 
+import { beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -19,11 +18,12 @@ type IosDeviceOptions = AgentDeviceSelectionOptions & {
 
 const env = process.env;
 const baseUrl = env.BASE_URL ?? "http://localhost:8000";
-const session = env.SESSION ?? "zagrajmy-ios-scrubber-local";
+const session = env.SESSION ? `${env.SESSION}-scrubber` : "zagrajmy-ios-scrubber-local";
 const eventPath = env.EVENT_PATH ?? "/chronology/event/kapitularz-2025-anonymized/";
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
+const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "240000");
 
 const calloutActions = [
   "Open in New Tab",
@@ -183,52 +183,45 @@ const assertEventPageReady = async (url: URL): Promise<void> => {
 };
 
 const eventUrl = new URL(eventPath, baseUrl);
-const failures: string[] = [];
 
-await assertEventPageReady(eventUrl);
-await closeSessionIfPresent(session);
-await closeDeviceSessionIfPresent();
+let surfacedCalloutActions: string[] = [];
 
-console.log(`Preparing iOS simulator ${providedUdid ?? deviceName}...`);
-const udid = await ensureSimulator();
-console.log(`Using simulator UDID: ${udid}`);
+beforeAll(async () => {
+  await assertEventPageReady(eventUrl);
+  await closeSessionIfPresent(session);
+  await closeDeviceSessionIfPresent();
 
-console.log(`Opening Safari at ${eventUrl.toString()}...`);
-await openUrl(eventUrl.toString(), udid);
-await client.command.wait({ ...deviceOptions, durationMs: 3000 });
+  console.log(`Preparing iOS simulator ${providedUdid ?? deviceName}...`);
+  const udid = await ensureSimulator();
+  console.log(`Using simulator UDID: ${udid}`);
 
-const marker = await waitForRailMarker(15000);
-if (!marker || !marker.rect) {
-  const labels = (await snapshotLabels()).slice(0, 40).join(" | ");
-  throw new Error(`No "Jump to …" hour marker was visible on the rail. Snapshot labels: ${labels}`);
-}
+  console.log(`Opening Safari at ${eventUrl.toString()}...`);
+  await openUrl(eventUrl.toString(), udid);
+  await client.command.wait({ ...deviceOptions, durationMs: 3000 });
 
-console.log(`Long-pressing the hour marker ${JSON.stringify(marker.label)}...`);
-await client.interactions.longPress({
-  ...deviceOptions,
-  x: marker.rect.x + marker.rect.width / 2,
-  y: marker.rect.y + marker.rect.height / 2,
-  durationMs: 900,
-});
-await client.command.wait({ ...deviceOptions, durationMs: 800 });
-
-const labelsAfter = await snapshotLabels();
-const surfaced = calloutActions.filter((action) =>
-  labelsAfter.some((label) => label.includes(action)),
-);
-if (surfaced.length > 0) {
-  failures.push(
-    `Long-pressing an hour marker opened the iOS link callout menu (${surfaced.join(", ")}), ` +
-      "so a hold on the scrubber can still open the current page in a new tab.",
-  );
-}
-
-if (failures.length > 0) {
-  console.error("\nReproduced iOS scrubber long-press bug(s):");
-  for (const failure of failures) {
-    console.error(`- ${failure}`);
+  const marker = await waitForRailMarker(15000);
+  if (!marker || !marker.rect) {
+    const labels = (await snapshotLabels()).slice(0, 40).join(" | ");
+    throw new Error(
+      `No "Jump to …" hour marker was visible on the rail. Snapshot labels: ${labels}`,
+    );
   }
-  process.exitCode = 1;
-} else {
-  console.log("No iOS scrubber long-press callout reproduced.");
-}
+
+  console.log(`Long-pressing the hour marker ${JSON.stringify(marker.label)}...`);
+  await client.interactions.longPress({
+    ...deviceOptions,
+    x: marker.rect.x + marker.rect.width / 2,
+    y: marker.rect.y + marker.rect.height / 2,
+    durationMs: 900,
+  });
+  await client.command.wait({ ...deviceOptions, durationMs: 800 });
+
+  const labelsAfter = await snapshotLabels();
+  surfacedCalloutActions = calloutActions.filter((action) =>
+    labelsAfter.some((label) => label.includes(action)),
+  );
+}, hookTimeoutMs);
+
+test("long-press on an hour marker does not open the iOS link callout", () => {
+  expect(surfacedCalloutActions).toEqual([]);
+});

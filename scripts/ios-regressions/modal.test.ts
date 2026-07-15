@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 import type {
   AgentDeviceClient,
   AgentDeviceSelectionOptions,
@@ -7,6 +5,7 @@ import type {
   SnapshotNode,
 } from "agent-device";
 
+import { beforeAll, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -19,7 +18,7 @@ type IosDeviceOptions = AgentDeviceSelectionOptions & {
 
 const env = process.env;
 const baseUrl = env.BASE_URL ?? "http://localhost:8000";
-const session = env.SESSION ?? "zagrajmy-ios-modal-local";
+const session = env.SESSION ? `${env.SESSION}-modal` : "zagrajmy-ios-modal-local";
 const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
@@ -27,6 +26,8 @@ const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
+const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "240000");
 
 const importAgentDevice = async (): Promise<AgentDeviceModule> => {
   try {
@@ -34,19 +35,14 @@ const importAgentDevice = async (): Promise<AgentDeviceModule> => {
   } catch (error) {
     const candidates: string[] = [];
     try {
-      const npmRoot = execFileSync("npm", ["root", "-g"], {
-        encoding: "utf8",
-      }).trim();
+      const npmRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
       candidates.push(`${npmRoot}/agent-device/dist/src/index.js`);
-    } catch {
-      // Ignore and try Bun's global install path below.
-    }
+    } catch {}
     if (env.HOME) {
       candidates.push(
         `${env.HOME}/.bun/install/global/node_modules/agent-device/dist/src/index.js`,
       );
     }
-
     for (const candidate of candidates) {
       if (existsSync(candidate)) {
         return (await import(pathToFileURL(candidate).href)) as AgentDeviceModule;
@@ -76,10 +72,7 @@ const ensureSimulator = async (): Promise<string> => {
 };
 
 const takeSnapshot = async (): Promise<CaptureSnapshotResult> =>
-  client.capture.snapshot({
-    ...deviceOptions,
-    interactiveOnly: true,
-  });
+  client.capture.snapshot({ ...deviceOptions, interactiveOnly: true });
 
 const snapshotLabels = async (): Promise<string[]> => {
   const snapshot = await takeSnapshot();
@@ -98,11 +91,7 @@ const findNodeByLabel = async (label: string): Promise<SnapshotNode | null> => {
 
 const openUrlWithSafari = async (url: string): Promise<void> => {
   try {
-    await client.apps.open({
-      ...deviceOptions,
-      app: "Safari",
-      url,
-    });
+    await client.apps.open({ ...deviceOptions, app: "Safari", url });
   } catch (error) {
     console.warn(
       "Safari reported a URL open failure; continuing because iOS Simulator can time out after Safari has already loaded the page.",
@@ -116,19 +105,14 @@ const openUrl = async (url: string, udid: string): Promise<void> => {
     await openUrlWithSafari(url);
     return;
   }
-
   try {
-    execFileSync("xcrun", ["simctl", "openurl", udid, url], {
-      stdio: "inherit",
-      timeout: 10000,
-    });
+    execFileSync("xcrun", ["simctl", "openurl", udid, url], { stdio: "inherit", timeout: 10000 });
   } catch (error) {
     console.warn(
       "simctl reported a URL open failure; continuing because iOS Simulator can time out before Safari finishes loading.",
       error,
     );
   }
-
   await openUrlWithSafari(url);
 };
 
@@ -141,7 +125,6 @@ const clickNodeCenter = async (node: SnapshotNode): Promise<void> => {
     });
     return;
   }
-
   await client.interactions.click({ ...deviceOptions, ref: `@${node.ref}` });
 };
 
@@ -180,8 +163,7 @@ const findTriggerInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | 
   ) ?? null;
 
 const findTargetTitleInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | null =>
-  snapshot.nodes.find((node) => isTargetTitleNode(node) && isNodeInViewport(snapshot, node)) ??
-  null;
+  snapshot.nodes.find((node) => isTargetTitleNode(node) && isNodeInViewport(snapshot, node)) ?? null;
 
 const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
   for (let attempt = 0; attempt < 16; attempt += 1) {
@@ -216,21 +198,9 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
   throw new Error(`Could not bring ${targetTriggerLabel} into the viewport`);
 };
 
-// Force a substantial page scroll before opening the modal. The iOS top-layer
-// hit-testing offset this script guards against only manifests when the modal
-// is opened over a *scrolled* document, so the regression silently stops being
-// exercised whenever the seeded page is short enough to fit the trigger above
-// the fold. Scrolling down a fixed number of steps first guarantees a
-// meaningful document offset independent of how tall the seed data renders.
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
-
 const forcePreOpenScroll = async (): Promise<void> => {
   for (let step = 0; step < preOpenScrollSteps; step += 1) {
-    await client.interactions.scroll({
-      ...deviceOptions,
-      direction: "down",
-      pixels: 450,
-    });
+    await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
     await client.command.wait({ ...deviceOptions, durationMs: 150 });
   }
 };
@@ -289,7 +259,6 @@ const assertEventPageReady = async (url: URL): Promise<void> => {
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }
-
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
@@ -305,108 +274,103 @@ for (const [key, value] of new URLSearchParams(targetQueryParam)) {
   modalUrl.searchParams.set(key, value);
 }
 
-const failures: string[] = [];
-
-await assertEventPageReady(eventUrl);
-await closeSessionIfPresent(session);
-await closeDeviceSessionIfPresent();
-
-console.log(`Preparing iOS simulator ${providedUdid ?? deviceName}...`);
-const udid = await ensureSimulator();
-console.log(`Using simulator UDID: ${udid}`);
-
 const openViaScrolledPage = env.OPEN_VIA_SCROLLED_PAGE !== "0";
-const initialUrl = openViaScrolledPage ? eventUrl : modalUrl;
-console.log(`Opening Safari at ${initialUrl.toString()}...`);
-await openUrl(initialUrl.toString(), udid);
 
-await client.command.wait({ ...deviceOptions, durationMs: 3000 });
+let contentIssue: string | null = null;
+let closeIssue: string | null = null;
+let scrollIssue: string | null = null;
 
-// Captured just before opening so the close path can assert the page returned
-// to the same scroll position (see the scroll-preservation check after close).
-let preOpenTriggerLabel: string | null = null;
-let preOpenTriggerY: number | null = null;
+beforeAll(async () => {
+  await assertEventPageReady(eventUrl);
+  await closeSessionIfPresent(session);
+  await closeDeviceSessionIfPresent();
 
-if (openViaScrolledPage) {
-  console.log(`Opening ${targetTitle} from a scrolled page...`);
-  console.log(`Pre-scrolling the page (${preOpenScrollSteps} steps) before opening...`);
-  await forcePreOpenScroll();
-  const trigger = await scrollUntilTriggerInViewport();
-  console.log(`Activating modal trigger: ${describeNode(trigger)}`);
-  preOpenTriggerLabel = trigger.label ?? null;
-  preOpenTriggerY = trigger.rect?.y ?? null;
-  await clickNodeReference(trigger);
-  if (!(await waitForLabel("Close", 5000))) {
-    console.warn("The trigger reference did not open the modal; tapping its center.");
-    await clickNodeCenter(trigger);
+  console.log(`Preparing iOS simulator ${providedUdid ?? deviceName}...`);
+  const udid = await ensureSimulator();
+  console.log(`Using simulator UDID: ${udid}`);
+
+  const initialUrl = openViaScrolledPage ? eventUrl : modalUrl;
+  console.log(`Opening Safari at ${initialUrl.toString()}...`);
+  await openUrl(initialUrl.toString(), udid);
+  await client.command.wait({ ...deviceOptions, durationMs: 3000 });
+
+  let preOpenTriggerLabel: string | null = null;
+  let preOpenTriggerY: number | null = null;
+
+  if (openViaScrolledPage) {
+    console.log(`Opening ${targetTitle} from a scrolled page...`);
+    console.log(`Pre-scrolling the page (${preOpenScrollSteps} steps) before opening...`);
+    await forcePreOpenScroll();
+    const trigger = await scrollUntilTriggerInViewport();
+    console.log(`Activating modal trigger: ${describeNode(trigger)}`);
+    preOpenTriggerLabel = trigger.label ?? null;
+    preOpenTriggerY = trigger.rect?.y ?? null;
+    await clickNodeReference(trigger);
+    if (!(await waitForLabel("Close", 5000))) {
+      console.warn("The trigger reference did not open the modal; tapping its center.");
+      await clickNodeCenter(trigger);
+    }
+  } else {
+    console.log(`Waiting for ${targetTitle} details...`);
   }
-} else {
-  console.log(`Waiting for ${targetTitle} details...`);
-}
 
-const visibleCloseButton = await waitForLabel("Close", 15000);
-if (!visibleCloseButton) {
-  const labels = (await snapshotLabels()).slice(0, 40).join(" | ");
-  throw new Error(
-    `The modal did not open: Close button was not visible. Snapshot labels: ${labels}`,
-  );
-}
-
-console.log("Checking whether modal content is initially visible...");
-const contentInitiallyVisible =
-  (await hasVisibleText("About this session")) && (await hasVisibleText("Przygoda w stylu filmu"));
-if (!contentInitiallyVisible) {
-  failures.push(
-    'Modal content headed by "About this session" / "Przygoda w stylu filmu" is not initially visible.',
-  );
-}
-
-console.log("Tapping Close...");
-const closeButton = await findNodeByLabel("Close");
-if (!closeButton) {
-  throw new Error("Could not find visible target: Close");
-}
-await clickNodeCenter(closeButton);
-await client.command.wait({ ...deviceOptions, durationMs: 1000 });
-
-if (await hasVisibleText("Close")) {
-  failures.push("The modal X / Close button did not close the modal.");
-}
-
-// Scroll-preservation guard. While the modal is open the page is scroll-locked
-// by pinning <body> with `position: fixed; top: -scrollY` (needed so the iOS
-// top-layer Close button stays tappable over a scrolled page). The close must
-// hand the document back to that same offset; if it restores late or to the
-// wrong place, the page jumps — most visibly to the top and back on Mobile
-// Safari. Re-find the trigger we opened from and assert it settled back to the
-// viewport position it held before opening.
-if (openViaScrolledPage && preOpenTriggerLabel && preOpenTriggerY !== null) {
-  await client.command.wait({ ...deviceOptions, durationMs: 600 });
-  const settledSnapshot = await takeSnapshot();
-  const settledTrigger = settledSnapshot.nodes.find(
-    (node) => node.label === preOpenTriggerLabel && !isHiddenDialogLabel(node),
-  );
-  const settledY = settledTrigger?.rect?.y ?? null;
-  if (settledY === null) {
-    failures.push(
-      `After closing, "${preOpenTriggerLabel}" was no longer in the viewport, ` +
-        "so the page did not return to its pre-open scroll position.",
+  const visibleCloseButton = await waitForLabel("Close", 15000);
+  if (!visibleCloseButton) {
+    const labels = (await snapshotLabels()).slice(0, 40).join(" | ");
+    throw new Error(
+      `The modal did not open: Close button was not visible. Snapshot labels: ${labels}`,
     );
-  } else if (Math.abs(settledY - preOpenTriggerY) > 200) {
-    failures.push(
-      `The page scroll jumped on close: "${preOpenTriggerLabel}" moved from ` +
+  }
+
+  console.log("Checking whether modal content is initially visible...");
+  const contentInitiallyVisible =
+    (await hasVisibleText("About this session")) &&
+    (await hasVisibleText("Przygoda w stylu filmu"));
+  if (!contentInitiallyVisible) {
+    contentIssue =
+      'Modal content headed by "About this session" / "Przygoda w stylu filmu" is not initially visible.';
+  }
+
+  console.log("Tapping Close...");
+  const closeButton = await findNodeByLabel("Close");
+  if (!closeButton) {
+    throw new Error("Could not find visible target: Close");
+  }
+  await clickNodeCenter(closeButton);
+  await client.command.wait({ ...deviceOptions, durationMs: 1000 });
+
+  if (await hasVisibleText("Close")) {
+    closeIssue = "The modal X / Close button did not close the modal.";
+  }
+
+  if (openViaScrolledPage && preOpenTriggerLabel && preOpenTriggerY !== null) {
+    await client.command.wait({ ...deviceOptions, durationMs: 600 });
+    const settledSnapshot = await takeSnapshot();
+    const settledTrigger = settledSnapshot.nodes.find(
+      (node) => node.label === preOpenTriggerLabel && !isHiddenDialogLabel(node),
+    );
+    const settledY = settledTrigger?.rect?.y ?? null;
+    if (settledY === null) {
+      scrollIssue =
+        `After closing, "${preOpenTriggerLabel}" was no longer in the viewport, ` +
+        "so the page did not return to its pre-open scroll position.";
+    } else if (Math.abs(settledY - preOpenTriggerY) > 200) {
+      scrollIssue =
+        `The page scroll jumped on close: "${preOpenTriggerLabel}" moved from ` +
         `y=${Math.round(preOpenTriggerY)} to y=${Math.round(settledY)} ` +
-        "(>200px), so the scroll position was not preserved.",
-    );
+        "(>200px), so the scroll position was not preserved.";
+    }
   }
-}
+}, hookTimeoutMs);
 
-if (failures.length > 0) {
-  console.error("\nReproduced iOS modal bug(s):");
-  for (const failure of failures) {
-    console.error(`- ${failure}`);
-  }
-  process.exitCode = 1;
-} else {
-  console.log("No iOS modal bugs reproduced.");
-}
+test("modal content is visible when the session modal opens", () => {
+  expect(contentIssue).toBeNull();
+});
+
+test("the Close button dismisses the session modal", () => {
+  expect(closeIssue).toBeNull();
+});
+
+test("closing the modal preserves the page scroll position", () => {
+  expect(scrollIssue).toBeNull();
+});
