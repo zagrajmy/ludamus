@@ -49,6 +49,7 @@ from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -139,6 +140,12 @@ class Services:
             transaction=self._transaction,
             parties=self._repos.parties,
             history=self._repos.party_session_history,
+        )
+
+    @cached_property
+    def session_modal(self) -> SessionModalService:
+        return SessionModalService(
+            transaction=self._transaction, sessions=self._repos.sessions
         )
 
     @cached_property

@@ -1,24 +1,30 @@
 import json
 import re
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q
 
 from ludamus.adapters.db.django.models import (
+    SPACE_MAX_DEPTH,
     AgendaItem,
     Event,
     Session,
     SessionFieldValue,
+    SessionParticipationStatus,
     Space,
     TimeSlot,
     Track,
 )
 from ludamus.links.db.django.repositories.chronology import event_dto
 from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
+    AgendaItemDTO,
     EventDTO,
     FacilitatorDTO,
+    LocationData,
     NotFoundError,
     PendingSessionDTO,
     PendingSessionTimeSlotDTO,
@@ -37,6 +43,11 @@ from ludamus.pacts import (
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
+from ludamus.pacts.chronology import (
+    SessionModalDTO,
+    SessionModalRepositoryProtocol,
+    SessionModalSeatDTO,
+)
 from ludamus.pacts.crowd import UserDTO
 
 if TYPE_CHECKING:
@@ -53,7 +64,126 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     return hours * 60 + minutes
 
 
-class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
+def _session_modal_dto(
+    session: Session, *, viewer_user_ids: list[int]
+) -> SessionModalDTO:
+    now = datetime.now(tz=UTC)
+    agenda_item = session.agenda_item
+    space = agenda_item.space
+    participations = list(session.session_participations.all())
+    viewer_ids = set(viewer_user_ids)
+    field_values = sorted(
+        (
+            SessionFieldValueDTO(
+                allow_custom=fv.field.allow_custom,
+                field_icon=fv.field.icon,
+                field_id=fv.field_id,
+                field_name=fv.field.name,
+                field_order=fv.field.order,
+                field_question=fv.field.question,
+                field_slug=fv.field.slug,
+                field_type=fv.field.field_type,
+                is_public=fv.field.is_public,
+                value=fv.value,
+            )
+            for fv in session.field_values.all()
+            if fv.field.is_public
+        ),
+        key=lambda fv: (fv.field_order, fv.field_name),
+    )
+    event = session.event
+    event_override = event.allow_facilitator_session_edit
+    sphere_default = event.sphere.allow_facilitator_session_edit
+    edit_allowed = sphere_default if event_override is None else event_override
+    return SessionModalDTO(
+        session=SessionDTO.model_validate(session),
+        agenda_item=AgendaItemDTO.model_validate(agenda_item),
+        presenter=(
+            user_dto(session.presenter) if session.presenter is not None else None
+        ),
+        participations=[
+            SessionModalSeatDTO(
+                user=user_dto(participation.user),
+                status=SessionParticipationStatus(participation.status),
+                creation_time=participation.creation_time,
+                is_shadowbanned=False,
+            )
+            for participation in participations
+        ],
+        location=LocationData(
+            space_name=space.name,
+            parent_slug=space.parent.slug if space.parent else "",
+            parent_name=space.parent.name if space.parent else "",
+            path=str(space),
+        ),
+        field_values=field_values,
+        enrolled_count=session.enrolled_count,
+        waiting_count=session.waiting_count,
+        is_full=session.is_full,
+        is_enrollment_available=session.is_enrollment_available,
+        effective_participants_limit=session.effective_participants_limit,
+        full_participant_info=session.full_participant_info,
+        viewer_enrolled=any(
+            participation.user_id in viewer_ids
+            and participation.status == SessionParticipationStatus.CONFIRMED
+            for participation in participations
+        ),
+        viewer_waiting=any(
+            participation.user_id in viewer_ids
+            and participation.status == SessionParticipationStatus.WAITING
+            for participation in participations
+        ),
+        can_edit=edit_allowed and session.presenter_id in viewer_ids,
+        is_ongoing=agenda_item.start_time <= now,
+        is_ended=agenda_item.end_time <= now,
+    )
+
+
+class SessionRepository(  # noqa: PLR0904
+    SessionRepositoryProtocol, SessionModalRepositoryProtocol
+):
+    @staticmethod
+    def read_modal(
+        *, event_id: int, session_id: int, viewer_user_ids: list[int]
+    ) -> SessionModalDTO | None:
+        try:
+            session = (
+                Session.objects.filter(agenda_item__isnull=False)
+                .annotate(
+                    enrolled_count_cached=Count(
+                        "session_participations",
+                        filter=Q(
+                            session_participations__status=(
+                                SessionParticipationStatus.CONFIRMED
+                            )
+                        ),
+                    ),
+                    waiting_count_cached=Count(
+                        "session_participations",
+                        filter=Q(
+                            session_participations__status=(
+                                SessionParticipationStatus.WAITING
+                            )
+                        ),
+                    ),
+                )
+                .select_related(
+                    "presenter",
+                    "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+                    "event",
+                    "event__sphere",
+                )
+                .prefetch_related(
+                    "session_participations__user",
+                    "field_values__field",
+                    "event__enrollment_configs",
+                )
+                .get(pk=session_id, event_id=event_id)
+            )
+        except Session.DoesNotExist:
+            return None
+        return _session_modal_dto(session, viewer_user_ids=viewer_user_ids)
+
     @staticmethod
     def create(
         session_data: SessionData,

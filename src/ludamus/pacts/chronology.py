@@ -20,6 +20,7 @@ from ludamus.pacts.legacy import (
     SessionContentEditData,
     SessionDTO,
     SessionFieldValueData,
+    SessionFieldValueDTO,
     SessionParticipationStatus,
     SessionSelfEditContext,
     SpaceDTO,
@@ -288,6 +289,50 @@ class PartySessionHistoryServiceProtocol(Protocol):
     def read_detail(
         self, *, party_pk: int, viewer_pk: int
     ) -> PartyDetailDTO | None: ...
+
+
+class SessionModalSeatDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user: UserDTO
+    status: SessionParticipationStatus
+    creation_time: datetime
+    is_shadowbanned: bool = False
+
+
+class SessionModalDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[SessionModalSeatDTO]
+    location: LocationData
+    field_values: list[SessionFieldValueDTO]
+    enrolled_count: int
+    waiting_count: int
+    is_full: bool
+    is_enrollment_available: bool
+    effective_participants_limit: int
+    full_participant_info: str
+    viewer_enrolled: bool
+    viewer_waiting: bool
+    can_edit: bool
+    is_ongoing: bool
+    is_ended: bool
+
+
+class SessionModalRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_modal(
+        *, event_id: int, session_id: int, viewer_user_ids: list[int]
+    ) -> SessionModalDTO | None: ...
+
+
+class SessionModalServiceProtocol(Protocol):
+    def read(
+        self, *, event_id: int, session_id: int, viewer_user_ids: list[int]
+    ) -> SessionModalDTO | None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
