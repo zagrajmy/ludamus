@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from ludamus.mills.crowd import CompanionsService, ProfileService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 
 
 @contextmanager
@@ -44,7 +44,7 @@ def _user_dto(**overrides) -> UserDTO:
     return UserDTO(**(defaults | overrides))
 
 
-def _companion_dto(**overrides) -> ConnectedUserDTO:
+def _companion_dto(**overrides) -> CompanionDTO:
     defaults = {
         "avatar_url": "",
         "date_joined": datetime(2024, 1, 1, tzinfo=UTC),
@@ -62,7 +62,7 @@ def _companion_dto(**overrides) -> ConnectedUserDTO:
         "user_type": UserType.CONNECTED,
         "username": "connected|kid",
     }
-    return ConnectedUserDTO(**(defaults | overrides))
+    return CompanionDTO(**(defaults | overrides))
 
 
 class FakeUsers:

@@ -2,9 +2,12 @@
 
 Small friction hit while working — retried tool calls, confusing setup steps,
 flaky commands, stale caches, misleading errors, non-obvious gotchas. One or two
-sentences each: what you were doing → what got in the way. See CLAUDE.md.
+sentences each: what you were doing → what got in the way.
+
+If you fix a papercut, remove it.
 
 <!-- Append new entries below, newest last. -->
+
 - 2026-07-10: session-start hook's `playwright install --with-deps` fails in
   fresh sandboxes: apt-get update exits 100 because the image's ondrej/php PPA
   changed its InRelease Label. Browsers are preinstalled at /opt/pw-browsers so
@@ -23,3 +26,81 @@ sentences each: what you were doing → what got in the way. See CLAUDE.md.
   match @playwright/test 1.58.2 (needs 1208), so e2e cannot launch a browser
   and the preinstalled-browsers fallback is not real. Plain
   `playwright install` without `--with-deps` works through the proxy.
+- 2026-07-13: aube install via mise fails for ~7 days after a release: ~/.npmrc
+  min-release-age=7 blocks the darwin-arm64 platform package; one-shot fix
+  npm_config_min_release_age=0 mise install npm:@endevco/aube
+- 2026-07-13: dev DB root sphere domain drifted from ROOT_DOMAIN
+  (localhost:8000) -> every request 500s with NotFoundError in
+  middlewares.py:40; error page gives no hint which domain was looked up
+- 2026-07-13: Ran 'mise run messages' to prune one msgid; makemessages scans
+  worktrees/staging/ too, erroring on duplicate pot definitions and polluting
+  django.po with combined-tree fuzzy entries. Had to stash the regen and hand-
+  edit the .po.
+- 2026-07-13: mise run messages-check false-passed ('Translations fresh') while
+  vc-mtime warned 'failed to read git log output', then a rerun failed on a
+  stale worktrees/issue-329 path in msguniq; third run gave the real result. The
+  mtime cache seems to mask stale extraction.
+- 2026-07-14: Tried to inspect gettext entries with polib, but the project
+  environment does not install it; used the available gettext CLI instead.
+- 2026-07-14: Passed focused pytest paths to mise run test:py, but the task
+  appends them after its fixed integration/unit roots and runs the full suite;
+  use -k for focused selection.
+- 2026-07-14: Used a test_*party* zsh glob while locating party history tests;
+  no match caused zsh to abort before rg. Use rg paths without shell globs.
+- 2026-07-14: Passed a Playwright filename through mise run test:e2e; the task
+  ignored it for Playwright, ran all 152 cases, then passed it to coverage
+  report as Python source and failed after 148 passes/4 skips. The task should
+  route test arguments only to Playwright.
+- 2026-07-14: Tried `mise run pytest` for a focused test after `mise tasks`
+  guidance; no such task exists, so focused pytest invocation still requires
+  discovering another command.
+- 2026-07-14: Catbox rejected PR screenshot uploads using the documented image-
+  upload command with HTTP 412; the screenshot workflow needs a reliable host or
+  required request headers documented.
+- 2026-07-14: Built a screenshot asset commit, then zsh parsed
+  `$asset_commit:refs/...` as a variable modifier and corrupted the push
+  refspec; brace variables immediately before colons in zsh.
+- 2026-07-14: Assumed fetched PR review-thread comments were objects with a body
+  field; this repository helper returned a different shape and made the jq audit
+  fail. Document the helper output schema or ship a ready unresolved-thread
+  query.
+- 2026-07-14: Used `mise exec -- pytest` to avoid the test:py task appending
+  fixed roots, but it omitted required Varlock environment variables and failed
+  before collection. Document a supported focused-Python-test command.
+- 2026-07-14: Guessed the focused test belonged to TestSessionEnrollPage from
+  its filename; pytest collected zero because the actual class is
+  TestDesiredStateRouting. Locate node IDs before invoking focused tests.
+- 2026-07-14: Ran a standalone Django metadata check after sourcing .env.test;
+  DJANGO_SETTINGS_MODULE was still unset, so setup failed before printing the
+  table name.
+- 2026-07-14: Updating the PR body with gh pr edit failed on the deprecated
+  Projects Classic GraphQL field; gh api with a PTY stdin payload also produced
+  HTTP 400. A direct REST PATCH with a form field worked.
+- 2026-07-14: Ran mise run fallow during PR review → task failed because the
+  fallow binary is not installed; task output only suggests aube install.
+- 2026-07-14: Running pytest directly to isolate coverage skipped mise test
+  environment loading and failed because ENV was unset; source .env.test or
+  provide a targeted mise task.
+- 2026-07-14: Ran mise run check → taplo crashed in system-configuration
+  dynamic_store before checks; check currently depends on a formatter that can
+  fail from host configuration.
+- 2026-07-14: Ran one targeted Playwright test; test:e2e always runs aube
+  install, which retried registry requests despite existing node_modules and
+  delayed local reproduction.
+- 2026-07-14: Targeted Chromium could not launch after an accidentally
+  unfiltered mise task spawned five browsers; stale Playwright Chromium
+  processes hit macOS MachPortRendezvous bootstrap conflicts.
+- 2026-07-14: A targeted event-card integration test exposed that Django strict
+  missing-variable checks reject even an `{% if optional_var %}` guard; every
+  include caller must pass the optional base explicitly.
+- 2026-07-14: Ran lint:impeccable during validation → its detector produced no
+  output for over three minutes and required interruption.
+- 2026-07-14: Ran targeted pytest through mise exec to avoid the broad test
+  task; it skipped varlock and failed because ENV was unset. Test tasks should
+  support targeted paths without always prepending the whole suite.
+- 2026-07-14: Ran test:postgres for the new party-invite concurrency check; the
+  task assumes PostgreSQL is already running and all six marked tests failed at
+  setup with connection refused.
+- 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
+  because only mise test tasks load .env.test; use the task or load its
+  environment explicitly.

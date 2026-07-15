@@ -46,6 +46,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.party import PartyService
+from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
@@ -129,7 +130,7 @@ class Services:
 
     @cached_property
     def companions(self) -> CompanionsService:
-        return CompanionsService(self._transaction, self._repos.connected_users)
+        return CompanionsService(self._transaction, self._repos.companions)
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:
@@ -144,6 +145,14 @@ class Services:
     def parties(self) -> PartyService:
         return PartyService(
             self._transaction, self._repos.parties, DjangoUserNotifier()
+        )
+
+    @cached_property
+    def party_session_history(self) -> PartySessionHistoryService:
+        return PartySessionHistoryService(
+            transaction=self._transaction,
+            parties=self._repos.parties,
+            history=self._repos.party_session_history,
         )
 
     @cached_property

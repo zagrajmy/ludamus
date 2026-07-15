@@ -24,12 +24,12 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.adapters.web.django.entities import (
+from ludamus.adapters.web.django.views import EventPageView
+from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
 )
-from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url
@@ -115,6 +115,19 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
             contains="Upcoming",
             not_contains="Enrollment Open",
+            cache_control={"private", "max-age=180"},
+        )
+
+    def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=response.context_data,
+            template_name=["chronology/event.html"],
+            contains=f'href="?session={agenda_item.session.pk}"',
+            not_contains="Missing variable session_link_base",
         )
 
     @pytest.mark.usefixtures("agenda_item")
@@ -384,7 +397,7 @@ class TestEventPageView:
             session=later_in_arena,
             space=arena,
             start_time=start + timedelta(hours=2),
-            end_time=start + timedelta(hours=3),
+            end_time=start + timedelta(hours=4),
         )
 
         SessionBookmark.objects.create(user=active_user, session=in_arena)
@@ -396,24 +409,27 @@ class TestEventPageView:
         assert response.context_data["schedule_view_is_list"] is False
         [day] = response.context_data["room_lane_days"]
         assert day.rooms == ["Arena", "Stage"]
-        [first_row, second_row] = day.rows
-        assert [[s.session.pk for s in cell] for cell in first_row.cells] == [
-            [in_arena.pk],
-            [on_stage.pk],
+        assert [(m.row, m.has_sessions) for m in day.hour_marks] == [
+            (1, True),
+            (2, False),
+            (3, True),
+            (4, False),
         ]
-        assert [[s.session.pk for s in cell] for cell in second_row.cells] == [
-            [later_in_arena.pk],
-            [],
+        assert [
+            (t.data.session.pk, t.col, t.row_start, t.row_span) for t in day.tiles
+        ] == [
+            (in_arena.pk, 1, 1, 1),
+            (on_stage.pk, 2, 1, 1),
+            (later_in_arena.pk, 1, 3, 2),
         ]
         content = response.content.decode()
-        assert re.search(r">\s*Arena\s*</th>", content)
-        assert re.search(r">\s*Stage\s*</th>", content)
+        assert re.search(r">\s*Arena\s*</div>", content)
+        assert re.search(r">\s*Stage\s*</div>", content)
         assert "schedule-rail" in content
         assert f"?session={in_arena.pk}" in content
         # Both bookmark-toggle tile states render for the authenticated viewer.
         assert 'aria-pressed="false"' in content
         assert 'aria-pressed="true"' in content
-        assert "1h" in content
         assert re.search(r">\s*16\+\s*<", content)
 
     @pytest.mark.usefixtures("agenda_item")
@@ -1156,13 +1172,7 @@ class TestEventPageView:
         )
 
     def test_ok_participations(
-        self,
-        authenticated_client,
-        event,
-        active_user,
-        session,
-        connected_user,
-        agenda_item,
+        self, authenticated_client, event, active_user, session, companion, agenda_item
     ):
         part1 = SessionParticipation.objects.create(
             session=session,
@@ -1170,9 +1180,7 @@ class TestEventPageView:
             status=SessionParticipationStatus.CONFIRMED,
         )
         part2 = SessionParticipation.objects.create(
-            session=session,
-            user=connected_user,
-            status=SessionParticipationStatus.WAITING,
+            session=session, user=companion, status=SessionParticipationStatus.WAITING
         )
         active_user.is_staff = True
         active_user.is_superuser = True
@@ -1256,7 +1264,7 @@ class TestEventPageView:
             },
             template_name=["chronology/event.html"],
         )
-        assert "Connected Users" not in response.content.decode()
+        assert "Companions" not in response.content.decode()
 
     def test_ok_session_with_linked_proposal(
         self, active_user, agenda_item, client, event, session

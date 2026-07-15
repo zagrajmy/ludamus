@@ -16,7 +16,7 @@
     <div class="max-w-5xl mx-auto w-full">
         {# Shadowban warning: players the viewer shadowbanned are already here. #}
         {% if shadowban_warnings %}
-            <div class="alert alert-warning flex flex-col gap-3 mb-6">
+            <div class="alert backdrop-blur-lg alert-warning flex flex-col gap-3 mb-6">
                 <div class="flex items-center gap-2 font-semibold">
                     {% icon "shield-exclamation" class="w-5 h-5 shrink-0" %}
                     {% translate "Players you shadowbanned are already signed up here" %}
@@ -67,7 +67,7 @@
                         {# pill rather than a nonsense "3/0" fraction, same as the modal. #}
                         {% if session.effective_participants_limit > 0 %}
                             <span class="inline-flex items-center gap-1.5">
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums {% if seats_left == 0 %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums {% if seats_left == 0 %}bg-coral-100 dark:bg-coral-900 text-coral-700 dark:text-coral-400 {% else %}bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-400{% endif %}">
                                     {{ session.enrolled_count }}/{{ session.effective_participants_limit }}
                                 </span>
                                 {% if session.waiting_count > 0 %}

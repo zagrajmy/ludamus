@@ -28,8 +28,8 @@ if TYPE_CHECKING:
         AvatarUrlProviderProtocol,
         ClaimableProfileDTO,
         ClaimRepositoryProtocol,
-        ConnectedUserDTO,
-        ConnectedUserRepositoryProtocol,
+        CompanionDTO,
+        CompanionRepositoryProtocol,
         ProfileParticipationRepositoryProtocol,
         SphereDomainRepositoryProtocol,
         UserDTO,
@@ -179,17 +179,15 @@ class ProfileService(ProfileServiceProtocol):
 
 class CompanionsService(CompanionsServiceProtocol):
     def __init__(
-        self,
-        transaction: TransactionProtocol,
-        companions: ConnectedUserRepositoryProtocol,
+        self, transaction: TransactionProtocol, companions: CompanionRepositoryProtocol
     ) -> None:
         self._transaction = transaction
         self._companions = companions
 
-    def list_companions(self, manager_slug: str) -> list[ConnectedUserDTO]:
+    def list_companions(self, manager_slug: str) -> list[CompanionDTO]:
         return self._companions.read_all(manager_slug)
 
-    def read(self, *, manager_slug: str, user_slug: str) -> ConnectedUserDTO:
+    def read(self, *, manager_slug: str, user_slug: str) -> CompanionDTO:
         return self._companions.read(manager_slug, user_slug)
 
     def create(self, *, manager_slug: str, user_data: UserData) -> None:

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
     from ludamus.pacts.crowd import (
-        ConnectedUserRepositoryProtocol,
+        CompanionRepositoryProtocol,
         UserDTO,
         UserRepositoryProtocol,
     )
@@ -1494,7 +1494,7 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def anonymous_users(self) -> UserRepositoryProtocol: ...
     @property
-    def connected_users(self) -> ConnectedUserRepositoryProtocol: ...
+    def companions(self) -> CompanionRepositoryProtocol: ...
     @property
     def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
     @property

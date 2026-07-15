@@ -11,7 +11,9 @@ if TYPE_CHECKING:
     from django import forms
 
     from ludamus.adapters.db.django.models import Session
-    from ludamus.adapters.web.django.entities import SessionUserParticipationData
+    from ludamus.gates.web.django.chronology.enrollment_presentation import (
+        SessionUserParticipationData,
+    )
 
 register = template.Library()
 

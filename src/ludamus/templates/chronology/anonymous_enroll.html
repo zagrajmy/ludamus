@@ -13,7 +13,7 @@
 {% block body %}
     <div class="max-w-3xl mx-auto">
         {# Anonymous Code Display #}
-        <div class="alert alert-info flex items-center gap-3 mb-4">
+        <div class="alert backdrop-blur-lg alert-info flex items-center gap-3 mb-4">
             {% icon "key" class="w-5 h-5 shrink-0" %}
             <div>
                 <h6 class="font-semibold mb-1">{% translate "Your Anonymous Code" %}</h6>
@@ -84,7 +84,7 @@
                 <form method="post">
                     {% csrf_token %}
                     {% if is_enrolled %}
-                        <div class="alert alert-success flex items-center gap-3">
+                        <div class="alert backdrop-blur-lg alert-success flex items-center gap-3">
                             {% icon "check-circle" class="w-5 h-5 shrink-0" %}
                             <div>
                                 <strong>{{ user_name }}</strong> {% translate "is already enrolled in this session." %}
@@ -95,7 +95,7 @@
                             </div>
                         </div>
                     {% elif needs_user_data %}
-                        <div class="alert alert-warning flex items-center gap-3">
+                        <div class="alert backdrop-blur-lg alert-warning flex items-center gap-3">
                             {% icon "exclamation-triangle" class="w-5 h-5 shrink-0" %}
                             <div>{% translate "Please provide your name to complete the enrollment." %}</div>
                         </div>

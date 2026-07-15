@@ -81,6 +81,8 @@ class PromotionStateDTO(BaseModel):
     available_seats: int
     # WAITING participations, ordered FIFO by creation_time.
     waiting: list[WaitingParticipantDTO]
+    # Players the presenter shadowbanned — ineligible for promotion.
+    shadowbanned_user_ids: frozenset[int] = frozenset()
 
 
 class OfferRecipientDTO(BaseModel):

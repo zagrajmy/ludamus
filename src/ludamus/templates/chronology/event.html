@@ -131,7 +131,7 @@
     </div>
     <!-- Enrollment Passes Info (for authenticated users) -->
     {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
-        <div class="alert alert-success mb-4" role="alert">
+        <div class="alert backdrop-blur-lg alert-success mb-4" role="alert">
             <div class="flex">
                 <div class="shrink-0">{% icon "key" class="w-5 h-5" %}</div>
                 <div class="grow ml-3">
@@ -205,7 +205,7 @@
     {% endif %}
     <!-- Anonymous Mode Banner -->
     {% if request.session.anonymous_enrollment_active and not current_user %}
-        <div class="alert alert-warning mb-4" role="alert">
+        <div class="alert backdrop-blur-lg alert-warning mb-4" role="alert">
             <div class="flex">
                 <div class="shrink-0">{% icon "eye-slash" class="w-5 h-5" %}</div>
                 <div class="grow ml-3">
@@ -284,17 +284,15 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            {# On the compact layout the toolbar sticks to the top of #app-scroll #}
-            {# so search/filter stay reachable from deep in a long schedule. #}
-            <div class="mb-6{% if compact_schedule %} sticky top-0 z-30 rounded-b-xl bg-background/95 py-2 backdrop-blur{% endif %}">
-                <div class="flex gap-2 items-stretch">
+            <div class="mb-6">
+                <div class="flex gap-1 sm:gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
                             {% icon "magnifying-glass" class="w-5 h-5" variant="mini" %}
                         </span>
                         {% translate "Search sessions..." as filter_placeholder %}
                         <input type="text"
-                               class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
+                               class="filter-input w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
                                id="session-filter"
                                placeholder="{{ filter_placeholder }}"
                                aria-label="{{ filter_placeholder }}"
@@ -302,7 +300,7 @@
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
                                 aria-controls="filter-panel">
@@ -311,6 +309,8 @@
                             <span id="active-filter-count"
                                   class="filter-badge hidden min-w-5 h-5 px-1.5 rounded-full text-[0.6875rem] font-bold leading-5 text-center bg-primary text-white"></span>
                         </button>
+                        {# The panel div stays the last child of the wrapper; the popover #}
+                        {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
                                 <div class="flex flex-col gap-1.5">
@@ -395,6 +395,9 @@
                             </div>
                         </div>
                     </div>
+                    {% if compact_schedule %}
+                        <div class="self-center">{% include "chronology/_schedule_view_tabs.html" %}</div>
+                    {% endif %}
                 </div>
                 <div id="active-filter-chips"
                      class="filter-chips-bar"
@@ -419,7 +422,7 @@
             {% if compact_schedule %}
                 {% include "chronology/_compact_schedule.html" %}
             {% else %}
-                {% include "chronology/_card_schedule.html" %}
+                {% include "chronology/_card_schedule.html" with session_link_base="" %}
             {% endif %}
         {% endif %}
     </div>
@@ -438,7 +441,7 @@
             </div>
             <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {% for data in own_pending_proposals %}
-                    {% include "chronology/_session_card.html" %}
+                    {% include "chronology/_session_card.html" with session_link_base="" %}
                 {% endfor %}
             </div>
         </div>
@@ -584,7 +587,7 @@
                                 <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
                                     <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
                                     <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if data.is_full %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if data.is_full %}bg-coral-100 dark:bg-coral-900/40 text-coral-700 dark:text-coral-400{% else %}bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-400{% endif %}">
                                             {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
                                         </span>
                                         {% if data.waiting_count > 0 %}
@@ -603,13 +606,13 @@
                         <!-- Enrollment Status for Authenticated Users -->
                         {% if current_user and data.user_enrolled %}
                             <div class="pt-4 border-t border-border">
-                                <div class="alert alert-success inline-flex items-center gap-2 text-sm">
+                                <div class="alert backdrop-blur-lg alert-success inline-flex items-center gap-2 text-sm">
                                     {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
                                 </div>
                             </div>
                         {% elif current_user and data.user_waiting %}
                             <div class="pt-4 border-t border-border">
-                                <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
+                                <div class="alert backdrop-blur-lg alert-warning inline-flex items-center gap-2 text-sm">
                                     {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
                                 </div>
                             </div>
@@ -706,7 +709,11 @@
                         {% endif %}
                     </div>
                     <div class="flex items-center gap-2">
-                        {% if data.is_enrollment_available and not event_banned %}
+                        {% if data.pretend_full and not event_banned %}
+                            <button type="button" class="btn btn-secondary text-sm" disabled>
+                                {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Session full" %}
+                            </button>
+                        {% elif data.is_enrollment_available and not event_banned %}
                             {% if current_user %}
                                 {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
                                     {% include "chronology/parts/session-enroll-actions.html" with event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk can_act=True is_enrollment_available=data.is_enrollment_available user_enrolled=data.user_enrolled user_waiting=data.user_waiting is_full=data.is_full is_unlimited=data.is_unlimited enroll_error="" %}
@@ -777,6 +784,9 @@
     {% vite_asset 'src/session-filters.ts' %}
     {% vite_asset 'src/session-bookmarks.ts' %}
     {% vite_asset 'src/event-timeline.ts' %}
+    {% if schedule_view_is_rooms %}
+        {% vite_asset 'src/room-lanes.ts' %}
+    {% endif %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}

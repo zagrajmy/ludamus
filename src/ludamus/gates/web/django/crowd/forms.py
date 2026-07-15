@@ -31,7 +31,7 @@ class UserForm(BaseUserForm):
     )
 
 
-class ConnectedUserForm(BaseUserForm):
+class CompanionForm(BaseUserForm):
     user_type = forms.CharField(
         initial=UserType.CONNECTED.value, widget=forms.HiddenInput()
     )
@@ -42,7 +42,18 @@ class PartyNameForm(forms.Form):
 
 
 class PartyInviteForm(forms.Form):
-    email = forms.EmailField(
-        label=_("Email"),
-        help_text=_("The invited person needs a Ludamus account with this email."),
+    identifier = forms.CharField(
+        label=_("Email or Discord username"),
+        help_text=_(
+            "Their account email, or the Discord username they signed up with. "
+            "They need a Zagrajmy account."
+        ),
+    )
+
+
+class PartyCompanionForm(forms.Form):
+    display_name = forms.CharField(
+        label=_("Companion display name"),
+        help_text=_("Enter one of your companions exactly as they are named."),
+        max_length=255,
     )

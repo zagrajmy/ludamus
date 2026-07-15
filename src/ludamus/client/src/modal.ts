@@ -1,3 +1,22 @@
+/**
+ * Addressable modals. A trigger link's first query param is the source of truth
+ * for open state, so every modal is shareable, bookmarkable, and closes on Back.
+ *
+ * Prefer this over an imperative open handler: `syncModalsFromUrl` opens whichever
+ * modal matches the URL on load / popstate, `openModal` writes the param, and
+ * `closeModal` clears it. Nothing else needs to know a modal exists.
+ *
+ * @usage
+ *   <a href="?invite=5" aria-controls="invite-modal-5" aria-haspopup="dialog">Invite</a>
+ *   <dialog id="invite-modal-5" class="modal">…</dialog>
+ *
+ * To reopen a modal after a failed POST, render the response at that same
+ * `?param=value` — point the form's action at it (`action="…?add-companion=1"`)
+ * and `syncModalsFromUrl` reopens it on load, errors and all. No server-set flag.
+ *
+ * Triggers must be same-path query links (`?x=y`), not buttons: the Navigation API
+ * interception below only fires for anchor navigations to the current pathname.
+ */
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };

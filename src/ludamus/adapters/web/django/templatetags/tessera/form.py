@@ -76,7 +76,7 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
 
     parts = []
 
-    container_class = "flex not-last:mb-4"
+    container_class = "flex gap-y-0.5 not-last:mb-4"
     if layout == "vertical":
         container_class += " flex-col"
     else:

@@ -16,7 +16,7 @@ from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from tests.integration.conftest import UserFactory
+from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
 
 
@@ -49,9 +49,9 @@ def _join(party, user, *, status=PartyMembershipStatus.ACTIVE):
 class TestEnrollRecordsParty:
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_records_default_party_on_all_seats(
-        self, authenticated_client, active_user, connected_user, agenda_item
+        self, authenticated_client, active_user, party_companion, agenda_item
     ):
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
         _reassign_presenter(agenda_item)
 
         response = authenticated_client.post(
@@ -59,11 +59,11 @@ class TestEnrollRecordsParty:
             data={
                 "party": str(party.pk),
                 f"user_{active_user.pk}": "enroll",
-                f"user_{connected_user.pk}": "enroll",
+                f"user_{party_companion.pk}": "enroll",
             },
         )
 
-        expected = f"Enrolled: {active_user.name}, {connected_user.name}"
+        expected = f"Enrolled: {active_user.name}, {party_companion.name}"
         assert_response(
             response,
             HTTPStatus.FOUND,
@@ -75,7 +75,7 @@ class TestEnrollRecordsParty:
         )
         assert {(p.user_id, p.party_id) for p in participations} == {
             (active_user.pk, party.pk),
-            (connected_user.pk, party.pk),
+            (party_companion.pk, party.pk),
         }
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -92,14 +92,14 @@ class TestEnrollRecordsParty:
         participation = SessionParticipation.objects.get(user=active_user)
         assert participation.party_id is None
 
-    @pytest.mark.usefixtures("enrollment_config", "connected_user")
+    @pytest.mark.usefixtures("enrollment_config", "party_companion")
     def test_default_party_is_recorded_without_explicit_field(
         self, authenticated_client, active_user, agenda_item
     ):
         # No explicit party parameter defaults to the viewer's own led party,
         # so the group promotes together — visible and escapable via the
         # always-shown selector.
-        party = Party.objects.get(leader=active_user)
+        party = sponsor_user(leader=active_user, member=active_user)
         _reassign_presenter(agenda_item)
 
         response = authenticated_client.post(
@@ -110,7 +110,7 @@ class TestEnrollRecordsParty:
         participation = SessionParticipation.objects.get(user=active_user)
         assert participation.party_id == party.pk
 
-    @pytest.mark.usefixtures("enrollment_config", "connected_user")
+    @pytest.mark.usefixtures("enrollment_config", "companion")
     def test_post_just_myself_records_no_party(
         self, authenticated_client, active_user, agenda_item
     ):
@@ -154,14 +154,16 @@ class TestPartySelector:
     # first party) is applied automatically, and the checkboxes alone decide
     # who enrolls. The ?party= URL contract stays for the server.
     def test_default_party_applies_without_selector(
-        self, authenticated_client, connected_user, agenda_item
+        self, authenticated_client, active_user, party_companion, agenda_item
     ):
+        sponsor_user(leader=active_user, member=active_user)
+
         response = authenticated_client.get(_url(agenda_item))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
         assert "Enrolling as" not in content
-        assert connected_user.name in content
+        assert party_companion.name in content
 
     def test_no_party_note_without_any_party(self, authenticated_client, agenda_item):
         response = authenticated_client.get(_url(agenda_item))
@@ -170,15 +172,16 @@ class TestPartySelector:
         assert "Enrolling as" not in response.content.decode()
 
     def test_just_myself_hides_companions_and_hint(
-        self, authenticated_client, connected_user, agenda_item
+        self, authenticated_client, active_user, companion, agenda_item
     ):
+        sponsor_user(leader=active_user, member=active_user)
         # Companions enroll through the party; enrolling as just myself shows
         # only the viewer's own row, without the add-companions hint or the
         # party grouping hint.
         response = authenticated_client.get(_url(agenda_item), {"party": "none"})
 
         content = response.content.decode()
-        assert connected_user.name not in content
+        assert companion.name not in content
         assert 'name="party" value="none"' in content
 
     def test_get_alien_party_is_rejected(self, authenticated_client, agenda_item):
@@ -204,8 +207,9 @@ class TestPartySelector:
         assert "Manage companions in your profile settings" in response.content.decode()
 
     def test_own_led_party_wins_the_default_with_multiple_parties(
-        self, authenticated_client, active_user, connected_user, agenda_item
+        self, authenticated_client, active_user, party_companion, agenda_item
     ):
+        sponsor_user(leader=active_user, member=active_user)
         friend = UserFactory(username="friend", name="Frida Friend")
         crew = Party.objects.create(leader=friend, name="Ekipa")
         _join(crew, friend)
@@ -216,11 +220,11 @@ class TestPartySelector:
         # Own led party selected by default: its companion is listed, and the
         # foreign party is not surfaced anywhere (no selector).
         content = response.content.decode()
-        assert connected_user.name in content
+        assert party_companion.name in content
         assert "Ekipa" not in content
 
     def test_foreign_party_lists_only_self(
-        self, authenticated_client, active_user, connected_user, agenda_item
+        self, authenticated_client, active_user, companion, agenda_item
     ):
         friend = UserFactory(username="friend", name="Frida Friend")
         crew = Party.objects.create(leader=friend, name="Ekipa")
@@ -230,10 +234,10 @@ class TestPartySelector:
         response = authenticated_client.get(_url(agenda_item), {"party": crew.pk})
 
         content = response.content.decode()
-        assert connected_user.name not in content
+        assert companion.name not in content
         assert f'name="party" value="{crew.pk}"' in content
 
-    @pytest.mark.usefixtures("enrollment_config", "connected_user")
+    @pytest.mark.usefixtures("enrollment_config", "companion")
     def test_post_through_foreign_party_groups_by_it(
         self, authenticated_client, active_user, agenda_item
     ):

@@ -2,15 +2,16 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from ludamus.mills.party import PartyService
-from ludamus.pacts.crowd import ConnectedUserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.party import (
+    CompanionAddOutcome,
     DeletePartyOutcome,
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
     InvitedUserDTO,
     InviteOutcome,
-    LedPartyDTO,
     PartiesOverviewDTO,
+    PartyActionContextDTO,
     PartyConsentMode,
     PartyDTO,
     PartyMemberDTO,
@@ -35,7 +36,6 @@ class FakeParties:
         self.lead = lead
         self.user = user
         self.member_exists = member_exists
-        self.companions = False
         self.parties = []
         self.companion_dtos = []
         self.calls = []
@@ -44,8 +44,12 @@ class FakeParties:
         self.calls.append(("overview", viewer_pk))
         return PartiesOverviewDTO(parties=self.parties, invites=[])
 
-    def led_party_companions(self, *, leader_pk, party_pk):
+    def led_party_companions(self, *, leader_pk, party_pk=None):
         self.calls.append(("led_party_companions", leader_pk, party_pk))
+        return self.companion_dtos
+
+    def lock_owned_companions(self, *, manager_pk):
+        self.calls.append(("lock_owned_companions", manager_pk))
         return self.companion_dtos
 
     def create(self, *, leader_pk, name):
@@ -56,28 +60,32 @@ class FakeParties:
         self.calls.append(("rename", leader_pk, party_pk, name))
         return True
 
-    def has_companions(self, *, leader_pk, party_pk):
-        self.calls.append(("has_companions", leader_pk, party_pk))
-        return self.companions
-
     def delete(self, *, leader_pk, party_pk):
         self.calls.append(("delete", leader_pk, party_pk))
         return True
 
-    def read_led_party(self, *, leader_pk, party_pk):
-        self.calls.append(("read_led_party", leader_pk, party_pk))
+    def read_active_member_party(self, *, member_pk, party_pk):
+        self.calls.append(("read_active_member_party", member_pk, party_pk))
         return self.lead
 
-    def find_invitable_user(self, email):
-        self.calls.append(("find_invitable_user", email))
-        return self.user
+    def find_invitable_users(self, identifier):
+        self.calls.append(("find_invitable_users", identifier))
+        if self.user is None:
+            return []
+        return self.user if isinstance(self.user, list) else [self.user]
 
-    def membership_exists(self, *, party_pk, user_pk):
-        self.calls.append(("membership_exists", party_pk, user_pk))
-        return self.member_exists
-
-    def create_invited_membership(self, *, party_pk, user_pk):
-        self.calls.append(("create_invited_membership", party_pk, user_pk))
+    def get_or_create_membership(
+        self,
+        *,
+        party_pk,
+        user_pk,
+        consent_mode=PartyConsentMode.ACCEPT_INVITES,
+        status=PartyMembershipStatus.INVITED,
+    ):
+        self.calls.append(
+            ("get_or_create_membership", party_pk, user_pk, consent_mode, status)
+        )
+        return not self.member_exists
 
     def accept_invite(self, *, membership_pk, user_pk):
         self.calls.append(("accept_invite", membership_pk, user_pk))
@@ -115,16 +123,7 @@ def _service(parties, notifier=None):
 
 
 class TestDelete:
-    def test_refuses_party_with_companions(self):
-        parties = FakeParties()
-        parties.companions = True
-
-        outcome = _service(parties).delete(leader_pk=1, party_pk=2)
-
-        assert outcome == DeletePartyOutcome.HAS_COMPANIONS
-        assert ("delete", 1, 2) not in parties.calls
-
-    def test_deletes_empty_party(self):
+    def test_deletes_party(self):
         parties = FakeParties()
 
         outcome = _service(parties).delete(leader_pk=1, party_pk=2)
@@ -141,23 +140,29 @@ class TestDelete:
 class TestInvite:
     def test_invites_and_notifies(self):
         parties = FakeParties(
-            lead=LedPartyDTO(name="Ekipa", leader_name="Lena Leader"),
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Ivy Inviter"),
             user=InvitedUserDTO(pk=FRIEND_PK, email="f@e.com"),
         )
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, email="f@e.com"
+            member_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.INVITED
-        assert ("create_invited_membership", 2, FRIEND_PK) in parties.calls
+        assert (
+            "get_or_create_membership",
+            2,
+            FRIEND_PK,
+            PartyConsentMode.ACCEPT_INVITES,
+            PartyMembershipStatus.INVITED,
+        ) in parties.calls
         assert len(notifier.sent) == 1
         notification = notifier.sent[0]
         assert notification.recipient_user_id == FRIEND_PK
         assert notification.recipient_email == "f@e.com"
         assert notification.party_name == "Ekipa"
-        assert notification.leader_name == "Lena Leader"
+        assert notification.actor_name == "Ivy Inviter"
 
     def test_foreign_party_reads_as_no_user(self):
         parties = FakeParties(
@@ -166,7 +171,7 @@ class TestInvite:
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, email="f@e.com"
+            member_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
@@ -174,29 +179,110 @@ class TestInvite:
 
     def test_unknown_email(self):
         parties = FakeParties(
-            lead=LedPartyDTO(name="Ekipa", leader_name="Lena"), user=None
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena"), user=None
         )
 
-        outcome = _service(parties).invite(leader_pk=1, party_pk=2, email="x@e.com")
+        outcome = _service(parties).invite(
+            member_pk=1, party_pk=2, identifier="x@e.com"
+        )
 
         assert outcome == InviteOutcome.NO_SUCH_USER
-        assert ("create_invited_membership", 2, FRIEND_PK) not in parties.calls
+        assert not any(call[0] == "get_or_create_membership" for call in parties.calls)
+
+    def test_ambiguous_handle(self):
+        parties = FakeParties(
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena"),
+            user=[
+                InvitedUserDTO(pk=FRIEND_PK, email="f@e.com"),
+                InvitedUserDTO(pk=FRIEND_PK + 1, email="g@e.com"),
+            ],
+        )
+
+        outcome = _service(parties).invite(member_pk=1, party_pk=2, identifier="ziggy")
+
+        assert outcome == InviteOutcome.AMBIGUOUS_HANDLE
+        assert not any(call[0] == "get_or_create_membership" for call in parties.calls)
 
     def test_already_member(self):
         parties = FakeParties(
-            lead=LedPartyDTO(name="Ekipa", leader_name="Lena"),
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena"),
             user=InvitedUserDTO(pk=FRIEND_PK, email="f@e.com"),
             member_exists=True,
         )
         notifier = FakeNotifier()
 
         outcome = _service(parties, notifier).invite(
-            leader_pk=1, party_pk=2, email="f@e.com"
+            member_pk=1, party_pk=2, identifier="f@e.com"
         )
 
         assert outcome == InviteOutcome.ALREADY_MEMBER
-        assert ("create_invited_membership", 2, FRIEND_PK) not in parties.calls
+        assert (
+            "get_or_create_membership",
+            2,
+            FRIEND_PK,
+            PartyConsentMode.ACCEPT_INVITES,
+            PartyMembershipStatus.INVITED,
+        ) in parties.calls
         assert not notifier.sent
+
+
+class TestAddCompanion:
+    def test_adds_owned_companion(self):
+        parties = FakeParties(
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena")
+        )
+        parties.companion_dtos = [_companion_dto()]
+
+        outcome = _service(parties).add_companion(
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name=" Kid "
+        )
+
+        assert outcome == CompanionAddOutcome.ADDED
+        assert ("lock_owned_companions", VIEWER_PK) in parties.calls
+        assert (
+            "get_or_create_membership",
+            OWN_PARTY_PK,
+            3,
+            PartyConsentMode.ACCEPT_BY_DEFAULT,
+            PartyMembershipStatus.ACTIVE,
+        ) in parties.calls
+
+    def test_unknown_companion(self):
+        parties = FakeParties(
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena")
+        )
+
+        outcome = _service(parties).add_companion(
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Nobody"
+        )
+
+        assert outcome == CompanionAddOutcome.NO_SUCH_COMPANION
+
+    def test_ambiguous_name(self):
+        parties = FakeParties(
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena")
+        )
+        parties.companion_dtos = [_companion_dto(), _companion_dto()]
+
+        outcome = _service(parties).add_companion(
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Kid"
+        )
+
+        assert outcome == CompanionAddOutcome.AMBIGUOUS_NAME
+        assert not any(call[0] == "get_or_create_membership" for call in parties.calls)
+
+    def test_already_member(self):
+        parties = FakeParties(
+            lead=PartyActionContextDTO(name="Ekipa", actor_name="Lena"),
+            member_exists=True,
+        )
+        parties.companion_dtos = [_companion_dto()]
+
+        outcome = _service(parties).add_companion(
+            member_pk=VIEWER_PK, party_pk=OWN_PARTY_PK, display_name="Kid"
+        )
+
+        assert outcome == CompanionAddOutcome.ALREADY_MEMBER
 
 
 def _member(user_pk, *, is_leader=False):
@@ -204,6 +290,8 @@ def _member(user_pk, *, is_leader=False):
         membership_pk=user_pk * 10,
         user_pk=user_pk,
         name=f"user-{user_pk}",
+        full_name=f"user-{user_pk}",
+        username=f"user-{user_pk}",
         slug=f"user-{user_pk}",
         is_login_less=False,
         is_leader=is_leader,
@@ -220,13 +308,14 @@ def _party(pk, *, name="", is_leader=False, leader_name="Lena Leader", members=(
         leader_pk=VIEWER_PK if is_leader else FOREIGN_LEADER_PK,
         leader_name=leader_name,
         is_leader=is_leader,
-        is_default=is_leader,
+        is_active_member=True,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=list(members),
     )
 
 
 def _companion_dto():
-    return ConnectedUserDTO(
+    return CompanionDTO(
         avatar_url="",
         date_joined=datetime(2026, 1, 1, tzinfo=UTC),
         discord_username="",

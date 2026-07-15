@@ -8,16 +8,8 @@
     {% translate "Schedule Activity Log" %}
 {% endblock page_title %}
 {% block content %}
-    <!-- Timetable sub-page tabs -->
-    <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-        {% tabs %}
-        {% tab "timetable" href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-    {% tab "log" active=True href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-{% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-{% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    {% tab_shell "panel/_timetable_tabs.html" %}
+    {% tab_shell_body %}
     <!-- Filters -->
     <form method="get" class="mb-4 flex flex-wrap gap-3 items-end">
         <div>
@@ -103,5 +95,6 @@
     {% else %}
         <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
     {% endif %}
-</div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% endblock content %}

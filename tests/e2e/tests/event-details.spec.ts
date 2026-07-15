@@ -69,14 +69,15 @@ test.describe("Event detail page", () => {
   });
 
   test("session card shows a slot while its modal is open", async ({ page }) => {
-    const card = page.locator('.session[data-session-id="2"]');
+    const card = page.getByRole("article").filter({ hasText: "Mega Strategy Lab" });
+    const sessionSurface = card.locator(":scope > div").first();
     const title = card.getByRole("heading", { name: "Mega Strategy Lab" });
 
     await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
 
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
     await settleViewTransitions(page);
-    await expect(card).toHaveClass(/session-suppressed/);
+    await expect(sessionSurface).toHaveClass(/session-suppressed/);
     await expect(card).toBeVisible();
     await expect(title).toBeHidden();
 
@@ -343,6 +344,37 @@ test.describe("Anonymous code modal", () => {
     await dialog.getByRole("button", { name: "Switch to This Code" }).click();
 
     await expect(page).toHaveURL(/\/event\/autumn-open/);
-    await expect(page.getByText(/Invalid code/i)).toBeVisible();
+    const flash = page.getByRole("alert").filter({ hasText: /Invalid code/i });
+    await expect(flash).toBeVisible();
+    await expect(dialog).toBeVisible();
+
+    const initialMainTop = await page
+      .locator("main")
+      .evaluate((main) => main.getBoundingClientRect().top);
+    expect(
+      await page
+        .getByRole("region", { name: "Notifications" })
+        .evaluate((region) => getComputedStyle(region).position),
+    ).toBe("fixed");
+    await page.waitForTimeout(300);
+    const finalMainTop = await page
+      .locator("main")
+      .evaluate((main) => main.getBoundingClientRect().top);
+    expect(finalMainTop).toBe(initialMainTop);
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await flash.getByRole("button", { name: "Dismiss" }).click();
+    await expect(flash).toHaveAttribute("data-flash-closing", "true");
+    await expect
+      .poll(
+        () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
+        {
+          timeout: 200,
+          intervals: [50],
+        },
+      )
+      .toBeLessThan(1);
+    await expect(flash).toHaveCount(0);
   });
 });

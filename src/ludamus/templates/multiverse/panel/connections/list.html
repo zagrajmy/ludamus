@@ -18,57 +18,58 @@
     </a>
 {% endblock header_actions %}
 {% block content %}
-    {% include "multiverse/panel/_tabs.html" %}
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        {% if connections %}
-            <div class="card overflow-hidden">
-                <table class="min-w-full divide-y divide-border">
-                    <caption class="sr-only">{% translate "Import connections for this sphere" %}</caption>
-                    <thead class="bg-bg-tertiary rounded-t-lg">
-                        <tr>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
-                                {% translate "Display name" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-semibold text-foreground uppercase tracking-wider">
-                                {% translate "Actions" %}
-                            </th>
+    {% tab_shell "multiverse/panel/_sphere_tabs_nav.html" %}
+    {% tab_shell_body %}
+    {% if connections %}
+        <div class="card overflow-hidden">
+            <table class="min-w-full divide-y divide-border">
+                <caption class="sr-only">{% translate "Import connections for this sphere" %}</caption>
+                <thead class="bg-bg-tertiary rounded-t-lg">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-semibold text-foreground uppercase tracking-wider">
+                            {% translate "Display name" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-semibold text-foreground uppercase tracking-wider">
+                            {% translate "Actions" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                    {% for connection in connections %}
+                        <tr class="hover:bg-bg-tertiary">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{{ connection.display_name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                {% translate "Row actions" as t_row_actions %}
+                                <div role="group" aria-label="{{ t_row_actions }}">
+                                    <a href="{% url 'multiverse:panel:connection-edit' pk=connection.pk %}"
+                                       class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
+                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                        {% translate "Edit" %}
+                                    </a>
+                                    <a href="{% url 'multiverse:panel:connection-delete' pk=connection.pk %}"
+                                       class="text-danger hover:text-danger/80 inline-flex items-center">
+                                        {% icon "trash" class="w-4 h-4 mr-1" %}
+                                        {% translate "Delete" %}
+                                    </a>
+                                </div>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                        {% for connection in connections %}
-                            <tr class="hover:bg-bg-tertiary">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{{ connection.display_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    {% translate "Row actions" as t_row_actions %}
-                                    <div role="group" aria-label="{{ t_row_actions }}">
-                                        <a href="{% url 'multiverse:panel:connection-edit' pk=connection.pk %}"
-                                           class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
-                                            {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                            {% translate "Edit" %}
-                                        </a>
-                                        <a href="{% url 'multiverse:panel:connection-delete' pk=connection.pk %}"
-                                           class="text-danger hover:text-danger/80 inline-flex items-center">
-                                            {% icon "trash" class="w-4 h-4 mr-1" %}
-                                            {% translate "Delete" %}
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted mb-3">{% translate "No connections yet." %}</p>
-                <a href="{% url 'multiverse:panel:connection-create' %}"
-                   class="btn btn-primary inline-flex items-center">
-                    {% icon "plus" class="w-4 h-4 mr-2" %}
-                    {% translate "New connection" %}
-                </a>
-            </div>
-        {% endif %}
-    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted mb-3">{% translate "No connections yet." %}</p>
+            <a href="{% url 'multiverse:panel:connection-create' %}"
+               class="btn btn-primary inline-flex items-center">
+                {% icon "plus" class="w-4 h-4 mr-2" %}
+                {% translate "New connection" %}
+            </a>
+        </div>
+    {% endif %}
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% endblock content %}

@@ -24,7 +24,11 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
 )
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    assert_cache_control,
+    assert_response,
+    assert_response_404,
+)
 
 
 def _scope(space, name=None):
@@ -116,6 +120,7 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
+        assert_cache_control(response, {"public", "max-age=300"})
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content
@@ -218,6 +223,7 @@ class TestPublicEventPrintView:
         response = authenticated_client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
+        assert_cache_control(response, {"private", "max-age=5"})
         assert session.title in response.content.decode()
 
     def test_scoped_to_node_shows_logo_capacity_and_scope_name(
