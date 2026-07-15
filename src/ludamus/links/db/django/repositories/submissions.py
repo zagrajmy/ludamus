@@ -27,7 +27,6 @@ from ludamus.pacts import (
     EventProposalSettingsRepositoryProtocol,
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorListFilters,
     FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
@@ -54,6 +53,7 @@ from ludamus.pacts import (
     TimeSlotRequirementDTO,
 )
 from ludamus.pacts.submissions import (
+    FacilitatorListFilters,
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogEntryRepositoryProtocol,

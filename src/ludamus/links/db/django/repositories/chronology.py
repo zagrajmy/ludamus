@@ -25,8 +25,6 @@ from ludamus.pacts import (
     EnrollmentConfigRepositoryProtocol,
     EventDTO,
     EventListItemDTO,
-    EventPanelSettingsDTO,
-    EventPanelSettingsRepositoryProtocol,
     EventRepositoryProtocol,
     EventSettingsDTO,
     EventSettingsRepositoryProtocol,
@@ -52,6 +50,10 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
 )
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
+from ludamus.pacts.submissions import (
+    EventPanelSettingsDTO,
+    EventPanelSettingsRepositoryProtocol,
+)
 
 
 def event_dto(event: Event) -> EventDTO:

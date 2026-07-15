@@ -8,14 +8,13 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
-        EventPanelSettingsRepositoryProtocol,
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorListItemDTO,
@@ -319,6 +318,32 @@ class PersonalDataFieldEditContextDTO:
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
+
+
+class FacilitatorListFilters(TypedDict, total=False):
+    search: str | None
+    accreditation: str | None
+    flagged: bool | None
+    field_filters: dict[int, str | bool] | None
+    sort: str | None
+
+
+class EventPanelSettingsDTO(BaseModel):
+    """Organizer-only backoffice settings for an event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    displayed_facilitator_field_ids: list[int] = []
+    pk: int
+
+
+class EventPanelSettingsRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
+    @staticmethod
+    def update_displayed_facilitator_fields(
+        event_id: int, field_ids: list[int]
+    ) -> None: ...
 
 
 @dataclass

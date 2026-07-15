@@ -12,12 +12,15 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         ContentFieldChange,
         FacilitatorChangeLogData,
-        FacilitatorListFilters,
         FacilitatorUpdateData,
         PersonalDataFieldDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import FacilitatorListQuery, FacilitatorPanelRepos
+    from ludamus.pacts.submissions import (
+        FacilitatorListFilters,
+        FacilitatorListQuery,
+        FacilitatorPanelRepos,
+    )
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
 

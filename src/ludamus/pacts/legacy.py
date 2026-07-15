@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.submissions import FacilitatorListFilters
 
 
 class NotFoundError(Exception):
@@ -107,14 +108,6 @@ class FacilitatorListItemDTO(BaseModel):
     session_count: int
     slug: str
     user_id: int | None
-
-
-class FacilitatorListFilters(TypedDict, total=False):
-    search: str | None
-    accreditation: str | None
-    flagged: bool | None
-    field_filters: dict[int, str | bool] | None
-    sort: str | None
 
 
 class ProposalCategoryDTO(BaseModel):
@@ -674,15 +667,6 @@ class EventSettingsDTO(BaseModel):
     pk: int
 
 
-class EventPanelSettingsDTO(BaseModel):
-    """Organizer-only backoffice settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    displayed_facilitator_field_ids: list[int] = []
-    pk: int
-
-
 class EventUpdateData(TypedDict, total=False):
     """Write shape for updating event fields."""
 
@@ -1216,15 +1200,6 @@ class EventSettingsRepositoryProtocol(Protocol):
     def read_or_create(event_id: int) -> EventSettingsDTO: ...
     @staticmethod
     def update_displayed_fields(event_id: int, field_ids: list[int]) -> None: ...
-
-
-class EventPanelSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
-    @staticmethod
-    def update_displayed_facilitator_fields(
-        event_id: int, field_ids: list[int]
-    ) -> None: ...
 
 
 class EnrollmentConfigRepositoryProtocol(Protocol):
