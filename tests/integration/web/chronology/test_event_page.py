@@ -115,6 +115,7 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
             contains="Upcoming",
             not_contains="Enrollment Open",
+            cache_control={"private", "max-age=180"},
         )
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):

@@ -82,6 +82,7 @@ class TestEventsPageView:
                 "view": ANY,
             },
             template_name=["index.html"],
+            cache_control={"private", "max-age=180"},
         )
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
