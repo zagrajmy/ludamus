@@ -7552,23 +7552,6 @@ msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
 #: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Organizer Overview"
-msgstr "Przegląd harmonogramu"
-
-#: src/ludamus/templates/panel/timetable-log.html
-#: src/ludamus/templates/panel/timetable-overview.html
-#: src/ludamus/templates/panel/timetable-problems.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "Problems"
-msgstr "Problemy"
-
-msgid "Clear filters"
-msgstr "Wyczyść filtry"
-
-#: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
 
