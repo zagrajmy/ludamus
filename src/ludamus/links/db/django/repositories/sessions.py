@@ -98,7 +98,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
 
 
 def _session_modal_dto(
-    session: Session, *, viewer_user_ids: list[int]
+    session: Session, *, viewer_user_ids: list[int], editor_user_id: int | None
 ) -> SessionModalDTO:
     now = datetime.now(tz=UTC)
     agenda_item = session.agenda_item
@@ -127,7 +127,6 @@ def _session_modal_dto(
                 user=user_dto(participation.user),
                 status=SessionParticipationStatus(participation.status),
                 creation_time=participation.creation_time,
-                is_shadowbanned=False,
             )
             for participation in participations
         ],
@@ -144,7 +143,11 @@ def _session_modal_dto(
             and participation.status == SessionParticipationStatus.WAITING
             for participation in participations
         ),
-        can_edit=edit_allowed and session.presenter_id in viewer_ids,
+        can_edit=(
+            edit_allowed
+            and session.presenter_id is not None
+            and session.presenter_id == editor_user_id
+        ),
         is_ongoing=agenda_item.start_time <= now,
         is_ended=agenda_item.end_time <= now,
     )
@@ -155,7 +158,11 @@ class SessionRepository(  # noqa: PLR0904
 ):
     @staticmethod
     def read_modal(
-        *, event_id: int, session_id: int, viewer_user_ids: list[int]
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
     ) -> SessionModalDTO | None:
         base = Session.objects.filter(agenda_item__isnull=False).annotate(
             enrolled_count_cached=Count(
@@ -179,7 +186,9 @@ class SessionRepository(  # noqa: PLR0904
             )
         except Session.DoesNotExist:
             return None
-        return _session_modal_dto(session, viewer_user_ids=viewer_user_ids)
+        return _session_modal_dto(
+            session, viewer_user_ids=viewer_user_ids, editor_user_id=editor_user_id
+        )
 
     @staticmethod
     def create(

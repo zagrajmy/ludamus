@@ -20,11 +20,17 @@ class SessionModalService(SessionModalServiceProtocol):
         self._sessions = sessions
 
     def read(
-        self, *, event_id: int, session_id: int, viewer_user_ids: list[int]
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
     ) -> SessionModalDTO | None:
         with self._transaction.atomic():
             return self._sessions.read_modal(
                 event_id=event_id,
                 session_id=session_id,
                 viewer_user_ids=viewer_user_ids,
+                editor_user_id=editor_user_id,
             )

@@ -1041,6 +1041,7 @@ class SessionModalComponentView(View):
             event_id=event.pk,
             session_id=session_id,
             viewer_user_ids=self._viewer_user_ids(),
+            editor_user_id=self.request.context.current_user_id,
         )
         if dto is None:
             raise Http404

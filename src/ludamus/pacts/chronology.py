@@ -295,17 +295,12 @@ class PartySessionHistoryServiceProtocol(Protocol):
 
 
 class SessionModalSeatDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     user: UserDTO
     status: SessionParticipationStatus
     creation_time: datetime
-    is_shadowbanned: bool = False
 
 
 class SessionModalDTO(SessionCardStatsDTO):
-    model_config = ConfigDict(from_attributes=True)
-
     session: SessionDTO
     agenda_item: AgendaItemDTO
     presenter: UserDTO | None
@@ -322,13 +317,22 @@ class SessionModalDTO(SessionCardStatsDTO):
 class SessionModalRepositoryProtocol(Protocol):
     @staticmethod
     def read_modal(
-        *, event_id: int, session_id: int, viewer_user_ids: list[int]
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
     ) -> SessionModalDTO | None: ...
 
 
 class SessionModalServiceProtocol(Protocol):
     def read(
-        self, *, event_id: int, session_id: int, viewer_user_ids: list[int]
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
     ) -> SessionModalDTO | None: ...
 
 
