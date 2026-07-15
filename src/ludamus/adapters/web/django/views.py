@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email import message_from_bytes, policy
 from enum import StrEnum, auto
+from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -14,10 +15,11 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.cache import patch_cache_control
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.generic.base import TemplateView, View
@@ -278,6 +280,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     model = Event
     context_object_name = "event"
     request: RootRequest
+
+    def dispatch(
+        self, request: HttpRequest, *args: object, **kwargs: object
+    ) -> HttpResponseBase:
+        response = super().dispatch(request, *args, **kwargs)
+        if request.method == "GET" and response.status_code == HTTPStatus.OK:
+            patch_cache_control(response, private=True, max_age=180)
+        return response
 
     def get_queryset(self) -> QuerySet[Event]:
         return (

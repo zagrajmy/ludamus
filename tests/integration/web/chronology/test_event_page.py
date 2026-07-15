@@ -117,6 +117,11 @@ class TestEventPageView:
             not_contains="Enrollment Open",
         )
 
+    def test_private_browser_cache_header(self, client, event):
+        response = client.get(self._get_url(event.slug))
+
+        assert response.headers["Cache-Control"] == "private, max-age=180"
+
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
 
