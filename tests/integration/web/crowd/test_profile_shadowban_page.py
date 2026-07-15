@@ -17,7 +17,12 @@ from tests.integration.utils import assert_response
 
 def _meet(session: Session) -> ShadowbanMeetSessionDTO:
     return ShadowbanMeetSessionDTO(
-        session_id=session.pk, title=session.title, event_slug=session.event.slug
+        session_id=session.pk,
+        title=session.title,
+        event_slug=session.event.slug,
+        event_name=session.event.name,
+        sphere_name=session.event.sphere.name,
+        sphere_domain=session.event.sphere.site.domain,
     )
 
 

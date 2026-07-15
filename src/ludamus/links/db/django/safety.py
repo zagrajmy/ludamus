@@ -52,11 +52,27 @@ def _met_sessions_by_player(
     confirmed = SessionParticipationStatus.CONFIRMED
     rows: dict[tuple[int, int], ShadowbanMeetSessionDTO] = {}
 
-    def add_row(user_id: int, session_id: int, title: str, event_slug: str) -> None:
+    fields = (
+        "user_id",
+        "session_id",
+        "session__title",
+        "session__event__slug",
+        "session__event__name",
+        "session__event__sphere__name",
+        "session__event__sphere__site__domain",
+    )
+
+    def add_row(user_id: int, row: tuple[int, str, str, str, str]) -> None:
+        session_id, title, event_slug, event_name, sphere_name, sphere_domain = row
         rows.setdefault(
             (user_id, session_id),
             ShadowbanMeetSessionDTO(
-                session_id=session_id, title=title, event_slug=event_slug
+                session_id=session_id,
+                title=title,
+                event_slug=event_slug,
+                event_name=event_name,
+                sphere_name=sphere_name,
+                sphere_domain=sphere_domain,
             ),
         )
 
@@ -64,11 +80,11 @@ def _met_sessions_by_player(
         SessionParticipation.objects.filter(
             user_id__in=player_ids, session__presenter_id=owner_id
         )
-        .values_list("user_id", "session_id", "session__title", "session__event__slug")
+        .values_list(*fields)
         .distinct()
     )
-    for user_id, session_id, title, event_slug in presented_rows:
-        add_row(user_id, session_id, title, event_slug)
+    for user_id, *row in presented_rows:
+        add_row(user_id, tuple(row))
 
     alongside_rows = (
         SessionParticipation.objects.filter(
@@ -77,11 +93,11 @@ def _met_sessions_by_player(
             session__session_participations__user_id=owner_id,
             session__session_participations__status=confirmed,
         )
-        .values_list("user_id", "session_id", "session__title", "session__event__slug")
+        .values_list(*fields)
         .distinct()
     )
-    for user_id, session_id, title, event_slug in alongside_rows:
-        add_row(user_id, session_id, title, event_slug)
+    for user_id, *row in alongside_rows:
+        add_row(user_id, tuple(row))
 
     by_player: dict[int, list[ShadowbanMeetSessionDTO]] = {
         player_id: [] for player_id in player_ids
