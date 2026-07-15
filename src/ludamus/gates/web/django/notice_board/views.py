@@ -397,7 +397,7 @@ class EncounterCancelRSVPActionView(LoginRequiredMixin, View):
         return redirect(detail_url)
 
 
-@method_decorator(cache_control(public=True, max_age=86400), name="dispatch")
+@method_decorator(cache_control(public=True, max_age=86400), name="get")
 class EncounterQrView(View):
     request: RootRequest
 
@@ -415,7 +415,7 @@ class EncounterQrView(View):
         return HttpResponse(qr_svg(url, dark="#1f2937"), content_type="image/svg+xml")
 
 
-@method_decorator(cache_control(public=True, max_age=300), name="dispatch")
+@method_decorator(cache_control(public=True, max_age=300), name="get")
 class EncounterIcsView(View):
     request: RootRequest
 

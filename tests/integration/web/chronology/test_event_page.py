@@ -115,15 +115,8 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
             contains="Upcoming",
             not_contains="Enrollment Open",
+            cache_control={"private", "max-age=180"},
         )
-
-    def test_private_browser_cache_header(self, client, event):
-        response = client.get(self._get_url(event.slug))
-
-        directives = response.headers["Cache-Control"].split(", ")
-        assert "private" in directives
-        assert "public" not in directives
-        assert "max-age=180" in directives
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))

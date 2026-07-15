@@ -110,7 +110,7 @@ if TYPE_CHECKING:
 MINIMUM_ALLOWED_USER_AGE = 16
 
 
-@method_decorator(cache_control(public=True, max_age=300), name="dispatch")
+@method_decorator(cache_control(public=True, max_age=300), name="get")
 class DesignPageView(TemplateView):
     request: RootRequest
     template_name = "design.html"
@@ -192,7 +192,7 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="dispatch")
+@method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
@@ -277,7 +277,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="dispatch")
+@method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
