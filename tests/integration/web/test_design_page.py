@@ -251,3 +251,5 @@ class TestDesignPageView:
             template_name=["design.html"],
             contains=["py-1.5", "py-2", "py-3", "text-xs", "text-sm", "text-base"],
         )
+        assert "public" in response["Cache-Control"]
+        assert "max-age=300" in response["Cache-Control"]

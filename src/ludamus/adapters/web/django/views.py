@@ -110,6 +110,7 @@ if TYPE_CHECKING:
 MINIMUM_ALLOWED_USER_AGE = 16
 
 
+@method_decorator(cache_control(public=True, max_age=300), name="dispatch")
 class DesignPageView(TemplateView):
     request: RootRequest
     template_name = "design.html"
@@ -191,6 +192,7 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
+@method_decorator(cache_control(private=True, max_age=180), name="dispatch")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"

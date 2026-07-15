@@ -8,8 +8,10 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
+from django.views.decorators.cache import cache_control
 from django.views.generic.base import TemplateView, View
 
 from ludamus.gates.web.django.entities import UserInfo
@@ -395,6 +397,7 @@ class EncounterCancelRSVPActionView(LoginRequiredMixin, View):
         return redirect(detail_url)
 
 
+@method_decorator(cache_control(public=True, max_age=86400), name="dispatch")
 class EncounterQrView(View):
     request: RootRequest
 
@@ -412,6 +415,7 @@ class EncounterQrView(View):
         return HttpResponse(qr_svg(url, dark="#1f2937"), content_type="image/svg+xml")
 
 
+@method_decorator(cache_control(public=True, max_age=300), name="dispatch")
 class EncounterIcsView(View):
     request: RootRequest
 

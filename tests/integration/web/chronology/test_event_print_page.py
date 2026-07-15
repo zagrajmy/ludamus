@@ -116,6 +116,8 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
+        assert "public" in response["Cache-Control"]
+        assert "max-age=300" in response["Cache-Control"]
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content

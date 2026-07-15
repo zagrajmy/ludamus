@@ -9,8 +9,10 @@ from django.http import Http404, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.dateparse import parse_datetime
+from django.utils.decorators import method_decorator
 from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.cache import cache_control
 from django.views.generic.base import View
 
 from ludamus.mills.qr import qr_svg
@@ -134,6 +136,7 @@ def _timetable_scope_name(
     return None
 
 
+@method_decorator(cache_control(public=True, max_age=300), name="dispatch")
 class PublicEventPrintView(View):
     request: RootRequest
     template_name = "chronology/print.html"
