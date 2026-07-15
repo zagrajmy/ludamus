@@ -45,13 +45,14 @@ jobs:
             await staging.resolveDeploy({ github, context, core });
 
   build:
-    name: Rebuild and upstart dockers
+    name: Build image and deploy to Coolify
     needs: resolve-staging
     if: needs.resolve-staging.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       deployments: write
+      packages: write
     environment:
       name: staging
       url: https://test.zagrajmy.net
@@ -100,6 +101,7 @@ jobs:
           ENV: production
           DJANGO_SETTINGS_MODULE: ludamus.edges.settings
           DEBUG: 'false'
+          TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
           # Non-sensitive config — GitHub Environment variables.
           USE_POSTGRES: ${{ vars.USE_POSTGRES }}
           ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
@@ -117,10 +119,6 @@ jobs:
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
           GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
           GS_LOCATION: ${{ vars.GS_LOCATION }}
-          POSTGRES_DATA_PATH: ${{ vars.POSTGRES_DATA_PATH }}
-          STATIC_DATA_PATH: ${{ vars.STATIC_DATA_PATH }}
-          MEDIA_DATA_PATH: ${{ vars.MEDIA_DATA_PATH }}
-          WEB_PORT: ${{ vars.WEB_PORT }}
           # Sensitive config — GitHub Environment secrets.
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -131,7 +129,13 @@ jobs:
           EMAIL_URL: ${{ secrets.EMAIL_URL }}
         run: |
           set -eu
+          # Previously injected by compose `environment:` on the host.
+          GIT_COMMIT_SHA="$(printf '%.7s' "$TARGET_SHA")"
+          export GIT_COMMIT_SHA
           : > .env.local
+          # envs.json mirrors .env.local in Coolify's bulk-env API shape,
+          # built in the same loop so the two can never drift.
+          echo '[]' > envs.json
           for k in ENV DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
                    ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
                    DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
@@ -139,12 +143,14 @@ jobs:
                    AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
                    MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
                    EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
-                   POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
-                   WEB_PORT \
+                   GIT_COMMIT_SHA \
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
             if [ -n "$v" ]; then
               printf "%s='%s'\n" "$k" "$v" >> .env.local
+              jq --arg k "$k" --arg v "$v" \
+                '. + [{key: $k, value: $v, is_preview: false}]' \
+                envs.json > envs.json.tmp && mv envs.json.tmp envs.json
             fi
           done
 
@@ -158,39 +164,89 @@ jobs:
           # discarded so resolved values never reach the run log.
           npx -y varlock@1.1.0 load > /dev/null
 
-      - name: Upload .env.local to host
-        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_DEPLOY_KEY }}
-          source: .env.local
-          target: ludamus/
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Deploy
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
-        env:
-          GITHUB_COMMIT_SHA: ${{ needs.resolve-staging.outputs.sha }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_DEPLOY_KEY }}
-          envs: GITHUB_COMMIT_SHA
-          # Default is 10m; a cold pull + rebuild of the images exceeds it and
-          # drone-ssh kills the command mid-build ("Run Command Timeout").
-          command_timeout: 13m
-          script: |
-            set -ex
-            cd ludamus/
-            chmod 600 .env.local
-            git fetch
-            git checkout $GITHUB_COMMIT_SHA
-            export GIT_COMMIT_SHA=$(git rev-parse --short HEAD)
-            # .env.local was validated by varlock on the CI runner. Here the
-            # compose CLI reads it: --env-file feeds ${VAR} interpolation,
-            # and prod.yaml's `env_file:` injects it into the containers.
-            docker compose --env-file .env.local -p ludamus-staging -f docker/compose/prod.yaml up --build --pull always -d
-            docker image prune -f
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push staging image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: prod
+          push: true
+          tags: ghcr.io/${{ github.repository }}:sha-${{ needs.resolve-staging.outputs.sha }}
+          build-args: |
+            ENV=production
+            DJANGO_SETTINGS_MODULE=ludamus.edges.settings
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sync environment to Coolify
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+        run: |
+          set -euo pipefail
+          # envs.json was varlock-validated (as .env.local) above. Output is
+          # discarded so values never reach the run log.
+          jq '{data: .}' envs.json | curl -fsS -X PATCH \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data @- \
+            "$COOLIFY_URL/api/v1/applications/$APP_UUID/envs/bulk" > /dev/null
+
+      - name: Pin image tag
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+          TARGET_SHA: ${{ needs.resolve-staging.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Pinning the exact sha tag (not `latest`) makes rollback a
+          # re-dispatch of this workflow on an older commit.
+          jq -n --arg tag "sha-$TARGET_SHA" '{docker_registry_image_tag: $tag}' \
+            | curl -fsS -X PATCH \
+                -H "Authorization: Bearer $COOLIFY_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data @- \
+                "$COOLIFY_URL/api/v1/applications/$APP_UUID" > /dev/null
+
+      - name: Deploy on Coolify and wait
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+        run: |
+          set -eu
+          deployment_uuid="$(curl -fsS \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID" \
+            | jq -re '.deployments[0].deployment_uuid')"
+          echo "Coolify deployment: $deployment_uuid"
+          # Poll so the run (and the GitHub deployment status) reflects the
+          # real outcome; 60 x 10s ≈ the old 13m ssh ceiling.
+          for i in $(seq 1 60); do
+            sleep 10
+            status="$(curl -fsS \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_URL/api/v1/deployments/$deployment_uuid" \
+              | jq -r '.status')"
+            echo "[$i] status: $status"
+            case "$status" in
+              finished) exit 0 ;;
+              failed | cancelled*) echo "Deployment $status" >&2; exit 1 ;;
+            esac
+          done
+          echo "Timed out waiting for Coolify deployment" >&2
+          exit 1
 
       - name: Mark GitHub deployment complete
         if: always() && steps.deployment.outputs.id != ''
