@@ -49,7 +49,7 @@ class TestShadowbanPretendFull:
             HTTPStatus.OK,
             context_data=response.context_data,
             template_name=["chronology/event.html"],
-            contains=["Deniable Game", "Session full"],
+            contains=["Deniable Game"],
         )
         (card,) = response.context["sessions"]
         assert card.pretend_full
@@ -59,6 +59,16 @@ class TestShadowbanPretendFull:
         assert all(p.user.pk < 0 for p in card.session_participations)
         (hour_card,) = response.context["hour_data"][agenda_item.start_time]
         assert hour_card.pretend_full
+        # The "Session full" affordance renders in the lazy-loaded modal, which
+        # applies the same shadowban masking for the banned viewer.
+        modal = authenticated_client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": session.pk},
+            )
+        )
+        assert modal.status_code == HTTPStatus.OK
+        assert "Session full" in modal.content.decode()
 
     def test_event_page_untouched_for_other_users(
         self, authenticated_client, agenda_item, event
