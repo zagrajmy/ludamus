@@ -163,7 +163,8 @@ const findTriggerInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | 
   ) ?? null;
 
 const findTargetTitleInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | null =>
-  snapshot.nodes.find((node) => isTargetTitleNode(node) && isNodeInViewport(snapshot, node)) ?? null;
+  snapshot.nodes.find((node) => isTargetTitleNode(node) && isNodeInViewport(snapshot, node)) ??
+  null;
 
 const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
   for (let attempt = 0; attempt < 16; attempt += 1) {

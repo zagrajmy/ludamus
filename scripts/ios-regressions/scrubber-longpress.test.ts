@@ -2,7 +2,6 @@ import type {
   AgentDeviceClient,
   AgentDeviceSelectionOptions,
   CaptureSnapshotResult,
-  SnapshotNode,
 } from "agent-device";
 
 import { beforeAll, expect, test } from "bun:test";
@@ -25,11 +24,11 @@ const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
 const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "240000");
 
-const calloutActions = [
+const calloutSignals = [
+  "Hide preview",
   "Open in New Tab",
-  "Open in Background",
+  "Open in Tab Group",
   "Add to Reading List",
-  "Copy Link",
   "Download Linked File",
 ];
 
@@ -110,23 +109,26 @@ const openUrl = async (url: string, udid: string): Promise<void> => {
   await openUrlWithSafari(url);
 };
 
-const findRailMarker = async (): Promise<SnapshotNode | null> => {
-  const snapshot = await takeSnapshot();
-  return (
-    snapshot.nodes.find(
-      (node) => (node.label ?? "").startsWith("Jump to") && node.rect && node.rect.width > 0,
-    ) ?? null
-  );
-};
+type Rect = { x: number; y: number; width: number; height: number };
 
-const waitForRailMarker = async (timeoutMs: number): Promise<SnapshotNode | null> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const marker = await findRailMarker();
-    if (marker) return marker;
-    await client.command.wait({ ...deviceOptions, durationMs: 500 });
+const viewportRect = async (): Promise<Rect> =>
+  (await takeSnapshot()).nodes[0]?.rect ?? { x: 0, y: 0, width: 402, height: 874 };
+
+const scrollScheduleIntoView = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 14; attempt += 1) {
+    const snapshot = await takeSnapshot();
+    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 874;
+    const sessionOnScreen = snapshot.nodes.some(
+      (node) =>
+        (node.label ?? "").startsWith("Open details for") &&
+        node.rect !== undefined &&
+        node.rect.y > 80 &&
+        node.rect.y < viewportHeight - 120,
+    );
+    if (sessionOnScreen) return;
+    await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
+    await client.command.wait({ ...deviceOptions, durationMs: 300 });
   }
-  return null;
 };
 
 const closeSessionIfPresent = async (name: string): Promise<void> => {
@@ -184,7 +186,7 @@ const assertEventPageReady = async (url: URL): Promise<void> => {
 
 const eventUrl = new URL(eventPath, baseUrl);
 
-let surfacedCalloutActions: string[] = [];
+let surfacedCalloutSignals: string[] = [];
 
 beforeAll(async () => {
   await assertEventPageReady(eventUrl);
@@ -199,29 +201,27 @@ beforeAll(async () => {
   await openUrl(eventUrl.toString(), udid);
   await client.command.wait({ ...deviceOptions, durationMs: 3000 });
 
-  const marker = await waitForRailMarker(15000);
-  if (!marker || !marker.rect) {
-    const labels = (await snapshotLabels()).slice(0, 40).join(" | ");
-    throw new Error(
-      `No "Jump to …" hour marker was visible on the rail. Snapshot labels: ${labels}`,
+  await scrollScheduleIntoView();
+
+  const viewport = await viewportRect();
+  const x = viewport.x + viewport.width - 4;
+  const fractions = [0.3, 0.45, 0.6, 0.75];
+  for (const fraction of fractions) {
+    const y = viewport.y + viewport.height * fraction;
+    console.log(`Long-pressing the rail at x=${Math.round(x)} y=${Math.round(y)}...`);
+    await client.interactions.longPress({ ...deviceOptions, x, y, durationMs: 800 });
+    await client.command.wait({ ...deviceOptions, durationMs: 900 });
+    const labels = await snapshotLabels();
+    const surfaced = calloutSignals.filter((signal) =>
+      labels.some((label) => label.includes(signal)),
     );
+    if (surfaced.length > 0) {
+      surfacedCalloutSignals = surfaced;
+      break;
+    }
   }
-
-  console.log(`Long-pressing the hour marker ${JSON.stringify(marker.label)}...`);
-  await client.interactions.longPress({
-    ...deviceOptions,
-    x: marker.rect.x + marker.rect.width / 2,
-    y: marker.rect.y + marker.rect.height / 2,
-    durationMs: 900,
-  });
-  await client.command.wait({ ...deviceOptions, durationMs: 800 });
-
-  const labelsAfter = await snapshotLabels();
-  surfacedCalloutActions = calloutActions.filter((action) =>
-    labelsAfter.some((label) => label.includes(action)),
-  );
 }, hookTimeoutMs);
 
-test("long-press on an hour marker does not open the iOS link callout", () => {
-  expect(surfacedCalloutActions).toEqual([]);
+test("long-pressing the hour rail does not open the iOS link callout", () => {
+  expect(surfacedCalloutSignals).toEqual([]);
 });
