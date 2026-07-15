@@ -242,14 +242,10 @@
                     </button>
                 {% elif data.is_enrollment_available and not event_banned %}
                     {% if current_user %}
-                        {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
-                            {% include "chronology/parts/session-enroll-actions.html" with event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk can_act=True is_enrollment_available=data.is_enrollment_available user_enrolled=data.user_enrolled user_waiting=data.user_waiting is_full=data.is_full is_unlimited=data.is_unlimited enroll_error="" %}
-                        {% elif data.user_enrolled or data.user_waiting %}
-                            <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
-                               class="btn text-sm bg-warning text-white">
-                                {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
-                            </a>
-                        {% endif %}
+                        {# current_user is always an ACTIVE user (the profile context #}
+                        {# processor only resolves active accounts), so enrollment #}
+                        {# actions always apply here. #}
+                        {% include "chronology/parts/session-enroll-actions.html" with event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk can_act=True is_enrollment_available=data.is_enrollment_available user_enrolled=data.user_enrolled user_waiting=data.user_waiting is_full=data.is_full is_unlimited=data.is_unlimited enroll_error="" %}
                     {% elif request.session.anonymous_enrollment_active %}
                         {% if data.user_enrolled or data.user_waiting %}
                             <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
