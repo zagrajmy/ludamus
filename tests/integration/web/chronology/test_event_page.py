@@ -120,9 +120,10 @@ class TestEventPageView:
     def test_private_browser_cache_header(self, client, event):
         response = client.get(self._get_url(event.slug))
 
-        cache_control = response.headers["Cache-Control"]
-        assert "private" in cache_control
-        assert "max-age=180" in cache_control
+        directives = response.headers["Cache-Control"].split(", ")
+        assert "private" in directives
+        assert "public" not in directives
+        assert "max-age=180" in directives
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))

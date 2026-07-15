@@ -83,8 +83,10 @@ class TestEventsPageView:
             },
             template_name=["index.html"],
         )
-        assert "private" in response["Cache-Control"]
-        assert "max-age=180" in response["Cache-Control"]
+        directives = response["Cache-Control"].split(", ")
+        assert "private" in directives
+        assert "public" not in directives
+        assert "max-age=180" in directives
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
     def test_ok_with_event(self, client, event):

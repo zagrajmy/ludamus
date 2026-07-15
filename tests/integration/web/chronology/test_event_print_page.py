@@ -116,8 +116,9 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
-        assert "public" in response["Cache-Control"]
-        assert "max-age=300" in response["Cache-Control"]
+        directives = response["Cache-Control"].split(", ")
+        assert "public" in directives
+        assert "max-age=300" in directives
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content
@@ -220,6 +221,10 @@ class TestPublicEventPrintView:
         response = authenticated_client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
+        directives = response["Cache-Control"].split(", ")
+        assert "private" in directives
+        assert "public" not in directives
+        assert "max-age=5" in directives
         assert session.title in response.content.decode()
 
     def test_scoped_to_node_shows_logo_capacity_and_scope_name(
