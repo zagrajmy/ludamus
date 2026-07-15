@@ -122,7 +122,7 @@ test("dispatches the labeled PR without mutating other labels", async () => {
       {
         owner: "owner",
         repo: "repo",
-        workflow_id: "deploy-staging-coolify.yml",
+        workflow_id: "deploy-staging.yml",
         ref: "main",
         inputs: {
           pr_number: "2",
@@ -130,7 +130,7 @@ test("dispatches the labeled PR without mutating other labels", async () => {
         },
       },
     ],
-    ["info", "Dispatched deploy-staging-coolify.yml for PR #2 at head-sha"],
+    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
   ]);
 });
 
@@ -149,7 +149,7 @@ test("redeploys a labeled PR on synchronize", async () => {
       {
         owner: "owner",
         repo: "repo",
-        workflow_id: "deploy-staging-coolify.yml",
+        workflow_id: "deploy-staging.yml",
         ref: "main",
         inputs: {
           pr_number: "2",
@@ -157,7 +157,7 @@ test("redeploys a labeled PR on synchronize", async () => {
         },
       },
     ],
-    ["info", "Dispatched deploy-staging-coolify.yml for PR #2 at head-sha"],
+    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
   ]);
 });
 
