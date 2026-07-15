@@ -167,6 +167,8 @@ class TestProfileShadowbanPageView:
 
         response = authenticated_client.get(self.URL)
 
+        event = session.event
+        sep = chr(0x203A)
         assert_response(
             response,
             HTTPStatus.OK,
@@ -179,7 +181,11 @@ class TestProfileShadowbanPageView:
                 "profile_active_tab": "safety",
             },
             template_name="crowd/user/safety.html",
-            contains=session.title,
+            contains=[
+                session.title,
+                f"//{event.sphere.site.domain}/event/{event.slug}/?session={session.pk}",
+                f"{event.sphere.name} {sep} {event.name} {sep} {session.title}",
+            ],
         )
 
     def test_get_lists_players_met_at_a_shared_session(
