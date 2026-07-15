@@ -62,7 +62,7 @@
                           method="post"
                           class="shrink-0"
                           data-confirm="{{ sb_body_1 }}\n\n{{ sb_body_2 }}\n\n{{ sb_body_3 }}"
-                          data-confirm-title="{% blocktranslate with name=candidate.username %}Do you want to shadowban {{ name }}?{% endblocktranslate %}"
+                          data-confirm-title="{% blocktranslate with name=candidate.full_name %}Do you want to shadowban {{ name }}?{% endblocktranslate %}"
                           data-confirm-variant="primary"
                           data-confirm-action="{{ t_shadowban }}">
                         {% csrf_token %}
