@@ -9,6 +9,7 @@ on:
       - "src/ludamus/templates/**"
       - "tests/e2e/**"
       - "scripts/reproduce-ios-modal-bugs.*"
+      - "scripts/reproduce-ios-scrubber-longpress.*"
       - ".github/workflows/mobile.yml"
 
 permissions:
@@ -98,6 +99,24 @@ jobs:
               exit 0
             fi
             echo "iOS modal regression attempt ${attempt} failed; retrying after simulator cleanup" >&2
+            xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+            sleep 15
+          done
+          exit 1
+
+      - name: Run iOS Safari scrubber long-press regression
+        env:
+          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
+          AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
+          BASE_URL: http://localhost:8000
+          IOS_DEVICE_NAME: iPhone 16
+          SESSION: ios-scrubber-regression
+        run: |
+          for attempt in 1 2; do
+            if scripts/reproduce-ios-scrubber-longpress.ts; then
+              exit 0
+            fi
+            echo "iOS scrubber regression attempt ${attempt} failed; retrying after simulator cleanup" >&2
             xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
             sleep 15
           done

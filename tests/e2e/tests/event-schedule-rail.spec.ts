@@ -32,6 +32,19 @@ test.describe("Event schedule hour rail", () => {
     await expect(hourLinks.first()).toHaveAttribute("draggable", "false");
   });
 
+  test("long-press on a marker cannot open the current page in a new tab", async ({ page }) => {
+    const rail = page.getByRole("navigation", { name: "Jump to time" });
+    const link = rail.getByRole("link", { name: /^Jump to/ }).first();
+    await expect(link).toBeVisible();
+
+    const prevented = await link.evaluate((el) => {
+      const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(prevented).toBe(true);
+  });
+
   test("drag-scrubbing scrolls the schedule and shows the grabbing cursor", async ({
     browserName,
     isMobile,

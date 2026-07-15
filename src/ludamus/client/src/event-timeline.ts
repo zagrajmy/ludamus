@@ -204,6 +204,8 @@ const initScheduleRail = (rail: HTMLElement): void => {
   globalThis.addEventListener("pointerup", endDrag);
   globalThis.addEventListener("pointercancel", endDrag);
 
+  rail.addEventListener("contextmenu", (event) => event.preventDefault());
+
   // A real drag still synthesizes a trailing click on the marker under the
   // pointer; swallow that one click so it can't jump away from where the
   // scrub landed.
