@@ -1,0 +1,13 @@
+{% load i18n %}
+{% load tessera %}
+{% translate "Schedule view" as t_schedule_view %}
+{% tabs variant="segment" aria_label=t_schedule_view %}
+{# Icon-only below sm — same collapse as the Filters button label; sr-only #}
+{# keeps the accessible name. #}
+{% tab "list" icon="list-bullet" href=schedule_list_url active=schedule_view_is_list %}
+<span class="sr-only sm:not-sr-only">{% translate "List" %}</span>
+{% end_tab %}
+{% tab "rooms" icon="table-cells" href=schedule_rooms_url active=schedule_view_is_rooms %}
+<span class="sr-only sm:not-sr-only">{% translate "Rooms" %}</span>
+{% end_tab %}
+{% end_tabs %}

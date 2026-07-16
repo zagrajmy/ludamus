@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal
 from django.http import Http404, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.cache import patch_cache_control
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext_lazy as _
@@ -213,7 +214,7 @@ class PublicEventPrintView(View):
         )
         sphere = request.services.sphere_panel.read(request.context.current_sphere_id)
 
-        return TemplateResponse(
+        response = TemplateResponse(
             request,
             self.template_name,
             {
@@ -238,6 +239,11 @@ class PublicEventPrintView(View):
                 "range_hours": range_hours,
             },
         )
+        if published:
+            patch_cache_control(response, public=True, max_age=300)
+        else:
+            patch_cache_control(response, private=True, max_age=5)
+        return response
 
     def _resolve_material(
         self, available_materials: tuple[MaterialSpec, ...]

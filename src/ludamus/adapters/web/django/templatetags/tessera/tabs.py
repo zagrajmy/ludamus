@@ -5,37 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django import template
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
+from django.template.loader import render_to_string
 
 from ._registry import register
 from ._utils import parse_tag_attrs
-from .icon import icon
 
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
-
-# On a narrow viewport four tabs are wider than the card, so the strip scrolls
-# horizontally instead of forcing the whole page to overflow (tab-scroll.ts
-# nudges the selected tab into view). `overflow-y-hidden` keeps the active
-# tab's -mb-px pull from raising a stray 1px vertical scrollbar. From `sm` up
-# the tabs fit, so overflow returns to visible and the active tab keeps its
-# shadow/1px overlap seam.
-TAB_NAV_CLASS = (
-    "flex gap-1 items-end overflow-x-auto overflow-y-hidden sm:overflow-visible"
-)
-_TAB_BASE = (
-    "inline-flex items-center gap-1.5 px-4 text-sm font-medium whitespace-nowrap"
-    " shrink-0 rounded-t-lg transition-colors"
-)
-TAB_ACTIVE_CLASS = (
-    f"{_TAB_BASE} py-2.5 bg-bg-secondary text-primary"
-    " -mb-px relative z-10 shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]"
-)
-TAB_INACTIVE_CLASS = (
-    f"{_TAB_BASE} py-2 text-foreground-muted hover:text-foreground"
-    " hover:bg-warm-100 dark:hover:bg-bg-tertiary"
-)
 
 
 class TabsNode(template.Node):
@@ -51,15 +27,17 @@ class TabsNode(template.Node):
         resolved: dict[str, object] = {
             k: v.resolve(context) for k, v in self.attrs.items()
         }
-        extra_class = resolved.pop("class", "")
-        aria_label = resolved.pop("aria_label", None)
-        classes = (
-            f"{TAB_NAV_CLASS} {extra_class}".strip() if extra_class else TAB_NAV_CLASS
-        )
-        aria_attr = f' aria-label="{escape(str(aria_label))}"' if aria_label else ""
-        inner = self.nodelist.render(context)
-        return mark_safe(  # noqa: S308
-            f'<nav class="{classes}" role="tablist"{aria_attr}>{inner}</nav>'
+        variant = str(resolved.pop("variant", "") or "")
+        with context.push(_tabs_variant=variant):
+            tabs = self.nodelist.render(context)
+        return render_to_string(
+            "components/tab-list.html",
+            {
+                "extra_class": resolved.pop("class", ""),
+                "aria_label": resolved.pop("aria_label", None),
+                "variant": variant,
+                "tabs": tabs,
+            },
         )
 
 
@@ -93,21 +71,23 @@ class TabNode(template.Node):
         resolved: dict[str, object] = {
             k: v.resolve(context) for k, v in self.attrs.items()
         }
-        active = bool(resolved.pop("active", False))
-        tab_icon = resolved.pop("icon", None)
-        href = resolved.pop("href", "#")
-
-        classes = TAB_ACTIVE_CLASS if active else TAB_INACTIVE_CLASS
-        label = self.nodelist.render(context)
-
-        icon_html = ""
-        if tab_icon:
-            icon_html = icon(str(tab_icon), **{"class": "w-4 h-4"})
-
-        return mark_safe(  # noqa: S308
-            f'<a class="{classes}" role="tab"'
-            f' aria-selected="{"true" if active else "false"}"'
-            f' href="{escape(str(href))}">{icon_html}{label}</a>'
+        tab_key = self.key.resolve(context)
+        if "active" in resolved:
+            active = bool(resolved.pop("active"))
+        elif "active_tab" in context:
+            active = str(tab_key) == str(context["active_tab"])
+        else:
+            active = False
+        return render_to_string(
+            "components/tab-link.html",
+            {
+                "tab_key": tab_key,
+                "active": active,
+                "icon": resolved.pop("icon", None),
+                "href": resolved.pop("href", "#"),
+                "variant": context.get("_tabs_variant", ""),
+                "label": self.nodelist.render(context),
+            },
         )
 
 

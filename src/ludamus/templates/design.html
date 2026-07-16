@@ -1,24 +1,49 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load date_tags %}
+{% load django_vite %}
 {% load tessera %}
 {% block title %}
     Tessera
 {% endblock title %}
+{% block extra_head %}
+    {% vite_asset 'src/design-page.ts' %}
+{% endblock extra_head %}
 {% block header %}
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">Tessera</h1>
 {% endblock header %}
 {% block body %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border border border-border">
-        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+        <div class="relative sm:col-span-2 lg:col-span-3 bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
             <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
                 <code class="text-xs text-foreground-muted">.btn</code>
                 <code class="text-xs text-foreground-muted">tessera_button</code>
             </div>
-            <div class="flex flex-wrap items-center justify-center gap-2">
-                <button type="button" class="btn btn-primary">Primary</button>
-                <button type="button" class="btn btn-secondary">Secondary</button>
-                <button type="button" class="btn btn-danger">Danger</button>
+            <div class="grid w-full max-w-5xl grid-cols-2 gap-6 lg:grid-cols-4">
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">.btn</code>
+                    <button type="button" class="btn btn-primary">Primary</button>
+                    <button type="button" class="btn btn-secondary">Secondary</button>
+                    <button type="button" class="btn btn-danger">Danger</button>
+                </div>
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">sm</code>
+                    {% tessera_button text="Primary" variant="primary" size="sm" %}
+                    {% tessera_button text="Secondary" variant="secondary" size="sm" %}
+                    {% tessera_button text="Danger" variant="danger" size="sm" %}
+                </div>
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">md</code>
+                    {% tessera_button text="Primary" variant="primary" size="md" %}
+                    {% tessera_button text="Secondary" variant="secondary" size="md" %}
+                    {% tessera_button text="Danger" variant="danger" size="md" %}
+                </div>
+                <div class="flex flex-col items-start gap-3">
+                    <code class="text-xs text-foreground-muted">lg</code>
+                    {% tessera_button text="Primary" variant="primary" size="lg" %}
+                    {% tessera_button text="Secondary" variant="secondary" size="lg" %}
+                    {% tessera_button text="Danger" variant="danger" size="lg" %}
+                </div>
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
@@ -89,24 +114,51 @@
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
     <code class="absolute top-3 left-3 text-xs text-foreground-muted">.alert</code>
-    <div class="w-full max-w-2xl flex flex-col gap-2">
-        <div class="alert alert-success flex items-center" role="alert">
+    <div class="w-full max-w-2xl flex flex-col gap-4">
+        {% translate "Saved successfully." as design_flash_success %}
+        {% translate "Something went wrong." as design_flash_error %}
+        <div data-flash-demo
+             role="group"
+             aria-labelledby="toast-playground-title"
+             class="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+            <div>
+                <h3 id="toast-playground-title" class="font-semibold text-foreground">{% translate "Toast playground" %}</h3>
+                <p class="mt-1 text-sm text-foreground-muted">{% translate "Trigger fixed alerts here to test stacking, entry, and dismissal." %}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button type="button"
+                        class="btn btn-secondary text-sm"
+                        data-flash-demo-show="success"
+                        data-flash-demo-message="{{ design_flash_success }}">{% translate "Show success" %}</button>
+                <button type="button"
+                        class="btn btn-secondary text-sm"
+                        data-flash-demo-show="error"
+                        data-flash-demo-message="{{ design_flash_error }}">{% translate "Show sticky error" %}</button>
+                <button type="button" class="btn btn-secondary text-sm" data-flash-demo-clear>{% translate "Dismiss all" %}</button>
+            </div>
+        </div>
+        <div class="alert backdrop-blur-lg alert-success flex items-center"
+             role="alert">
             {% icon "check-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Saved successfully.</span>
         </div>
-        <div class="alert alert-warning flex items-center" role="status">
+        <div class="alert backdrop-blur-lg alert-warning flex items-center"
+             role="status">
             {% icon "exclamation-triangle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Heads up — this action is permanent.</span>
         </div>
-        <div class="alert alert-error flex items-center" role="alert">
+        <div class="alert backdrop-blur-lg alert-error flex items-center"
+             role="alert">
             {% icon "x-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Something went wrong.</span>
         </div>
-        <div class="alert alert-info flex items-center" role="status">
+        <div class="alert backdrop-blur-lg alert-info flex items-center"
+             role="status">
             {% icon "information-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>For your information.</span>
         </div>
-        <div class="alert alert-default flex items-center" role="status">
+        <div class="alert backdrop-blur-lg alert-default flex items-center"
+             role="status">
             {% icon "minus-circle" class="w-5 h-5 mr-3" aria_hidden="true" %}
             <span>Neutral notice.</span>
         </div>
@@ -160,6 +212,13 @@
 {% end_tabs %}
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tabs variant="segment" {% templatetag closeblock %}</code>
+    {% tabs variant="segment" %}
+    {% tab "a" icon="list-bullet" href="#" active=True %}List{% end_tab %}
+{% tab "b" icon="table-cells" href="#" %}Rooms{% end_tab %}
+{% end_tabs %}
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
     <code class="absolute top-3 left-3 text-xs text-foreground-muted">visibility-*</code>
     <div class="w-full flex flex-col gap-3 text-sm">
         <div class="flex items-center gap-2">
@@ -190,52 +249,62 @@
     <code class="absolute top-3 left-3 text-xs text-foreground-muted">chronology/_session_card.html</code>
     <div class="session-grid w-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {% if design_session_data %}
-            {% include "chronology/_session_card.html" with data=design_session_data %}
+            {% include "chronology/_session_card.html" with data=design_session_data session_link_base="" %}
         {% endif %}
         {% if design_session_data_ended %}
-            {% include "chronology/_session_card.html" with data=design_session_data_ended %}
+            {% include "chronology/_session_card.html" with data=design_session_data_ended session_link_base="" %}
         {% endif %}
     </div>
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">
-    <code class="absolute top-3 left-3 text-xs text-foreground-muted">velvet-sound.ts</code>
+    <code class="absolute top-3 left-3 text-xs text-foreground-muted">sound.ts</code>
     <p class="max-w-prose text-center text-sm text-foreground-muted">
-        Procedural interface sounds (Velvet voice), synthesised live with the
-        Web Audio API — no audio files. Press a chip to audition; ambient
-        playback across the app is opt-in via the
+        Interaction sounds (Cuelume), synthesised live with the Web Audio API
+        — no audio files. Press a chip to audition; ambient playback across
+        the app is on by default and can be switched off via the
         {% icon "speaker-wave" class="inline w-4 h-4 align-text-bottom" %}
         toggle in the footer.
     </p>
     <div class="flex flex-wrap items-center justify-center gap-2">
         <button type="button"
-                data-velvet-play="toggle.on"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle on</button>
+                data-sound-play="chime"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Chime</button>
         <button type="button"
-                data-velvet-play="toggle.off"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle off</button>
+                data-sound-play="sparkle"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Sparkle</button>
         <button type="button"
-                data-velvet-play="action.send"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Action / send</button>
+                data-sound-play="droplet"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Droplet</button>
         <button type="button"
-                data-velvet-play="ui.confirm"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Confirm</button>
+                data-sound-play="bloom"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Bloom</button>
         <button type="button"
-                data-velvet-play="toast.in"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Toast in</button>
+                data-sound-play="whisper"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Whisper</button>
         <button type="button"
-                data-velvet-play="ui.progress"
-                data-no-sound
-                class="btn btn-secondary px-3 py-1.5 text-xs">Progress</button>
+                data-sound-play="tick"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Tick</button>
         <button type="button"
-                data-velvet-play="state.error"
-                data-no-sound
-                class="btn btn-danger px-3 py-1.5 text-xs">Error</button>
+                data-sound-play="press"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Press</button>
+        <button type="button"
+                data-sound-play="release"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Release</button>
+        <button type="button"
+                data-sound-play="toggle"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Toggle</button>
+        <button type="button"
+                data-sound-play="success"
+                class="btn btn-secondary px-3 py-1.5 text-xs">Success</button>
     </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">tab-shell.html</code>
+        <code class="text-xs text-foreground-muted">tab-shell-bar.html</code>
+        <code class="text-xs text-foreground-muted">tab-shell-body.html</code>
+    </div>
+    {% include "components/design/tab-shell.html" %}
 </div>
 </div>
 {% endblock body %}

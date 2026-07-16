@@ -142,6 +142,7 @@ class TestTimetablePageView:
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
                 },
+                "active_tab": "timetable",
                 "print_scopes": [],
             },
         )
@@ -296,7 +297,7 @@ class TestTimetablePageView:
         self, authenticated_client, active_user, sphere, event, time_slot
     ):
         sphere.managers.add(active_user)
-        room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1  # -> 3 pages
+        room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1
         expected_pages = math.ceil(room_count / TIMETABLE_ROOM_PAGE_SIZE)
         middle_page = 2
         for _ in range(room_count):
@@ -306,8 +307,6 @@ class TestTimetablePageView:
             self.get_url(event), {"room_page": middle_page}
         )
 
-        # Middle page renders both Previous and Next pagination buttons,
-        # exercising both hx-push-url branches in timetable-grid.html.
         assert response.status_code == HTTPStatus.OK
         grid = response.context["grid"]
         assert grid.page == middle_page

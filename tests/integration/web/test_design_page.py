@@ -6,7 +6,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.adapters.web.django.entities import (
+from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     ParticipationInfo,
     SessionData,
@@ -249,4 +249,6 @@ class TestDesignPageView:
                 ],
             },
             template_name=["design.html"],
+            contains=["py-1.5", "py-2", "py-3", "text-xs", "text-sm", "text-base"],
+            cache_control={"public", "max-age=300"},
         )

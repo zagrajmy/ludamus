@@ -2,33 +2,37 @@
 
 Party CRUD and membership invites. Django-free; receives the repo protocol,
 notifier, and a transaction. Companions (login-less members) keep their own
-lifecycle in the connected-user views; this service owns the party shell
+lifecycle in the companion views; this service owns the party shell
 around them.
 """
 
 from __future__ import annotations
 
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.party import (
     ENROLL_WITHOUT_PARTY,
+    CompanionAddOutcome,
     DeletePartyOutcome,
     EnrollmentPartiesDTO,
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
     InviteOutcome,
+    PartyConsentMode,
     PartyInviteNotification,
+    PartyJoinResult,
+    PartyMembershipStatus,
     PartyServiceProtocol,
     SelectedEnrollmentPartyDTO,
 )
 
 if TYPE_CHECKING:
     from ludamus.pacts.party import (
+        InvitablePartyDTO,
         PartiesOverviewDTO,
-        PartyConsentMode,
         PartyDTO,
         PartyEnrolledNotification,
-        PartyMembershipStatus,
         PartyNotifierProtocol,
         PartyRepositoryProtocol,
     )
@@ -60,34 +64,94 @@ class PartyService(PartyServiceProtocol):
             )
 
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome:
-        # A companion's identity row would be orphaned with its party, so a
-        # party with companions refuses deletion instead of cascading them away.
         with self._transaction.atomic():
-            if self._parties.has_companions(leader_pk=leader_pk, party_pk=party_pk):
-                return DeletePartyOutcome.HAS_COMPANIONS
             if not self._parties.delete(leader_pk=leader_pk, party_pk=party_pk):
                 return DeletePartyOutcome.NOT_FOUND
             return DeletePartyOutcome.DELETED
 
-    def invite(self, *, leader_pk: int, party_pk: int, email: str) -> InviteOutcome:
+    def invite(
+        self, *, member_pk: int, party_pk: int, identifier: str
+    ) -> InviteOutcome:
         with self._transaction.atomic():
-            lead = self._parties.read_led_party(leader_pk=leader_pk, party_pk=party_pk)
+            lead = self._parties.read_active_member_party(
+                member_pk=member_pk, party_pk=party_pk
+            )
             if lead is None:
                 return InviteOutcome.NO_SUCH_USER
-            if (user := self._parties.find_invitable_user(email)) is None:
+            if not (matches := self._parties.find_invitable_users(identifier)):
                 return InviteOutcome.NO_SUCH_USER
-            if self._parties.membership_exists(party_pk=party_pk, user_pk=user.pk):
+            if len(matches) > 1:
+                return InviteOutcome.AMBIGUOUS_HANDLE
+            user = matches[0]
+            if not self._parties.get_or_create_membership(
+                party_pk=party_pk, user_pk=user.pk
+            ):
                 return InviteOutcome.ALREADY_MEMBER
-            self._parties.create_invited_membership(party_pk=party_pk, user_pk=user.pk)
             self._notifier.notify_party_invited(
                 PartyInviteNotification(
                     recipient_user_id=user.pk,
                     recipient_email=user.email,
                     party_name=lead.name,
-                    leader_name=lead.leader_name,
+                    actor_name=lead.actor_name,
                 )
             )
             return InviteOutcome.INVITED
+
+    def add_companion(
+        self, *, member_pk: int, party_pk: int, display_name: str
+    ) -> CompanionAddOutcome:
+        with self._transaction.atomic():
+            if (
+                self._parties.read_active_member_party(
+                    member_pk=member_pk, party_pk=party_pk
+                )
+                is None
+            ):
+                return CompanionAddOutcome.NO_SUCH_COMPANION
+            name = display_name.strip().casefold()
+            matches = [
+                companion
+                for companion in self._parties.lock_owned_companions(
+                    manager_pk=member_pk
+                )
+                if companion.name.casefold() == name
+            ]
+            if not matches:
+                return CompanionAddOutcome.NO_SUCH_COMPANION
+            if len(matches) > 1:
+                return CompanionAddOutcome.AMBIGUOUS_NAME
+            companion = matches[0]
+            if not self._parties.get_or_create_membership(
+                party_pk=party_pk,
+                user_pk=companion.pk,
+                consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+                status=PartyMembershipStatus.ACTIVE,
+            ):
+                return CompanionAddOutcome.ALREADY_MEMBER
+            return CompanionAddOutcome.ADDED
+
+    def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None:
+        with self._transaction.atomic():
+            token = token_urlsafe(32)
+            if not self._parties.set_invite_token(
+                leader_pk=leader_pk, party_pk=party_pk, token=token
+            ):
+                return None
+            return token
+
+    def read_invite_token(self, *, leader_pk: int, party_pk: int) -> str:
+        return self._parties.read_invite_token(leader_pk=leader_pk, party_pk=party_pk)
+
+    def read_invitable_party(
+        self, *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None:
+        return self._parties.read_party_by_invite_token(
+            token=token, viewer_pk=viewer_pk
+        )
+
+    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinResult | None:
+        with self._transaction.atomic():
+            return self._parties.join_via_token(token=token, user_pk=user_pk)
 
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool:
         with self._transaction.atomic():

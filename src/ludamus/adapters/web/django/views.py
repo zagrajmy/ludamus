@@ -18,8 +18,10 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
+from django.views.decorators.cache import cache_control
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -34,23 +36,28 @@ from ludamus.adapters.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.adapters.web.django.entities import (
-    EventInfo,
-    ParticipationInfo,
-    PartyMemberFlags,
-    SessionData,
-    SessionUserParticipationData,
-    build_display_field_row,
-    build_room_lanes,
-    build_schedule_days,
-    group_sessions_by_state,
-)
 from ludamus.adapters.web.django.forms import (
     INCLUDE_VALUE,
     EnrollmentRoster,
     RosterMember,
 )
-from ludamus.adapters.web.django.safety_presentation import fake_full_card
+from ludamus.adapters.web.django.safety_presentation import fake_full_session
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    PartyMemberFlags,
+    SessionUserParticipationData,
+)
+from ludamus.gates.web.django.chronology.event_presentation import (
+    EventInfo,
+    ParticipationInfo,
+    SessionData,
+    build_display_field_row,
+    mask_session_card,
+)
+from ludamus.gates.web.django.chronology.schedule import (
+    build_room_lanes,
+    build_schedule_days,
+    group_sessions_by_state,
+)
 from ludamus.gates.web.django.entities import (
     AuthenticatedRootRequest,
     RootRequest,
@@ -73,7 +80,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import ConnectedUserDTO, UserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
 from ludamus.pacts.party import (
     PartyConsentMode,
@@ -103,6 +110,7 @@ if TYPE_CHECKING:
 MINIMUM_ALLOWED_USER_AGE = 16
 
 
+@method_decorator(cache_control(public=True, max_age=300), name="get")
 class DesignPageView(TemplateView):
     request: RootRequest
     template_name = "design.html"
@@ -184,6 +192,7 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
+@method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
@@ -268,6 +277,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
+@method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -324,15 +334,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             .order_by("agenda_item__start_time")
         )
 
-        # Shadowban: hide a presenter's sessions from players they shadowbanned,
-        # and collect the viewer's shadowbans to red-ring their avatars (the
-        # ring is carried per-participation on the DTO, not via template logic).
         shadowbanned_ids: frozenset[int] = frozenset()
+        banned_by: set[int] = set()
         if current_user_id := self.request.context.current_user_id:
-            if hidden := self.request.services.shadowban.banning_owner_ids(
+            banned_by = self.request.services.shadowban.banning_owner_ids(
                 current_user_id
-            ):
-                event_sessions = event_sessions.exclude(presenter_id__in=hidden)
+            )
             shadowbanned_ids = frozenset(
                 self.request.services.shadowban.banned_user_ids(current_user_id)
             )
@@ -340,7 +347,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Get session data objects that include enrollment status; the
         # hour grouping reuses them instead of rebuilding every DTO.
         sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
-        hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
@@ -350,10 +356,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 event_id=self.object.pk, user_id=current_user_id
             )
         )
-        if event_banned:
-            sessions_data = {
-                sid: fake_full_card(data) for sid, data in sessions_data.items()
-            }
+        sessions_data = {
+            sid: mask_session_card(
+                data, event_banned=event_banned, banned_presenter_ids=banned_by
+            )
+            for sid, data in sessions_data.items()
+        }
+
+        hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
         if compact_schedule := len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS:
             self._set_bookmark_counts(sessions_data)
@@ -379,7 +389,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         context.update(
             {
-                "hour_data": hour_data,  # Keep original for backward compatibility
+                "hour_data": hour_data,
                 "sessions": list(sessions_data.values()),
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
@@ -540,12 +550,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         anonymous_service = self.request.services.anonymous_enrollment
         # Handle authenticated users
         if self.request.context.current_user_slug:
-            # Get all connected users in a single query
+            # Get all companions in a single query
             all_users = [
                 self.request.di.uow.active_users.read(
                     self.request.context.current_user_slug
                 ),
-                *self.request.di.uow.connected_users.read_all(
+                *self.request.services.companions.list_companions(
                     self.request.context.current_user_slug
                 ),
             ]
@@ -855,11 +865,8 @@ def _get_session_or_redirect(
             reverse("web:index"), error=_("Session not found.")
         ) from None
     viewer_id = request.context.current_user_id
-    # Shadowban: a player the presenter shadowbanned cannot reach the session.
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
-        raise RedirectError(
-            reverse("web:index"), error=_("Session not found.")
-        ) from None
+        fake_full_session(session)
     if not AgendaItem.objects.filter(session_id=session.pk).exists():
         raise RedirectError(
             reverse("web:index"),
@@ -1004,9 +1011,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             "event": session.event,
             "party_choices": selection.choices,
             "selected_party": selection.selected,
-            "connected_users": selection.companions,
+            "companions": selection.companions,
             "user_data": self._get_user_participation_data(
-                session, selection.companions, members
+                session=session, companions=selection.companions, members=members
             ),
             # Frontload the decision: warn the viewer up top if players they
             # shadowbanned are already signed up to this session.
@@ -1095,8 +1102,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     def _get_user_participation_data(
         self,
+        *,
         session: Session,
-        companions: list[ConnectedUserDTO],
+        companions: list[CompanionDTO],
         members: list[RosterMember],
     ) -> list[SessionUserParticipationData]:
         user_data: list[SessionUserParticipationData] = []
@@ -1130,7 +1138,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             user_id = participation.user_id
             participations_by_user[user_id].append(participation)
 
-        # Add enrollment status and time conflict info for each connected user
+        # Add enrollment status and time conflict info for each user
         for user in all_users:
             user_parts = participations_by_user.get(user.pk, [])
             membership = flags_by_pk.get(user.pk, PartyMemberFlags())
@@ -1510,7 +1518,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         # Players the presenter shadowbanned must not be seated — even when an
-        # unbanned manager tries to enroll a banned connected sub-user.
+        # unbanned manager tries to enroll a banned companion.
         shadowbanned_ids = (
             self.request.services.shadowban.banned_user_ids(session.presenter_id)
             if session.presenter_id
@@ -1518,7 +1526,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
         # Cancellations first: a seat freed in this batch must be available to a
-        # connected user enrolling in the same submit (e.g. swapping a seat on a
+        # companion enrolling in the same submit (e.g. swapping a seat on a
         # full session).
         ordered_requests = sorted(
             enrollment_requests, key=lambda req: 0 if req.choice == "cancel" else 1

@@ -7,9 +7,7 @@
     <div class="max-w-md mx-auto">
         <div class="card">
             <div class="card-body px-6 py-8 sm:px-8 text-center">
-                {# components/avatar.html needs a full user-shaped object (its
-                   fallback chain reads full_name/name/username/avatar_url), so the
-                   slim ClaimableProfileDTO gets a purpose-built initials circle. #}
+                {# avatar.html wants full_name/name/username/avatar_url; the slim ClaimableProfileDTO gets an initials circle instead. #}
                 <div class="size-16 rounded-full mx-auto flex items-center justify-center {{ claimable.name|avatar_bg_class }}"
                      aria-hidden="true">
                     <span class="text-xl font-semibold {{ claimable.name|avatar_text_class }}">{{ claimable.name|slice:":2"|upper }}</span>

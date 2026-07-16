@@ -371,7 +371,9 @@
             </header>
             <!-- Messages -->
             {% if messages %}
-                <div class="p-3 sm:p-4 lg:px-8 lg:pt-4 lg:pb-0 space-y-2">{% include "components/flash-messages.html" %}</div>
+                <div class="flash-region"
+                     role="region"
+                     aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
             {% endif %}
             <div class="relative z-0">
                 {% block content %}

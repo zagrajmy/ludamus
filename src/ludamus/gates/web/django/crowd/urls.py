@@ -1,4 +1,5 @@
 from django.urls import URLPattern, URLResolver, include, path
+from django.views.generic import RedirectView
 
 from ludamus.gates.web.django.crowd import auth, profile, views
 
@@ -20,6 +21,11 @@ auth0_urlpatterns = [
 urlpatterns: list[URLPattern | URLResolver] = [
     path("profile/parties/", views.PartiesPageView.as_view(), name="profile-parties"),
     path(
+        "profile/parties/<int:pk>/",
+        views.PartyDetailPageView.as_view(),
+        name="party-detail",
+    ),
+    path(
         "profile/parties/do/create",
         views.PartyCreateActionView.as_view(),
         name="parties-create",
@@ -38,6 +44,21 @@ urlpatterns: list[URLPattern | URLResolver] = [
         "profile/parties/<int:pk>/do/invite",
         views.PartyInviteActionView.as_view(),
         name="parties-invite",
+    ),
+    path(
+        "profile/parties/<int:pk>/do/invite-link",
+        views.PartyInviteLinkActionView.as_view(),
+        name="parties-invite-link",
+    ),
+    path(
+        "profile/parties/<int:pk>/do/add-companion",
+        views.PartyCompanionAddActionView.as_view(),
+        name="parties-add-companion",
+    ),
+    path(
+        "parties/join/<str:token>/",
+        views.PartyJoinPageView.as_view(),
+        name="parties-join",
     ),
     path(
         "profile/parties/<int:pk>/do/consent",
@@ -76,28 +97,32 @@ urlpatterns: list[URLPattern | URLResolver] = [
     ),
     path(
         "profile/shadowbans/",
+        RedirectView.as_view(pattern_name="web:crowd:profile-safety", permanent=True),
+    ),
+    path(
+        "profile/safety/",
         profile.ProfileShadowbanPageView.as_view(),
-        name="profile-shadowbans",
+        name="profile-safety",
     ),
     path(
-        "profile/connected-users/",
-        profile.ProfileConnectedUsersPageView.as_view(),
-        name="profile-connected-users",
+        "profile/companions/",
+        profile.ProfileCompanionsPageView.as_view(),
+        name="profile-companions",
     ),
     path(
-        "profile/connected-users/<str:slug>/do/update",
-        profile.ProfileConnectedUserUpdateActionView.as_view(),
-        name="profile-connected-users-update",
+        "profile/companions/<str:slug>/do/update",
+        profile.ProfileCompanionUpdateActionView.as_view(),
+        name="profile-companions-update",
     ),
     path(
-        "profile/connected-users/<str:slug>/do/delete",
-        profile.ProfileConnectedUserDeleteActionView.as_view(),
-        name="profile-connected-users-delete",
+        "profile/companions/<str:slug>/do/delete",
+        profile.ProfileCompanionDeleteActionView.as_view(),
+        name="profile-companions-delete",
     ),
     path(
-        "profile/connected-users/<str:slug>/do/claim-link",
-        profile.ProfileConnectedUserClaimLinkActionView.as_view(),
-        name="profile-connected-users-claim-link",
+        "profile/companions/<str:slug>/do/claim-link",
+        profile.ProfileCompanionClaimLinkActionView.as_view(),
+        name="profile-companions-claim-link",
     ),
     path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),
 ]

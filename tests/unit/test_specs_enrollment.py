@@ -115,6 +115,40 @@ class TestSelectPromotableParties:
 
         assert [p.participation_id for party in selected for p in party] == [2]
 
+    def test_shadowbanned_waiter_skipped(self):
+        banned = _wp(1, user_id=7, order=0)
+        other = _wp(2, order=1)
+        state = _state([banned, other], seats=1)
+        state = state.model_copy(update={"shadowbanned_user_ids": frozenset({7})})
+
+        selected = select_promotable_parties(state)
+
+        assert [p.participation_id for party in selected for p in party] == [2]
+
+    def test_shadowbanned_party_member_dropped_rest_promoted(self):
+        waiting = [
+            _wp(1, sponsor_id=99, order=0, user_id=7),
+            _wp(2, sponsor_id=99, order=1),
+        ]
+        state = _state(waiting, seats=2)
+        state = state.model_copy(update={"shadowbanned_user_ids": frozenset({7})})
+
+        selected = select_promotable_parties(state)
+
+        assert [p.participation_id for party in selected for p in party] == [2]
+
+    def test_two_parties_same_owner_respects_slot_limit(self):
+        owner_id = 99
+        waiting = [
+            _wp(1, party_id=10, order=0, slots=1, user_id=owner_id),
+            _wp(2, party_id=11, order=1, slots=1, user_id=owner_id),
+        ]
+        state = _state(waiting, seats=2)
+
+        selected = select_promotable_parties(state)
+
+        assert [p.participation_id for party in selected for p in party] == [1]
+
     def test_partial_membership_holds_the_line(self):
         # Manager has 1 slot but a 2-person eligible party: does not fit, and
         # holds the line (strict FIFO) so the waiter behind is not promoted.

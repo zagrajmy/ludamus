@@ -67,12 +67,10 @@ class TestCopyChip:
         return tpl.render(Context({"handle": text}))
 
     def test_renders_declarative_copy_markup(self) -> None:
-        # Behaviour is delegated to copy.ts, so the chip carries only data-* hooks
-        # (no inline handler).
         html = self._render()
         assert 'data-copy="@ada"' in html
         assert 'data-copied-label="Copied!"' in html
-        assert "<svg" in html  # clipboard icon
+        assert "<svg" in html
         assert "onclick" not in html
 
     def test_labels_default_without_being_passed(self) -> None:
@@ -82,15 +80,12 @@ class TestCopyChip:
         assert 'title="Copy to clipboard"' in html
 
     def test_confirmation_is_a_live_region(self) -> None:
-        # Screen readers get the "Copied!" confirmation, not just sighted users.
         html = self._render()
         assert "data-copy-popover" in html
         assert 'role="status"' in html
         assert 'aria-live="polite"' in html
 
     def test_copied_text_is_the_visible_clickable_label(self) -> None:
-        # The whole handle sits inside the button, so it's both the visible label
-        # and (via sr-only) part of the accessible name — WCAG 2.5.3.
         html = self._render()
         assert "<button" in html
         assert ">@ada</code>" in html
@@ -102,7 +97,6 @@ class TestCopyChip:
         assert 'title="Copy"' in html
 
     def test_popover_never_resizes_the_button(self) -> None:
-        # absolute + pointer-events-none keeps the popover out of the button box.
         html = self._render()
         assert "absolute" in html
         assert "pointer-events-none" in html
@@ -161,8 +155,6 @@ class TestCopyBlock:
         assert "<script>alert" not in html
 
     def test_multiline_payload_survives_the_attribute(self) -> None:
-        # The composition every "Copy details"/"Copy info" button relies on:
-        # copy_lines output must land in data-copy with its newlines intact.
         tpl = Template(
             "{% load tessera %}"
             "{% copy_lines 'Title' 'Room 5' as payload %}"
@@ -259,7 +251,6 @@ class TestSelect:
             '{% load tessera %}{% select name="x" disabled=True %}{% end_select %}'
         )
         html = tpl.render(Context())
-        # Match the bare boolean attribute, not the base classes' `disabled:*`.
         assert re.search(r"\sdisabled(?=[\s>])", html)
 
     def test_skips_falsy_attributes(self) -> None:
@@ -313,9 +304,10 @@ class TestTabs:
             '{% tabs %}{% tab "a" href="/a/" active=True %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
-        assert "<nav" in html
+        assert '<nav class="tab-nav flex items-end gap-1"' in html
         assert "</nav>" in html
         assert 'aria-selected="true"' in html
+        assert 'data-tab="a"' in html
         assert 'href="/a/"' in html
         assert "A" in html
 
@@ -326,14 +318,27 @@ class TestTabs:
         )
         html = tpl.render(Context())
         assert 'aria-selected="false"' in html
+        assert 'class="tab-nav-link ' in html
 
-    def test_active_tab_classes(self) -> None:
+    def test_active_tab_uses_shared_link_class(self) -> None:
         tpl = Template(
             "{% load tessera %}"
             '{% tabs %}{% tab "a" href="/a/" active=True %}A{% end_tab %}{% end_tabs %}'
         )
         html = tpl.render(Context())
-        assert 'aria-selected="true"' in html
+        assert 'class="tab-nav-link ' in html
+        assert "aria-selected:bg-bg-secondary" in html
+
+    def test_active_tab_from_context(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tabs %}{% tab "a" href="/a/" %}A{% end_tab %}'
+            '{% tab "b" href="/b/" %}B{% end_tab %}'
+            "{% end_tabs %}"
+        )
+        html = tpl.render(Context({"active_tab": "b"}))
+        assert 'aria-selected="false"' in html.split('href="/a/"')[1][:120]
+        assert 'aria-selected="true"' in html.split('href="/b/"')[1][:120]
 
     def test_tab_with_icon(self) -> None:
         tpl = Template(
@@ -376,6 +381,46 @@ class TestTabs:
             )
 
 
+class TestTabShellBody:
+    def test_renders_wrapper_with_content(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tab_shell_body class="space-y-4" %}Hello{% end_tab_shell_body %}'
+        )
+        html = tpl.render(Context())
+        assert "bg-bg-secondary" in html
+        assert "space-y-4" in html
+        assert "Hello" in html
+
+    def test_include_with_body_partial(self) -> None:
+        tpl = Template(
+            '{% include "components/tab-shell-body.html"'
+            ' with body_partial="components/design/_tab_shell_body.html" %}'
+        )
+        html = tpl.render(Context())
+        assert "bg-bg-secondary" in html
+        assert "Tab shell body" in html
+
+    def test_tab_shell_renders_one_valid_component_boundary(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tab_shell "components/design/_tab_shell_tabs.html" %}'
+            "{% tab_shell_body %}Hello{% end_tab_shell_body %}"
+            "{% end_tab_shell %}"
+        )
+        html = tpl.render(Context())
+        assert "overflow-hidden rounded-2xl border border-border" in html
+        assert "Personal" in html
+        assert "Hello" in html
+
+    def test_tab_shell_requires_closing_tag(self) -> None:
+        with pytest.raises(TemplateSyntaxError):
+            Template(
+                "{% load tessera %}"
+                '{% tab_shell "components/design/_tab_shell_tabs.html" %}'
+            )
+
+
 ICON_TOGGLE_ICONS = 2
 SWITCHER_SEGMENTS = 3
 
@@ -389,34 +434,41 @@ class TestIconToggle:
         )
         return tpl.render(Context())
 
-    def test_renders_toggle_button(self) -> None:
+    def test_renders_hidden_checkbox_in_label(self) -> None:
         html = self._render()
-        assert 'type="button"' in html
+        assert html.startswith("<label")
+        assert 'type="checkbox"' in html
+        assert 'class="peer sr-only"' in html
         assert "rounded-full" in html
 
-    def test_defaults_to_unpressed(self) -> None:
-        assert 'aria-pressed="false"' in self._render()
+    def test_defaults_to_unchecked(self) -> None:
+        assert " checked" not in self._render()
 
-    def test_pressed_sets_aria_pressed(self) -> None:
-        assert 'aria-pressed="true"' in self._render("pressed=True")
+    def test_checked_sets_checked_attr(self) -> None:
+        assert " checked" in self._render("checked=True")
 
     def test_renders_accessible_label(self) -> None:
         html = self._render()
         assert '<span class="sr-only">Toggle sound</span>' in html
 
-    def test_swaps_icons_by_aria_pressed(self) -> None:
+    def test_swaps_icons_by_checked_state(self) -> None:
         html = self._render()
-        assert "group-aria-pressed:block" in html
-        assert "group-aria-pressed:hidden" in html
+        assert "peer-checked:block" in html
+        assert "peer-checked:hidden" in html
         assert html.count("<svg") == ICON_TOGGLE_ICONS
 
+    def test_checked_state_is_not_primary(self) -> None:
+        assert "primary" not in self._render("checked=True").replace(
+            "outline-primary", ""
+        )
+
     def test_renders_title(self) -> None:
-        assert 'title="Sound (Velvet)"' in self._render('title="Sound (Velvet)"')
+        assert 'title="Interface sound"' in self._render('title="Interface sound"')
 
     def test_boolean_data_attr_is_bare(self) -> None:
-        html = self._render("data_velvet_toggle=True")
-        assert "data-velvet-toggle" in html
-        assert 'data-velvet-toggle="' not in html
+        html = self._render("data_sound_toggle=True")
+        assert "data-sound-toggle" in html
+        assert 'data-sound-toggle="' not in html
 
     def test_valued_data_attr(self) -> None:
         assert 'data-role="switch"' in self._render('data_role="switch"')

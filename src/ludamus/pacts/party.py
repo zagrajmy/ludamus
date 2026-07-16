@@ -10,7 +10,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.crowd import ConnectedUserDTO
+from ludamus.pacts.crowd import CompanionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
@@ -35,6 +35,8 @@ class PartyMemberDTO(BaseModel):
     membership_pk: int
     user_pk: int
     name: str
+    full_name: str
+    username: str
     slug: str
     is_login_less: bool
     is_leader: bool
@@ -42,6 +44,8 @@ class PartyMemberDTO(BaseModel):
     status: PartyMembershipStatus
     # Companions only: pending claim-link token, "" when none was issued.
     claim_token: str = ""
+    avatar_url: str = ""
+    is_managed_by_viewer: bool = False
 
 
 class PartyDTO(BaseModel):
@@ -53,9 +57,8 @@ class PartyDTO(BaseModel):
     leader_name: str
     # Viewer-relative: whether the requesting user leads this party.
     is_leader: bool
-    # Viewer-relative: the viewer's first led party — the one that sponsors
-    # their companions.
-    is_default: bool
+    is_active_member: bool
+    created_at: datetime
     members: list[PartyMemberDTO]
 
 
@@ -110,7 +113,7 @@ class EnrollmentPartiesDTO(BaseModel):
     selected: SelectedEnrollmentPartyDTO | None = None
     # The viewer's login-less companions in the selected party; only their own
     # led party can seat companions, so this is empty otherwise.
-    companions: list[ConnectedUserDTO] = []
+    companions: list[CompanionDTO] = []
     # The requested party is not one of the viewer's — the caller must surface
     # an error instead of silently substituting a default.
     requested_invalid: bool = False
@@ -120,11 +123,18 @@ class InviteOutcome(StrEnum):
     INVITED = "invited"
     NO_SUCH_USER = "no_such_user"
     ALREADY_MEMBER = "already_member"
+    AMBIGUOUS_HANDLE = "ambiguous_handle"
+
+
+class CompanionAddOutcome(StrEnum):
+    ADDED = "added"
+    NO_SUCH_COMPANION = "no_such_companion"
+    ALREADY_MEMBER = "already_member"
+    AMBIGUOUS_NAME = "ambiguous_name"
 
 
 class DeletePartyOutcome(StrEnum):
     DELETED = "deleted"
-    HAS_COMPANIONS = "has_companions"
     NOT_FOUND = "not_found"
 
 
@@ -132,7 +142,7 @@ class PartyInviteNotification(BaseModel):
     recipient_user_id: int
     recipient_email: str
     party_name: str
-    leader_name: str
+    actor_name: str
 
 
 class PartyEnrolledNotification(BaseModel):
@@ -161,30 +171,60 @@ class InvitedUserDTO(BaseModel):
     email: str
 
 
-class LedPartyDTO(BaseModel):
+class InvitablePartyDTO(BaseModel):
+    pk: int
     name: str
     leader_name: str
+    already_member: bool
+
+
+class PartyJoinResult(BaseModel):
+    party_pk: int
+    joined: bool
+
+
+class PartyActionContextDTO(BaseModel):
+    name: str
+    actor_name: str
 
 
 class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def overview(viewer_pk: int) -> PartiesOverviewDTO: ...
     @staticmethod
+    def read_for_viewer(*, party_pk: int, viewer_pk: int) -> PartyDTO | None: ...
+    @staticmethod
     def create(*, leader_pk: int, name: str) -> int: ...
     @staticmethod
     def rename(*, leader_pk: int, party_pk: int, name: str) -> bool: ...
     @staticmethod
-    def has_companions(*, leader_pk: int, party_pk: int) -> bool: ...
-    @staticmethod
     def delete(*, leader_pk: int, party_pk: int) -> bool: ...
     @staticmethod
-    def read_led_party(*, leader_pk: int, party_pk: int) -> LedPartyDTO | None: ...
+    def read_active_member_party(
+        *, member_pk: int, party_pk: int
+    ) -> PartyActionContextDTO | None: ...
     @staticmethod
-    def find_invitable_user(email: str) -> InvitedUserDTO | None: ...
+    def lock_owned_companions(*, manager_pk: int) -> list[CompanionDTO]: ...
     @staticmethod
-    def membership_exists(*, party_pk: int, user_pk: int) -> bool: ...
+    def find_invitable_users(identifier: str) -> list[InvitedUserDTO]: ...
     @staticmethod
-    def create_invited_membership(*, party_pk: int, user_pk: int) -> None: ...
+    def set_invite_token(*, leader_pk: int, party_pk: int, token: str) -> bool: ...
+    @staticmethod
+    def read_invite_token(*, leader_pk: int, party_pk: int) -> str: ...
+    @staticmethod
+    def read_party_by_invite_token(
+        *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None: ...
+    @staticmethod
+    def join_via_token(*, token: str, user_pk: int) -> PartyJoinResult | None: ...
+    @staticmethod
+    def get_or_create_membership(
+        *,
+        party_pk: int,
+        user_pk: int,
+        consent_mode: PartyConsentMode = PartyConsentMode.ACCEPT_INVITES,
+        status: PartyMembershipStatus = PartyMembershipStatus.INVITED,
+    ) -> bool: ...
     @staticmethod
     def accept_invite(*, membership_pk: int, user_pk: int) -> bool: ...
     @staticmethod
@@ -197,8 +237,8 @@ class PartyRepositoryProtocol(Protocol):
     def leave(*, user_pk: int, party_pk: int) -> bool: ...
     @staticmethod
     def led_party_companions(
-        *, leader_pk: int, party_pk: int
-    ) -> list[ConnectedUserDTO]: ...
+        *, leader_pk: int, party_pk: int | None
+    ) -> list[CompanionDTO]: ...
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
 
@@ -215,7 +255,18 @@ class PartyServiceProtocol(Protocol):
     def create(self, *, leader_pk: int, name: str) -> int: ...
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool: ...
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome: ...
-    def invite(self, *, leader_pk: int, party_pk: int, email: str) -> InviteOutcome: ...
+    def invite(
+        self, *, member_pk: int, party_pk: int, identifier: str
+    ) -> InviteOutcome: ...
+    def add_companion(
+        self, *, member_pk: int, party_pk: int, display_name: str
+    ) -> CompanionAddOutcome: ...
+    def reset_invite_link(self, *, leader_pk: int, party_pk: int) -> str | None: ...
+    def read_invite_token(self, *, leader_pk: int, party_pk: int) -> str: ...
+    def read_invitable_party(
+        self, *, token: str, viewer_pk: int
+    ) -> InvitablePartyDTO | None: ...
+    def join_via_link(self, *, token: str, user_pk: int) -> PartyJoinResult | None: ...
     def accept_invite(self, *, user_pk: int, membership_pk: int) -> bool: ...
     def decline_invite(self, *, user_pk: int, membership_pk: int) -> bool: ...
     def remove_member(

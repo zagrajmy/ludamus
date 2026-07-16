@@ -23,16 +23,8 @@
 {% endblock header_assist %}
 {% block content %}
     {% csrf_token %}
-    <!-- Timetable sub-page tabs -->
-    <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-        {% tabs %}
-        {% tab "timetable" active=True href=tab_urls.timetable %}{% translate "Schedule" %}{% end_tab %}
-    {% tab "log" href=tab_urls.log %}{% translate "Activity Log" %}{% end_tab %}
-{% tab "overview" href=tab_urls.overview %}{% translate "Organizer Overview" %}{% end_tab %}
-{% tab "problems" href=tab_urls.problems %}{% translate "Problems" %}{% end_tab %}
-{% end_tabs %}
-</div>
-<div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+    {% tab_shell "panel/_timetable_tabs.html" %}
+    {% tab_shell_body %}
     <!-- Filter bar: track + date + category chips + duration chips -->
     <div id="filter-bar" class="mb-4 flex items-center gap-4 flex-wrap">
         {% if all_tracks or grid.available_dates %}
@@ -142,7 +134,8 @@
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
         </div>
     </div>
-</div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/timetable.ts' %}
