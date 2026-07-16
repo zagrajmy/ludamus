@@ -14,10 +14,11 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.cache import patch_vary_headers
 from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
@@ -197,6 +198,11 @@ class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
 
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        response = super().get(request, *args, **kwargs)
+        patch_vary_headers(response, ["Cookie"])
+        return response
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         sphere_id = self.request.context.current_sphere_id
@@ -284,6 +290,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     context_object_name = "event"
     request: RootRequest
 
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        response = super().get(request, *args, **kwargs)
+        patch_vary_headers(response, ["Cookie"])
+        return response
+
     def get_queryset(self) -> QuerySet[Event]:
         return (
             Event.objects.filter(sphere_id=self.request.context.current_sphere_id)
@@ -321,7 +332,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 enrolled_count_cached=Count(
                     "session_participations",
                     filter=Q(
-                        session_participations__status=SessionParticipationStatus.CONFIRMED
+                        session_participations__status__in=OCCUPYING_PARTICIPATION_STATUSES
                     ),
                 ),
                 waiting_count_cached=Count(

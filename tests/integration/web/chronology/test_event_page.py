@@ -117,6 +117,30 @@ class TestEventPageView:
             not_contains="Enrollment Open",
             cache_control={"private", "max-age=180"},
         )
+        assert "Cookie" in response.headers.get("Vary", "")
+
+    def test_offered_seats_count_toward_capacity(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(event=event, category=None, participants_limit=2)
+        AgendaItemFactory(session=session, space=space)
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        sessions = response.context_data["sessions"]
+        card = next(item for item in sessions if item.session.pk == session.pk)
+        assert card.is_full
+        assert card.enrolled_count == session.participants_limit
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
