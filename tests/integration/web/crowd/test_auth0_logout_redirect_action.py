@@ -13,7 +13,7 @@ class TestAuth0LogoutRedirectActionView:
 
     def test_ok_with_domain(self, client):
         domain = "example.com"
-        site = Site.objects.get(domain=domain)
+        site = Site.objects.create(domain=domain, name="Example")
         Sphere.objects.create(site=site, name="Example")
         response = client.get(self.URL, {"last_domain": domain, "redirect_to": "/test"})
 
