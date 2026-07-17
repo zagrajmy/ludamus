@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from django.db import IntegrityError
 
-from ludamus.adapters.db.django.models import Discount, Facilitator
+from ludamus.links.db.django.models import Discount, Facilitator
 from ludamus.links.db.django.repositories import DiscountRepository
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import DiscountData, DiscountDTO, DiscountKind

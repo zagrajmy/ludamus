@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Count, Exists, OuterRef, Q, QuerySet
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     AgendaItem,
     Event,

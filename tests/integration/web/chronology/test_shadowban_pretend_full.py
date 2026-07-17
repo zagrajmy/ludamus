@@ -3,7 +3,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import SessionParticipation
+from ludamus.links.db.django.models import SessionParticipation
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 

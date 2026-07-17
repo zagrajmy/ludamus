@@ -29,7 +29,7 @@ import django  # noqa: E402
 
 django.setup()
 
-from ludamus.adapters.db.django.models import Event, Facilitator  # noqa: E402
+from ludamus.links.db.django.models import Event, Facilitator  # noqa: E402
 
 
 def _seed_facilitators(event: Event) -> None:

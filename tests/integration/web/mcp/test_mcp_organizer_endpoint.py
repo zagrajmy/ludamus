@@ -3,8 +3,8 @@ from http import HTTPStatus
 
 import pytest
 
-from ludamus.adapters.db.django.models import Announcement
 from ludamus.gates.web.django.mcp.tokens import mint_organizer_token, mint_token
+from ludamus.links.db.django.models import Announcement
 from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text

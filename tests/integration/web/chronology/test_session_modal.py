@@ -5,14 +5,14 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.gates.web.django.chronology.event_presentation import SessionData
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.gates.web.django.chronology.event_presentation import SessionData
-from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import AgendaItemDTO, EventDTO, LocationData, SessionDTO
 from ludamus.pacts.crowd import UserDTO

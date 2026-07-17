@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     Session,
     SessionField,

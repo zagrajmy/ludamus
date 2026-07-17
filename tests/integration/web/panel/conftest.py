@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 from django.conf import settings
 
-from ludamus.adapters.db.django.models import AgendaItem, Connection
+from ludamus.links.db.django.models import AgendaItem, Connection
 from ludamus.links.encryption import FernetEncryptor
 from tests.integration.conftest import SessionFactory, SpaceFactory
 
