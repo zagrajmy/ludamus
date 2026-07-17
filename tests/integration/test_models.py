@@ -4,7 +4,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Notification,
     Party,
     PartyMembership,

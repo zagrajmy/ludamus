@@ -8,7 +8,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Space
+from ludamus.links.db.django.models import Space
 from ludamus.pacts import EventDTO
 from ludamus.pacts.venues import SpaceNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory

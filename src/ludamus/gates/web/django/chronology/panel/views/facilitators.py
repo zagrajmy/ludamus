@@ -14,7 +14,6 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
@@ -22,7 +21,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     facilitator_tab_urls,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import FacilitatorEditForm, FacilitatorForm
+from ludamus.gates.web.django.forms import (
+    ACCREDITATION_TYPE_LABELS,
+    FacilitatorEditForm,
+    FacilitatorForm,
+)
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
@@ -31,7 +34,7 @@ from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.submissions import FacilitatorListQuery
+from ludamus.pacts.submissions import AccreditationType, FacilitatorListQuery
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -58,7 +61,9 @@ def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
         return _("Linked") if facilitator.user_id else _("None")
     if key == "sessions":
         return str(facilitator.session_count)
-    return str(AccreditationType(facilitator.accreditation_type).label)
+    return str(
+        ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
+    )
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -70,9 +75,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         accreditation = self.request.GET.get("accreditation", "").strip()
         return FacilitatorListQuery(
             search=self.request.GET.get("search", "").strip(),
-            accreditation=(
-                accreditation if accreditation in set(AccreditationType.values) else ""
-            ),
+            accreditation=(accreditation if accreditation in AccreditationType else ""),
             flagged=self.request.GET.get("flagged") == "true",
             sort=self.request.GET.get("sort", "").strip() or "name",
             raw_field_filters={
@@ -141,7 +144,9 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             or query.flagged
             or list_context.field_filters
         )
-        context["accreditation_types"] = [(t.value, t.label) for t in AccreditationType]
+        context["accreditation_types"] = [
+            (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
+        ]
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 
@@ -192,9 +197,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["linked_user"] = linked_user
-        context["accreditation_type_display"] = AccreditationType(
-            facilitator.accreditation_type
-        ).label
+        context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
+            AccreditationType(facilitator.accreditation_type)
+        ]
         context["personal_data_items"] = personal_data_items
         context["has_personal_data"] = has_personal_data
         context["sessions"] = self.request.di.uow.sessions.list_by_facilitator(

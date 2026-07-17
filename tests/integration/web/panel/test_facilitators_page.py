@@ -6,7 +6,8 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
+from ludamus.links.db.django.models import (
     AccreditationType,
     EventPanelSettings,
     Facilitator,
@@ -81,7 +82,9 @@ def _column_values(facilitators, extra=None):
             "linked": "Linked" if facilitator.user_id else "None",
             "sessions": str(facilitator.session_count),
             "accreditation": str(
-                AccreditationType(facilitator.accreditation_type).label
+                ACCREDITATION_TYPE_LABELS[
+                    AccreditationType(facilitator.accreditation_type)
+                ]
             ),
             **extra.get(facilitator.pk, {}),
         }
@@ -97,7 +100,9 @@ def _base_context(event):
         "filter_flagged": False,
         "filter_sort": "name",
         "filters_active": False,
-        "accreditation_types": [(t.value, t.label) for t in AccreditationType],
+        "accreditation_types": [
+            (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
+        ],
         "columns": _DEFAULT_COLUMNS,
         "column_values": {},
         "filterable_fields": [],

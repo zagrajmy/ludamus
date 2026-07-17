@@ -17,7 +17,7 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
-from ludamus.adapters.db.django.models import Notification
+from ludamus.links.db.django.models import Notification
 from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
 

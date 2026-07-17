@@ -2,8 +2,8 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EncounterRSVP
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.links.db.django.models import EncounterRSVP
 from ludamus.links.gravatar import gravatar_url
 from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
 from ludamus.pacts import EncounterDTO

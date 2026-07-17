@@ -10,10 +10,10 @@ from django.utils.translation import gettext as _
 if TYPE_CHECKING:
     from django import forms
 
-    from ludamus.adapters.db.django.models import Session
     from ludamus.gates.web.django.chronology.enrollment_presentation import (
         SessionUserParticipationData,
     )
+    from ludamus.links.db.django.models import Session
 
 register = template.Library()
 

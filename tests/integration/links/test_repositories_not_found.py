@@ -6,13 +6,13 @@ that are otherwise hard to reach from view-level integration tests.
 
 import pytest
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.crowd import CompanionRepository
+from ludamus.links.db.django.models import (
     PersonalDataField,
     ProposalCategory,
     Session,
     SessionField,
 )
-from ludamus.links.db.django.crowd import CompanionRepository
 from ludamus.links.db.django.repositories import (
     EventRepository,
     ProposalCategoryRepository,

@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.timezone import get_current_timezone
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Event,

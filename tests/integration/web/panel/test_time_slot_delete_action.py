@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ProposalCategory, Session, TimeSlot
+from ludamus.links.db.django.models import ProposalCategory, Session, TimeSlot
 from tests.integration.conftest import EventFactory, TimeSlotFactory, UserFactory
 from tests.integration.utils import assert_response
 

@@ -6,7 +6,10 @@ from django.contrib import messages
 from django.core.management import call_command
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.inits.services import Services
+from ludamus.inits.transaction import DjangoTransaction
+from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
+from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
     Notification,
     Party,
@@ -14,9 +17,6 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.inits.services import Services
-from ludamus.inits.transaction import DjangoTransaction
-from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import OfferDTO, OfferRecipientDTO
 from ludamus.pacts.legacy import NotificationKind, PromotionMode

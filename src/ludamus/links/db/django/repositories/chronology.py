@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     AgendaItem,
     DomainEnrollmentConfig,

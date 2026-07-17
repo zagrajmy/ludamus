@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from django.core.management import call_command
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Notification
+from ludamus.links.db.django.models import Notification
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import EventFactory, UserFactory
 

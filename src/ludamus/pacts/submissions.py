@@ -185,6 +185,13 @@ class ImportSettings(BaseModel):
     sheet_headers: list[str] = []
 
 
+class AccreditationType(StrEnum):
+    NONE = "none"
+    STANDARD = "standard"
+    GUEST = "guest"
+    HONORARY = "honorary"
+
+
 class ImportLogStatus(StrEnum):
     SUCCESS = "success"
     SKIPPED = "skipped"
