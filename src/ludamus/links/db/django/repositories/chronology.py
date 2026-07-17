@@ -293,19 +293,13 @@ class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
     @staticmethod
     def read_or_create(event_id: int) -> EventPanelSettingsDTO:
         settings, _ = EventPanelSettings.objects.get_or_create(event_id=event_id)
-        return EventPanelSettingsDTO(
-            pk=settings.pk,
-            displayed_facilitator_field_ids=list(
-                settings.displayed_facilitator_fields.values_list("pk", flat=True)
-            ),
-        )
+        return EventPanelSettingsDTO.model_validate(settings)
 
     @staticmethod
-    def update_displayed_facilitator_fields(
-        event_id: int, field_ids: list[int]
-    ) -> None:
-        settings, _ = EventPanelSettings.objects.get_or_create(event_id=event_id)
-        settings.displayed_facilitator_fields.set(field_ids)
+    def update_facilitator_columns(event_id: int, columns: list[str]) -> None:
+        EventPanelSettings.objects.update_or_create(
+            event_id=event_id, defaults={"facilitator_columns": columns}
+        )
 
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):

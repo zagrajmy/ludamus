@@ -15,6 +15,7 @@ from ludamus.adapters.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
+from ludamus.pacts.submissions import FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
@@ -66,6 +67,28 @@ def _field_dto(field):
     )
 
 
+_DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation"]
+_DEFAULT_COLUMNS = [FacilitatorColumnDTO(key=key) for key in _DEFAULT_KEYS]
+
+
+def _column_values(facilitators, extra=None):
+    # The default columns' rendered strings, keyed by facilitator pk. `extra`
+    # adds the personal-data columns a test chose, keyed by pk then column key.
+    extra = extra or {}
+    return {
+        facilitator.pk: {
+            "name": facilitator.display_name,
+            "linked": "Linked" if facilitator.user_id else "None",
+            "sessions": str(facilitator.session_count),
+            "accreditation": str(
+                AccreditationType(facilitator.accreditation_type).label
+            ),
+            **extra.get(facilitator.pk, {}),
+        }
+        for facilitator in facilitators
+    }
+
+
 def _base_context(event):
     return {
         **_event_context(event),
@@ -75,8 +98,7 @@ def _base_context(event):
         "filter_sort": "name",
         "filters_active": False,
         "accreditation_types": [(t.value, t.label) for t in AccreditationType],
-        "accreditation_labels": {t.value: t.label for t in AccreditationType},
-        "displayed_fields": [],
+        "columns": _DEFAULT_COLUMNS,
         "column_values": {},
         "filterable_fields": [],
         "filter_fields": {},
@@ -152,22 +174,24 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=response.context["facilitators"][0].pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
@@ -185,22 +209,24 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"search": "Alic"})
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=response.context["facilitators"][0].pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_search": "Alic",
                 "filters_active": True,
@@ -233,22 +259,24 @@ class TestFacilitatorsPageView:
             self.get_url(event), {"search": "alice@example"}
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=response.context["facilitators"][0].pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_search": "alice@example",
                 "filters_active": True,
@@ -310,22 +338,24 @@ class TestFacilitatorsPageView:
             self.get_url(event), {"accreditation": "guest"}
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="guest",
+                display_name="Guest",
+                pk=response.context["facilitators"][0].pk,
+                slug="guest",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="guest",
-                        display_name="Guest",
-                        pk=response.context["facilitators"][0].pk,
-                        slug="guest",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_accreditation": "guest",
                 "filters_active": True,
@@ -344,23 +374,25 @@ class TestFacilitatorsPageView:
         response = authenticated_client.get(self.get_url(event), {"sort": "-name"})
 
         listed = response.context["facilitators"]
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name=name,
+                pk=listed[index].pk,
+                slug=name.lower(),
+                user_id=None,
+                session_count=0,
+            )
+            for index, name in enumerate(("Carol", "Bob", "Alice"))
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name=name,
-                        pk=listed[index].pk,
-                        slug=name.lower(),
-                        user_id=None,
-                        session_count=0,
-                    )
-                    for index, name in enumerate(("Carol", "Bob", "Alice"))
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_sort": "-name",
             },
@@ -381,23 +413,25 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"flagged": "true"})
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Flagged",
+                flagged_for_deletion=True,
+                pk=response.context["facilitators"][0].pk,
+                slug="flagged",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Flagged",
-                        flagged_for_deletion=True,
-                        pk=response.context["facilitators"][0].pk,
-                        slug="flagged",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_flagged": True,
                 "filters_active": True,
@@ -422,30 +456,40 @@ class TestFacilitatorsPageView:
         PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=field, value="alice@example.com"
         )
-        panel_settings = EventPanelSettings.objects.create(event=event)
-        panel_settings.displayed_facilitator_fields.add(field)
+        EventPanelSettings.objects.create(
+            event=event, facilitator_columns=[*_DEFAULT_KEYS, f"field_{field.pk}"]
+        )
 
         response = authenticated_client.get(self.get_url(event))
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=facilitator.pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=facilitator.pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
-                "displayed_fields": [_field_dto(field)],
-                "column_values": {facilitator.pk: {"email": "alice@example.com"}},
+                "columns": [
+                    *_DEFAULT_COLUMNS,
+                    FacilitatorColumnDTO(
+                        key=f"field_{field.pk}", field=_field_dto(field)
+                    ),
+                ],
+                "column_values": _column_values(
+                    expected,
+                    {facilitator.pk: {f"field_{field.pk}": "alice@example.com"}},
+                ),
             },
         )
 
@@ -485,44 +529,66 @@ class TestFacilitatorsPageView:
         PersonalDataFieldValue.objects.create(
             facilitator=yes, event=event, field=multi_field, value=["Reds", "Blues"]
         )
-        panel_settings = EventPanelSettings.objects.create(event=event)
-        panel_settings.displayed_facilitator_fields.add(checkbox_field, multi_field)
+        EventPanelSettings.objects.create(
+            event=event,
+            facilitator_columns=[
+                *_DEFAULT_KEYS,
+                f"field_{checkbox_field.pk}",
+                f"field_{multi_field.pk}",
+            ],
+        )
 
         response = authenticated_client.get(self.get_url(event))
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="No",
+                pk=no.pk,
+                slug="no",
+                user_id=None,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Yes",
+                pk=yes.pk,
+                slug="yes",
+                user_id=None,
+                session_count=0,
+            ),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="No",
-                        pk=no.pk,
-                        slug="no",
-                        user_id=None,
-                        session_count=0,
-                    ),
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Yes",
-                        pk=yes.pk,
-                        slug="yes",
-                        user_id=None,
-                        session_count=0,
-                    ),
-                ],
+                "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
-                "displayed_fields": [
-                    _field_dto(checkbox_field),
-                    _field_dto(multi_field),
+                "columns": [
+                    *_DEFAULT_COLUMNS,
+                    FacilitatorColumnDTO(
+                        key=f"field_{checkbox_field.pk}",
+                        field=_field_dto(checkbox_field),
+                    ),
+                    FacilitatorColumnDTO(
+                        key=f"field_{multi_field.pk}", field=_field_dto(multi_field)
+                    ),
                 ],
-                "column_values": {
-                    yes.pk: {"vegan": "Yes", "teams": "Reds, Blues"},
-                    no.pk: {"vegan": "No"},
-                },
+                "column_values": _column_values(
+                    expected,
+                    {
+                        yes.pk: {
+                            f"field_{checkbox_field.pk}": "Yes",
+                            f"field_{multi_field.pk}": "Reds, Blues",
+                        },
+                        no.pk: {
+                            f"field_{checkbox_field.pk}": "No",
+                            f"field_{multi_field.pk}": "",
+                        },
+                    },
+                ),
                 "filterable_fields": [
                     _field_dto(checkbox_field),
                     _field_dto(multi_field),
@@ -557,22 +623,24 @@ class TestFacilitatorsPageView:
             self.get_url(event), {f"field_{field.pk}": "true"}
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Vegan",
+                pk=vegan.pk,
+                slug="vegan-f",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Vegan",
-                        pk=vegan.pk,
-                        slug="vegan-f",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
@@ -609,22 +677,24 @@ class TestFacilitatorsPageView:
             self.get_url(event), {f"field_{field.pk}": "Reds"}
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Reds member",
+                pk=reds.pk,
+                slug="reds",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Reds member",
-                        pk=reds.pk,
-                        slug="reds",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
@@ -661,6 +731,24 @@ class TestFacilitatorsPageView:
             self.get_url(event), {"sort": f"field_{field.pk}"}
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Bob",
+                pk=bob.pk,
+                slug="bob",
+                user_id=None,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=alice.pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            ),
+        ]
         # Ascending by email value: anna (Bob) before zoe (Alice).
         assert_response(
             response,
@@ -668,26 +756,43 @@ class TestFacilitatorsPageView:
             template_name="panel/facilitators.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Bob",
-                        pk=bob.pk,
-                        slug="bob",
-                        user_id=None,
-                        session_count=0,
-                    ),
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=alice.pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    ),
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_sort": f"field_{field.pk}",
+            },
+        )
+
+    def test_deleted_field_drops_its_column(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # The key outlives the field it names; the list drops the column rather
+        # than failing to render.
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Email",
+            question="Email?",
+            slug="email",
+            field_type="text",
+            order=0,
+        )
+        EventPanelSettings.objects.create(
+            event=event, facilitator_columns=["name", f"field_{field.pk}"]
+        )
+        field.delete()
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": [],
+                "columns": [FacilitatorColumnDTO(key="name")],
+                "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
 
@@ -908,7 +1013,7 @@ class TestFacilitatorActions:
 
 
 class TestFacilitatorColumns:
-    """Configure which personal-data fields show as list columns."""
+    """Configure which columns show on the list, and in what order."""
 
     @staticmethod
     def _url(event):
@@ -925,7 +1030,11 @@ class TestFacilitatorColumns:
             order=0,
         )
 
-    def test_get_lists_fields(self, authenticated_client, active_user, sphere, event):
+    def test_get_offers_builtin_and_field_columns(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Nothing chosen yet: the defaults are the chosen set, and the event's
+        # own personal-data field is what's left to add.
         sphere.managers.add(active_user)
         field = self._field(event)
 
@@ -937,12 +1046,16 @@ class TestFacilitatorColumns:
             template_name="panel/facilitator-columns.html",
             context_data={
                 **_event_context(event, active_tab="columns"),
-                "fields": [_field_dto(field)],
-                "selected_field_ids": [],
+                "chosen_columns": _DEFAULT_COLUMNS,
+                "available_columns": [
+                    FacilitatorColumnDTO(
+                        key=f"field_{field.pk}", field=_field_dto(field)
+                    )
+                ],
             },
         )
 
-    def test_get_renders_empty_state_without_fields(
+    def test_get_offers_only_builtins_without_fields(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -955,10 +1068,9 @@ class TestFacilitatorColumns:
             template_name="panel/facilitator-columns.html",
             context_data={
                 **_event_context(event, active_tab="columns"),
-                "fields": [],
-                "selected_field_ids": [],
+                "chosen_columns": _DEFAULT_COLUMNS,
+                "available_columns": [],
             },
-            contains="No personal-data fields defined for this event yet.",
         )
 
     def test_get_redirects_when_event_not_found(
@@ -991,14 +1103,14 @@ class TestFacilitatorColumns:
             url=reverse("panel:index"),
         )
 
-    def test_post_saves_selection(
+    def test_post_saves_chosen_columns_in_order(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         field = self._field(event)
 
         response = authenticated_client.post(
-            self._url(event), {"fields": [str(field.pk)]}
+            self._url(event), {"columns": [f"field_{field.pk}", "sessions"]}
         )
 
         assert_response(
@@ -1008,16 +1120,37 @@ class TestFacilitatorColumns:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         settings = EventPanelSettings.objects.get(event=event)
-        assert list(
-            settings.displayed_facilitator_fields.values_list("pk", flat=True)
-        ) == [field.pk]
+        assert settings.facilitator_columns == [f"field_{field.pk}", "sessions"]
 
-    def test_post_ignores_unknown_field(
+    def test_post_replaces_the_previous_set(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Saving is a replace, not an add: the defaults go when they aren't
+        # among the chosen keys.
+        sphere.managers.add(active_user)
+        EventPanelSettings.objects.create(
+            event=event, facilitator_columns=_DEFAULT_KEYS
+        )
+
+        response = authenticated_client.post(self._url(event), {"columns": ["name"]})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Columns updated.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert settings.facilitator_columns == ["name"]
+
+    def test_post_ignores_unknown_and_duplicate_keys(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.post(self._url(event), {"fields": ["99999"]})
+        response = authenticated_client.post(
+            self._url(event), {"columns": ["field_99999", "bogus", "name", "name"]}
+        )
 
         assert_response(
             response,
@@ -1026,4 +1159,23 @@ class TestFacilitatorColumns:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         settings = EventPanelSettings.objects.get(event=event)
-        assert settings.displayed_facilitator_fields.count() == 0
+        assert settings.facilitator_columns == ["name"]
+
+    def test_post_ignores_a_foreign_events_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        foreign_field = self._field(EventFactory(sphere=sphere))
+
+        response = authenticated_client.post(
+            self._url(event), {"columns": ["name", f"field_{foreign_field.pk}"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Columns updated.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert settings.facilitator_columns == ["name"]

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import PersonalDataFieldDTO
+    from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
 
 
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
@@ -49,6 +49,16 @@ def _format_field_value(*, value: str | list[str] | bool | None) -> str:
     if isinstance(value, list):
         return ", ".join(value)
     return value or ""
+
+
+def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
+    if key == "name":
+        return facilitator.display_name
+    if key == "linked":
+        return _("Linked") if facilitator.user_id else _("None")
+    if key == "sessions":
+        return str(facilitator.session_count)
+    return str(AccreditationType(facilitator.accreditation_type).label)
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -87,13 +97,26 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
 
         raw_values = self.request.services.facilitator_panel.column_values(
             facilitator_ids=[f.pk for f in page_obj.object_list],
-            field_ids=[field.pk for field in list_context.displayed_fields],
+            field_ids=[
+                column.field.pk
+                for column in list_context.columns
+                if column.field is not None
+            ],
         )
+        # One ready-to-render string per (facilitator, column), so the template
+        # renders every column the same way whatever the organizer chose.
         column_values = {
-            facilitator_pk: {
-                slug: _format_field_value(value=value) for slug, value in values.items()
+            facilitator.pk: {
+                column.key: (
+                    _format_field_value(
+                        value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
+                    )
+                    if column.field is not None
+                    else _builtin_cell(key=column.key, facilitator=facilitator)
+                )
+                for column in list_context.columns
             }
-            for facilitator_pk, values in raw_values.items()
+            for facilitator in page_obj.object_list
         }
 
         context["active_nav"] = "facilitators"
@@ -101,7 +124,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
-        context["displayed_fields"] = list_context.displayed_fields
+        context["columns"] = list_context.columns
         context["column_values"] = column_values
         context["filterable_fields"] = list_context.filterable_fields
         context["filter_fields"] = {
@@ -119,7 +142,6 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             or list_context.field_filters
         )
         context["accreditation_types"] = [(t.value, t.label) for t in AccreditationType]
-        context["accreditation_labels"] = {t.value: t.label for t in AccreditationType}
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 
@@ -501,8 +523,8 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["active_tab"] = "columns"
         context["tab_urls"] = facilitator_tab_urls(slug)
-        context["fields"] = columns.fields
-        context["selected_field_ids"] = columns.selected_field_ids
+        context["chosen_columns"] = columns.chosen
+        context["available_columns"] = columns.available
         return TemplateResponse(self.request, "panel/facilitator-columns.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -510,11 +532,10 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        # The chosen keys arrive in display order; the service drops anything
+        # that isn't this event's own column.
         self.request.services.facilitator_panel.set_columns(
-            event_id=current_event.pk,
-            field_ids=[
-                int(raw) for raw in self.request.POST.getlist("fields") if raw.isdigit()
-            ],
+            event_id=current_event.pk, columns=self.request.POST.getlist("columns")
         )
         messages.success(self.request, _("Columns updated."))
         return redirect("panel:facilitators", slug=slug)

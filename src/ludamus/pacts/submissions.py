@@ -333,7 +333,7 @@ class EventPanelSettingsDTO(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    displayed_facilitator_field_ids: list[int] = []
+    facilitator_columns: list[str] = []
     pk: int
 
 
@@ -341,9 +341,7 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
     @staticmethod
     def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
     @staticmethod
-    def update_displayed_facilitator_fields(
-        event_id: int, field_ids: list[int]
-    ) -> None: ...
+    def update_facilitator_columns(event_id: int, columns: list[str]) -> None: ...
 
 
 @dataclass
@@ -374,21 +372,35 @@ class FacilitatorListQuery:
 
 
 @dataclass
+class FacilitatorColumnDTO:
+    """One column of the panel's facilitator list.
+
+    `key` is both the column's identity and its sort key — a built-in
+    ("name", "linked", "sessions", "accreditation") or "field_<pk>". `field`
+    is set only for personal-data columns; built-ins label themselves in the
+    template, where the rest of the list's wording lives.
+    """
+
+    key: str
+    field: PersonalDataFieldDTO | None = None
+
+
+@dataclass
 class FacilitatorListContextDTO:
     """Read aggregate for the panel's facilitator list."""
 
     facilitators: list[FacilitatorListItemDTO]
     filterable_fields: list[PersonalDataFieldDTO]
     field_filters: dict[int, str | bool]
-    displayed_fields: list[PersonalDataFieldDTO]
+    columns: list[FacilitatorColumnDTO]
 
 
 @dataclass
 class FacilitatorColumnsContextDTO:
     """Read aggregate for the facilitator-columns chooser."""
 
-    fields: list[PersonalDataFieldDTO]
-    selected_field_ids: list[int]
+    chosen: list[FacilitatorColumnDTO]
+    available: list[FacilitatorColumnDTO]
 
 
 class FacilitatorPanelServiceProtocol(Protocol):
@@ -399,7 +411,7 @@ class FacilitatorPanelServiceProtocol(Protocol):
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
-    def set_columns(self, *, event_id: int, field_ids: list[int]) -> None: ...
+    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
     ) -> None: ...

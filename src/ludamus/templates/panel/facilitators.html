@@ -90,18 +90,8 @@
                 {% tessera_table %}
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        {% translate "Display Name" as t_name %}
-                        {% include "panel/_sort_th.html" with column="name" label=t_name %}
-                        {% translate "Linked User" as t_linked %}
-                        {% include "panel/_sort_th.html" with column="linked" label=t_linked %}
-                        {% translate "Sessions" as t_sessions %}
-                        {% include "panel/_sort_th.html" with column="sessions" label=t_sessions %}
-                        {% translate "Accreditation" as t_accr %}
-                        {% include "panel/_sort_th.html" with column="accreditation" label=t_accr %}
-                        {% for field in displayed_fields %}
-                            {% with pk_str=field.pk|stringformat:"s" %}
-                                {% include "panel/_sort_th.html" with column="field_"|add:pk_str label=field.name %}
-                            {% endwith %}
+                        {% for column in columns %}
+                            {% include "panel/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
                         {% endfor %}
                         <th scope="col"
                             class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
@@ -112,32 +102,24 @@
                 <tbody class="divide-y divide-border">
                     {% for facilitator in facilitators %}
                         <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                   class="text-primary hover:text-primary/80"
-                                   title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
-                                {% if facilitator.flagged_for_deletion %}
-                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
-                                        {% translate "Flagged" %}
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                {% if facilitator.user_id %}
-                                    {% translate "Linked" %}
-                                {% else %}
-                                    <span class="text-foreground-muted">{% translate "None" %}</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                {{ accreditation_labels|get_item:facilitator.accreditation_type }}
-                            </td>
-                            {% for field in displayed_fields %}
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted"
-                                    title="{{ column_values|get_item:facilitator.pk|get_item:field.slug }}">
-                                    {{ column_values|get_item:facilitator.pk|get_item:field.slug|truncatechars:40 }}
-                                </td>
+                            {% for column in columns %}
+                                {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
+                                    {# The first column carries the link to the facilitator, whichever column the organizer put there. #}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
+                                        title="{{ value }}">
+                                        {% if forloop.first %}
+                                            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
+                                            {% if facilitator.flagged_for_deletion %}
+                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
+                                                    {% translate "Flagged" %}
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ value|truncatechars:40 }}
+                                        {% endif %}
+                                    </td>
+                                {% endwith %}
                             {% endfor %}
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="inline-flex items-center gap-3 justify-end">

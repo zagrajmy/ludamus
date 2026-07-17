@@ -1486,8 +1486,11 @@ class EventPanelSettings(models.Model):
     event = models.OneToOneField(
         Event, on_delete=models.CASCADE, related_name="panel_settings"
     )
-    # Which personal-data fields show as columns on the facilitators list.
-    displayed_facilitator_fields = models.ManyToManyField(PersonalDataField, blank=True)
+    # The facilitators list's columns, in display order. Each entry is either a
+    # built-in key ("name", "linked", "sessions", "accreditation") or
+    # "field_<pk>" naming a PersonalDataField. Empty means the default set.
+    # The keys double as the list's sort keys, so a column sorts by construction.
+    facilitator_columns = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "event_panel_settings"

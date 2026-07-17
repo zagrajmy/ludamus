@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load cfp_tags %}
 {% block title_prefix %}
     {% translate "Columns" %} -
 {% endblock title_prefix %}
@@ -29,28 +30,31 @@
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Personal-data columns" %}</h3>
+                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
                     <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Select which personal-data fields show as columns on the facilitators list. Organizers only." %}
+                        {% translate "Choose which columns show on the facilitators list. Organizers only." %}
                     </p>
-                    {% if fields %}
-                        <div class="space-y-3">
-                            {% for field in fields %}
-                                <label class="flex items-center">
-                                    <input type="checkbox"
-                                           name="fields"
-                                           value="{{ field.pk }}"
-                                           {% if field.pk in selected_field_ids %}checked{% endif %}
-                                           class="rounded border-border text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm text-foreground-secondary">{{ field.name }}</span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="text-sm text-foreground-muted italic">
-                            {% translate "No personal-data fields defined for this event yet." %}
-                        </p>
-                    {% endif %}
+                    <div class="space-y-3">
+                        {% for column in chosen_columns %}
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="columns"
+                                       value="{{ column.key }}"
+                                       checked
+                                       class="rounded border-border text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-foreground-secondary">{{ column|facilitator_column_label }}</span>
+                            </label>
+                        {% endfor %}
+                        {% for column in available_columns %}
+                            <label class="flex items-center">
+                                <input type="checkbox"
+                                       name="columns"
+                                       value="{{ column.key }}"
+                                       class="rounded border-border text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-foreground-secondary">{{ column|facilitator_column_label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </form>

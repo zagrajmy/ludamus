@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.submissions import (
+    FacilitatorColumnDTO,
     FacilitatorColumnsContextDTO,
     FacilitatorListContextDTO,
     FacilitatorPanelServiceProtocol,
@@ -23,6 +24,11 @@ if TYPE_CHECKING:
     )
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
+_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
+# What an event shows until an organizer chooses otherwise — the columns the
+# list hardcoded before they became configurable.
+_DEFAULT_COLUMN_KEYS = _BUILTIN_COLUMN_KEYS
+_FIELD_KEY_PREFIX = "field_"
 
 
 def _resolve_field_filters(
@@ -45,6 +51,31 @@ def _resolve_field_filters(
 
 def _column_order(field: PersonalDataFieldDTO) -> tuple[int, str]:
     return (field.order, field.name)
+
+
+def _field_key(field: PersonalDataFieldDTO) -> str:
+    return f"{_FIELD_KEY_PREFIX}{field.pk}"
+
+
+def _all_columns(fields: list[PersonalDataFieldDTO]) -> list[FacilitatorColumnDTO]:
+    return [
+        *(FacilitatorColumnDTO(key=key) for key in _BUILTIN_COLUMN_KEYS),
+        *(
+            FacilitatorColumnDTO(key=_field_key(field), field=field)
+            for field in sorted(fields, key=_column_order)
+        ),
+    ]
+
+
+def _resolve_columns(
+    *, keys: list[str], fields: list[PersonalDataFieldDTO]
+) -> list[FacilitatorColumnDTO]:
+    # Keys naming a field that has since been deleted (or never belonged to
+    # this event) resolve to nothing: the column drops, the list still renders.
+    by_key = {column.key: column for column in _all_columns(fields)}
+    return [
+        column for key in keys or _DEFAULT_COLUMN_KEYS if (column := by_key.get(key))
+    ]
 
 
 class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
@@ -82,19 +113,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             "field_filters": field_filters or None,
             "sort": query.sort or None,
         }
-        selected_ids = set(
-            self._panel_settings.read_or_create(
-                event_id
-            ).displayed_facilitator_field_ids
-        )
+        settings = self._panel_settings.read_or_create(event_id)
         return FacilitatorListContextDTO(
             facilitators=self._facilitators.list_by_event(event_id, filters),
             filterable_fields=filterable_fields,
             field_filters=field_filters,
-            displayed_fields=sorted(
-                (field for field in fields if field.pk in selected_ids),
-                key=_column_order,
-            ),
+            columns=_resolve_columns(keys=settings.facilitator_columns, fields=fields),
         )
 
     def column_values(
@@ -107,22 +131,34 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         )
 
     def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO:
+        fields = self._personal_data_fields.list_by_event(event_id)
+        settings = self._panel_settings.read_or_create(event_id)
+        chosen = _resolve_columns(keys=settings.facilitator_columns, fields=fields)
+        chosen_keys = {column.key for column in chosen}
         return FacilitatorColumnsContextDTO(
-            fields=self._personal_data_fields.list_by_event(event_id),
-            selected_field_ids=self._panel_settings.read_or_create(
-                event_id
-            ).displayed_facilitator_field_ids,
+            chosen=chosen,
+            available=[
+                column
+                for column in _all_columns(fields)
+                if column.key not in chosen_keys
+            ],
         )
 
-    def set_columns(self, *, event_id: int, field_ids: list[int]) -> None:
-        # Drop field pks that belong to another event so a tampered request
-        # cannot pull a foreign event's answers into this list.
-        valid_pks = {
-            field.pk for field in self._personal_data_fields.list_by_event(event_id)
+    def set_columns(self, *, event_id: int, columns: list[str]) -> None:
+        # Keep only this event's own keys, deduped, in the given order: a
+        # tampered request cannot pull a foreign event's answers into the list
+        # or repeat a column to widen it.
+        valid_keys = {
+            column.key
+            for column in _all_columns(
+                self._personal_data_fields.list_by_event(event_id)
+            )
         }
-        self._panel_settings.update_displayed_facilitator_fields(
-            event_id, [pk for pk in field_ids if pk in valid_pks]
-        )
+        chosen: list[str] = []
+        for key in columns:
+            if key in valid_keys and key not in chosen:
+                chosen.append(key)
+        self._panel_settings.update_facilitator_columns(event_id, chosen)
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._facilitators.read_by_event_and_slug(
