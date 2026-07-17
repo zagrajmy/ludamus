@@ -250,4 +250,5 @@ class TestDesignPageView:
             },
             template_name=["design.html"],
             contains=["py-1.5", "py-2", "py-3", "text-xs", "text-sm", "text-base"],
+            cache_control={"public", "max-age=300"},
         )

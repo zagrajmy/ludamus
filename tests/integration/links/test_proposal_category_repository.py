@@ -1,4 +1,4 @@
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,

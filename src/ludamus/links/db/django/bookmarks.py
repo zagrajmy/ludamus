@@ -1,6 +1,6 @@
 from django.db.models import Count
 
-from ludamus.adapters.db.django.models import Session, SessionBookmark
+from ludamus.links.db.django.models import Session, SessionBookmark
 from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol, BookmarkToggleDTO
 
 

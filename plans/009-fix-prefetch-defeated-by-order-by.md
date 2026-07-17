@@ -197,7 +197,7 @@ Extend
 with two classes, one per method (imports: the models
 `PersonalDataField`, `PersonalDataFieldOption`,
 `PersonalDataFieldRequirement`, `SessionField`, `SessionFieldOption`,
-`SessionFieldRequirement` from `ludamus.adapters.db.django.models`;
+`SessionFieldRequirement` from `ludamus.links.db.django.models`;
 `ProposalCategoryFactory` from `tests.integration.conftest`).
 
 Arrange recipe (mirror for the session variant):

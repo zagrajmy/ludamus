@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Facilitator
+from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
 from tests.integration.utils import PageMatcher, assert_response
 

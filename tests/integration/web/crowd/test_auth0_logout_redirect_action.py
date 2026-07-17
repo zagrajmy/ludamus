@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.sites.models import Site
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Sphere
+from ludamus.links.db.django.models import Sphere
 from tests.integration.utils import assert_response
 
 

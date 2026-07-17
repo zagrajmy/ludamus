@@ -2,7 +2,7 @@ import factory
 from django.contrib.auth.hashers import make_password
 from factory.django import DjangoModelFactory
 
-from ludamus.adapters.db.django.models import User
+from ludamus.links.db.django.models import User
 from ludamus.pacts.crowd import UserType
 
 

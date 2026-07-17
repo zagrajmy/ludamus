@@ -5,7 +5,7 @@ from unittest.mock import ANY
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Encounter
+from ludamus.links.db.django.models import Encounter
 from tests.integration.utils import assert_response
 
 PNG_BYTES = (

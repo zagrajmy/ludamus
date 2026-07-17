@@ -10,7 +10,11 @@ from django.db import connection
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    SessionUserParticipationData,
+)
+from ludamus.inits.services import Services
+from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Notification,
@@ -19,10 +23,6 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    SessionUserParticipationData,
-)
-from ludamus.inits.services import Services
 from ludamus.pacts.crowd import CompanionDTO, UserDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (

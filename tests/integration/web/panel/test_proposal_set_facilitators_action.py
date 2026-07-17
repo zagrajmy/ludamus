@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Facilitator, ProposalCategory, Session
+from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response

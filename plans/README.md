@@ -135,7 +135,7 @@ Original list, kept for the record:
   (`docs/refactors/glimpse-strangler.md`), L effort, needs
   characterization tests first; too large to plan without the
   maintainer choosing scope.
-- **Model relocation + fat-file splits** (`adapters/db/django/models.py`
+- **Fat-file splits** (`links/db/django/models.py`
   1784 LOC / 43 models; `pacts/legacy.py` 1556; `mills/chronology.py`
   1552; `gates/.../google_docs_import.py` 1218;
   `repositories/submissions.py` 1010; `templates/chronology/event.html`
