@@ -29,7 +29,7 @@
                             {% endif %}
                         </p>
                         {% if candidate.met_sessions %}
-                            <ul class="mt-1 flex flex-col gap-0.5 text-xs">
+                            <ul class="mt-1 flex flex-col gap-0.5 text-xs text-foreground-muted">
                                 {% for meet in candidate.met_sessions %}
                                     {% blocktranslate asvar meet_label with sphere=meet.sphere_name event=meet.event_name session=meet.title trimmed %}
                                         {{ sphere }} › {{ event }} › {{ session }}
@@ -37,7 +37,7 @@
                                     <li class="min-w-0">
                                         <a href="//{{ meet.sphere_domain }}{% url 'web:chronology:event' slug=meet.event_slug %}?session={{ meet.session_id }}"
                                            title="{{ meet_label }}"
-                                           class="block truncate text-primary hover:underline">{{ meet_label }}</a>
+                                           class="block truncate hover:text-foreground">{{ meet.sphere_name }} › {{ meet.event_name }} › <span class="underline">{{ meet.title }}</span></a>
                                     </li>
                                 {% endfor %}
                             </ul>

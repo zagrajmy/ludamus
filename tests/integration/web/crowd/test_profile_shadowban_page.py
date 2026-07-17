@@ -182,9 +182,9 @@ class TestProfileShadowbanPageView:
             },
             template_name="crowd/user/safety.html",
             contains=[
-                session.title,
                 f"//{event.sphere.site.domain}/event/{event.slug}/?session={session.pk}",
-                f"{event.sphere.name} {sep} {event.name} {sep} {session.title}",
+                f"{event.sphere.name} {sep} {event.name} {sep} ",
+                f'<span class="underline">{session.title}</span>',
             ],
         )
 
