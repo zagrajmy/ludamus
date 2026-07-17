@@ -15,12 +15,13 @@ lands; keep the table below in sync._
 | 1 | [GLIMPSE strangler: `adapters/` → layers](glimpse-strangler.md) | 🟡 in progress | Migrate Public Event Pages + Enrollment views out of `views.py` |
 | 2 | [UoW → Services (`request.di.uow` → `request.services`)](services-di.md) | 🟡 early | Finish `timetable` (promote `TimetableService` to `request.services`), then `time_slots.py` |
 | 3 | [Legacy module split (`*/legacy.py` → per-subdomain)](pacts-mills-split.md) | 🟡 in progress | Carve `notice_board` DTOs/services out of `legacy.py` |
-| 4 | [`links/db/django` layout (split fat repositories)](links-db-layout.md) | 🟡 in progress | Relocate models from `adapters/db/django` into `links/db/django` |
+| 4 | [`links/db/django` layout (split fat repositories)](links-db-layout.md) | ✅ done | — (repositories split, `adapters/db/` relocated to `links/db/`) |
 | 5 | [Panel object-scope authorization (IDOR)](panel-object-scope-authz.md) | 🟢 active branch | Audit `venues.py` and `proposals.py`, then `facilitators.py` |
 | 6 | [HTMX adoption (frontend)](htmx-adoption.md) | 🟡 in progress | Convert one more multi-step/list page to HTMX partials |
 | 7 | [Scoped query boundaries (baked-in invariant filters)](scoped-query-boundaries.md) | 🔴 not started | Add `Session.scheduled` manager, switch the two public call sites |
 
-Legend: 🟢 healthy/active · 🟡 partially done, steady-state · 🔴 not started.
+Legend: ✅ done · 🟢 healthy/active · 🟡 partially done, steady-state ·
+🔴 not started.
 
 ## How these relate
 

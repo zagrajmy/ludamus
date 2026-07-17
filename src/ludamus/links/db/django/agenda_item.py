@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.adapters.db.django.models import AgendaItem
+from ludamus.links.db.django.models import AgendaItem
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemDTO,

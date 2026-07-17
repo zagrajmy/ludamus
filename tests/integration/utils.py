@@ -38,6 +38,11 @@ def _assert_messages(response, expected_messages: list[tuple[int, str]]):
         assert msgs[i].message == message, msgs[i].message
 
 
+def assert_cache_control(response: HttpResponse, expected: set[str]) -> None:
+    directives = set(response["Cache-Control"].split(", "))
+    assert directives == expected, directives
+
+
 def assert_response(
     response: HttpResponse,
     status_code: HTTPStatus,
@@ -45,10 +50,14 @@ def assert_response(
     messages: Iterable[tuple[int, str]] = (),
     contains: str | Iterable[str] = (),
     not_contains: str | Iterable[str] = (),
+    cache_control: set[str] | None = None,
     **response_fields: Any,
 ) -> None:
     assert response.status_code == status_code, response.status_code
     _assert_messages(response, messages)
+
+    if cache_control is not None:
+        assert_cache_control(response, cache_control)
 
     default_fields = {"context_data": None, "template_name": None, "url": None}
     for key, value in (default_fields | response_fields).items():
@@ -87,6 +96,16 @@ def assert_response_404(
         messages=messages,
         **response_fields,
     )
+
+
+def checkbox_tag(content: str, name: str, pk: int) -> str:
+    # The single <input> tag for a multi-value checkbox (name repeats per row,
+    # value carries the pk), so a test can check its checked state without
+    # depending on attribute order. Scoping by name matters: pks restart at 1
+    # per table, so a bare value="1" search can match an unrelated element.
+    match = re.search(rf'<input[^>]*name="{name}"[^>]*value="{pk}"[^>]*>', content)
+    assert match, f"no checkbox {name}={pk}"
+    return match.group(0)
 
 
 def input_tag(content: str, pk: int) -> str:

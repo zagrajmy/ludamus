@@ -1,8 +1,8 @@
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.enrollment import EnrollmentParticipationRepository
+from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.enrollment import EnrollmentParticipationRepository
 from ludamus.pacts.enrollment import GuestSeatData
 from tests.integration.conftest import SessionFactory, UserFactory
 

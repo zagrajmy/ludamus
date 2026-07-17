@@ -8,7 +8,7 @@ from django.db import connection
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Notification,
     SessionParticipation,
     SessionParticipationStatus,

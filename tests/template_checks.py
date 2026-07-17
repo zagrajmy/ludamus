@@ -69,8 +69,13 @@ class MissingTemplateVariableFilter(logging.Filter):
         return False
 
     def _has_default_filter_on_simple_var(self) -> bool:
-        for frame_info in inspect.stack():
-            local_self = frame_info.frame.f_locals.get("self")
+        # Walk f_back rather than inspect.stack(): stack() resolves source
+        # context (linecache read + module lookup) for every frame, and we
+        # only need each frame's locals. It fires on every failed template
+        # variable lookup, so the waste dominates the test suite.
+        frame = inspect.currentframe()
+        while frame is not None:  # pylint: disable=while-used
+            local_self = frame.f_locals.get("self")
             if isinstance(local_self, FilterExpression):
                 var = local_self.var
                 if hasattr(var, "lookups") and var.lookups and len(var.lookups) == 1:
@@ -78,6 +83,7 @@ class MissingTemplateVariableFilter(logging.Filter):
                         if func.__name__ == "default":
                             return True
                 break
+            frame = frame.f_back
         return False
 
     def _get_lookup_info(self, record: logging.LogRecord) -> tuple[str, str] | None:

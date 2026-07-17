@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     REASON_MAX_LENGTH,
     AgendaItem,
     EventBan,
@@ -26,7 +26,7 @@ from ludamus.pacts.safety import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.adapters.db.django.models import User
+    from ludamus.links.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
 

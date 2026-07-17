@@ -14,7 +14,9 @@ class TestEncounterIcsView:
 
         response = client.get(url)
 
-        assert_response(response, HTTPStatus.OK)
+        assert_response(
+            response, HTTPStatus.OK, cache_control={"public", "max-age=300"}
+        )
         assert "text/calendar" in response["Content-Type"]
         content = response.content.decode()
         assert "BEGIN:VCALENDAR" in content

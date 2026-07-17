@@ -6,9 +6,9 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Announcement
 from ludamus.adapters.web.django.views import EventInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.links.db.django.models import Announcement
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
@@ -82,6 +82,7 @@ class TestEventsPageView:
                 "view": ANY,
             },
             template_name=["index.html"],
+            cache_control={"private", "max-age=180"},
         )
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 

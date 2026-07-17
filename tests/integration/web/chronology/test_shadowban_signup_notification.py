@@ -3,7 +3,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Notification,
     SessionParticipation,
     SessionParticipationStatus,
@@ -28,7 +28,14 @@ def _enroll_url(session_id: int, event_slug: str) -> str:
 @pytest.mark.usefixtures("enrollment_config")
 class TestShadowbanSignupNotification:
     def test_banner_emailed_when_shadowbanned_player_joins_event(
-        self, authenticated_client, agenda_item, active_user, event, space, mailoutbox
+        self,
+        authenticated_client,
+        agenda_item,
+        active_user,
+        event,
+        space,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         # A banner runs a session in the event and shadowbanned the player.
         banner = UserFactory(username="gm", email="gm@example.com", name="Game Master")
@@ -43,10 +50,11 @@ class TestShadowbanSignupNotification:
         )
         AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
 
-        response = authenticated_client.post(
-            _enroll_url(joined_session.pk, joined_session.event.slug),
-            data={f"user_{active_user.id}": "enroll"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _enroll_url(joined_session.pk, joined_session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
 
         assert response.status_code == HTTPStatus.FOUND
         assert Notification.objects.filter(
@@ -57,7 +65,14 @@ class TestShadowbanSignupNotification:
         assert "Test User" in mailoutbox[0].body
 
     def test_email_discerns_signup_into_session_where_banner_plays(
-        self, authenticated_client, agenda_item, active_user, event, space, mailoutbox
+        self,
+        authenticated_client,
+        agenda_item,
+        active_user,
+        event,
+        space,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         banner = UserFactory(username="gm6", email="gm6@example.com", name="GM")
         banner_session = agenda_item.session
@@ -79,10 +94,11 @@ class TestShadowbanSignupNotification:
             status=SessionParticipationStatus.CONFIRMED.value,
         )
 
-        response = authenticated_client.post(
-            _enroll_url(joined_session.pk, joined_session.event.slug),
-            data={f"user_{active_user.id}": "enroll"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _enroll_url(joined_session.pk, joined_session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
 
         assert response.status_code == HTTPStatus.FOUND
         assert len(mailoutbox) == 1
@@ -94,7 +110,12 @@ class TestShadowbanSignupNotification:
         assert "where you are playing" in mailoutbox[0].body
 
     def test_banner_playing_in_session_notified_even_without_presenting(
-        self, authenticated_client, agenda_item, active_user, mailoutbox
+        self,
+        authenticated_client,
+        agenda_item,
+        active_user,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         banner = UserFactory(username="gm7", email="gm7@example.com", name="GM")
         banner.shadowbanned.add(active_user)
@@ -108,10 +129,11 @@ class TestShadowbanSignupNotification:
             status=SessionParticipationStatus.CONFIRMED.value,
         )
 
-        response = authenticated_client.post(
-            _enroll_url(joined_session.pk, joined_session.event.slug),
-            data={f"user_{active_user.id}": "enroll"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _enroll_url(joined_session.pk, joined_session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
 
         assert response.status_code == HTTPStatus.FOUND
         assert Notification.objects.filter(
@@ -122,7 +144,14 @@ class TestShadowbanSignupNotification:
         assert "where you are playing" in mailoutbox[0].body
 
     def test_reconfirming_existing_signup_does_not_renotify(
-        self, authenticated_client, agenda_item, active_user, event, space, mailoutbox
+        self,
+        authenticated_client,
+        agenda_item,
+        active_user,
+        event,
+        space,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         # Re-submitting enroll for an already-existing participation is not a
         # fresh signup, so the banner must not be alerted again.
@@ -144,10 +173,11 @@ class TestShadowbanSignupNotification:
             status=SessionParticipationStatus.WAITING.value,
         )
 
-        response = authenticated_client.post(
-            _enroll_url(joined_session.pk, joined_session.event.slug),
-            data={f"user_{active_user.id}": "enroll"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _enroll_url(joined_session.pk, joined_session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
 
         assert response.status_code == HTTPStatus.FOUND
         assert not Notification.objects.filter(
@@ -156,7 +186,14 @@ class TestShadowbanSignupNotification:
         assert not mailoutbox
 
     def test_no_email_when_player_not_shadowbanned(
-        self, authenticated_client, agenda_item, active_user, event, space, mailoutbox
+        self,
+        authenticated_client,
+        agenda_item,
+        active_user,
+        event,
+        space,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         banner = UserFactory(
             username="gm2", email="gm2@example.com", name="Other Master"
@@ -170,10 +207,11 @@ class TestShadowbanSignupNotification:
         )
         AgendaItemFactory(session=joined_session, space=SpaceFactory(event=space.event))
 
-        response = authenticated_client.post(
-            _enroll_url(joined_session.pk, joined_session.event.slug),
-            data={f"user_{active_user.id}": "enroll"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _enroll_url(joined_session.pk, joined_session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
 
         assert response.status_code == HTTPStatus.FOUND
         assert not Notification.objects.filter(
@@ -182,7 +220,13 @@ class TestShadowbanSignupNotification:
         assert not mailoutbox
 
     def test_unscheduled_banner_not_notified(
-        self, authenticated_client, agenda_item, active_user, event, mailoutbox
+        self,
+        authenticated_client,
+        agenda_item,
+        active_user,
+        event,
+        mailoutbox,
+        django_capture_on_commit_callbacks,
     ):
         # A banner whose only session in the event is unscheduled (no agenda
         # item) is not "on the event" and is not notified.
@@ -200,10 +244,11 @@ class TestShadowbanSignupNotification:
         agenda_item.session.presenter = host
         agenda_item.session.save()
 
-        response = authenticated_client.post(
-            _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug),
-            data={f"user_{active_user.id}": "enroll"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = authenticated_client.post(
+                _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug),
+                data={f"user_{active_user.id}": "enroll"},
+            )
 
         assert response.status_code == HTTPStatus.FOUND
         assert not Notification.objects.filter(

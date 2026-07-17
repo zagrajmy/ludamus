@@ -1,7 +1,7 @@
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 
-from ludamus.adapters.db.django.models import Announcement, Connection, Sphere
+from ludamus.links.db.django.models import Announcement, Connection, Sphere
 from ludamus.pacts import (
     NotFoundError,
     SphereDTO,

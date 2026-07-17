@@ -8,7 +8,7 @@ on:
       - "src/ludamus/client/**"
       - "src/ludamus/templates/**"
       - "tests/e2e/**"
-      - "scripts/reproduce-ios-modal-bugs.*"
+      - "scripts/ios-regressions/**"
       - ".github/workflows/mobile.yml"
 
 permissions:
@@ -70,8 +70,8 @@ jobs:
 
       - name: Start local e2e server
         run: |
-          mise run test:e2e:serve > ios-modal-server.log 2>&1 &
-          echo $! > ios-modal-server.pid
+          mise run test:e2e:serve > ios-server.log 2>&1 &
+          echo $! > ios-server.pid
 
       - name: Wait for local e2e server
         run: |
@@ -82,22 +82,22 @@ jobs:
             sleep 2
           done
           echo "Local e2e server did not become ready" >&2
-          tail -200 ios-modal-server.log >&2
+          tail -200 ios-server.log >&2
           exit 1
 
-      - name: Run iOS Safari modal regression
+      - name: Run iOS Safari regressions
         env:
           AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
           AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
           BASE_URL: http://localhost:8000
           IOS_DEVICE_NAME: iPhone 16
-          SESSION: ios-modal-regression
+          SESSION: ios-regressions
         run: |
           for attempt in 1 2; do
-            if scripts/reproduce-ios-modal-bugs.ts; then
+            if bun test scripts/ios-regressions/; then
               exit 0
             fi
-            echo "iOS modal regression attempt ${attempt} failed; retrying after simulator cleanup" >&2
+            echo "iOS regressions attempt ${attempt} failed; retrying after simulator cleanup" >&2
             xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
             sleep 15
           done
@@ -106,15 +106,15 @@ jobs:
       - name: Stop local e2e server
         if: always()
         run: |
-          if [ -f ios-modal-server.pid ]; then
-            kill "$(cat ios-modal-server.pid)" || true
+          if [ -f ios-server.pid ]; then
+            kill "$(cat ios-server.pid)" || true
           fi
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: ios-modal-regression-logs
+          name: ios-regression-logs
           path: |
-            ios-modal-server.log
+            ios-server.log
             ~/.agent-device/logs/
           retention-days: 14

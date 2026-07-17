@@ -13,7 +13,15 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
 
-from ludamus.adapters.db.django.models import (
+from ludamus.adapters.web.django.views import EventPageView
+from ludamus.gates.web.django.chronology.event_presentation import (
+    ParticipationInfo,
+    SessionData,
+    build_display_field_row,
+)
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
     EnrollmentConfig,
     EventSettings,
@@ -24,14 +32,6 @@ from ludamus.adapters.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
-from ludamus.adapters.web.django.views import EventPageView
-from ludamus.gates.web.django.chronology.event_presentation import (
-    ParticipationInfo,
-    SessionData,
-    build_display_field_row,
-)
-from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -115,6 +115,7 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
             contains="Upcoming",
             not_contains="Enrollment Open",
+            cache_control={"private", "max-age=180"},
         )
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):

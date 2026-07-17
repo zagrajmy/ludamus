@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Track
+from ludamus.links.db.django.models import Track
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,

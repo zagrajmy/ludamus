@@ -9,8 +9,8 @@ from django.contrib.auth.hashers import make_password
 from django.core.cache import cache
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import User, UserType
 from ludamus.links.db.django.crowd import ClaimRepository
+from ludamus.links.db.django.models import User, UserType
 from ludamus.pacts.crowd import ClaimableProfileDTO
 from ludamus.pacts.party import PartyConsentMode
 from tests.integration.conftest import UserFactory, sponsor_user

@@ -18,22 +18,13 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
+from django.views.decorators.cache import cache_control
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
-from ludamus.adapters.db.django.models import (
-    SPACE_MAX_DEPTH,
-    AgendaItem,
-    EnrollmentConfig,
-    Event,
-    EventSettings,
-    Session,
-    SessionFieldValue,
-    SessionParticipation,
-    SessionParticipationStatus,
-)
 from ludamus.adapters.web.django.forms import (
     INCLUDE_VALUE,
     EnrollmentRoster,
@@ -62,6 +53,17 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.links.db.django.models import (
+    SPACE_MAX_DEPTH,
+    AgendaItem,
+    EnrollmentConfig,
+    Event,
+    EventSettings,
+    Session,
+    SessionFieldValue,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.mills import AcceptProposalService
 from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (
@@ -108,6 +110,7 @@ if TYPE_CHECKING:
 MINIMUM_ALLOWED_USER_AGE = 16
 
 
+@method_decorator(cache_control(public=True, max_age=300), name="get")
 class DesignPageView(TemplateView):
     request: RootRequest
     template_name = "design.html"
@@ -189,6 +192,7 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
+@method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
@@ -273,6 +277,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
+@method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
