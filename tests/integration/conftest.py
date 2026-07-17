@@ -38,7 +38,7 @@ register(AnonymousUserFactory)
 
 
 @pytest.fixture(autouse=True)
-def _django_db(transactional_db):
+def _django_db(db):
     pass
 
 
@@ -349,7 +349,7 @@ def agenda_item(session, space):
 
 
 @pytest.fixture(autouse=True, name="sphere")
-def sphere_fixture(settings, transactional_db):  # noqa: ARG001
+def sphere_fixture(settings, db):  # noqa: ARG001
     site, __ = Site.objects.update_or_create(
         domain=settings.ROOT_DOMAIN, defaults={"name": settings.ROOT_DOMAIN}
     )

@@ -38,7 +38,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 PNG_BYTES = (
@@ -1349,19 +1349,7 @@ class TestProposalEditPageView:
         assert response.status_code == HTTPStatus.OK
         html = response.content.decode()
         assert 'id="facilitator-search"' in html
-        assert f'value="{assigned.pk}"' in html
-        assert f'value="{unassigned.pk}"' in html
         assert "Alice" in html
         assert "Bob" in html
-        assigned_row = html[
-            html.index(f'value="{assigned.pk}"') : html.index(f'value="{assigned.pk}"')
-            + 200
-        ]
-        assert "checked" in assigned_row
-        unassigned_row = html[
-            html.index(f'value="{unassigned.pk}"') : html.index(
-                f'value="{unassigned.pk}"'
-            )
-            + 200
-        ]
-        assert "checked" not in unassigned_row
+        assert "checked" in checkbox_tag(html, "facilitator_ids", assigned.pk)
+        assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
