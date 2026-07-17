@@ -368,8 +368,14 @@ class TestEventPageView:
                 "web:chronology:session-modal",
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
-        ).content.decode()
-        assert re.search(r">\s*4/5\s*<", modal)
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains="4/5",
+        )
 
     def test_ok_compact_rooms_view(
         self, active_user, authenticated_client, event, monkeypatch
@@ -3388,9 +3394,14 @@ class TestEventPageEditAffordance:
                 "web:chronology:session-modal",
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
-        ).content.decode()
-        assert edit_url in modal
-        assert f'data-edit-open="{session.pk}"' in modal
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains=[edit_url, f'data-edit-open="{session.pk}"'],
+        )
 
     def test_non_owner_no_edit_affordance(self, authenticated_client, event, space):
         other = UserFactory(username="other", email="other@example.com")

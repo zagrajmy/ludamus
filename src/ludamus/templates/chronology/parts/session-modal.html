@@ -11,7 +11,7 @@
         <button type="button"
                 data-modal-close="session-{{ data.session.pk }}"
                 aria-label="{% translate "Close" %}"
-                class="p-1 rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
+                class="size-11 flex items-center justify-center rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
             {% icon "x-mark" class="w-5 h-5" variant="mini" %}
         </button>
     </div>
@@ -133,13 +133,13 @@
                 <!-- Enrollment Status for Authenticated Users -->
                 {% if current_user and data.user_enrolled %}
                     <div class="pt-4 border-t border-border">
-                        <div class="alert backdrop-blur-lg alert-success inline-flex items-center gap-2 text-sm">
+                        <div class="alert alert-success inline-flex items-center gap-2 text-sm">
                             {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
                         </div>
                     </div>
                 {% elif current_user and data.user_waiting %}
                     <div class="pt-4 border-t border-border">
-                        <div class="alert backdrop-blur-lg alert-warning inline-flex items-center gap-2 text-sm">
+                        <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
                             {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
                         </div>
                     </div>
@@ -190,7 +190,8 @@
                             {% if participation.status == 'waiting' %}
                                 <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
                                     <div class="flex items-center gap-3">
-                                        <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"></span>
+                                        <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"
+                                              aria-label="{% translate "Waiting list position" %}"></span>
                                         <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                     </div>
                                     <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>

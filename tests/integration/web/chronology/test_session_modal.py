@@ -1,11 +1,14 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.event_presentation import SessionData
+from ludamus.gates.web.django.chronology.event_presentation import (
+    ParticipationInfo,
+    SessionData,
+)
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.db.django.models import (
     SessionField,
@@ -14,7 +17,13 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import AgendaItemDTO, EventDTO, LocationData, SessionDTO
+from ludamus.pacts import (
+    AgendaItemDTO,
+    EventDTO,
+    LocationData,
+    SessionDTO,
+    SessionFieldValueDTO,
+)
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -44,14 +53,31 @@ def _activate_anonymous(client, *, sphere, event, code, settings, site_id=None):
     client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
 
 
-def _expected_session_data(*, agenda_item, session, presenter):
+def _user_info(user):
+    return UserInfo.from_user_dto(
+        UserDTO.model_validate(user), gravatar_url=gravatar_url
+    )
+
+
+def _participation(participation, *, is_shadowbanned=False):
+    return ParticipationInfo(
+        user=_user_info(participation.user),
+        status=participation.status,
+        creation_time=participation.creation_time,
+        is_shadowbanned=is_shadowbanned,
+    )
+
+
+def _expected_session_data(
+    *, agenda_item, session, presenter=None, presenter_info=None, **overrides
+):
     space = agenda_item.space
-    return SessionData(
+    if presenter_info is None:
+        presenter_info = _user_info(presenter)
+    base = SessionData(
         agenda_item=AgendaItemDTO.model_validate(agenda_item),
         is_enrollment_available=False,
-        presenter=UserInfo.from_user_dto(
-            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
-        ),
+        presenter=presenter_info,
         session=SessionDTO.model_validate(session),
         is_full=False,
         full_participant_info="0/10",
@@ -72,6 +98,7 @@ def _expected_session_data(*, agenda_item, session, presenter):
         is_ongoing=False,
         is_ended=False,
     )
+    return replace(base, **overrides)
 
 
 class TestSessionModalComponentView:
@@ -117,7 +144,16 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name="chronology/parts/session-modal.html",
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
 
@@ -180,7 +216,41 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=session.presenter,
+                    field_values=[
+                        SessionFieldValueDTO(
+                            allow_custom=False,
+                            field_icon="puzzle-piece",
+                            field_id=select_field.pk,
+                            field_name="Genre",
+                            field_order=0,
+                            field_question="Genre",
+                            field_slug="genre",
+                            field_type="select",
+                            is_public=True,
+                            value=["RPG", "Horror"],
+                        ),
+                        SessionFieldValueDTO(
+                            allow_custom=False,
+                            field_icon="",
+                            field_id=text_field.pk,
+                            field_name="Notes",
+                            field_order=0,
+                            field_question="Notes",
+                            field_slug="notes",
+                            field_type="text",
+                            is_public=True,
+                            value="Bring dice",
+                        ),
+                    ],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["Genre", "RPG", "Horror", "Notes", "Bring dice"],
         )
 
@@ -194,11 +264,11 @@ class TestSessionModalComponentView:
             email="modal-confirmed@example.com",
             discord_username="player-handle",
         )
-        SessionParticipation.objects.create(
+        confirmed_participation = SessionParticipation.objects.create(
             session=session, user=confirmed, status=SessionParticipationStatus.CONFIRMED
         )
         waiter = UserFactory(username="modal-waiter", email="modal-waiter@example.com")
-        SessionParticipation.objects.create(
+        waiter_participation = SessionParticipation.objects.create(
             session=session, user=waiter, status=SessionParticipationStatus.WAITING
         )
 
@@ -208,7 +278,22 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=presenter,
+                    enrolled_count=1,
+                    waiting_count=1,
+                    full_participant_info="1/10, 1 waiting",
+                    session_participations=[
+                        _participation(confirmed_participation),
+                        _participation(waiter_participation),
+                    ],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=[
                 "gm-handle",
                 "player-handle",
@@ -230,8 +315,8 @@ class TestSessionModalComponentView:
             participants_limit=0,
             min_age=18,
         )
-        AgendaItemFactory(session=session, space=space)
-        SessionParticipation.objects.create(
+        agenda_item = AgendaItemFactory(session=session, space=space)
+        participation = SessionParticipation.objects.create(
             session=session,
             user=UserFactory(
                 username="modal-unlimited", email="modal-unlimited@example.com"
@@ -245,13 +330,25 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    effective_participants_limit=0,
+                    enrolled_count=1,
+                    full_participant_info="1",
+                    session_participations=[_participation(participation)],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["Enrolled (1)", "Minimum Age", "18+"],
         )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_authenticated_viewer_sees_enroll_actions(
-        self, authenticated_client, agenda_item, event
+        self, authenticated_client, active_user, agenda_item, event
     ):
         response = authenticated_client.get(_url(event, agenda_item.session.pk))
 
@@ -259,7 +356,17 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    is_enrollment_available=True,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["with others"],
             not_contains=["Login to Enroll", "Enroll Anonymously"],
         )
@@ -273,7 +380,7 @@ class TestSessionModalComponentView:
             participants_limit=10,
             min_age=0,
         )
-        AgendaItemFactory(session=session, space=space)
+        agenda_item = AgendaItemFactory(session=session, space=space)
 
         response = client.get(_url(event, session.pk))
 
@@ -281,14 +388,30 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter_info=UserInfo(
+                        avatar_url=None,
+                        discord_username="",
+                        full_name="Mystery Host",
+                        name="Mystery Host",
+                        pk=0,
+                        slug="",
+                        username="Mystery Host",
+                    ),
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["Mystery Host"],
         )
 
     def test_viewer_enrolled_shows_status(
         self, authenticated_client, active_user, agenda_item, event
     ):
-        SessionParticipation.objects.create(
+        participation = SessionParticipation.objects.create(
             session=agenda_item.session,
             user=active_user,
             status=SessionParticipationStatus.CONFIRMED,
@@ -300,14 +423,27 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    can_edit=True,
+                    user_enrolled=True,
+                    enrolled_count=1,
+                    full_participant_info="1/10",
+                    session_participations=[_participation(participation)],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["You are enrolled in this session"],
         )
 
     def test_viewer_on_waiting_list_shows_status(
         self, authenticated_client, active_user, agenda_item, event
     ):
-        SessionParticipation.objects.create(
+        participation = SessionParticipation.objects.create(
             session=agenda_item.session,
             user=active_user,
             status=SessionParticipationStatus.WAITING,
@@ -319,7 +455,20 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    can_edit=True,
+                    user_waiting=True,
+                    waiting_count=1,
+                    full_participant_info="0/10, 1 waiting",
+                    session_participations=[_participation(participation)],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["You are on the waiting list"],
         )
 
@@ -342,7 +491,16 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=agenda_item.session.presenter,
+                    is_enrollment_available=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["Enroll Anonymously"],
         )
 
@@ -351,7 +509,7 @@ class TestSessionModalComponentView:
         self, agenda_item, anonymous_user_factory, client, event, settings, sphere
     ):
         user = anonymous_user_factory()
-        SessionParticipation.objects.create(
+        participation = SessionParticipation.objects.create(
             session=agenda_item.session,
             user=user,
             status=SessionParticipationStatus.CONFIRMED,
@@ -370,7 +528,20 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=agenda_item.session.presenter,
+                    is_enrollment_available=True,
+                    user_enrolled=True,
+                    enrolled_count=1,
+                    full_participant_info="1/10",
+                    session_participations=[_participation(participation)],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=["Manage Enrollment"],
         )
 
@@ -387,7 +558,15 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=agenda_item.session.presenter,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
 
@@ -410,6 +589,14 @@ class TestSessionModalComponentView:
             response,
             HTTPStatus.OK,
             template_name=_TEMPLATE,
-            context_data=ANY,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=agenda_item.session.presenter,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+            },
             contains=f'id="session-{agenda_item.session.pk}"',
         )

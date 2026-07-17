@@ -67,8 +67,13 @@ class TestShadowbanPretendFull:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        assert modal.status_code == HTTPStatus.OK
-        assert "Session full" in modal.content.decode()
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains="Session full",
+        )
 
     def test_event_page_untouched_for_other_users(
         self, authenticated_client, agenda_item, event

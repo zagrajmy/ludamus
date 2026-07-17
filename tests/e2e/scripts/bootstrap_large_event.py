@@ -27,16 +27,16 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # noqa: E402
+import django
 
 django.setup()
 
-from django.utils import timezone  # noqa: E402
-from django.utils.text import slugify  # noqa: E402
-from django.utils.timezone import get_current_timezone  # noqa: E402
-from faker import Faker  # noqa: E402
+from django.utils import timezone
+from django.utils.text import slugify
+from django.utils.timezone import get_current_timezone
+from faker import Faker
 
-from ludamus.links.db.django.models import (  # noqa: E402
+from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
     ProposalCategory,
@@ -200,7 +200,7 @@ def main() -> None:
 
     scheduled = AgendaItem.objects.filter(session__event=event).count()
     assert scheduled == TARGET_SESSIONS, (scheduled, TARGET_SESSIONS)
-    print(  # noqa: T201
+    print(
         f"Seeded '{event.slug}': {scheduled} sessions across "
         f"{len(spaces)} spaces and {len(slots)} time slots."
     )
