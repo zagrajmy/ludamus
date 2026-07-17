@@ -19,24 +19,52 @@ const getConfirmDialog = (): HTMLDialogElement | null => {
   return element instanceof HTMLDialogElement ? element : null;
 };
 
+interface ConfirmOptions {
+  title?: string | null;
+  variant?: string | null;
+}
+
 export const requestConfirm = (
   message: string,
   acceptLabel: string | null,
   run: () => void,
+  options: ConfirmOptions = {},
 ): void => {
+  const text = message
+    .replaceAll(String.raw`\n`, "\n")
+    .split("\n")
+    .map((line) => line.replace(/ (\S+)$/u, `${String.fromCodePoint(160)}$1`))
+    .join("\n");
+
   const dialog = getConfirmDialog();
   if (!dialog) {
-    if (globalThis.confirm(message)) run();
+    if (globalThis.confirm(text)) run();
     return;
   }
 
   const messageEl = dialog.querySelector("[data-confirm-message]");
-  if (messageEl) messageEl.textContent = message;
+  if (messageEl) messageEl.textContent = text;
+
+  const titleEl = dialog.querySelector<HTMLElement>("[data-confirm-title]");
+  if (titleEl) {
+    titleEl.dataset.defaultTitle ??= (titleEl.textContent ?? "").trim();
+    titleEl.textContent = options.title || titleEl.dataset.defaultTitle;
+  }
+
+  const primary = options.variant === "primary";
 
   const acceptEl = dialog.querySelector<HTMLElement>("[data-confirm-accept]");
   if (acceptEl) {
     acceptEl.dataset.defaultLabel ??= (acceptEl.textContent ?? "").trim();
     acceptEl.textContent = acceptLabel || acceptEl.dataset.defaultLabel;
+    acceptEl.classList.toggle("btn-primary", primary);
+    acceptEl.classList.toggle("btn-danger", !primary);
+  }
+
+  const iconEl = dialog.querySelector<HTMLElement>("[data-confirm-icon]");
+  if (iconEl) {
+    iconEl.classList.toggle("text-primary", primary);
+    iconEl.classList.toggle("text-danger", !primary);
   }
 
   pendingConfirm = run;
@@ -63,10 +91,15 @@ document.addEventListener(
 
     event.preventDefault();
     const submitter = event instanceof SubmitEvent ? event.submitter : null;
-    requestConfirm(message, form.dataset.confirmAction ?? null, () => {
-      confirmedForms.add(form);
-      form.requestSubmit(submitter);
-    });
+    requestConfirm(
+      message,
+      form.dataset.confirmAction ?? null,
+      () => {
+        confirmedForms.add(form);
+        form.requestSubmit(submitter);
+      },
+      { title: form.dataset.confirmTitle, variant: form.dataset.confirmVariant },
+    );
   },
   true,
 );
@@ -84,9 +117,14 @@ document.addEventListener(
     if (!message) return;
 
     event.preventDefault();
-    requestConfirm(message, link.dataset.confirmAction ?? null, () => {
-      globalThis.location.assign(link.href);
-    });
+    requestConfirm(
+      message,
+      link.dataset.confirmAction ?? null,
+      () => {
+        globalThis.location.assign(link.href);
+      },
+      { title: link.dataset.confirmTitle, variant: link.dataset.confirmVariant },
+    );
   },
   true,
 );

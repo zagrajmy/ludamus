@@ -4798,20 +4798,36 @@ msgid "Shadowbanned"
 msgstr "Cicho zbanowany"
 
 #: src/ludamus/templates/crowd/user/safety.html
+#, python-format
+msgid "%(sphere)s › %(event)s › %(session)s"
+msgstr "%(sphere)s › %(event)s › %(session)s"
+
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Remove shadowban"
 msgstr "Usuń cichy ban"
 
 #: src/ludamus/templates/crowd/user/safety.html
-#, python-format
-msgid ""
-"Shadowban %(name)s? Sessions you run always look full to them, so they can "
-"never join. You get an email when they sign up at an event where you run a "
-"session, or into a session you play in. We never tell them."
+msgid "Sessions you run always look full to them, so they can never join."
 msgstr ""
-"Cicho zbanować %(name)s? Punkty programu, które prowadzisz, zawsze wyglądają "
-"dla tej osoby na pełne, więc nigdy nie może dołączyć. Dostaniesz e-mail, gdy "
-"zapisze się na wydarzeniu, na którym coś prowadzisz, albo na punkt programu, "
-"w którym grasz. Nigdy jej o tym nie powiemy."
+"Punkty programu, które prowadzisz, zawsze wyglądają dla tej osoby na pełne, "
+"więc nigdy nie może dołączyć."
+
+#: src/ludamus/templates/crowd/user/safety.html
+msgid ""
+"You'll also get an email when they sign up at an event you're participating "
+"in."
+msgstr ""
+"Dostaniesz też e-mail, gdy zapisze się na wydarzenie, w którym bierzesz "
+"udział."
+
+#: src/ludamus/templates/crowd/user/safety.html
+msgid "We never tell them about it."
+msgstr "Nigdy jej o tym nie powiemy."
+
+#: src/ludamus/templates/crowd/user/safety.html
+#, python-format
+msgid "Do you want to shadowban %(name)s?"
+msgstr "Czy na pewno chcesz zablokować %(name)s?"
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "No people yet"
