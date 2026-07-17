@@ -18,6 +18,7 @@ from ludamus.links.db.django.models import (
     Session,
     SessionField,
     SessionFieldOption,
+    SessionFieldRequirement,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
@@ -66,6 +67,20 @@ def _make_session(event, **kwargs):
     }
     defaults.update(kwargs)
     return Session.objects.create(**defaults)
+
+
+def _require_field(session, field, *, is_required=False):
+    # A session field only renders on the panel when its category asks for it.
+    return SessionFieldRequirement.objects.create(
+        category=session.category, field=field, is_required=is_required, order=0
+    )
+
+
+def _fields_url(event, proposal_id):
+    return reverse(
+        "panel:proposal-edit-fields",
+        kwargs={"slug": event.slug, "proposal_id": proposal_id},
+    )
 
 
 def _base_context(event):
@@ -193,7 +208,9 @@ class TestProposalEditPageView:
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
-                "session_fields": [],
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -228,7 +245,9 @@ class TestProposalEditPageView:
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
-                "session_fields": [],
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -429,7 +448,9 @@ class TestProposalEditPageView:
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
-                "session_fields": [],
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -852,7 +873,9 @@ class TestProposalEditPageView:
                     )
                 ],
                 "assigned_facilitator_pks": {facilitator.pk},
-                "session_fields": [],
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1058,7 +1081,9 @@ class TestProposalEditPageView:
                 "form": ANY,
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),
-                "session_fields": [],
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1081,6 +1106,7 @@ class TestProposalEditPageView:
             field_type="checkbox",
             order=0,
         )
+        _require_field(session, field)
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1090,8 +1116,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "session_fields_submitted": "1",
-                "session_field_adult": "true",
+                "session_adult": "true",
             },
         )
 
@@ -1112,6 +1137,11 @@ class TestProposalEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["horror", "comedy"]):
+            SessionFieldOption.objects.create(
+                field=field, label=value.title(), value=value, order=order
+            )
+        _require_field(session, field)
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1121,8 +1151,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "session_fields_submitted": "1",
-                "session_field_genres": ["horror", "comedy"],
+                "session_genres": ["horror", "comedy"],
             },
         )
 
@@ -1143,6 +1172,7 @@ class TestProposalEditPageView:
             allow_custom=True,
             order=0,
         )
+        _require_field(session, field)
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1152,9 +1182,8 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "session_fields_submitted": "1",
-                "session_field_system": "",
-                "session_field_system_custom": "Homebrew",
+                "session_system": "",
+                "session_system_custom": "Homebrew",
             },
         )
 
@@ -1218,6 +1247,9 @@ class TestProposalEditPageView:
             order=3,
         )
 
+        for field in (genres, system, adult, notes):
+            _require_field(session, field)
+
         SessionFieldValue.objects.create(
             session=session, field=genres, value=["horror"]
         )
@@ -1231,14 +1263,14 @@ class TestProposalEditPageView:
 
         assert response.status_code == HTTPStatus.OK
         html = response.content.decode()
-        assert 'name="session_field_genres"' in html
+        assert 'name="session_genres"' in html
         assert "Pick all that apply" in html
-        assert 'name="session_field_system"' in html
-        assert 'name="session_field_system_custom"' in html
-        assert 'name="session_field_adult"' in html
-        assert 'name="session_field_notes"' in html
+        assert 'name="session_system"' in html
+        assert 'name="session_system_custom"' in html
+        assert 'name="session_adult"' in html
+        assert 'name="session_notes"' in html
         assert 'maxlength="99"' in html
-        assert 'name="session_field_notes_custom"' in html
+        assert 'name="session_notes_custom"' in html
 
     def test_partial_post_without_session_fields_marker_preserves_field_values(
         self, authenticated_client, active_user, sphere, event

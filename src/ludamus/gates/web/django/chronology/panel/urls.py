@@ -195,6 +195,11 @@ urlpatterns = [
         name="proposal-create",
     ),
     path(
+        "event/<slug:slug>/proposals/create/fields/",
+        proposals.ProposalCreateFieldsComponentView.as_view(),
+        name="proposal-create-fields",
+    ),
+    path(
         "event/<slug:slug>/proposals/log/",
         proposals.ContentLogPageView.as_view(),
         name="content-log",
@@ -213,6 +218,11 @@ urlpatterns = [
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
         proposals.ProposalEditPageView.as_view(),
         name="proposal-edit",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
+        proposals.ProposalEditFieldsComponentView.as_view(),
+        name="proposal-edit-fields",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/pending",

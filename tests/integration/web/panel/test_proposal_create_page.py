@@ -7,11 +7,24 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
-from ludamus.pacts import EventDTO
+from ludamus.pacts import EventDTO, ProposalCategoryDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+
+def _fields_context(event, category):
+    # The create page resolves a category up front so the session fields it
+    # renders match the one preselected in the picker.
+    return {
+        "category": ProposalCategoryDTO.model_validate(category),
+        "field_descriptors": [],
+        "orphan_values": [],
+        "fields_url": reverse(
+            "panel:proposal-create-fields", kwargs={"slug": event.slug}
+        ),
+    }
 
 
 def _base_context(event):
@@ -78,7 +91,7 @@ class TestProposalCreatePageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -86,7 +99,11 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-create.html",
-            context_data={**_base_context(event), "form": ANY},
+            context_data={
+                **_base_context(event),
+                **_fields_context(event, category),
+                "form": ANY,
+            },
         )
 
     def test_get_renders_facilitator_checkboxes_when_event_has_facilitators(
@@ -274,7 +291,11 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-create.html",
-            context_data={**_base_context(event), "form": ANY},
+            context_data={
+                **_base_context(event),
+                **_fields_context(event, category),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors
         assert not Session.objects.filter(title="No Facilitator").exists()
@@ -305,6 +326,7 @@ class TestProposalCreatePageView:
             template_name="panel/proposal-create.html",
             context_data={
                 **_base_context(event),
+                **_fields_context(event, category),
                 "events": [
                     EventDTO.model_validate(other_event),
                     EventDTO.model_validate(event),
@@ -319,7 +341,7 @@ class TestProposalCreatePageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -330,6 +352,12 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-create.html",
-            context_data={**_base_context(event), "form": ANY},
+            # An empty category_id falls back to the event's first category, so
+            # the form still renders that category's fields alongside the error.
+            context_data={
+                **_base_context(event),
+                **_fields_context(event, category),
+                "form": ANY,
+            },
         )
         assert response.context["form"].errors

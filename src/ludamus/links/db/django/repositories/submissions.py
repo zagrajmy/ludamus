@@ -510,6 +510,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
                 icon=field.icon,
                 is_multiple=field.is_multiple,
                 is_public=field.is_public,
+                max_length=field.max_length,
                 name=field.name,
                 options=options,
                 order=field.order,

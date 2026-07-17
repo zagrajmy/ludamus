@@ -1382,11 +1382,14 @@ class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
     # `field_values` None leaves dynamic answers untouched (partial POST guard).
+    # `remove_field_ids` drops answers to fields the session's category no
+    # longer asks for — the only edit the panel allows on those.
     update: SessionUpdateData
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
     time_slot_ids: list[int] | None = None
+    remove_field_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):

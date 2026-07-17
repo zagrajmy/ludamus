@@ -53,6 +53,9 @@
                             </label>
                             <select name="category_id"
                                     id="id_category_id"
+                                    hx-get="{{ fields_url }}"
+                                    hx-target="#proposal-session-fields"
+                                    hx-swap="outerHTML"
                                     class="w-full border {% if form.category_id.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                                 {% for value, label in form.category_id.field.choices %}
                                     <option value="{{ value }}"
@@ -117,92 +120,12 @@
                                    class="w-full border {% if form.min_age.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                             {% if form.min_age.errors %}<p class="mt-1 text-sm text-danger">{{ form.min_age.errors.0 }}</p>{% endif %}
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_duration">{% translate "Duration" %}</label>
-                            <input type="text"
-                                   name="duration"
-                                   id="id_duration"
-                                   value="{{ form.duration.value|default:'' }}"
-                                   class="w-full border {% if form.duration.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.duration.errors %}<p class="mt-1 text-sm text-danger">{{ form.duration.errors.0 }}</p>{% endif %}
-                        </div>
+                        {# Free text when the category configures no durations, a picker when it does. #}
+                        {% tessera_field form.duration %}
                     </div>
                 </div>
             </div>
-            {% if session_fields %}
-                <div class="card mt-6">
-                    <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Fields" %}</h3>
-                        <input type="hidden" name="session_fields_submitted" value="1">
-                        <div class="space-y-6">
-                            {% for field, current_value in session_fields %}
-                                <div>
-                                    {% if field.field_type != "checkbox" %}
-                                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                               for="id_sf_{{ field.slug }}">{{ field.name }}</label>
-                                    {% endif %}
-                                    {% if field.field_type == "select" and field.is_multiple %}
-                                        <div class="space-y-1">
-                                            {% for option in field.options %}
-                                                <label class="flex items-center gap-2 text-sm">
-                                                    <input type="checkbox"
-                                                           name="session_field_{{ field.slug }}"
-                                                           value="{{ option.value }}"
-                                                           {% if current_value and option.value in current_value %}checked{% endif %}
-                                                           class="rounded border-border">
-                                                    {{ option.label }}
-                                                </label>
-                                            {% endfor %}
-                                        </div>
-                                    {% elif field.field_type == "select" %}
-                                        <select name="session_field_{{ field.slug }}"
-                                                id="id_sf_{{ field.slug }}"
-                                                class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                            <option value="">—</option>
-                                            {% for option in field.options %}
-                                                <option value="{{ option.value }}"
-                                                        {% if current_value == option.value %}selected{% endif %}>
-                                                    {{ option.label }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                        {% if field.allow_custom %}
-                                            <input type="text"
-                                                   name="session_field_{{ field.slug }}_custom"
-                                                   placeholder="{% translate "Or type a custom value" %}"
-                                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
-                                        {% endif %}
-                                    {% elif field.field_type == "checkbox" %}
-                                        <label class="flex items-center gap-2 text-sm">
-                                            <input type="checkbox"
-                                                   name="session_field_{{ field.slug }}"
-                                                   value="true"
-                                                   {% if current_value %}checked{% endif %}
-                                                   class="rounded border-border">
-                                            {{ field.name }}
-                                        </label>
-                                    {% else %}
-                                        <input type="text"
-                                               name="session_field_{{ field.slug }}"
-                                               id="id_sf_{{ field.slug }}"
-                                               value="{{ current_value|default:'' }}"
-                                               {% if field.max_length %}maxlength="{{ field.max_length }}"{% endif %}
-                                               class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                                        {% if field.allow_custom %}
-                                            <input type="text"
-                                                   name="session_field_{{ field.slug }}_custom"
-                                                   placeholder="{% translate "Or type a custom value" %}"
-                                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
-                                        {% endif %}
-                                    {% endif %}
-                                    {% if field.help_text %}<p class="mt-1 text-xs text-foreground-muted">{{ field.help_text }}</p>{% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
+            {% include "panel/parts/proposal-session-fields.html" %}
             {% if all_facilitators %}
                 <div class="card mt-6">
                     <div class="card-body">

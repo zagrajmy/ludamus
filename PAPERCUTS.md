@@ -104,3 +104,7 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-17: `mise run test:py -- some/path.py` silently runs the WHOLE suite:
+  the task is 'pytest tests/integration tests/unit' so an appended path is an
+  extra target, not a filter. Wasted two 5-minute full runs before noticing.
+  Use -k instead, or make the task use a default arg.
