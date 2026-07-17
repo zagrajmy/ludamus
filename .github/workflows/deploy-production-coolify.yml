@@ -1,0 +1,194 @@
+name: Deploy to production (Coolify)
+
+# Additive: deploy-production.yml (ssh + compose on the VPS) stays authoritative
+# until cutover. This targets a separate Coolify app backed by its own Postgres,
+# configured from the `production-coolify` GitHub Environment, so a run here
+# cannot touch the live site or its data.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Unlike staging, a superseded production deploy is allowed to finish rather
+# than be cancelled mid-migration.
+concurrency:
+  group: production-coolify-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build image and deploy to Coolify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    environment:
+      name: production-coolify
+      url: https://zagrajmy.net
+    steps:
+      - name: Checkout (provides .env.schema for varlock validation)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Materialize .env.local from environment variables and secrets
+        env:
+          # Not configured in the GitHub Environment — hardcoded here.
+          ENV: production
+          DJANGO_SETTINGS_MODULE: ludamus.edges.settings
+          DEBUG: 'false'
+          # Non-sensitive config — GitHub Environment variables.
+          USE_POSTGRES: ${{ vars.USE_POSTGRES }}
+          ALLOWED_HOSTS: ${{ vars.ALLOWED_HOSTS }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
+          SESSION_COOKIE_DOMAIN: ${{ vars.SESSION_COOKIE_DOMAIN }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_PORT: ${{ vars.DB_PORT }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          AUTH0_CLIENT_ID: ${{ vars.AUTH0_CLIENT_ID }}
+          AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
+          MEMBERSHIP_API_BASE_URL: ${{ vars.MEMBERSHIP_API_BASE_URL }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          STATIC_ROOT: ${{ vars.STATIC_ROOT }}
+          MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
+          GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
+          GS_LOCATION: ${{ vars.GS_LOCATION }}
+          # Sensitive config — GitHub Environment secrets.
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+          MEMBERSHIP_API_TOKEN: ${{ secrets.MEMBERSHIP_API_TOKEN }}
+          GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
+          EMAIL_URL: ${{ secrets.EMAIL_URL }}
+        run: |
+          set -eu
+          # Previously injected by compose `environment:` on the host.
+          GIT_COMMIT_SHA="$(printf '%.7s' "$GITHUB_SHA")"
+          export GIT_COMMIT_SHA
+          : > .env.local
+          # envs.json mirrors .env.local in Coolify's bulk-env API shape,
+          # built in the same loop so the two can never drift.
+          echo '[]' > envs.json
+          # POSTGRES_DATA_PATH, STATIC_DATA_PATH, MEDIA_DATA_PATH and WEB_PORT
+          # are absent by design: they configure compose host binds on the VPS
+          # and mean nothing to Coolify.
+          for k in ENV DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
+                   ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
+                   DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
+                   SECRET_KEY CREDENTIALS_ENCRYPTION_KEY \
+                   AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
+                   MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
+                   EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
+                   GIT_COMMIT_SHA \
+                   GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
+            v="$(printenv "$k" || true)"
+            if [ -n "$v" ]; then
+              printf "%s='%s'\n" "$k" "$v" >> .env.local
+              jq --arg k "$k" --arg v "$v" \
+                '. + [{key: $k, value: $v, is_preview: false}]' \
+                envs.json > envs.json.tmp && mv envs.json.tmp envs.json
+            fi
+          done
+
+      - name: Validate .env.local with varlock
+        env:
+          ENV: production
+        run: |
+          # varlock loads .env.schema + .env + .env.local and validates
+          # against the schema; exits non-zero if a @required var (incl.
+          # forEnv(production) ones) is missing or malformed. Output is
+          # discarded so resolved values never reach the run log.
+          npx -y varlock@1.1.0 load > /dev/null
+
+      # build-image.yml already pushes this tag for main commits. Building here
+      # anyway removes the race against that workflow and allows deploying a
+      # non-main commit; the shared GHA cache makes it near-free either way.
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: prod
+          push: true
+          # sha- prefix matches build-image.yml's metadata-action tags.
+          tags: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          # Build-only values; runtime config is synced to Coolify below.
+          build-args: |
+            ENV=production
+            DJANGO_SETTINGS_MODULE=ludamus.edges.settings
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sync environment to Coolify
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+        run: |
+          set -euo pipefail
+          # envs.json was varlock-validated (as .env.local) above. Output is
+          # discarded so values never reach the run log.
+          jq '{data: .}' envs.json | curl -fsS -X PATCH \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data @- \
+            "$COOLIFY_URL/api/v1/applications/$APP_UUID/envs/bulk" > /dev/null
+
+      - name: Pin image tag
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+        run: |
+          set -euo pipefail
+          # Pinning the exact sha tag (not `latest`) makes rollback a
+          # re-dispatch of this workflow on an older commit.
+          jq -n --arg tag "sha-$GITHUB_SHA" '{docker_registry_image_tag: $tag}' \
+            | curl -fsS -X PATCH \
+                -H "Authorization: Bearer $COOLIFY_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data @- \
+                "$COOLIFY_URL/api/v1/applications/$APP_UUID" > /dev/null
+
+      - name: Deploy on Coolify and wait
+        env:
+          COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
+        run: |
+          set -eu
+          deployment_uuid="$(curl -fsS \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
+            "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID" \
+            | jq -re '.deployments[0].deployment_uuid')"
+          echo "Coolify deployment: $deployment_uuid"
+          # Poll so the run (and the GitHub deployment status) reflects the
+          # real outcome; 60 x 10s ≈ the old 13m ssh ceiling. The image CMD is
+          # prod-start, which runs migrate + collectstatic before gunicorn.
+          for i in $(seq 1 60); do
+            sleep 10
+            status="$(curl -fsS \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_URL/api/v1/deployments/$deployment_uuid" \
+              | jq -r '.status')"
+            echo "[$i] status: $status"
+            case "$status" in
+              finished) exit 0 ;;
+              failed | cancelled*) echo "Deployment $status" >&2; exit 1 ;;
+            esac
+          done
+          echo "Timed out waiting for Coolify deployment" >&2
+          exit 1
