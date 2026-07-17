@@ -1,5 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
+{% load django_vite %}
 {% load tessera %}
 {% load cfp_tags %}
 {% block title_prefix %}
@@ -32,32 +33,20 @@
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
                     <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Choose which columns show on the facilitators list. Organizers only." %}
+                        {% translate "Tick the columns the facilitators list shows, and order them top to bottom. Organizers only." %}
                     </p>
-                    <div class="space-y-3">
+                    <ul id="column-list" class="space-y-2">
                         {% for column in chosen_columns %}
-                            <label class="flex items-center">
-                                <input type="checkbox"
-                                       name="columns"
-                                       value="{{ column.key }}"
-                                       checked
-                                       class="rounded border-border text-primary focus:ring-primary">
-                                <span class="ml-2 text-sm text-foreground-secondary">{{ column|facilitator_column_label }}</span>
-                            </label>
+                            {% include "panel/_facilitator_column_row.html" with column=column shown=True only %}
                         {% endfor %}
                         {% for column in available_columns %}
-                            <label class="flex items-center">
-                                <input type="checkbox"
-                                       name="columns"
-                                       value="{{ column.key }}"
-                                       class="rounded border-border text-primary focus:ring-primary">
-                                <span class="ml-2 text-sm text-foreground-secondary">{{ column|facilitator_column_label }}</span>
-                            </label>
+                            {% include "panel/_facilitator_column_row.html" with column=column shown=False only %}
                         {% endfor %}
-                    </div>
+                    </ul>
                 </div>
             </div>
         </form>
+        {% vite_asset 'src/facilitator-columns.ts' %}
     {% end_tab_shell_body %}
 {% end_tab_shell %}
 </div>

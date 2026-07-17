@@ -1,0 +1,20 @@
+{% load i18n tessera cfp_tags %}
+{# One list column: the checkbox decides whether it shows, the row's position decides where. #}
+<li class="column-row flex items-center gap-3 rounded-xl border border-border bg-bg-secondary px-3 py-2">
+    <label class="flex flex-1 items-center gap-2 cursor-pointer">
+        <input type="checkbox"
+               name="columns"
+               value="{{ column.key }}"
+               {% if shown %}checked{% endif %}
+               class="rounded border-border text-primary focus:ring-primary">
+        <span class="text-sm text-foreground-secondary">{{ column|facilitator_column_label }}</span>
+    </label>
+    <div class="flex items-center gap-1">
+        <button type="button"
+                class="move-up p-1 text-foreground-muted transition hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="{% translate "Move up" %}">{% icon "chevron-up" class="w-4 h-4" %}</button>
+        <button type="button"
+                class="move-down p-1 text-foreground-muted transition hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="{% translate "Move down" %}">{% icon "chevron-down" class="w-4 h-4" %}</button>
+    </div>
+</li>
