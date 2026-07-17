@@ -6,7 +6,14 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
+from ludamus.links.db.django.models import (
+    Facilitator,
+    ProposalCategory,
+    Session,
+    SessionField,
+    SessionFieldRequirement,
+    SessionFieldValue,
+)
 from ludamus.pacts import EventDTO, ProposalCategoryDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
@@ -361,3 +368,155 @@ class TestProposalCreatePageView:
             },
         )
         assert response.context["form"].errors
+
+
+class TestProposalCreateCategoryFields:
+    """The create form renders and saves the fields its category configures."""
+
+    @staticmethod
+    def get_url(event):
+        return reverse("panel:proposal-create", kwargs={"slug": event.slug})
+
+    @staticmethod
+    def get_fields_url(event):
+        return reverse("panel:proposal-create-fields", kwargs={"slug": event.slug})
+
+    @staticmethod
+    def _category_with_field(event, *, name, slug, field_slug, is_required=False):
+        category = ProposalCategory.objects.create(event=event, name=name, slug=slug)
+        field = SessionField.objects.create(
+            event=event,
+            name=field_slug.title(),
+            question=f"Question for {field_slug}?",
+            slug=field_slug,
+            field_type="text",
+            order=0,
+        )
+        SessionFieldRequirement.objects.create(
+            category=category, field=field, is_required=is_required, order=0
+        )
+        return category, field
+
+    def test_get_renders_only_the_resolved_categorys_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        self._category_with_field(event, name="A", slug="a", field_slug="only-a")
+        self._category_with_field(event, name="B", slug="b", field_slug="only-b")
+
+        response = authenticated_client.get(self.get_url(event))
+
+        # Category A is the event's first category, so only its field renders.
+        html = response.content.decode()
+        assert 'name="session_only-a"' in html
+        assert 'name="session_only-b"' not in html
+        # The picker must be wired to swap the fields block on change.
+        assert f'hx-get="{self.get_fields_url(event)}"' in html
+        assert 'hx-target="#proposal-session-fields"' in html
+        assert 'id="proposal-session-fields"' in html
+
+    def test_get_fields_component_follows_the_requested_category(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        self._category_with_field(event, name="A", slug="a", field_slug="only-a")
+        category_b, _field = self._category_with_field(
+            event, name="B", slug="b", field_slug="only-b"
+        )
+
+        response = authenticated_client.get(
+            self.get_fields_url(event), data={"category_id": category_b.pk}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/proposal-session-fields.html",
+            # field_descriptors carry BoundFields, which don't compare usefully.
+            context_data={
+                "field_descriptors": ANY,
+                "form": ANY,
+                "category": ProposalCategoryDTO.model_validate(category_b),
+                "orphan_values": [],
+            },
+            contains='name="session_only-b"',
+            not_contains='name="session_only-a"',
+        )
+
+    def test_post_saves_the_categorys_field_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category, field = self._category_with_field(
+            event, name="RPG", slug="rpg", field_slug="system"
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Saved Fields",
+                "display_name": "Test Host",
+                "session_system": "Pathfinder",
+            },
+        )
+
+        session = Session.objects.get(title="Saved Fields")
+        value = SessionFieldValue.objects.get(session=session, field=field)
+        assert value.value == "Pathfinder"
+
+    def test_post_rejects_missing_required_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category, _field = self._category_with_field(
+            event, name="RPG", slug="rpg", field_slug="system", is_required=True
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Missing Required",
+                "display_name": "Test Host",
+                "session_system": "",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert "session_system" in response.context["form"].errors
+        assert not Session.objects.filter(title="Missing Required").exists()
+
+    def test_get_offers_the_categorys_durations_as_choices(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(
+            event=event, name="RPG", slug="rpg", durations=["PT1H", "PT2H"]
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        duration = response.context["form"].fields["duration"]
+        assert duration.choices == [("", "---"), ("PT1H", "1h"), ("PT2H", "2h")]
+        assert 'value="PT1H"' in response.content.decode()
+
+    def test_get_keeps_free_text_duration_without_configured_durations(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+
+        response = authenticated_client.get(self.get_url(event))
+
+        duration = response.context["form"].fields["duration"]
+        assert not hasattr(duration, "choices")
+        assert 'name="duration"' in response.content.decode()

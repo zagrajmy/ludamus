@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
@@ -54,6 +55,7 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionFieldDTO,
         SessionFieldRequirementDTO,
+        SessionFieldValueDTO,
         TimeSlotDTO,
         TrackDTO,
     )
@@ -70,8 +72,7 @@ def resolve_category(
     # The category drives which session fields render, but it is picked inside
     # the same form — so read it back from the submission (or the HTMX swap)
     # and fall back to the event's first category on a fresh page.
-    categories = request.di.uow.proposal_categories.list_by_event(event.pk)
-    if not categories:
+    if not (categories := request.di.uow.proposal_categories.list_by_event(event.pk)):
         return None
     raw = data.get("category_id", "").strip()
     if raw.isdigit():
@@ -81,17 +82,27 @@ def resolve_category(
     return categories[0]
 
 
-def _display_field_value(field: SessionFieldDTO | None, raw: object) -> object:
+@dataclass(frozen=True)
+class OrphanFieldValue:
+    """A stored answer to a question the session's category no longer asks."""
+
+    field_id: int
+    name: str
+    display_value: str
+
+
+def _display_field_value(
+    field: SessionFieldDTO | None, stored: SessionFieldValueDTO
+) -> str:
     # Stored answers hold option *values*; show the option labels an organizer
-    # would recognise. Booleans and free text pass through.
-    if field is None or isinstance(raw, bool):
-        return raw
-    labels = {option.value: option.label for option in field.options}
+    # would recognise, and a checkbox as a word rather than "True".
+    raw = stored.value
+    if isinstance(raw, bool):
+        return _("Yes") if raw else _("No")
+    labels = {option.value: option.label for option in field.options} if field else {}
     if isinstance(raw, list):
         return ", ".join(labels.get(v) or v for v in raw)
-    if isinstance(raw, str):
-        return labels.get(raw, raw)
-    return raw
+    return labels.get(raw) or raw
 
 
 def session_field_requirements(
@@ -482,7 +493,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         # Only answers the category no longer asks for may be removed here; the
         # rest are edited through their own inputs.
         orphan_pks = {
-            orphan["field_id"] for orphan in self._orphan_values(event_pk, proposal_id)
+            orphan.field_id for orphan in self._orphan_values(event_pk, proposal_id)
         }
         return list(submitted & orphan_pks)
 
@@ -554,7 +565,7 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             kwargs={"slug": context["current_event"].slug, "proposal_id": proposal_id},
         )
 
-    def _orphan_values(self, event_pk: int, proposal_id: int) -> list[dict[str, Any]]:
+    def _orphan_values(self, event_pk: int, proposal_id: int) -> list[OrphanFieldValue]:
         category = self._session_category(event_pk, proposal_id)
         asked_pks = {
             req.field.pk for req in session_field_requirements(self.request, category)
@@ -562,19 +573,17 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         fields_by_pk = {
             f.pk: f for f in self.request.di.uow.session_fields.list_by_event(event_pk)
         }
-        orphans: list[dict[str, Any]] = []
-        for value in self.request.di.uow.sessions.read_field_values(proposal_id):
-            if value.field_id in asked_pks:
-                continue
-            field = fields_by_pk.get(value.field_id)
-            orphans.append(
-                {
-                    "field_id": value.field_id,
-                    "name": value.field_question or value.field_name,
-                    "display_value": _display_field_value(field, value.value),
-                }
+        return [
+            OrphanFieldValue(
+                field_id=value.field_id,
+                name=value.field_question or value.field_name,
+                display_value=_display_field_value(
+                    fields_by_pk.get(value.field_id), value
+                ),
             )
-        return orphans
+            for value in self.request.di.uow.sessions.read_field_values(proposal_id)
+            if value.field_id not in asked_pks
+        ]
 
     def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)

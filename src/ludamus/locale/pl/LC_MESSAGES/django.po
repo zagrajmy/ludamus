@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-17 07:44+0200\n"
+"POT-Creation-Date: 2026-07-17 11:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -952,9 +952,7 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
 msgstr "Czas trwania"
 
@@ -2216,6 +2214,14 @@ msgid "Public tracks are shown to proposers in the submission wizard."
 msgstr ""
 "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
 "propozycji."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/panel/_personal_data_fields.html
+msgid "Or type a custom value"
+msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Title is required."
@@ -3834,14 +3840,6 @@ msgid "Participants Limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/_personal_data_fields.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Or type a custom value"
-msgstr "Lub wpisz własną wartość"
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
@@ -4510,6 +4508,7 @@ msgstr "Usuń drużynę"
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/panel/bans.html
 #: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
 msgid "Remove"
 msgstr "Usuń"
 
@@ -5281,8 +5280,8 @@ msgstr "Pola danych twórcy"
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Session Fields"
 msgstr "Pola punktu programu"
@@ -6585,6 +6584,18 @@ msgstr "Drukuj tabliczki na drzwi"
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards for a venue or area"
 msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Answers outside this category"
+msgstr "Odpowiedzi spoza tej kategorii"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid ""
+"This program item has answers to questions its category no longer asks. They "
+"stay as they are unless you remove them."
+msgstr ""
+"Ten punkt programu ma odpowiedzi na pytania, których jego kategoria już nie "
+"zadaje. Pozostaną bez zmian, dopóki ich nie usuniesz."
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"

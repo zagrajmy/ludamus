@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
+    ContentChangeLog,
     Facilitator,
     Notification,
     PersonalDataField,
@@ -1397,3 +1398,174 @@ class TestProposalEditPageView:
             + 200
         ]
         assert "checked" not in unassigned_row
+
+
+class TestProposalEditOrphanValues:
+    """Answers outside the session's category: shown apart, removable only."""
+
+    @staticmethod
+    def get_url(event, proposal_id):
+        return reverse(
+            "panel:proposal-edit",
+            kwargs={"slug": event.slug, "proposal_id": proposal_id},
+        )
+
+    @staticmethod
+    def _orphan_setup(event):
+        # `kept` is asked for by the category; `dropped` only has a stored
+        # answer, so it is an orphan.
+        session = _make_session(event)
+        kept = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, kept)
+        dropped = SessionField.objects.create(
+            event=event,
+            name="Legacy",
+            question="Legacy question?",
+            slug="legacy",
+            field_type="text",
+            order=1,
+        )
+        SessionFieldValue.objects.create(
+            session=session, field=dropped, value="Old answer"
+        )
+        return session, kept, dropped
+
+    def test_get_lists_orphan_value_without_an_input(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session, _kept, dropped = self._orphan_setup(event)
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        html = response.content.decode()
+        assert "Old answer" in html
+        assert f'value="{dropped.pk}"' in html
+        # Read-only: the orphan gets a remove checkbox, never an editable input.
+        assert 'name="session_legacy"' not in html
+        # The picker must be wired to swap the fields block on change.
+        assert f'hx-get="{_fields_url(event, session.pk)}"' in html
+        assert 'hx-target="#proposal-session-fields"' in html
+
+    def test_get_shows_option_label_for_orphan_select_value(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Which genre?",
+            slug="genre",
+            field_type="select",
+            order=0,
+        )
+        SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldValue.objects.create(session=session, field=field, value="horror")
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert "Horror" in response.content.decode()
+
+    def test_post_leaves_orphan_value_untouched_by_default(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session, _kept, dropped = self._orphan_setup(event)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "Pathfinder",
+            },
+        )
+
+        value = SessionFieldValue.objects.get(session=session, field=dropped)
+        assert value.value == "Old answer"
+
+    def test_post_removes_orphan_value_when_checked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session, _kept, dropped = self._orphan_setup(event)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "Pathfinder",
+                "remove_field_ids": [dropped.pk],
+            },
+        )
+
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=dropped
+        ).exists()
+
+    def test_post_ignores_removal_of_a_field_the_category_asks_for(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session, kept, _dropped = self._orphan_setup(event)
+        SessionFieldValue.objects.create(session=session, field=kept, value="Keep me")
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "Pathfinder",
+                "remove_field_ids": [kept.pk],
+            },
+        )
+
+        value = SessionFieldValue.objects.get(session=session, field=kept)
+        assert value.value == "Pathfinder"
+
+    def test_removing_an_orphan_is_recorded_in_the_content_log(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session, _kept, dropped = self._orphan_setup(event)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "",
+                "remove_field_ids": [dropped.pk],
+            },
+        )
+
+        log = ContentChangeLog.objects.get(session=session)
+        assert {
+            "field": "",
+            "field_id": dropped.pk,
+            "old": "Old answer",
+            "new": None,
+        } in log.changes
