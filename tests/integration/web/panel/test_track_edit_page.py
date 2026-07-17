@@ -6,7 +6,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Track
+from ludamus.links.db.django.models import Track
 from ludamus.pacts import EventDTO, TrackDTO
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory

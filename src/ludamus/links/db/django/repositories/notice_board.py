@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from django.db.models import Q
 
-from ludamus.adapters.db.django.models import Encounter, EncounterRSVP
+from ludamus.links.db.django.models import Encounter, EncounterRSVP
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.pacts import (
     EncounterData,

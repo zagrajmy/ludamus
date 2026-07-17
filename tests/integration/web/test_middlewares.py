@@ -4,12 +4,12 @@ import pytest
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Sphere
 from ludamus.adapters.web.django.middlewares import (
     RedirectErrorMiddleware,
     RequestContextMiddleware,
 )
 from ludamus.inits import DependencyInjector, RepositoryInjectionMiddleware
+from ludamus.links.db.django.models import Sphere
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.pacts import RedirectError, RequestContext
 

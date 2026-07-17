@@ -4,7 +4,7 @@ from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     ImportLogEntry,

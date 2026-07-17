@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from ludamus.adapters.db.django.models import ContentChangeLog
 from ludamus.links.db.django.change_log_base import (
     base_log_fields,
     latest_log_pk,
     latest_log_pks_by_session,
 )
+from ludamus.links.db.django.models import ContentChangeLog
 from ludamus.pacts import (
     ContentChangeLogData,
     ContentChangeLogDTO,

@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from ludamus.adapters.db.django.models import SessionField, SessionFieldValue
+from ludamus.links.db.django.models import SessionField, SessionFieldValue
 from tests.integration.web.panel.test_proposal_edit_page import (
     TestProposalEditPageView,
     _make_session,

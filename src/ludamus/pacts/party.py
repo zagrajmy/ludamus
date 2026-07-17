@@ -14,6 +14,7 @@ from ludamus.pacts.crowd import CompanionDTO
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
+MAX_COMPANIONS = 6  # Maximum number of companions per manager
 
 
 class PartyConsentMode(StrEnum):

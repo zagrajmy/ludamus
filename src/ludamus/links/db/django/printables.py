@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.adapters.db.django.models import Event
+from ludamus.links.db.django.models import Event
 from ludamus.pacts.printing import (
     PrintablesReminderDTO,
     PrintablesReminderRecipientDTO,

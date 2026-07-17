@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from django.db.models import Q
 
-from ludamus.adapters.db.django.models import ScheduleChangeLog
 from ludamus.links.db.django.change_log_base import (
     base_log_fields,
     latest_log_pk,
     latest_log_pks_by_session,
 )
+from ludamus.links.db.django.models import ScheduleChangeLog
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
