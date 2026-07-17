@@ -25,17 +25,6 @@ from django.views.decorators.cache import cache_control
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
-from ludamus.adapters.db.django.models import (
-    SPACE_MAX_DEPTH,
-    AgendaItem,
-    EnrollmentConfig,
-    Event,
-    EventSettings,
-    Session,
-    SessionFieldValue,
-    SessionParticipation,
-    SessionParticipationStatus,
-)
 from ludamus.adapters.web.django.forms import (
     INCLUDE_VALUE,
     EnrollmentRoster,
@@ -64,6 +53,17 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.links.db.django.models import (
+    SPACE_MAX_DEPTH,
+    AgendaItem,
+    EnrollmentConfig,
+    Event,
+    EventSettings,
+    Session,
+    SessionFieldValue,
+    SessionParticipation,
+    SessionParticipationStatus,
+)
 from ludamus.mills import AcceptProposalService
 from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (

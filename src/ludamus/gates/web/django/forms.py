@@ -9,8 +9,8 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.adapters.db.django.models import AccreditationType
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -523,6 +523,17 @@ def create_proposal_form(
     return type("ProposalCreateForm", (SessionEditForm,), attrs)
 
 
+ACCREDITATION_TYPE_LABELS = {
+    AccreditationType.NONE: _("None"),
+    AccreditationType.STANDARD: _("Standard"),
+    AccreditationType.GUEST: _("Guest"),
+    AccreditationType.HONORARY: _("Honorary"),
+}
+ACCREDITATION_TYPE_CHOICES = [
+    (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
+]
+
+
 class FacilitatorForm(forms.Form):
     """Form for creating a facilitator (display_name is required at creation)."""
 
@@ -535,7 +546,7 @@ class FacilitatorForm(forms.Form):
         },
     )
     accreditation_type = forms.ChoiceField(
-        choices=AccreditationType.choices,
+        choices=ACCREDITATION_TYPE_CHOICES,
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
@@ -549,7 +560,7 @@ class FacilitatorEditForm(forms.Form):
     # No display_name: it is a read-only cache (the canonical byline lives on
     # the session), so the panel edit form only touches accreditation_type.
     accreditation_type = forms.ChoiceField(
-        choices=AccreditationType.choices,
+        choices=ACCREDITATION_TYPE_CHOICES,
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),

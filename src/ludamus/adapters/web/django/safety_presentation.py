@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ludamus.adapters.db.django.models import Session
+    from ludamus.links.db.django.models import Session
 
 _SIMULACRA_FILL = 8
 

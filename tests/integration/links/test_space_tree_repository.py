@@ -1,8 +1,8 @@
 import pytest
 from django.core.exceptions import ValidationError
 
-from ludamus.adapters.db.django.models import Space, Track
 from ludamus.inits.transaction import DjangoTransaction
+from ludamus.links.db.django.models import Space, Track
 from ludamus.links.db.django.repositories import SpaceTreeRepository
 from ludamus.mills.venues import SpaceTreeService
 from ludamus.pacts import NotFoundError

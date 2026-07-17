@@ -7,7 +7,7 @@ from unittest.mock import ANY, MagicMock, patch
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Connection, Discount, Facilitator
+from ludamus.links.db.django.models import Connection, Discount, Facilitator
 from ludamus.links.db.django.repositories import ConnectionsRepository
 from ludamus.pacts import (
     EventDTO,

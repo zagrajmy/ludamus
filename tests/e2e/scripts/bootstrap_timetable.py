@@ -36,7 +36,7 @@ django.setup()
 from django.utils import timezone  # noqa: E402
 from django.utils.timezone import get_current_timezone  # noqa: E402
 
-from ludamus.adapters.db.django.models import (  # noqa: E402
+from ludamus.links.db.django.models import (  # noqa: E402
     AgendaItem,
     Event,
     Facilitator,

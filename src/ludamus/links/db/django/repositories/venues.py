@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Max
 from django.utils.text import slugify
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
     Session,
@@ -35,7 +35,7 @@ from ludamus.pacts.venues import (
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.adapters.db.django.models import User
+    from ludamus.links.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
 

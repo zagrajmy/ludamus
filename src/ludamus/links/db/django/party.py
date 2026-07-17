@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Prefetch, Q
 
-from ludamus.adapters.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.companions import active_companions
+from ludamus.links.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.crowd import CompanionDTO, UserType
 from ludamus.pacts.party import (
@@ -30,7 +30,7 @@ from ludamus.pacts.party import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.adapters.db.django.models import User
+    from ludamus.links.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
 
