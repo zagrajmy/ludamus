@@ -30,7 +30,11 @@ export const requestConfirm = (
   run: () => void,
   options: ConfirmOptions = {},
 ): void => {
-  const text = message.replaceAll(String.raw`\n`, "\n");
+  const text = message
+    .replaceAll(String.raw`\n`, "\n")
+    .split("\n")
+    .map((line) => line.replace(/ (\S+)$/u, `${String.fromCodePoint(160)}$1`))
+    .join("\n");
 
   const dialog = getConfirmDialog();
   if (!dialog) {
