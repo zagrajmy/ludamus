@@ -147,7 +147,10 @@ class TestSpacesTreePage:
                     )
                 ],
             },
-            contains=['title="Building B"', 'title="RPG">+1</span>'],
+            contains=[
+                'title="Building B"',
+                'title="RPG">+1<span class="sr-only">: RPG</span>',
+            ],
         )
 
 

@@ -9,10 +9,10 @@
                 {% icon "bars-3" class="w-4 h-4" %}
             </button>
             {% if node.is_leaf %}
-                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-green-500" %}
+                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
                 <span class="sr-only">{% translate "Room" %}</span>
             {% else %}
-                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-blue-500" %}
+                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-info" %}
                 <span class="sr-only">{% translate "Group" %}</span>
             {% endif %}
             <span class="truncate font-medium text-foreground">{{ node.name }}</span>
@@ -53,17 +53,20 @@
                 </button>
                 <div data-menu-panel
                      hidden
+                     role="menu"
                      class="absolute right-0 z-10 mt-2 w-44 rounded-lg border border-border bg-bg-secondary shadow-lg">
                     <form method="post"
                           action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
                         {% csrf_token %}
                         <button type="submit"
+                                role="menuitem"
                                 class="flex w-full items-center rounded-t-lg px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
                             {% icon "document-duplicate" class="mr-2 w-4 h-4" %}
                             {% translate "Duplicate" %}
                         </button>
                     </form>
                     <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.pk %}"
+                       role="menuitem"
                        class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
                         {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
                         {% translate "Copy to event" %}
@@ -74,6 +77,7 @@
                           data-confirm="{% translate "Delete this space and everything inside it?" %}">
                         {% csrf_token %}
                         <button type="submit"
+                                role="menuitem"
                                 class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
                             {% icon "trash" class="mr-2 w-4 h-4" %}
                             {% translate "Delete" %}

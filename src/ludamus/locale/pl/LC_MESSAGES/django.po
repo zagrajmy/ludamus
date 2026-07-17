@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-17 07:44+0200\n"
+"POT-Creation-Date: 2026-07-17 22:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2250,6 +2250,7 @@ msgid "Invalid facilitator selection."
 msgstr "Nieprawidłowy wybór twórcy programu."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/components/pill_list.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "None"
@@ -7656,8 +7657,8 @@ msgid "Visibility"
 msgstr "Widoczność"
 
 #: src/ludamus/templates/panel/tracks.html
-msgid "People"
-msgstr "Osoby"
+msgid "Organizers"
+msgstr "Organizatorzy"
 
 #: src/ludamus/templates/panel/tracks.html
 msgid "Public"
@@ -7699,6 +7700,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "People"
+#~ msgstr "Osoby"
 
 #~ msgid ""
 #~ "This party still has companions. Remove them first — their profiles would "
