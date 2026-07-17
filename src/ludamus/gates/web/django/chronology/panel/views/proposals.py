@@ -596,7 +596,7 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         choices = [(c.pk, c.name) for c in categories]
         facilitators = self.request.di.uow.facilitators.list_by_event(current_event.pk)
         facilitator_choices = [(f.pk, f.display_name) for f in facilitators]
-        form_class = create_proposal_form(choices, facilitator_choices)
+        form_class = create_proposal_form(choices, facilitators=facilitator_choices)
         return form_class(data) if data is not None else form_class()
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:

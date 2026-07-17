@@ -1,5 +1,8 @@
 """Django forms for panel views."""
 
+from __future__ import annotations
+
+import operator
 import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -9,12 +12,18 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
+    from ludamus.pacts import (
+        PersonalFieldRequirementDTO,
+        ProposalCategoryDTO,
+        SessionFieldRequirementDTO,
+    )
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -465,6 +474,47 @@ class TrackForm(forms.Form):
     )
 
 
+def build_field_from_requirement(
+    fields: dict[str, forms.Field],
+    field_key: str,
+    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
+) -> None:
+    # Shared by the proposal wizard and the organizer panel so a category's
+    # configured fields render identically in both.
+    field_def = req.field
+
+    if field_def.field_type == "select":
+        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
+        raw_options.sort(key=operator.itemgetter(2, 1))
+        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
+
+        if field_def.is_multiple:
+            fields[field_key] = forms.MultipleChoiceField(
+                label=field_def.name,
+                choices=choices[1:],  # no blank for multi
+                required=req.is_required,
+                widget=forms.CheckboxSelectMultiple,
+            )
+        else:
+            fields[field_key] = forms.ChoiceField(
+                label=field_def.name, choices=choices, required=req.is_required
+            )
+
+        if field_def.allow_custom:
+            max_len = field_def.max_length if field_def.max_length > 0 else None
+            fields[f"{field_key}_custom"] = forms.CharField(
+                label=f"{field_def.name} (custom)", required=False, max_length=max_len
+            )
+    elif field_def.field_type == "checkbox":
+        # We can't make checkboxes required because it ENFORCES TRUE.
+        fields[field_key] = forms.BooleanField(label=field_def.name, required=False)
+    else:
+        max_len = field_def.max_length if field_def.max_length > 0 else None
+        fields[field_key] = forms.CharField(
+            label=field_def.name, required=req.is_required, max_length=max_len
+        )
+
+
 class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
@@ -491,8 +541,21 @@ class SessionEditForm(forms.Form):
         return image
 
 
+def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
+    # Stays optional (blank = no limit, as organizers expect) but honours the
+    # category's configured bounds when one is set.
+    kwargs: dict[str, Any] = {"required": False, "min_value": min_limit or 0}
+    if max_limit:
+        kwargs["max_value"] = max_limit
+    return forms.IntegerField(**kwargs)
+
+
 def create_proposal_form(
-    categories: list[tuple[int, str]], facilitators: list[tuple[int, str]] | None = None
+    categories: list[tuple[int, str]],
+    *,
+    facilitators: list[tuple[int, str]] | None = None,
+    requirements: Sequence[SessionFieldRequirementDTO] = (),
+    category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
     attrs: dict[str, forms.Field] = {
         "category_id": forms.ChoiceField(
@@ -514,6 +577,29 @@ def create_proposal_form(
                 "invalid_choice": _("Invalid facilitator selection."),
             },
         )
+
+    if category and (
+        category.min_participants_limit or category.max_participants_limit
+    ):
+        attrs["participants_limit"] = _participants_limit_field(
+            min_limit=category.min_participants_limit,
+            max_limit=category.max_participants_limit,
+        )
+
+    # A category with no configured durations keeps the inherited free-text
+    # field, so organizers can still record one.
+    if category and category.durations:
+        attrs["duration"] = forms.ChoiceField(
+            required=False,
+            choices=[
+                ("", "---"),
+                *((d, format_duration(d)) for d in category.durations),
+            ],
+        )
+
+    for req in requirements:
+        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+
     return type("ProposalCreateForm", (SessionEditForm,), attrs)
 
 
