@@ -15,22 +15,16 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <div class="flex items-center space-x-3">
-            {% url 'panel:facilitator-columns' slug=current_event.slug as columns_url %}
-            {% translate "Columns" as t_columns %}
-            {% tessera_button t_columns href=columns_url variant="secondary" icon="view-columns" %}
-            {% url 'panel:facilitator-merge' slug=current_event.slug as merge_url %}
-            {% translate "Merge facilitators" as t_merge %}
-            {% tessera_button t_merge href=merge_url variant="secondary" icon="funnel" %}
-            {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
-            {% translate "New Facilitator" as t_new_facilitator %}
-            {% tessera_button t_new_facilitator href=create_url icon="plus" %}
-        </div>
+        {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+        {% translate "New Facilitator" as t_new_facilitator %}
+        {% tessera_button t_new_facilitator href=create_url icon="plus" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
     <div class="p-4">
         {% if current_event %}
+            {% tab_shell "panel/_facilitator_tabs.html" %}
+            {% tab_shell_body %}
             {% if facilitators or filters_active %}
                 <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
                     <form method="get" class="flex flex-wrap gap-4 items-end">
@@ -226,10 +220,12 @@
                 {% tessera_button t_new_facilitator href=create_url icon="plus" %}
             </div>
         {% endif %}
-    {% else %}
-        <div class="card p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-        </div>
-    {% endif %}
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
+{% else %}
+<div class="card p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
+{% endif %}
 </div>
 {% endblock content %}

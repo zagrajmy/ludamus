@@ -11,20 +11,17 @@
     {{ current_event.name }} · {% translate "Session Hosts" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    <div class="flex items-center space-x-3">
-        {% url 'panel:facilitators' slug=current_event.slug as back_url %}
-        {% translate "Back" as t_back %}
-        {% tessera_button t_back href=back_url variant="secondary" icon="arrow-left" %}
-        <button type="submit"
-                form="columns-form"
-                class="btn btn-primary flex items-center">
-            {% icon "check" class="w-4 h-4 mr-2" %}
-            {% translate "Save" %}
-        </button>
-    </div>
+    <button type="submit"
+            form="columns-form"
+            class="btn btn-primary flex items-center">
+        {% icon "check" class="w-4 h-4 mr-2" %}
+        {% translate "Save" %}
+    </button>
 {% endblock header_actions %}
 {% block content %}
     <div class="px-3 sm:px-4 py-6">
+        {% tab_shell "panel/_facilitator_tabs.html" %}
+        {% tab_shell_body %}
         <form id="columns-form"
               method="post"
               action="{% url 'panel:facilitator-columns' slug=current_event.slug %}"
@@ -57,5 +54,7 @@
                 </div>
             </div>
         </form>
-    </div>
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
+</div>
 {% endblock content %}

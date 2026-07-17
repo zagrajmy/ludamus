@@ -19,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    facilitator_tab_urls,
     make_unique_slug,
 )
 from ludamus.gates.web.django.forms import FacilitatorEditForm, FacilitatorForm
@@ -96,6 +97,8 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         }
 
         context["active_nav"] = "facilitators"
+        context["active_tab"] = "list"
+        context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
         context["displayed_fields"] = list_context.displayed_fields
@@ -348,6 +351,8 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         preselected_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
 
         context["active_nav"] = "facilitators"
+        context["active_tab"] = "merge"
+        context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = self.request.di.uow.facilitators.list_by_event(
             current_event.pk
         )
@@ -378,6 +383,8 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         min_required = 2
         if len(selected_ids) < min_required or target_id not in selected_ids:
             context["active_nav"] = "facilitators"
+            context["active_tab"] = "merge"
+            context["tab_urls"] = facilitator_tab_urls(slug)
             context["facilitators"] = all_facilitators
             context["preselected_ids"] = set(selected_ids)
             context["error"] = _(
@@ -392,6 +399,8 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             FacilitatorMergeService(self.request.di.uow).merge(target_id, source_ids)
         except FacilitatorMergeError:
             context["active_nav"] = "facilitators"
+            context["active_tab"] = "merge"
+            context["tab_urls"] = facilitator_tab_urls(slug)
             context["facilitators"] = all_facilitators
             context["preselected_ids"] = set(selected_ids)
             context["error"] = _(
@@ -490,6 +499,8 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         context["active_nav"] = "facilitators"
+        context["active_tab"] = "columns"
+        context["tab_urls"] = facilitator_tab_urls(slug)
         context["fields"] = columns.fields
         context["selected_field_ids"] = columns.selected_field_ids
         return TemplateResponse(self.request, "panel/facilitator-columns.html", context)

@@ -26,7 +26,15 @@ _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
 _TOTAL_PAGES = 2
 
 
-def _event_context(event):
+def _tab_urls(event):
+    return {
+        "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
+        "columns": reverse("panel:facilitator-columns", kwargs={"slug": event.slug}),
+    }
+
+
+def _event_context(event, active_tab="list"):
     return {
         "current_event": EventDTO.model_validate(event),
         "events": [EventDTO.model_validate(event)],
@@ -40,6 +48,8 @@ def _event_context(event):
             "total_sessions": 0,
         },
         "active_nav": "facilitators",
+        "active_tab": active_tab,
+        "tab_urls": _tab_urls(event),
     }
 
 
@@ -926,7 +936,7 @@ class TestFacilitatorColumns:
             HTTPStatus.OK,
             template_name="panel/facilitator-columns.html",
             context_data={
-                **_event_context(event),
+                **_event_context(event, active_tab="columns"),
                 "fields": [_field_dto(field)],
                 "selected_field_ids": [],
             },
@@ -944,7 +954,7 @@ class TestFacilitatorColumns:
             HTTPStatus.OK,
             template_name="panel/facilitator-columns.html",
             context_data={
-                **_event_context(event),
+                **_event_context(event, active_tab="columns"),
                 "fields": [],
                 "selected_field_ids": [],
             },
