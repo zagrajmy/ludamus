@@ -7,8 +7,9 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.text import slugify
 
-from ludamus.links.db.django.models import Space
+from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.venues import SpaceNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
@@ -34,7 +35,7 @@ def _base_context(event, *, rooms=0):
     }
 
 
-def _node(space, *, depth, is_leaf, children=None):
+def _node(space, *, depth, is_leaf, children=None, track_names=None):
     return SpaceNodeDTO(
         pk=space.pk,
         event_id=space.event_id,
@@ -43,9 +44,11 @@ def _node(space, *, depth, is_leaf, children=None):
         slug=space.slug,
         capacity=space.capacity,
         description=space.description,
+        location=space.location,
         order=space.order,
         depth=depth,
         is_leaf=is_leaf,
+        track_names=track_names or [],
         children=children or [],
     )
 
@@ -117,6 +120,34 @@ class TestSpacesTreePage:
                     )
                 ],
             },
+        )
+
+    def test_leaf_shows_location_and_track_pills(self, manager_client, event):
+        leaf = _root(event, "Room A", location="Building B", capacity=12)
+        for name in ("Board Games", "Card Games", "Larp", "RPG"):
+            track = Track.objects.create(
+                event_id=event.pk, name=name, slug=slugify(name)
+            )
+            track.spaces.add(leaf.pk)
+
+        response = manager_client.get(_venues_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/spaces.html",
+            context_data={
+                **_base_context(event, rooms=1),
+                "tree": [
+                    _node(
+                        leaf,
+                        depth=1,
+                        is_leaf=True,
+                        track_names=["Board Games", "Card Games", "Larp", "RPG"],
+                    )
+                ],
+            },
+            contains=['title="Building B"', 'title="RPG">+1</span>'],
         )
 
 
