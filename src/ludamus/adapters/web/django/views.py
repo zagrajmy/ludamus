@@ -54,7 +54,6 @@ from ludamus.gates.web.django.entities import (
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
-    SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
     Event,
@@ -63,6 +62,10 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+)
+from ludamus.links.db.django.repositories.sessions import (
+    field_value_dto,
+    with_session_card_relations,
 )
 from ludamus.mills import AcceptProposalService
 from ludamus.mills.enrollment import get_user_enrollment_config
@@ -250,22 +253,7 @@ def _field_value_dtos_from_models(
     field_values: Iterable[SessionFieldValue],
 ) -> list[SessionFieldValueDTO]:
     return sorted(
-        (
-            SessionFieldValueDTO(
-                allow_custom=fv.field.allow_custom,
-                field_icon=fv.field.icon,
-                field_id=fv.field_id,
-                field_name=fv.field.name,
-                field_question=fv.field.question,
-                field_slug=fv.field.slug,
-                field_type=fv.field.field_type,
-                is_public=fv.field.is_public,
-                value=fv.value,
-                field_order=fv.field.order,
-            )
-            for fv in field_values
-            if fv.field.is_public
-        ),
+        (field_value_dto(fv) for fv in field_values if fv.field.is_public),
         key=lambda fv: (fv.field_order, fv.field_name),
     )
 
@@ -303,19 +291,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Get all sessions for this event that are published
         event_sessions = (
-            Session.objects.filter(event=self.object, agenda_item__isnull=False)
-            .select_related(
-                # str(space) walks the whole ancestor chain, so eager-load every
-                # level up to the max nesting depth to avoid per-row parent queries.
-                "presenter",
-                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
-                "event",
-                "event__sphere",
-            )
-            .prefetch_related(
-                "session_participations__user",
-                "field_values__field",
-                "event__enrollment_configs",
+            with_session_card_relations(
+                Session.objects.filter(event=self.object, agenda_item__isnull=False)
             )
             .annotate(
                 enrolled_count_cached=Count(

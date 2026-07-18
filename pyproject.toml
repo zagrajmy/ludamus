@@ -277,6 +277,9 @@ ignore = [
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
+# Standalone Django seed script: imports must follow django.setup(), and it
+# prints a summary line when run directly.
+"tests/e2e/scripts/bootstrap_large_event.py" = ["E402", "T201"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"

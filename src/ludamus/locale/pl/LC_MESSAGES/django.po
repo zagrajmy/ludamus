@@ -2208,7 +2208,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/panel/print/door-cards.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -2957,7 +2957,7 @@ msgstr ""
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Participants"
 msgstr "Uczestnicy"
 
@@ -3144,7 +3144,7 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/timetable-log.html
@@ -3153,8 +3153,8 @@ msgstr "Czas"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -3163,13 +3163,13 @@ msgstr "Minimalny Wiek"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/chronology/session_tags.html
 msgid "years"
 msgstr "lat"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Manage Enrollment"
 msgstr "Zarządzaj zapisem"
 
@@ -3226,7 +3226,7 @@ msgid "shadowbanned on %(date)s"
 msgstr "cicho zbanowany %(date)s"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "About this session"
 msgstr "O tym punkcie programu"
 
@@ -3247,7 +3247,7 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "You"
 msgstr "Ty"
 
@@ -3443,6 +3443,7 @@ msgid "Finish"
 msgstr "Zakończ"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Close"
 msgstr "Zamknij"
@@ -3654,54 +3655,6 @@ msgstr ""
 #: src/ludamus/templates/chronology/event.html
 msgid "Propose a session"
 msgstr "Zgłoś punkt programu"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Could not open the editor. Please try again."
-msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Information"
-msgstr "Informacje"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "You are enrolled in this session"
-msgstr "Jesteś zapisany na ten punkt programu"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "You are on the waiting list"
-msgstr "Jesteś na liście oczekujących"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Enrolled"
-msgstr "Zapisany"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Waiting List"
-msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No one on the waiting list."
-msgstr "Nikt nie czeka na liście oczekujących."
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No participants enrolled yet."
-msgstr "Brak zapisanych uczestników."
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Edit session"
-msgstr "Edytuj punkt programu"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Session full"
-msgstr "Brak miejsc"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Enroll Anonymously"
-msgstr "Zapisz się Anonimowo"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Login to Enroll"
-msgstr "Zaloguj się aby się zapisać"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Back to Events"
@@ -3921,6 +3874,58 @@ msgstr "Zapisz się z innymi…"
 #: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "with others"
 msgstr "z innymi"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Could not open the editor. Please try again."
+msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Information"
+msgstr "Informacje"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "You are enrolled in this session"
+msgstr "Jesteś zapisany na ten punkt programu"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "You are on the waiting list"
+msgstr "Jesteś na liście oczekujących"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Enrolled"
+msgstr "Zapisany"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Waiting List"
+msgstr "Lista oczekujących"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Waiting list position"
+msgstr "Pozycja na liście oczekujących"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "No one on the waiting list."
+msgstr "Nikt nie czeka na liście oczekujących."
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "No participants enrolled yet."
+msgstr "Brak zapisanych uczestników."
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Edit session"
+msgstr "Edytuj punkt programu"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Session full"
+msgstr "Brak miejsc"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Enroll Anonymously"
+msgstr "Zapisz się Anonimowo"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Login to Enroll"
+msgstr "Zaloguj się, aby się zapisać"
 
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/print/base.html

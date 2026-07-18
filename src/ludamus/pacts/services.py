@@ -18,6 +18,7 @@ if TYPE_CHECKING:
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
+        SessionModalServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
     from ludamus.pacts.crowd import (
@@ -94,6 +95,8 @@ class ServicesProtocol(Protocol):
     def parties(self) -> PartyServiceProtocol: ...
     @property
     def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
+    @property
+    def session_modal(self) -> SessionModalServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
