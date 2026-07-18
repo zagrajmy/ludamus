@@ -10,8 +10,10 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
+from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -729,6 +731,102 @@ class ProposalRejectActionView(ProposalStatusActionView):
         self.request.services.proposal_status.mark_rejected(
             event_pk=event_pk, session_pk=session_pk
         )
+
+
+_BULK_STATUS_METHODS = {
+    "pending": "mark_pending",
+    "accept": "mark_accepted",
+    "hold": "mark_on_hold",
+    "reject": "mark_rejected",
+}
+
+
+class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
+    """Apply one status transition to several proposals at once (POST only)."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        back = self._redirect_target(slug)
+        method_name = _BULK_STATUS_METHODS.get(self.request.POST.get("action", ""))
+        if method_name is None:
+            messages.error(self.request, _("Unknown bulk action."))
+            return redirect(back)
+
+        if not (session_pks := self._selected_pks()):
+            messages.warning(self.request, _("No proposals selected."))
+            return redirect(back)
+
+        apply_status = getattr(self.request.services.proposal_status, method_name)
+        applied = scheduled = missing = 0
+        for session_pk in session_pks:
+            try:
+                apply_status(event_pk=current_event.pk, session_pk=session_pk)
+            except ProposalScheduledError:
+                scheduled += 1
+            except NotFoundError:
+                missing += 1
+            else:
+                applied += 1
+
+        self._report(applied=applied, scheduled=scheduled, missing=missing)
+        return redirect(back)
+
+    def _selected_pks(self) -> list[int]:
+        pks = []
+        for raw in self.request.POST.getlist("proposal_ids"):
+            try:
+                pks.append(int(raw))
+            except ValueError:
+                continue
+        return pks
+
+    def _redirect_target(self, slug: str) -> str:
+        next_url = self.request.POST.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={self.request.get_host()}
+        ):
+            return next_url
+        return reverse("panel:proposals", kwargs={"slug": slug})
+
+    def _report(self, *, applied: int, scheduled: int, missing: int) -> None:
+        if applied:
+            messages.success(
+                self.request,
+                ngettext(
+                    "%(count)d proposal updated.",
+                    "%(count)d proposals updated.",
+                    applied,
+                )
+                % {"count": applied},
+            )
+        if scheduled:
+            messages.warning(
+                self.request,
+                ngettext(
+                    "%(count)d scheduled proposal was skipped; remove it from "
+                    "the timetable to change its status.",
+                    "%(count)d scheduled proposals were skipped; remove them "
+                    "from the timetable to change their status.",
+                    scheduled,
+                )
+                % {"count": scheduled},
+            )
+        if missing:
+            messages.error(
+                self.request,
+                ngettext(
+                    "%(count)d proposal could not be found.",
+                    "%(count)d proposals could not be found.",
+                    missing,
+                )
+                % {"count": missing},
+            )
 
 
 class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
