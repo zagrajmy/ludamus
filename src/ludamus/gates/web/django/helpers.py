@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
+
+    from ludamus.pacts import EventDTO
+
+
+def is_event_published(event: EventDTO) -> bool:
+    return (
+        event.publication_time is not None
+        and event.publication_time <= datetime.now(tz=UTC)
+    )
 
 
 def get_client_ip(request: HttpRequest) -> str:

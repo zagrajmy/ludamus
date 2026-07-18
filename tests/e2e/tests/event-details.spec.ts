@@ -232,6 +232,14 @@ test.describe("Event detail page", () => {
     const sessionId = controls?.replace("session-", "");
     expect(sessionId).toBeTruthy();
 
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    const detailDialog = page.getByRole("dialog", {
+      name: "Cozy Storytellers Circle",
+    });
+    await expect(detailDialog).toBeVisible();
+
+    // The modal is fetched on open (lazy-loaded), so it only exists in the DOM
+    // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
       const description = document.querySelector(
         `#session-${id} [id^="info-"] [data-morph="desc"]`,
@@ -242,12 +250,6 @@ test.describe("Event detail page", () => {
         (_, index) => `<p>Long mobile session description paragraph ${index + 1}.</p>`,
       ).join("");
     }, sessionId);
-
-    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
-    const detailDialog = page.getByRole("dialog", {
-      name: "Cozy Storytellers Circle",
-    });
-    await expect(detailDialog).toBeVisible();
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
