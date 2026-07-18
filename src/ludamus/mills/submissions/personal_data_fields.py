@@ -242,12 +242,13 @@ class PersonalDataFieldValueService:
         *,
         event_id: int,
         facilitator_id: int,
-        accreditation_type: str,
+        data: FacilitatorUpdateData,
         entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None:
         # The dedicated facilitator-edit page write path: accreditation +
-        # personal data in one transaction, logged as a single edit entry.
+        # internal comment + personal data in one transaction, logged as a
+        # single edit entry.
         with self._transaction.atomic():
             facilitator = self._facilitators.read(facilitator_id)
             if facilitator.event_id != event_id:
@@ -255,6 +256,7 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
+            accreditation_type = data["accreditation_type"]
             if facilitator.accreditation_type != accreditation_type:
                 changes.append(
                     {
@@ -264,10 +266,7 @@ class PersonalDataFieldValueService:
                         "new": accreditation_type,
                     }
                 )
-            self._facilitators.update(
-                facilitator_id,
-                FacilitatorUpdateData(accreditation_type=accreditation_type),
-            )
+            self._facilitators.update(facilitator_id, data)
             if entries:
                 self._personal_data_field_values.save(entries)
             self._log(

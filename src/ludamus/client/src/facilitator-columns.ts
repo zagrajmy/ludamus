@@ -1,0 +1,41 @@
+// Facilitator-list column picker. A row's checkbox decides whether that column
+// shows; the row's position decides where. The form posts the checked keys in
+// DOM order, so reordering is just moving the <li> — there is no order state to
+// keep in sync, and the page still works (minus reordering) without this file.
+
+const list = document.getElementById("column-list");
+
+const rows = (): HTMLElement[] =>
+  [...(list?.children ?? [])].filter(
+    (el): el is HTMLElement => el instanceof HTMLElement && el.classList.contains("column-row"),
+  );
+
+// The first row can't move up and the last can't move down.
+const updateEnds = (): void => {
+  const items = rows();
+  for (const [index, row] of items.entries()) {
+    const up = row.querySelector<HTMLButtonElement>(".move-up");
+    const down = row.querySelector<HTMLButtonElement>(".move-down");
+    if (up) up.disabled = index === 0;
+    if (down) down.disabled = index === items.length - 1;
+  }
+};
+
+list?.addEventListener("click", (event) => {
+  const target = event.target as HTMLElement;
+  const button = target.closest<HTMLButtonElement>(".move-up, .move-down");
+  const row = button?.closest<HTMLElement>(".column-row");
+  if (!button || !row || button.disabled) return;
+
+  const up = button.classList.contains("move-up");
+  const sibling = up ? row.previousElementSibling : row.nextElementSibling;
+  if (!sibling) return;
+  if (up) sibling.before(row);
+  else sibling.after(row);
+
+  updateEnds();
+  // The row moved with the button, taking focus out of the document.
+  button.focus();
+});
+
+if (list) updateEnds();

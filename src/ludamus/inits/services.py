@@ -49,6 +49,7 @@ from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -59,7 +60,7 @@ from ludamus.mills.submissions.personal_data_fields import (
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.submissions import ImportRepos
+from ludamus.pacts.submissions import FacilitatorPanelRepos, ImportRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -92,6 +93,19 @@ class Services:
             personal_data_field_values=self._repos.personal_data_field_values,
             personal_data_fields=self._repos.personal_data_fields,
             facilitator_change_logs=self._repos.facilitator_change_logs,
+        )
+
+    @cached_property
+    def facilitator_panel(self) -> FacilitatorPanelService:
+        return FacilitatorPanelService(
+            self._transaction,
+            FacilitatorPanelRepos(
+                facilitators=self._repos.facilitators,
+                personal_data_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
+                facilitator_change_logs=self._repos.facilitator_change_logs,
+                panel_settings=self._repos.event_panel_settings,
+            ),
         )
 
     @cached_property

@@ -13,7 +13,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
-from tests.integration.utils import assert_response
+from tests.integration.utils import FormErrorsMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -156,6 +156,35 @@ class TestFacilitatorEditPageView:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
 
+    def test_post_invalid_accreditation_rerenders_form_with_error(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"accreditation_type": "bogus"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **_base_context(event),
+                "form": FormErrorsMatcher(
+                    accreditation_type=[
+                        (
+                            "Select a valid choice. bogus is not one of the"
+                            " available choices."
+                        )
+                    ]
+                ),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "personal_fields": [],
+            },
+        )
+
     def test_post_redirects_and_keeps_cached_display_name(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -205,6 +234,23 @@ class TestFacilitatorEditPageView:
 
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == "honorary"
+
+    def test_post_saves_internal_comment(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "accreditation_type": "none",
+                "internal_comment": "Possible duplicate of Bob",
+            },
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.internal_comment == "Possible duplicate of Bob"
 
     def test_get_preselects_current_accreditation_type(
         self, authenticated_client, active_user, sphere, event

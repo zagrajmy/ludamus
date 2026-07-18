@@ -70,6 +70,35 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
         )
 
+    def test_get_exposes_internal_comment(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(
+            event, internal_comment="Possible duplicate of Bob"
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **_base_context(event),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
+        assert (
+            FacilitatorDTO.model_validate(facilitator).internal_comment
+            == "Possible duplicate of Bob"
+        )
+
     def test_get_renders_sessions_linking_to_proposal_detail(
         self, authenticated_client, active_user, sphere, event
     ):
