@@ -37,10 +37,17 @@ from ludamus.pacts import (
 from ludamus.pacts.submissions import AccreditationType, FacilitatorListQuery
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
+    from ludamus.pacts.submissions import (
+        FacilitatorColumnDTO,
+        FacilitatorListContextDTO,
+        FacilitatorPanelServiceProtocol,
+    )
 
 
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
@@ -64,6 +71,33 @@ def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
     return str(
         ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
     )
+
+
+def _build_column_values(
+    *,
+    panel: FacilitatorPanelServiceProtocol,
+    facilitators: Sequence[FacilitatorListItemDTO],
+    columns: Sequence[FacilitatorColumnDTO],
+) -> dict[int, dict[str, str]]:
+    raw_values = panel.column_values(
+        facilitator_ids=[f.pk for f in facilitators],
+        field_ids=[column.field.pk for column in columns if column.field is not None],
+    )
+    # One ready-to-render string per (facilitator, column), so the template
+    # renders every column the same way whatever the organizer chose.
+    return {
+        facilitator.pk: {
+            column.key: (
+                _format_field_value(
+                    value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
+                )
+                if column.field is not None
+                else _builtin_cell(key=column.key, facilitator=facilitator)
+            )
+            for column in columns
+        }
+        for facilitator in facilitators
+    }
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -98,29 +132,11 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             list_context.facilitators, _FACILITATORS_PAGE_SIZE
         ).get_page(self.request.GET.get("page"))
 
-        raw_values = self.request.services.facilitator_panel.column_values(
-            facilitator_ids=[f.pk for f in page_obj.object_list],
-            field_ids=[
-                column.field.pk
-                for column in list_context.columns
-                if column.field is not None
-            ],
+        column_values = _build_column_values(
+            panel=self.request.services.facilitator_panel,
+            facilitators=list(page_obj.object_list),
+            columns=list_context.columns,
         )
-        # One ready-to-render string per (facilitator, column), so the template
-        # renders every column the same way whatever the organizer chose.
-        column_values = {
-            facilitator.pk: {
-                column.key: (
-                    _format_field_value(
-                        value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
-                    )
-                    if column.field is not None
-                    else _builtin_cell(key=column.key, facilitator=facilitator)
-                )
-                for column in list_context.columns
-            }
-            for facilitator in page_obj.object_list
-        }
 
         context["active_nav"] = "facilitators"
         context["active_tab"] = "list"
@@ -369,33 +385,55 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _list_context(self, event_id: int) -> FacilitatorListContextDTO:
+        return self.request.services.facilitator_panel.list_context(
+            event_id=event_id, query=FacilitatorListQuery()
+        )
+
+    def _render(
+        self,
+        *,
+        context: dict[str, object],
+        slug: str,
+        list_context: FacilitatorListContextDTO,
+        preselected_ids: set[int],
+        error: str | None,
+    ) -> HttpResponse:
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "merge"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+        context["facilitators"] = list_context.facilitators
+        context["columns"] = list_context.columns
+        context["column_values"] = _build_column_values(
+            panel=self.request.services.facilitator_panel,
+            facilitators=list_context.facilitators,
+            columns=list_context.columns,
+        )
+        context["preselected_ids"] = preselected_ids
+        context["error"] = error
+        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
         raw_ids = self.request.GET.getlist("ids")
-        preselected_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-
-        context["active_nav"] = "facilitators"
-        context["active_tab"] = "merge"
-        context["tab_urls"] = facilitator_tab_urls(slug)
-        context["facilitators"] = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
+        return self._render(
+            context=context,
+            slug=slug,
+            list_context=self._list_context(current_event.pk),
+            preselected_ids={int(fid) for fid in raw_ids if fid.isdigit()},
+            error=None,
         )
-        context["preselected_ids"] = preselected_ids
-        context["error"] = None
-        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
-        )
-        valid_pks = {f.pk for f in all_facilitators}
+        list_context = self._list_context(current_event.pk)
+        valid_pks = {f.pk for f in list_context.facilitators}
         raw_selected = self.request.POST.getlist("facilitator_ids")
         selected_ids = [
             n for fid in raw_selected if fid.isdigit() and (n := int(fid)) in valid_pks
@@ -409,32 +447,26 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
         min_required = 2
         if len(selected_ids) < min_required or target_id not in selected_ids:
-            context["active_nav"] = "facilitators"
-            context["active_tab"] = "merge"
-            context["tab_urls"] = facilitator_tab_urls(slug)
-            context["facilitators"] = all_facilitators
-            context["preselected_ids"] = set(selected_ids)
-            context["error"] = _(
-                "Select at least two facilitators and choose a merge target."
-            )
-            return TemplateResponse(
-                self.request, "panel/facilitator-merge.html", context
+            return self._render(
+                context=context,
+                slug=slug,
+                list_context=list_context,
+                preselected_ids=set(selected_ids),
+                error=_("Select at least two facilitators and choose a merge target."),
             )
 
         source_ids = [fid for fid in selected_ids if fid != target_id]
         try:
             FacilitatorMergeService(self.request.di.uow).merge(target_id, source_ids)
         except FacilitatorMergeError:
-            context["active_nav"] = "facilitators"
-            context["active_tab"] = "merge"
-            context["tab_urls"] = facilitator_tab_urls(slug)
-            context["facilitators"] = all_facilitators
-            context["preselected_ids"] = set(selected_ids)
-            context["error"] = _(
-                "Cannot merge facilitators that each have a linked user account."
-            )
-            return TemplateResponse(
-                self.request, "panel/facilitator-merge.html", context
+            return self._render(
+                context=context,
+                slug=slug,
+                list_context=list_context,
+                preselected_ids=set(selected_ids),
+                error=_(
+                    "Cannot merge facilitators that each have a linked user account."
+                ),
             )
 
         messages.success(self.request, _("Facilitators merged successfully."))

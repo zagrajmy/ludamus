@@ -5,18 +5,41 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
+from ludamus.pacts.submissions import AccreditationType, FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+_DEFAULT_COLUMNS = [
+    FacilitatorColumnDTO(key=key)
+    for key in ("name", "linked", "sessions", "accreditation")
+]
 
 
 def _make_facilitator(event, display_name, slug):
     return Facilitator.objects.create(
         event=event, display_name=display_name, slug=slug, user=None
     )
+
+
+def _column_values(facilitators):
+    return {
+        facilitator.pk: {
+            "name": facilitator.display_name,
+            "linked": "Linked" if facilitator.user_id else "None",
+            "sessions": str(facilitator.session_count),
+            "accreditation": str(
+                ACCREDITATION_TYPE_LABELS[
+                    AccreditationType(facilitator.accreditation_type)
+                ]
+            ),
+        }
+        for facilitator in facilitators
+    }
 
 
 def _base_context(event):
@@ -34,6 +57,7 @@ def _base_context(event):
         },
         "active_nav": "facilitators",
         "active_tab": "merge",
+        "columns": _DEFAULT_COLUMNS,
         "tab_urls": {
             "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
             "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
@@ -99,6 +123,7 @@ class TestFacilitatorMergePageView:
             context_data={
                 **_base_context(event),
                 "facilitators": [],
+                "column_values": {},
                 "preselected_ids": set(),
                 "error": None,
             },
@@ -115,30 +140,32 @@ class TestFacilitatorMergePageView:
             self.get_url(event), data={"ids": [f1.pk, f2.pk]}
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=f1.pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Bob",
+                pk=f2.pk,
+                slug="bob",
+                user_id=None,
+                session_count=0,
+            ),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-merge.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=f1.pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    ),
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Bob",
-                        pk=f2.pk,
-                        slug="bob",
-                        user_id=None,
-                        session_count=0,
-                    ),
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "preselected_ids": {f1.pk, f2.pk},
                 "error": None,
             },
@@ -208,30 +235,32 @@ class TestFacilitatorMergePageView:
             data={"facilitator_ids": [f1.pk, f2.pk], "target_id": f1.pk},
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=f1.pk,
+                slug="alice",
+                user_id=user_1.pk,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Bob",
+                pk=f2.pk,
+                slug="bob",
+                user_id=user_2.pk,
+                session_count=0,
+            ),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-merge.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=f1.pk,
-                        slug="alice",
-                        user_id=user_1.pk,
-                        session_count=0,
-                    ),
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Bob",
-                        pk=f2.pk,
-                        slug="bob",
-                        user_id=user_2.pk,
-                        session_count=0,
-                    ),
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "preselected_ids": {f1.pk, f2.pk},
                 "error": (
                     "Cannot merge facilitators that each have a linked user account."
@@ -258,6 +287,16 @@ class TestFacilitatorMergePageView:
             },
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=local.pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
@@ -268,16 +307,8 @@ class TestFacilitatorMergePageView:
                     EventDTO.model_validate(other_event),
                     EventDTO.model_validate(event),
                 ],
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=local.pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "preselected_ids": {local.pk},
                 "error": "Select at least two facilitators and choose a merge target.",
             },
@@ -297,22 +328,24 @@ class TestFacilitatorMergePageView:
             data={"facilitator_ids": [facilitator.pk], "target_id": facilitator.pk},
         )
 
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=facilitator.pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-merge.html",
             context_data={
                 **_base_context(event),
-                "facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=facilitator.pk,
-                        slug="alice",
-                        user_id=None,
-                        session_count=0,
-                    )
-                ],
+                "facilitators": expected,
+                "column_values": _column_values(expected),
                 "preselected_ids": {facilitator.pk},
                 "error": "Select at least two facilitators and choose a merge target.",
             },
