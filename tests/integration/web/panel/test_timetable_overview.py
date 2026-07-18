@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import CapacityHoursDTO, HeatmapDTO
+from ludamus.pacts.chronology import CapacityHoursDTO, HeatmapDTO, TrackProgressDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
@@ -128,33 +128,89 @@ class TestTimetableOverviewPageView:
         assert len(heatmap.days) == 1
         assert time_slot is not None
 
-    def test_track_progress_shows_tracks(
+    def test_track_progress_denominator_is_active_pool_with_status_pills(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="Test Track", slug="test-track", is_public=True
         )
-        space = SpaceFactory(event=event)
-        track.spaces.add(space)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
-        session.tracks.add(track)
+
+        def make(status, count):
+            for _ in range(count):
+                session = SessionFactory(
+                    category=proposal_category,
+                    presenter=active_user,
+                    status=status,
+                    participants_limit=5,
+                    min_age=0,
+                )
+                session.tracks.add(track)
+
+        make("accepted", 3)
+        make("pending", 3)
+        make("rejected", 1)
+        make("on_hold", 1)
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        progress = response.context["track_progress"]
-        assert len(progress) == 1
-        assert progress[0].track_name == "Test Track"
-        assert progress[0].accepted_count == 1
-        assert progress[0].scheduled_count == 0
-        assert progress[0].unassigned_count == 1
-        assert "(1 unassigned)" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-overview.html",
+            # Denominator is the active pool (pending + accepted = 6), not
+            # accepted alone (3); a pill per non-empty status follows.
+            contains=[
+                "0/6",
+                'title="Accepted"',
+                'title="Pending"',
+                'title="Rejected"',
+                'title="On hold"',
+            ],
+            context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": False,
+                "stats": {
+                    "hosts_count": 1,
+                    "pending_proposals": 3,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 3 + 3 + 1 + 1,
+                    "total_sessions": 3 + 0,  # pending + scheduled
+                },
+                "active_nav": "timetable",
+                "heatmap": _empty_heatmap(),
+                "track_progress": [
+                    TrackProgressDTO(
+                        track_pk=track.pk,
+                        track_name="Test Track",
+                        manager_names=[],
+                        accepted_count=3,
+                        scheduled_count=0,
+                        pending_count=3,
+                        on_hold_count=1,
+                        rejected_count=1,
+                        progress_pct=0,
+                    )
+                ],
+                "capacity_hours": _empty_capacity_hours(),
+                "slug": event.slug,
+                "tab_urls": {
+                    "timetable": reverse(
+                        "panel:timetable", kwargs={"slug": event.slug}
+                    ),
+                    "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
+                    "overview": reverse(
+                        "panel:timetable-overview", kwargs={"slug": event.slug}
+                    ),
+                    "problems": reverse(
+                        "panel:timetable-problems", kwargs={"slug": event.slug}
+                    ),
+                },
+                "active_tab": "overview",
+            },
+        )
 
     def test_capacity_hours_reports_hours_left_to_fill(
         self,
