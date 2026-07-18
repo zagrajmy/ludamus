@@ -35,14 +35,17 @@ def _service():
 
 @pytest.mark.usefixtures("enrollment_config", "agenda_item")
 class TestFillFreedSeats:
-    def test_auto_promotes_waiter_and_notifies(self, session, waiter, mailoutbox):
+    def test_auto_promotes_waiter_and_notifies(
+        self, session, waiter, mailoutbox, django_capture_on_commit_callbacks
+    ):
         session.participants_limit = 1
         session.save()
         participation = SessionParticipation.objects.create(
             session=session, user=waiter, status=SessionParticipationStatus.WAITING
         )
 
-        result = _service().fill_freed_seats(session_id=session.pk)
+        with django_capture_on_commit_callbacks(execute=True):
+            result = _service().fill_freed_seats(session_id=session.pk)
 
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
@@ -54,7 +57,7 @@ class TestFillFreedSeats:
         assert mailoutbox[0].to == ["waiter@example.com"]
 
     def test_offer_mode_holds_seat_and_notifies(
-        self, session, event, waiter, mailoutbox
+        self, session, event, waiter, mailoutbox, django_capture_on_commit_callbacks
     ):
         session.participants_limit = 1
         session.category = ProposalCategoryFactory(
@@ -65,7 +68,8 @@ class TestFillFreedSeats:
             session=session, user=waiter, status=SessionParticipationStatus.WAITING
         )
 
-        result = _service().fill_freed_seats(session_id=session.pk)
+        with django_capture_on_commit_callbacks(execute=True):
+            result = _service().fill_freed_seats(session_id=session.pk)
 
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.OFFERED.value
@@ -380,7 +384,7 @@ class TestOfferClaimAndExpiry:
         assert "Decline offer" in content
 
     def test_expire_drops_lapsed_party_and_rolls_on(
-        self, session, event, waiter, mailoutbox
+        self, session, event, waiter, mailoutbox, django_capture_on_commit_callbacks
     ):
         participation = self._offer(session, event, waiter)
         # Force the offer past its deadline.
@@ -391,7 +395,8 @@ class TestOfferClaimAndExpiry:
             session=session, user=next_user, status=SessionParticipationStatus.WAITING
         )
 
-        _service().expire_offer(participation_id=participation.pk)
+        with django_capture_on_commit_callbacks(execute=True):
+            _service().expire_offer(participation_id=participation.pk)
 
         assert not SessionParticipation.objects.filter(pk=participation.pk).exists()
         next_participation.refresh_from_db()

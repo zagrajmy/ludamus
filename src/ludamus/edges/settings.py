@@ -484,6 +484,10 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # The markdown lib logs every extension load at DEBUG on each call;
+        # render_markdown runs once per session, so on big event pages this
+        # floods the dev console and dominates render time. Quiet it.
+        "MARKDOWN": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",

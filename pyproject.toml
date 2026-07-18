@@ -48,7 +48,7 @@ unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-codespell = "^2.4.1"
+codespell = "^2.4.3"
 deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^7.0.0"
@@ -62,7 +62,7 @@ ipython = "^9.14.1"
 mypy = "^2.2.0"
 pip-audit = "^2.10.1"
 pylint = "^4.0.3"
-pytest = "^9.0.1"
+pytest = "^9.0.3"
 pytest-cov = "^7.0.0"
 pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
@@ -81,6 +81,7 @@ django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
 tingle = "^0.1.0"
+pytest-xdist = "^3.8.0"
 
 [tool.black]
 line-length = 88
@@ -276,6 +277,9 @@ ignore = [
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
+# Standalone Django seed script: imports must follow django.setup(), and it
+# prints a summary line when run directly.
+"tests/e2e/scripts/bootstrap_large_event.py" = ["E402", "T201"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"

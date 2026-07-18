@@ -870,11 +870,23 @@ class TimetableOverviewService:
                 event_pk, {"track_pk": track.pk}
             )
             accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
-            scheduled = [s for s in accepted if s.is_scheduled]
             accepted_count = len(accepted)
-            scheduled_count = len(scheduled)
+            scheduled_count = sum(1 for s in accepted if s.is_scheduled)
+            pending_count = sum(
+                1 for s in sessions if s.status == SessionStatus.PENDING
+            )
+            on_hold_count = sum(
+                1 for s in sessions if s.status == SessionStatus.ON_HOLD
+            )
+            rejected_count = sum(
+                1 for s in sessions if s.status == SessionStatus.REJECTED
+            )
+            # Progress is measured against the active pool (everything not
+            # rejected / on hold), so pending proposals still awaiting a
+            # decision count as unscheduled program to place.
+            active_count = pending_count + accepted_count
             progress_pct = (
-                round(scheduled_count * 100 / accepted_count) if accepted_count else 0
+                round(scheduled_count * 100 / active_count) if active_count else 0
             )
             manager_names = self._uow.tracks.list_manager_names(track.pk)
             result.append(
@@ -884,6 +896,9 @@ class TimetableOverviewService:
                     manager_names=manager_names,
                     accepted_count=accepted_count,
                     scheduled_count=scheduled_count,
+                    pending_count=pending_count,
+                    on_hold_count=on_hold_count,
+                    rejected_count=rejected_count,
                     progress_pct=progress_pct,
                 )
             )

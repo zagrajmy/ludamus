@@ -225,6 +225,11 @@ urlpatterns = [
         name="proposal-edit-fields",
     ),
     path(
+        "event/<slug:slug>/proposals/do/bulk-status",
+        proposals.ProposalBulkStatusActionView.as_view(),
+        name="proposal-bulk-status",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/pending",
         proposals.ProposalPendingActionView.as_view(),
         name="proposal-pending",
