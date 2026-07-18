@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-17 22:20+0200\n"
+"POT-Creation-Date: 2026-07-18 14:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1467,22 +1467,26 @@ msgstr "Przestrzeń nie została znaleziona."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Pending"
 msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Accepted"
 msgstr "Zaakceptowane"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "On hold"
 msgstr "Wstrzymane"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Rejected"
 msgstr "Odrzucone"
 
@@ -7544,10 +7548,6 @@ msgid "Unassigned"
 msgstr "Nieprzypisany"
 
 #: src/ludamus/templates/panel/timetable-overview.html
-msgid "unassigned"
-msgstr "nieprzypisane"
-
-#: src/ludamus/templates/panel/timetable-overview.html
 msgid "No tracks for this event."
 msgstr "Brak bloków programowych dla tego wydarzenia."
 
@@ -7725,6 +7725,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "unassigned"
+#~ msgstr "nieprzypisane"
 
 #~ msgid "People"
 #~ msgstr "Osoby"
