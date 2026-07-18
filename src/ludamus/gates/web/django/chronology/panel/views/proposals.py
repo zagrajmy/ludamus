@@ -158,6 +158,14 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["managed_track_pks"] = managed_pks
         context["filter_track_pk"] = filter_track_pk
         context["filter_track_multi"] = filter_track_multi
+        # Value the other filter form echoes back so the track selection
+        # round-trips. Empty string ("All tracks") must stay present in the
+        # query, or the absent-param default re-selects the managed track.
+        context["filter_track_value"] = (
+            "multi"
+            if filter_track_multi
+            else str(filter_track_pk) if filter_track_pk is not None else ""
+        )
         context["categories"] = categories
         context["filter_category_pk"] = filter_category_pk
         status_labels = {

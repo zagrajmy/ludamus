@@ -33,6 +33,12 @@
             {% if filter_search %}
                 <input type="hidden" name="search" value="{{ filter_search }}">
             {% endif %}
+            {% if filter_status %}
+                <input type="hidden" name="status" value="{{ filter_status }}">
+            {% endif %}
+            {% if filter_category_pk %}
+                <input type="hidden" name="category" value="{{ filter_category_pk }}">
+            {% endif %}
             <label for="track-scope"
                    class="text-xs text-foreground-muted whitespace-nowrap hidden sm:inline">
                 {% translate "Track" %}
@@ -59,12 +65,11 @@
     <div class="p-4">
         {% if current_event %}
             <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
-                <form method="get" class="flex flex-wrap gap-4 items-end">
-                    {% if filter_track_multi %}
-                        <input type="hidden" name="track" value="multi">
-                    {% elif filter_track_pk %}
-                        <input type="hidden" name="track" value="{{ filter_track_pk }}">
-                    {% endif %}
+                <form method="get"
+                      id="proposals-filter-form"
+                      data-autosubmit
+                      class="flex flex-wrap gap-4 items-end">
+                    <input type="hidden" name="track" value="{{ filter_track_value }}">
                     <div class="w-full sm:w-48 min-w-0">
                         <label for="filter-search"
                                title="{% translate "Search" %}"
@@ -146,13 +151,18 @@
                             {% endif %}
                         </div>
                     {% endfor %}
-                    <div class="flex items-center">
-                        <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="sr-only">{% translate "Filter" %}</button>
+                        <span data-autosubmit-spinner
+                              class="hidden h-4 w-4 rounded-full border-2 border-border border-t-primary animate-spin"
+                              role="status"
+                              aria-label="{% translate "Filtering" %}"></span>
                         <a href="{% url 'panel:proposals' slug=current_event.slug %}"
                            class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
                     </div>
                 </form>
             </div>
+            {% vite_asset 'src/filter-autosubmit.ts' %}
             {% if proposals %}
                 <form method="post"
                       action="{% url 'panel:proposal-bulk-status' slug=current_event.slug %}"
