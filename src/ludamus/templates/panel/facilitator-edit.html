@@ -59,10 +59,7 @@
                         <textarea name="internal_comment"
                                   id="id_internal_comment"
                                   rows="3"
-                                  class="w-full border {% if form.internal_comment.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ form.internal_comment.value|default:"" }}</textarea>
-                        {% if form.internal_comment.errors %}
-                            <p class="mt-1 text-sm text-danger">{{ form.internal_comment.errors.0 }}</p>
-                        {% endif %}
+                                  class="w-full border border-border rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ form.internal_comment.value|default:"" }}</textarea>
                         <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
                     </div>
                 </div>
