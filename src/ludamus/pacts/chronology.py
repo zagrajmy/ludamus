@@ -494,7 +494,16 @@ class TrackProgressDTO(BaseModel):
     manager_names: list[str]
     accepted_count: int
     scheduled_count: int
+    pending_count: int = 0
+    on_hold_count: int = 0
+    rejected_count: int = 0
     progress_pct: int
+
+    @property
+    def active_count(self) -> int:
+        # The scheduling target: proposals still in play (not rejected / on
+        # hold). Denominator of the scheduled/total ratio.
+        return self.pending_count + self.accepted_count
 
     @property
     def unassigned_count(self) -> int:

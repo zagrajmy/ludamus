@@ -1430,22 +1430,26 @@ msgstr "Przestrzeń nie została znaleziona."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Pending"
 msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Accepted"
 msgstr "Zaakceptowane"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "On hold"
 msgstr "Wstrzymane"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-overview.html
 msgid "Rejected"
 msgstr "Odrzucone"
 
@@ -1491,6 +1495,53 @@ msgstr "Zgłoszenie zostało wstrzymane."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal rejected."
 msgstr "Zgłoszenie zostało odrzucone."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Unknown bulk action."
+msgstr "Nieznana akcja zbiorcza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "No proposals selected."
+msgstr "Nie wybrano żadnych zgłoszeń."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#, python-format
+msgid "%(count)d proposal updated."
+msgid_plural "%(count)d proposals updated."
+msgstr[0] "Zaktualizowano %(count)d zgłoszenie."
+msgstr[1] "Zaktualizowano %(count)d zgłoszenia."
+msgstr[2] "Zaktualizowano %(count)d zgłoszeń."
+msgstr[3] "Zaktualizowano %(count)d zgłoszenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#, python-format
+msgid ""
+"%(count)d scheduled proposal was skipped; remove it from the timetable to "
+"change its status."
+msgid_plural ""
+"%(count)d scheduled proposals were skipped; remove them from the timetable "
+"to change their status."
+msgstr[0] ""
+"Pominięto %(count)d zaplanowane zgłoszenie; usuń je z harmonogramu, aby "
+"zmienić jego status."
+msgstr[1] ""
+"Pominięto %(count)d zaplanowane zgłoszenia; usuń je z harmonogramu, aby "
+"zmienić ich status."
+msgstr[2] ""
+"Pominięto %(count)d zaplanowanych zgłoszeń; usuń je z harmonogramu, aby "
+"zmienić ich status."
+msgstr[3] ""
+"Pominięto %(count)d zaplanowane zgłoszenia; usuń je z harmonogramu, aby "
+"zmienić ich status."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#, python-format
+msgid "%(count)d proposal could not be found."
+msgid_plural "%(count)d proposals could not be found."
+msgstr[0] "Nie znaleziono %(count)d zgłoszenia."
+msgstr[1] "Nie znaleziono %(count)d zgłoszeń."
+msgstr[2] "Nie znaleziono %(count)d zgłoszeń."
+msgstr[3] "Nie znaleziono %(count)d zgłoszeń."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Session deleted."
@@ -7012,18 +7063,22 @@ msgid "This is the current status."
 msgstr "To jest obecny status."
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposals.html
 msgid "Move to pending"
 msgstr "Przywróć do oczekujących"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposals.html
 msgid "Accept"
 msgstr "Zaakceptuj"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposals.html
 msgid "Hold"
 msgstr "Wstrzymaj"
 
 #: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposals.html
 msgid "Reject"
 msgstr "Odrzuć"
 
@@ -7203,6 +7258,23 @@ msgstr "Wszystkie kategorie"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Selected:"
+msgstr "Zaznaczono:"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Set status:"
+msgstr "Ustaw status:"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Select all proposals"
+msgstr "Zaznacz wszystkie zgłoszenia"
+
+#: src/ludamus/templates/panel/proposals.html
+#, python-format
+msgid "Select %(title)s"
+msgstr "Zaznacz %(title)s"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals match the current filters."
@@ -7537,10 +7609,6 @@ msgid "Unassigned"
 msgstr "Nieprzypisany"
 
 #: src/ludamus/templates/panel/timetable-overview.html
-msgid "unassigned"
-msgstr "nieprzypisane"
-
-#: src/ludamus/templates/panel/timetable-overview.html
 msgid "No tracks for this event."
 msgstr "Brak bloków programowych dla tego wydarzenia."
 
@@ -7727,6 +7795,8 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "This field is required."
 #~ msgstr "To pole jest wymagane."
+#~ msgid "unassigned"
+#~ msgstr "nieprzypisane"
 
 #~ msgid "People"
 #~ msgstr "Osoby"
