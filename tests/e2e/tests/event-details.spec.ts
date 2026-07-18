@@ -366,11 +366,14 @@ test.describe("Anonymous code modal", () => {
     await expect(dialog).toBeHidden();
     await flash.getByRole("button", { name: "Dismiss" }).click();
     await expect(flash).toHaveAttribute("data-flash-closing", "true");
+    // The flash's opacity transition takes 0.26s (index.css `.alert`), so the
+    // poll window must clear that with margin — 200ms was tighter than the
+    // transition itself and flaked under CI paint/GC jitter.
     await expect
       .poll(
         () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
         {
-          timeout: 200,
+          timeout: 1000,
           intervals: [50],
         },
       )
