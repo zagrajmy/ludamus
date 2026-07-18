@@ -91,6 +91,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         sorted_tracks, managed_pks, filter_track_pk = self.get_track_filter_context(
             current_event.pk
         )
+        filter_track_multi = self.request.GET.get("track") == "multi"
 
         categories = self.request.di.uow.proposal_categories.list_by_event(
             current_event.pk
@@ -127,6 +128,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
                 "field_filters": field_filters or None,
                 "search": search,
                 "track_pk": filter_track_pk,
+                "multi_tracks": filter_track_multi or None,
                 "category_pk": filter_category_pk,
                 "status": status_filter,
                 "scheduled": scheduled_filter,
@@ -153,6 +155,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["all_tracks"] = sorted_tracks
         context["managed_track_pks"] = managed_pks
         context["filter_track_pk"] = filter_track_pk
+        context["filter_track_multi"] = filter_track_multi
         context["categories"] = categories
         context["filter_category_pk"] = filter_category_pk
         status_labels = {

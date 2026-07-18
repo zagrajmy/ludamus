@@ -603,6 +603,9 @@ class Space(models.Model):
     # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True, default="")
+    # Free-form metadata: building address, room number, floor, etc. Keeps the
+    # description clean of structural location info.
+    location = models.CharField(max_length=255, blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
     # Time
