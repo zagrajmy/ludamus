@@ -116,9 +116,7 @@ core = "ctrace"
 show_missing = true
 skip_covered = true
 precision = 2
-exclude_lines = [
-    "raise NotImplementedError"
-]
+exclude_also = ["raise NotImplementedError"]
 
 [tool.coverage.django_coverage_plugin]
 template_extensions = 'html'
