@@ -9,7 +9,7 @@ from django.db import connection
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Notification, Party, PartyMembership
+from ludamus.links.db.django.models import Notification, Party, PartyMembership
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import (

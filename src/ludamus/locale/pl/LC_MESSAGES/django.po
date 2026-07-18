@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-15 12:13+0200\n"
+"POT-Creation-Date: 2026-07-17 07:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,138 +18,6 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && "
 "(n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && "
 "n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "date joined"
-msgstr "data dołączenia"
-
-#: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/gates/web/django/crowd/forms.py
-msgid "email address"
-msgstr "adres email"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "active"
-msgstr "aktywny"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid ""
-"Designates whether this user should be treated as active. Unselect this "
-"instead of deleting accounts."
-msgstr ""
-"Określa czy użytkownika należy uważać za aktywnego. Odznacz zamiast usuwać "
-"konto."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "staff status"
-msgstr "w zespole"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Designates whether the user can log into this admin site."
-msgstr "Określa czy użytkownik może zalogować się do panelu administracyjnego."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "User name"
-msgstr "Nazwa użytkownika"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "username"
-msgstr "Nazwa użytkownika"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
-msgstr "Wymagana. 150 lub mniej znaków. Jedynie litery, cyfry i @/./+/-/_."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "A user with that username already exists."
-msgstr "Użytkownik o tej nazwie już istnieje."
-
-#: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/gates/web/django/crowd/forms.py
-msgid "Discord username"
-msgstr "Nazwa użytkownika Discord"
-
-#: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/gates/web/django/crowd/forms.py
-msgid "Your Discord username for session coordination"
-msgstr "Twoja nazwa użytkownika Discord do koordynacji sesji"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Avatar URL"
-msgstr "URL awatara"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Profile avatar URL (e.g. from Auth0)"
-msgstr "URL awatara profilu (np. z Auth0)"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Use Gravatar"
-msgstr "Użyj Gravatara"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Use Gravatar instead of provider avatar"
-msgstr "Użyj Gravatara zamiast awatara z konta"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "user"
-msgstr "użytkownik"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "users"
-msgstr "użytkownicy"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "A space must belong to its parent's event."
-msgstr "Przestrzeń musi należeć do wydarzenia swojego rodzica."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "A space cannot be its own ancestor."
-msgstr "Przestrzeń nie może być swoim własnym przodkiem."
-
-#: src/ludamus/adapters/db/django/models.py
-#, python-format
-msgid "Spaces can be nested at most %(max)d levels deep."
-msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "A space holding a scheduled session cannot contain other spaces."
-msgstr ""
-"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
-"przestrzeni."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "A root space with this slug already exists."
-msgstr "Przestrzeń główna o tym slugu już istnieje."
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Time slots can't overlap!"
-msgstr "Przedziały czasowe nie mogą się nakładać!"
-
-#: src/ludamus/adapters/db/django/models.py
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitators.html
-msgid "None"
-msgstr "Brak"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Standard"
-msgstr "Standardowa"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Guest"
-msgstr "Gość"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Honorary"
-msgstr "Honorowa"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Twórca programu"
-msgstr "Twórca programu"
-
-#: src/ludamus/adapters/db/django/models.py
-msgid "Twórcy programu"
-msgstr "Twórcy programu"
 
 #: src/ludamus/adapters/web/django/error_views.py
 msgid "That event isn't available."
@@ -1875,6 +1743,21 @@ msgstr ""
 "być Twoim prawdziwym imieniem."
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/links/db/django/models.py
+msgid "email address"
+msgstr "adres email"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/links/db/django/models.py
+msgid "Discord username"
+msgstr "Nazwa użytkownika Discord"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/links/db/django/models.py
+msgid "Your Discord username for session coordination"
+msgstr "Twoja nazwa użytkownika Discord do koordynacji sesji"
+
+#: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Party name"
 msgstr "Nazwa drużyny"
@@ -2365,6 +2248,24 @@ msgid "Invalid facilitator selection."
 msgstr "Nieprawidłowy wybór twórcy programu."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "None"
+msgstr "Brak"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Standard"
+msgstr "Standardowa"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Guest"
+msgstr "Gość"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Honorary"
+msgstr "Honorowa"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
 
@@ -2687,6 +2588,105 @@ msgstr "Tak"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "No"
 msgstr "Nie"
+
+#: src/ludamus/links/db/django/models.py
+msgid "date joined"
+msgstr "data dołączenia"
+
+#: src/ludamus/links/db/django/models.py
+msgid "active"
+msgstr "aktywny"
+
+#: src/ludamus/links/db/django/models.py
+msgid ""
+"Designates whether this user should be treated as active. Unselect this "
+"instead of deleting accounts."
+msgstr ""
+"Określa czy użytkownika należy uważać za aktywnego. Odznacz zamiast usuwać "
+"konto."
+
+#: src/ludamus/links/db/django/models.py
+msgid "staff status"
+msgstr "w zespole"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Designates whether the user can log into this admin site."
+msgstr "Określa czy użytkownik może zalogować się do panelu administracyjnego."
+
+#: src/ludamus/links/db/django/models.py
+msgid "User name"
+msgstr "Nazwa użytkownika"
+
+#: src/ludamus/links/db/django/models.py
+msgid "username"
+msgstr "Nazwa użytkownika"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."
+msgstr "Wymagana. 150 lub mniej znaków. Jedynie litery, cyfry i @/./+/-/_."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A user with that username already exists."
+msgstr "Użytkownik o tej nazwie już istnieje."
+
+#: src/ludamus/links/db/django/models.py
+msgid "Avatar URL"
+msgstr "URL awatara"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Profile avatar URL (e.g. from Auth0)"
+msgstr "URL awatara profilu (np. z Auth0)"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Use Gravatar"
+msgstr "Użyj Gravatara"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Use Gravatar instead of provider avatar"
+msgstr "Użyj Gravatara zamiast awatara z konta"
+
+#: src/ludamus/links/db/django/models.py
+msgid "user"
+msgstr "użytkownik"
+
+#: src/ludamus/links/db/django/models.py
+msgid "users"
+msgstr "użytkownicy"
+
+#: src/ludamus/links/db/django/models.py
+msgid "A space must belong to its parent's event."
+msgstr "Przestrzeń musi należeć do wydarzenia swojego rodzica."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A space cannot be its own ancestor."
+msgstr "Przestrzeń nie może być swoim własnym przodkiem."
+
+#: src/ludamus/links/db/django/models.py
+#, python-format
+msgid "Spaces can be nested at most %(max)d levels deep."
+msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A space holding a scheduled session cannot contain other spaces."
+msgstr ""
+"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
+"przestrzeni."
+
+#: src/ludamus/links/db/django/models.py
+msgid "A root space with this slug already exists."
+msgstr "Przestrzeń główna o tym slugu już istnieje."
+
+#: src/ludamus/links/db/django/models.py
+msgid "Time slots can't overlap!"
+msgstr "Przedziały czasowe nie mogą się nakładać!"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Twórca programu"
+msgstr "Twórca programu"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Twórcy programu"
+msgstr "Twórcy programu"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -4811,20 +4811,36 @@ msgid "Shadowbanned"
 msgstr "Cicho zbanowany"
 
 #: src/ludamus/templates/crowd/user/safety.html
+#, python-format
+msgid "%(sphere)s › %(event)s › %(session)s"
+msgstr "%(sphere)s › %(event)s › %(session)s"
+
+#: src/ludamus/templates/crowd/user/safety.html
 msgid "Remove shadowban"
 msgstr "Usuń cichy ban"
 
 #: src/ludamus/templates/crowd/user/safety.html
-#, python-format
-msgid ""
-"Shadowban %(name)s? Sessions you run always look full to them, so they can "
-"never join. You get an email when they sign up at an event where you run a "
-"session, or into a session you play in. We never tell them."
+msgid "Sessions you run always look full to them, so they can never join."
 msgstr ""
-"Cicho zbanować %(name)s? Punkty programu, które prowadzisz, zawsze wyglądają "
-"dla tej osoby na pełne, więc nigdy nie może dołączyć. Dostaniesz e-mail, gdy "
-"zapisze się na wydarzeniu, na którym coś prowadzisz, albo na punkt programu, "
-"w którym grasz. Nigdy jej o tym nie powiemy."
+"Punkty programu, które prowadzisz, zawsze wyglądają dla tej osoby na pełne, "
+"więc nigdy nie może dołączyć."
+
+#: src/ludamus/templates/crowd/user/safety.html
+msgid ""
+"You'll also get an email when they sign up at an event you're participating "
+"in."
+msgstr ""
+"Dostaniesz też e-mail, gdy zapisze się na wydarzenie, w którym bierzesz "
+"udział."
+
+#: src/ludamus/templates/crowd/user/safety.html
+msgid "We never tell them about it."
+msgstr "Nigdy jej o tym nie powiemy."
+
+#: src/ludamus/templates/crowd/user/safety.html
+#, python-format
+msgid "Do you want to shadowban %(name)s?"
+msgstr "Czy na pewno chcesz zablokować %(name)s?"
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "No people yet"

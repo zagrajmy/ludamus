@@ -8,7 +8,7 @@ import-execution slice.
 import pytest
 from django.db import IntegrityError
 
-from ludamus.adapters.db.django.models import Connection
+from ludamus.links.db.django.models import Connection
 from ludamus.links.db.django.repositories import ConnectionsRepository
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import ConnectionDTO

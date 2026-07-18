@@ -9,7 +9,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     EnrollmentConfig,
     Session,
     SessionParticipation,

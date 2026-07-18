@@ -13,7 +13,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.companions import active_companions, sponsors_by_member
+from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
     Event,
     Session,
@@ -21,7 +22,6 @@ from ludamus.adapters.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.links.db.django.companions import active_companions, sponsors_by_member
 from ludamus.links.db.django.safety import ShadowbanRepository
 from ludamus.pacts import OCCUPYING_PARTICIPATION_STATUSES, EventDTO
 from ludamus.pacts.crowd import UserDTO

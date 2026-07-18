@@ -10,9 +10,9 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EventIntegration
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.chronology.panel.views.base import settings_tab_urls
+from ludamus.links.db.django.models import EventIntegration
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,

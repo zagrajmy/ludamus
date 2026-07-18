@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
-    from ludamus.adapters.db.django.models import ContentChangeLog, ScheduleChangeLog
+    from ludamus.links.db.django.models import ContentChangeLog, ScheduleChangeLog
 
     ChangeLogQuerySet = QuerySet[ContentChangeLog] | QuerySet[ScheduleChangeLog]
 

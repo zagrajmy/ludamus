@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.sites.models import Site
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Sphere
+from ludamus.links.db.django.models import Sphere
 from tests.integration.utils import assert_response
 
 
@@ -13,7 +13,7 @@ class TestAuth0LogoutRedirectActionView:
 
     def test_ok_with_domain(self, client):
         domain = "example.com"
-        site = Site.objects.get(domain=domain)
+        site = Site.objects.create(domain=domain, name="Example")
         Sphere.objects.create(site=site, name="Example")
         response = client.get(self.URL, {"last_domain": domain, "redirect_to": "/test"})
 

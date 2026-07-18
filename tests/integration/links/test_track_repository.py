@@ -1,4 +1,4 @@
-from ludamus.adapters.db.django.models import Track
+from ludamus.links.db.django.models import Track
 from ludamus.links.db.django.repositories import TrackRepository
 from tests.integration.conftest import EventFactory
 

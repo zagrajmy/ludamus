@@ -20,7 +20,7 @@ import django  # noqa: E402
 
 django.setup()
 
-from ludamus.adapters.db.django.models import (  # noqa: E402
+from ludamus.links.db.django.models import (  # noqa: E402
     EventSettings,
     Session,
     SessionField,

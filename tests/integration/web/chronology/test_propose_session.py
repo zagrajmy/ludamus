@@ -7,7 +7,7 @@ from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     PersonalDataField,

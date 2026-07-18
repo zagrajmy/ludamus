@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib.messages import constants
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EncounterRSVP
+from ludamus.links.db.django.models import EncounterRSVP
 from tests.integration.conftest import EncounterRSVPFactory
 from tests.integration.utils import assert_response, assert_response_404
 

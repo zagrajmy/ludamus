@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import localtime
 
-from ludamus.adapters.db.django.models import TimeSlot
+from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts import EventDTO, TimeSlotDTO
 from tests.integration.utils import assert_response
 
