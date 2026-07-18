@@ -7182,6 +7182,10 @@ msgid "All tracks"
 msgstr "Wszystkie bloki"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "Multiple tracks"
+msgstr "Wiele bloków"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Search by facilitator or field values"
 msgstr "Szukaj po prowadzącym lub wartościach pól"
 
