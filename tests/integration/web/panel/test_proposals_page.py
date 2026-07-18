@@ -44,6 +44,7 @@ _TRACK_FILTER_CONTEXT = {
     "all_tracks": [],
     "managed_track_pks": set(),
     "filter_track_pk": None,
+    "filter_track_multi": False,
     "page_obj": PageMatcher(number=1, num_pages=1),
     "filter_category_pk": None,
     "filter_status": None,
@@ -877,6 +878,7 @@ class TestProposalsPageView:
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "managed_track_pks": {track.pk},
                 "filter_track_pk": track.pk,
+                "filter_track_multi": False,
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
@@ -912,6 +914,7 @@ class TestProposalsPageView:
                 "all_tracks": [TrackDTO.model_validate(track)],
                 "managed_track_pks": set(),
                 "filter_track_pk": track.pk,
+                "filter_track_multi": False,
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
@@ -919,6 +922,55 @@ class TestProposalsPageView:
                 "statuses": _STATUSES,
             },
         )
+
+    def test_filters_by_multiple_tracks(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        """track=multi shows only proposals assigned to more than one track."""
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        track_a = Track.objects.create(
+            event=event, name="Alpha", slug="alpha", is_public=True
+        )
+        track_b = Track.objects.create(
+            event=event, name="Beta", slug="beta", is_public=True
+        )
+        multi = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host M",
+            title="Multi",
+            slug="multi",
+            participants_limit=5,
+            status="pending",
+        )
+        multi.tracks.add(track_a, track_b)
+        single = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host S",
+            title="Single",
+            slug="single",
+            participants_limit=5,
+            status="pending",
+        )
+        single.tracks.add(track_a)
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host N",
+            title="None",
+            slug="none",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"track": "multi"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Multi"]
+        assert response.context["filter_track_multi"] is True
+        assert response.context["filter_track_pk"] is None
 
     def test_excludes_text_fields_from_filters(
         self, authenticated_client, active_user, sphere, event

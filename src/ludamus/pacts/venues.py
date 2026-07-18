@@ -30,10 +30,22 @@ class SpaceNodeDTO(BaseModel):
     slug: str
     capacity: int | None
     description: str
+    location: str = ""
     order: int
     depth: int
     is_leaf: bool
+    track_names: list[str] = []
     children: list[SpaceNodeDTO] = []
+
+
+class SpaceInputDTO(BaseModel):
+    # Editable attributes of a space, grouped so create/update take one value
+    # instead of a wide parameter list. location holds structural metadata
+    # (building address, room number) kept out of the free-form description.
+    name: str
+    capacity: int | None
+    description: str = ""
+    location: str = ""
 
 
 class SpaceTreeRepositoryProtocol(Protocol):
@@ -41,22 +53,10 @@ class SpaceTreeRepositoryProtocol(Protocol):
     def list_tree(event_pk: int) -> list[SpaceNodeDTO]: ...
     def read(self, pk: int) -> SpaceNodeDTO: ...
     def create(
-        self,
-        *,
-        event_id: int,
-        parent_id: int | None,
-        name: str,
-        capacity: int | None,
-        description: str,
+        self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO: ...
     def update(
-        self,
-        *,
-        pk: int,
-        name: str,
-        capacity: int | None,
-        description: str,
-        parent_id: int | None,
+        self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
@@ -74,22 +74,10 @@ class SpaceTreeServiceProtocol(Protocol):
     def list_tree(self, event_pk: int) -> list[SpaceNodeDTO]: ...
     def read(self, pk: int) -> SpaceNodeDTO: ...
     def create(
-        self,
-        *,
-        event_id: int,
-        parent_id: int | None,
-        name: str,
-        capacity: int | None,
-        description: str,
+        self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO: ...
     def update(
-        self,
-        *,
-        pk: int,
-        name: str,
-        capacity: int | None,
-        description: str,
-        parent_id: int | None,
+        self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO: ...
     def list_reparent_targets(
         self, *, pk: int, event_pk: int

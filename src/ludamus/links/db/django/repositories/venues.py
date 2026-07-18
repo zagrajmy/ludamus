@@ -22,10 +22,15 @@ from ludamus.pacts import (
     TimeSlotRepositoryProtocol,
     TrackCreateData,
     TrackDTO,
+    TrackListItemDTO,
     TrackRepositoryProtocol,
     TrackUpdateData,
 )
-from ludamus.pacts.venues import SpaceNodeDTO, SpaceTreeRepositoryProtocol
+from ludamus.pacts.venues import (
+    SpaceInputDTO,
+    SpaceNodeDTO,
+    SpaceTreeRepositoryProtocol,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -66,8 +71,13 @@ class SpaceRepository(SpaceRepositoryProtocol):
 class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
     def list_tree(event_pk: int) -> list[SpaceNodeDTO]:
-        # One query for the whole event; assemble the tree in Python.
-        spaces = list(Space.objects.filter(event_id=event_pk).order_by("order", "name"))
+        # One query for the whole event; assemble the tree in Python. Prefetch
+        # tracks so the panel can show track pills per space without N+1.
+        spaces = list(
+            Space.objects.filter(event_id=event_pk)
+            .order_by("order", "name")
+            .prefetch_related("tracks")
+        )
         children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
         for space in spaces:
             children_by_parent[space.parent_id].append(space)
@@ -82,9 +92,11 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 slug=space.slug,
                 capacity=space.capacity,
                 description=space.description,
+                location=space.location,
                 order=space.order,
                 depth=depth,
                 is_leaf=not kids,
+                track_names=sorted(t.name for t in space.tracks.all()),
                 children=[build(kid, depth + 1) for kid in kids],
             )
 
@@ -99,25 +111,20 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
     @transaction.atomic
     def create(
-        self,
-        *,
-        event_id: int,
-        parent_id: int | None,
-        name: str,
-        capacity: int | None,
-        description: str,
+        self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO:
-        slug = self.generate_unique_slug(event_id, parent_id, slugify(name))
+        slug = self.generate_unique_slug(event_id, parent_id, slugify(data.name))
         max_order = Space.objects.filter(
             event_id=event_id, parent_id=parent_id
         ).aggregate(top=Max("order"))["top"]
         space = Space(
             event_id=event_id,
             parent_id=parent_id,
-            name=name,
+            name=data.name,
             slug=slug,
-            capacity=capacity,
-            description=description,
+            capacity=data.capacity,
+            description=data.description,
+            location=data.location,
             order=(max_order if max_order is not None else -1) + 1,
         )
         space.full_clean()
@@ -126,13 +133,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
     @transaction.atomic
     def update(
-        self,
-        *,
-        pk: int,
-        name: str,
-        capacity: int | None,
-        description: str,
-        parent_id: int | None,
+        self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO:
         try:
             space = Space.objects.select_for_update().get(pk=pk)
@@ -142,11 +143,11 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         # Re-derive the slug whenever the name or parent changes, so it stays
         # unique among the (new) siblings. full_clean() below is the backstop
         # for cycles, depth, and the leaf-with-session rule.
-        if space.name != name or parent_changed:
-            space.name = name
+        if space.name != data.name or parent_changed:
+            space.name = data.name
             space.parent_id = parent_id
             space.slug = self.generate_unique_slug(
-                space.event_id, parent_id, slugify(name), exclude_pk=pk
+                space.event_id, parent_id, slugify(data.name), exclude_pk=pk
             )
         if parent_changed:
             # Append to the end of the new parent's sibling list.
@@ -156,8 +157,9 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 .aggregate(top=Max("order"))["top"]
             )
             space.order = (max_order if max_order is not None else -1) + 1
-        space.capacity = capacity
-        space.description = description
+        space.capacity = data.capacity
+        space.description = data.description
+        space.location = data.location
         space.full_clean()
         space.save()
         return self._node(space)
@@ -268,6 +270,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             slug=self.generate_unique_slug(event_id, parent_id, slugify(clone_name)),
             capacity=source.capacity,
             description=source.description,
+            location=source.location,
             order=source.order,
         )
         for child in Space.objects.filter(parent_id=source.pk).order_by("order"):
@@ -284,9 +287,11 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             slug=space.slug,
             capacity=space.capacity,
             description=space.description,
+            location=space.location,
             order=space.order,
             depth=1 + sum(1 for _ in space.iter_ancestors()),
             is_leaf=not space.children.exists(),
+            track_names=sorted(t.name for t in space.tracks.all()),
             children=[],
         )
 
@@ -427,6 +432,25 @@ class TrackRepository(TrackRepositoryProtocol):
     def list_by_event(event_pk: int) -> list[TrackDTO]:
         tracks = Track.objects.filter(event_id=event_pk).order_by("name")
         return [TrackDTO.model_validate(t) for t in tracks]
+
+    @staticmethod
+    def list_by_event_with_assignments(event_pk: int) -> list[TrackListItemDTO]:
+        tracks = (
+            Track.objects.filter(event_id=event_pk)
+            .order_by("name")
+            .prefetch_related("spaces", "managers")
+        )
+        return [
+            TrackListItemDTO(
+                pk=track.pk,
+                name=track.name,
+                slug=track.slug,
+                is_public=track.is_public,
+                space_names=sorted(s.name for s in track.spaces.all()),
+                manager_names=sorted(m.name for m in track.managers.all()),
+            )
+            for track in tracks
+        ]
 
     @staticmethod
     def list_public_by_event(event_pk: int) -> list[TrackDTO]:
