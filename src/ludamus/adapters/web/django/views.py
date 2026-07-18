@@ -502,21 +502,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
     def _get_own_pending_sessions(self) -> QuerySet[Session]:
         # The author's unscheduled proposals, rendered as schedule-style cards.
-        # Same eager-loading shape as event_sessions, minus the agenda item.
-        return (
+        # Same eager-loading shape as event_sessions (agenda_item is null here).
+        return with_session_card_relations(
             Session.objects.filter(
                 category__event_id=self.object.pk,
                 status=SessionStatus.PENDING,
                 presenter_id=self.request.context.current_user_id,
             )
-            .select_related("presenter", "agenda_item", "event", "event__sphere")
-            .prefetch_related(
-                "session_participations__user",
-                "field_values__field",
-                "event__enrollment_configs",
-            )
-            .order_by("-creation_time")
-        )
+        ).order_by("-creation_time")
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
