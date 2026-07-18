@@ -98,6 +98,16 @@ def assert_response_404(
     )
 
 
+def checkbox_tag(content: str, name: str, pk: int) -> str:
+    # The single <input> tag for a multi-value checkbox (name repeats per row,
+    # value carries the pk), so a test can check its checked state without
+    # depending on attribute order. Scoping by name matters: pks restart at 1
+    # per table, so a bare value="1" search can match an unrelated element.
+    match = re.search(rf'<input[^>]*name="{name}"[^>]*value="{pk}"[^>]*>', content)
+    assert match, f"no checkbox {name}={pk}"
+    return match.group(0)
+
+
 def input_tag(content: str, pk: int) -> str:
     # The single <input> tag for a person's Include checkbox on the enroll
     # page, so a test can check its checked / disabled attributes without
