@@ -9,6 +9,7 @@ from ludamus.mills.chronology import (
     ConflictDetectionService,
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
+    ProposalAcceptanceService,
     SessionConfirmationService,
     SessionContentEditService,
     TimetableOverviewService,
@@ -16,9 +17,11 @@ from ludamus.mills.chronology import (
 )
 from ludamus.pacts import (
     AgendaItemDTO,
+    EventDTO,
     NotFoundError,
     ScheduleChangeAction,
     SessionContentEditData,
+    SessionDTO,
     SessionFieldValueData,
     SessionStatus,
     SpaceDTO,
@@ -35,9 +38,12 @@ from ludamus.pacts.chronology import (
     IntegrationCheckRequest,
     IntegrationImplementationId,
     IntegrationKind,
+    ProposalAcceptContextDTO,
     SessionPlacement,
     SourceQuestion,
+    SpaceTimeConflictError,
 )
+from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.submissions import ImportSettings
 
 
@@ -1110,3 +1116,220 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         )
 
         assert env.svc.get_cached_questions(2, 3) == []
+
+
+_NOW = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
+_SESSION_PK = 5
+
+
+def _session_dto(**overrides):
+    defaults = {
+        "category_id": None,
+        "contact_email": "",
+        "creation_time": _NOW,
+        "description": "",
+        "min_age": 0,
+        "modification_time": _NOW,
+        "participants_limit": 0,
+        "pk": _SESSION_PK,
+        "presenter_id": None,
+        "display_name": "Alice",
+        "slug": "s",
+        "status": SessionStatus.PENDING,
+        "title": "My Session",
+    }
+    return SessionDTO(**(defaults | overrides))
+
+
+def _event_dto(**overrides):
+    defaults = {
+        "description": "",
+        "end_time": _NOW,
+        "name": "Con",
+        "pk": 9,
+        "proposal_end_time": None,
+        "proposal_start_time": None,
+        "publication_time": None,
+        "slug": "con",
+        "sphere_id": 3,
+        "start_time": _NOW,
+    }
+    return EventDTO(**(defaults | overrides))
+
+
+def _user_dto(**overrides):
+    defaults = {
+        "avatar_url": "",
+        "date_joined": _NOW,
+        "discord_username": "",
+        "email": "",
+        "full_name": "",
+        "is_active": True,
+        "is_authenticated": True,
+        "is_staff": False,
+        "is_superuser": False,
+        "name": "",
+        "pk": 1,
+        "slug": "manager",
+        "use_gravatar": False,
+        "user_type": UserType.ACTIVE,
+        "username": "auth0|sub",
+    }
+    return UserDTO(**(defaults | overrides))
+
+
+class TestProposalAcceptanceService:
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def active_users(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def spheres(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, sessions, agenda_items, active_users, spheres):
+        return ProposalAcceptanceService(
+            transaction=transaction,
+            sessions=sessions,
+            agenda_items=agenda_items,
+            active_users=active_users,
+            spheres=spheres,
+        )
+
+    @staticmethod
+    def _arrange_reads(sessions, active_users):
+        sessions.read.return_value = _session_dto()
+        sessions.read_event.return_value = _event_dto()
+        sessions.read_presenter.return_value = None
+        sessions.read_space_options.return_value = []
+        sessions.read_time_slots.return_value = []
+        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_field_values.return_value = []
+        active_users.read.return_value = _user_dto()
+
+    def test_get_accept_context_returns_none_when_session_missing(
+        self, service, sessions
+    ):
+        sessions.read.side_effect = NotFoundError
+
+        assert (
+            service.get_accept_context(session_id=5, user_slug="u", sphere_id=3) is None
+        )
+
+    def test_get_accept_context_assembles_dto(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.is_manager.return_value = True
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="manager", sphere_id=3
+        )
+
+        assert isinstance(context, ProposalAcceptContextDTO)
+        assert context.session.pk == _SESSION_PK
+        assert context.event.slug == "con"
+        assert context.presenter is None
+        assert context.space_options == []
+        assert context.can_accept is True
+
+    def test_can_accept_true_for_superuser_without_manager_check(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        active_users.read.return_value = _user_dto(is_superuser=True)
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="root", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is True
+        spheres.is_manager.assert_not_called()
+
+    def test_can_accept_true_for_staff(self, service, sessions, active_users, spheres):
+        self._arrange_reads(sessions, active_users)
+        active_users.read.return_value = _user_dto(is_staff=True)
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="staff", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is True
+        spheres.is_manager.assert_not_called()
+
+    def test_can_accept_falls_back_to_sphere_manager(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.is_manager.return_value = False
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="member", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is False
+        spheres.is_manager.assert_called_once_with(3, "member")
+
+    def test_accept_session_updates_status_and_creates_agenda_item(
+        self, service, sessions, agenda_items, transaction
+    ):
+        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = []
+
+        service.accept_session(session_id=5, space_id=7, time_slot_id=2)
+
+        sessions.read_time_slot.assert_called_once_with(5, 2)
+        agenda_items.list_overlapping_in_space.assert_called_once_with(
+            7, _NOW, _NOW, exclude_session_pk=5
+        )
+        sessions.update.assert_called_once_with(
+            5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
+        )
+        agenda_items.create.assert_called_once_with(
+            {
+                "space_id": 7,
+                "session_id": 5,
+                "session_confirmed": True,
+                "start_time": _NOW,
+                "end_time": _NOW,
+            }
+        )
+        transaction.atomic.assert_called_once_with()
+
+    def test_accept_session_raises_on_space_time_conflict(
+        self, service, sessions, agenda_items
+    ):
+        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = [
+            _make_item(pk=9, space_id=7)
+        ]
+
+        with pytest.raises(SpaceTimeConflictError):
+            service.accept_session(session_id=5, space_id=7, time_slot_id=2)
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()

@@ -19,6 +19,7 @@ from ludamus.links.ticket_api import MembershipApiClient
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
+    ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
@@ -221,6 +222,16 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+        )
+
+    @cached_property
+    def proposal_acceptance(self) -> ProposalAcceptanceService:
+        return ProposalAcceptanceService(
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+            active_users=self._repos.active_users,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

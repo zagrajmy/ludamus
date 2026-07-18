@@ -34,21 +34,29 @@ from ludamus.mills import (
     is_proposal_active,
 )
 from ludamus.mills.chronology import SessionEditNotAllowedError
-from ludamus.pacts import NotFoundError, RedirectError, SessionFieldValueData
+from ludamus.pacts import (
+    NotFoundError,
+    RedirectError,
+    SessionFieldValueData,
+    SessionStatus,
+)
+from ludamus.pacts.chronology import SpaceTimeConflictError
 
 from .forms import (
     SessionCoverImageForm,
     build_personal_data_form,
     build_session_details_form,
+    create_proposal_acceptance_form,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+    from django import forms
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.datastructures import MultiValueDict
 
-    from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
@@ -59,6 +67,7 @@ if TYPE_CHECKING:
         SessionSelfEditContext,
         TimeSlotRequirementDTO,
     )
+    from ludamus.pacts.chronology import ProposalAcceptContextDTO
     from ludamus.pacts.services import ServicesProtocol
 
     BaseView = View
@@ -1083,3 +1092,114 @@ class SessionModalComponentView(View):
             )
             return [user.pk]
         return []
+
+
+class ProposalAcceptPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    def get(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        context = self._load(request, event_slug, session_id)
+        self._require_configured(context)
+        form = self._build_form(context)()
+        return self._render(request, context, form)
+
+    def post(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        context = self._load(request, event_slug, session_id)
+        form = self._build_form(context)(data=request.POST)
+        if not form.is_valid():
+            return self._render(request, context, form)
+
+        try:
+            request.services.proposal_acceptance.accept_session(
+                session_id=context.session.pk,
+                space_id=form.cleaned_data["space"],
+                time_slot_id=form.cleaned_data["time_slot"],
+            )
+        except SpaceTimeConflictError:
+            form.add_error(
+                None, _("There is already a session scheduled at this space and time.")
+            )
+            return self._render(request, context, form)
+
+        messages.success(
+            request,
+            _("Proposal '{}' has been accepted and added to the agenda.").format(
+                context.session.title
+            ),
+        )
+        return redirect("web:chronology:event", slug=context.event.slug)
+
+    @staticmethod
+    def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
+        return create_proposal_acceptance_form(
+            space_options=context.space_options, time_slots=context.time_slots
+        )
+
+    @staticmethod
+    def _load(
+        request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> ProposalAcceptContextDTO:
+        context = request.services.proposal_acceptance.get_accept_context(
+            session_id=session_id,
+            user_slug=request.context.current_user_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
+        if context is None or context.event.slug != event_slug:
+            raise RedirectError(reverse("web:index"), error=_("Session not found."))
+
+        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
+        if context.session.status != SessionStatus.PENDING:
+            raise RedirectError(
+                event_url, warning=_("This proposal has already been accepted.")
+            )
+        if not context.can_accept:
+            raise RedirectError(
+                event_url,
+                error=_(
+                    "You don't have permission to accept proposals for this event."
+                ),
+            )
+        return context
+
+    @staticmethod
+    def _require_configured(context: ProposalAcceptContextDTO) -> None:
+        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
+        if not context.space_options:
+            raise RedirectError(
+                event_url,
+                error=_(
+                    "No spaces configured for this event. Please create spaces first."
+                ),
+            )
+        if not context.time_slots:
+            raise RedirectError(
+                event_url,
+                error=_(
+                    "No time slots configured for this event. "
+                    "Please create time slots first."
+                ),
+            )
+
+    @staticmethod
+    def _render(
+        request: AuthenticatedRootRequest,
+        context: ProposalAcceptContextDTO,
+        form: forms.Form,
+    ) -> HttpResponse:
+        return TemplateResponse(
+            request,
+            "chronology/accept_proposal.html",
+            {
+                "session": context.session,
+                "event": context.event,
+                "presenter": context.presenter,
+                "time_slots": context.time_slots,
+                "preferred_time_slot_ids": context.preferred_time_slot_ids,
+                "form": form,
+                "field_values": context.field_values,
+            },
+        )
