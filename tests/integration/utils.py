@@ -41,7 +41,11 @@ class FormErrorsMatcher:
         } == self.errors
 
     def __hash__(self) -> int:
-        return hash(tuple(self.errors))
+        return hash(
+            frozenset(
+                (field, tuple(messages)) for field, messages in self.errors.items()
+            )
+        )
 
     def __repr__(self) -> str:
         return f"FormErrorsMatcher({self.errors})"

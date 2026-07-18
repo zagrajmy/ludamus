@@ -256,14 +256,30 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            accreditation_type = data["accreditation_type"]
-            if facilitator.accreditation_type != accreditation_type:
+            accreditation_type = data.get("accreditation_type")
+            if (
+                accreditation_type is not None
+                and facilitator.accreditation_type != accreditation_type
+            ):
                 changes.append(
                     {
                         "field": "accreditation_type",
                         "field_id": None,
                         "old": facilitator.accreditation_type,
                         "new": accreditation_type,
+                    }
+                )
+            internal_comment = data.get("internal_comment")
+            if (
+                internal_comment is not None
+                and facilitator.internal_comment != internal_comment
+            ):
+                changes.append(
+                    {
+                        "field": "internal_comment",
+                        "field_id": None,
+                        "old": facilitator.internal_comment,
+                        "new": internal_comment,
                     }
                 )
             self._facilitators.update(facilitator_id, data)

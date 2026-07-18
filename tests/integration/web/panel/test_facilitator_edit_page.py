@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import (
     Facilitator,
+    FacilitatorChangeLog,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldValue,
@@ -251,6 +252,16 @@ class TestFacilitatorEditPageView:
 
         facilitator.refresh_from_db()
         assert facilitator.internal_comment == "Possible duplicate of Bob"
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert log.changes == [
+            {
+                "field": "internal_comment",
+                "field_id": None,
+                "old": "",
+                "new": "Possible duplicate of Bob",
+            }
+        ]
 
     def test_get_preselects_current_accreditation_type(
         self, authenticated_client, active_user, sphere, event
