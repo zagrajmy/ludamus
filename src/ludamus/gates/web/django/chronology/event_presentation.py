@@ -10,6 +10,8 @@ from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.pacts import (
         AgendaItemDTO,
         LocationData,
@@ -81,6 +83,8 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     bookmark_count: int = 0
     displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
+    track_names: list[str] = field(default_factory=list)
+    category_name: str = ""
     waiting_count: int = 0
     is_ongoing: bool = False
     is_ended: bool = False
@@ -134,8 +138,35 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         )
 
     @property
+    def filter_categories(self) -> str:
+        # Extends the public-tag-category channel (slug:value;...) that
+        # session-filters.ts already parses, so track and proposal category
+        # ride the same client-side filter mechanism with no new JS. The
+        # __track / __category keys can't be a real SessionField slug in
+        # practice.
+        # ponytail: names with ':' or ';' would break parsing, same as the
+        # existing tag values; track/category names never contain them.
+        parts = [self.public_tag_categories] if self.public_tag_categories else []
+        parts.extend(f"__track:{name}" for name in self.track_names)
+        if self.category_name:
+            parts.append(f"__category:{self.category_name}")
+        return ";".join(parts)
+
+    @property
     def location_label(self) -> str:
         return self.loc.get("path", "")
+
+
+def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
+    # A track/category dropdown is only worth showing when there's more than one
+    # value to pick between, matching how Venue/Day/Hour reveal themselves.
+    card_list = list(cards)
+    tracks = {name for c in card_list for name in c.track_names}
+    categories = {c.category_name for c in card_list if c.category_name}
+    return {
+        "has_track_filter": len(tracks) > 1,
+        "has_category_filter": len(categories) > 1,
+    }
 
 
 class EventInfo(EventListItemDTO):
