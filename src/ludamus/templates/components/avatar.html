@@ -1,23 +1,29 @@
-{% load avatar_tags i18n %}
+{% load avatar_tags i18n tessera %}
 {# Reusable avatar: expects "user" (UserDTO/User) and optional "size", "danger_ring". #}
 {# For interactive use (link/button), pass size="size-11" (44px) or wrap with padding to meet the touch-target minimum. #}
 {% with size_class=size|default:"size-8" text_class="text-xs" border_class="border border-white/80 dark:border-neutral-900" is_danger=danger_ring|default:False %}
     {% if user %}
         {% with name_value=user.full_name|default:user.name|default:user.username|default:"" %}
-            <div class="{{ size_class }} {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full shrink-0 relative overflow-hidden"
+            <div class="{{ size_class }} shrink-0 relative"
                  role="img"
                  aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
-                <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
-                     aria-hidden="true">
-                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
+                <div class="absolute inset-0 {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full overflow-hidden">
+                    <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
+                         aria-hidden="true">
+                        <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
+                    </div>
+                    {% if user.avatar_url %}
+                        <img src="{{ user.avatar_url }}"
+                             alt=""
+                             width="32"
+                             height="32"
+                             class="absolute inset-0 h-full w-full object-cover"
+                             loading="lazy">
+                    {% endif %}
                 </div>
-                {% if user.avatar_url %}
-                    <img src="{{ user.avatar_url }}"
-                         alt=""
-                         width="32"
-                         height="32"
-                         class="absolute inset-0 h-full w-full object-cover"
-                         loading="lazy">
+                {% if is_danger %}
+                    <span class="absolute -bottom-0.5 -right-0.5 rounded-full bg-danger p-0.5 ring-2 ring-white dark:ring-neutral-900"
+                          aria-hidden="true">{% icon "exclamation-triangle" class="size-2.5 text-white" variant="mini" %}</span>
                 {% endif %}
             </div>
         {% endwith %}

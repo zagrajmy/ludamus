@@ -1033,7 +1033,7 @@ class SessionModalComponentView(View):
     request: RootRequest
 
     def get(
-        self, request: RootRequest, event_slug: str, session_id: int
+        self, request: RootRequest, *, event_slug: str, session_id: int
     ) -> HttpResponse:
         event = self._get_event(event_slug)
         shadowbanned_ids, banned_by, event_banned = self._safety(event)

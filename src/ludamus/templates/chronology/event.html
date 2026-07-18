@@ -314,10 +314,10 @@
                         <div id="filter-panel" class="filter-panel shadow-xl">
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
                                 <div class="flex flex-col gap-1.5">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                            for="status-filter">{% translate "Status" %}</label>
                                     <select id="status-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All statuses" %}</option>
                                         <option value="available">{% translate "Available spots" %}</option>
                                         <option value="full">{% translate "Full" %}</option>
@@ -334,27 +334,25 @@
                                     </select>
                                 </div>
                                 <div id="venue-filter-group" class="flex flex-col gap-1.5 hidden">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                            for="venue-filter">{% translate "Venue" %}</label>
                                     <select id="venue-filter"
-                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All venues" %}</option>
                                     </select>
                                 </div>
                                 <div class="flex flex-col gap-1.5 grow">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted">
-                                        {% translate "Age range" %}
-                                    </label>
+                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Age range" %}</label>
                                     <div class="flex items-center gap-2">
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="min-age-filter"
                                                placeholder="{% translate "Min" %}"
                                                min="0"
                                                max="99">
                                         <span class="text-xs font-bold text-foreground-muted">–</span>
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="max-age-filter"
                                                placeholder="{% translate "Max" %}"
                                                min="0"
@@ -363,18 +361,18 @@
                                 </div>
                                 <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
                                     <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                                for="day-filter">{% translate "Day" %}</label>
                                         <select id="day-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                             <option value="">{% translate "All days" %}</option>
                                         </select>
                                     </div>
                                     <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                                for="hour-filter">{% translate "Hour" %}</label>
                                         <select id="hour-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                             <option value="">{% translate "All hours" %}</option>
                                         </select>
                                     </div>
@@ -382,9 +380,9 @@
                                 <div id="tag-filters" class="contents">
                                     {% for field in filterable_tag_categories %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="text-[0.625rem] font-bold uppercase tracking-widest grow text-foreground-muted"
+                                            <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
                                                    for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
-                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
+                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
                                                     data-category="{{ field.slug }}"
                                                     id="tag-filter-{{ field.slug }}">
                                                 <option value="">{% translate "All" %} {{ field.name }}</option>
