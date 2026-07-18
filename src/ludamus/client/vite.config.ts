@@ -36,6 +36,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
+        "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
         "design-page": resolve(rootDir, "src/design-page.ts"),
