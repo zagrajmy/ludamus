@@ -315,6 +315,14 @@ class SpaceDTO(BaseModel):
     slug: str
 
 
+class SpaceOptionDTO(BaseModel):
+    # A bookable leaf space as a form choice: its pk, display name, and the
+    # immediate-parent name it groups under (empty for a root-level leaf).
+    pk: int
+    name: str
+    group: str
+
+
 class TrackDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -854,7 +862,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod
-    def read_spaces(session_id: int) -> list[SpaceDTO]: ...
+    def read_space_options(session_id: int) -> list[SpaceOptionDTO]: ...
     @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
     @staticmethod
