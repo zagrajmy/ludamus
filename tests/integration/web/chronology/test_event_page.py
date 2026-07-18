@@ -359,11 +359,23 @@ class TestEventPageView:
             assert re.search(rf">\s*{label}\s*<", content), label
         assert "1 waiting" in content
         assert "2h" in content
-        # The ledger row no longer carries the enrolled-count title; the count
-        # lives in the session modal's capacity chip instead.
-        assert re.search(r">\s*4/5\s*<", content)
+        # The ledger row no longer carries the enrolled count; it lives in the
+        # lazy-loaded session modal's capacity chip instead.
         assert 'title="4 participants enrolled"' not in content
         assert content.count("data-schedule-day") == len(expected_dates)
+        modal = client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": scarce.pk},
+            )
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains="4/5",
+        )
 
     def test_ok_compact_rooms_view(
         self, active_user, authenticated_client, event, monkeypatch
@@ -3376,9 +3388,20 @@ class TestEventPageEditAffordance:
             s for s in response.context["sessions"] if s.session.pk == session.pk
         )
         assert session_data.can_edit is True
-        content = response.content.decode()
-        assert edit_url in content
-        assert f'data-edit-open="{session.pk}"' in content
+        # The edit button lives in the lazy-loaded session modal, not the page.
+        modal = authenticated_client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": session.pk},
+            )
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains=[edit_url, f'data-edit-open="{session.pk}"'],
+        )
 
     def test_non_owner_no_edit_affordance(self, authenticated_client, event, space):
         other = UserFactory(username="other", email="other@example.com")

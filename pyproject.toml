@@ -48,7 +48,7 @@ unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-codespell = "^2.4.1"
+codespell = "^2.4.3"
 deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^7.0.0"
@@ -277,6 +277,9 @@ ignore = [
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
+# Standalone Django seed script: imports must follow django.setup(), and it
+# prints a summary line when run directly.
+"tests/e2e/scripts/bootstrap_large_event.py" = ["E402", "T201"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
