@@ -391,11 +391,11 @@
                                 {% if has_category_filter %}
                                     <div class="flex flex-col gap-1.5 grow">
                                         <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                               for="tag-filter-__category">{% translate "Category" %}</label>
+                                               for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
                                         <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
                                                 data-category="__category"
                                                 id="tag-filter-__category">
-                                            <option value="">{% translate "All categories" %}</option>
+                                            <option value="">{% translate "All categories" context "participant filter" %}</option>
                                         </select>
                                     </div>
                                 {% endif %}

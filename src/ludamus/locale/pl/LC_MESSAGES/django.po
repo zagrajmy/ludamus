@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 16:25+0200\n"
+"POT-Creation-Date: 2026-07-18 20:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1165,7 +1165,6 @@ msgstr "Blok programowy"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -3611,9 +3610,14 @@ msgid "All tracks"
 msgstr "Wszystkie bloki"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/proposals.html
+msgctxt "participant filter"
+msgid "Category"
+msgstr "Rodzaj atrakcji"
+
+#: src/ludamus/templates/chronology/event.html
+msgctxt "participant filter"
 msgid "All categories"
-msgstr "Wszystkie kategorie"
+msgstr "Wszystkie rodzaje atrakcji"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import-log.html
@@ -7260,6 +7264,10 @@ msgid "Search by facilitator or field values"
 msgstr "Szukaj po prowadzącym lub wartościach pól"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "All categories"
+msgstr "Wszystkie kategorie"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
 
@@ -7799,6 +7807,7 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "This field is required."
 #~ msgstr "To pole jest wymagane."
+
 #~ msgid "unassigned"
 #~ msgstr "nieprzypisane"
 
