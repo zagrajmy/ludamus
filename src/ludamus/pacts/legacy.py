@@ -22,7 +22,6 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.services import ServicesProtocol
-    from ludamus.pacts.submissions import FacilitatorListFilters
 
 
 class NotFoundError(Exception):
@@ -78,7 +77,6 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
-    internal_comment: str = ""
     pk: int
     slug: str
     user_id: int | None
@@ -95,7 +93,6 @@ class FacilitatorData(TypedDict, total=False):
 class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
-    internal_comment: str
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -103,7 +100,6 @@ class FacilitatorListItemDTO(BaseModel):
 
     accreditation_type: str
     display_name: str
-    flagged_for_deletion: bool = False
     pk: int
     session_count: int
     slug: str
@@ -1273,11 +1269,7 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod
-    def list_by_event(
-        event_id: int, filters: FacilitatorListFilters | None = None
-    ) -> list[FacilitatorListItemDTO]: ...
-    @staticmethod
-    def set_flag(pk: int, *, flagged: bool) -> None: ...
+    def list_by_event(event_id: int) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1291,10 +1283,6 @@ class PersonalDataFieldValueRepositoryProtocol(Protocol):
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
-    @staticmethod
-    def list_values_for_facilitators(
-        facilitator_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def list_field_ids_for_facilitator_event(
         facilitator_id: int, event_id: int

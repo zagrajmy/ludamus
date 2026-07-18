@@ -183,7 +183,7 @@ env = { _.file = '.env.test' }
 
 [tasks."test:int:cov"]
 description = "Run integration tests"
-run = "pytest -n auto tests/integration --cov=tests.integration --cov=ludamus  --cov=src/ludamus/templates/"
+run = "pytest -n auto tests/integration --cov=tests.integration --cov=ludamus"
 env = { _.file = '.env.test' }
 
 [tasks."test:unit:cov:diff"]

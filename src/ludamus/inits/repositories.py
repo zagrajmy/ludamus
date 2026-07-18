@@ -44,10 +44,6 @@ class Repositories:
         return repositories.PersonalDataFieldValueRepository()
 
     @cached_property
-    def event_panel_settings(self) -> repositories.EventPanelSettingsRepository:
-        return repositories.EventPanelSettingsRepository()
-
-    @cached_property
     def proposal_categories(self) -> repositories.ProposalCategoryRepository:
         return repositories.ProposalCategoryRepository()
 

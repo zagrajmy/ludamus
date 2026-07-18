@@ -33,14 +33,6 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "facilitators",
-        "active_tab": "merge",
-        "tab_urls": {
-            "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
-            "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
-            "columns": reverse(
-                "panel:facilitator-columns", kwargs={"slug": event.slug}
-            ),
-        },
     }
 
 

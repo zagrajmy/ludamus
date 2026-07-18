@@ -12,10 +12,14 @@
         {{ current_event.name }} · {% translate "Facilitators" %}
     {% endif %}
 {% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+           class="btn btn-secondary">{% translate "Cancel" %}</a>
+    {% endif %}
+{% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        {% tab_shell "panel/_facilitator_tabs.html" %}
-        {% tab_shell_body %}
         {% if error %}
             <div class="alert backdrop-blur-lg alert-danger mb-6">
                 <p class="text-sm">{{ error }}</p>
@@ -174,7 +178,5 @@
             }
         })();
     </script>
-{% end_tab_shell_body %}
-{% end_tab_shell %}
 {% endif %}
 {% endblock content %}

@@ -214,10 +214,7 @@ def test_update_facilitator_rejects_facilitator_from_other_event():
 
     with pytest.raises(NotFoundError):
         service.update_facilitator(
-            event_id=10,
-            facilitator_id=1,
-            data={"accreditation_type": "honorary", "internal_comment": ""},
-            entries=[],
+            event_id=10, facilitator_id=1, accreditation_type="honorary", entries=[]
         )
 
     assert not facilitators.updated
@@ -235,23 +232,12 @@ def test_update_facilitator_logs_accreditation_change():
     service.update_facilitator(
         event_id=10,
         facilitator_id=1,
-        data={
-            "accreditation_type": "honorary",
-            "internal_comment": "Possible duplicate",
-        },
+        accreditation_type="honorary",
         entries=[],
         user_id=_USER_ID,
     )
 
-    assert facilitators.updated == [
-        (
-            1,
-            {
-                "accreditation_type": "honorary",
-                "internal_comment": "Possible duplicate",
-            },
-        )
-    ]
+    assert facilitators.updated == [(1, {"accreditation_type": "honorary"})]
     assert {
         "field": "accreditation_type",
         "field_id": None,

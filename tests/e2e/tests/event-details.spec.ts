@@ -366,15 +366,12 @@ test.describe("Anonymous code modal", () => {
     await expect(dialog).toBeHidden();
     await flash.getByRole("button", { name: "Dismiss" }).click();
     await expect(flash).toHaveAttribute("data-flash-closing", "true");
-    // The exit fades opacity over 260ms and hard-removes the flash ~360ms after
-    // the click. Sample densely across that whole window so a delayed transition
-    // start (under CI/parallel load) is still caught before the element is gone.
     await expect
       .poll(
         () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
         {
-          timeout: 1000,
-          intervals: [30],
+          timeout: 200,
+          intervals: [50],
         },
       )
       .toBeLessThan(1);

@@ -559,13 +559,6 @@ class FacilitatorEditForm(forms.Form):
         required=False,
         label=_("Accreditation type"),
     )
-    internal_comment = forms.CharField(
-        required=False,
-        strip=True,
-        widget=forms.Textarea(attrs={"rows": 3}),
-        label=_("Internal comment"),
-        help_text=_("Visible to organizers only."),
-    )
 
     def clean_accreditation_type(self) -> str:
         return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE

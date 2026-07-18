@@ -30,23 +30,6 @@ class PageMatcher:
         return f"PageMatcher(number={self.number}, num_pages={self.num_pages})"
 
 
-class FormErrorsMatcher:
-    def __init__(self, **errors: list[str]) -> None:
-        self.errors = errors
-
-    def __eq__(self, other: object) -> bool:
-        return {
-            field: list(messages)
-            for field, messages in getattr(other, "errors", {}).items()
-        } == self.errors
-
-    def __hash__(self) -> int:
-        return hash(tuple(self.errors))
-
-    def __repr__(self) -> str:
-        return f"FormErrorsMatcher({self.errors})"
-
-
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)
