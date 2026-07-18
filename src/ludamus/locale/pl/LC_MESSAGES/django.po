@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 14:37+0200\n"
+"POT-Creation-Date: 2026-07-18 16:25+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -533,50 +533,6 @@ msgstr "Miejsce zostanie zwolnione, jeśli nie potwierdzą go na czas"
 msgid "Guests without an account"
 msgstr "Goście bez konta"
 
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Ungrouped"
-msgstr "Bez grupy"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Select a space..."
-msgstr "Wybierz przestrzeń..."
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-msgid "Space"
-msgstr "Przestrzeń"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Select the space where this session will take place"
-msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
-
-#: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/print/timetable.html
-msgid "Time slot"
-msgstr "Przedział czasowy"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Select the time slot for this session"
-msgstr "Wybierz przedział czasowy dla tego punktu programu"
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Select a time slot..."
-msgstr "Wybierz przedział czasowy..."
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "This field is required."
-msgstr "To pole jest wymagane."
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "Invalid space selection."
-msgstr "Nieprawidłowy wybór sali."
-
-#: src/ludamus/adapters/web/django/forms.py
-msgid "There is already a session scheduled at this space and time."
-msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
-
 #: src/ludamus/adapters/web/django/middlewares.py
 msgid "Sphere not found"
 msgstr "Sfera nie została znaleziona."
@@ -649,6 +605,7 @@ msgstr "siebie"
 
 #: src/ludamus/adapters/web/django/views.py
 #: src/ludamus/gates/web/django/chronology/anonymous.py
+#: src/ludamus/gates/web/django/chronology/views.py
 msgid "Session not found."
 msgstr "Punkt programu nie został znaleziony."
 
@@ -656,23 +613,6 @@ msgstr "Punkt programu nie został znaleziony."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "No enrollment configuration is available for this session."
 msgstr "Brak dostępnej konfiguracji zapisów dla tego punktu programu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This offer is no longer available or has expired."
-msgstr "Ta oferta jest już niedostępna lub wygasła."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Spot claimed — you are now confirmed for this session."
-msgstr ""
-"Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This offer has expired or was already claimed."
-msgstr "Ta oferta wygasła lub została już zajęta."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "Offer declined — the seat was released."
-msgstr "Oferta odrzucona — miejsce zostało zwolnione."
 
 #: src/ludamus/adapters/web/django/views.py
 msgid "Choose one of your parties or enroll by yourself."
@@ -774,32 +714,6 @@ msgstr "Brak zmian."
 #: src/ludamus/adapters/web/django/views.py
 msgid "Please select at least one user to enroll."
 msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "This proposal has already been accepted."
-msgstr "To zgłoszenie zostało już zaakceptowane."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "You don't have permission to accept proposals for this event."
-msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
-
-#: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
-msgid "Proposal '{}' has been accepted and added to the agenda."
-msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid "No spaces configured for this event. Please create spaces first."
-msgstr ""
-"Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
-"przestrzenie."
-
-#: src/ludamus/adapters/web/django/views.py
-msgid ""
-"No time slots configured for this event. Please create time slots first."
-msgstr ""
-"Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
-"utwórz przedziały czasowe."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
@@ -957,6 +871,55 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
 msgstr "Czas trwania"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Ungrouped"
+msgstr "Bez grupy"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Select a space..."
+msgstr "Wybierz przestrzeń..."
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+msgid "Space"
+msgstr "Przestrzeń"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Select the space where this session will take place"
+msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/print/timetable.html
+msgid "Time slot"
+msgstr "Przedział czasowy"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Invalid space selection."
+msgstr "Nieprawidłowy wybór sali."
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Invalid time slot selection."
+msgstr "Nieprawidłowy wybór przedziału czasowego."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+msgid "This offer is no longer available or has expired."
+msgstr "Ta oferta jest już niedostępna lub wygasła."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+msgid "Spot claimed — you are now confirmed for this session."
+msgstr ""
+"Miejsce zajęte — masz teraz potwierdzony udział w tym punkcie programu."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+msgid "This offer has expired or was already claimed."
+msgstr "Ta oferta wygasła lub została już zajęta."
+
+#: src/ludamus/gates/web/django/chronology/offers.py
+msgid "Offer declined — the seat was released."
+msgstr "Oferta odrzucona — miejsce zostało zwolnione."
 
 #: src/ludamus/gates/web/django/chronology/panel/forms.py
 #: src/ludamus/gates/web/django/crowd/forms.py
@@ -1733,6 +1696,36 @@ msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 #, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "There is already a session scheduled at this space and time."
+msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+#, python-brace-format
+msgid "Proposal '{}' has been accepted and added to the agenda."
+msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "This proposal has already been accepted."
+msgstr "To zgłoszenie zostało już zaakceptowane."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "You don't have permission to accept proposals for this event."
+msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "No spaces configured for this event. Please create spaces first."
+msgstr ""
+"Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
+"przestrzenie."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid ""
+"No time slots configured for this event. Please create time slots first."
+msgstr ""
+"Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
+"utwórz przedziały czasowe."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Please complete your profile."
@@ -7794,6 +7787,14 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Select the time slot for this session"
+#~ msgstr "Wybierz przedział czasowy dla tego punktu programu"
+
+#~ msgid "Select a time slot..."
+#~ msgstr "Wybierz przedział czasowy..."
+
+#~ msgid "This field is required."
+#~ msgstr "To pole jest wymagane."
 #~ msgid "unassigned"
 #~ msgstr "nieprzypisane"
 

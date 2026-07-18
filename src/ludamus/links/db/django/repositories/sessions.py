@@ -40,7 +40,7 @@ from ludamus.pacts import (
     SessionRepositoryProtocol,
     SessionStatus,
     SessionUpdateData,
-    SpaceDTO,
+    SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
     UnscheduledSessionDTO,
@@ -336,11 +336,25 @@ class SessionRepository(  # noqa: PLR0904
         return event_dto(event)
 
     @staticmethod
-    def read_spaces(session_id: int) -> list[SpaceDTO]:
-        spaces = Space.objects.filter(
-            event__proposal_categories__sessions__id=session_id
+    def read_space_options(session_id: int) -> list[SpaceOptionDTO]:
+        # Only leaves (childless nodes) are bookable; group each by its
+        # immediate parent's name so the picker can render optgroups.
+        spaces = (
+            Space.objects.filter(
+                event__proposal_categories__sessions__id=session_id,
+                children__isnull=True,
+            )
+            .select_related("parent")
+            .order_by("order", "name")
         )
-        return [SpaceDTO.model_validate(space) for space in spaces]
+        return [
+            SpaceOptionDTO(
+                pk=space.id,
+                name=space.name,
+                group=space.parent.name if space.parent else "",
+            )
+            for space in spaces
+        ]
 
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]:

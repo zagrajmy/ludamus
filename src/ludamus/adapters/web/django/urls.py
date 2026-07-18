@@ -1,6 +1,8 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django.chronology import offers
+from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
@@ -29,17 +31,17 @@ chronology_urls = [
     ),
     path(
         "event/<str:event_slug>/session/<int:session_id>/accept/",
-        views.ProposalAcceptPageView.as_view(),
+        chronology_views.ProposalAcceptPageView.as_view(),
         name="session-accept",
     ),
     path(
         "offer/<str:token>/claim/",
-        views.SessionOfferClaimView.as_view(),
+        offers.SessionOfferClaimView.as_view(),
         name="offer-claim",
     ),
     path(
         "offer/<str:token>/decline/",
-        views.SessionOfferDeclineView.as_view(),
+        offers.SessionOfferDeclineView.as_view(),
         name="offer-decline",
     ),
 ]
@@ -49,7 +51,7 @@ urlpatterns = [
     path("events/", views.EventsPageView.as_view(), name="events"),
     path(
         "notifications/do/mark-read",
-        views.NotificationsMarkReadView.as_view(),
+        offers.NotificationsMarkReadView.as_view(),
         name="notifications-mark-read",
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
