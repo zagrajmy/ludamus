@@ -9,6 +9,11 @@ urlpatterns: list[URLPattern] = [
         name="session-edit",
     ),
     path(
+        "event/<str:event_slug>/session/<int:session_id>/parts/modal",
+        views.SessionModalComponentView.as_view(),
+        name="session-modal",
+    ),
+    path(
         "event/<str:event_slug>/anonymous/do/activate",
         anonymous.EventAnonymousActivateActionView.as_view(),
         name="event-anonymous-activate",
