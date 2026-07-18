@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 22:20+0200\n"
+"POT-Creation-Date: 2026-07-18 22:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3953,10 +3953,12 @@ msgstr "Całe wydarzenie"
 
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Start"
 msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Hours"
 msgstr "Godziny"
 
@@ -6513,6 +6515,7 @@ msgstr ""
 "komunikować się przez zewnętrzny system."
 
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Whole event…"
 msgstr "Całe wydarzenie…"
 
@@ -6653,12 +6656,12 @@ msgid "Print timetable for a venue or area"
 msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Print door cards"
-msgstr "Drukuj tabliczki na drzwi"
-
-#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards for a venue or area"
 msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
+
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Print door cards"
+msgstr "Drukuj tabliczki na drzwi"
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"
@@ -7015,11 +7018,13 @@ msgstr ""
 msgid ""
 "Open a print-ready page, then use your browser to save it as a PDF or print "
 "it. Use the scope menu to print a single space — a room, a floor, or a whole "
-"building."
+"building. Door cards can be limited to a time window — leave the start empty "
+"to print the whole event."
 msgstr ""
 "Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub wydrukuj w "
 "przeglądarce. Użyj menu zakresu, aby wydrukować pojedynczą przestrzeń — "
-"salę, piętro lub cały budynek."
+"salę, piętro lub cały budynek. Tabliczki na drzwi można ograniczyć do "
+"przedziału czasowego — zostaw pusty początek, aby wydrukować całe wydarzenie."
 
 #: src/ludamus/templates/panel/print/base.html
 msgid "or press Ctrl+P (⌘P on Mac)"

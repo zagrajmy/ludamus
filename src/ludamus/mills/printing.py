@@ -24,6 +24,7 @@ from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
+    DoorCardsQueryDTO,
     PrintablesReadyNotification,
     PrintablesReminderServiceProtocol,
     PrintOptionDTO,
@@ -142,19 +143,14 @@ class PrintMaterialsService:
             for track in self._tracks.list_public_by_event(event_pk)
         ]
 
-    def build_door_cards(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        scope_space_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
-    ) -> DoorCardsDocumentDTO:
-        event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, scope_space_pks, None)
+    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO:
+        event = self._events.read(query.event_pk)
+        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
+        items = self._agenda_items.list_by_event(query.event_pk)
+        if query.time_range is not None:
+            items = [item for item in items if _overlaps(item, *query.time_range)]
         items_by_space = self._group_by_space(
-            self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
+            items, confirmed_only=query.confirmed_only
         )
 
         cards: list[DoorCardDTO] = []
@@ -166,7 +162,7 @@ class PrintMaterialsService:
             entries_by_day: dict[date, list[DoorCardEntryDTO]] = defaultdict(list)
 
             for item in space_items:
-                day = item.start_time.astimezone(tz).date()
+                day = item.start_time.astimezone(query.tz).date()
                 entries_by_day[day].append(
                     DoorCardEntryDTO(
                         start_time=item.start_time,
@@ -190,7 +186,7 @@ class PrintMaterialsService:
             event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
-            scope_name=scope_name,
+            scope_name=query.scope_name,
             cards=cards,
         )
 
