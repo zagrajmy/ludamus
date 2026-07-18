@@ -495,6 +495,7 @@ class SessionRepository(  # noqa: PLR0904
         field_filters = filters.get("field_filters")
         search = filters.get("search")
         track_pk = filters.get("track_pk")
+        multi_tracks = filters.get("multi_tracks")
         category_pk = filters.get("category_pk")
         status = filters.get("status")
         scheduled = filters.get("scheduled")
@@ -534,6 +535,11 @@ class SessionRepository(  # noqa: PLR0904
 
         if track_pk is not None:
             qs = qs.filter(tracks__pk=track_pk)
+
+        if multi_tracks:
+            qs = qs.annotate(_track_count=Count("tracks", distinct=True)).filter(
+                _track_count__gt=1
+            )
 
         return [
             SessionListItemDTO(

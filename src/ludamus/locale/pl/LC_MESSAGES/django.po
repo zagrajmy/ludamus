@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 13:49+0200\n"
+"POT-Creation-Date: 2026-07-18 14:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2182,6 +2182,14 @@ msgid "Capacity must be at least 1."
 msgstr "Pojemność musi wynosić co najmniej 1."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Location"
+msgstr "Lokalizacja"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Building address, room number, floor — structural details."
+msgstr "Adres budynku, numer sali, piętro — szczegóły strukturalne."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Parent"
 msgstr "Element nadrzędny"
 
@@ -2244,6 +2252,7 @@ msgid "Invalid facilitator selection."
 msgstr "Nieprawidłowy wybór twórcy programu."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/components/pill_list.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "None"
@@ -7195,6 +7204,10 @@ msgid "Submitted Proposals"
 msgstr "Przesłane zgłoszenia"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "Multiple tracks"
+msgstr "Wiele bloków"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Search by facilitator or field values"
 msgstr "Szukaj po prowadzącym lub wartościach pól"
 
@@ -7637,6 +7650,7 @@ msgstr "Publiczny blok programowy"
 
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
+#: src/ludamus/templates/panel/tracks.html
 msgid "Spaces"
 msgstr "Przestrzenie"
 
@@ -7670,6 +7684,10 @@ msgstr ""
 #: src/ludamus/templates/panel/tracks.html
 msgid "Visibility"
 msgstr "Widoczność"
+
+#: src/ludamus/templates/panel/tracks.html
+msgid "Organizers"
+msgstr "Organizatorzy"
 
 #: src/ludamus/templates/panel/tracks.html
 msgid "Public"
@@ -7711,6 +7729,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "People"
+#~ msgstr "Osoby"
 
 #~ msgid ""
 #~ "This party still has companions. Remove them first — their profiles would "
