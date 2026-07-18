@@ -326,6 +326,17 @@ class TrackDTO(BaseModel):
     slug: str
 
 
+class TrackListItemDTO(BaseModel):
+    # Track enriched with the names of its assigned spaces and managers, for the
+    # panel list view. Names, not pks, so the template renders without extra IO.
+    pk: int
+    name: str
+    slug: str
+    is_public: bool
+    space_names: list[str]
+    manager_names: list[str]
+
+
 class TrackCreateData(TypedDict):
     event_pk: int
     name: str
@@ -920,6 +931,8 @@ class TrackRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def list_by_event(event_pk: int) -> list[TrackDTO]: ...
+    @staticmethod
+    def list_by_event_with_assignments(event_pk: int) -> list[TrackListItemDTO]: ...
     @staticmethod
     def list_public_by_event(event_pk: int) -> list[TrackDTO]: ...
     @staticmethod
