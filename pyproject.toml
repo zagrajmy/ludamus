@@ -48,7 +48,7 @@ unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-codespell = "^2.4.1"
+codespell = "^2.4.3"
 deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^7.0.0"
