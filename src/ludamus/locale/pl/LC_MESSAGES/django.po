@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 22:00+0200\n"
+"POT-Creation-Date: 2026-07-18 22:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1193,6 +1193,7 @@ msgid "Time slots"
 msgstr "Przedziały czasowe"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposals.html
@@ -2692,7 +2693,6 @@ msgstr "Powiązany użytkownik"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Sessions"
 msgstr "Punkty programu"
 
@@ -3263,7 +3263,6 @@ msgstr "Podaj swoje imię, aby dokończyć zapis."
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
-#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Name"
 msgstr "Imię"
@@ -3658,6 +3657,22 @@ msgstr "Godzina"
 #: src/ludamus/templates/chronology/event.html
 msgid "All hours"
 msgstr "Wszystkie godziny"
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "All tracks"
+msgstr "Wszystkie bloki"
+
+#: src/ludamus/templates/chronology/event.html
+msgctxt "participant filter"
+msgid "Category"
+msgstr "Rodzaj atrakcji"
+
+#: src/ludamus/templates/chronology/event.html
+msgctxt "participant filter"
+msgid "All categories"
+msgstr "Wszystkie rodzaje atrakcji"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import-log.html
@@ -6155,9 +6170,9 @@ msgstr ""
 "zachowanego."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Search by name…"
-msgstr "Szukaj po nazwie…"
+#: src/ludamus/templates/panel/proposals.html
+msgid "Search by facilitator or field values"
+msgstr "Szukaj po prowadzącym lub wartościach pól"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Select all"
@@ -7274,6 +7289,10 @@ msgid "Edit Proposal"
 msgstr "Edytuj zgłoszenie"
 
 #: src/ludamus/templates/panel/proposal-edit.html
+msgid "Search by name…"
+msgstr "Szukaj po nazwie…"
+
+#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Assign this proposal to one or more programme tracks."
 msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
 
@@ -7343,17 +7362,8 @@ msgid "Submitted Proposals"
 msgstr "Przesłane zgłoszenia"
 
 #: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "All tracks"
-msgstr "Wszystkie bloki"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "Multiple tracks"
 msgstr "Wiele bloków"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Search by facilitator or field values"
-msgstr "Szukaj po prowadzącym lub wartościach pól"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "All categories"
