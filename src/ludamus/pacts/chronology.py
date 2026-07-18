@@ -16,6 +16,7 @@ from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
+    EventDTO,
     LocationData,
     SessionContentEditData,
     SessionDTO,
@@ -24,6 +25,8 @@ from ludamus.pacts.legacy import (
     SessionParticipationStatus,
     SessionSelfEditContext,
     SpaceDTO,
+    SpaceOptionDTO,
+    TimeSlotDTO,
 )
 from ludamus.pacts.party import PartyDTO
 
@@ -243,6 +246,30 @@ class ProposalStatusServiceProtocol(Protocol):
     def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
     def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
     def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
+class SpaceTimeConflictError(Exception):
+    """Another session already occupies that space during the chosen slot."""
+
+
+class ProposalAcceptContextDTO(BaseModel):
+    session: SessionDTO
+    event: EventDTO
+    presenter: UserDTO | None
+    space_options: list[SpaceOptionDTO]
+    time_slots: list[TimeSlotDTO]
+    preferred_time_slot_ids: list[int]
+    field_values: list[SessionFieldValueDTO]
+    can_accept: bool
+
+
+class ProposalAcceptanceServiceProtocol(Protocol):
+    def get_accept_context(
+        self, *, session_id: int, user_slug: str, sphere_id: int
+    ) -> ProposalAcceptContextDTO | None: ...
+    def accept_session(
+        self, *, session_id: int, space_id: int, time_slot_id: int
+    ) -> None: ...
 
 
 class PartySessionSeatDTO(BaseModel):

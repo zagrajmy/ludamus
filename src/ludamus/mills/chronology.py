@@ -52,12 +52,14 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ProposalAcceptContextDTO,
     ProposalScheduledError,
     SessionPlacement,
     SessionPositionDTO,
     SourceQuestion,
     SpaceColumnDTO,
     SpaceGroupDTO,
+    SpaceTimeConflictError,
     TimeLabelDTO,
     TimetableGridDTO,
     TrackProgressDTO,
@@ -88,6 +90,7 @@ if TYPE_CHECKING:
         TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
@@ -592,6 +595,81 @@ class ProposalStatusService:
             ):
                 raise ProposalScheduledError
             self._sessions.update(session_pk, {"status": status})
+
+
+class ProposalAcceptanceService:
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        active_users: UserRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._agenda_items = agenda_items
+        self._active_users = active_users
+        self._spheres = spheres
+
+    def get_accept_context(
+        self, *, session_id: int, user_slug: str, sphere_id: int
+    ) -> ProposalAcceptContextDTO | None:
+        try:
+            session = self._sessions.read(session_id)
+        except NotFoundError:
+            return None
+        return ProposalAcceptContextDTO(
+            session=session,
+            event=self._sessions.read_event(session.pk),
+            presenter=self._sessions.read_presenter(session.pk),
+            space_options=self._sessions.read_space_options(session.pk),
+            time_slots=self._sessions.read_time_slots(session.pk),
+            preferred_time_slot_ids=self._sessions.read_preferred_time_slot_ids(
+                session.pk
+            ),
+            field_values=self._sessions.read_field_values(session.pk),
+            can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
+        )
+
+    def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
+        user = self._active_users.read(user_slug)
+        if user.is_superuser or user.is_staff:
+            return True
+        return self._spheres.is_manager(sphere_id, user_slug)
+
+    def accept_session(
+        self, *, session_id: int, space_id: int, time_slot_id: int
+    ) -> None:
+        session = self._sessions.read(session_id)
+        time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
+        with self._transaction.atomic():
+            if self._agenda_items.list_overlapping_in_space(
+                space_id,
+                time_slot.start_time,
+                time_slot.end_time,
+                exclude_session_pk=session_id,
+            ):
+                raise SpaceTimeConflictError
+            # The session already has a unique slug from proposal creation;
+            # regenerating it here dropped the uniqueness suffix and collided.
+            self._sessions.update(
+                session_id,
+                {
+                    "status": SessionStatus.ACCEPTED,
+                    "display_name": session.display_name,
+                },
+            )
+            self._agenda_items.create(
+                {
+                    "space_id": space_id,
+                    "session_id": session_id,
+                    "session_confirmed": True,
+                    "start_time": time_slot.start_time,
+                    "end_time": time_slot.end_time,
+                }
+            )
 
 
 class ConflictDetectionService:

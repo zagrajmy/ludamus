@@ -66,7 +66,6 @@ from ludamus.links.db.django.repositories.sessions import (
     field_value_dto,
     with_session_card_relations,
 )
-from ludamus.mills import AcceptProposalService
 from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -78,7 +77,6 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SessionRepositoryProtocol,
     SessionStatus,
     SpherePage,
 )
@@ -97,7 +95,7 @@ from .design_fixtures import (
     mock_session_data_ended,
     mock_user,
 )
-from .forms import create_enrollment_form, create_proposal_acceptance_form
+from .forms import create_enrollment_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1784,141 +1782,3 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             enrolled_by_id=self.request.context.current_user_id,
             viewer_name=self._actor_name(),
         )
-
-
-class ProposalAcceptPageView(LoginRequiredMixin, View):
-    @staticmethod
-    def _get_session_and_event(
-        request: AuthenticatedRootRequest, event_slug: str, session_id: int
-    ) -> tuple[SessionDTO, EventDTO]:
-        session_repository = request.di.uow.sessions
-        try:
-            session = session_repository.read(session_id)
-        except NotFoundError as exception:
-            raise RedirectError(
-                reverse("web:index"), error=_("Session not found.")
-            ) from exception
-
-        event = session_repository.read_event(session.pk)
-
-        if event.slug != event_slug:
-            raise RedirectError(
-                reverse("web:index"), error=_("Session not found.")
-            ) from None
-
-        if session.status != SessionStatus.PENDING:
-            raise RedirectError(
-                reverse("web:chronology:event", kwargs={"slug": event.slug}),
-                warning=_("This proposal has already been accepted."),
-            )
-
-        service = AcceptProposalService(request.di.uow, context=request.context)
-        if not service.can_accept_proposals():
-            raise RedirectError(
-                reverse("web:chronology:event", kwargs={"slug": event.slug}),
-                error=_(
-                    "You don't have permission to accept proposals for this event."
-                ),
-            )
-
-        return session, event
-
-    @staticmethod
-    def _build_context(
-        request: AuthenticatedRootRequest,
-        session: SessionDTO,
-        event: EventDTO,
-        form: forms.Form,
-    ) -> dict[str, Any]:
-        session_repository = request.di.uow.sessions
-        field_values = session_repository.read_field_values(session.pk)
-        return {
-            "session": session,
-            "event": event,
-            "presenter": session_repository.read_presenter(session.pk),
-            "spaces": session_repository.read_spaces(session.pk),
-            "time_slots": session_repository.read_time_slots(session.pk),
-            "preferred_time_slot_ids": session_repository.read_preferred_time_slot_ids(
-                session.pk
-            ),
-            "form": form,
-            "field_values": field_values,
-        }
-
-    def get(
-        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        session, event = self._get_session_and_event(request, event_slug, session_id)
-        session_repository = request.di.uow.sessions
-
-        self._check_spaces(session, session_repository)
-        self._check_time_slots(session, session_repository)
-
-        form_class = create_proposal_acceptance_form(event)
-        form = form_class()
-
-        return TemplateResponse(
-            request,
-            "chronology/accept_proposal.html",
-            self._build_context(request, session, event, form),
-        )
-
-    def post(
-        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        session, event = self._get_session_and_event(request, event_slug, session_id)
-
-        form_class = create_proposal_acceptance_form(event)
-        form = form_class(data=request.POST)
-        if not form.is_valid():
-            return TemplateResponse(
-                request,
-                "chronology/accept_proposal.html",
-                self._build_context(request, session, event, form),
-            )
-
-        service = AcceptProposalService(request.di.uow, context=request.context)
-        service.accept_session(
-            session=session,
-            space_id=form.cleaned_data["space"].id,
-            time_slot_id=form.cleaned_data["time_slot"].id,
-        )
-
-        messages.success(
-            self.request,
-            _("Proposal '{}' has been accepted and added to the agenda.").format(
-                session.title
-            ),
-        )
-        return redirect("web:chronology:event", slug=event.slug)
-
-    @staticmethod
-    def _check_spaces(
-        session: SessionDTO, session_repository: SessionRepositoryProtocol
-    ) -> None:
-        if not session_repository.read_spaces(session.pk):
-            raise RedirectError(
-                reverse(
-                    "web:chronology:event",
-                    kwargs={"slug": session_repository.read_event(session.pk).slug},
-                ),
-                error=_(
-                    "No spaces configured for this event. Please create spaces first."
-                ),
-            )
-
-    @staticmethod
-    def _check_time_slots(
-        session: SessionDTO, session_repository: SessionRepositoryProtocol
-    ) -> None:
-        if not session_repository.read_time_slots(session.pk):
-            raise RedirectError(
-                reverse(
-                    "web:chronology:event",
-                    kwargs={"slug": session_repository.read_event(session.pk).slug},
-                ),
-                error=_(
-                    "No time slots configured for this event. "
-                    "Please create time slots first."
-                ),
-            )
