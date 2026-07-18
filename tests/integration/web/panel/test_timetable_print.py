@@ -102,9 +102,9 @@ class TestTimetablePrintView:
         )
         content = response.content.decode()
         assert space.name in content
-        # the empty room's card shows the slot as a free gap
-        assert empty_space.name in content
-        assert "Free slot" in content
+        # participant-facing cards: no card for an empty room, no gap rows
+        assert empty_space.name not in content
+        assert "Free slot" not in content
 
     def test_opening_print_page_marks_event_printed(
         self, authenticated_client, active_user, sphere, event

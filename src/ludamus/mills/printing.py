@@ -4,7 +4,8 @@ Assembles printable materials (per-room door cards, a printed timetable, and
 description-rich per-area time-range pages) from scheduled agenda items. The
 organizer-facing materials include every scheduled session; passing
 ``confirmed_only=True`` (the public ``/print`` page) keeps only confirmed ones.
-Empty time slots render as explicit gaps.
+Empty timetable cells render as explicit gaps; door cards are participant-facing
+and list only rooms and hours that actually hold a session.
 """
 
 from __future__ import annotations
@@ -155,13 +156,13 @@ class PrintMaterialsService:
         items_by_space = self._group_by_space(
             self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
         )
-        windows_by_date = slot_windows_by_local_date(
-            self._time_slots.list_by_event(event_pk), tz
-        )
 
         cards: list[DoorCardDTO] = []
         for space in spaces:
-            space_items = items_by_space.get(space.pk, [])
+            # Cards hang on doors for participants: a room with nothing
+            # scheduled gets no card, and empty hours are simply not listed.
+            if not (space_items := items_by_space.get(space.pk)):
+                continue
             entries_by_day: dict[date, list[DoorCardEntryDTO]] = defaultdict(list)
 
             for item in space_items:
@@ -173,20 +174,6 @@ class PrintMaterialsService:
                         session=_to_session(item),
                     )
                 )
-
-            for day, windows in windows_by_date.items():
-                for window_start, window_end in windows:
-                    if not any(
-                        _overlaps(item, window_start, window_end)
-                        for item in space_items
-                    ):
-                        entries_by_day[day].append(
-                            DoorCardEntryDTO(
-                                start_time=window_start,
-                                end_time=window_end,
-                                session=None,
-                            )
-                        )
 
             days = [
                 DoorCardDayDTO(

@@ -47,8 +47,7 @@ class AreaScheduleQueryDTO:
 class DoorCardEntryDTO(BaseModel):
     start_time: datetime
     end_time: datetime
-    # None marks an empty time slot, rendered as a visible gap on the card.
-    session: PrintSessionDTO | None
+    session: PrintSessionDTO
 
 
 class DoorCardDayDTO(BaseModel):

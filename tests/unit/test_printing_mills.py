@@ -106,25 +106,29 @@ def _area_schedule(service, window, **kwargs):
 class TestBuildDoorCards:
     def test_one_card_per_space_in_order(self):
         spaces = [_space(2, "Bravo", 1), _space(1, "Alfa", 0)]
-        service = _service(spaces=spaces, items=[], slots=[])
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True),
+            _item(2, 2, 9, 10, title="Larp", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
 
         document = service.build_door_cards(1, UTC)
 
         assert [c.space_name for c in document.cards] == ["Alfa", "Bravo"]
 
-    def test_empty_slot_rendered_as_gap_alongside_session(self):
-        spaces = [_space(1, "Alfa", 0)]
+    def test_empty_slots_and_sessionless_spaces_are_omitted(self):
+        # Cards are participant-facing: no "free slot" rows, no card at all for
+        # a room with nothing scheduled.
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         slots = [_slot(1, 9, 10), _slot(2, 10, 11)]
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=slots)
 
         document = service.build_door_cards(1, UTC)
 
+        assert [c.space_name for c in document.cards] == ["Alfa"]
         entries = document.cards[0].days[0].entries
-        assert [(e.session.title if e.session else None) for e in entries] == [
-            "RPG",
-            None,
-        ]
+        assert [e.session.title for e in entries] == ["RPG"]
 
     def test_includes_unconfirmed_scheduled_session(self):
         spaces = [_space(1, "Alfa", 0)]
@@ -251,14 +255,7 @@ class TestConfirmedOnly:
 
         document = service.build_door_cards(1, UTC, confirmed_only=True)
 
-        sessions = [
-            e.session.title
-            for card in document.cards
-            for day in card.days
-            for e in day.entries
-            if e.session
-        ]
-        assert sessions == []
+        assert document.cards == []
 
 
 class TestTimetableCompleteness:
@@ -374,7 +371,14 @@ class TestScoping:
         assert document.scope_name == "Budynek A"
 
     def test_door_cards_filtered_to_single_space(self):
-        document = self._scoped_service().build_door_cards(
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True),
+            _item(2, 2, 9, 10, title="Larp", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_door_cards(
             1, UTC, scope_space_pks=frozenset({1}), scope_name="Parter"
         )
 
