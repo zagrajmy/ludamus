@@ -62,7 +62,7 @@ ipython = "^9.14.1"
 mypy = "^2.2.0"
 pip-audit = "^2.10.1"
 pylint = "^4.0.3"
-pytest = "^9.0.1"
+pytest = "^9.0.3"
 pytest-cov = "^7.0.0"
 pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
@@ -81,6 +81,7 @@ django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
 tingle = "^0.1.0"
+pytest-xdist = "^3.8.0"
 
 [tool.black]
 line-length = 88
