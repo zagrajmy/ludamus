@@ -1464,6 +1464,55 @@ class TestProposalEditOrphanValues:
 
         assert "Horror" in response.content.decode()
 
+    def test_get_shows_yes_for_orphan_checkbox_value(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="Streaming",
+            question="Allow streaming?",
+            slug="streaming",
+            field_type="checkbox",
+            order=0,
+        )
+        SessionFieldValue.objects.create(session=session, field=field, value=True)
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        html = response.content.decode()
+        assert "Allow streaming?" in html
+        assert ">Yes</p>" in html
+
+    def test_get_shows_option_labels_for_orphan_multiselect_value(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Which genres?",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            order=0,
+        )
+        SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldOption.objects.create(
+            field=field, label="Fantasy", value="fantasy", order=1
+        )
+        SessionFieldValue.objects.create(
+            session=session, field=field, value=["horror", "fantasy"]
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert "Horror, Fantasy" in response.content.decode()
+
     def test_post_leaves_orphan_value_untouched_by_default(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1557,3 +1606,105 @@ class TestProposalEditOrphanValues:
             "old": "Old answer",
             "new": None,
         } in log.changes
+
+
+class TestProposalEditFieldsComponentView:
+    """Tests for /panel/event/<slug>/proposals/<id>/edit/fields/ component."""
+
+    def test_get_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:proposal-edit-fields",
+            kwargs={"slug": "nonexistent", "proposal_id": 1},
+        )
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_get_redirects_when_proposal_not_found(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(_fields_url(event, 99999))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Proposal not found.")],
+            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
+        )
+
+    def test_get_redirects_when_proposal_belongs_to_different_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        session = _make_session(other_event)
+
+        response = authenticated_client.get(_fields_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Proposal not found.")],
+            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
+        )
+
+    def test_get_renders_fields_for_requested_category(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        category_b = ProposalCategory.objects.create(
+            event=event, name="Talk", slug="talk"
+        )
+        field = SessionField.objects.create(
+            event=event,
+            name="Topic",
+            question="Which topic?",
+            slug="topic",
+            field_type="text",
+            order=0,
+        )
+        SessionFieldRequirement.objects.create(
+            category=category_b, field=field, is_required=False, order=0
+        )
+
+        response = authenticated_client.get(
+            _fields_url(event, session.pk), data={"category_id": category_b.pk}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/proposal-session-fields.html",
+            # field_descriptors carry BoundFields, which don't compare usefully.
+            # No active_nav: the component renders without the page chrome.
+            context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": False,
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "field_descriptors": ANY,
+                "form": ANY,
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+            },
+            contains='name="session_topic"',
+        )

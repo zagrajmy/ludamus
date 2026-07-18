@@ -443,6 +443,40 @@ class TestProposalCreateCategoryFields:
             not_contains='name="session_only-a"',
         )
 
+    def test_get_fields_component_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:proposal-create-fields", kwargs={"slug": "nonexistent"})
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
+    def test_get_fields_component_renders_empty_when_event_has_no_categories(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_fields_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/proposal-session-fields.html",
+            context_data={
+                "field_descriptors": [],
+                "form": ANY,
+                "category": None,
+                "orphan_values": [],
+            },
+        )
+
     def test_post_saves_the_categorys_field_values(
         self, authenticated_client, active_user, sphere, event
     ):
