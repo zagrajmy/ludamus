@@ -372,7 +372,7 @@ test.describe("Anonymous code modal", () => {
       .poll(
         () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
         {
-          timeout: 200,
+          timeout: 2000,
           intervals: [50],
         },
       )

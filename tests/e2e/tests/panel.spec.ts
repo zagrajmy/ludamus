@@ -1040,9 +1040,9 @@ test.describe("Backoffice Panel", () => {
       const genreSelectId = await genreLabel.getAttribute("for");
       const genreFilter = page.locator(`#${genreSelectId}`);
 
-      // Filter by Fantasy — proposal should be visible
+      // Filter by Fantasy — the form autosubmits on change
       await genreFilter.selectOption("Fantasy");
-      await page.getByRole("button", { name: "Filter" }).click();
+      await page.waitForURL(/field_\d+=Fantasy/);
       await expect(
         page.getByRole("link", {
           name: proposalTitle,
@@ -1052,7 +1052,7 @@ test.describe("Backoffice Panel", () => {
       // Filter by Sci-Fi — proposal should not be visible
       const genreFilterAfter = page.locator(`#${genreSelectId}`);
       await genreFilterAfter.selectOption("Sci-Fi");
-      await page.getByRole("button", { name: "Filter" }).click();
+      await page.waitForURL(/field_\d+=Sci-Fi/);
       await expect(
         page.getByRole("link", {
           name: proposalTitle,
