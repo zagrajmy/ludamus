@@ -934,6 +934,44 @@ class TestProposalsPageView:
             not_contains=f'name="track" value="{track.pk}"',
         )
 
+    def test_track_form_carries_category_filter_forward(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="My Track", slug="my-track", is_public=True
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+
+        response = authenticated_client.get(
+            self.get_url(event), {"category": str(category.pk)}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                "proposals": [],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "managed_track_pks": set(),
+                "filter_track_pk": None,
+                "filter_track_multi": False,
+                "filter_track_value": "",
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "filter_category_pk": category.pk,
+                "filter_status": None,
+                "statuses": _STATUSES,
+            },
+            contains=f'<input type="hidden" name="category" value="{category.pk}">',
+        )
+
     def test_filters_by_numeric_track_param(
         self, authenticated_client, active_user, sphere, event
     ):
