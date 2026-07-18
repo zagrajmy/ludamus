@@ -5,9 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ("db_main", "0124_session_ident_session_session_unique_ident_in_event")
-    ]
+    dependencies = [("db_main", "0130_space_location")]
 
     operations = [
         migrations.AddField(

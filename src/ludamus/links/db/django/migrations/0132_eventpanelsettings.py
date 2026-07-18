@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0125_facilitator_flagged_for_deletion")]
+    dependencies = [("db_main", "0131_facilitator_flagged_for_deletion")]
 
     operations = [
         migrations.CreateModel(

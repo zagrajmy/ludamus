@@ -27,7 +27,7 @@ def populate_columns(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0130_merge_20260715_1230")]
+    dependencies = [("db_main", "0133_facilitator_internal_comment")]
 
     operations = [
         migrations.AddField(
