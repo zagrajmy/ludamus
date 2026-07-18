@@ -304,7 +304,10 @@ const numberWaitingPositions = (root: ParentNode): void => {
   for (const pane of root.querySelectorAll<HTMLElement>(".tab-panel")) {
     let position = 1;
     for (const badge of pane.querySelectorAll<HTMLElement>(".waiting-list-row .waiting-position")) {
-      badge.textContent = String(position++);
+      const n = position++;
+      badge.textContent = String(n);
+      const label = badge.dataset.positionLabel;
+      if (label) badge.setAttribute("aria-label", `${label} ${n}`);
     }
   }
 };
