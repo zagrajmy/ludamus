@@ -250,6 +250,7 @@ class SessionListFilters(TypedDict, total=False):
     field_filters: dict[int, str] | None
     search: str | None
     track_pk: int | None
+    multi_tracks: bool | None
     category_pk: int | None
     status: SessionStatus | None
     scheduled: bool | None
