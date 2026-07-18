@@ -22,7 +22,8 @@ const updateEnds = (): void => {
 };
 
 list?.addEventListener("click", (event) => {
-  const target = event.target as HTMLElement;
+  const { target } = event;
+  if (!(target instanceof Element)) return;
   const button = target.closest<HTMLButtonElement>(".move-up, .move-down");
   const row = button?.closest<HTMLElement>(".column-row");
   if (!button || !row || button.disabled) return;

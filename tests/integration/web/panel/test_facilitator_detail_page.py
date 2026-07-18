@@ -93,10 +93,7 @@ class TestFacilitatorDetailPageView:
                 "has_personal_data": False,
                 "sessions": [],
             },
-        )
-        assert (
-            FacilitatorDTO.model_validate(facilitator).internal_comment
-            == "Possible duplicate of Bob"
+            contains="Possible duplicate of Bob",
         )
 
     def test_get_renders_sessions_linking_to_proposal_detail(

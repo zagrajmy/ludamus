@@ -594,11 +594,10 @@ class TestFacilitatorsPageView:
                         },
                     },
                 ),
-                "filterable_fields": [
-                    _field_dto(checkbox_field),
-                    _field_dto(multi_field),
-                ],
-                "filter_fields": {checkbox_field.pk: "", multi_field.pk: ""},
+                # multi_field renders as a column but isn't offered as a filter:
+                # its stored list can't match the exact-scalar filter.
+                "filterable_fields": [_field_dto(checkbox_field)],
+                "filter_fields": {checkbox_field.pk: ""},
             },
         )
 
@@ -704,6 +703,54 @@ class TestFacilitatorsPageView:
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
                 "filter_fields": {field.pk: "Reds"},
+            },
+        )
+
+    def test_multi_select_field_is_not_filterable(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Multi-select stores a JSON list, which the exact-match filter can
+        # never hit, so it must not be offered as a filter at all.
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Teams",
+            question="Teams?",
+            slug="teams",
+            field_type="select",
+            is_multiple=True,
+            order=0,
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Reds member", slug="reds", user=None
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator, event=event, field=field, value=["Reds"]
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {f"field_{field.pk}": "Reds"}
+        )
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Reds member",
+                pk=facilitator.pk,
+                slug="reds",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
 
@@ -832,6 +879,36 @@ class TestFacilitatorActions:
     def _url(name, event, facilitator):
         return reverse(
             name, kwargs={"slug": event.slug, "facilitator_slug": facilitator.slug}
+        )
+
+    _ACTION_NAMES = (
+        "panel:facilitator-flag",
+        "panel:facilitator-unflag",
+        "panel:facilitator-mark-guest",
+    )
+
+    @pytest.mark.parametrize("name", _ACTION_NAMES)
+    def test_redirects_anonymous_user_to_login(self, client, event, name):
+        facilitator = self._facilitator(event)
+        url = self._url(name, event, facilitator)
+
+        response = client.post(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
+
+    @pytest.mark.parametrize("name", _ACTION_NAMES)
+    def test_redirects_non_manager_user(self, authenticated_client, event, name):
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(self._url(name, event, facilitator))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
         )
 
     def test_flag(self, authenticated_client, active_user, sphere, event):
@@ -1033,6 +1110,27 @@ class TestFacilitatorColumns:
             slug="email",
             field_type="text",
             order=0,
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_redirects_anonymous_user_to_login(self, client, event, method):
+        url = self._url(event)
+
+        response = getattr(client, method)(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_redirects_non_manager_user(self, authenticated_client, event, method):
+        response = getattr(authenticated_client, method)(self._url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+            url="/",
         )
 
     def test_get_offers_builtin_and_field_columns(

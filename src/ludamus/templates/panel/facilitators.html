@@ -109,6 +109,7 @@
                                         title="{{ value }}">
                                         {% if forloop.first %}
                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                               aria-label="{{ facilitator.display_name }}"
                                                class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
                                             {% if facilitator.flagged_for_deletion %}
                                                 <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">

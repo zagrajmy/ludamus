@@ -470,7 +470,9 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
     def _safe_next(self, slug: str) -> str:
         next_url = self.request.POST.get("next", "")
         if next_url and url_has_allowed_host_and_scheme(
-            next_url, allowed_hosts={self.request.get_host()}
+            next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
         ):
             return next_url
         return reverse("panel:facilitators", kwargs={"slug": slug})

@@ -100,8 +100,13 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO:
         fields = self._personal_data_fields.list_by_event(event_id)
+        # Multi-select stores a JSON list, but the repo filters by exact scalar
+        # match, so a single choice never matches — omit them from filtering.
         filterable_fields = [
-            field for field in fields if field.field_type in _FILTERABLE_FIELD_TYPES
+            field
+            for field in fields
+            if field.field_type in _FILTERABLE_FIELD_TYPES
+            and not (field.field_type == "select" and field.is_multiple)
         ]
         field_filters = _resolve_field_filters(
             filterable_fields=filterable_fields, raw=query.raw_field_filters
