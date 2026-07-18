@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 16:25+0200\n"
+"POT-Creation-Date: 2026-07-18 22:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -7026,14 +7026,6 @@ msgid "or press Ctrl+P (⌘P on Mac)"
 msgstr "lub naciśnij Ctrl+P (⌘P na Macu)"
 
 #: src/ludamus/templates/panel/print/door-cards.html
-msgid "Free slot"
-msgstr "Wolny przedział"
-
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "No scheduled program."
-msgstr "Brak zaplanowanego programu."
-
-#: src/ludamus/templates/panel/print/door-cards.html
 msgid "No rooms to print."
 msgstr "Brak sal do wydruku."
 
@@ -7787,6 +7779,12 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Free slot"
+#~ msgstr "Wolny przedział"
+
+#~ msgid "No scheduled program."
+#~ msgstr "Brak zaplanowanego programu."
+
 #~ msgid "Select the time slot for this session"
 #~ msgstr "Wybierz przedział czasowy dla tego punktu programu"
 
@@ -7795,6 +7793,7 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "This field is required."
 #~ msgstr "To pole jest wymagane."
+
 #~ msgid "unassigned"
 #~ msgstr "nieprzypisane"
 
