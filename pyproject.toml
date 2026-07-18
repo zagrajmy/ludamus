@@ -407,6 +407,7 @@ exclude = [
 ignore_names = [
     # Used in templates
     "bookmark_count",
+    "filter_categories",
     "has_guests",
     "has_secret",
     "is_live",

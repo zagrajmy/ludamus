@@ -30,6 +30,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
@@ -96,6 +97,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -498,6 +501,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -536,6 +541,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -574,6 +581,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -639,6 +648,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -670,6 +681,47 @@ class TestEventPageView:
         assert match
         assert match.group(1)
 
+    def test_track_and_category_filters_expose_data_and_controls(
+        self, client, event, space
+    ):
+        category_a = ProposalCategoryFactory(event=event, name="RPG", slug="rpg")
+        category_b = ProposalCategoryFactory(
+            event=event, name="Board games", slug="board"
+        )
+        track_a = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        track_b = Track.objects.create(
+            event=event, name="Side Room", slug="side", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        session_a = SessionFactory(event=event, category=category_a, min_age=0)
+        session_a.tracks.add(track_a, private_track)
+        session_b = SessionFactory(event=event, category=category_b, min_age=0)
+        session_b.tracks.add(track_b)
+        AgendaItemFactory(session=session_a, space=space)
+        AgendaItemFactory(
+            session=session_b,
+            space=space,
+            start_time=timezone.now() + timedelta(days=7, hours=3),
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        content = response.content.decode()
+        # Filter controls render (only when >1 value exists, so this also
+        # proves has_track_filter / has_category_filter).
+        assert 'data-category="__track"' in content
+        assert 'data-category="__category"' in content
+        # Cards carry the filter pairs; private tracks stay hidden.
+        assert "__track:Main Hall" in content
+        assert "__track:Side Room" in content
+        assert "__category:RPG" in content
+        assert "__category:Board games" in content
+        assert "__track:Backstage" not in content
+
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
@@ -687,6 +739,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -855,6 +909,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -928,6 +984,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1004,6 +1062,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1055,6 +1115,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1104,6 +1166,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1148,6 +1212,7 @@ class TestEventPageView:
             session_participations=[],
             loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
             can_edit=True,
+            category_name=pending_session.category.name,
         )
         assert_response(
             response,
@@ -1158,6 +1223,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1256,6 +1323,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1320,6 +1389,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1386,6 +1457,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1452,6 +1525,7 @@ class TestEventPageView:
             ),
             user_enrolled=False,
             user_waiting=False,
+            category_name=session.category.name,
         )
         assert_response(
             response,
@@ -1462,6 +1536,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1526,6 +1602,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -1587,6 +1665,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -1624,6 +1704,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1672,6 +1754,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1711,6 +1795,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1754,6 +1840,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1796,6 +1884,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1841,6 +1931,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1930,6 +2022,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1997,6 +2091,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2092,6 +2188,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2178,6 +2276,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2267,6 +2367,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2353,6 +2455,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2441,6 +2545,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2525,6 +2631,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2621,6 +2729,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2709,6 +2819,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2806,6 +2918,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2897,6 +3011,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2990,6 +3106,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [session_field],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3110,6 +3228,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3201,6 +3321,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3293,6 +3415,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },

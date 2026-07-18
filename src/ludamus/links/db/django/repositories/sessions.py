@@ -75,10 +75,12 @@ def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session
         "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
         "event",
         "event__sphere",
+        "category",
     ).prefetch_related(
         "session_participations__user",
         "field_values__field",
         "event__enrollment_configs",
+        "tracks",
     )
 
 

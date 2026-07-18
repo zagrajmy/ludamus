@@ -40,6 +40,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
+    filter_availability,
     mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
@@ -391,17 +392,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Add user enrollment config for authenticated users
         user_enrollment_config = None
-        if (
-            self.request.context.current_user_slug
-            and self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
-            ).email
-        ):
+        slug = self.request.context.current_user_slug
+        user_email = self.request.di.uow.active_users.read(slug).email if slug else None
+        if user_email:
             user_enrollment_config = get_user_enrollment_config(
                 event=EventDTO.model_validate(self.object),
-                user_email=self.request.di.uow.active_users.read(
-                    self.request.context.current_user_slug
-                ).email,
+                user_email=user_email,
                 enrollment_config_repo=self.request.di.uow.enrollment_configs,
                 ticket_api=self.request.di.ticket_api,
                 check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
@@ -417,6 +413,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context.update(self._get_anonymous_context())
 
         context["filterable_tag_categories"] = _get_public_select_fields(self.object)
+        context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context())
 
         return context
@@ -700,6 +697,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 session=SessionDTO.model_validate(session),
                 presenter=presenter,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
+                track_names=[t.name for t in session.tracks.all() if t.is_public],
+                category_name=session.category.name if session.category else "",
                 # is_session_eligible dereferences agenda_item, and an
                 # unscheduled proposal can't be enrolled in anyway.
                 is_enrollment_available=(

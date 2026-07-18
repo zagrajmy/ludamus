@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-17 17:43+0200\n"
+"POT-Creation-Date: 2026-07-18 13:49+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1192,6 +1192,7 @@ msgid "Time slots"
 msgstr "Przedziały czasowe"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposals.html
@@ -1201,6 +1202,7 @@ msgstr "Blok programowy"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -3548,6 +3550,17 @@ msgstr "Godzina"
 #: src/ludamus/templates/chronology/event.html
 msgid "All hours"
 msgstr "Wszystkie godziny"
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "All tracks"
+msgstr "Wszystkie bloki"
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "All categories"
+msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import-log.html
@@ -7182,17 +7195,8 @@ msgid "Submitted Proposals"
 msgstr "Przesłane zgłoszenia"
 
 #: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "All tracks"
-msgstr "Wszystkie bloki"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "Search by facilitator or field values"
 msgstr "Szukaj po prowadzącym lub wartościach pól"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "All categories"
-msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
