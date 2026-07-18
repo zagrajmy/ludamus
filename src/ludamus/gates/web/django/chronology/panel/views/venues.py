@@ -26,6 +26,7 @@ from ludamus.gates.web.django.forms import (
     create_space_copy_form,
 )
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.venues import SpaceInputDTO
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -108,9 +109,12 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 self.request.services.space_tree.create(
                     event_id=current_event.pk,
                     parent_id=parent.pk if parent else None,
-                    name=form.cleaned_data["name"],
-                    capacity=form.cleaned_data.get("capacity"),
-                    description=form.cleaned_data.get("description") or "",
+                    data=SpaceInputDTO(
+                        name=form.cleaned_data["name"],
+                        capacity=form.cleaned_data.get("capacity"),
+                        description=form.cleaned_data.get("description") or "",
+                        location=form.cleaned_data.get("location") or "",
+                    ),
                 )
             except ValidationError as exc:
                 form.add_error(None, exc.messages[0])
@@ -159,6 +163,7 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "name": node.name,
                 "capacity": node.capacity,
                 "description": node.description,
+                "location": node.location,
                 "parent": node.parent_id or "",
             },
             parent_choices=self._parent_choices(node.pk, current_event.pk),
@@ -188,10 +193,13 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
             try:
                 self.request.services.space_tree.update(
                     pk=node.pk,
-                    name=form.cleaned_data["name"],
-                    capacity=form.cleaned_data.get("capacity"),
-                    description=form.cleaned_data.get("description") or "",
                     parent_id=int(parent_raw) if parent_raw else None,
+                    data=SpaceInputDTO(
+                        name=form.cleaned_data["name"],
+                        capacity=form.cleaned_data.get("capacity"),
+                        description=form.cleaned_data.get("description") or "",
+                        location=form.cleaned_data.get("location") or "",
+                    ),
                 )
             except ValidationError as exc:
                 form.add_error(None, exc.messages[0])

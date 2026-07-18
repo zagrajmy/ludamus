@@ -42,6 +42,7 @@
                     onchange="this.form.submit()"
                     class="px-3 py-1.5 border border-border rounded-lg text-sm bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">{% translate "All tracks" %}</option>
+                <option value="multi" {% if filter_track_multi %}selected{% endif %}>{% translate "Multiple tracks" %}</option>
                 {% for track in all_tracks %}
                     <option value="{{ track.pk }}"
                             {% if filter_track_pk == track.pk %}selected{% endif %}
@@ -59,7 +60,11 @@
         {% if current_event %}
             <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
                 <form method="get" class="flex flex-wrap gap-4 items-end">
-                    {% if filter_track_pk %}<input type="hidden" name="track" value="{{ filter_track_pk }}">{% endif %}
+                    {% if filter_track_multi %}
+                        <input type="hidden" name="track" value="multi">
+                    {% elif filter_track_pk %}
+                        <input type="hidden" name="track" value="{{ filter_track_pk }}">
+                    {% endif %}
                     <div class="w-full sm:w-48 min-w-0">
                         <label for="filter-search"
                                title="{% translate "Search" %}"

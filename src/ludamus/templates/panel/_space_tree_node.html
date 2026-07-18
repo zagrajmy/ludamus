@@ -9,17 +9,26 @@
                 {% icon "bars-3" class="w-4 h-4" %}
             </button>
             {% if node.is_leaf %}
-                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-green-500" %}
+                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
                 <span class="sr-only">{% translate "Room" %}</span>
             {% else %}
-                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-blue-500" %}
+                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-info" %}
                 <span class="sr-only">{% translate "Group" %}</span>
             {% endif %}
-            <span class="truncate font-medium text-foreground">{{ node.name }}</span>
+            <span class="truncate font-medium text-foreground" title="{{ node.name }}">{{ node.name }}</span>
+            {% if node.location %}
+                <span class="shrink-0 truncate text-xs text-foreground-muted"
+                      title="{{ node.location }}">
+                    {% icon "map-pin" class="mr-0.5 inline w-3 h-3" variant="mini" %}{{ node.location }}
+                </span>
+            {% endif %}
             {% if node.is_leaf and node.capacity %}
                 <span class="ml-1 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs text-foreground-muted">
                     {% blocktranslate count counter=node.capacity %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
                 </span>
+            {% endif %}
+            {% if node.track_names %}
+                {% include "components/pill_list.html" with items=node.track_names icon="rectangle-group" %}
             {% endif %}
         </div>
         <div class="flex shrink-0 items-center gap-1">
