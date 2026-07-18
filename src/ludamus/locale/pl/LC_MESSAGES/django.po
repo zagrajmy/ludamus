@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 16:25+0200\n"
+"POT-Creation-Date: 2026-07-18 19:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1426,6 +1426,17 @@ msgid "Space not found."
 msgstr "Przestrzeń nie została znaleziona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Yes"
+msgstr "Tak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "No"
+msgstr "Nie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable-overview.html
@@ -2632,15 +2643,6 @@ msgstr "Twórcy programu"
 #: src/ludamus/templates/panel/tracks.html
 msgid "Tracks"
 msgstr "Bloki programowe"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Yes"
-msgstr "Tak"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "No"
-msgstr "Nie"
 
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
@@ -7806,6 +7808,7 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "This field is required."
 #~ msgstr "To pole jest wymagane."
+
 #~ msgid "unassigned"
 #~ msgstr "nieprzypisane"
 
