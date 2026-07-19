@@ -7380,6 +7380,10 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "Filtering"
+msgstr "Filtrowanie"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Selected:"
 msgstr "Zaznaczono:"
 
