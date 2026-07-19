@@ -8,12 +8,15 @@ document to one space-tree node at any level (a room, a floor, a building).
 
 from __future__ import annotations
 
+from contextlib import suppress
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.timezone import get_current_timezone
+from django.utils.dateparse import parse_datetime
+from django.utils.timezone import get_current_timezone, make_aware
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -23,15 +26,19 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.printing import PrintTimetableQueryDTO
+from ludamus.pacts.printing import DoorCardsQueryDTO, PrintTimetableQueryDTO
 
 if TYPE_CHECKING:
+    from datetime import datetime, tzinfo
+
     from django.http import HttpResponse
 
 
 class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
     material: str = "timetable"
+    DEFAULT_RANGE_HOURS = 6
+    MAX_RANGE_HOURS = 72
 
     def get(self, request: PanelRequest, slug: str) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
@@ -59,10 +66,13 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
                 "panel/print/door-cards.html",
                 {
                     "document": service.build_door_cards(
-                        current_event.pk,
-                        tz,
-                        scope_space_pks=scope.space_pks,
-                        scope_name=scope.scope_name,
+                        DoorCardsQueryDTO(
+                            event_pk=current_event.pk,
+                            tz=tz,
+                            scope_space_pks=scope.space_pks,
+                            scope_name=scope.scope_name,
+                            time_range=self._time_range(tz),
+                        )
                     )
                 },
             )
@@ -80,6 +90,20 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
                 )
             },
         )
+
+    def _time_range(self, tz: tzinfo) -> tuple[datetime, datetime] | None:
+        # No (or unparsable) start means the whole event, matching the public
+        # print page's convention of ``?start=…&hours=…`` query params.
+        if not (raw_start := self.request.GET.get("start")):
+            return None
+        if (parsed := parse_datetime(raw_start)) is None:
+            return None
+        start = parsed if parsed.tzinfo else make_aware(parsed, tz)
+        hours = self.DEFAULT_RANGE_HOURS
+        with suppress(ValueError, TypeError):
+            hours = int(self.request.GET.get("hours") or self.DEFAULT_RANGE_HOURS)
+        hours = max(1, min(hours, self.MAX_RANGE_HOURS))
+        return start, start + timedelta(hours=hours)
 
 
 class PrintMaterialsPageView(PanelAccessMixin, EventContextMixin, View):
