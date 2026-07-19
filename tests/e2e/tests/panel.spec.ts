@@ -180,7 +180,7 @@ test.describe("Backoffice Panel", () => {
     // clones this subtree verbatim, including child names. On a serial
     // retry that replays this test after that one has already run, an
     // unscoped exact-text lookup for a child name resolves to two elements.
-    const auroraNode = page.locator("li.space-node", {
+    const auroraNode = page.getByRole("listitem").filter({
       has: page.getByText("Aurora Convention Hall", { exact: true }),
     });
     await expect(auroraNode).toBeVisible();
