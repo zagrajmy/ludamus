@@ -46,6 +46,7 @@ export default defineConfig({
         "event-print": resolve(rootDir, "src/event-print.ts"),
         "event-timeline": resolve(rootDir, "src/event-timeline.ts"),
         "filter-autosubmit": resolve(rootDir, "src/filter-autosubmit.ts"),
+        "facilitator-columns": resolve(rootDir, "src/facilitator-columns.ts"),
         flash: resolve(rootDir, "src/flash.ts"),
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
         index: resolve(rootDir, "src/index.css"),

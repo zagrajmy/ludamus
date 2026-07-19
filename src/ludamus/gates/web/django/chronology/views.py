@@ -26,7 +26,11 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.forms import SessionEditForm
-from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
+from ludamus.gates.web.django.helpers import (
+    get_client_ip,
+    is_event_published,
+    parse_dynamic_field_value,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import (
     ProposeSessionService,
@@ -902,22 +906,16 @@ def _collect_session_field_values(
 ) -> list[SessionFieldValueData] | None:
     if request.POST.get("session_fields_submitted") != "1":
         return None
-    entries: list[SessionFieldValueData] = []
-    for field, _current in session_fields:
-        key = f"session_field_{field.slug}"
-        value: str | list[str] | bool
-        if field.field_type == "checkbox":
-            value = request.POST.get(key) == "true"
-        elif field.is_multiple:
-            value = request.POST.getlist(key)
-        else:
-            value = request.POST.get(key, "")
-            if field.allow_custom and not value:
-                value = request.POST.get(f"{key}_custom", "")
-        entries.append(
-            SessionFieldValueData(session_id=session_id, field_id=field.pk, value=value)
+    return [
+        SessionFieldValueData(
+            session_id=session_id,
+            field_id=field.pk,
+            value=parse_dynamic_field_value(
+                request=request, field=field, key=f"session_field_{field.slug}"
+            ),
         )
-    return entries
+        for field, _current in session_fields
+    ]
 
 
 class SessionEditView(LoginRequiredMixin, View):

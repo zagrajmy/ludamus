@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 22:57+0200\n"
+"POT-Creation-Date: 2026-07-19 18:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1045,7 +1045,6 @@ msgstr "Twórca programu"
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Accreditation type"
 msgstr "Rodzaj akredytacji"
 
@@ -1126,6 +1125,28 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Yes"
+msgstr "Tak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "No"
+msgstr "Nie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Linked"
+msgstr "Powiązany"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/components/pill_list.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "None"
+msgstr "Brak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
 msgstr "Twórca programu został utworzony."
 
@@ -1146,6 +1167,22 @@ msgstr ""
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator flagged for deletion."
+msgstr "Twórca programu oznaczony do usunięcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator unflagged."
+msgstr "Usunięto oznaczenie do usunięcia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator marked as guest."
+msgstr "Twórca programu oznaczony jako gość."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Columns updated."
+msgstr "Kolumny zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -2295,13 +2332,6 @@ msgid "Invalid facilitator selection."
 msgstr "Nieprawidłowy wybór twórcy programu."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/components/pill_list.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitators.html
-msgid "None"
-msgstr "Brak"
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Standard"
 msgstr "Standardowa"
 
@@ -2316,6 +2346,17 @@ msgstr "Honorowa"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Internal comment"
+msgstr "Komentarz wewnętrzny"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Visible to organizers only."
+msgstr "Widoczne tylko dla organizatorów."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Percent"
@@ -2605,6 +2646,7 @@ msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
@@ -2629,13 +2671,32 @@ msgid "Tracks"
 msgstr "Bloki programowe"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Yes"
-msgstr "Tak"
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Display Name"
+msgstr "Nazwa wyświetlana"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "No"
-msgstr "Nie"
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Linked User"
+msgstr "Powiązany użytkownik"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Sessions"
+msgstr "Punkty programu"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Accreditation"
+msgstr "Akredytacja"
 
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
@@ -3013,6 +3074,7 @@ msgid "Schedule view"
 msgstr "Widok harmonogramu"
 
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
+#: src/ludamus/templates/panel/_facilitator_tabs.html
 msgid "List"
 msgstr "Lista"
 
@@ -3198,7 +3260,6 @@ msgstr "Podaj swoje imię, aby dokończyć zapis."
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
-#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Name"
 msgstr "Imię"
@@ -3489,7 +3550,6 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-create.html
@@ -3509,14 +3569,6 @@ msgstr "Anuluj"
 #: src/ludamus/templates/chronology/event.html
 msgid "Switch to This Code"
 msgstr "Przełącz na Ten Kod"
-
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Sessions"
-msgstr "Punkty programu"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/base.html
@@ -3807,6 +3859,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
@@ -3824,17 +3877,6 @@ msgstr "Kod QR z odnośnikiem do pełnego harmonogramu"
 #: src/ludamus/templates/chronology/parts/print_header.html
 msgid "Full schedule"
 msgstr "Pełny harmonogram"
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-edit.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Display Name"
-msgstr "Nazwa wyświetlana"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
@@ -4401,6 +4443,7 @@ msgid "Back to Home"
 msgstr "Powrót do strony głównej"
 
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Personal Information"
@@ -5404,6 +5447,24 @@ msgstr "Wyświetlanie"
 msgid "Integrations"
 msgstr "Integracje"
 
+#: src/ludamus/templates/panel/_facilitator_column_row.html
+msgid "Move up"
+msgstr "Przenieś w górę"
+
+#: src/ludamus/templates/panel/_facilitator_column_row.html
+msgid "Move down"
+msgstr "Przenieś w dół"
+
+#: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+msgid "Merge"
+msgstr "Scal"
+
+#: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid "Columns"
+msgstr "Kolumny"
+
 #: src/ludamus/templates/panel/_import_tabs.html
 msgid "Summary"
 msgstr "Podsumowanie"
@@ -6026,6 +6087,18 @@ msgid ""
 msgstr ""
 "Nie zdefiniowano pól punktu programu. Najpierw utwórz pola w sekcji zgłoszeń."
 
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid "Facilitator columns"
+msgstr "Kolumny twórców programu"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+msgid ""
+"Tick the columns the facilitators list shows, and order them top to bottom. "
+"Organizers only."
+msgstr ""
+"Zaznacz kolumny widoczne na liście twórców programu i ustaw ich kolejność od "
+"góry do dołu. Tylko dla organizatorów."
+
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "New Facilitator"
@@ -6052,11 +6125,6 @@ msgid ""
 msgstr ""
 "Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest nazwa "
 "wyświetlana zgłoszenia."
-
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Linked User"
-msgstr "Powiązany użytkownik"
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -6102,9 +6170,9 @@ msgstr ""
 "zachowanego."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Search by name…"
-msgstr "Szukaj po nazwie…"
+#: src/ludamus/templates/panel/proposals.html
+msgid "Search by facilitator or field values"
+msgstr "Szukaj po prowadzącym lub wartościach pól"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Select all"
@@ -6125,20 +6193,68 @@ msgid "No facilitators match your search."
 msgstr "Żaden twórca programu nie pasuje do wyszukiwania."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Merge"
-msgstr "Scal"
-
-#: src/ludamus/templates/panel/facilitator-merge.html
 msgid "No facilitators available to merge."
 msgstr "Brak twórców programu do scalenia."
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Merge facilitators"
-msgstr "Scal twórców programu"
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Search"
+msgstr "Szukaj"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Linked"
-msgstr "Powiązany"
+msgid "Name, linked user or field values"
+msgstr "Nazwa, użytkownik lub wartości pól"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "All accreditations"
+msgstr "Wszystkie akredytacje"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Flagged for deletion only"
+msgstr "Tylko oznaczeni do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Filter"
+msgstr "Filtruj"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Clear"
+msgstr "Wyczyść"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Flagged"
+msgstr "Oznaczony"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Mark as guest"
+msgstr "Oznacz jako gościa"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Mark %(name)s as guest"
+msgstr "Oznacz jako gościa: %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Remove deletion flag"
+msgstr "Usuń oznaczenie do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Remove deletion flag from %(name)s"
+msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Flag for deletion"
+msgstr "Oznacz do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Flag %(name)s for deletion"
+msgstr "Oznacz do usunięcia: %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
@@ -6167,6 +6283,15 @@ msgstr "Poprzednia"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "No facilitators match your filters."
+msgstr "Żaden twórca programu nie pasuje do filtrów."
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Clear filters"
+msgstr "Wyczyść filtry"
 
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-run.html
@@ -6232,16 +6357,6 @@ msgstr "Szukaj po tytule lub nazwie wyświetlanej"
 #: src/ludamus/templates/panel/import-log.html
 msgid "Search title or display name"
 msgstr "Szukaj tytułu lub nazwy wyświetlanej"
-
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Search"
-msgstr "Szukaj"
-
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Clear"
-msgstr "Wyczyść"
 
 #: src/ludamus/templates/panel/import-log.html
 #, python-format
@@ -7184,6 +7299,10 @@ msgid "Edit Proposal"
 msgstr "Edytuj zgłoszenie"
 
 #: src/ludamus/templates/panel/proposal-edit.html
+msgid "Search by name…"
+msgstr "Szukaj po nazwie…"
+
+#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Assign this proposal to one or more programme tracks."
 msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
 
@@ -7257,16 +7376,8 @@ msgid "Multiple tracks"
 msgstr "Wiele bloków"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Search by facilitator or field values"
-msgstr "Szukaj po prowadzącym lub wartościach pól"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "All categories"
 msgstr "Wszystkie kategorie"
-
-#: src/ludamus/templates/panel/proposals.html
-msgid "Filter"
-msgstr "Filtruj"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filtering"
@@ -7559,10 +7670,6 @@ msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
 #: src/ludamus/templates/panel/timetable-log.html
-msgid "Clear filters"
-msgstr "Wyczyść filtry"
-
-#: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
 
@@ -7799,6 +7906,25 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Session Hosts"
+#~ msgstr "Twórcy programu"
+
+#~ msgid "Personal-data columns"
+#~ msgstr "Kolumny danych osobowych"
+
+#~ msgid ""
+#~ "Select which personal-data fields show as columns on the facilitators "
+#~ "list. Organizers only."
+#~ msgstr ""
+#~ "Wybierz, które pola danych osobowych mają być kolumnami na liście twórców "
+#~ "programu. Tylko dla organizatorów."
+
+#~ msgid "No personal-data fields defined for this event yet."
+#~ msgstr "Nie zdefiniowano jeszcze pól danych osobowych dla tego wydarzenia."
+
+#~ msgid "Merge facilitators"
+#~ msgstr "Scal twórców programu"
 
 #~ msgid "Free slot"
 #~ msgstr "Wolny przedział"
@@ -8074,9 +8200,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "No creators yet."
 #~ msgstr "Brak twórców programu."
-
-#~ msgid "Session Hosts"
-#~ msgstr "Twórcy programu"
 
 #~ msgid "Program Hosts"
 #~ msgstr "Twórcy programu"

@@ -10,6 +10,7 @@ from ludamus.links.db.django.models import (
     EnrollmentConfig,
     Event,
     EventIntegration,
+    EventPanelSettings,
     EventSettings,
     Session,
     SessionParticipation,
@@ -50,6 +51,10 @@ from ludamus.pacts.chronology import (
     SessionCardStatsDTO,
 )
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
+from ludamus.pacts.submissions import (
+    EventPanelSettingsDTO,
+    EventPanelSettingsRepositoryProtocol,
+)
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -292,6 +297,19 @@ class EventSettingsRepository(EventSettingsRepositoryProtocol):
     def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
         settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
         settings.displayed_session_fields.set(field_ids)
+
+
+class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
+    @staticmethod
+    def read_or_create(event_id: int) -> EventPanelSettingsDTO:
+        settings, _ = EventPanelSettings.objects.get_or_create(event_id=event_id)
+        return EventPanelSettingsDTO.model_validate(settings)
+
+    @staticmethod
+    def update_facilitator_columns(event_id: int, columns: list[str]) -> None:
+        EventPanelSettings.objects.update_or_create(
+            event_id=event_id, defaults={"facilitator_columns": columns}
+        )
 
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):

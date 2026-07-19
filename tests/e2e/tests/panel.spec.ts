@@ -1194,7 +1194,7 @@ test.describe("Backoffice Panel", () => {
     await page.goto("/panel/event/frostfire-con/facilitators/");
 
     // One clear merge entry point
-    await expect(page.getByRole("link", { name: /Merge facilitators/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Merge", exact: true })).toBeVisible();
 
     // The old inline selection UI is gone: no "Merge selected" button, no row checkboxes
     await expect(page.getByRole("button", { name: /Merge selected/ })).toHaveCount(0);
@@ -1204,7 +1204,7 @@ test.describe("Backoffice Panel", () => {
   test("merge link opens the merge page with no pre-selection", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/");
 
-    await page.getByRole("link", { name: /Merge facilitators/ }).click();
+    await page.getByRole("tab", { name: "Merge", exact: true }).click();
 
     await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/merge/");
 

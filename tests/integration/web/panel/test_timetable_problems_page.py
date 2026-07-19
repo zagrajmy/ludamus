@@ -199,6 +199,72 @@ class TestTimetableProblemsPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["slot_violations"] == []
 
+    def test_skips_session_spanning_contiguous_preferred_slots(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        session.time_slots.add(
+            TimeSlotFactory(
+                event=event,
+                start_time=event.start_time,
+                end_time=event.start_time + timedelta(hours=4),
+            ),
+            TimeSlotFactory(
+                event=event,
+                start_time=event.start_time + timedelta(hours=4),
+                end_time=event.start_time + timedelta(hours=8),
+            ),
+        )
+        start = event.start_time + timedelta(hours=2)
+        end = event.start_time + timedelta(hours=6)
+        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["slot_violations"] == []
+
+    def test_lists_session_spanning_gap_between_preferred_slots(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=5,
+            min_age=0,
+        )
+        session.time_slots.add(
+            TimeSlotFactory(
+                event=event,
+                start_time=event.start_time,
+                end_time=event.start_time + timedelta(hours=2),
+            ),
+            TimeSlotFactory(
+                event=event,
+                start_time=event.start_time + timedelta(hours=4),
+                end_time=event.start_time + timedelta(hours=8),
+            ),
+        )
+        start = event.start_time + timedelta(hours=1)
+        end = event.start_time + timedelta(hours=5)
+        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        violations = response.context["slot_violations"]
+        assert len(violations) == 1
+        assert violations[0].session_pk == session.pk
+
     def test_skips_session_with_no_preferred_slots(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
