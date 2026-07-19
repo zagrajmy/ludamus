@@ -26,7 +26,9 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <form id="proposal-create-form" method="post" class="max-w-2xl">
+        <form id="proposal-create-form"
+              method="post"
+              class="max-w-2xl lg:max-w-6xl lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
@@ -83,17 +85,29 @@
                                    class="w-full border {% if form.title.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                             {% if form.title.errors %}<p class="mt-1 text-sm text-danger">{{ form.title.errors.0 }}</p>{% endif %}
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_display_name">
-                                {% translate "Display Name" %}<span class="text-danger ml-0.5">*</span>
-                            </label>
-                            <input type="text"
-                                   name="display_name"
-                                   id="id_display_name"
-                                   value="{{ form.display_name.value|default:'' }}"
-                                   class="w-full border {% if form.display_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.display_name.errors %}<p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>{% endif %}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_display_name">
+                                    {% translate "Display Name" %}<span class="text-danger ml-0.5">*</span>
+                                </label>
+                                <input type="text"
+                                       name="display_name"
+                                       id="id_display_name"
+                                       value="{{ form.display_name.value|default:'' }}"
+                                       class="w-full border {% if form.display_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% if form.display_name.errors %}<p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>{% endif %}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_contact_email">{% translate "Contact Email" %}</label>
+                                <input type="email"
+                                       name="contact_email"
+                                       id="id_contact_email"
+                                       value="{{ form.contact_email.value|default:'' }}"
+                                       class="w-full border {% if form.contact_email.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% if form.contact_email.errors %}<p class="mt-1 text-sm text-danger">{{ form.contact_email.errors.0 }}</p>{% endif %}
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -106,46 +120,45 @@
                                 <p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>
                             {% endif %}
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_contact_email">{% translate "Contact Email" %}</label>
-                            <input type="email"
-                                   name="contact_email"
-                                   id="id_contact_email"
-                                   value="{{ form.contact_email.value|default:'' }}"
-                                   class="w-full border {% if form.contact_email.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.contact_email.errors %}<p class="mt-1 text-sm text-danger">{{ form.contact_email.errors.0 }}</p>{% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_participants_limit">{% translate "Participants Limit" %}</label>
-                            <input type="number"
-                                   name="participants_limit"
-                                   id="id_participants_limit"
-                                   value="{{ form.participants_limit.value|default:'' }}"
-                                   min="0"
-                                   class="w-full border {% if form.participants_limit.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.participants_limit.errors %}
-                                <p class="mt-1 text-sm text-danger">{{ form.participants_limit.errors.0 }}</p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_min_age">{% translate "Minimum Age" %}</label>
-                            <input type="number"
-                                   name="min_age"
-                                   id="id_min_age"
-                                   value="{{ form.min_age.value|default:'' }}"
-                                   min="0"
-                                   class="w-full border {% if form.min_age.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% if form.min_age.errors %}<p class="mt-1 text-sm text-danger">{{ form.min_age.errors.0 }}</p>{% endif %}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_participants_limit">{% translate "Participants Limit" %}</label>
+                                <input type="number"
+                                       name="participants_limit"
+                                       id="id_participants_limit"
+                                       value="{{ form.participants_limit.value|default:'' }}"
+                                       min="0"
+                                       class="w-full border {% if form.participants_limit.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% if form.participants_limit.errors %}
+                                    <p class="mt-1 text-sm text-danger">{{ form.participants_limit.errors.0 }}</p>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                       for="id_min_age">{% translate "Minimum Age" %}</label>
+                                <input type="number"
+                                       name="min_age"
+                                       id="id_min_age"
+                                       value="{{ form.min_age.value|default:'' }}"
+                                       min="0"
+                                       class="w-full border {% if form.min_age.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                {% if form.min_age.errors %}<p class="mt-1 text-sm text-danger">{{ form.min_age.errors.0 }}</p>{% endif %}
+                            </div>
                         </div>
                         {# Free text when the category configures no durations, a picker when it does. #}
                         {% tessera_field form.duration %}
                     </div>
                 </div>
             </div>
-            {% include "panel/parts/proposal-session-fields.html" %}
+            <div class="space-y-6 mt-6 lg:mt-0">
+                {% include "panel/parts/proposal-session-fields.html" %}
+                {% if all_time_slots %}
+                    <div class="card">
+                        <div class="card-body">{% include "panel/parts/time-slot-picker.html" %}</div>
+                    </div>
+                {% endif %}
+            </div>
         </form>
     {% endif %}
 {% endblock content %}

@@ -1,8 +1,8 @@
 {% load i18n %}
 {% load tessera %}
-<div id="proposal-session-fields">
+<div id="proposal-session-fields" class="space-y-6">
     {% if field_descriptors %}
-        <div class="card mt-6">
+        <div class="card">
             <div class="card-body">
                 <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Fields" %}</h3>
                 {% for desc in field_descriptors %}
@@ -15,7 +15,7 @@
         </div>
     {% endif %}
     {% if orphan_values %}
-        <div class="card mt-6">
+        <div class="card">
             <div class="card-body">
                 <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Answers outside this category" %}</h3>
                 <p class="text-sm text-foreground-muted mb-6">

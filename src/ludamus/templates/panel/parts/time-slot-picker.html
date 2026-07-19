@@ -1,0 +1,17 @@
+{% load i18n %}
+<h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Preferred time slots" %}</h3>
+<p class="text-sm text-foreground-muted mb-4">
+    {% translate "Time slots the facilitator prefers for this session. These are preferences, not a final schedule." %}
+</p>
+<div class="space-y-2">
+    {% for ts in all_time_slots %}
+        <label class="flex items-center text-sm">
+            <input type="checkbox"
+                   name="time_slot_ids"
+                   value="{{ ts.pk }}"
+                   {% if ts.pk in assigned_time_slot_pks %}checked{% endif %}
+                   class="mr-2">
+            {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
+        </label>
+    {% endfor %}
+</div>

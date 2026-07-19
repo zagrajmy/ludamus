@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 17:41+0200\n"
+"POT-Creation-Date: 2026-07-19 18:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6693,6 +6693,19 @@ msgstr ""
 "Ten punkt programu ma odpowiedzi na pytania, których jego kategoria już nie "
 "zadaje. Pozostaną bez zmian, dopóki ich nie usuniesz."
 
+#: src/ludamus/templates/panel/parts/time-slot-picker.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Preferred time slots"
+msgstr "Preferowane przedziały czasowe"
+
+#: src/ludamus/templates/panel/parts/time-slot-picker.html
+msgid ""
+"Time slots the facilitator prefers for this session. These are preferences, "
+"not a final schedule."
+msgstr ""
+"Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
+"programu. To preferencje, a nie ostateczny harmonogram."
+
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"
 msgstr "Punkty programu do przypisania"
@@ -7165,11 +7178,6 @@ msgid "Presenter"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Preferred time slots"
-msgstr "Preferowane przedziały czasowe"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."
 msgstr "Brak przypisanych twórców programu."
 
@@ -7199,14 +7207,6 @@ msgstr "Edytuj zgłoszenie"
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Assign this proposal to one or more programme tracks."
 msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
-
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid ""
-"Time slots the facilitator prefers for this session. These are preferences, "
-"not a final schedule."
-msgstr ""
-"Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
-"programu. To preferencje, a nie ostateczny harmonogram."
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Facilitator personal data"

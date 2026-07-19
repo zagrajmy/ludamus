@@ -787,6 +787,13 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         context["assigned_facilitator_pks"] = {
             int(v) for v in raw_ids if str(v).isdigit()
         } & {f.pk for f in context["all_facilitators"]}
+        all_time_slots = self.request.di.uow.time_slots.list_by_event(current_event.pk)
+        context["all_time_slots"] = all_time_slots
+        # Slots live outside the form (checkbox list, like on edit), so an
+        # invalid submission re-reads the in-progress selection from POST.
+        context["assigned_time_slot_pks"] = {
+            int(v) for v in self.request.POST.getlist("time_slot_ids") if v.isdigit()
+        } & {ts.pk for ts in all_time_slots}
         context["field_descriptors"] = field_descriptors(
             "session", session_field_requirements(self.request, category), form
         )
@@ -859,6 +866,15 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                     session_id=proposal_id, requirements=requirements, form=form
                 ),
             )
+        submitted_slot_ids = {
+            int(v) for v in self.request.POST.getlist("time_slot_ids") if v.isdigit()
+        }
+        valid_slot_pks = {
+            ts.pk
+            for ts in self.request.di.uow.time_slots.list_by_event(current_event.pk)
+        }
+        if time_slot_ids := list(submitted_slot_ids & valid_slot_pks):
+            self.request.di.uow.sessions.set_time_slots(proposal_id, time_slot_ids)
         messages.success(self.request, _("Proposal created successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
