@@ -141,7 +141,11 @@
                                             {% translate "Required" %}
                                         </option>
                                     {% endif %}
-                                    <option value="optional" {% if field.field_type == "checkbox" %}{% if category.pk in optional_category_pks or category.pk in required_category_pks %}selected{% endif %} {% else %} {% if category.pk in optional_category_pks %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
+                                    <option value="optional"
+                                            {% if field.field_type == "checkbox" %}{% if category.pk in optional_category_pks or category.pk in required_category_pks %}selected{% endif %}
+                                            {% else %}
+                                            {% if category.pk in optional_category_pks %}selected{% endif %}
+                                            {% endif %}>{% translate "Optional" %}</option>
                                 </select>
                             </label>
                         {% endfor %}
