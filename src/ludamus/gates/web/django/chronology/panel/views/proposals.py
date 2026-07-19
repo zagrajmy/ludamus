@@ -34,15 +34,15 @@ from ludamus.pacts import (
     SessionUpdateData,
 )
 from ludamus.pacts.chronology import (
+    SCHEDULED_FILTER,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
+    ProposalListQuery,
     ProposalScheduledError,
 )
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from django import forms
     from django.http import HttpResponse, QueryDict
     from django.utils.functional import _StrPromise
@@ -54,7 +54,6 @@ if TYPE_CHECKING:
         PersonalDataFieldDTO,
         SessionDTO,
         SessionFieldDTO,
-        SessionListItemDTO,
         TimeSlotDTO,
         TrackDTO,
     )
@@ -65,116 +64,52 @@ if TYPE_CHECKING:
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
 
 
-# Filter-only pseudo-status: scheduling lives on the agenda item, not on
-# SessionStatus, but organizers still need "show me what's placed".
-SCHEDULED_FILTER = "scheduled"
-
-_PROPOSAL_SORT_KEYS = ("title", "category", "status", "created")
-
-
-def _proposal_sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
-    if key == "title":
-        return proposal.title.lower()
-    if key == "category":
-        return proposal.category_name.lower()
-    if key == "status":
-        return str(proposal.status)
-    return proposal.creation_time
-
-
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
     """List submitted proposals for an event."""
 
     request: PanelRequest
+
+    def _read_query(
+        self, track_pk: int | None, *, multi_tracks: bool
+    ) -> ProposalListQuery:
+        return ProposalListQuery(
+            search=self.request.GET.get("search", "").strip(),
+            category=self.request.GET.get("category", "").strip(),
+            status=self.request.GET.get("status", ""),
+            track_pk=track_pk,
+            multi_tracks=multi_tracks,
+            sort=self.request.GET.get("sort", "").strip(),
+            raw_field_filters={
+                int(key.removeprefix("field_")): self.request.GET.get(key, "")
+                for key in self.request.GET
+                if key.startswith("field_") and key.removeprefix("field_").isdigit()
+            },
+        )
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        context["active_nav"] = "proposals"
-
-        search = self.request.GET.get("search", "").strip() or None
-        session_fields = self.request.di.uow.session_fields.list_by_event(
-            current_event.pk
-        )
-        filterable_fields = [f for f in session_fields if f.field_type == "select"]
-        field_filters: dict[int, str] = {}
-        for field in filterable_fields:
-            if value := self.request.GET.get(f"field_{field.pk}", "").strip():
-                field_filters[field.pk] = value
-
         sorted_tracks, managed_pks, filter_track_pk = self.get_track_filter_context(
             current_event.pk
         )
         filter_track_multi = self.request.GET.get("track") == "multi"
-
-        categories = self.request.di.uow.proposal_categories.list_by_event(
-            current_event.pk
+        query = self._read_query(filter_track_pk, multi_tracks=filter_track_multi)
+        list_context = self.request.services.proposal_panel.list_context(
+            event_id=current_event.pk, query=query
         )
-        category_raw = self.request.GET.get("category", "").strip()
-        filter_category_pk = int(category_raw) if category_raw.isdigit() else None
-        if filter_category_pk not in {c.pk for c in categories}:
-            filter_category_pk = None
+        page_obj = paginate(self.request, list_context.proposals)
 
-        # Default (no status param) shows every proposal: an event whose
-        # sessions weren't created via proposals should not look empty on first
-        # load. Explicit picks (a real status or the "scheduled" pseudo-filter)
-        # still narrow the list.
-        status_raw = self.request.GET.get("status")
-        filter_status: str | None = (
-            status_raw
-            if status_raw == SCHEDULED_FILTER or status_raw in set(SessionStatus)
-            else None
-        )
-
-        # Scheduled is a placement fact, not a status: the "scheduled" option
-        # filters on agenda-item existence, and picking a real status excludes
-        # scheduled sessions so the backlog views stay clean.
-        if filter_status == SCHEDULED_FILTER:
-            status_filter, scheduled_filter = None, True
-        elif filter_status is not None:
-            status_filter, scheduled_filter = SessionStatus(filter_status), False
-        else:
-            status_filter, scheduled_filter = None, None
-
-        all_proposals = self.request.di.uow.sessions.list_sessions_by_event(
-            current_event.pk,
-            {
-                "field_filters": field_filters or None,
-                "search": search,
-                "track_pk": filter_track_pk,
-                "multi_tracks": filter_track_multi or None,
-                "category_pk": filter_category_pk,
-                "status": status_filter,
-                "scheduled": scheduled_filter,
-            },
-        )
-        sort_param = self.request.GET.get("sort", "").strip()
-        if (sort_key := sort_param.removeprefix("-")) in _PROPOSAL_SORT_KEYS:
-            all_proposals = sorted(
-                all_proposals,
-                key=lambda p: _proposal_sort_value(p, sort_key),
-                reverse=sort_param.startswith("-"),
-            )
-        else:
-            sort_param = ""
-
-        # ponytail: paginate the already-loaded list in the view. The repo
-        # loads all matching rows today anyway; DB-level slicing is a future
-        # concern if an event's proposal count grows past a few thousand.
-        page_obj = paginate(self.request, all_proposals)
-
+        context["active_nav"] = "proposals"
         context["proposals"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
-        context["deleted_proposals"] = (
-            self.request.di.uow.sessions.list_deleted_by_event(current_event.pk)
-        )
-        context["session_fields"] = filterable_fields
-        context["filter_search"] = search or ""
+        context["deleted_proposals"] = list_context.deleted_proposals
+        context["session_fields"] = list_context.filterable_fields
+        context["filter_search"] = query.search
         context["filter_fields"] = {
-            field.pk: self.request.GET.get(f"field_{field.pk}", "")
-            for field in filterable_fields
+            field.pk: query.raw_field_filters.get(field.pk, "")
+            for field in list_context.filterable_fields
         }
         context["all_tracks"] = sorted_tracks
         context["managed_track_pks"] = managed_pks
@@ -188,8 +123,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             if filter_track_multi
             else str(filter_track_pk) if filter_track_pk is not None else ""
         )
-        context["categories"] = categories
-        context["filter_category_pk"] = filter_category_pk
+        context["categories"] = list_context.categories
+        context["filter_category_pk"] = list_context.category_pk
         status_labels = {
             SessionStatus.PENDING: _("Pending"),
             SessionStatus.ACCEPTED: _("Accepted"),
@@ -200,8 +135,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             *((str(s), status_labels[s]) for s in SessionStatus),
             (SCHEDULED_FILTER, _("Scheduled")),
         ]
-        context["filter_status"] = filter_status
-        context["filter_sort"] = sort_param
+        context["filter_status"] = list_context.status
+        context["filter_sort"] = list_context.sort
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 

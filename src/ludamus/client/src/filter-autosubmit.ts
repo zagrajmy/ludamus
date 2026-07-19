@@ -35,3 +35,11 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosub
     lastSubmitted = serialize(form);
   });
 }
+
+// `select[data-navigate]` options carry URLs (e.g. the page-size picker):
+// choosing one navigates there. Degrades without JS to a no-op control.
+for (const select of document.querySelectorAll<HTMLSelectElement>("select[data-navigate]")) {
+  select.addEventListener("change", () => {
+    window.location.assign(select.value);
+  });
+}

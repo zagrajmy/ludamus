@@ -5,7 +5,7 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
@@ -18,10 +18,13 @@ from ludamus.pacts.legacy import (
     ContentChangeLogDTO,
     EventDTO,
     LocationData,
+    ProposalCategoryDTO,
     SessionContentEditData,
     SessionDTO,
+    SessionFieldDTO,
     SessionFieldValueData,
     SessionFieldValueDTO,
+    SessionListItemDTO,
     SessionParticipationStatus,
     SessionSelfEditContext,
     SpaceDTO,
@@ -205,6 +208,52 @@ class ContentChangeNotLatestError(Exception):
 
 class ContentChangeNotRevertibleError(Exception):
     """Every entry in the change is irreversible (cover image, assignments)."""
+
+
+# Filter-only pseudo-status: scheduling lives on the agenda item, not on
+# SessionStatus, but organizers still need "show me what's placed".
+SCHEDULED_FILTER = "scheduled"
+
+
+@dataclass
+class ProposalListQuery:
+    """The proposals list's requested view: filters as the request spelled them.
+
+    `raw_field_filters` is keyed by session-field pk with the value untouched
+    from the query string; the service resolves it against the event's own
+    fields. `category`, `status`, and `sort` are raw request values too.
+    """
+
+    search: str = ""
+    category: str = ""
+    status: str = ""
+    track_pk: int | None = None
+    multi_tracks: bool = False
+    sort: str = ""
+    raw_field_filters: dict[int, str] = field(default_factory=dict)
+
+
+@dataclass
+class ProposalListContextDTO:
+    """Read aggregate for the panel's proposals list.
+
+    `category_pk`, `status`, and `sort` echo back the query values that
+    survived validation, so the view renders exactly what was filtered on.
+    """
+
+    proposals: list[SessionListItemDTO]
+    deleted_proposals: list[SessionListItemDTO]
+    filterable_fields: list[SessionFieldDTO]
+    categories: list[ProposalCategoryDTO]
+    category_pk: int | None
+    status: str | None
+    sort: str
+
+
+class ProposalPanelServiceProtocol(Protocol):
+    def list_context(
+        self, *, event_id: int, query: ProposalListQuery
+    ) -> ProposalListContextDTO: ...
 
 
 class SessionContentEditServiceProtocol(Protocol):

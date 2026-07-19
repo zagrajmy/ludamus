@@ -4,9 +4,40 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, FacilitatorChangeLog
+from ludamus.pacts import EventDTO, FacilitatorChangeLogDTO
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+
+def _base_context(event):
+    return {
+        "current_event": EventDTO.model_validate(event),
+        "events": [EventDTO.model_validate(event)],
+        "is_proposal_active": False,
+        "stats": {
+            "hosts_count": 0,
+            "pending_proposals": 0,
+            "rooms_count": 0,
+            "scheduled_sessions": 0,
+            "total_proposals": 0,
+            "total_sessions": 0,
+        },
+        "active_nav": "facilitators",
+    }
+
+
+def _tab_urls(event, facilitator_slug):
+    return {
+        "details": reverse(
+            "panel:facilitator-detail",
+            kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
+        ),
+        "history": reverse(
+            "panel:facilitator-history",
+            kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
+        ),
+    }
 
 
 class TestFacilitatorHistoryPageView:
@@ -81,18 +112,38 @@ class TestFacilitatorHistoryPageView:
 
         response = authenticated_client.get(self.get_url(event, "alice"))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.templates[0].name == "panel/facilitator-history.html"
-        assert [entry.pk for entry in response.context["logs"]] == [log.pk]
-        assert response.context["facilitator_name"] == "Alice"
-        assert response.context["active_tab"] == "history"
-        assert response.context["tab_urls"] == {
-            "details": reverse(
-                "panel:facilitator-detail",
-                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
-            ),
-            "history": self.get_url(event, "alice"),
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-history.html",
+            context_data={
+                **_base_context(event),
+                "active_tab": "history",
+                "tab_urls": _tab_urls(event, "alice"),
+                "facilitator_name": "Alice",
+                "logs": [
+                    FacilitatorChangeLogDTO(
+                        pk=log.pk,
+                        event_id=event.pk,
+                        facilitator_id=alice.pk,
+                        facilitator_name="Alice",
+                        user_id=active_user.pk,
+                        user_name=active_user.name,
+                        changes=[
+                            {
+                                "field": "internal_comment",
+                                "field_id": None,
+                                "old": "",
+                                "new": "VIP",
+                            }
+                        ],
+                        creation_time=log.creation_time,
+                    )
+                ],
+                "field_names": {},
+            },
+            contains=["Alice"],
+        )
 
     def test_renders_empty_history(
         self, authenticated_client, active_user, sphere, event
@@ -104,7 +155,17 @@ class TestFacilitatorHistoryPageView:
 
         response = authenticated_client.get(self.get_url(event, "alice"))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.templates[0].name == "panel/facilitator-history.html"
-        assert response.context["logs"] == []
-        assert "No changes recorded yet." in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-history.html",
+            context_data={
+                **_base_context(event),
+                "active_tab": "history",
+                "tab_urls": _tab_urls(event, "alice"),
+                "facilitator_name": "Alice",
+                "logs": [],
+                "field_names": {},
+            },
+            contains="No changes recorded yet.",
+        )

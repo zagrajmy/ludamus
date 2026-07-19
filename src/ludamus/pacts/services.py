@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         EventIntegrationsServiceProtocol,
         PartySessionHistoryServiceProtocol,
         ProposalAcceptanceServiceProtocol,
+        ProposalPanelServiceProtocol,
         ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
@@ -119,6 +120,8 @@ class ServicesProtocol(Protocol):
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
+    @property
+    def proposal_panel(self) -> ProposalPanelServiceProtocol: ...
     @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property

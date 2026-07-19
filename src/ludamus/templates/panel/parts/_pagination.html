@@ -10,7 +10,7 @@
         <div class="flex items-center gap-3">
             <label class="flex items-center gap-2 text-foreground-muted">
                 {% translate "Per page:" %}
-                {% select onchange="window.location=this.value" class="text-sm" %}
+                {% select data_navigate="true" class="text-sm" %}
                     <option value="{% querystring page_size=10 page=1 %}"
                             {% if page_obj.paginator.per_page == 10 %}selected{% endif %}>10</option>
                     <option value="{% querystring page_size=20 page=1 %}"

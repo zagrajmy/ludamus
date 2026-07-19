@@ -4,9 +4,19 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ContentChangeLog, ProposalCategory, Session
+from ludamus.pacts import ContentChangeLogDTO, EventDTO
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+
+def _base_context(event):
+    return {
+        "current_event": EventDTO.model_validate(event),
+        "events": [EventDTO.model_validate(event)],
+        "is_proposal_active": False,
+        "active_nav": "proposals",
+    }
 
 
 def _make_session(event, title, slug):
@@ -22,6 +32,19 @@ def _make_session(event, title, slug):
         participants_limit=5,
         status="pending",
     )
+
+
+def _tab_urls(event, proposal_id):
+    return {
+        "details": reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": proposal_id},
+        ),
+        "history": reverse(
+            "panel:proposal-history",
+            kwargs={"slug": event.slug, "proposal_id": proposal_id},
+        ),
+    }
 
 
 class TestProposalHistoryPageView:
@@ -88,18 +111,41 @@ class TestProposalHistoryPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.templates[0].name == "panel/proposal-history.html"
-        assert [entry.pk for entry in response.context["logs"]] == [log.pk]
-        assert response.context["proposal_title"] == "Dragon Heist"
-        assert response.context["active_tab"] == "history"
-        assert response.context["tab_urls"] == {
-            "details": reverse(
-                "panel:proposal-detail",
-                kwargs={"slug": event.slug, "proposal_id": session.pk},
-            ),
-            "history": self.get_url(event, session.pk),
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-history.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 2,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 2,
+                    "total_sessions": 2,
+                },
+                "active_tab": "history",
+                "tab_urls": _tab_urls(event, session.pk),
+                "proposal_title": "Dragon Heist",
+                "logs": [
+                    ContentChangeLogDTO(
+                        pk=log.pk,
+                        event_id=event.pk,
+                        session_id=session.pk,
+                        session_title="Dragon Heist",
+                        user_id=active_user.pk,
+                        user_name=active_user.name,
+                        changes=[
+                            {"field": "title", "field_id": None, "old": "A", "new": "B"}
+                        ],
+                        creation_time=log.creation_time,
+                    )
+                ],
+                "field_names": {},
+            },
+            contains=["Dragon Heist"],
+        )
 
     def test_renders_empty_history(
         self, authenticated_client, active_user, sphere, event
@@ -109,7 +155,25 @@ class TestProposalHistoryPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.templates[0].name == "panel/proposal-history.html"
-        assert response.context["logs"] == []
-        assert "No changes recorded yet." in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-history.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "active_tab": "history",
+                "tab_urls": _tab_urls(event, session.pk),
+                "proposal_title": "Dragon Heist",
+                "logs": [],
+                "field_names": {},
+            },
+            contains="No changes recorded yet.",
+        )

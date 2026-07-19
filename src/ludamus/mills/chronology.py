@@ -25,6 +25,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
+    SCHEDULED_FILTER,
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
     TIMETABLE_SNAP_MINUTES,
@@ -53,6 +54,9 @@ from ludamus.pacts.chronology import (
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     ProposalAcceptContextDTO,
+    ProposalListContextDTO,
+    ProposalListQuery,
+    ProposalPanelServiceProtocol,
     ProposalScheduledError,
     SessionPlacement,
     SessionPositionDTO,
@@ -79,9 +83,11 @@ if TYPE_CHECKING:
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
+        ProposalCategoryRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
+        SessionListItemDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SpaceDTO,
@@ -560,6 +566,106 @@ class SessionDeletionService:
         # scopes to the event (the alive-manager check can't see deleted rows).
         with self._transaction.atomic():
             self._sessions.restore(session_pk, event_pk)
+
+
+_PROPOSAL_SORT_KEYS = ("title", "category", "status", "created")
+
+
+def _proposal_sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
+    if key == "title":
+        return proposal.title.lower()
+    if key == "category":
+        return proposal.category_name.lower()
+    if key == "status":
+        return str(proposal.status)
+    return proposal.creation_time
+
+
+class ProposalPanelService(ProposalPanelServiceProtocol):
+    """Read path for the panel's proposals list.
+
+    Validates every query value against the event's own data: a tampered
+    category, status, sort key, or `field_<pk>` filter is dropped instead of
+    queried, and the surviving values are echoed back for rendering.
+    """
+
+    def __init__(
+        self,
+        *,
+        sessions: SessionRepositoryProtocol,
+        session_fields: SessionFieldRepositoryProtocol,
+        proposal_categories: ProposalCategoryRepositoryProtocol,
+    ) -> None:
+        self._sessions = sessions
+        self._session_fields = session_fields
+        self._proposal_categories = proposal_categories
+
+    def list_context(
+        self, *, event_id: int, query: ProposalListQuery
+    ) -> ProposalListContextDTO:
+        session_fields = self._session_fields.list_by_event(event_id)
+        filterable_fields = [f for f in session_fields if f.field_type == "select"]
+        valid_pks = {f.pk for f in filterable_fields}
+        field_filters = {
+            pk: value
+            for pk, raw in query.raw_field_filters.items()
+            if pk in valid_pks and (value := raw.strip())
+        }
+
+        categories = self._proposal_categories.list_by_event(event_id)
+        category_pk = int(query.category) if query.category.isdigit() else None
+        if category_pk not in {c.pk for c in categories}:
+            category_pk = None
+
+        # Default (no status) shows every proposal: an event whose sessions
+        # weren't created via proposals should not look empty on first load.
+        status = (
+            query.status
+            if query.status == SCHEDULED_FILTER or query.status in set(SessionStatus)
+            else None
+        )
+        # Scheduled is a placement fact, not a status: the "scheduled" option
+        # filters on agenda-item existence, and picking a real status excludes
+        # scheduled sessions so the backlog views stay clean.
+        if status == SCHEDULED_FILTER:
+            status_filter, scheduled_filter = None, True
+        elif status is not None:
+            status_filter, scheduled_filter = SessionStatus(status), False
+        else:
+            status_filter, scheduled_filter = None, None
+
+        proposals = self._sessions.list_sessions_by_event(
+            event_id,
+            {
+                "field_filters": field_filters or None,
+                "search": query.search or None,
+                "track_pk": query.track_pk,
+                "multi_tracks": query.multi_tracks or None,
+                "category_pk": category_pk,
+                "status": status_filter,
+                "scheduled": scheduled_filter,
+            },
+        )
+
+        sort = query.sort
+        if (sort_key := sort.removeprefix("-")) in _PROPOSAL_SORT_KEYS:
+
+            def sort_value(proposal: SessionListItemDTO) -> str | datetime:
+                return _proposal_sort_value(proposal, sort_key)
+
+            proposals = sorted(proposals, key=sort_value, reverse=sort.startswith("-"))
+        else:
+            sort = ""
+
+        return ProposalListContextDTO(
+            proposals=proposals,
+            deleted_proposals=self._sessions.list_deleted_by_event(event_id),
+            filterable_fields=filterable_fields,
+            categories=categories,
+            category_pk=category_pk,
+            status=status,
+            sort=sort,
+        )
 
 
 class ProposalStatusService:

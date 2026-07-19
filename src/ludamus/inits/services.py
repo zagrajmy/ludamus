@@ -20,6 +20,7 @@ from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
     ProposalAcceptanceService,
+    ProposalPanelService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
@@ -228,6 +229,14 @@ class Services:
             self._repos.sessions,
             self._repos.agenda_items,
             ScheduleChangeLogRepository(),
+        )
+
+    @cached_property
+    def proposal_panel(self) -> ProposalPanelService:
+        return ProposalPanelService(
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            proposal_categories=self._repos.proposal_categories,
         )
 
     @cached_property
