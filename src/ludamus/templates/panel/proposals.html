@@ -17,7 +17,7 @@
 {% block header_actions %}
     {% if current_event %}
         {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
-        {% translate "Create Session" as t_create %}
+        {% translate "New Proposal" as t_create %}
         {% tessera_button t_create href=create_url icon="plus" %}
         {% url 'panel:content-log' slug=current_event.slug as log_url %}
         {% translate "Activity Log" as t_log %}
@@ -259,7 +259,7 @@
                     {% else %}
                         <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
                         {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
-                        {% translate "Create Session" as t_create %}
+                        {% translate "New Proposal" as t_create %}
                         {% tessera_button t_create href=create_url icon="plus" %}
                     {% endif %}
                 </div>
@@ -297,15 +297,7 @@
                         <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
                             title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            {% if proposal.status == "pending" %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
-                                    {% translate "Pending" %}
-                                </span>
-                            {% elif proposal.status == "rejected" %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
-                                    {% translate "Rejected" %}
-                                </span>
-                            {% endif %}
+                            {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=False %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                             <form method="post"

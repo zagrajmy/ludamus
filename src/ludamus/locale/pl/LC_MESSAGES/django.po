@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 21:41+0200\n"
+"POT-Creation-Date: 2026-07-19 21:46+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1467,7 +1467,6 @@ msgstr "Przestrzeń nie została znaleziona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Pending"
 msgstr "Oczekujące"
@@ -1486,7 +1485,6 @@ msgstr "Wstrzymane"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Rejected"
 msgstr "Odrzucone"
@@ -1582,12 +1580,12 @@ msgstr[2] "Nie znaleziono %(count)d zgłoszeń."
 msgstr[3] "Nie znaleziono %(count)d zgłoszeń."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Session deleted."
-msgstr "Punkt programu został usunięty."
+msgid "Proposal deleted."
+msgstr "Zgłoszenie zostało usunięte."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Session restored."
-msgstr "Punkt programu przywrócony."
+msgid "Proposal restored."
+msgstr "Zgłoszenie przywrócone."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Facilitators updated."
@@ -3801,7 +3799,6 @@ msgstr "Nowa integracja"
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
-#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/time-slot-create.html
 msgid "Create"
@@ -4117,8 +4114,6 @@ msgid "Continue"
 msgstr "Dalej"
 
 #: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Session Details"
 msgstr "Szczegóły punktu programu"
 
@@ -7177,8 +7172,18 @@ msgstr "Nie zaplanowano przedziałów czasowych."
 
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposals.html
-msgid "Create Session"
-msgstr "Utwórz punkt programu"
+msgid "New Proposal"
+msgstr "Nowe zgłoszenie"
+
+#: src/ludamus/templates/panel/proposal-create.html
+msgid "Create Proposal"
+msgstr "Utwórz zgłoszenie"
+
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Proposal Details"
+msgstr "Szczegóły zgłoszenia"
 
 #: src/ludamus/templates/panel/proposal-create.html
 msgid "This event has no facilitators yet."
@@ -7187,10 +7192,6 @@ msgstr "To wydarzenie nie ma jeszcze twórców programu."
 #: src/ludamus/templates/panel/proposal-create.html
 msgid "Create one first"
 msgstr "Najpierw utwórz twórcę programu"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Proposal Details"
-msgstr "Szczegóły zgłoszenia"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "This is the current status."
@@ -7911,6 +7912,15 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Session deleted."
+#~ msgstr "Punkt programu został usunięty."
+
+#~ msgid "Session restored."
+#~ msgstr "Punkt programu przywrócony."
+
+#~ msgid "Create Session"
+#~ msgstr "Utwórz punkt programu"
 
 #~ msgid "Session Hosts"
 #~ msgstr "Twórcy programu"

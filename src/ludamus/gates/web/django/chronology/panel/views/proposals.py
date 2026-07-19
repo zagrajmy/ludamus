@@ -878,7 +878,7 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        messages.success(self.request, _("Session deleted."))
+        messages.success(self.request, _("Proposal deleted."))
         return redirect("panel:proposals", slug=slug)
 
 
@@ -899,7 +899,7 @@ class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        messages.success(self.request, _("Session restored."))
+        messages.success(self.request, _("Proposal restored."))
         return redirect("panel:proposals", slug=slug)
 
 
