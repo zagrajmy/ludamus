@@ -54,6 +54,12 @@ group = "linting"
 pattern = '#\s*noqa:'
 
 [[metrics]]
+name = "ruff-comment"
+type = "regex_count"
+group = "linting"
+pattern = '#\s*ruff:'
+
+[[metrics]]
 name = "ruff-ignores"
 type = "toml_list_length"
 group = "linting"
