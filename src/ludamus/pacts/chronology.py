@@ -20,6 +20,7 @@ from ludamus.pacts.legacy import (
     LocationData,
     ProposalCategoryDTO,
     SessionContentEditData,
+    SessionData,
     SessionDTO,
     SessionFieldDTO,
     SessionFieldValueData,
@@ -254,6 +255,14 @@ class ProposalPanelServiceProtocol(Protocol):
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
     ) -> ProposalListContextDTO: ...
+    def create_proposal(
+        self,
+        *,
+        event_id: int,
+        data: SessionData,
+        base_slug: str,
+        facilitator_ids: list[int],
+    ) -> int: ...
 
 
 class SessionContentEditServiceProtocol(Protocol):

@@ -11,6 +11,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
@@ -19,7 +20,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-    make_unique_slug,
     paginate,
     proposal_detail_tab_urls,
 )
@@ -621,17 +621,12 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
         title = form.cleaned_data["title"]
-        session_slug = make_unique_slug(
-            title,
-            "session",
-            lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
-        )
-
         # The form's MultipleChoiceField already validated each id against the
         # event's facilitators, so the cleaned list is event-scoped.
         facilitator_ids = [int(fid) for fid in form.cleaned_data["facilitator_ids"]]
-        proposal_id = self.request.di.uow.sessions.create(
-            SessionData(
+        proposal_id = self.request.services.proposal_panel.create_proposal(
+            event_id=current_event.pk,
+            data=SessionData(
                 category_id=int(form.cleaned_data["category_id"]),
                 event_id=current_event.pk,
                 contact_email=form.cleaned_data.get("contact_email") or "",
@@ -641,10 +636,11 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 min_age=form.cleaned_data.get("min_age") or 0,
                 participants_limit=form.cleaned_data.get("participants_limit") or 0,
                 presenter_id=None,
-                slug=session_slug,
+                slug="",
                 status=SessionStatus.PENDING,
                 title=title,
             ),
+            base_slug=slugify(title),
             facilitator_ids=facilitator_ids,
         )
         messages.success(self.request, _("Proposal created successfully."))

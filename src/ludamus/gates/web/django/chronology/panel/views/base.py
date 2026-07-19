@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
@@ -11,14 +10,13 @@ from django.core.paginator import Page, Paginator
 from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.text import slugify
 from django.utils.translation import gettext as _
 
 from ludamus.mills import PanelService, is_proposal_active
 from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
@@ -195,15 +193,3 @@ def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
         "run": reverse("panel:import-run", kwargs={"slug": slug, "pk": pk}),
         "log": reverse("panel:import-log", kwargs={"slug": slug, "pk": pk}),
     }
-
-
-def make_unique_slug(
-    name: str, default: str, check_exists: Callable[[str], bool]
-) -> str:
-    base_slug = slugify(name) or default
-    slug = base_slug
-    for _attempt in range(4):
-        if not check_exists(slug):
-            break
-        slug = f"{base_slug}-{token_urlsafe(3)}"
-    return slug

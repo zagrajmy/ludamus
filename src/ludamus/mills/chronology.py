@@ -8,6 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
@@ -85,6 +86,7 @@ if TYPE_CHECKING:
         ContentFieldValue,
         ProposalCategoryRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
+        SessionData,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
         SessionListItemDTO,
@@ -666,6 +668,23 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             status=status,
             sort=sort,
         )
+
+    def create_proposal(
+        self,
+        *,
+        event_id: int,
+        data: SessionData,
+        base_slug: str,
+        facilitator_ids: list[int],
+    ) -> int:
+        base = base_slug or "session"
+        slug = base
+        for _attempt in range(4):
+            if not self._sessions.slug_exists(event_id, slug):
+                break
+            slug = f"{base}-{token_urlsafe(3)}"
+        data["slug"] = slug
+        return self._sessions.create(data, facilitator_ids=facilitator_ids)
 
 
 class ProposalStatusService:
