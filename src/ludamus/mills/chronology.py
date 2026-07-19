@@ -102,6 +102,20 @@ def _duration_hours(start: datetime, end: datetime) -> float:
     return max((end - start).total_seconds() / 3600, 0.0)
 
 
+def _slot_start(slot: TimeSlotDTO) -> datetime:
+    return slot.start_time
+
+
+def _merged_slot_ranges(slots: list[TimeSlotDTO]) -> list[tuple[datetime, datetime]]:
+    merged: list[tuple[datetime, datetime]] = []
+    for slot in sorted(slots, key=_slot_start):
+        if merged and slot.start_time <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], slot.end_time))
+        else:
+            merged.append((slot.start_time, slot.end_time))
+    return merged
+
+
 def _position_sessions(
     items: list[AgendaItemDTO], event_start: datetime
 ) -> list[SessionPositionDTO]:
@@ -818,8 +832,8 @@ class ConflictDetectionService:
             if not (preferred := preferred_by_session.get(item.session_id, [])):
                 continue
             if any(
-                slot.start_time <= item.start_time and slot.end_time >= item.end_time
-                for slot in preferred
+                start <= item.start_time and end >= item.end_time
+                for start, end in _merged_slot_ranges(preferred)
             ):
                 continue
             track_name, manager_names = self._slot_violation_track_attribution(

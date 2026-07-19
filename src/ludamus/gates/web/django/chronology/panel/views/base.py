@@ -150,6 +150,14 @@ def cfp_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
+def facilitator_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "list": reverse("panel:facilitators", kwargs={"slug": slug}),
+        "merge": reverse("panel:facilitator-merge", kwargs={"slug": slug}),
+        "columns": reverse("panel:facilitator-columns", kwargs={"slug": slug}),
+    }
+
+
 def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
     return {
         "proposal": reverse(
