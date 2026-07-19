@@ -76,6 +76,7 @@
                       hx-indicator="#filter-spinner"
                       class="flex flex-wrap gap-4 items-end">
                     <input type="hidden" name="track" value="{{ filter_track_value }}">
+                    {% if filter_sort %}<input type="hidden" name="sort" value="{{ filter_sort }}">{% endif %}
                     <div class="w-full sm:w-48 min-w-0">
                         <label for="filter-search"
                                title="{% translate "Search" %}"
@@ -208,26 +209,18 @@
                                            aria-label="{% translate "Select all proposals" %}"
                                            class="rounded border-border">
                                 </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Title" %}
-                                </th>
+                                {% translate "Title" as t_title %}
+                                {% include "panel/parts/_sort_th.html" with column="title" label=t_title %}
                                 <th scope="col"
                                     class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
                                     {% translate "Display Name" %}
                                 </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Category" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Status" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Created" %}
-                                </th>
+                                {% translate "Category" as t_category %}
+                                {% include "panel/parts/_sort_th.html" with column="category" label=t_category %}
+                                {% translate "Status" as t_status %}
+                                {% include "panel/parts/_sort_th.html" with column="status" label=t_status %}
+                                {% translate "Created" as t_created %}
+                                {% include "panel/parts/_sort_th.html" with column="created" label=t_created %}
                             </tr>
                         </thead>
                         <tbody class="bg-bg-secondary divide-y divide-border">

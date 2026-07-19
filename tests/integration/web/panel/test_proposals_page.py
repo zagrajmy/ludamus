@@ -49,6 +49,7 @@ _TRACK_FILTER_CONTEXT = {
     "page_obj": PageMatcher(number=1, num_pages=1),
     "filter_category_pk": None,
     "filter_status": None,
+    "filter_sort": "",
     "statuses": _STATUSES,
 }
 
@@ -357,6 +358,37 @@ class TestProposalsPageView:
 
         assert non_integer.context["page_obj"].number == 1
         assert too_high.context["page_obj"].number == _TOTAL_PAGES
+
+    def test_sorts_proposals(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        for title in ("Banana", "Cherry", "Apple"):
+            Session.objects.create(
+                event=event,
+                category=category,
+                display_name="Host",
+                title=title,
+                slug=title.lower(),
+                participants_limit=5,
+                status="pending",
+            )
+
+        ascending = authenticated_client.get(self.get_url(event), {"sort": "title"})
+        descending = authenticated_client.get(self.get_url(event), {"sort": "-title"})
+        bogus = authenticated_client.get(self.get_url(event), {"sort": "bogus"})
+
+        assert [p.title for p in ascending.context["proposals"]] == [
+            "Apple",
+            "Banana",
+            "Cherry",
+        ]
+        assert [p.title for p in descending.context["proposals"]] == [
+            "Cherry",
+            "Banana",
+            "Apple",
+        ]
+        assert ascending.context["filter_sort"] == "title"
+        assert not bogus.context["filter_sort"]
 
     def test_page_size_param(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
@@ -908,6 +940,7 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": None,
+                "filter_sort": "",
                 "statuses": _STATUSES,
             },
         )
@@ -945,6 +978,7 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": "accepted",
+                "filter_sort": "",
                 "statuses": _STATUSES,
             },
             contains=[
@@ -990,6 +1024,7 @@ class TestProposalsPageView:
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "filter_category_pk": category.pk,
                 "filter_status": None,
+                "filter_sort": "",
                 "statuses": _STATUSES,
             },
             contains=f'<input type="hidden" name="category" value="{category.pk}">',
@@ -1028,6 +1063,7 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": None,
+                "filter_sort": "",
                 "statuses": _STATUSES,
             },
         )

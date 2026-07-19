@@ -91,7 +91,7 @@
                 <thead class="bg-bg-tertiary">
                     <tr>
                         {% for column in columns %}
-                            {% include "panel/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
+                            {% include "panel/parts/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
                         {% endfor %}
                         <th scope="col"
                             class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">

@@ -40,6 +40,8 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from django import forms
     from django.http import HttpResponse, QueryDict
     from django.utils.functional import _StrPromise
@@ -51,6 +53,7 @@ if TYPE_CHECKING:
         PersonalDataFieldDTO,
         SessionDTO,
         SessionFieldDTO,
+        SessionListItemDTO,
         TimeSlotDTO,
         TrackDTO,
     )
@@ -64,6 +67,18 @@ if TYPE_CHECKING:
 # Filter-only pseudo-status: scheduling lives on the agenda item, not on
 # SessionStatus, but organizers still need "show me what's placed".
 SCHEDULED_FILTER = "scheduled"
+
+_PROPOSAL_SORT_KEYS = ("title", "category", "status", "created")
+
+
+def _proposal_sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
+    if key == "title":
+        return proposal.title.lower()
+    if key == "category":
+        return proposal.category_name.lower()
+    if key == "status":
+        return str(proposal.status)
+    return proposal.creation_time
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -134,6 +149,16 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
                 "scheduled": scheduled_filter,
             },
         )
+        sort_param = self.request.GET.get("sort", "").strip()
+        if (sort_key := sort_param.removeprefix("-")) in _PROPOSAL_SORT_KEYS:
+            all_proposals = sorted(
+                all_proposals,
+                key=lambda p: _proposal_sort_value(p, sort_key),
+                reverse=sort_param.startswith("-"),
+            )
+        else:
+            sort_param = ""
+
         # ponytail: paginate the already-loaded list in the view. The repo
         # loads all matching rows today anyway; DB-level slicing is a future
         # concern if an event's proposal count grows past a few thousand.
@@ -175,6 +200,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             (SCHEDULED_FILTER, _("Scheduled")),
         ]
         context["filter_status"] = filter_status
+        context["filter_sort"] = sort_param
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 
