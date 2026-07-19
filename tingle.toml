@@ -14,6 +14,20 @@ include = ["src/ludamus/adapters/**/*.py", "src/**/legacy.py"]
 [ranges.gates]
 include = ["src/ludamus/gates/**/*.py"]
 
+[ranges.old-subdomain-modules]
+include = [
+  "src/ludamus/**/chronology.py",
+  "src/ludamus/**/chronology/**/*.py",
+  "src/ludamus/**/submissions.py",
+  "src/ludamus/**/submissions/**/*.py",
+  "src/ludamus/**/multiverse.py",
+  "src/ludamus/**/multiverse/**/*.py",
+  "src/ludamus/**/crowd.py",
+  "src/ludamus/**/crowd/**/*.py",
+  "src/ludamus/**/notice_board.py",
+  "src/ludamus/**/notice_board/**/*.py",
+]
+
 [ranges.python-tests]
 include = ["tests/**/*.py"]
 
@@ -186,6 +200,14 @@ name = "legacy-loc"
 type = "line_count"
 group = "refactoring"
 ranges = ["legacy-code"]
+
+# Old subdomain names (noun/verb migration): chronology+submissions -> event,
+# crowd -> user, multiverse -> sphere, notice_board -> encounter
+[[metrics]]
+name = "old-subdomain-loc"
+type = "line_count"
+group = "refactoring"
+ranges = ["old-subdomain-modules"]
 
 [[metrics]]
 name = "script-tags"

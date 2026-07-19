@@ -5,12 +5,12 @@ the new `request.services.<service_name>` shape. Each file is its own PR.
 
 ## Recipe
 
-1. **Define the service protocol** in `pacts/<subdomain>.py`. Include any
+1. **Define the service protocol** in `pacts/<noun>.py`. Include any
    read DTOs the service returns (e.g. form-context aggregates that bundle
    what a template needs). Add a `@property` for the service to
    `ServicesProtocol` in `pacts/services.py`.
 
-2. **Implement the service** in `mills/<subdomain>.py`. The constructor
+2. **Implement the service** in `mills/<noun>.py`. The constructor
    takes a `TransactionProtocol` plus the specific repo protocols the
    service touches — never the full UoW. Methods return DTOs (not models,
    not raw dicts). Multi-repo writes happen inside
