@@ -87,7 +87,9 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         settings.save(update_fields=["description"])
 
 
-class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: PLR0904
+class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
+    ProposalCategoryRepositoryProtocol
+):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
         base_slug = slugify(name)
         slug = self.generate_unique_slug(event_id, base_slug)

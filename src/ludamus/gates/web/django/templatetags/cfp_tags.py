@@ -26,7 +26,7 @@ def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
 
 
 @register.filter
-def cfp_status(category: Any) -> dict[str, str]:  # type: ignore[misc] # noqa: ANN401
+def cfp_status(category: Any) -> dict[str, str]:  # type: ignore[misc] # ruff:ignore[any-type]
     """Return status info for a proposal category.
 
     Returns:
@@ -80,7 +80,7 @@ def content_field_label(field_key: str) -> str:
 
 
 @register.filter
-def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc] # noqa: ANN401
+def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc] # ruff:ignore[any-type]
     """Get an item from a dictionary by key.
 
     Returns:
@@ -139,7 +139,7 @@ def has_field_value(value: object) -> bool:
 
 
 @register.filter
-def format_field_value(value: Any) -> str:  # type: ignore[misc] # noqa: ANN401
+def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[any-type]
     """Format a session field value for display.
 
     Returns:

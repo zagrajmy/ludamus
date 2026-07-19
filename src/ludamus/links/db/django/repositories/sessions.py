@@ -155,7 +155,7 @@ def _session_modal_dto(
     )
 
 
-class SessionRepository(  # noqa: PLR0904
+class SessionRepository(  # ruff:ignore[too-many-public-methods]
     SessionRepositoryProtocol, SessionModalRepositoryProtocol
 ):
     @staticmethod
