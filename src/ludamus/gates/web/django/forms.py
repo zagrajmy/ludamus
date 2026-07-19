@@ -564,8 +564,10 @@ def field_descriptors(
             "icon": getattr(req.field, "icon", ""),
         }
         # Checkboxes get no companion input even when allow_custom is set.
-        if req.field.allow_custom and f"{field_key}_custom" in form.fields:
-            desc["custom_bound_field"] = form[f"{field_key}_custom"]
+        custom_key = f"{field_key}_custom"
+        desc["custom_bound_field"] = (
+            form[custom_key] if custom_key in form.fields else None
+        )
         descriptors.append(desc)
     return descriptors
 

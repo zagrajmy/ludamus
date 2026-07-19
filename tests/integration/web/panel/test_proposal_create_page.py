@@ -617,6 +617,31 @@ class TestProposalCreateCategoryFields:
             not_contains='name="session_only-a"',
         )
 
+    def test_get_renders_checkbox_field_with_allow_custom_without_companion(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="A", slug="a")
+        field = SessionField.objects.create(
+            event=event,
+            name="Streamed",
+            question="Stream this session?",
+            slug="streamed",
+            field_type="checkbox",
+            allow_custom=True,
+            order=0,
+        )
+        SessionFieldRequirement.objects.create(
+            category=category, field=field, is_required=False, order=0
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        html = response.content.decode()
+        assert response.status_code == HTTPStatus.OK
+        assert 'name="session_streamed"' in html
+        assert 'name="session_streamed_custom"' not in html
+
     def test_get_fields_component_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
     ):
