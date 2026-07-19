@@ -654,6 +654,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         # Prefer the invalid submission over persisted values so in-progress
         # selections survive the re-render.
+        submitted_facilitators = self._collect_facilitator_ids(event_pk)
+        if submitted_facilitators is not None:
+            assigned_pks = set(submitted_facilitators)
         if (submitted_tracks := self._collect_track_ids(event_pk)) is not None:
             assigned_track_pks = set(submitted_tracks)
         if (submitted_slots := self._collect_time_slot_ids(event_pk)) is not None:
@@ -773,6 +776,17 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["form"] = form
         context["category"] = category
+        context["all_facilitators"] = self.request.di.uow.facilitators.list_by_event(
+            current_event.pk
+        )
+        # The picker partial keys checked state off pks, so translate the
+        # form's raw (possibly re-submitted) values back to ints.
+        raw_ids: list[str] = []
+        if "facilitator_ids" in form.fields:
+            raw_ids = form["facilitator_ids"].value() or []
+        context["assigned_facilitator_pks"] = {
+            int(v) for v in raw_ids if str(v).isdigit()
+        } & {f.pk for f in context["all_facilitators"]}
         context["field_descriptors"] = field_descriptors(
             "session", session_field_requirements(self.request, category), form
         )

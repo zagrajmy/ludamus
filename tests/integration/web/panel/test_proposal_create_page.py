@@ -14,9 +14,9 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
     SessionFieldValue,
 )
-from ludamus.pacts import EventDTO, ProposalCategoryDTO
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, ProposalCategoryDTO
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -48,6 +48,8 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "proposals",
+        "all_facilitators": [],
+        "assigned_facilitator_pks": set(),
     }
 
 
@@ -129,6 +131,51 @@ class TestProposalCreatePageView:
         assert 'name="facilitator_ids"' in content
         assert f'value="{facilitator.pk}"' in content
         assert "Alice" in content
+        # Search-first picker: unselected facilitators start hidden.
+        assert 'id="facilitator-search"' in content
+        assert "facilitator-row flex items-center text-sm hidden" in content
+
+    def test_post_invalid_keeps_selected_facilitator_checked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "category_id": category.pk,
+                "facilitator_ids": [facilitator.pk],
+                "display_name": "Test Host",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-create.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event, category),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=0,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+            },
+        )
+        content = response.content.decode()
+        assert "checked" in checkbox_tag(content, "facilitator_ids", facilitator.pk)
 
     def test_post_renders_facilitator_error_with_checkboxes(
         self, authenticated_client, active_user, sphere, event

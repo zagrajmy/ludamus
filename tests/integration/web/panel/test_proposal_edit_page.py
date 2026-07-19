@@ -1386,6 +1386,67 @@ class TestProposalEditPageView:
         assert "Bob" in html
         assert "checked" in checkbox_tag(html, "facilitator_ids", assigned.pk)
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
+        # Search-first picker: unassigned facilitators start hidden.
+        assert "facilitator-row flex items-center text-sm hidden" in html
+
+    def test_post_invalid_keeps_submitted_facilitator_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "title": "",
+                "display_name": "",
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=0,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
+        )
+        content = response.content.decode()
+        assert "checked" in checkbox_tag(content, "facilitator_ids", facilitator.pk)
 
 
 class TestProposalEditOrphanValues:

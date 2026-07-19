@@ -131,28 +131,7 @@
                     <div class="card-body">
                         <input type="hidden" name="facilitators_submitted" value="1">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitators" %}</h3>
-                        <input type="text"
-                               id="facilitator-search"
-                               placeholder="{% translate "Search by name…" %}"
-                               autocomplete="off"
-                               class="w-full border border-border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
-                        <div class="space-y-2" id="facilitator-list">
-                            {% for f in all_facilitators %}
-                                <label class="facilitator-row flex items-center text-sm"
-                                       data-name="{{ f.display_name|lower }}">
-                                    <input type="checkbox"
-                                           name="facilitator_ids"
-                                           value="{{ f.pk }}"
-                                           {% if f.pk in assigned_facilitator_pks %}checked{% endif %}
-                                           class="mr-2">
-                                    {{ f.display_name }}
-                                </label>
-                            {% endfor %}
-                        </div>
-                        <p id="no-facilitators-found"
-                           class="hidden text-sm text-foreground-muted mt-2">
-                            {% translate "No facilitators match your search." %}
-                        </p>
+                        {% include "panel/parts/facilitator-picker.html" %}
                     </div>
                 </div>
             {% endif %}
@@ -228,23 +207,5 @@
             {% endif %}
         </form>
         {% vite_asset 'src/encounter-form.ts' %}
-        <script>
-            (function() {
-                const search = document.getElementById('facilitator-search');
-                if (!search) return;
-                search.addEventListener('input', function() {
-                    const query = this.value.toLowerCase().trim();
-                    const rows = document.querySelectorAll('.facilitator-row');
-                    let visible = 0;
-                    rows.forEach(function(row) {
-                        const show = !query || (row.dataset.name || '').includes(query);
-                        row.classList.toggle('hidden', !show);
-                        if (show) visible++;
-                    });
-                    const noResults = document.getElementById('no-facilitators-found');
-                    if (noResults) noResults.classList.toggle('hidden', visible > 0);
-                });
-            })();
-        </script>
     {% endif %}
 {% endblock content %}

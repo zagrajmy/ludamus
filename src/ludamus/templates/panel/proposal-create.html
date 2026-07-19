@@ -36,18 +36,9 @@
                             <label class="block text-sm font-medium text-foreground-secondary mb-1">
                                 {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
                             </label>
-                            {% if form.facilitator_ids.field.choices %}
-                                <div class="space-y-2 {% if form.facilitator_ids.errors %}border border-danger rounded-lg p-2{% endif %}">
-                                    {% for value, label in form.facilitator_ids.field.choices %}
-                                        <label class="flex items-center text-sm">
-                                            <input type="checkbox"
-                                                   name="facilitator_ids"
-                                                   value="{{ value }}"
-                                                   {% if value|stringformat:"s" in form.facilitator_ids.value %}checked{% endif %}
-                                                   class="mr-2">
-                                            {{ label }}
-                                        </label>
-                                    {% endfor %}
+                            {% if all_facilitators %}
+                                <div class="{% if form.facilitator_ids.errors %}border border-danger rounded-lg p-2{% endif %}">
+                                    {% include "panel/parts/facilitator-picker.html" %}
                                 </div>
                                 {% if form.facilitator_ids.errors %}
                                     <p class="mt-1 text-sm text-danger">{{ form.facilitator_ids.errors.0 }}</p>
