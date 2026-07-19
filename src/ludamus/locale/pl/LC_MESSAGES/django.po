@@ -4015,10 +4015,12 @@ msgstr "Całe wydarzenie"
 
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Start"
 msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Hours"
 msgstr "Godziny"
 
@@ -6633,6 +6635,7 @@ msgstr ""
 "komunikować się przez zewnętrzny system."
 
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
+#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Whole event…"
 msgstr "Całe wydarzenie…"
 
@@ -6773,12 +6776,12 @@ msgid "Print timetable for a venue or area"
 msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
 
 #: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Print door cards"
-msgstr "Drukuj tabliczki na drzwi"
-
-#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards for a venue or area"
 msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
+
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Print door cards"
+msgstr "Drukuj tabliczki na drzwi"
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"
@@ -7135,23 +7138,17 @@ msgstr ""
 msgid ""
 "Open a print-ready page, then use your browser to save it as a PDF or print "
 "it. Use the scope menu to print a single space — a room, a floor, or a whole "
-"building."
+"building. Door cards can be limited to a time window — leave the start empty "
+"to print the whole event."
 msgstr ""
 "Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub wydrukuj w "
 "przeglądarce. Użyj menu zakresu, aby wydrukować pojedynczą przestrzeń — "
-"salę, piętro lub cały budynek."
+"salę, piętro lub cały budynek. Tabliczki na drzwi można ograniczyć do "
+"przedziału czasowego — zostaw pusty początek, aby wydrukować całe wydarzenie."
 
 #: src/ludamus/templates/panel/print/base.html
 msgid "or press Ctrl+P (⌘P on Mac)"
 msgstr "lub naciśnij Ctrl+P (⌘P na Macu)"
-
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "Free slot"
-msgstr "Wolny przedział"
-
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "No scheduled program."
-msgstr "Brak zaplanowanego programu."
 
 #: src/ludamus/templates/panel/print/door-cards.html
 msgid "No rooms to print."
@@ -7912,6 +7909,11 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Merge facilitators"
 #~ msgstr "Scal twórców programu"
+#~ msgid "Free slot"
+#~ msgstr "Wolny przedział"
+
+#~ msgid "No scheduled program."
+#~ msgstr "Brak zaplanowanego programu."
 
 #~ msgid "Select the time slot for this session"
 #~ msgstr "Wybierz przedział czasowy dla tego punktu programu"
