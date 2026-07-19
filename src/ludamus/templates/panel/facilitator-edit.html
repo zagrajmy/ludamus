@@ -36,32 +36,8 @@
                             {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
                         </p>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                               for="id_accreditation_type">{% translate "Accreditation type" %}</label>
-                        <select name="accreditation_type"
-                                id="id_accreditation_type"
-                                class="w-full border {% if form.accreditation_type.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                            {% for value, label in form.accreditation_type.field.choices %}
-                                <option value="{{ value }}"
-                                        {% if form.accreditation_type.value|default:"none" == value %}selected{% endif %}>
-                                    {{ label }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                        {% if form.accreditation_type.errors %}
-                            <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                               for="id_internal_comment">{% translate "Internal comment" %}</label>
-                        <textarea name="internal_comment"
-                                  id="id_internal_comment"
-                                  rows="3"
-                                  class="w-full border border-border rounded-lg px-4 py-2 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">{{ form.internal_comment.value|default:"" }}</textarea>
-                        <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
-                    </div>
+                    {% tessera_field form.accreditation_type %}
+                    {% tessera_field form.internal_comment %}
                 </div>
             </div>
         </div>

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 16:54+0200\n"
+"POT-Creation-Date: 2026-07-19 18:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1045,7 +1045,6 @@ msgstr "Twórca programu"
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Accreditation type"
 msgstr "Rodzaj akredytacji"
 
@@ -2351,13 +2350,11 @@ msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Internal comment"
 msgstr "Komentarz wewnętrzny"
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Visible to organizers only."
 msgstr "Widoczne tylko dla organizatorów."
 
@@ -6237,12 +6234,27 @@ msgid "Mark as guest"
 msgstr "Oznacz jako gościa"
 
 #: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Mark %(name)s as guest"
+msgstr "Oznacz jako gościa: %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
 msgid "Remove deletion flag"
 msgstr "Usuń oznaczenie do usunięcia"
 
 #: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Remove deletion flag from %(name)s"
+msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
 msgid "Flag for deletion"
 msgstr "Oznacz do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Flag %(name)s for deletion"
+msgstr "Oznacz do usunięcia: %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
@@ -7909,6 +7921,7 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Merge facilitators"
 #~ msgstr "Scal twórców programu"
+
 #~ msgid "Free slot"
 #~ msgstr "Wolny przedział"
 
