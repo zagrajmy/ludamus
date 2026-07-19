@@ -2,6 +2,31 @@
 {% translate "Print timetable" as label_timetable %}
 {% translate "Print timetable for a venue or area" as aria_timetable %}
 {% include "panel/parts/_print-scope-control.html" with url_name="panel:timetable-print" label=label_timetable aria=aria_timetable %}
-{% translate "Print door cards" as label_door_cards %}
-{% translate "Print door cards for a venue or area" as aria_door_cards %}
-{% include "panel/parts/_print-scope-control.html" with url_name="panel:timetable-print-door-cards" label=label_door_cards aria=aria_door_cards %}
+<form method="get"
+      action="{% url 'panel:timetable-print-door-cards' slug=current_event.slug %}"
+      target="_blank"
+      class="flex items-center gap-1 flex-wrap">
+    {% if print_scopes %}
+        <select name="scope"
+                aria-label="{% translate "Print door cards for a venue or area" %}"
+                class="filter-input min-w-40 rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-medium text-foreground transition-[border-color,box-shadow] duration-150">
+            <option value="">{% translate "Whole event…" %}</option>
+            {% for scope in print_scopes %}<option value="{{ scope.pk }}">{{ scope.name }}</option>{% endfor %}
+        </select>
+    {% endif %}
+    <input type="datetime-local"
+           name="start"
+           aria-label="{% translate "Start" %}"
+           class="filter-input rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-medium text-foreground transition-[border-color,box-shadow] duration-150">
+    <input type="number"
+           name="hours"
+           min="1"
+           max="72"
+           placeholder="{% translate "Hours" %}"
+           aria-label="{% translate "Hours" %}"
+           class="filter-input w-24 rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-medium text-foreground transition-[border-color,box-shadow] duration-150">
+    <button type="submit"
+            class="filter-toggle inline-flex min-w-36 items-center justify-center whitespace-nowrap rounded-xl border border-border bg-bg-secondary px-3 py-2 text-[0.8125rem] font-semibold text-foreground transition-[color,background-color,border-color,box-shadow] duration-150">
+        {% translate "Print door cards" %}
+    </button>
+</form>
