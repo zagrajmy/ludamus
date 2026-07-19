@@ -1469,10 +1469,8 @@ msgstr "Przestrzeń nie została znaleziona."
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/timetable-overview.html
-#, fuzzy
-#| msgid "pending"
 msgid "Pending"
-msgstr "oczekujących"
+msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
@@ -7327,7 +7325,7 @@ msgstr "Edytuj zgłoszenie"
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Assign this proposal to one or more programme tracks."
-msgstr ""
+msgstr "Przypisz to zgłoszenie do jednego lub kilku bloków programowych."
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Facilitator personal data"
@@ -7336,6 +7334,7 @@ msgstr "Dane osobowe twórcy programu"
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Personal-data answers for each assigned facilitator."
 msgstr ""
+"Odpowiedzi dotyczące danych osobowych każdego przypisanego twórcy programu."
 
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Settings"
