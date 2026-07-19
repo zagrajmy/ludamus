@@ -1,11 +1,14 @@
 """Backoffice management of an event's personal-data fields."""
 
+from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from ludamus.pacts import (
+    FacilitatorData,
     FacilitatorUpdateData,
     FieldUsageSummary,
     NotFoundError,
+    PersonalDataFieldValueData,
     PersonalDataFieldValueRepositoryProtocol,
 )
 from ludamus.pacts.submissions import (
@@ -19,15 +22,16 @@ if TYPE_CHECKING:
         FacilitatorChangeLogData,
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
+        FacilitatorDTO,
         FacilitatorRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
-        PersonalDataFieldValueData,
         ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.submissions import FacilitatorCreateData
 
 
 class CFPPersonalDataFieldService:
@@ -228,6 +232,46 @@ class PersonalDataFieldValueService:
                 user_id=user_id,
                 changes=changes,
             )
+
+    def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]:
+        return self._personal_data_fields.list_by_event(event_id)
+
+    def create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO:
+        with self._transaction.atomic():
+            base = data.base_slug or "facilitator"
+            slug = base
+            for _attempt in range(4):
+                if not self._facilitators.slug_exists(event_id, slug):
+                    break
+                slug = f"{base}-{token_urlsafe(3)}"
+            facilitator = self._facilitators.create(
+                FacilitatorData(
+                    accreditation_type=data.accreditation_type,
+                    display_name=data.display_name,
+                    event_id=event_id,
+                    slug=slug,
+                    user_id=None,
+                )
+            )
+            entries = [
+                PersonalDataFieldValueData(
+                    facilitator_id=facilitator.pk,
+                    event_id=event_id,
+                    field_id=field_id,
+                    value=value,
+                )
+                for field_id, value in data.values.items()
+            ]
+            if entries:
+                self.update_personal_data(
+                    event_id=event_id,
+                    facilitator_id=facilitator.pk,
+                    entries=entries,
+                    user_id=user_id,
+                )
+            return facilitator
 
     def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]:
         return self._facilitator_change_logs.list_by_event(event_id)

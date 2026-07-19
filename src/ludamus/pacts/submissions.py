@@ -14,9 +14,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
+    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
+        FacilitatorDTO,
         FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
@@ -29,6 +31,7 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
+        SessionListItemDTO,
         SessionRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
@@ -360,6 +363,8 @@ class FacilitatorPanelRepos:
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
     facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
     panel_settings: EventPanelSettingsRepositoryProtocol
+    sessions: SessionRepositoryProtocol
+    users: UserRepositoryProtocol
 
 
 @dataclass
@@ -403,6 +408,32 @@ class FacilitatorListContextDTO:
 
 
 @dataclass
+class FacilitatorCreateData:
+    """A new facilitator as the create form spelled it.
+
+    `values` holds parsed personal-data answers keyed by field pk;
+    `base_slug` is the slugified display name — the service uniquifies it.
+    """
+
+    display_name: str
+    base_slug: str
+    accreditation_type: str
+    values: dict[int, str | list[str] | bool] = field(default_factory=dict)
+
+
+@dataclass
+class FacilitatorDetailContextDTO:
+    """Read aggregate for one facilitator's detail page."""
+
+    facilitator: FacilitatorDTO
+    personal_data_items: list[
+        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
+    ]
+    linked_user: UserDTO | None
+    sessions: list[SessionListItemDTO]
+
+
+@dataclass
 class FacilitatorColumnsContextDTO:
     """Read aggregate for the facilitator-columns chooser."""
 
@@ -414,6 +445,9 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def detail_context(
+        self, *, event_id: int, facilitator_slug: str
+    ) -> FacilitatorDetailContextDTO: ...
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
@@ -481,3 +515,7 @@ class PersonalDataFieldValueServiceProtocol(Protocol):
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]: ...
+    def create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO: ...

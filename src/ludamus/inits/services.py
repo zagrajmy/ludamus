@@ -108,6 +108,8 @@ class Services:
                 personal_data_field_values=self._repos.personal_data_field_values,
                 facilitator_change_logs=self._repos.facilitator_change_logs,
                 panel_settings=self._repos.event_panel_settings,
+                sessions=self._repos.sessions,
+                users=self._repos.active_users,
             ),
         )
 

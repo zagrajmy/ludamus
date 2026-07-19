@@ -2,9 +2,11 @@
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.submissions import (
     FacilitatorColumnDTO,
     FacilitatorColumnsContextDTO,
+    FacilitatorDetailContextDTO,
     FacilitatorListContextDTO,
     FacilitatorPanelServiceProtocol,
 )
@@ -90,16 +92,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         self, transaction: TransactionProtocol, repos: FacilitatorPanelRepos
     ) -> None:
         self._transaction = transaction
-        self._facilitators = repos.facilitators
-        self._personal_data_fields = repos.personal_data_fields
-        self._personal_data_field_values = repos.personal_data_field_values
-        self._facilitator_change_logs = repos.facilitator_change_logs
-        self._panel_settings = repos.panel_settings
+        self._repos = repos
 
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO:
-        fields = self._personal_data_fields.list_by_event(event_id)
+        fields = self._repos.personal_data_fields.list_by_event(event_id)
         # Multi-select stores a JSON list, but the repo filters by exact scalar
         # match, so a single choice never matches — omit them from filtering.
         filterable_fields = [
@@ -118,12 +116,36 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             "field_filters": field_filters or None,
             "sort": query.sort or None,
         }
-        settings = self._panel_settings.read_or_create(event_id)
+        settings = self._repos.panel_settings.read_or_create(event_id)
         return FacilitatorListContextDTO(
-            facilitators=self._facilitators.list_by_event(event_id, filters),
+            facilitators=self._repos.facilitators.list_by_event(event_id, filters),
             filterable_fields=filterable_fields,
             field_filters=field_filters,
             columns=_resolve_columns(keys=settings.facilitator_columns, fields=fields),
+        )
+
+    def detail_context(
+        self, *, event_id: int, facilitator_slug: str
+    ) -> FacilitatorDetailContextDTO:
+        facilitator = self._repos.facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        fields = self._repos.personal_data_fields.list_by_event(event_id)
+        values = self._repos.personal_data_field_values.read_for_facilitator_event(
+            facilitator.pk, event_id
+        )
+        linked_user = None
+        if facilitator.user_id is not None:
+            try:
+                linked_user = self._repos.users.read_by_id(facilitator.user_id)
+            except NotFoundError:
+                # The linked account is no longer active — show none.
+                linked_user = None
+        return FacilitatorDetailContextDTO(
+            facilitator=facilitator,
+            personal_data_items=[(field, values.get(field.slug)) for field in fields],
+            linked_user=linked_user,
+            sessions=self._repos.sessions.list_by_facilitator(facilitator.pk),
         )
 
     def column_values(
@@ -131,13 +153,13 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     ) -> dict[int, dict[str, str | list[str] | bool]]:
         if not facilitator_ids or not field_ids:
             return {}
-        return self._personal_data_field_values.list_values_for_facilitators(
+        return self._repos.personal_data_field_values.list_values_for_facilitators(
             facilitator_ids, field_ids
         )
 
     def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO:
-        fields = self._personal_data_fields.list_by_event(event_id)
-        settings = self._panel_settings.read_or_create(event_id)
+        fields = self._repos.personal_data_fields.list_by_event(event_id)
+        settings = self._repos.panel_settings.read_or_create(event_id)
         chosen = _resolve_columns(keys=settings.facilitator_columns, fields=fields)
         chosen_keys = {column.key for column in chosen}
         return FacilitatorColumnsContextDTO(
@@ -156,20 +178,20 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         valid_keys = {
             column.key
             for column in _all_columns(
-                self._personal_data_fields.list_by_event(event_id)
+                self._repos.personal_data_fields.list_by_event(event_id)
             )
         }
         chosen: list[str] = []
         for key in columns:
             if key in valid_keys and key not in chosen:
                 chosen.append(key)
-        self._panel_settings.update_facilitator_columns(event_id, chosen)
+        self._repos.panel_settings.update_facilitator_columns(event_id, chosen)
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
-        facilitator = self._facilitators.read_by_event_and_slug(
+        facilitator = self._repos.facilitators.read_by_event_and_slug(
             event_id, facilitator_slug
         )
-        self._facilitators.set_flag(facilitator.pk, flagged=flagged)
+        self._repos.facilitators.set_flag(facilitator.pk, flagged=flagged)
 
     def set_accreditation(
         self,
@@ -180,7 +202,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         user_id: int | None = None,
     ) -> None:
         with self._transaction.atomic():
-            facilitator = self._facilitators.read_by_event_and_slug(
+            facilitator = self._repos.facilitators.read_by_event_and_slug(
                 event_id, facilitator_slug
             )
             if facilitator.accreditation_type == accreditation_type:
@@ -194,11 +216,11 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 }
             ]
             data: FacilitatorUpdateData = {"accreditation_type": accreditation_type}
-            self._facilitators.update(facilitator.pk, data)
+            self._repos.facilitators.update(facilitator.pk, data)
             log_data: FacilitatorChangeLogData = {
                 "event_id": event_id,
                 "facilitator_id": facilitator.pk,
                 "user_id": user_id,
                 "changes": changes,
             }
-            self._facilitator_change_logs.create(log_data)
+            self._repos.facilitator_change_logs.create(log_data)

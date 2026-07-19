@@ -40,6 +40,8 @@ def _service(fields):
         personal_data_field_values=object(),
         facilitator_change_logs=object(),
         panel_settings=FakeSettingsRepo(),
+        sessions=object(),
+        users=object(),
     )
     return FacilitatorPanelService(object(), repos)
 

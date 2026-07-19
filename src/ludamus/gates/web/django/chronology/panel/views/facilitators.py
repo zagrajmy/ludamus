@@ -9,6 +9,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
@@ -19,7 +20,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     facilitator_detail_tab_urls,
     facilitator_tab_urls,
-    make_unique_slug,
     paginate,
 )
 from ludamus.gates.web.django.forms import (
@@ -30,13 +30,16 @@ from ludamus.gates.web.django.forms import (
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
-    FacilitatorData,
     FacilitatorMergeError,
     FacilitatorUpdateData,
     NotFoundError,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.submissions import AccreditationType, FacilitatorListQuery
+from ludamus.pacts.submissions import (
+    AccreditationType,
+    FacilitatorCreateData,
+    FacilitatorListQuery,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -196,50 +199,24 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            facilitator = self.request.di.uow.facilitators.read_by_event_and_slug(
-                current_event.pk, facilitator_slug
+            detail = self.request.services.facilitator_panel.detail_context(
+                event_id=current_event.pk, facilitator_slug=facilitator_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
-        personal_data_fields = self.request.di.uow.personal_data_fields.list_by_event(
-            current_event.pk
-        )
-        personal_data_values = (
-            self.request.di.uow.personal_data_field_values.read_for_facilitator_event(
-                facilitator.pk, current_event.pk
-            )
-        )
-        personal_data_items = [
-            (field, personal_data_values.get(field.slug))
-            for field in personal_data_fields
-        ]
-
-        has_personal_data = any(v for _, v in personal_data_items)
-
-        linked_user = None
-        if facilitator.user_id is not None:
-            try:
-                linked_user = self.request.di.uow.active_users.read_by_id(
-                    facilitator.user_id
-                )
-            except NotFoundError:
-                linked_user = None
-
         context["active_nav"] = "facilitators"
         context["active_tab"] = "details"
         context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
-        context["facilitator"] = facilitator
-        context["linked_user"] = linked_user
+        context["facilitator"] = detail.facilitator
+        context["linked_user"] = detail.linked_user
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
-            AccreditationType(facilitator.accreditation_type)
+            AccreditationType(detail.facilitator.accreditation_type)
         ]
-        context["personal_data_items"] = personal_data_items
-        context["has_personal_data"] = has_personal_data
-        context["sessions"] = self.request.di.uow.sessions.list_by_facilitator(
-            facilitator.pk
-        )
+        context["personal_data_items"] = detail.personal_data_items
+        context["has_personal_data"] = any(v for _, v in detail.personal_data_items)
+        context["sessions"] = detail.sessions
         return TemplateResponse(self.request, "panel/facilitator-detail.html", context)
 
 
@@ -283,7 +260,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        fields = self.request.di.uow.personal_data_fields.list_by_event(
+        fields = self.request.services.personal_data_field_values.list_fields(
             current_event.pk
         )
         context["active_nav"] = "facilitators"
@@ -296,9 +273,8 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        fields = self.request.di.uow.personal_data_fields.list_by_event(
-            current_event.pk
-        )
+        service = self.request.services.personal_data_field_values
+        fields = service.list_fields(current_event.pk)
         form = FacilitatorForm(self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "facilitators"
@@ -309,33 +285,21 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
             )
 
         display_name = form.cleaned_data["display_name"]
-        facilitator_slug = make_unique_slug(
-            display_name,
-            "facilitator",
-            lambda s: self.request.di.uow.facilitators.slug_exists(current_event.pk, s),
-        )
-        facilitator = self.request.di.uow.facilitators.create(
-            FacilitatorData(
-                accreditation_type=form.cleaned_data["accreditation_type"],
-                display_name=display_name,
-                event_id=current_event.pk,
-                slug=facilitator_slug,
-                user_id=None,
-            )
-        )
-        entries = _personal_entries_from_post(
-            request=self.request,
-            fields=fields,
-            facilitator_id=facilitator.pk,
+        service.create_facilitator(
             event_id=current_event.pk,
+            data=FacilitatorCreateData(
+                display_name=display_name,
+                base_slug=slugify(display_name),
+                accreditation_type=form.cleaned_data["accreditation_type"],
+                values={
+                    field.pk: parse_dynamic_field_value(
+                        request=self.request, field=field, key=f"personal_{field.slug}"
+                    )
+                    for field in fields
+                },
+            ),
+            user_id=self.request.context.current_user_id,
         )
-        if entries:
-            self.request.services.personal_data_field_values.update_personal_data(
-                event_id=current_event.pk,
-                facilitator_id=facilitator.pk,
-                entries=entries,
-                user_id=self.request.context.current_user_id,
-            )
         messages.success(self.request, _("Facilitator created successfully."))
         return redirect("panel:facilitators", slug=slug)
 
@@ -345,17 +309,6 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def _get_personal_fields(
-        self, event_pk: int, facilitator_pk: int
-    ) -> list[tuple[PersonalDataFieldDTO, str | list[str] | bool | None]]:
-        fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
-        values = (
-            self.request.di.uow.personal_data_field_values.read_for_facilitator_event(
-                facilitator_pk, event_pk
-            )
-        )
-        return [(field, values.get(field.slug)) for field in fields]
-
     def get(
         self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
@@ -364,14 +317,14 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            facilitator = self.request.di.uow.facilitators.read_by_event_and_slug(
-                current_event.pk, facilitator_slug
+            detail = self.request.services.facilitator_panel.detail_context(
+                event_id=current_event.pk, facilitator_slug=facilitator_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
-        personal_fields = self._get_personal_fields(current_event.pk, facilitator.pk)
+        facilitator = detail.facilitator
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["form"] = FacilitatorEditForm(
@@ -380,7 +333,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "internal_comment": facilitator.internal_comment,
             }
         )
-        context["personal_fields"] = personal_fields
+        context["personal_fields"] = detail.personal_data_items
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
 
     def post(
@@ -391,28 +344,28 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            facilitator = self.request.di.uow.facilitators.read_by_event_and_slug(
-                current_event.pk, facilitator_slug
+            detail = self.request.services.facilitator_panel.detail_context(
+                event_id=current_event.pk, facilitator_slug=facilitator_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
+        facilitator = detail.facilitator
         form = FacilitatorEditForm(self.request.POST)
         if not form.is_valid():
-            personal_fields = self._get_personal_fields(
-                current_event.pk, facilitator.pk
-            )
             context["active_nav"] = "facilitators"
             context["facilitator"] = facilitator
             context["form"] = form
-            context["personal_fields"] = personal_fields
+            context["personal_fields"] = detail.personal_data_items
             return TemplateResponse(
                 self.request, "panel/facilitator-edit.html", context
             )
 
-        all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
-            current_event.pk
+        all_personal_fields = (
+            self.request.services.personal_data_field_values.list_fields(
+                current_event.pk
+            )
         )
         entries = _personal_entries_from_post(
             request=self.request,
