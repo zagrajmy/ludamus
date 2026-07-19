@@ -838,7 +838,7 @@ class SphereRepositoryProtocol(Protocol):
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
-class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
+class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def create(
         session_data: SessionData,
@@ -1025,7 +1025,9 @@ class SpaceRepositoryProtocol(Protocol):
     def lock(pk: int) -> None: ...
 
 
-class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split planned
+class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-methods]
+    Protocol
+):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
@@ -1484,7 +1486,7 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
-class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
+class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
     @property

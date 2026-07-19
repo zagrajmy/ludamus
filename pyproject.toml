@@ -80,7 +80,7 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.1.0"
+tingle = "^0.4.0"
 pytest-xdist = "^3.8.0"
 
 [tool.black]
@@ -262,13 +262,15 @@ ignore = [
     "RUF012", # ClassVar
 ]
 "tests/**.py" = [
-    "ANN",     # flake8-annotations
-    "INP001",  # implicit namespace package
-    "PLR0913", # too-many-arguments
-    "PLR0917", # too-many-positional-arguments
-    "S",       # bandit
-    "PLR0904", # Too many public methods
-    "PLR6301", # Method could be a function
+    "ANN",                   # flake8-annotations
+    "ARG002",                # unused-method-argument
+    "INP001",                # implicit namespace package
+    "PLR0913",               # too-many-arguments
+    "PLR0917",               # too-many-positional-arguments
+    "S",                     # bandit
+    "PLR0904",               # Too many public methods
+    "PLR6301",               # Method could be a function
+    "private-member-access",
 ]
 # DI registries are intentionally wide: their whole job is to expose one leaf
 # per repository/service. Bucketing them (see the class docstrings) is a

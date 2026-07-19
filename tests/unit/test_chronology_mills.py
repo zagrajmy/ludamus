@@ -899,7 +899,7 @@ class _ImportStubImpl:
     kind = IntegrationKind.IMPORT
     config_model = _StrictConfig
 
-    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+    def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 
@@ -910,7 +910,7 @@ class _HeaderStubImpl:
     def __init__(self, headers):
         self._headers = headers
 
-    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+    def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
     def fetch_questions(self, **_kwargs):
@@ -924,7 +924,7 @@ class _TicketingStubImpl:
     kind = IntegrationKind.TICKETING
     config_model = BaseModel
 
-    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+    def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 

@@ -80,9 +80,6 @@ services:
     <<: *app-defaults
 
   web:
-    # Image CMD is prod-start (migrate+collectstatic for Coolify staging);
-    # compose runs those as one-shot services above, so pin plain gunicorn.
-    command: [ "run", "gunicorn" ]
     depends_on:
       collectstatic:
         condition: service_completed_successfully
@@ -96,6 +93,7 @@ services:
       - logs_volume:/app/logs
     ports:
       - '127.0.0.1:${WEB_PORT:-8000}:8000'
+    command: [ "run", "gunicorn" ]
     restart: always
     healthcheck:
       test: [ "CMD-SHELL", 'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/healthz/'')"' ]

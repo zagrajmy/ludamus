@@ -24,7 +24,7 @@ def render_form_errors(form: BaseForm) -> str:
         format_html('<div class="alert alert-danger text-sm mb-4">{}</div>', error)
         for error in form.non_field_errors()
     ]
-    return mark_safe("\n".join(errors_html))  # noqa: S308
+    return mark_safe("\n".join(errors_html))  # ruff:ignore[suspicious-mark-safe-usage]
 
 
 def render_help_text(field: BoundField) -> str:
