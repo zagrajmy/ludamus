@@ -92,7 +92,8 @@ passes unconditionally — the callback never ran, so the check cannot fail.
 Verify view→template **context contract**: views produce the right data for
 every branch.
 
-Structure: `{subdomain}/{bounded_context}/test_url_name.py`
+Structure: `{noun}/{page}/test_url_name.py` (existing directories keep
+their legacy subdomain names until renamed)
 
 Rules:
 

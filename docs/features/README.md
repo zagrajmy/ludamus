@@ -9,8 +9,8 @@ describes a feature as one or more user stories.
 docs/features/
   README.md                                 # this file
   CHECKLIST.md                              # refinement triage list
-  drafts/<subdomain>/<context>/<name>.md    # status: draft
-  <subdomain>/<context>/<name>.md           # status: in-progress or done
+  drafts/<noun>/<verb>/<name>.md            # status: draft
+  <noun>/<verb>/<name>.md                   # status: in-progress or done
 ```
 
 Files live under `drafts/` while their status is `draft`. The moment a
@@ -18,7 +18,10 @@ feature is fired against, it moves out of `drafts/` into the matching
 path at the top level — `drafts/foo/bar/baz.md` becomes `foo/bar/baz.md`.
 This makes the status of every feature obvious from a directory listing.
 
-When a context folder grows enough that you can name the sub-clusters
+Existing folders keep their legacy subdomain names until renamed; new
+folders use noun/verb names (see `docs/agents/architecture.md`).
+
+When a folder grows enough that you can name the sub-clusters
 (e.g. "the read-side stuff", "the conflict-resolution stuff"), split it.
 Until the names are obvious, leave it flat.
 
