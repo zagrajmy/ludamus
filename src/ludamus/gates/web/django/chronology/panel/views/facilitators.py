@@ -26,6 +26,7 @@ from ludamus.gates.web.django.forms import (
     FacilitatorEditForm,
     FacilitatorForm,
 )
+from ludamus.gates.web.django.helpers import parse_dynamic_field_value
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
@@ -51,6 +52,26 @@ if TYPE_CHECKING:
 
 
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
+
+
+def _personal_entries_from_post(
+    *,
+    request: PanelRequest,
+    fields: Sequence[PersonalDataFieldDTO],
+    facilitator_id: int,
+    event_id: int,
+) -> list[PersonalDataFieldValueData]:
+    return [
+        PersonalDataFieldValueData(
+            facilitator_id=facilitator_id,
+            event_id=event_id,
+            field_id=field.pk,
+            value=parse_dynamic_field_value(
+                request=request, field=field, key=f"personal_{field.slug}"
+            ),
+        )
+        for field in fields
+    ]
 
 
 def _format_field_value(*, value: str | list[str] | bool | None) -> str:
@@ -234,8 +255,12 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
+        context["personal_fields"] = [(field, None) for field in fields]
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -243,10 +268,14 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
         form = FacilitatorForm(self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "facilitators"
             context["form"] = form
+            context["personal_fields"] = [(field, None) for field in fields]
             return TemplateResponse(
                 self.request, "panel/facilitator-create.html", context
             )
@@ -257,7 +286,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
             "facilitator",
             lambda s: self.request.di.uow.facilitators.slug_exists(current_event.pk, s),
         )
-        self.request.di.uow.facilitators.create(
+        facilitator = self.request.di.uow.facilitators.create(
             FacilitatorData(
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 display_name=display_name,
@@ -266,6 +295,19 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 user_id=None,
             )
         )
+        entries = _personal_entries_from_post(
+            request=self.request,
+            fields=fields,
+            facilitator_id=facilitator.pk,
+            event_id=current_event.pk,
+        )
+        if entries:
+            self.request.services.personal_data_field_values.update_personal_data(
+                event_id=current_event.pk,
+                facilitator_id=facilitator.pk,
+                entries=entries,
+                user_id=self.request.context.current_user_id,
+            )
         messages.success(self.request, _("Facilitator created successfully."))
         return redirect("panel:facilitators", slug=slug)
 
@@ -344,25 +386,12 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
             current_event.pk
         )
-        entries: list[PersonalDataFieldValueData] = []
-        for field in all_personal_fields:
-            key = f"personal_{field.slug}"
-            if field.field_type == "checkbox":
-                value: str | list[str] | bool = self.request.POST.get(key) == "true"
-            elif field.is_multiple:
-                value = self.request.POST.getlist(key)
-            else:
-                value = self.request.POST.get(key, "")
-                if field.allow_custom and not value:
-                    value = self.request.POST.get(f"{key}_custom", "")
-            entries.append(
-                PersonalDataFieldValueData(
-                    facilitator_id=facilitator.pk,
-                    event_id=current_event.pk,
-                    field_id=field.pk,
-                    value=value,
-                )
-            )
+        entries = _personal_entries_from_post(
+            request=self.request,
+            fields=all_personal_fields,
+            facilitator_id=facilitator.pk,
+            event_id=current_event.pk,
+        )
         self.request.services.personal_data_field_values.update_facilitator(
             event_id=current_event.pk,
             facilitator_id=facilitator.pk,
