@@ -52,10 +52,12 @@ _TRACK_FILTER_CONTEXT = {
     "statuses": _STATUSES,
 }
 
-_PAGE_SIZE = 50
-_SEED_COUNT = 60
+_PAGE_SIZE = 20
+_SEED_COUNT = 30
 _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
 _TOTAL_PAGES = 2
+_SMALL_PAGE_SIZE = 10
+_SMALL_TOTAL_PAGES = _SEED_COUNT // _SMALL_PAGE_SIZE
 
 
 def _base_context(event):
@@ -355,6 +357,27 @@ class TestProposalsPageView:
 
         assert non_integer.context["page_obj"].number == 1
         assert too_high.context["page_obj"].number == _TOTAL_PAGES
+
+    def test_page_size_param(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        for i in range(_SEED_COUNT):
+            Session.objects.create(
+                event=event,
+                category=category,
+                display_name=f"Host {i}",
+                title=f"Session {i}",
+                slug=f"session-{i}",
+                participants_limit=5,
+                status="pending",
+            )
+
+        smaller = authenticated_client.get(self.get_url(event), {"page_size": "10"})
+        unlisted = authenticated_client.get(self.get_url(event), {"page_size": "7"})
+
+        assert smaller.context["page_obj"].paginator.per_page == _SMALL_PAGE_SIZE
+        assert smaller.context["page_obj"].paginator.num_pages == _SMALL_TOTAL_PAGES
+        assert unlisted.context["page_obj"].paginator.per_page == _PAGE_SIZE
 
     def test_returns_proposals_in_context(
         self, authenticated_client, active_user, sphere, event

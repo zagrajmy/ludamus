@@ -173,25 +173,7 @@
                     {% endfor %}
                 </tbody>
             {% end_tessera_table %}
-            {% if page_obj.paginator.num_pages > 1 %}
-                <div class="flex items-center justify-between mt-4 text-sm">
-                    <span class="text-foreground-muted">
-                        {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
-                            Page {{ page }} of {{ total }}
-                        {% endblocktranslate %}
-                    </span>
-                    <div class="flex items-center gap-2">
-                        {% if page_obj.has_previous %}
-                            <a href="{% querystring page=page_obj.previous_page_number %}"
-                               class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
-                        {% endif %}
-                        {% if page_obj.has_next %}
-                            <a href="{% querystring page=page_obj.next_page_number %}"
-                               class="btn btn-secondary text-sm">{% translate "Next" %}</a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
+            {% include "panel/parts/_pagination.html" %}
         {% elif filters_active %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>

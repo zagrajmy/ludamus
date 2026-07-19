@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 18:02+0200\n"
+"POT-Creation-Date: 2026-07-19 21:15+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6257,34 +6257,6 @@ msgid "Flag %(name)s for deletion"
 msgstr "Oznacz do usunięcia: %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposals.html
-#, python-format
-msgid ""
-"\n"
-"                            Page %(page)s of %(total)s\n"
-"                        "
-msgstr ""
-"\n"
-"                            Strona %(page)s z %(total)s\n"
-"                        "
-
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
-
-#: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators match your filters."
 msgstr "Żaden twórca programu nie pasuje do filtrów."
 
@@ -6645,6 +6617,35 @@ msgid ""
 msgstr ""
 "Nie ma jeszcze żadnych integracji. Dodaj jedną, aby to wydarzenie mogło "
 "komunikować się przez zewnętrzny system."
+
+#: src/ludamus/templates/panel/parts/_pagination.html
+#, python-format
+msgid ""
+"\n"
+"                Page %(page)s of %(total)s\n"
+"            "
+msgstr ""
+"\n"
+"                Strona %(page)s z %(total)s\n"
+"            "
+
+#: src/ludamus/templates/panel/parts/_pagination.html
+msgid "Per page:"
+msgstr "Na stronę:"
+
+#: src/ludamus/templates/panel/parts/_pagination.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/panel/parts/_pagination.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
 
 #: src/ludamus/templates/panel/parts/_print-scope-control.html
 #: src/ludamus/templates/panel/parts/print-controls.html

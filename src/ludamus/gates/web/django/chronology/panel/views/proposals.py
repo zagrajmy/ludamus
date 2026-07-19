@@ -7,7 +7,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
-from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -21,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
     make_unique_slug,
+    paginate,
 )
 from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
@@ -60,8 +60,6 @@ if TYPE_CHECKING:
     ]
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
 
-
-_PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
 # Filter-only pseudo-status: scheduling lives on the agenda item, not on
 # SessionStatus, but organizers still need "show me what's placed".
@@ -139,9 +137,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         # ponytail: paginate the already-loaded list in the view. The repo
         # loads all matching rows today anyway; DB-level slicing is a future
         # concern if an event's proposal count grows past a few thousand.
-        page_obj = Paginator(all_proposals, _PROPOSALS_PAGE_SIZE).get_page(
-            self.request.GET.get("page")
-        )
+        page_obj = paginate(self.request, all_proposals)
 
         context["proposals"] = list(page_obj.object_list)
         context["page_obj"] = page_obj

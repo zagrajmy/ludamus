@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
-from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -20,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     facilitator_tab_urls,
     make_unique_slug,
+    paginate,
 )
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
@@ -49,9 +49,6 @@ if TYPE_CHECKING:
         FacilitatorListContextDTO,
         FacilitatorPanelServiceProtocol,
     )
-
-
-_FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
 
 def _personal_entries_from_post(
@@ -149,9 +146,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         list_context = self.request.services.facilitator_panel.list_context(
             event_id=current_event.pk, query=query
         )
-        page_obj = Paginator(
-            list_context.facilitators, _FACILITATORS_PAGE_SIZE
-        ).get_page(self.request.GET.get("page"))
+        page_obj = paginate(self.request, list_context.facilitators)
 
         column_values = _build_column_values(
             panel=self.request.services.facilitator_panel,
