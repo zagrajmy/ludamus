@@ -21,6 +21,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
     paginate,
+    proposal_detail_tab_urls,
 )
 from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
@@ -273,6 +274,8 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
         context["active_nav"] = "proposals"
+        context["active_tab"] = "details"
+        context["tab_urls"] = proposal_detail_tab_urls(slug, proposal_id)
         context["proposal"] = session
         context["category_name"] = category_name
         context["proposal_tracks"] = proposal_tracks
@@ -285,6 +288,34 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["import_log_entry"] = import_log_entry
         context["import_log_integration"] = import_log_integration
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
+
+
+class ProposalHistoryPageView(PanelAccessMixin, EventContextMixin, View):
+    """Per-proposal change history tab."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        service = self.request.services.session_content_edit
+        try:
+            title, logs = service.session_history(
+                event_id=current_event.pk, session_id=proposal_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        context["active_nav"] = "proposals"
+        context["active_tab"] = "history"
+        context["tab_urls"] = proposal_detail_tab_urls(slug, proposal_id)
+        context["proposal_title"] = title
+        context["logs"] = logs
+        context["field_names"] = service.list_field_names(current_event.pk)
+        return TemplateResponse(self.request, "panel/proposal-history.html", context)
 
 
 class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):

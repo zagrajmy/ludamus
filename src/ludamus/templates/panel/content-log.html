@@ -10,127 +10,13 @@
 {% endblock page_title %}
 {% block content %}
     <div class="p-4">
-        {% if logs %}
-            {% tessera_table %}
-            <thead class="bg-bg-tertiary">
-                <tr>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Time" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "User" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Session" context "table column" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Changes" %}
-                    </th>
-                    <th scope="col" class="px-6 py-3">
-                        <span class="sr-only">{% translate "Actions" %}</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="bg-bg-secondary divide-y divide-border">
-                {% translate "Field" as field_fallback %}
-                {% for log in logs %}
-                    <tr class="align-top">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ log.creation_time|date:"d.m H:i:s" }}</td>
-                        <td class="px-6 py-4 text-sm text-foreground">{{ log.user_name|default:"—" }}</td>
-                        <td class="px-6 py-4 text-sm font-medium text-foreground">{{ log.session_title }}</td>
-                        <td class="px-6 py-4 text-sm text-foreground-secondary">
-                            <ul class="space-y-1">
-                                {% for change in log.changes %}
-                                    <li>
-                                        <span class="font-medium text-foreground">
-                                            {% if change.field_id %}
-                                                {{ field_names|get_item:change.field_id|default:field_fallback }}
-                                            {% else %}
-                                                {{ change.field|content_field_label }}
-                                            {% endif %}
-                                        :</span>
-                                        <span class="text-foreground-muted">{{ change.old|default:"—" }}</span>
-                                        <span aria-hidden="true">→</span>
-                                        <span>{{ change.new|default:"—" }}</span>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            {% if log.pk in revertible_pks %}
-                                <form method="post"
-                                      action="{% url 'panel:content-log-revert' slug=slug pk=log.pk %}"
-                                      data-confirm="{% translate "Are you sure you want to revert this change?" %}"
-                                      data-confirm-action="{% translate "Revert" %}">
-                                    {% csrf_token %}
-                                    {% translate "Revert" as t_revert %}
-                                    {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
-                                </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        {% end_tessera_table %}
-    {% else %}
-        <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
-    {% endif %}
-    {% if facilitator_logs %}
-        <h2 class="text-lg font-semibold text-foreground mt-10 mb-4">{% translate "Facilitator changes" %}</h2>
-        {% tessera_table %}
-        <thead class="bg-bg-tertiary">
-            <tr>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Time" %}
-                </th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "User" %}
-                </th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Facilitator" %}
-                </th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                    {% translate "Changes" %}
-                </th>
-            </tr>
-        </thead>
-        <tbody class="bg-bg-secondary divide-y divide-border">
-            {% translate "Field" as fac_field_fallback %}
-            {% for log in facilitator_logs %}
-                <tr class="align-top">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ log.creation_time|date:"d.m H:i:s" }}</td>
-                    <td class="px-6 py-4 text-sm text-foreground">{{ log.user_name|default:"—" }}</td>
-                    <td class="px-6 py-4 text-sm font-medium text-foreground">{{ log.facilitator_name }}</td>
-                    <td class="px-6 py-4 text-sm text-foreground-secondary">
-                        <ul class="space-y-1">
-                            {% for change in log.changes %}
-                                <li>
-                                    <span class="font-medium text-foreground">
-                                        {% if change.field_id %}
-                                            {{ facilitator_field_names|get_item:change.field_id|default:fac_field_fallback }}
-                                        {% else %}
-                                            {{ change.field|content_field_label }}
-                                        {% endif %}
-                                    :</span>
-                                    <span class="text-foreground-muted">{{ change.old|default:"—" }}</span>
-                                    <span aria-hidden="true">→</span>
-                                    <span>{{ change.new|default:"—" }}</span>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    {% end_tessera_table %}
-{% endif %}
-</div>
+        {% translate "Session" context "table column" as t_session_header %}
+        {% translate "No entries in the log." as t_empty %}
+        {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names item_header=t_session_header item_kind="session" revertible_pks=revertible_pks slug=slug empty_text=t_empty only %}
+        {% if facilitator_logs %}
+            <h2 class="text-lg font-semibold text-foreground mt-10 mb-4">{% translate "Facilitator changes" %}</h2>
+            {% translate "Facilitator" as t_facilitator_header %}
+            {% include "panel/parts/_change-log-table.html" with logs=facilitator_logs field_names=facilitator_field_names item_header=t_facilitator_header item_kind="facilitator" revertible_pks="" slug="" empty_text="" only %}
+        {% endif %}
+    </div>
 {% endblock content %}

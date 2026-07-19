@@ -210,6 +210,11 @@ urlpatterns = [
         name="proposal-detail",
     ),
     path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/history/",
+        proposals.ProposalHistoryPageView.as_view(),
+        name="proposal-history",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
         proposals.ProposalEditPageView.as_view(),
         name="proposal-edit",
@@ -355,6 +360,11 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/history/",
+        facilitators.FacilitatorHistoryPageView.as_view(),
+        name="facilitator-history",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",

@@ -1465,6 +1465,14 @@ class TestProposalDetailPageView:
                     "total_sessions": 1,
                 },
                 "active_nav": "proposals",
+                "active_tab": "details",
+                "tab_urls": {
+                    "details": self.get_url(event, session.pk),
+                    "history": reverse(
+                        "panel:proposal-history",
+                        kwargs={"slug": event.slug, "proposal_id": session.pk},
+                    ),
+                },
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],
@@ -1514,6 +1522,14 @@ class TestProposalDetailPageView:
                     "total_sessions": 1,
                 },
                 "active_nav": "proposals",
+                "active_tab": "details",
+                "tab_urls": {
+                    "details": self.get_url(event, session.pk),
+                    "history": reverse(
+                        "panel:proposal-history",
+                        kwargs={"slug": event.slug, "proposal_id": session.pk},
+                    ),
+                },
                 "proposal": SessionDTO.model_validate(session),
                 "category_name": "RPG",
                 "proposal_tracks": [],

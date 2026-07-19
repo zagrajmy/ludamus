@@ -33,6 +33,8 @@
                 <li class="text-foreground font-medium">{{ facilitator.display_name }}</li>
             </ol>
         </nav>
+        {% tab_shell "panel/_detail_tabs.html" %}
+        {% tab_shell_body %}
         <div class="card mb-6">
             <div class="card-body">
                 <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitator Details" %}</h3>
@@ -133,5 +135,7 @@
                 </div>
             </div>
         {% endif %}
-    {% endif %}
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
+{% endif %}
 {% endblock content %}

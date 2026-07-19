@@ -232,6 +232,21 @@ class PersonalDataFieldValueService:
     def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]:
         return self._facilitator_change_logs.list_by_event(event_id)
 
+    def facilitator_history(
+        self, *, event_id: int, facilitator_slug: str
+    ) -> tuple[str, list[FacilitatorChangeLogDTO]]:
+        facilitator = self._facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        # ponytail: filters the event-wide log in Python; per-facilitator DB
+        # queries if an event's change log grows past a few thousand rows.
+        logs = [
+            log
+            for log in self._facilitator_change_logs.list_by_event(event_id)
+            if log.facilitator_id == facilitator.pk
+        ]
+        return facilitator.display_name, logs
+
     def list_field_names(self, event_id: int) -> dict[int, str]:
         return {
             f.pk: f.name for f in self._personal_data_fields.list_by_event(event_id)

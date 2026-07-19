@@ -64,6 +64,22 @@ def _base_context(event):
     }
 
 
+def _detail_tabs(event, proposal_id):
+    return {
+        "active_tab": "details",
+        "tab_urls": {
+            "details": reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": proposal_id},
+            ),
+            "history": reverse(
+                "panel:proposal-history",
+                kwargs={"slug": event.slug, "proposal_id": proposal_id},
+            ),
+        },
+    }
+
+
 class TestProposalDetailPageView:
     """Tests for /panel/event/<slug>/proposals/<proposal_id>/ page."""
 
@@ -128,6 +144,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -176,6 +193,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 1,
@@ -223,6 +241,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -275,6 +294,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -321,6 +341,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -376,6 +397,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -450,6 +472,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -558,6 +581,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -622,6 +646,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 0,
@@ -699,6 +724,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -752,6 +778,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -817,6 +844,7 @@ class TestProposalDetailPageView:
             template_name="panel/proposal-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,

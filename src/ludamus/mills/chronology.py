@@ -1339,6 +1339,21 @@ class SessionContentEditService:
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
         return self._content_change_logs.list_by_event(event_id)
 
+    def session_history(
+        self, *, event_id: int, session_id: int
+    ) -> tuple[str, list[ContentChangeLogDTO]]:
+        if self._sessions.read_event(session_id).pk != event_id:
+            raise NotFoundError
+        title = self._sessions.read(session_id).title
+        # ponytail: filters the event-wide log in Python; per-session DB
+        # queries if an event's change log grows past a few thousand rows.
+        logs = [
+            log
+            for log in self._content_change_logs.list_by_event(event_id)
+            if log.session_id == session_id
+        ]
+        return title, logs
+
     def list_field_names(self, event_id: int) -> dict[int, str]:
         # Render-time resolution of dynamic session-field labels (user content,
         # not UI text) so the log shows the field's current name.

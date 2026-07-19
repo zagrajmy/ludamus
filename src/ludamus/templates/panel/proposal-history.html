@@ -1,0 +1,34 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {{ proposal_title }} - {% translate "Proposals" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {{ proposal_title }}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Change history" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    {% if current_event %}
+        <nav class="mb-4 text-sm">
+            <ol class="flex items-center space-x-2">
+                <li>
+                    <a href="{% url 'panel:proposals' slug=current_event.slug %}"
+                       class="text-foreground-muted hover:text-primary">{% translate "Proposals" %}</a>
+                </li>
+                <li class="text-foreground-muted/50">/</li>
+                <li class="text-foreground font-medium">{{ proposal_title }}</li>
+            </ol>
+        </nav>
+        {% tab_shell "panel/_detail_tabs.html" %}
+        {% tab_shell_body %}
+        {% translate "No changes recorded yet." as t_empty %}
+        {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names empty_text=t_empty item_header="" item_kind="" revertible_pks="" slug="" only %}
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
+{% endif %}
+{% endblock content %}

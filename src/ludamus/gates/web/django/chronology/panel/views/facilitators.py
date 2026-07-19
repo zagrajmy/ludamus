@@ -17,6 +17,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    facilitator_detail_tab_urls,
     facilitator_tab_urls,
     make_unique_slug,
     paginate,
@@ -227,6 +228,8 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
                 linked_user = None
 
         context["active_nav"] = "facilitators"
+        context["active_tab"] = "details"
+        context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
         context["facilitator"] = facilitator
         context["linked_user"] = linked_user
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
@@ -238,6 +241,36 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
             facilitator.pk
         )
         return TemplateResponse(self.request, "panel/facilitator-detail.html", context)
+
+
+class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
+    """Per-facilitator change history tab."""
+
+    request: PanelRequest
+
+    def get(
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
+    ) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        service = self.request.services.personal_data_field_values
+        try:
+            name, logs = service.facilitator_history(
+                event_id=current_event.pk, facilitator_slug=facilitator_slug
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitators", slug=slug)
+
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "history"
+        context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
+        context["facilitator_name"] = name
+        context["logs"] = logs
+        context["field_names"] = service.list_field_names(current_event.pk)
+        return TemplateResponse(self.request, "panel/facilitator-history.html", context)
 
 
 class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):

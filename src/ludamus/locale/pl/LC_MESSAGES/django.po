@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 21:46+0200\n"
+"POT-Creation-Date: 2026-07-19 22:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -483,7 +483,7 @@ msgid "No enrollment options available"
 msgstr "Brak dostępnych opcji zapisu"
 
 #: src/ludamus/adapters/web/django/forms.py
-#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "User"
 msgstr "Nazwa użytkownika"
@@ -2648,6 +2648,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitator-history.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/index.html
@@ -3212,7 +3213,7 @@ msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Time"
@@ -5102,11 +5103,11 @@ msgstr "Ogłoszenia organizacji dla tej sfery"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposals.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -5424,11 +5425,24 @@ msgstr "Pola punktu programu"
 msgid "Time Slots"
 msgstr "Przedziały czasowe"
 
+#: src/ludamus/templates/panel/_detail_tabs.html
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Details"
+msgstr "Szczegóły"
+
+#: src/ludamus/templates/panel/_detail_tabs.html
+#: src/ludamus/templates/panel/facilitator-history.html
+#: src/ludamus/templates/panel/proposal-history.html
+msgid "Change history"
+msgstr "Historia zmian"
+
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposal-history.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Proposals"
 msgstr "Zgłoszenia"
@@ -5961,24 +5975,6 @@ msgid "Session"
 msgstr "Punkt programu"
 
 #: src/ludamus/templates/panel/content-log.html
-msgid "Changes"
-msgstr "Zmiany"
-
-#: src/ludamus/templates/panel/content-log.html
-msgid "Field"
-msgstr "Pole"
-
-#: src/ludamus/templates/panel/content-log.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Are you sure you want to revert this change?"
-msgstr "Czy na pewno cofnąć tę zmianę?"
-
-#: src/ludamus/templates/panel/content-log.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Revert"
-msgstr "Cofnij"
-
-#: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "No entries in the log."
 msgstr "Brak wpisów w dzienniku."
@@ -6146,6 +6142,11 @@ msgid ""
 msgstr ""
 "Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
 "zgłoszenia, aby zmienić byline."
+
+#: src/ludamus/templates/panel/facilitator-history.html
+#: src/ludamus/templates/panel/proposal-history.html
+msgid "No changes recorded yet."
+msgstr "Nie zapisano jeszcze żadnych zmian."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"
@@ -6560,11 +6561,6 @@ msgid "Mapping"
 msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Details"
-msgstr "Szczegóły"
-
-#: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
@@ -6616,6 +6612,24 @@ msgid ""
 msgstr ""
 "Nie ma jeszcze żadnych integracji. Dodaj jedną, aby to wydarzenie mogło "
 "komunikować się przez zewnętrzny system."
+
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+msgid "Changes"
+msgstr "Zmiany"
+
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+msgid "Field"
+msgstr "Pole"
+
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Are you sure you want to revert this change?"
+msgstr "Czy na pewno cofnąć tę zmianę?"
+
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Revert"
+msgstr "Cofnij"
 
 #: src/ludamus/templates/panel/parts/_pagination.html
 #, python-format
