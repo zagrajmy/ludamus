@@ -31,7 +31,7 @@ django = "~6.0.6"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
-google-auth = "^2.54.0"
+google-auth = "^2.56.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
@@ -407,6 +407,7 @@ exclude = [
 ignore_names = [
     # Used in templates
     "bookmark_count",
+    "filter_categories",
     "has_guests",
     "has_secret",
     "is_live",

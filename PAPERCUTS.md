@@ -108,3 +108,6 @@ If you fix a papercut, remove it.
   the task is 'pytest tests/integration tests/unit' so an appended path is an
   extra target, not a filter. Wasted two 5-minute full runs before noticing.
   Use -k instead, or make the task use a default arg.
+- 2026-07-18: mise run test:py failed once with VariableDoesNotExist for
+  danger_ring in TestEventImportLogPageView (navbar avatar include); full rerun
+  passed - flaky, possibly test-order or faker-data dependent
