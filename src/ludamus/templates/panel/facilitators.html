@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
+{% load django_vite %}
 {% block title_prefix %}
     {% translate "Facilitators" %} -
 {% endblock title_prefix %}
@@ -27,7 +28,16 @@
             {% tab_shell_body %}
             {% if facilitators or filters_active %}
                 <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
-                    <form method="get" class="flex flex-wrap gap-4 items-end">
+                    <form method="get"
+                          id="facilitators-filter-form"
+                          data-autosubmit
+                          hx-get=""
+                          hx-target="#facilitators-results"
+                          hx-select="#facilitators-results"
+                          hx-swap="outerHTML"
+                          hx-push-url="true"
+                          hx-indicator="#filter-spinner"
+                          class="flex flex-wrap gap-4 items-end">
                         {% if filter_sort and filter_sort != "name" %}
                             <input type="hidden" name="sort" value="{{ filter_sort }}">
                         {% endif %}
@@ -77,8 +87,11 @@
                             {% include "components/checkbox-field.html" with name="flagged" id="filter-flagged" value="true" checked=filter_flagged label=t_flagged only %}
                         </div>
                         <div class="flex items-center gap-2">
-                            {% translate "Filter" as t_filter %}
-                            {% tessera_button t_filter full_width_mobile=False %}
+                            <button type="submit" class="sr-only">{% translate "Filter" %}</button>
+                            <span id="filter-spinner"
+                                  class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary animate-spin"
+                                  role="status"
+                                  aria-label="{% translate "Filtering" %}"></span>
                             {% url 'panel:facilitators' slug=current_event.slug as clear_url %}
                             {% translate "Clear" as t_clear %}
                             {% tessera_button t_clear href=clear_url variant="secondary" %}
@@ -86,108 +99,111 @@
                     </form>
                 </div>
             {% endif %}
-            {% if facilitators %}
-                {% tessera_table %}
-                <thead class="bg-bg-tertiary">
-                    <tr>
-                        {% for column in columns %}
-                            {% include "panel/parts/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
-                        {% endfor %}
-                        <th scope="col"
-                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Actions" %}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                    {% for facilitator in facilitators %}
-                        <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+            {% vite_asset 'src/filter-autosubmit.ts' %}
+            <div id="facilitators-results">
+                {% if facilitators %}
+                    {% tessera_table %}
+                    <thead class="bg-bg-tertiary">
+                        <tr>
                             {% for column in columns %}
-                                {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
-                                    {# The first column carries the link to the facilitator, whichever column the organizer put there. #}
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
-                                        title="{{ value }}">
-                                        {% if forloop.first %}
-                                            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                               aria-label="{{ facilitator.display_name }}"
-                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
-                                            {% if facilitator.flagged_for_deletion %}
-                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
-                                                    {% translate "Flagged" %}
-                                                </span>
-                                            {% endif %}
-                                        {% else %}
-                                            {{ value|truncatechars:40 }}
-                                        {% endif %}
-                                    </td>
-                                {% endwith %}
+                                {% include "panel/parts/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
                             {% endfor %}
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="inline-flex items-center gap-3 justify-end">
-                                    {% if facilitator.accreditation_type != "guest" %}
-                                        <form method="post"
-                                              action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit"
-                                                    title="{% translate "Mark as guest" %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Mark {{ name }} as guest{% endblocktranslate %}"
-                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
-                                                {% icon "user-plus" class="w-4 h-4" %}
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                    {% if facilitator.flagged_for_deletion %}
-                                        <form method="post"
-                                              action="{% url 'panel:facilitator-unflag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit"
-                                                    title="{% translate "Remove deletion flag" %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Remove deletion flag from {{ name }}{% endblocktranslate %}"
-                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
-                                                {% icon "arrow-uturn-left" class="w-4 h-4" %}
-                                            </button>
-                                        </form>
-                                    {% else %}
-                                        <form method="post"
-                                              action="{% url 'panel:facilitator-flag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit"
-                                                    title="{% translate "Flag for deletion" %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Flag {{ name }} for deletion{% endblocktranslate %}"
-                                                    class="text-foreground-muted hover:text-danger inline-flex items-center">
-                                                {% icon "flag" class="w-4 h-4" %}
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                       class="text-primary hover:text-primary/80 inline-flex items-center">
-                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                        {% translate "Edit" %}
-                                    </a>
-                                </div>
-                            </td>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Actions" %}
+                            </th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            {% end_tessera_table %}
-            {% include "panel/parts/_pagination.html" %}
-        {% elif filters_active %}
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
-                <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-                   class="btn btn-secondary text-sm">{% translate "Clear filters" %}</a>
-            </div>
-        {% else %}
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>
-                {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
-                {% translate "New Facilitator" as t_new_facilitator %}
-                {% tessera_button t_new_facilitator href=create_url icon="plus" %}
-            </div>
-        {% endif %}
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {% for facilitator in facilitators %}
+                            <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+                                {% for column in columns %}
+                                    {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
+                                        {# The first column carries the link to the facilitator, whichever column the organizer put there. #}
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
+                                            title="{{ value }}">
+                                            {% if forloop.first %}
+                                                <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                   aria-label="{{ facilitator.display_name }}"
+                                                   class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
+                                                {% if facilitator.flagged_for_deletion %}
+                                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
+                                                        {% translate "Flagged" %}
+                                                    </span>
+                                                {% endif %}
+                                            {% else %}
+                                                {{ value|truncatechars:40 }}
+                                            {% endif %}
+                                        </td>
+                                    {% endwith %}
+                                {% endfor %}
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div class="inline-flex items-center gap-3 justify-end">
+                                        {% if facilitator.accreditation_type != "guest" %}
+                                            <form method="post"
+                                                  action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit"
+                                                        title="{% translate "Mark as guest" %}"
+                                                        aria-label="{% blocktranslate with name=facilitator.display_name %}Mark {{ name }} as guest{% endblocktranslate %}"
+                                                        class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                    {% icon "user-plus" class="w-4 h-4" %}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                        {% if facilitator.flagged_for_deletion %}
+                                            <form method="post"
+                                                  action="{% url 'panel:facilitator-unflag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit"
+                                                        title="{% translate "Remove deletion flag" %}"
+                                                        aria-label="{% blocktranslate with name=facilitator.display_name %}Remove deletion flag from {{ name }}{% endblocktranslate %}"
+                                                        class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                    {% icon "arrow-uturn-left" class="w-4 h-4" %}
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <form method="post"
+                                                  action="{% url 'panel:facilitator-flag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit"
+                                                        title="{% translate "Flag for deletion" %}"
+                                                        aria-label="{% blocktranslate with name=facilitator.display_name %}Flag {{ name }} for deletion{% endblocktranslate %}"
+                                                        class="text-foreground-muted hover:text-danger inline-flex items-center">
+                                                    {% icon "flag" class="w-4 h-4" %}
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                        <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                           class="text-primary hover:text-primary/80 inline-flex items-center">
+                                            {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                            {% translate "Edit" %}
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                {% end_tessera_table %}
+                {% include "panel/parts/_pagination.html" %}
+            {% elif filters_active %}
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
+                    <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+                       class="btn btn-secondary text-sm">{% translate "Clear filters" %}</a>
+                </div>
+            {% else %}
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>
+                    {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+                    {% translate "New Facilitator" as t_new_facilitator %}
+                    {% tessera_button t_new_facilitator href=create_url icon="plus" %}
+                </div>
+            {% endif %}
+        </div>
     {% end_tab_shell_body %}
 {% end_tab_shell %}
 {% else %}
