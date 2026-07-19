@@ -7269,10 +7269,8 @@ msgid "Filter"
 msgstr "Filtruj"
 
 #: src/ludamus/templates/panel/proposals.html
-#, fuzzy
-#| msgid "Filter"
 msgid "Filtering"
-msgstr "Filtruj"
+msgstr "Filtrowanie"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Selected:"
