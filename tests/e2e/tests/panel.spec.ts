@@ -176,8 +176,15 @@ test.describe("Backoffice Panel", () => {
   test("lists the space tree for the event", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
 
-    await expect(page.getByText("Aurora Convention Hall", { exact: true })).toBeVisible();
-    await expect(page.getByText("Hearth Lounge", { exact: true })).toBeVisible();
+    // Scoped to the original venue's own node: "duplicates a space" (below)
+    // clones this subtree verbatim, including child names. On a serial
+    // retry that replays this test after that one has already run, an
+    // unscoped exact-text lookup for a child name resolves to two elements.
+    const auroraNode = page.locator("li.space-node", {
+      has: page.getByText("Aurora Convention Hall", { exact: true }),
+    });
+    await expect(auroraNode).toBeVisible();
+    await expect(auroraNode.getByText("Hearth Lounge", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "New top-level space" })).toBeVisible();
   });
 
