@@ -75,8 +75,8 @@ services:
       MEMBERSHIP_API_TIMEOUT:
       MEMBERSHIP_API_CHECK_INTERVAL:
     ports:
-      - '127.0.0.1:8000:8000'
       - '127.0.0.1:5173:5173'
+      - '127.0.0.1:8000:8000'
     command: [ "dj", "migrate", "--noinput", ":::", "dj", "createcachetable", ":::", "dj", "downloadvendor", ":::", "start" ]
     restart: unless-stopped
     healthcheck:
