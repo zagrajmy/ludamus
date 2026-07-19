@@ -142,7 +142,7 @@ class TestProposalCreatePageView:
         assert "Alice" in content
         # Search-first picker: unselected facilitators start hidden.
         assert 'id="facilitator-search"' in content
-        assert "facilitator-row flex items-center text-sm hidden" in content
+        assert "facilitator-row flex items-center text-sm py-2 hidden" in content
 
     def test_post_invalid_keeps_selected_facilitator_checked(
         self, authenticated_client, active_user, sphere, event

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 19:47+0200\n"
+"POT-Creation-Date: 2026-07-19 22:49+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6812,6 +6812,11 @@ msgstr ""
 "Ten punkt programu ma odpowiedzi na pytania, których jego kategoria już nie "
 "zadaje. Pozostaną bez zmian, dopóki ich nie usuniesz."
 
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+#, python-format
+msgid "Remove %(name)s"
+msgstr "Usuń %(name)s"
+
 #: src/ludamus/templates/panel/parts/time-slot-picker.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Preferred time slots"
@@ -7212,6 +7217,10 @@ msgstr "To wydarzenie nie ma jeszcze twórców programu."
 #: src/ludamus/templates/panel/proposal-create.html
 msgid "Create one first"
 msgstr "Najpierw utwórz twórcę programu"
+
+#: src/ludamus/templates/panel/proposal-create.html
+msgid "Loading"
+msgstr "Ładowanie…"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Proposal Details"

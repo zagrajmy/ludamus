@@ -57,12 +57,17 @@
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                    for="id_category_id">
                                 {% translate "Category" %}<span class="text-danger ml-0.5">*</span>
+                                <span id="category-spinner"
+                                      class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary animate-spin align-middle ml-1"
+                                      role="status"
+                                      aria-label="{% translate "Loading" %}"></span>
                             </label>
                             <select name="category_id"
                                     id="id_category_id"
                                     hx-get="{{ fields_url }}"
                                     hx-target="#proposal-session-fields"
                                     hx-swap="outerHTML"
+                                    hx-indicator="#category-spinner"
                                     class="w-full border {% if form.category_id.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                                 {% for value, label in form.category_id.field.choices %}
                                     <option value="{{ value }}"
