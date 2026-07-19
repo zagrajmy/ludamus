@@ -143,6 +143,9 @@ Strict rules:
 - **facilitator** → "twórca programu"
 - **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides
   with the "track" translation)
+- **proposal category** (prelekcja, sesja RPG, warsztaty, …) →
+  "rodzaj atrakcji" on participant-facing pages (do **not** use "kategoria" —
+  counterintuitive there); "kategoria" stays OK in the organizer panel
 
 ## Details
 

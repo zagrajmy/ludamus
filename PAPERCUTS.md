@@ -104,3 +104,6 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-18: mise run test:py failed once with VariableDoesNotExist for
+  danger_ring in TestEventImportLogPageView (navbar avatar include); full rerun
+  passed - flaky, possibly test-order or faker-data dependent
