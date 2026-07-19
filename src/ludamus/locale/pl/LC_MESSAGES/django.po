@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-18 19:15+0200\n"
+"POT-Creation-Date: 2026-07-18 20:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1155,6 +1155,7 @@ msgid "Time slots"
 msgstr "Przedziały czasowe"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposals.html
@@ -3601,6 +3602,22 @@ msgstr "Godzina"
 #: src/ludamus/templates/chronology/event.html
 msgid "All hours"
 msgstr "Wszystkie godziny"
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable.html
+msgid "All tracks"
+msgstr "Wszystkie bloki"
+
+#: src/ludamus/templates/chronology/event.html
+msgctxt "participant filter"
+msgid "Category"
+msgstr "Rodzaj atrakcji"
+
+#: src/ludamus/templates/chronology/event.html
+msgctxt "participant filter"
+msgid "All categories"
+msgstr "Wszystkie rodzaje atrakcji"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import-log.html
@@ -7237,11 +7254,6 @@ msgstr "Zezwól na anonimowe przesyłanie zgłoszeń"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Submitted Proposals"
 msgstr "Przesłane zgłoszenia"
-
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/timetable.html
-msgid "All tracks"
-msgstr "Wszystkie bloki"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Multiple tracks"
