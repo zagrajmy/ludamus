@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 21:15+0200\n"
+"POT-Creation-Date: 2026-07-19 21:41+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6170,7 +6170,6 @@ msgstr ""
 "zachowanego."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposals.html
 msgid "Search by facilitator or field values"
 msgstr "Szukaj po prowadzącym lub wartościach pól"
 
@@ -6218,6 +6217,11 @@ msgstr "Tylko oznaczeni do usunięcia"
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Filtering"
+msgstr "Filtrowanie"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
@@ -7377,12 +7381,12 @@ msgid "Multiple tracks"
 msgstr "Wiele bloków"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "All categories"
-msgstr "Wszystkie kategorie"
+msgid "Search by title, facilitator or field values"
+msgstr "Szukaj po tytule, prowadzącym lub wartościach pól"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Filtering"
-msgstr "Filtrowanie"
+msgid "All categories"
+msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Selected:"

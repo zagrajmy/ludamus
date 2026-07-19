@@ -463,6 +463,34 @@ class TestProposalsPageView:
             },
         )
 
+    def test_search_matches_title(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Dragon Heist",
+            slug="dragon-heist",
+            participants_limit=5,
+            status="pending",
+        )
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Space Opera",
+            slug="space-opera",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"search": "Dragon"})
+
+        assert [p.title for p in response.context["proposals"]] == ["Dragon Heist"]
+
     def test_search_matches_display_name(
         self, authenticated_client, active_user, sphere, event
     ):
