@@ -135,16 +135,22 @@ class TestProposalCreatePageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert 'name="facilitator_ids"' in content
-        assert f'value="{facilitator.pk}"' in content
-        assert "Alice" in content
         # Search-first picker: unselected facilitators start hidden.
-        assert 'id="facilitator-search"' in content
-        assert (
-            "facilitator-row flex items-center text-sm py-2 rounded-md"
-            " hover:bg-foreground/5 hidden" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-create.html",
+            context_data=ANY,
+            contains=[
+                'name="facilitator_ids"',
+                f'value="{facilitator.pk}"',
+                "Alice",
+                'id="facilitator-search"',
+                (
+                    "facilitator-row flex items-center text-sm py-3 rounded-md"
+                    " hover:bg-foreground/5 hidden"
+                ),
+            ],
         )
 
     def test_post_invalid_keeps_selected_facilitator_checked(
@@ -207,11 +213,15 @@ class TestProposalCreatePageView:
             },
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["form"].errors
-        content = response.content.decode()
-        assert 'name="facilitator_ids"' in content
-        assert response.context["form"]["facilitator_ids"].errors[0] in content
+        form = response.context["form"]
+        assert form.errors
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-create.html",
+            context_data=ANY,
+            contains=['name="facilitator_ids"', form["facilitator_ids"].errors[0]],
+        )
 
     # POST tests
 

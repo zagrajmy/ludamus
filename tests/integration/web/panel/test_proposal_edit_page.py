@@ -1262,16 +1262,22 @@ class TestProposalEditPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        html = response.content.decode()
-        assert 'name="session_genres"' in html
-        assert "Pick all that apply" in html
-        assert 'name="session_system"' in html
-        assert 'name="session_system_custom"' in html
-        assert 'name="session_adult"' in html
-        assert 'name="session_notes"' in html
-        assert 'maxlength="99"' in html
-        assert 'name="session_notes_custom"' in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data=ANY,
+            contains=[
+                'name="session_genres"',
+                "Pick all that apply",
+                'name="session_system"',
+                'name="session_system_custom"',
+                'name="session_adult"',
+                'name="session_notes"',
+                'maxlength="99"',
+                'name="session_notes_custom"',
+            ],
+        )
 
     def test_partial_post_without_session_fields_marker_preserves_field_values(
         self, authenticated_client, active_user, sphere, event
@@ -1349,13 +1355,20 @@ class TestProposalEditPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data=ANY,
+            contains=[
+                'name="tracks_submitted"',
+                'name="track_ids"',
+                "Main Track",
+                'name="time_slots_submitted"',
+                'name="time_slot_ids"',
+            ],
+        )
         html = response.content.decode()
-        assert 'name="tracks_submitted"' in html
-        assert 'name="track_ids"' in html
-        assert "Main Track" in html
-        assert 'name="time_slots_submitted"' in html
-        assert 'name="time_slot_ids"' in html
         track_row = html[html.index('name="track_ids"') :][:200]
         assert f'value="{track.pk}"' in track_row
         assert "checked" in track_row
@@ -1379,16 +1392,19 @@ class TestProposalEditPageView:
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data=ANY,
+            contains=['id="facilitator-search"', "Alice", "Bob"],
+        )
         html = response.content.decode()
-        assert 'id="facilitator-search"' in html
-        assert "Alice" in html
-        assert "Bob" in html
         assert "checked" in checkbox_tag(html, "facilitator_ids", assigned.pk)
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
         # Search-first picker: unassigned facilitators start hidden.
         assert (
-            "facilitator-row flex items-center text-sm py-2 rounded-md"
+            "facilitator-row flex items-center text-sm py-3 rounded-md"
             " hover:bg-foreground/5 hidden" in html
         )
 

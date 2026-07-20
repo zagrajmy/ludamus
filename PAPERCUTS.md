@@ -112,6 +112,7 @@ If you fix a papercut, remove it.
   danger_ring in TestEventImportLogPageView (navbar avatar include); full rerun
   passed - flaky, possibly test-order or faker-data dependent
 - 2026-07-20: Ran mise run test:py with specific test paths after -- but the
-  full suite ran anyway (args seemingly ignored); also test_import_views
+  full suite ran anyway (paths are appended to the fixed targets, so they're an
+  extra target rather than a filter); also test_import_views
   test_get_groups_errors_and_successes flaked once in a full run, passed on
   rerun

@@ -54,14 +54,16 @@
                             {% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                                   for="id_category_id">
-                                {% translate "Category" %}<span class="text-danger ml-0.5">*</span>
+                            <div class="flex items-center gap-1 mb-1">
+                                <label class="block text-sm font-medium text-foreground-secondary"
+                                       for="id_category_id">
+                                    {% translate "Category" %}<span class="text-danger ml-0.5">*</span>
+                                </label>
                                 <span id="category-spinner"
-                                      class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin align-middle ml-1"
+                                      class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
                                       role="status"
                                       aria-label="{% translate "Loading" %}"></span>
-                            </label>
+                            </div>
                             <select name="category_id"
                                     id="id_category_id"
                                     hx-get="{{ fields_url }}"
