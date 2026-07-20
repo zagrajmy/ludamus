@@ -1,6 +1,7 @@
-from typing import Literal, cast  # pylint: disable=unused-import
+import json
+from typing import Literal, cast
 
-from django.db.models import Count, Max, Prefetch, Q
+from django.db.models import Count, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
@@ -52,11 +53,46 @@ from ludamus.pacts import (
     TimeSlotRequirementDTO,
 )
 from ludamus.pacts.submissions import (
+    FacilitatorListFilters,
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogEntryRepositoryProtocol,
     ImportLogStatus,
 )
+
+# The DB stores field_type as a plain CharField; DTOs type it as this Literal.
+_FieldType = Literal["text", "select", "checkbox"]
+
+# Whitelist of sortable facilitator columns -> ORM field. `linked` sorts by
+# user_id so linked/unlinked facilitators group together.
+_FACILITATOR_SORT_FIELDS = {
+    "name": "display_name",
+    "accreditation": "accreditation_type",
+    "sessions": "session_count",
+    "linked": "user_id",
+}
+
+
+def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
+    descending = sort.startswith("-")
+    key = sort.lstrip("-")
+    # `field_<pk>` sorts by a personal-data column: annotate its value via a
+    # correlated subquery. JSON values order by their text form — good enough
+    # to line up near-duplicate entries.
+    if key.startswith("field_") and key[len("field_") :].isdigit():
+        field_id = int(key[len("field_") :])
+        qs = qs.annotate(
+            _sort_value=Subquery(
+                PersonalDataFieldValue.objects.filter(
+                    facilitator_id=OuterRef("pk"), field_id=field_id
+                ).values("value")[:1]
+            )
+        )
+        order_field = "_sort_value"
+    else:
+        order_field = _FACILITATOR_SORT_FIELDS.get(key, "display_name")
+    order = f"-{order_field}" if descending else order_field
+    return qs.order_by(order, "display_name", "pk")
 
 
 class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
@@ -87,7 +123,9 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         settings.save(update_fields=["description"])
 
 
-class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: PLR0904
+class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
+    ProposalCategoryRepositoryProtocol
+):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
         base_slug = slugify(name)
         slug = self.generate_unique_slug(event_id, base_slug)
@@ -460,9 +498,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             ]
             field_dto = PersonalDataFieldDTO(
                 allow_custom=field.allow_custom,
-                field_type=cast(
-                    "Literal['text', 'select', 'checkbox']", field.field_type
-                ),
+                field_type=cast("_FieldType", field.field_type),
                 help_text=field.help_text,
                 is_multiple=field.is_multiple,
                 is_public=field.is_public,
@@ -503,9 +539,7 @@ class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):  # noqa: P
             ]
             field_dto = SessionFieldDTO(
                 allow_custom=field.allow_custom,
-                field_type=cast(
-                    "Literal['text', 'select', 'checkbox']", field.field_type
-                ),
+                field_type=cast("_FieldType", field.field_type),
                 help_text=field.help_text,
                 icon=field.icon,
                 is_multiple=field.is_multiple,
@@ -688,7 +722,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         ]
         return PersonalDataFieldDTO(
             allow_custom=field.allow_custom,
-            field_type=cast("Literal['text', 'select', 'checkbox']", field.field_type),
+            field_type=cast("_FieldType", field.field_type),
             help_text=field.help_text,
             is_multiple=field.is_multiple,
             is_public=field.is_public,
@@ -836,7 +870,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         options = [SessionFieldOptionDTO.model_validate(o) for o in field.options.all()]
         return SessionFieldDTO(
             allow_custom=field.allow_custom,
-            field_type=cast("Literal['text', 'select', 'checkbox']", field.field_type),
+            field_type=cast("_FieldType", field.field_type),
             help_text=field.help_text,
             icon=field.icon,
             is_multiple=field.is_multiple,
@@ -893,11 +927,44 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
-    def list_by_event(event_id: int) -> list[FacilitatorListItemDTO]:
+    def list_by_event(
+        event_id: int, filters: FacilitatorListFilters | None = None
+    ) -> list[FacilitatorListItemDTO]:
+        filters = filters or {}
         qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions")
+            session_count=Count("sessions", distinct=True)
         )
-        return [FacilitatorListItemDTO.model_validate(f) for f in qs]
+
+        if search := filters.get("search"):
+            # Text personal-data values are stored JSON-encoded; match both the
+            # raw string and its JSON-escaped form (mirrors proposals search).
+            encoded = json.dumps(search)[1:-1]
+            text_value = Q(personal_data__field__field_type="text") & (
+                Q(personal_data__value__icontains=search)
+                | Q(personal_data__value__icontains=encoded)
+            )
+            qs = qs.filter(
+                Q(display_name__icontains=search)
+                | Q(user__name__icontains=search)
+                | text_value
+            ).distinct()
+
+        if accreditation := filters.get("accreditation"):
+            qs = qs.filter(accreditation_type=accreditation)
+
+        if filters.get("flagged"):
+            qs = qs.filter(flagged_for_deletion=True)
+
+        for field_id, value in (filters.get("field_filters") or {}).items():
+            # Each condition is its own join, so different fields AND together.
+            qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
+
+        ordered = _order_facilitators(qs, filters.get("sort") or "name")
+        return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
+
+    @staticmethod
+    def set_flag(pk: int, *, flagged: bool) -> None:
+        Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
 
     @staticmethod
     def delete(pk: int) -> None:
@@ -927,6 +994,23 @@ class PersonalDataFieldValueRepository(PersonalDataFieldValueRepositoryProtocol)
             facilitator_id=facilitator_id, event_id=event_id
         ).select_related("field")
         return {hpd.field.slug: hpd.value for hpd in records}
+
+    @staticmethod
+    def list_values_for_facilitators(
+        facilitator_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]:
+        # Batch load for the facilitators list: one query for the current
+        # page's facilitators across the chosen columns, keyed by facilitator_id.
+        if not facilitator_ids or not field_ids:
+            return {}
+        records = PersonalDataFieldValue.objects.filter(
+            facilitator_id__in=facilitator_ids, field_id__in=field_ids
+        ).select_related("field")
+        result: dict[int, dict[str, str | list[str] | bool]] = {}
+        for hpd in records:
+            if hpd.facilitator_id is not None:
+                result.setdefault(hpd.facilitator_id, {})[hpd.field.slug] = hpd.value
+        return result
 
     @staticmethod
     def list_field_ids_for_facilitator_event(

@@ -36,7 +36,7 @@ class TableNode(template.Node):
             f"{_TABLE_CLASS} {extra_class}".strip() if extra_class else _TABLE_CLASS
         )
         inner = self.nodelist.render(context)
-        return mark_safe(  # noqa: S308
+        return mark_safe(  # ruff:ignore[suspicious-mark-safe-usage]
             f'<div class="{_WRAPPER_CLASS}">'
             f'<div class="{_SCROLL_CLASS}">'
             f'<table class="{table_class}">{inner}</table>'

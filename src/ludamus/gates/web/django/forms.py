@@ -412,6 +412,12 @@ class SpaceForm(forms.Form):
         ),
         error_messages={"min_value": _("Capacity must be at least 1.")},
     )
+    location = forms.CharField(
+        required=False,
+        max_length=255,
+        label=_("Location"),
+        help_text=_("Building address, room number, floor — structural details."),
+    )
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
@@ -558,6 +564,13 @@ class FacilitatorEditForm(forms.Form):
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
+    )
+    internal_comment = forms.CharField(
+        required=False,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label=_("Internal comment"),
+        help_text=_("Visible to organizers only."),
     )
 
     def clean_accreditation_type(self) -> str:

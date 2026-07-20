@@ -12,6 +12,9 @@ class ShadowbanMeetSessionDTO(BaseModel):
     session_id: int
     title: str
     event_slug: str
+    event_name: str
+    sphere_name: str
+    sphere_domain: str
 
 
 class ShadowbanCandidateDTO(BaseModel):

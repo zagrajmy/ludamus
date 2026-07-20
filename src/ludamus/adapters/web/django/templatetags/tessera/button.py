@@ -20,7 +20,7 @@ _VARIANT_CLASSES = {
 }
 
 
-def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a distinct visual axis
+def render_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; each param is a distinct visual axis
     text: str,
     *,
     href: str | None = None,
@@ -68,7 +68,9 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
         if icon
         else ""
     )
-    body = format_html("{}{}", mark_safe(icon_html), text)  # noqa: S308
+    body = format_html(
+        "{}{}", mark_safe(icon_html), text  # ruff: ignore[suspicious-mark-safe-usage]
+    )
     title_attr = format_html(' title="{}"', title) if title is not None else ""
 
     if href is not None:

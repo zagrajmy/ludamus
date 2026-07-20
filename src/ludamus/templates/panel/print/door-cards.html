@@ -28,18 +28,12 @@
                                 {{ entry.start_time|time:"H:i" }}–{{ entry.end_time|time:"H:i" }}
                             </td>
                             <td style="padding: 2mm 0; vertical-align: top;">
-                                {% if entry.session %}
-                                    <strong>{{ entry.session.title }}</strong>
-                                    {% if entry.session.presenter_name %}<div style="color: #6b7280;">{{ entry.session.presenter_name }}</div>{% endif %}
-                                {% else %}
-                                    <span class="empty">{% translate "Free slot" %}</span>
-                                {% endif %}
+                                <strong>{{ entry.session.title }}</strong>
+                                {% if entry.session.presenter_name %}<div style="color: #6b7280;">{{ entry.session.presenter_name }}</div>{% endif %}
                             </td>
                         </tr>
                     {% endfor %}
                 </table>
-            {% empty %}
-                <p class="empty">{% translate "No scheduled program." %}</p>
             {% endfor %}
         </section>
     {% empty %}
