@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-20 04:14+0200\n"
+"POT-Creation-Date: 2026-07-20 08:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6000,6 +6000,10 @@ msgid "Content Activity Log"
 msgstr "Dziennik zmian treści"
 
 #: src/ludamus/templates/panel/content-log.html
+msgid "Session changes"
+msgstr "Zmiany punktów programu"
+
+#: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgctxt "table column"
 msgid "Session"
@@ -6120,6 +6124,22 @@ msgid ""
 msgstr ""
 "Zaznacz kolumny widoczne na liście twórców programu i ustaw ich kolejność od "
 "góry do dołu. Tylko dla organizatorów."
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/proposal-columns.html
+msgid "Shown columns"
+msgstr "Wyświetlane kolumny"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/proposal-columns.html
+msgctxt "column group"
+msgid "Available"
+msgstr "Dostępne"
+
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/proposal-columns.html
+msgid "Available columns"
+msgstr "Dostępne kolumny"
 
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitators.html

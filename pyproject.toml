@@ -125,7 +125,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select"
+custom_blocks = "select,radio"
 
 # DEPTRY
 

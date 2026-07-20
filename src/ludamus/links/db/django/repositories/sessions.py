@@ -84,7 +84,7 @@ def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session
     )
 
 
-def _field_value_text(value: object) -> str:
+def _field_value_text(*, value: str | bool | list[str]) -> str:
     # JSONField holds str, bool (checkbox) or list (multi-select); the list
     # column prints plain text.
     if isinstance(value, bool):
@@ -516,7 +516,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         result: dict[int, dict[str, str]] = {}
         for record in records:
             result.setdefault(record.session_id, {})[record.field.slug] = (
-                _field_value_text(record.value)
+                _field_value_text(value=record.value)
             )
         return result
 

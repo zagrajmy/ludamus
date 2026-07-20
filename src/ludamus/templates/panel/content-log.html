@@ -10,6 +10,7 @@
 {% endblock page_title %}
 {% block content %}
     <div class="p-4">
+        <h2 class="text-lg font-semibold text-foreground mb-4">{% translate "Session changes" %}</h2>
         {% translate "Session" context "table column" as t_session_header %}
         {% translate "No entries in the log." as t_empty %}
         {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names item_header=t_session_header item_kind="session" revertible_pks=revertible_pks slug=slug empty_text=t_empty only %}

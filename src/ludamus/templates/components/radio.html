@@ -1,0 +1,7 @@
+{# One radio option: the slot is the visible label. #}
+<label class="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+    <input type="radio"
+           class="w-4 h-4 border-border accent-primary focus:ring-1 focus:ring-offset-0{% if extra_class %} {{ extra_class }}{% endif %}"
+           {{ attrs }}>
+    <span>{{ slot }}</span>
+</label>

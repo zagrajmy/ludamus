@@ -38,17 +38,12 @@
                             </p>
                             <div class="space-y-2">
                                 {% for facilitator in facilitators %}
-                                    <label class="flex items-center gap-2 text-sm text-foreground">
-                                        <input type="radio"
-                                               name="target_slug"
-                                               value="{{ facilitator.slug }}"
-                                               {% if forloop.first %}checked{% endif %}
-                                               class="border-border">
+                                    {% radio name="target_slug" value=facilitator.slug checked=forloop.first %}
                                         {{ facilitator.display_name }}
                                         {% if facilitator.user_id %}
                                             <span class="text-foreground-muted">· {% translate "Linked" %}</span>
                                         {% endif %}
-                                    </label>
+                                    {% end_radio %}
                                 {% endfor %}
                             </div>
                         </div>
@@ -63,42 +58,29 @@
                                 <div>
                                     <p class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</p>
                                     {% for name in name_choices %}
-                                        <label class="flex items-center gap-2 text-sm text-foreground">
-                                            <input type="radio"
-                                                   name="display_name"
-                                                   value="{{ name }}"
-                                                   {% if forloop.first %}checked{% endif %}
-                                                   class="border-border">
+                                        {% radio name="display_name" value=name checked=forloop.first %}
                                             {{ name }}
-                                        </label>
+                                        {% end_radio %}
                                     {% endfor %}
                                 </div>
                                 <div>
                                     <p class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</p>
                                     {% for value, label in accreditation_choices %}
-                                        <label class="flex items-center gap-2 text-sm text-foreground">
-                                            <input type="radio"
-                                                   name="accreditation_type"
-                                                   value="{{ value }}"
-                                                   {% if forloop.first %}checked{% endif %}
-                                                   class="border-border">
+                                        {% radio name="accreditation_type" value=value checked=forloop.first %}
                                             {{ label }}
-                                        </label>
+                                        {% end_radio %}
                                     {% endfor %}
                                 </div>
                                 {% for field, choices in field_choices %}
                                     <div>
                                         <p class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</p>
-                                        {% for index, label in choices %}
-                                            <label class="flex items-center gap-2 text-sm text-foreground">
-                                                <input type="radio"
-                                                       name="personal_{{ field.pk }}"
-                                                       value="{{ index }}"
-                                                       {% if forloop.first %}checked{% endif %}
-                                                       class="border-border">
-                                                {{ label }}
-                                            </label>
-                                        {% endfor %}
+                                        {% with pk_str=field.pk|stringformat:"s" %}
+                                            {% for index, label in choices %}
+                                                {% radio name="personal_"|add:pk_str value=index checked=forloop.first %}
+                                                    {{ label }}
+                                                {% end_radio %}
+                                            {% endfor %}
+                                        {% endwith %}
                                     </div>
                                 {% endfor %}
                             </div>
