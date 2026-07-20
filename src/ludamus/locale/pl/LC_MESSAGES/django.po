@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 22:49+0200\n"
+"POT-Creation-Date: 2026-07-20 13:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6656,6 +6656,10 @@ msgstr "Całe wydarzenie…"
 msgid "Search by name…"
 msgstr "Szukaj po nazwie…"
 
+#: src/ludamus/templates/panel/parts/facilitator-picker.html
+msgid "Search facilitators by name"
+msgstr "Szukaj twórców programu po nazwie"
+
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Maps to"
 msgstr "Mapuje na"
@@ -7928,10 +7932,6 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#: src/ludamus/templates/panel/parts/facilitator-picker.html
-msgid "Search facilitators by name"
-msgstr "Szukaj twórców programu po nazwie"
 
 #~ msgid "Session Hosts"
 #~ msgstr "Twórcy programu"
