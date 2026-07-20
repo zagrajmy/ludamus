@@ -1,5 +1,9 @@
 # PLAN: Unify proposals & facilitators panels
 
+> **Status: implemented** — all 13 steps landed on `feat/unify-panels`
+> (one commit per step). Screenshots for the PR description are still to
+> be taken (`mise run shots`).
+
 Two panels, same job (filter → table → act → CRUD), built twice with different
 answers. Goal: make them **work the same** — same filtering behavior, same
 table affordances, same pagination, same code shape — by porting the best
