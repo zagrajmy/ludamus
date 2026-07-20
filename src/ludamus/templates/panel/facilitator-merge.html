@@ -36,7 +36,8 @@
                             <p class="text-sm text-foreground-muted mb-4">
                                 {% translate "Sessions of all selected facilitators move to the target; the other facilitators are deleted." %}
                             </p>
-                            <div class="space-y-2">
+                            <fieldset class="space-y-2">
+                                <legend class="sr-only">{% translate "Merge target" %}</legend>
                                 {% for facilitator in facilitators %}
                                     {% radio name="target_slug" value=facilitator.slug checked=forloop.first %}
                                         {{ facilitator.display_name }}
@@ -45,7 +46,7 @@
                                         {% endif %}
                                     {% end_radio %}
                                 {% endfor %}
-                            </div>
+                            </fieldset>
                         </div>
                     </div>
                     <div class="card">
@@ -55,25 +56,25 @@
                                 {% translate "Where the selected facilitators disagree, choose what the merged facilitator keeps." %}
                             </p>
                             <div class="space-y-4">
-                                <div>
-                                    <p class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</p>
+                                <fieldset>
+                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</legend>
                                     {% for name in name_choices %}
                                         {% radio name="display_name" value=name checked=forloop.first %}
                                             {{ name }}
                                         {% end_radio %}
                                     {% endfor %}
-                                </div>
-                                <div>
-                                    <p class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</p>
+                                </fieldset>
+                                <fieldset>
+                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</legend>
                                     {% for value, label in accreditation_choices %}
                                         {% radio name="accreditation_type" value=value checked=forloop.first %}
                                             {{ label }}
                                         {% end_radio %}
                                     {% endfor %}
-                                </div>
+                                </fieldset>
                                 {% for field, choices in field_choices %}
-                                    <div>
-                                        <p class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</p>
+                                    <fieldset>
+                                        <legend class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</legend>
                                         {% with pk_str=field.pk|stringformat:"s" %}
                                             {% for index, label in choices %}
                                                 {% radio name="personal_"|add:pk_str value=index checked=forloop.first %}
@@ -81,7 +82,7 @@
                                                 {% end_radio %}
                                             {% endfor %}
                                         {% endwith %}
-                                    </div>
+                                    </fieldset>
                                 {% endfor %}
                             </div>
                         </div>
