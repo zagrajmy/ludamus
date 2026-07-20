@@ -58,6 +58,14 @@ def _resolve_field_filters(
     return resolved
 
 
+def _unique(slugs: list[str]) -> list[str]:
+    seen: list[str] = []
+    for slug in slugs:
+        if slug not in seen:
+            seen.append(slug)
+    return seen
+
+
 def _column_order(field: PersonalDataFieldDTO) -> tuple[int, str]:
     return (field.order, field.name)
 
@@ -160,7 +168,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     ) -> FacilitatorMergeContextDTO:
         facilitators = [
             self._repos.facilitators.read_by_event_and_slug(event_id, slug)
-            for slug in dict.fromkeys(facilitator_slugs)
+            for slug in _unique(facilitator_slugs)
         ]
         return FacilitatorMergeContextDTO(
             facilitators=facilitators,
@@ -183,10 +191,13 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
     ) -> None:
-        slugs = list(dict.fromkeys(facilitator_slugs))
+        slugs = _unique(facilitator_slugs)
         min_required = 2
         if len(slugs) < min_required or target_slug not in slugs:
             msg = "Select at least two facilitators and choose a merge target."
+            raise FacilitatorMergeError(msg)
+        if not data.display_name:
+            msg = "A display name for the merged facilitator is required."
             raise FacilitatorMergeError(msg)
         if data.accreditation_type not in AccreditationType:
             msg = "Unknown accreditation type."

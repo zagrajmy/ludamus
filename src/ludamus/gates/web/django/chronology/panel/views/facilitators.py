@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
@@ -28,7 +28,6 @@ from ludamus.gates.web.django.forms import (
     FacilitatorForm,
 )
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
-from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorMergeError,
     FacilitatorUpdateData,
@@ -39,10 +38,11 @@ from ludamus.pacts.submissions import (
     AccreditationType,
     FacilitatorCreateData,
     FacilitatorListQuery,
+    FacilitatorMergeData,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
     from ludamus.pacts.submissions import (
         FacilitatorColumnDTO,
-        FacilitatorListContextDTO,
+        FacilitatorMergeContextDTO,
         FacilitatorPanelServiceProtocol,
     )
 
@@ -390,36 +390,128 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
 
+_MIN_MERGE = 2
+
+
+def _distinct(values: Iterable[str]) -> list[str]:
+    seen: list[str] = []
+    for value in values:
+        if value not in seen:
+            seen.append(value)
+    return seen
+
+
+def _field_options(
+    merge_context: FacilitatorMergeContextDTO,
+) -> list[tuple[PersonalDataFieldDTO, list[str | list[str] | bool]]]:
+    # One entry per field somebody answered, with the distinct answers in
+    # facilitator order — the reconcile screen offers them as choices.
+    options: list[tuple[PersonalDataFieldDTO, list[str | list[str] | bool]]] = []
+    for field in merge_context.fields:
+        values: list[str | list[str] | bool] = []
+        for facilitator in merge_context.facilitators:
+            value = merge_context.values.get(facilitator.pk, {}).get(field.slug)
+            if not value:
+                continue
+            if value not in values:
+                values.append(value)
+        if values:
+            options.append((field, values))
+    return options
+
+
 class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
-    """Merge multiple facilitators into one."""
+    """Search-and-collect merge flow with a reconcile-then-confirm screen."""
 
     request: PanelRequest
 
-    def _list_context(self, event_id: int) -> FacilitatorListContextDTO:
-        return self.request.services.facilitator_panel.list_context(
-            event_id=event_id, query=FacilitatorListQuery()
-        )
+    def _basket_slugs(self) -> list[str]:
+        slugs = self.request.GET.getlist("facilitator_slugs")
+        if add := self.request.GET.get("add", ""):
+            slugs = [*slugs, add]
+        if remove := self.request.GET.get("remove", ""):
+            slugs = [s for s in slugs if s != remove]
+        return list(dict.fromkeys(slugs))
 
-    def _render(
+    @staticmethod
+    def _base_context(context: dict[str, object], slug: str) -> None:
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "merge"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+
+    def _render_search(
         self,
         *,
         context: dict[str, object],
         slug: str,
-        list_context: FacilitatorListContextDTO,
-        preselected_ids: set[int],
+        event_id: int,
+        basket_slugs: list[str],
+    ) -> HttpResponse:
+        panel = self.request.services.facilitator_panel
+        everyone = panel.list_context(
+            event_id=event_id, query=FacilitatorListQuery()
+        ).facilitators
+        by_slug = {f.slug: f for f in everyone}
+        # Stale basket entries (renamed or already merged away) drop silently.
+        basket = [by_slug[s] for s in basket_slugs if s in by_slug]
+        search = self.request.GET.get("q", "").strip()
+        results: list[FacilitatorListItemDTO] = []
+        if search:
+            in_basket = {f.slug for f in basket}
+            results = [
+                f
+                for f in panel.list_context(
+                    event_id=event_id, query=FacilitatorListQuery(search=search)
+                ).facilitators
+                if f.slug not in in_basket
+            ]
+        self._base_context(context, slug)
+        context["confirm"] = False
+        context["basket"] = basket
+        context["search_query"] = search
+        context["search_results"] = results
+        context["can_merge"] = len(basket) >= _MIN_MERGE
+        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
+
+    def _render_confirm(
+        self,
+        *,
+        context: dict[str, object],
+        slug: str,
+        event_id: int,
+        basket_slugs: list[str],
         error: str | None,
     ) -> HttpResponse:
-        context["active_nav"] = "facilitators"
-        context["active_tab"] = "merge"
-        context["tab_urls"] = facilitator_tab_urls(slug)
-        context["facilitators"] = list_context.facilitators
-        context["columns"] = list_context.columns
-        context["column_values"] = _build_column_values(
-            panel=self.request.services.facilitator_panel,
-            facilitators=list_context.facilitators,
-            columns=list_context.columns,
+        try:
+            merge_context = self.request.services.facilitator_panel.merge_context(
+                event_id=event_id, facilitator_slugs=basket_slugs
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitator-merge", slug=slug)
+
+        self._base_context(context, slug)
+        context["confirm"] = True
+        context["facilitators"] = merge_context.facilitators
+        context["name_choices"] = _distinct(
+            f.display_name for f in merge_context.facilitators
         )
-        context["preselected_ids"] = preselected_ids
+        context["accreditation_choices"] = [
+            (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)])
+            for value in _distinct(
+                f.accreditation_type for f in merge_context.facilitators
+            )
+        ]
+        context["field_choices"] = [
+            (
+                field,
+                [
+                    (index, _format_field_value(value=value))
+                    for index, value in enumerate(values)
+                ],
+            )
+            for field, values in _field_options(merge_context)
+        ]
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
@@ -428,13 +520,20 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        raw_ids = self.request.GET.getlist("ids")
-        return self._render(
+        basket_slugs = self._basket_slugs()
+        if self.request.GET.get("confirm") and len(basket_slugs) >= _MIN_MERGE:
+            return self._render_confirm(
+                context=context,
+                slug=slug,
+                event_id=current_event.pk,
+                basket_slugs=basket_slugs,
+                error=None,
+            )
+        return self._render_search(
             context=context,
             slug=slug,
-            list_context=self._list_context(current_event.pk),
-            preselected_ids={int(fid) for fid in raw_ids if fid.isdigit()},
-            error=None,
+            event_id=current_event.pk,
+            basket_slugs=basket_slugs,
         )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -442,40 +541,45 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        list_context = self._list_context(current_event.pk)
-        valid_pks = {f.pk for f in list_context.facilitators}
-        raw_selected = self.request.POST.getlist("facilitator_ids")
-        selected_ids = [
-            n for fid in raw_selected if fid.isdigit() and (n := int(fid)) in valid_pks
-        ]
-        raw_target = self.request.POST.get("target_id", "")
-        target_id = (
-            int(raw_target)
-            if raw_target.isdigit() and int(raw_target) in valid_pks
-            else None
+        basket_slugs = list(
+            dict.fromkeys(self.request.POST.getlist("facilitator_slugs"))
         )
-
-        min_required = 2
-        if len(selected_ids) < min_required or target_id not in selected_ids:
-            return self._render(
-                context=context,
-                slug=slug,
-                list_context=list_context,
-                preselected_ids=set(selected_ids),
-                error=_("Select at least two facilitators and choose a merge target."),
-            )
-
-        source_ids = [fid for fid in selected_ids if fid != target_id]
         try:
-            FacilitatorMergeService(self.request.di.uow).merge(target_id, source_ids)
+            merge_context = self.request.services.facilitator_panel.merge_context(
+                event_id=current_event.pk, facilitator_slugs=basket_slugs
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitator-merge", slug=slug)
+
+        # Radio choices arrive as indexes into the option lists the confirm
+        # screen rendered, so list-typed answers survive the round trip.
+        values: dict[int, str | list[str] | bool] = {}
+        for field, options in _field_options(merge_context):
+            raw = self.request.POST.get(f"personal_{field.pk}", "")
+            if raw.isdigit() and int(raw) < len(options):
+                values[field.pk] = options[int(raw)]
+
+        try:
+            self.request.services.facilitator_panel.merge(
+                event_id=current_event.pk,
+                target_slug=self.request.POST.get("target_slug", ""),
+                facilitator_slugs=basket_slugs,
+                data=FacilitatorMergeData(
+                    display_name=self.request.POST.get("display_name", "").strip(),
+                    accreditation_type=self.request.POST.get("accreditation_type", ""),
+                    values=values,
+                ),
+            )
         except FacilitatorMergeError:
-            return self._render(
+            return self._render_confirm(
                 context=context,
                 slug=slug,
-                list_context=list_context,
-                preselected_ids=set(selected_ids),
+                event_id=current_event.pk,
+                basket_slugs=basket_slugs,
                 error=_(
-                    "Cannot merge facilitators that each have a linked user account."
+                    "These facilitators cannot be merged. Check the selection, "
+                    "the target, and linked accounts."
                 ),
             )
 
@@ -556,7 +660,7 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
         )
 
 
-_BULK_FACILITATOR_ACTIONS = ("flag", "unflag", "mark-guest")
+_BULK_FACILITATOR_ACTIONS = ("flag", "unflag", "mark-guest", "merge")
 
 
 class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
@@ -579,6 +683,13 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
         if not (slugs := self.request.POST.getlist("facilitator_slugs")):
             messages.warning(self.request, _("No facilitators selected."))
             return redirect(back)
+
+        if action == "merge":
+            # Hand the selection to the merge flow's basket (PRG, so the
+            # bulk form stays a POST).
+            base = reverse("panel:facilitator-merge", kwargs={"slug": slug})
+            query = urlencode({"facilitator_slugs": slugs}, doseq=True)
+            return redirect(f"{base}?{query}")
 
         applied = missing = 0
         for facilitator_slug in slugs:

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-20 03:49+0200\n"
+"POT-Creation-Date: 2026-07-20 04:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1136,6 +1136,7 @@ msgid "No"
 msgstr "Nie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Linked"
 msgstr "Powiązany"
 
@@ -1155,14 +1156,12 @@ msgid "Facilitator updated successfully."
 msgstr "Twórca programu został zaktualizowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Select at least two facilitators and choose a merge target."
-msgstr "Wybierz co najmniej dwóch twórców programu i wskaż cel scalania."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Cannot merge facilitators that each have a linked user account."
+msgid ""
+"These facilitators cannot be merged. Check the selection, the target, and "
+"linked accounts."
 msgstr ""
-"Nie można scalić twórców programu, z których każdy ma powiązane konto "
-"użytkownika."
+"Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
+"powiązane konta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
@@ -2698,6 +2697,7 @@ msgstr "Bloki programowe"
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/proposals.html
@@ -2717,6 +2717,7 @@ msgid "Sessions"
 msgstr "Punkty programu"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Accreditation"
 msgstr "Akredytacja"
@@ -4170,6 +4171,7 @@ msgstr "(wymagane)"
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/chronology/propose/parts/timeslots.html
+#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Back"
 msgstr "Wróć"
@@ -4658,6 +4660,7 @@ msgstr "Usuń drużynę"
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/panel/bans.html
 #: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Remove"
 msgstr "Usuń"
 
@@ -5853,6 +5856,7 @@ msgid "min"
 msgstr "min"
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/import-run.html
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Add"
@@ -6176,57 +6180,66 @@ msgid "No changes recorded yet."
 msgstr "Nie zapisano jeszcze żadnych zmian."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Merge Facilitators"
+msgid "Merge facilitators"
 msgstr "Scal twórców programu"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Select Facilitators to Merge"
-msgstr "Wybierz twórców programu do scalenia"
+msgid "This cannot be undone. Merge the selected facilitators?"
+msgstr "Tej operacji nie można cofnąć. Scalić wybranych twórców programu?"
+
+#: src/ludamus/templates/panel/facilitator-merge.html
+msgid "Merge target"
+msgstr "Cel scalania"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid ""
-"Check the facilitators to merge. Mark one to keep — the other facilitators "
-"will be removed and all their sessions transferred to the kept one."
+"Sessions of all selected facilitators move to the target; the other "
+"facilitators are deleted."
 msgstr ""
-"Zaznacz twórców programu do scalenia. Wskaż jednego do zachowania — "
-"pozostali zostaną usunięci, a wszystkie ich punkty programu przeniesione do "
-"zachowanego."
+"Punkty programu wszystkich wybranych twórców przechodzą do celu scalania; "
+"pozostali twórcy zostają usunięci."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Search by facilitator or field values"
-msgstr "Szukaj po prowadzącym lub wartościach pól"
+msgid "Reconcile values"
+msgstr "Uzgodnij wartości"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Select all"
-msgstr "Zaznacz wszystkie"
-
-#: src/ludamus/templates/panel/facilitator-merge.html
-msgid "The kept facilitator receives all sessions from the others."
+msgid ""
+"Where the selected facilitators disagree, choose what the merged facilitator "
+"keeps."
 msgstr ""
-"Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+"Tam, gdzie wybrani twórcy programu się różnią, wybierz, co zachowa scalony "
+"twórca programu."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Keep"
-msgstr "Zachowaj"
-
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "No facilitators match your search."
-msgstr "Żaden twórca programu nie pasuje do wyszukiwania."
-
-#: src/ludamus/templates/panel/facilitator-merge.html
-msgid "No facilitators available to merge."
-msgstr "Brak twórców programu do scalenia."
-
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Search"
 msgstr "Szukaj"
 
+#: src/ludamus/templates/panel/facilitator-merge.html
+msgid "Selected for merge"
+msgstr "Wybrani do scalenia"
+
+#: src/ludamus/templates/panel/facilitator-merge.html
+msgid "Search below and add at least two facilitators to merge."
+msgstr ""
+"Wyszukaj poniżej i dodaj co najmniej dwóch twórców programu do scalenia."
+
+#: src/ludamus/templates/panel/facilitator-merge.html
+msgid "Review and merge"
+msgstr "Przejrzyj i scal"
+
+#: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Name, linked user or field values"
 msgstr "Nazwa, użytkownik lub wartości pól"
+
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "No facilitators match your search."
+msgstr "Żaden twórca programu nie pasuje do wyszukiwania."
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "All accreditations"
@@ -6268,6 +6281,10 @@ msgstr "Usuń oznaczenie"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Mark as guest"
 msgstr "Oznacz jako gościa"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Merge selected"
+msgstr "Scal zaznaczonych"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Select all facilitators"
@@ -7982,6 +7999,36 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Cannot merge facilitators that each have a linked user account."
+#~ msgstr ""
+#~ "Nie można scalić twórców programu, z których każdy ma powiązane konto "
+#~ "użytkownika."
+
+#~ msgid ""
+#~ "Check the facilitators to merge. Mark one to keep — the other "
+#~ "facilitators will be removed and all their sessions transferred to the "
+#~ "kept one."
+#~ msgstr ""
+#~ "Zaznacz twórców programu do scalenia. Wskaż jednego do zachowania — "
+#~ "pozostali zostaną usunięci, a wszystkie ich punkty programu przeniesione "
+#~ "do zachowanego."
+
+#~ msgid "Search by facilitator or field values"
+#~ msgstr "Szukaj po prowadzącym lub wartościach pól"
+
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
+
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
+#~ msgid "Keep"
+#~ msgstr "Zachowaj"
+
+#~ msgid "No facilitators available to merge."
+#~ msgstr "Brak twórców programu do scalenia."
 
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
