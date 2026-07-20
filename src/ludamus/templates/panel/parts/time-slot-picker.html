@@ -6,7 +6,7 @@
     </p>
     <div class="space-y-2">
         {% for ts in all_time_slots %}
-            <label class="flex items-center text-sm py-2">
+            <label class="flex items-center text-sm py-2 rounded-md hover:bg-foreground/5">
                 <input type="checkbox"
                        name="time_slot_ids"
                        value="{{ ts.pk }}"

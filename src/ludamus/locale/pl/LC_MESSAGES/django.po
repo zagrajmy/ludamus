@@ -7929,6 +7929,10 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#: src/ludamus/templates/panel/parts/facilitator-picker.html
+msgid "Search facilitators by name"
+msgstr "Szukaj twórców programu po nazwie"
+
 #~ msgid "Session Hosts"
 #~ msgstr "Twórcy programu"
 

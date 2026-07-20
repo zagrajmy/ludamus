@@ -4,11 +4,12 @@
 <input type="text"
        id="facilitator-search"
        placeholder="{% translate "Search by name…" %}"
+       aria-label="{% translate "Search facilitators by name" %}"
        autocomplete="off"
        class="w-full border border-border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
 <div class="space-y-2" id="facilitator-list">
     {% for f in all_facilitators %}
-        <label class="facilitator-row flex items-center text-sm py-2{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
+        <label class="facilitator-row flex items-center text-sm py-2 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
                data-name="{{ f.display_name|lower }}">
             <input type="checkbox"
                    name="facilitator_ids"
