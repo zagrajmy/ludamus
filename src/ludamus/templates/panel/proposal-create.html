@@ -28,9 +28,9 @@
     {% if current_event %}
         <form id="proposal-create-form"
               method="post"
-              class="max-w-2xl lg:max-w-6xl lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+              class="p-4 lg:p-6 columns-1 lg:columns-2 xl:columns-3 gap-6">
             {% csrf_token %}
-            <div class="card">
+            <div class="card break-inside-avoid mb-6">
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Details" %}</h3>
                     <div class="space-y-6">
@@ -158,10 +158,10 @@
                     </div>
                 </div>
             </div>
-            <div class="space-y-6 mt-6 lg:mt-0">
+            <div class="contents">
                 {% include "panel/parts/proposal-session-fields.html" %}
                 {% if all_time_slots %}
-                    <div class="card">
+                    <div class="card break-inside-avoid mb-6">
                         <div class="card-body">{% include "panel/parts/time-slot-picker.html" %}</div>
                     </div>
                 {% endif %}
