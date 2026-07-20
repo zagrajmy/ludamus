@@ -25,7 +25,7 @@ from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.forms import SessionEditForm, field_descriptors
 from ludamus.gates.web.django.helpers import (
     get_client_ip,
     is_event_published,
@@ -66,10 +66,8 @@ if TYPE_CHECKING:
         EventDTO,
         EventProposalSettingsDTO,
         PersonalDataFieldDTO,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldDTO,
-        SessionFieldRequirementDTO,
         SessionSelfEditContext,
         TimeSlotRequirementDTO,
     )
@@ -146,37 +144,6 @@ def _apply_wizard_cover_from_form(
         _delete_wizard_cover(wizard)
     elif cover:
         _stash_wizard_cover(wizard, cover)
-
-
-def _field_descriptors(
-    prefix: str,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    form: object,
-) -> list[dict[str, object]]:
-    descriptors = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
-        bound_field = form[field_key]  # type: ignore[index]
-        desc = {
-            "key": field_key,
-            "bound_field": bound_field,
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        if req.field.allow_custom:
-            desc["custom_bound_field"] = form[f"{field_key}_custom"]  # type: ignore[index]
-        descriptors.append(desc)
-    return descriptors
 
 
 def _timeslot_descriptors(
@@ -340,7 +307,7 @@ def _personal_context(
         "proposal_settings": _proposal_settings(request, event),
         "category": category,
         "form": form,
-        "field_descriptors": _field_descriptors("personal", requirements, form),
+        "field_descriptors": field_descriptors("personal", requirements, form),
         "current_step": "personal",
         "wizard_steps": _wizard_steps(service, category, has_category=has_category),
         "show_back_button": has_category,
@@ -429,7 +396,7 @@ def _render_details(
             "form": form,
             "image_form": _wizard_image_form(wizard),
             "durations": category.durations,
-            "field_descriptors": _field_descriptors("session", requirements, form),
+            "field_descriptors": field_descriptors("session", requirements, form),
             "public_tracks": public_tracks,
             "selected_track_pks": selected_track_pks,
             "current_step": "details",
@@ -696,7 +663,7 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
                 "proposal_settings": _proposal_settings(request, event),
                 "category": category,
                 "form": form,
-                "field_descriptors": _field_descriptors("personal", requirements, form),
+                "field_descriptors": field_descriptors("personal", requirements, form),
                 "current_step": "personal",
                 "wizard_steps": _wizard_steps(
                     service, category, has_category=has_category
@@ -816,7 +783,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                     "form": form,
                     "image_form": display_image_form,
                     "durations": category.durations,
-                    "field_descriptors": _field_descriptors(
+                    "field_descriptors": field_descriptors(
                         "session", requirements, form
                     ),
                     "current_step": "details",

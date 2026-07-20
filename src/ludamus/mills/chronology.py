@@ -1481,6 +1481,27 @@ class SessionContentEditService:
                     for fv in old_values
                 ]
             )
+            # Logged as old -> None so the entry reverts by re-saving the value
+            # (build_inverse_content_edit restores `old`).
+            removal_changes: list[ContentFieldChange] = []
+            if data.remove_field_ids:
+                old_by_id = {fv.field_id: fv.value for fv in old_values}
+                removed = [
+                    field_id
+                    for field_id in data.remove_field_ids
+                    if field_id in old_by_id
+                ]
+                if removed:
+                    self._sessions.delete_field_values_for_fields(session_id, removed)
+                    removal_changes = [
+                        {
+                            "field": "",
+                            "field_id": field_id,
+                            "old": old_by_id[field_id],
+                            "new": None,
+                        }
+                        for field_id in removed
+                    ]
             m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
                 before = [
@@ -1508,6 +1529,7 @@ class SessionContentEditService:
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )
+            changes.extend(removal_changes)
             changes.extend(m2m_changes)
             if changes:
                 log_data: ContentChangeLogData = {
