@@ -40,6 +40,9 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosub
 // choosing one navigates there. Degrades without JS to a no-op control.
 for (const select of document.querySelectorAll<HTMLSelectElement>("select[data-navigate]")) {
   select.addEventListener("change", () => {
-    window.location.assign(select.value);
+    // Same-origin guard: option values are server-rendered, but never let a
+    // stray javascript:/external URL through.
+    const url = new URL(select.value, window.location.origin);
+    if (url.origin === window.location.origin) window.location.assign(url);
   });
 }
