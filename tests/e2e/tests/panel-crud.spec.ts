@@ -60,9 +60,9 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
   test("creates a proposal bound to the facilitator", async ({ page }) => {
     await page.goto(PROPOSALS_URL);
-    // Header button + empty-state CTA both read "Create Session"; take the
+    // Header button + empty-state CTA both read "New Proposal"; take the
     // header one.
-    await page.getByRole("link", { name: "Create Session" }).first().click();
+    await page.getByRole("link", { name: "New Proposal" }).first().click();
 
     await page.getByRole("checkbox", { name: FACILITATOR }).check();
     await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
