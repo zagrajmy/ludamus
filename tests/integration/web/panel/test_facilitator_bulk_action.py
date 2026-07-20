@@ -80,8 +80,22 @@ class TestFacilitatorBulkActionView:
             {"action": "mark-guest", "facilitator_slugs": ["alice"]},
         )
 
-        assert unflag.status_code == HTTPStatus.FOUND
-        assert guest.status_code == HTTPStatus.FOUND
+        list_url = reverse("panel:facilitators", kwargs={"slug": event.slug})
+        assert_response(
+            unflag,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "1 facilitator updated.")],
+            url=list_url,
+        )
+        assert_response(
+            guest,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "1 facilitator updated."),
+                (messages.SUCCESS, "1 facilitator updated."),
+            ],
+            url=list_url,
+        )
         alice.refresh_from_db()
         assert alice.flagged_for_deletion is False
         assert alice.accreditation_type == "guest"

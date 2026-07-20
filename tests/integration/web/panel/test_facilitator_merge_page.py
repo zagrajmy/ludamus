@@ -5,12 +5,20 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
+    AccreditationType,
     Facilitator,
     PersonalDataField,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
+)
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorDTO,
+    FacilitatorListItemDTO,
+    PersonalDataFieldDTO,
 )
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -22,10 +30,92 @@ MERGE_ERROR = (
 )
 
 
-def _make_facilitator(event, display_name, slug, **kwargs):
+def _make_facilitator(event, *, display_name, slug, **kwargs):
     return Facilitator.objects.create(
         event=event, display_name=display_name, slug=slug, user=None, **kwargs
     )
+
+
+def _event_context(event):
+    return {
+        "current_event": EventDTO.model_validate(event),
+        "events": [EventDTO.model_validate(event)],
+        "is_proposal_active": False,
+        "stats": {
+            "hosts_count": 0,
+            "pending_proposals": 0,
+            "rooms_count": 0,
+            "scheduled_sessions": 0,
+            "total_proposals": 0,
+            "total_sessions": 0,
+        },
+        "active_nav": "facilitators",
+        "active_tab": "merge",
+        "tab_urls": {
+            "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
+            "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
+            "columns": reverse(
+                "panel:facilitator-columns", kwargs={"slug": event.slug}
+            ),
+        },
+    }
+
+
+def _list_item(facilitator):
+    return FacilitatorListItemDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        pk=facilitator.pk,
+        session_count=0,
+        slug=facilitator.slug,
+        user_id=facilitator.user_id,
+    )
+
+
+def _search_context(
+    event, *, basket, search_query="", search_results=(), can_merge=False
+):
+    return {
+        **_event_context(event),
+        "confirm": False,
+        "basket": [_list_item(f) for f in basket],
+        "search_query": search_query,
+        "search_results": [_list_item(f) for f in search_results],
+        "can_merge": can_merge,
+    }
+
+
+def _accreditation_choice(value):
+    return (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)])
+
+
+def _field_dto(field):
+    return PersonalDataFieldDTO(
+        field_type=field.field_type,
+        is_multiple=field.is_multiple,
+        name=field.name,
+        options=[],
+        order=field.order,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
+
+
+def _confirm_context(
+    event, *, facilitators, name_choices, accreditation_choices, field_choices, error
+):
+    return {
+        **_event_context(event),
+        "confirm": True,
+        "facilitators": [FacilitatorDTO.model_validate(f) for f in facilitators],
+        "name_choices": name_choices,
+        "accreditation_choices": [
+            _accreditation_choice(value) for value in accreditation_choices
+        ],
+        "field_choices": field_choices,
+        "error": error,
+    }
 
 
 class TestFacilitatorMergeSearch:
@@ -58,26 +148,33 @@ class TestFacilitatorMergeSearch:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
-        _make_facilitator(event, "Adam Nowak", "adam-nowak")
-        _make_facilitator(event, "Jan Wysocki", "jan-wysocki")
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        nowak = _make_facilitator(event, display_name="Adam Nowak", slug="adam-nowak")
+        _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
         response = authenticated_client.get(
             self.get_url(event), {"facilitator_slugs": ["adam-kowalski"], "q": "Adam"}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [f.slug for f in response.context["basket"]] == ["adam-kowalski"]
-        assert [f.slug for f in response.context["search_results"]] == ["adam-nowak"]
-        assert response.context["confirm"] is False
-        assert response.context["can_merge"] is False
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(
+                event, basket=[adam], search_query="Adam", search_results=[nowak]
+            ),
+        )
 
     def test_add_and_remove_adjust_the_basket(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
-        _make_facilitator(event, "Jan Wysocki", "jan-wysocki")
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
         added = authenticated_client.get(
             self.get_url(event),
@@ -91,24 +188,37 @@ class TestFacilitatorMergeSearch:
             },
         )
 
-        assert [f.slug for f in added.context["basket"]] == [
-            "adam-kowalski",
-            "jan-wysocki",
-        ]
-        assert added.context["can_merge"] is True
-        assert [f.slug for f in removed.context["basket"]] == ["jan-wysocki"]
+        assert_response(
+            added,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[adam, jan], can_merge=True),
+        )
+        assert_response(
+            removed,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[jan]),
+        )
 
     def test_stale_basket_slugs_drop_silently(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
 
         response = authenticated_client.get(
             self.get_url(event), {"facilitator_slugs": ["adam-kowalski", "ghost"]}
         )
 
-        assert [f.slug for f in response.context["basket"]] == ["adam-kowalski"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[adam]),
+        )
 
 
 class TestFacilitatorMergeConfirm:
@@ -123,9 +233,12 @@ class TestFacilitatorMergeConfirm:
     ):
         sphere.managers.add(active_user)
         adam = _make_facilitator(
-            event, "Adam Kowalski", "adam-kowalski", accreditation_type="guest"
+            event,
+            display_name="Adam Kowalski",
+            slug="adam-kowalski",
+            accreditation_type="guest",
         )
-        jan = _make_facilitator(event, "Jan Wysocki", "jan-wysocki")
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
         field = PersonalDataField.objects.create(
             event=event,
             name="Diet",
@@ -146,37 +259,48 @@ class TestFacilitatorMergeConfirm:
             {"facilitator_slugs": ["adam-kowalski", "jan-wysocki"], "confirm": "1"},
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["confirm"] is True
-        assert response.context["name_choices"] == ["Adam Kowalski", "Jan Wysocki"]
-        assert [v for v, _label in response.context["accreditation_choices"]] == [
-            "guest",
-            "none",
-        ]
-        assert [
-            (f.pk, choices) for f, choices in response.context["field_choices"]
-        ] == [(field.pk, [(0, "Vegan"), (1, "Vegetarian")])]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_confirm_context(
+                event,
+                facilitators=[adam, jan],
+                name_choices=["Adam Kowalski", "Jan Wysocki"],
+                accreditation_choices=["guest", "none"],
+                field_choices=[(_field_dto(field), [(0, "Vegan"), (1, "Vegetarian")])],
+                error=None,
+            ),
+        )
 
     def test_confirm_with_too_small_basket_falls_back_to_search(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
 
         response = authenticated_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["adam-kowalski"], "confirm": "1"},
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["confirm"] is False
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[adam]),
+        )
 
     def test_post_merges_with_reconciled_values(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        adam = _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
-        jan = _make_facilitator(event, "Jan Wysocki", "jan-wysocki")
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
         field = PersonalDataField.objects.create(
             event=event,
             name="Diet",
@@ -229,8 +353,10 @@ class TestFacilitatorMergeConfirm:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        adam = _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
-        jan = _make_facilitator(event, "Jan Wysocki", "jan-wysocki")
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
         adam.user = UserFactory()
         adam.save()
         jan.user = UserFactory()
@@ -246,17 +372,28 @@ class TestFacilitatorMergeConfirm:
             },
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["error"] == MERGE_ERROR
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_confirm_context(
+                event,
+                facilitators=[adam, jan],
+                name_choices=["Adam Kowalski", "Jan Wysocki"],
+                accreditation_choices=["none"],
+                field_choices=[],
+                error=MERGE_ERROR,
+            ),
+        )
         assert Facilitator.objects.filter(slug="jan-wysocki").exists()
 
     def test_post_rejects_foreign_facilitator(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
+        _make_facilitator(event, display_name="Adam Kowalski", slug="adam-kowalski")
         other_event = EventFactory(sphere=sphere)
-        _make_facilitator(other_event, "Foreign", "foreign")
+        _make_facilitator(other_event, display_name="Foreign", slug="foreign")
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -284,8 +421,8 @@ class TestBulkMergeHandoff:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, "Adam Kowalski", "adam-kowalski")
-        _make_facilitator(event, "Jan Wysocki", "jan-wysocki")
+        _make_facilitator(event, display_name="Adam Kowalski", slug="adam-kowalski")
+        _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
         response = authenticated_client.post(
             reverse("panel:facilitator-bulk-action", kwargs={"slug": event.slug}),
@@ -293,8 +430,11 @@ class TestBulkMergeHandoff:
         )
 
         merge_url = reverse("panel:facilitator-merge", kwargs={"slug": event.slug})
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == (
-            f"{merge_url}?facilitator_slugs=adam-kowalski"
-            "&facilitator_slugs=jan-wysocki"
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=(
+                f"{merge_url}?facilitator_slugs=adam-kowalski"
+                "&facilitator_slugs=jan-wysocki"
+            ),
         )

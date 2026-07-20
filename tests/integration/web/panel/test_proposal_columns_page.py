@@ -10,10 +10,16 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldValue,
 )
-from ludamus.pacts import EventDTO, SessionFieldDTO
+from ludamus.pacts import (
+    EventDTO,
+    ProposalCategoryDTO,
+    SessionFieldDTO,
+    SessionListItemDTO,
+    SessionStatus,
+)
 from ludamus.pacts.chronology import ProposalColumnDTO
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -51,6 +57,54 @@ def _base_context(event, active_tab="columns"):
             "list": reverse("panel:proposals", kwargs={"slug": event.slug}),
             "columns": reverse("panel:proposal-columns", kwargs={"slug": event.slug}),
         },
+    }
+
+
+def _list_page_context(event, *, category, session, columns, column_values):
+    return {
+        **_base_context(event, active_tab="list"),
+        "deleted_proposals": [],
+        "all_tracks": [],
+        "managed_track_pks": set(),
+        "filter_track_pk": None,
+        "filter_track_multi": False,
+        "filter_track_value": "",
+        "page_obj": PageMatcher(number=1, num_pages=1),
+        "filter_category_pk": None,
+        "filter_status": None,
+        "filter_sort": "",
+        "statuses": [
+            ("pending", "Pending"),
+            ("accepted", "Accepted"),
+            ("on_hold", "On hold"),
+            ("rejected", "Rejected"),
+            ("scheduled", "Scheduled"),
+        ],
+        "stats": {
+            "hosts_count": 0,
+            "pending_proposals": 1,
+            "rooms_count": 0,
+            "scheduled_sessions": 0,
+            "total_proposals": 1,
+            "total_sessions": 1,
+        },
+        "categories": [ProposalCategoryDTO.model_validate(category)],
+        "columns": columns,
+        "column_values": column_values,
+        "proposals": [
+            SessionListItemDTO(
+                pk=session.pk,
+                title=session.title,
+                display_name=session.display_name,
+                category_name=category.name,
+                status=SessionStatus.PENDING,
+                creation_time=session.creation_time,
+                is_scheduled=False,
+            )
+        ],
+        "session_fields": [],
+        "filter_fields": {},
+        "filter_search": "",
     }
 
 
@@ -176,15 +230,22 @@ class TestProposalColumnsPageView:
             reverse("panel:proposals", kwargs={"slug": event.slug})
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["columns"] == [
-            ProposalColumnDTO(key="title"),
-            ProposalColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
-        ]
-        assert response.context["column_values"] == {
-            session.pk: {f"field_{field.pk}": "D&D 5e"}
-        }
-        assert "D&amp;D 5e" in response.content.decode()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            contains="D&amp;D 5e",
+            context_data=_list_page_context(
+                event,
+                category=proposal_category,
+                session=session,
+                columns=[
+                    ProposalColumnDTO(key="title"),
+                    ProposalColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
+                ],
+                column_values={session.pk: {f"field_{field.pk}": "D&D 5e"}},
+            ),
+        )
 
     def test_checkbox_value_renders_as_text(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -216,7 +277,20 @@ class TestProposalColumnsPageView:
             reverse("panel:proposals", kwargs={"slug": event.slug})
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["column_values"] == {
-            session.pk: {f"field_{checkbox.pk}": "✓"}
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=_list_page_context(
+                event,
+                category=proposal_category,
+                session=session,
+                columns=[
+                    ProposalColumnDTO(key="title"),
+                    ProposalColumnDTO(
+                        key=f"field_{checkbox.pk}", field=_field_dto(checkbox)
+                    ),
+                ],
+                column_values={session.pk: {f"field_{checkbox.pk}": "✓"}},
+            ),
+        )

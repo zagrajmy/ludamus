@@ -97,6 +97,18 @@ def _base_context(event):
     }
 
 
+def _proposal(session):
+    return SessionListItemDTO(
+        pk=session.pk,
+        title=session.title,
+        display_name=session.display_name,
+        category_name="RPG",
+        status=SessionStatus.PENDING,
+        creation_time=session.creation_time,
+        is_scheduled=False,
+    )
+
+
 class TestProposalsPageView:
     """Tests for /panel/event/<slug>/proposals/ page."""
 
@@ -383,8 +395,8 @@ class TestProposalsPageView:
     def test_sorts_proposals(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        for title in ("Banana", "Cherry", "Apple"):
-            Session.objects.create(
+        sessions = {
+            title: Session.objects.create(
                 event=event,
                 category=category,
                 display_name="Host",
@@ -393,28 +405,58 @@ class TestProposalsPageView:
                 participants_limit=5,
                 status="pending",
             )
+            for title in ("Banana", "Cherry", "Apple")
+        }
 
         ascending = authenticated_client.get(self.get_url(event), {"sort": "title"})
         descending = authenticated_client.get(self.get_url(event), {"sort": "-title"})
         bogus = authenticated_client.get(self.get_url(event), {"sort": "bogus"})
 
-        assert [p.title for p in ascending.context["proposals"]] == [
-            "Apple",
-            "Banana",
-            "Cherry",
-        ]
-        assert [p.title for p in descending.context["proposals"]] == [
-            "Cherry",
-            "Banana",
-            "Apple",
-        ]
-        assert ascending.context["filter_sort"] == "title"
-        assert not bogus.context["filter_sort"]
+        def expected(order, sort):
+            return {
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 3,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 3,
+                    "total_sessions": 3,
+                },
+                "proposals": [_proposal(sessions[title]) for title in order],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+                "filter_sort": sort,
+            }
+
+        assert_response(
+            ascending,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=expected(("Apple", "Banana", "Cherry"), "title"),
+        )
+        assert_response(
+            descending,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=expected(("Cherry", "Banana", "Apple"), "-title"),
+        )
+        assert_response(
+            bogus,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=expected(("Apple", "Cherry", "Banana"), ""),
+        )
 
     def test_page_size_param(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        for i in range(_SEED_COUNT):
+        newest_first = [
             Session.objects.create(
                 event=event,
                 category=category,
@@ -424,13 +466,46 @@ class TestProposalsPageView:
                 participants_limit=5,
                 status="pending",
             )
+            for i in range(_SEED_COUNT)
+        ][::-1]
 
         smaller = authenticated_client.get(self.get_url(event), {"page_size": "10"})
         unlisted = authenticated_client.get(self.get_url(event), {"page_size": "7"})
 
-        assert smaller.context["page_obj"].paginator.per_page == _SMALL_PAGE_SIZE
-        assert smaller.context["page_obj"].paginator.num_pages == _SMALL_TOTAL_PAGES
-        assert unlisted.context["page_obj"].paginator.per_page == _PAGE_SIZE
+        def expected(page_sessions, num_pages):
+            return {
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": _SEED_COUNT,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": _SEED_COUNT,
+                    "total_sessions": _SEED_COUNT,
+                },
+                "proposals": [_proposal(s) for s in page_sessions],
+                "page_obj": PageMatcher(number=1, num_pages=num_pages),
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            }
+
+        assert_response(
+            smaller,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=expected(newest_first[:_SMALL_PAGE_SIZE], _SMALL_TOTAL_PAGES),
+        )
+        assert_response(
+            unlisted,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data=expected(newest_first[:_PAGE_SIZE], _TOTAL_PAGES),
+        )
 
     def test_returns_proposals_in_context(
         self, authenticated_client, active_user, sphere, event
@@ -490,7 +565,7 @@ class TestProposalsPageView:
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        Session.objects.create(
+        dragon = Session.objects.create(
             event=event,
             category=category,
             display_name="Host",
@@ -511,7 +586,30 @@ class TestProposalsPageView:
 
         response = authenticated_client.get(self.get_url(event), {"search": "Dragon"})
 
-        assert [p.title for p in response.context["proposals"]] == ["Dragon Heist"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 2,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 2,
+                    "total_sessions": 2,
+                },
+                "proposals": [_proposal(dragon)],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "Dragon",
+            },
+        )
 
     def test_search_matches_display_name(
         self, authenticated_client, active_user, sphere, event

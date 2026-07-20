@@ -19,7 +19,7 @@ def _base_context(event):
     }
 
 
-def _make_session(event, title, slug):
+def _make_session(event, *, title, slug):
     category = ProposalCategory.objects.get_or_create(
         event=event, name="RPG", slug="rpg"
     )[0]
@@ -94,8 +94,8 @@ class TestProposalHistoryPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, "Dragon Heist", "dragon-heist")
-        other = _make_session(event, "Space Opera", "space-opera")
+        session = _make_session(event, title="Dragon Heist", slug="dragon-heist")
+        other = _make_session(event, title="Space Opera", slug="space-opera")
         log = ContentChangeLog.objects.create(
             event=event,
             session=session,
@@ -151,7 +151,7 @@ class TestProposalHistoryPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, "Dragon Heist", "dragon-heist")
+        session = _make_session(event, title="Dragon Heist", slug="dragon-heist")
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
