@@ -185,3 +185,38 @@ class TestProposalColumnsPageView:
             session.pk: {f"field_{field.pk}": "D&D 5e"}
         }
         assert "D&amp;D 5e" in response.content.decode()
+
+    def test_checkbox_value_renders_as_text(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        checkbox = SessionField.objects.create(
+            event=event,
+            name="Online",
+            question="Online?",
+            slug="online",
+            field_type="checkbox",
+            order=0,
+        )
+        EventPanelSettings.objects.create(
+            event=event, proposal_columns=["title", f"field_{checkbox.pk}"]
+        )
+        session = Session.objects.create(
+            event=event,
+            category=proposal_category,
+            display_name="Host",
+            title="Dragon Heist",
+            slug="dragon-heist",
+            participants_limit=5,
+            status="pending",
+        )
+        SessionFieldValue.objects.create(session=session, field=checkbox, value=True)
+
+        response = authenticated_client.get(
+            reverse("panel:proposals", kwargs={"slug": event.slug})
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["column_values"] == {
+            session.pk: {f"field_{checkbox.pk}": "✓"}
+        }

@@ -84,6 +84,16 @@ def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session
     )
 
 
+def _field_value_text(value: object) -> str:
+    # JSONField holds str, bool (checkbox) or list (multi-select); the list
+    # column prints plain text.
+    if isinstance(value, bool):
+        return "✓" if value else ""
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    return str(value)
+
+
 def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
     return SessionFieldValueDTO(
         allow_custom=fv.field.allow_custom,
@@ -505,7 +515,9 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         ).select_related("field")
         result: dict[int, dict[str, str]] = {}
         for record in records:
-            result.setdefault(record.session_id, {})[record.field.slug] = record.value
+            result.setdefault(record.session_id, {})[record.field.slug] = (
+                _field_value_text(record.value)
+            )
         return result
 
     @staticmethod
