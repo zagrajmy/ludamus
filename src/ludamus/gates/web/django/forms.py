@@ -610,7 +610,6 @@ def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.Intege
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
-    facilitators: list[tuple[int, str]] | None = None,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
@@ -623,17 +622,8 @@ def create_proposal_form(
             },
         )
     }
-    # Create variant only: a required facilitator binding so a hand-added
-    # proposal can never exist with zero facilitators. The edit view omits
-    # this — it manages facilitators through its own inline list.
-    if facilitators is not None:
-        attrs["facilitator_ids"] = forms.MultipleChoiceField(
-            choices=facilitators,
-            error_messages={
-                "required": _("Please select at least one facilitator."),
-                "invalid_choice": _("Invalid facilitator selection."),
-            },
-        )
+    # Facilitators are managed through the view's inline picker (both create and
+    # edit), not a form field; create enforces "at least one" in the view.
 
     if category and (
         category.min_participants_limit or category.max_participants_limit

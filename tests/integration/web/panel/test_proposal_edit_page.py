@@ -98,6 +98,7 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "proposals",
+        "facilitator_error": False,
     }
 
 
@@ -194,7 +195,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -231,7 +232,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -430,7 +431,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "events": [
@@ -850,7 +851,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -1067,7 +1068,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -1265,7 +1266,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=[
                 'name="session_genres"',
@@ -1358,7 +1359,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=[
                 'name="tracks_submitted"',
@@ -1395,7 +1396,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=['id="facilitator-search"', "Alice", "Bob"],
         )
@@ -1430,7 +1431,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
