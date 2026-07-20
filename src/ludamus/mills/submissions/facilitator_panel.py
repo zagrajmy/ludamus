@@ -2,12 +2,18 @@
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts import NotFoundError
+from ludamus.pacts import (
+    FacilitatorMergeError,
+    NotFoundError,
+    PersonalDataFieldValueData,
+)
 from ludamus.pacts.submissions import (
+    AccreditationType,
     FacilitatorColumnDTO,
     FacilitatorColumnsContextDTO,
     FacilitatorDetailContextDTO,
     FacilitatorListContextDTO,
+    FacilitatorMergeContextDTO,
     FacilitatorPanelServiceProtocol,
 )
 
@@ -22,6 +28,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import (
         FacilitatorListFilters,
         FacilitatorListQuery,
+        FacilitatorMergeData,
         FacilitatorPanelRepos,
     )
 
@@ -147,6 +154,82 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             linked_user=linked_user,
             sessions=self._repos.sessions.list_by_facilitator(facilitator.pk),
         )
+
+    def merge_context(
+        self, *, event_id: int, facilitator_slugs: list[str]
+    ) -> FacilitatorMergeContextDTO:
+        facilitators = [
+            self._repos.facilitators.read_by_event_and_slug(event_id, slug)
+            for slug in dict.fromkeys(facilitator_slugs)
+        ]
+        return FacilitatorMergeContextDTO(
+            facilitators=facilitators,
+            fields=self._repos.personal_data_fields.list_by_event(event_id),
+            values={
+                facilitator.pk: (
+                    self._repos.personal_data_field_values.read_for_facilitator_event(
+                        facilitator.pk, event_id
+                    )
+                )
+                for facilitator in facilitators
+            },
+        )
+
+    def merge(
+        self,
+        *,
+        event_id: int,
+        target_slug: str,
+        facilitator_slugs: list[str],
+        data: FacilitatorMergeData,
+    ) -> None:
+        slugs = list(dict.fromkeys(facilitator_slugs))
+        min_required = 2
+        if len(slugs) < min_required or target_slug not in slugs:
+            msg = "Select at least two facilitators and choose a merge target."
+            raise FacilitatorMergeError(msg)
+        if data.accreditation_type not in AccreditationType:
+            msg = "Unknown accreditation type."
+            raise FacilitatorMergeError(msg)
+
+        facilitators = [
+            self._repos.facilitators.read_by_event_and_slug(event_id, slug)
+            for slug in slugs
+        ]
+        if sum(1 for f in facilitators if f.user_id is not None) > 1:
+            msg = "Cannot merge facilitators that each have a linked user account."
+            raise FacilitatorMergeError(msg)
+
+        target = next(f for f in facilitators if f.slug == target_slug)
+        source_ids = [f.pk for f in facilitators if f.pk != target.pk]
+        # Only this event's own fields: a tampered key naming a foreign field
+        # is dropped, not written.
+        valid_field_pks = {
+            f.pk for f in self._repos.personal_data_fields.list_by_event(event_id)
+        }
+        entries = [
+            PersonalDataFieldValueData(
+                facilitator_id=target.pk,
+                event_id=event_id,
+                field_id=field_id,
+                value=value,
+            )
+            for field_id, value in data.values.items()
+            if field_id in valid_field_pks
+        ]
+
+        with self._transaction.atomic():
+            update: FacilitatorUpdateData = {
+                "display_name": data.display_name,
+                "accreditation_type": data.accreditation_type,
+            }
+            self._repos.facilitators.update(target.pk, update)
+            if entries:
+                self._repos.personal_data_field_values.save(entries)
+            self._repos.sessions.replace_facilitators_in_sessions(source_ids, target.pk)
+            self._repos.personal_data_field_values.delete_by_facilitators(source_ids)
+            for source_id in source_ids:
+                self._repos.facilitators.delete(source_id)
 
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]

@@ -437,6 +437,32 @@ class FacilitatorDetailContextDTO:
 
 
 @dataclass
+class FacilitatorMergeData:
+    """Reconciled values the merge target keeps.
+
+    `values` holds chosen personal-data answers keyed by field pk; the
+    service drops keys naming a foreign event's field.
+    """
+
+    display_name: str
+    accreditation_type: str
+    values: dict[int, str | list[str] | bool] = field(default_factory=dict)
+
+
+@dataclass
+class FacilitatorMergeContextDTO:
+    """Read aggregate for the merge reconcile screen.
+
+    `values` maps facilitator pk -> field slug -> that facilitator's answer,
+    so the screen can offer a per-attribute choice where sources disagree.
+    """
+
+    facilitators: list[FacilitatorDTO]
+    fields: list[PersonalDataFieldDTO]
+    values: dict[int, dict[str, str | list[str] | bool]]
+
+
+@dataclass
 class FacilitatorColumnsContextDTO:
     """Read aggregate for the facilitator-columns chooser."""
 
@@ -451,6 +477,17 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def detail_context(
         self, *, event_id: int, facilitator_slug: str
     ) -> FacilitatorDetailContextDTO: ...
+    def merge_context(
+        self, *, event_id: int, facilitator_slugs: list[str]
+    ) -> FacilitatorMergeContextDTO: ...
+    def merge(
+        self,
+        *,
+        event_id: int,
+        target_slug: str,
+        facilitator_slugs: list[str],
+        data: FacilitatorMergeData,
+    ) -> None: ...
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
