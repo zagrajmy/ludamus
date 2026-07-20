@@ -235,6 +235,22 @@ class ProposalListQuery:
 
 
 @dataclass
+class ProposalColumnDTO:
+    """One column of the proposals list: a built-in key or a session field."""
+
+    key: str
+    field: SessionFieldDTO | None = None
+
+
+@dataclass
+class ProposalColumnsContextDTO:
+    """Read aggregate for the proposal-columns chooser."""
+
+    chosen: list[ProposalColumnDTO]
+    available: list[ProposalColumnDTO]
+
+
+@dataclass
 class ProposalListContextDTO:
     """Read aggregate for the panel's proposals list.
 
@@ -243,18 +259,24 @@ class ProposalListContextDTO:
     """
 
     proposals: list[SessionListItemDTO]
-    deleted_proposals: list[SessionListItemDTO]
     filterable_fields: list[SessionFieldDTO]
     categories: list[ProposalCategoryDTO]
     category_pk: int | None
     status: str | None
     sort: str
+    columns: list[ProposalColumnDTO]
 
 
 class ProposalPanelServiceProtocol(Protocol):
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
     ) -> ProposalListContextDTO: ...
+    def list_deleted(self, event_id: int) -> list[SessionListItemDTO]: ...
+    def column_values(
+        self, *, session_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str]]: ...
+    def columns_context(self, event_id: int) -> ProposalColumnsContextDTO: ...
+    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
     def create_proposal(
         self,
         *,

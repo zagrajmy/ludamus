@@ -311,6 +311,12 @@ class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
             event_id=event_id, defaults={"facilitator_columns": columns}
         )
 
+    @staticmethod
+    def update_proposal_columns(event_id: int, columns: list[str]) -> None:
+        EventPanelSettings.objects.update_or_create(
+            event_id=event_id, defaults={"proposal_columns": columns}
+        )
+
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
     @staticmethod

@@ -239,6 +239,7 @@ class Services:
             sessions=self._repos.sessions,
             session_fields=self._repos.session_fields,
             proposal_categories=self._repos.proposal_categories,
+            panel_settings=self._repos.event_panel_settings,
         )
 
     @cached_property

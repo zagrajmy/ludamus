@@ -55,6 +55,8 @@ from ludamus.pacts.chronology import (
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     ProposalAcceptContextDTO,
+    ProposalColumnDTO,
+    ProposalColumnsContextDTO,
     ProposalListContextDTO,
     ProposalListQuery,
     ProposalPanelServiceProtocol,
@@ -87,6 +89,7 @@ if TYPE_CHECKING:
         ProposalCategoryRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
         SessionData,
+        SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
         SessionListItemDTO,
@@ -104,6 +107,7 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.submissions import EventPanelSettingsRepositoryProtocol
 
 
 def _duration_hours(start: datetime, end: datetime) -> float:
@@ -570,17 +574,50 @@ class SessionDeletionService:
             self._sessions.restore(session_pk, event_pk)
 
 
-_PROPOSAL_SORT_KEYS = ("title", "category", "status", "created")
+_PROPOSAL_SORT_KEYS = ("title", "host", "category", "status", "created")
+_PROPOSAL_BUILTIN_COLUMN_KEYS = ("title", "host", "category", "status", "created")
+_PROPOSAL_FIELD_KEY_PREFIX = "field_"
+
+
+def _session_field_order(field: SessionFieldDTO) -> tuple[int, str]:
+    return (field.order, field.name)
 
 
 def _proposal_sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
     if key == "title":
         return proposal.title.lower()
+    if key == "host":
+        return proposal.display_name.lower()
     if key == "category":
         return proposal.category_name.lower()
     if key == "status":
         return str(proposal.status)
     return proposal.creation_time
+
+
+def _proposal_all_columns(fields: list[SessionFieldDTO]) -> list[ProposalColumnDTO]:
+    return [
+        *(ProposalColumnDTO(key=key) for key in _PROPOSAL_BUILTIN_COLUMN_KEYS),
+        *(
+            ProposalColumnDTO(
+                key=f"{_PROPOSAL_FIELD_KEY_PREFIX}{field.pk}", field=field
+            )
+            for field in sorted(fields, key=_session_field_order)
+        ),
+    ]
+
+
+def _proposal_resolve_columns(
+    *, keys: list[str], fields: list[SessionFieldDTO]
+) -> list[ProposalColumnDTO]:
+    # Keys naming a field that has since been deleted (or never belonged to
+    # this event) resolve to nothing: the column drops, the list still renders.
+    by_key = {column.key: column for column in _proposal_all_columns(fields)}
+    return [
+        column
+        for key in keys or _PROPOSAL_BUILTIN_COLUMN_KEYS
+        if (column := by_key.get(key))
+    ]
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
@@ -597,10 +634,12 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         sessions: SessionRepositoryProtocol,
         session_fields: SessionFieldRepositoryProtocol,
         proposal_categories: ProposalCategoryRepositoryProtocol,
+        panel_settings: EventPanelSettingsRepositoryProtocol,
     ) -> None:
         self._sessions = sessions
         self._session_fields = session_fields
         self._proposal_categories = proposal_categories
+        self._panel_settings = panel_settings
 
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
@@ -659,15 +698,60 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         else:
             sort = ""
 
+        settings = self._panel_settings.read_or_create(event_id)
         return ProposalListContextDTO(
             proposals=proposals,
-            deleted_proposals=self._sessions.list_deleted_by_event(event_id),
             filterable_fields=filterable_fields,
             categories=categories,
             category_pk=category_pk,
             status=status,
             sort=sort,
+            columns=_proposal_resolve_columns(
+                keys=settings.proposal_columns, fields=session_fields
+            ),
         )
+
+    def list_deleted(self, event_id: int) -> list[SessionListItemDTO]:
+        return self._sessions.list_deleted_by_event(event_id)
+
+    def column_values(
+        self, *, session_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str]]:
+        if not session_ids or not field_ids:
+            return {}
+        return self._sessions.list_field_values_for_sessions(session_ids, field_ids)
+
+    def columns_context(self, event_id: int) -> ProposalColumnsContextDTO:
+        fields = self._session_fields.list_by_event(event_id)
+        settings = self._panel_settings.read_or_create(event_id)
+        chosen = _proposal_resolve_columns(
+            keys=settings.proposal_columns, fields=fields
+        )
+        chosen_keys = {column.key for column in chosen}
+        return ProposalColumnsContextDTO(
+            chosen=chosen,
+            available=[
+                column
+                for column in _proposal_all_columns(fields)
+                if column.key not in chosen_keys
+            ],
+        )
+
+    def set_columns(self, *, event_id: int, columns: list[str]) -> None:
+        # Keep only this event's own keys, deduped, in the given order: a
+        # tampered request cannot pull a foreign event's answers into the list
+        # or repeat a column to widen it.
+        valid_keys = {
+            column.key
+            for column in _proposal_all_columns(
+                self._session_fields.list_by_event(event_id)
+            )
+        }
+        chosen: list[str] = []
+        for key in columns:
+            if key in valid_keys and key not in chosen:
+                chosen.append(key)
+        self._panel_settings.update_proposal_columns(event_id, chosen)
 
     def create_proposal(
         self,

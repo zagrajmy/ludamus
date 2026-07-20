@@ -7,10 +7,10 @@
     {% translate "Columns" %} -
 {% endblock title_prefix %}
 {% block page_title %}
-    {% translate "Facilitator columns" %}
+    {% translate "Proposal columns" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {{ current_event.name }} · {% translate "Facilitators" %}
+    {{ current_event.name }} · {% translate "Proposals" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
     <button type="submit"
@@ -22,25 +22,25 @@
 {% endblock header_actions %}
 {% block content %}
     <div class="px-3 sm:px-4 py-6">
-        {% tab_shell "panel/_facilitator_tabs.html" %}
+        {% tab_shell "panel/_proposal_tabs.html" %}
         {% tab_shell_body %}
         <form id="columns-form"
               method="post"
-              action="{% url 'panel:facilitator-columns' slug=current_event.slug %}"
+              action="{% url 'panel:proposal-columns' slug=current_event.slug %}"
               class="max-w-2xl">
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
                     <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Tick the columns the facilitators list shows, and order them top to bottom. Organizers only." %}
+                        {% translate "Tick the columns the proposals list shows, and order them top to bottom. Organizers only." %}
                     </p>
                     <ul id="column-list" class="space-y-2">
                         {% for column in chosen_columns %}
-                            {% include "panel/parts/_column_row.html" with column=column shown=True label=column|facilitator_column_label only %}
+                            {% include "panel/parts/_column_row.html" with column=column shown=True label=column|proposal_column_label only %}
                         {% endfor %}
                         {% for column in available_columns %}
-                            {% include "panel/parts/_column_row.html" with column=column shown=False label=column|facilitator_column_label only %}
+                            {% include "panel/parts/_column_row.html" with column=column shown=False label=column|proposal_column_label only %}
                         {% endfor %}
                     </ul>
                 </div>

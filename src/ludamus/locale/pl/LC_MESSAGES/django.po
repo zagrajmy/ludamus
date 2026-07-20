@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 22:02+0200\n"
+"POT-Creation-Date: 2026-07-19 23:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1181,6 +1181,7 @@ msgid "Facilitator marked as guest."
 msgstr "Twórca programu oznaczony jako gość."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Columns updated."
 msgstr "Kolumny zaktualizowane."
 
@@ -2697,6 +2698,19 @@ msgstr "Punkty programu"
 msgid "Accreditation"
 msgstr "Akredytacja"
 
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Status"
+msgstr "Status"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Created"
+msgstr "Utworzono"
+
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
@@ -3074,6 +3088,7 @@ msgstr "Widok harmonogramu"
 
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 #: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/_proposal_tabs.html
 msgid "List"
 msgstr "Lista"
 
@@ -3583,13 +3598,6 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Status"
-msgstr "Status"
-
-#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
@@ -3861,6 +3869,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
+#: src/ludamus/templates/panel/proposal-columns.html
 #: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-form.html
@@ -5439,6 +5448,7 @@ msgstr "Historia zmian"
 
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/proposal-columns.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-edit.html
@@ -5456,21 +5466,15 @@ msgstr "Wyświetlanie"
 msgid "Integrations"
 msgstr "Integracje"
 
-#: src/ludamus/templates/panel/_facilitator_column_row.html
-msgid "Move up"
-msgstr "Przenieś w górę"
-
-#: src/ludamus/templates/panel/_facilitator_column_row.html
-msgid "Move down"
-msgstr "Przenieś w dół"
-
 #: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge"
 msgstr "Scal"
 
 #: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/_proposal_tabs.html
 #: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/proposal-columns.html
 msgid "Columns"
 msgstr "Kolumny"
 
@@ -6631,6 +6635,14 @@ msgstr "Czy na pewno cofnąć tę zmianę?"
 msgid "Revert"
 msgstr "Cofnij"
 
+#: src/ludamus/templates/panel/parts/_column_row.html
+msgid "Move up"
+msgstr "Przenieś w górę"
+
+#: src/ludamus/templates/panel/parts/_column_row.html
+msgid "Move down"
+msgstr "Przenieś w dół"
+
 #: src/ludamus/templates/panel/parts/_pagination.html
 #, python-format
 msgid ""
@@ -7184,6 +7196,18 @@ msgstr "Brak sal do wydruku."
 msgid "No time slots scheduled."
 msgstr "Nie zaplanowano przedziałów czasowych."
 
+#: src/ludamus/templates/panel/proposal-columns.html
+msgid "Proposal columns"
+msgstr "Kolumny zgłoszeń"
+
+#: src/ludamus/templates/panel/proposal-columns.html
+msgid ""
+"Tick the columns the proposals list shows, and order them top to bottom. "
+"Organizers only."
+msgstr ""
+"Zaznacz kolumny widoczne na liście zgłoszeń i ustaw ich kolejność od góry do "
+"dołu. Tylko dla organizatorów."
+
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "New Proposal"
@@ -7242,11 +7266,6 @@ msgid ""
 msgstr ""
 "Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
 "harmonogramu."
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Created"
-msgstr "Utworzono"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Last modified"

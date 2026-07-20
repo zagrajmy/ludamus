@@ -21,6 +21,7 @@ from ludamus.pacts import (
     SessionStatus,
     TrackDTO,
 )
+from ludamus.pacts.chronology import ProposalColumnDTO
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -52,6 +53,24 @@ _TRACK_FILTER_CONTEXT = {
     "filter_sort": "",
     "statuses": _STATUSES,
 }
+
+_DEFAULT_COLUMNS = [
+    ProposalColumnDTO(key=key)
+    for key in ("title", "host", "category", "status", "created")
+]
+
+
+def _list_chrome(event):
+    return {
+        "active_tab": "list",
+        "tab_urls": {
+            "list": reverse("panel:proposals", kwargs={"slug": event.slug}),
+            "columns": reverse("panel:proposal-columns", kwargs={"slug": event.slug}),
+        },
+        "columns": _DEFAULT_COLUMNS,
+        "column_values": {},
+    }
+
 
 _PAGE_SIZE = 20
 _SEED_COUNT = 30
@@ -135,6 +154,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [],
                 "proposals": [],
                 "session_fields": [],
@@ -236,6 +256,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 0,
@@ -437,6 +458,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -529,6 +551,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -592,6 +615,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 2,
@@ -667,6 +691,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -751,6 +776,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -833,6 +859,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -910,6 +937,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -954,6 +982,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -992,6 +1021,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -1038,6 +1068,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -1077,6 +1108,7 @@ class TestProposalsPageView:
             template_name="panel/proposals.html",
             context_data={
                 **_base_context(event),
+                **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -1174,6 +1206,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
+                **_list_chrome(event),
                 "categories": [],
                 "proposals": [],
                 "session_fields": [

@@ -344,6 +344,7 @@ class EventPanelSettingsDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     facilitator_columns: list[str] = []
+    proposal_columns: list[str] = []
     pk: int
 
 
@@ -352,6 +353,8 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
     def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
     @staticmethod
     def update_facilitator_columns(event_id: int, columns: list[str]) -> None: ...
+    @staticmethod
+    def update_proposal_columns(event_id: int, columns: list[str]) -> None: ...
 
 
 @dataclass

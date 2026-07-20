@@ -64,6 +64,8 @@
 {% block content %}
     <div class="p-4">
         {% if current_event %}
+            {% tab_shell "panel/_proposal_tabs.html" %}
+            {% tab_shell_body %}
             <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
                 <form method="get"
                       id="proposals-filter-form"
@@ -209,18 +211,16 @@
                                            aria-label="{% translate "Select all proposals" %}"
                                            class="rounded border-border">
                                 </th>
-                                {% translate "Title" as t_title %}
-                                {% include "panel/parts/_sort_th.html" with column="title" label=t_title %}
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Display Name" %}
-                                </th>
-                                {% translate "Category" as t_category %}
-                                {% include "panel/parts/_sort_th.html" with column="category" label=t_category %}
-                                {% translate "Status" as t_status %}
-                                {% include "panel/parts/_sort_th.html" with column="status" label=t_status %}
-                                {% translate "Created" as t_created %}
-                                {% include "panel/parts/_sort_th.html" with column="created" label=t_created %}
+                                {% for column in columns %}
+                                    {% if column.field %}
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                            {{ column|proposal_column_label }}
+                                        </th>
+                                    {% else %}
+                                        {% include "panel/parts/_sort_th.html" with column=column.key label=column|proposal_column_label %}
+                                    {% endif %}
+                                {% endfor %}
                             </tr>
                         </thead>
                         <tbody class="bg-bg-secondary divide-y divide-border">
@@ -233,19 +233,32 @@
                                                aria-label="{% blocktranslate with title=proposal.title %}Select {{ title }}{% endblocktranslate %}"
                                                class="bulk-row-checkbox rounded border-border">
                                     </td>
-                                    <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                                        <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
-                                           class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
-                                    </td>
-                                    <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
-                                        title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                        {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                        {{ proposal.creation_time|date:"d M Y H:i" }}
-                                    </td>
+                                    {% for column in columns %}
+                                        {% if column.key == "title" %}
+                                            <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
+                                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
+                                                   class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
+                                            </td>
+                                        {% elif column.key == "host" %}
+                                            <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
+                                                title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
+                                        {% elif column.key == "category" %}
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
+                                        {% elif column.key == "status" %}
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                                {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
+                                            </td>
+                                        {% elif column.key == "created" %}
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                                {{ proposal.creation_time|date:"d M Y H:i" }}
+                                            </td>
+                                        {% else %}
+                                            {% with value=column_values|get_item:proposal.pk|get_item:column.key %}
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted"
+                                                    title="{{ value }}">{{ value }}</td>
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -312,10 +325,12 @@
             </tbody>
         {% end_tessera_table %}
     {% endif %}
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% else %}
-    <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-    </div>
+<div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
 {% endif %}
 </div>
 {% endblock content %}

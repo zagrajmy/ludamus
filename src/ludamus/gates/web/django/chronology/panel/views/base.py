@@ -167,6 +167,13 @@ def facilitator_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
+def proposal_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "list": reverse("panel:proposals", kwargs={"slug": slug}),
+        "columns": reverse("panel:proposal-columns", kwargs={"slug": slug}),
+    }
+
+
 def proposal_detail_tab_urls(slug: str, proposal_id: int) -> dict[str, str]:
     kwargs = {"slug": slug, "proposal_id": proposal_id}
     return {

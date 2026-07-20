@@ -900,6 +900,10 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read_field_values(session_id: int) -> list[SessionFieldValueDTO]: ...
     @staticmethod
+    def list_field_values_for_sessions(
+        session_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str]]: ...
+    @staticmethod
     def delete_field_values_for_fields(
         session_id: int, field_ids: list[int]
     ) -> int: ...

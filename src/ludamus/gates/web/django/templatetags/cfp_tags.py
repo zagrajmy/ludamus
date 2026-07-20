@@ -11,6 +11,7 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 
 if TYPE_CHECKING:
     from ludamus.pacts import SessionDTO
+    from ludamus.pacts.chronology import ProposalColumnDTO
     from ludamus.pacts.submissions import FacilitatorColumnDTO
 
 register = template.Library()
@@ -97,6 +98,27 @@ def facilitator_column_label(column: FacilitatorColumnDTO) -> str:
         "linked": _("Linked User"),
         "sessions": _("Sessions"),
         "accreditation": _("Accreditation"),
+    }
+    return labels.get(column.key, column.key)
+
+
+@register.filter
+def proposal_column_label(column: ProposalColumnDTO) -> str:
+    """Label a column of the panel's proposals list.
+
+    Returns:
+        The field's own name for session-field columns, else the built-in's
+        translated label.
+    """
+    if column.field is not None:
+        return column.field.name
+    # Built per call so gettext resolves in the active request language.
+    labels = {
+        "title": _("Title"),
+        "host": _("Display Name"),
+        "category": _("Category"),
+        "status": _("Status"),
+        "created": _("Created"),
     }
     return labels.get(column.key, column.key)
 

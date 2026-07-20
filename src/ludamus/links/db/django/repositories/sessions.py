@@ -493,6 +493,22 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         return [field_value_dto(v) for v in values]
 
     @staticmethod
+    def list_field_values_for_sessions(
+        session_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str]]:
+        # Batch load for the proposals list: one query for the current page's
+        # sessions across the chosen columns, keyed by session_id.
+        if not session_ids or not field_ids:
+            return {}
+        records = SessionFieldValue.objects.filter(
+            session_id__in=session_ids, field_id__in=field_ids
+        ).select_related("field")
+        result: dict[int, dict[str, str]] = {}
+        for record in records:
+            result.setdefault(record.session_id, {})[record.field.slug] = record.value
+        return result
+
+    @staticmethod
     def delete_field_values_for_fields(session_id: int, field_ids: list[int]) -> int:
         if not field_ids:
             return 0

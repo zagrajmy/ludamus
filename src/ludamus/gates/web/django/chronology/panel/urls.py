@@ -210,6 +210,11 @@ urlpatterns = [
         name="proposal-detail",
     ),
     path(
+        "event/<slug:slug>/proposals/columns/",
+        proposals.ProposalColumnsPageView.as_view(),
+        name="proposal-columns",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/history/",
         proposals.ProposalHistoryPageView.as_view(),
         name="proposal-history",

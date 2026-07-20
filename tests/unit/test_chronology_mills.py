@@ -1358,11 +1358,18 @@ class TestProposalPanelService:
         return repo
 
     @pytest.fixture
-    def service(self, sessions, session_fields, proposal_categories):
+    def panel_settings(self):
+        repo = MagicMock()
+        repo.read_or_create.return_value = SimpleNamespace(proposal_columns=[])
+        return repo
+
+    @pytest.fixture
+    def service(self, sessions, session_fields, proposal_categories, panel_settings):
         return ProposalPanelService(
             sessions=sessions,
             session_fields=session_fields,
             proposal_categories=proposal_categories,
+            panel_settings=panel_settings,
         )
 
     def test_foreign_category_is_dropped(self, service, sessions):
@@ -1417,8 +1424,8 @@ class TestProposalPanelService:
         self, service, sessions, session_fields
     ):
         session_fields.list_by_event.return_value = [
-            SimpleNamespace(pk=1, field_type="select"),
-            SimpleNamespace(pk=2, field_type="text"),
+            SimpleNamespace(pk=1, field_type="select", order=0, name="A"),
+            SimpleNamespace(pk=2, field_type="text", order=1, name="B"),
         ]
 
         service.list_context(

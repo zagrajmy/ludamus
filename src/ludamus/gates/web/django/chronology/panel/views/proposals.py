@@ -22,6 +22,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     paginate,
     proposal_detail_tab_urls,
+    proposal_tab_urls,
 )
 from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
@@ -101,10 +102,34 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         page_obj = paginate(self.request, list_context.proposals)
 
+        field_columns = [c for c in list_context.columns if c.field is not None]
+        column_values: dict[int, dict[str, str]] = {}
+        if field_columns:
+            raw_values = self.request.services.proposal_panel.column_values(
+                session_ids=[p.pk for p in page_obj.object_list],
+                field_ids=[c.field.pk for c in field_columns if c.field is not None],
+            )
+            column_values = {
+                proposal.pk: {
+                    column.key: (
+                        raw_values.get(proposal.pk, {}).get(column.field.slug, "")
+                    )
+                    for column in field_columns
+                    if column.field is not None
+                }
+                for proposal in page_obj.object_list
+            }
+
         context["active_nav"] = "proposals"
+        context["active_tab"] = "list"
+        context["tab_urls"] = proposal_tab_urls(slug)
+        context["columns"] = list_context.columns
+        context["column_values"] = column_values
         context["proposals"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
-        context["deleted_proposals"] = list_context.deleted_proposals
+        context["deleted_proposals"] = (
+            self.request.services.proposal_panel.list_deleted(current_event.pk)
+        )
         context["session_fields"] = list_context.filterable_fields
         context["filter_search"] = query.search
         context["filter_fields"] = {
@@ -138,6 +163,38 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_status"] = list_context.status
         context["filter_sort"] = list_context.sort
         return TemplateResponse(self.request, "panel/proposals.html", context)
+
+
+class ProposalColumnsPageView(PanelAccessMixin, EventContextMixin, View):
+    """Choose which session fields show as columns on the proposals list."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        columns = self.request.services.proposal_panel.columns_context(current_event.pk)
+        context["active_nav"] = "proposals"
+        context["active_tab"] = "columns"
+        context["tab_urls"] = proposal_tab_urls(slug)
+        context["chosen_columns"] = columns.chosen
+        context["available_columns"] = columns.available
+        return TemplateResponse(self.request, "panel/proposal-columns.html", context)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        # The chosen keys arrive in display order; the service drops anything
+        # that isn't this event's own column.
+        self.request.services.proposal_panel.set_columns(
+            event_id=current_event.pk, columns=self.request.POST.getlist("columns")
+        )
+        messages.success(self.request, _("Columns updated."))
+        return redirect("panel:proposals", slug=slug)
 
 
 class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):

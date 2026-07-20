@@ -1488,6 +1488,9 @@ class EventPanelSettings(models.Model):
     # "field_<pk>" naming a PersonalDataField. Empty means the default set.
     # The keys double as the list's sort keys, so a column sorts by construction.
     facilitator_columns = models.JSONField(default=list, blank=True)
+    # Same idea for the proposals list: built-in keys ("title", "host",
+    # "category", "status", "created") or "field_<pk>" naming a SessionField.
+    proposal_columns = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "event_panel_settings"
