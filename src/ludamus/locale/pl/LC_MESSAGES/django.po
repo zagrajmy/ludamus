@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 23:13+0200\n"
+"POT-Creation-Date: 2026-07-20 03:49+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1182,6 +1182,33 @@ msgstr "Twórca programu oznaczony jako gość."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Unknown bulk action."
+msgstr "Nieznana akcja zbiorcza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "No facilitators selected."
+msgstr "Nie zaznaczono żadnych twórców programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#, python-format
+msgid "%(count)d facilitator updated."
+msgid_plural "%(count)d facilitators updated."
+msgstr[0] "Zaktualizowano %(count)d twórcę programu."
+msgstr[1] "Zaktualizowano %(count)d twórców programu."
+msgstr[2] "Zaktualizowano %(count)d twórców programu."
+msgstr[3] "Zaktualizowano %(count)d twórcy programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#, python-format
+msgid "%(count)d facilitator could not be found."
+msgid_plural "%(count)d facilitators could not be found."
+msgstr[0] "Nie znaleziono %(count)d twórcy programu."
+msgstr[1] "Nie znaleziono %(count)d twórców programu."
+msgstr[2] "Nie znaleziono %(count)d twórców programu."
+msgstr[3] "Nie znaleziono %(count)d twórcy programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Columns updated."
 msgstr "Kolumny zaktualizowane."
 
@@ -1532,10 +1559,6 @@ msgstr "Zgłoszenie zostało wstrzymane."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal rejected."
 msgstr "Zgłoszenie zostało odrzucone."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Unknown bulk action."
-msgstr "Nieznana akcja zbiorcza."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "No proposals selected."
@@ -6230,12 +6253,34 @@ msgid "Clear"
 msgstr "Wyczyść"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Flagged"
-msgstr "Oznaczony"
+#: src/ludamus/templates/panel/proposals.html
+msgid "Selected:"
+msgstr "Zaznaczono:"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Flag for deletion"
+msgstr "Oznacz do usunięcia"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Remove flag"
+msgstr "Usuń oznaczenie"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Mark as guest"
 msgstr "Oznacz jako gościa"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Select all facilitators"
+msgstr "Zaznacz wszystkich twórców programu"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Select %(name)s"
+msgstr "Zaznacz %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Flagged"
+msgstr "Oznaczony"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -6250,10 +6295,6 @@ msgstr "Usuń oznaczenie do usunięcia"
 #, python-format
 msgid "Remove deletion flag from %(name)s"
 msgstr "Usuń oznaczenie do usunięcia: %(name)s"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Flag for deletion"
-msgstr "Oznacz do usunięcia"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -7423,10 +7464,6 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Selected:"
-msgstr "Zaznaczono:"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "Set status:"
 msgstr "Ustaw status:"
 
@@ -7970,9 +8007,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "No personal-data fields defined for this event yet."
 #~ msgstr "Nie zdefiniowano jeszcze pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Merge facilitators"
-#~ msgstr "Scal twórców programu"
 
 #~ msgid "Free slot"
 #~ msgstr "Wolny przedział"

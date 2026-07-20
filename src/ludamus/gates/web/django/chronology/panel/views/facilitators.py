@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
+from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -554,6 +554,89 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
             accreditation_type=AccreditationType.GUEST.value,
             user_id=self.request.context.current_user_id,
         )
+
+
+_BULK_FACILITATOR_ACTIONS = ("flag", "unflag", "mark-guest")
+
+
+class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
+    """Apply one triage action to several facilitators at once (POST only)."""
+
+    http_method_names = ("post",)
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        back = self._redirect_target(slug)
+        action = self.request.POST.get("action", "")
+        if action not in _BULK_FACILITATOR_ACTIONS:
+            messages.error(self.request, _("Unknown bulk action."))
+            return redirect(back)
+
+        if not (slugs := self.request.POST.getlist("facilitator_slugs")):
+            messages.warning(self.request, _("No facilitators selected."))
+            return redirect(back)
+
+        applied = missing = 0
+        for facilitator_slug in slugs:
+            try:
+                self._apply(action, current_event.pk, facilitator_slug)
+            except NotFoundError:
+                missing += 1
+            else:
+                applied += 1
+
+        self._report(applied=applied, missing=missing)
+        return redirect(back)
+
+    def _apply(self, action: str, event_id: int, facilitator_slug: str) -> None:
+        panel = self.request.services.facilitator_panel
+        if action == "mark-guest":
+            panel.set_accreditation(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                accreditation_type=AccreditationType.GUEST.value,
+                user_id=self.request.context.current_user_id,
+            )
+        else:
+            panel.set_flag(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                flagged=action == "flag",
+            )
+
+    def _redirect_target(self, slug: str) -> str:
+        next_url = self.request.POST.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={self.request.get_host()}
+        ):
+            return next_url
+        return reverse("panel:facilitators", kwargs={"slug": slug})
+
+    def _report(self, *, applied: int, missing: int) -> None:
+        if applied:
+            messages.success(
+                self.request,
+                ngettext(
+                    "%(count)d facilitator updated.",
+                    "%(count)d facilitators updated.",
+                    applied,
+                )
+                % {"count": applied},
+            )
+        if missing:
+            messages.error(
+                self.request,
+                ngettext(
+                    "%(count)d facilitator could not be found.",
+                    "%(count)d facilitators could not be found.",
+                    missing,
+                )
+                % {"count": missing},
+            )
 
 
 class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):

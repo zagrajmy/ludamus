@@ -357,6 +357,11 @@ urlpatterns = [
         name="facilitator-columns",
     ),
     path(
+        "event/<slug:slug>/facilitators/do/bulk-action",
+        facilitators.FacilitatorBulkActionView.as_view(),
+        name="facilitator-bulk-action",
+    ),
+    path(
         "event/<slug:slug>/facilitators/merge/",
         facilitators.FacilitatorMergePageView.as_view(),
         name="facilitator-merge",

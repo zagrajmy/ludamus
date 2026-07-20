@@ -100,11 +100,41 @@
                 </div>
             {% endif %}
             {% vite_asset 'src/filter-autosubmit.ts' %}
+            {% vite_asset 'src/bulk-status.ts' %}
             <div id="facilitators-results">
                 {% if facilitators %}
+                    <form method="post"
+                          id="bulk-status-form"
+                          action="{% url 'panel:facilitator-bulk-action' slug=current_event.slug %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <span class="text-sm text-foreground-muted mr-1">
+                                {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
+                            </span>
+                            <button type="submit"
+                                    name="action"
+                                    value="flag"
+                                    class="btn btn-danger text-sm bulk-action-btn">{% translate "Flag for deletion" %}</button>
+                            <button type="submit"
+                                    name="action"
+                                    value="unflag"
+                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Remove flag" %}</button>
+                            <button type="submit"
+                                    name="action"
+                                    value="mark-guest"
+                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Mark as guest" %}</button>
+                        </div>
+                    </form>
                     {% tessera_table %}
                     <thead class="bg-bg-tertiary">
                         <tr>
+                            <th scope="col" class="px-6 py-3 w-12">
+                                <input type="checkbox"
+                                       id="bulk-select-all"
+                                       aria-label="{% translate "Select all facilitators" %}"
+                                       class="rounded border-border">
+                            </th>
                             {% for column in columns %}
                                 {% include "panel/parts/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
                             {% endfor %}
@@ -117,6 +147,14 @@
                     <tbody class="divide-y divide-border">
                         {% for facilitator in facilitators %}
                             <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+                                <td class="px-6 py-4">
+                                    <input type="checkbox"
+                                           form="bulk-status-form"
+                                           name="facilitator_slugs"
+                                           value="{{ facilitator.slug }}"
+                                           aria-label="{% blocktranslate with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}"
+                                           class="bulk-row-checkbox rounded border-border">
+                                </td>
                                 {% for column in columns %}
                                     {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
                                         {# The first column carries the link to the facilitator, whichever column the organizer put there. #}
