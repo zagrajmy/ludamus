@@ -203,37 +203,44 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             msg = "Unknown accreditation type."
             raise FacilitatorMergeError(msg)
 
-        facilitators = [
-            self._repos.facilitators.read_by_event_and_slug(event_id, slug)
-            for slug in slugs
-        ]
-        if sum(1 for f in facilitators if f.user_id is not None) > 1:
-            msg = "Cannot merge facilitators that each have a linked user account."
-            raise FacilitatorMergeError(msg)
-
-        target = next(f for f in facilitators if f.slug == target_slug)
-        source_ids = [f.pk for f in facilitators if f.pk != target.pk]
-        # Only this event's own fields: a tampered key naming a foreign field
-        # is dropped, not written.
-        valid_field_pks = {
-            f.pk for f in self._repos.personal_data_fields.list_by_event(event_id)
-        }
-        entries = [
-            PersonalDataFieldValueData(
-                facilitator_id=target.pk,
-                event_id=event_id,
-                field_id=field_id,
-                value=value,
-            )
-            for field_id, value in data.values.items()
-            if field_id in valid_field_pks
-        ]
-
         with self._transaction.atomic():
+            # Read inside the transaction so validation and mutation see the
+            # same snapshot — a concurrent merge/delete surfaces as NotFound.
+            facilitators = [
+                self._repos.facilitators.read_by_event_and_slug(event_id, slug)
+                for slug in slugs
+            ]
+            linked = [f for f in facilitators if f.user_id is not None]
+            if len(linked) > 1:
+                msg = "Cannot merge facilitators that each have a linked user account."
+                raise FacilitatorMergeError(msg)
+
+            target = next(f for f in facilitators if f.slug == target_slug)
+            source_ids = [f.pk for f in facilitators if f.pk != target.pk]
+            # Only this event's own fields: a tampered key naming a foreign
+            # field is dropped, not written.
+            valid_field_pks = {
+                f.pk for f in self._repos.personal_data_fields.list_by_event(event_id)
+            }
+            entries = [
+                PersonalDataFieldValueData(
+                    facilitator_id=target.pk,
+                    event_id=event_id,
+                    field_id=field_id,
+                    value=value,
+                )
+                for field_id, value in data.values.items()
+                if field_id in valid_field_pks
+            ]
+
             update: FacilitatorUpdateData = {
                 "display_name": data.display_name,
                 "accreditation_type": data.accreditation_type,
             }
+            if linked and linked[0].pk != target.pk:
+                # The lone linked account rides along to the target instead of
+                # vanishing with its deleted source.
+                update["user_id"] = linked[0].user_id
             self._repos.facilitators.update(target.pk, update)
             if entries:
                 self._repos.personal_data_field_values.save(entries)

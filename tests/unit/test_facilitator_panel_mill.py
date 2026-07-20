@@ -192,6 +192,39 @@ class TestFacilitatorMerge:
         )
         repos.facilitators.delete.assert_called_once_with(2)
 
+    def test_linked_source_account_transfers_to_target(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice"), _facilitator(2, "bob", user_id=10)]
+        )
+
+        service.merge(
+            event_id=1,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.facilitators.update.assert_called_once_with(
+            1, {"display_name": "Alice", "accreditation_type": "none", "user_id": 10}
+        )
+        repos.facilitators.delete.assert_called_once_with(2)
+
+    def test_linked_target_account_stays_untouched(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob")]
+        )
+
+        service.merge(
+            event_id=1,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.facilitators.update.assert_called_once_with(
+            1, {"display_name": "Alice", "accreditation_type": "none"}
+        )
+
     def test_merge_context_collects_values_per_facilitator(self):
         field = _field(5)
         service, repos = _merge_service(

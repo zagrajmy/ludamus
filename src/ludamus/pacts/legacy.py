@@ -96,6 +96,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    user_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
