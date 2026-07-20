@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-19 18:02+0200\n"
+"POT-Creation-Date: 2026-07-20 13:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -866,9 +866,7 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
 msgstr "Czas trwania"
 
@@ -1125,12 +1123,14 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Yes"
 msgstr "Tak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "No"
 msgstr "Nie"
@@ -2306,6 +2306,14 @@ msgid "Public tracks are shown to proposers in the submission wizard."
 msgstr ""
 "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
 "propozycji."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/panel/_personal_data_fields.html
+msgid "Or type a custom value"
+msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Title is required."
@@ -3899,14 +3907,6 @@ msgid "Participants Limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/_personal_data_fields.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Or type a custom value"
-msgstr "Lub wpisz własną wartość"
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
@@ -4630,6 +4630,7 @@ msgstr "Usuń drużynę"
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/panel/bans.html
 #: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
 msgid "Remove"
 msgstr "Usuń"
 
@@ -5417,8 +5418,8 @@ msgstr "Pola danych twórcy"
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Session Fields"
 msgstr "Pola punktu programu"
@@ -6188,7 +6189,7 @@ msgid "Keep"
 msgstr "Zachowaj"
 
 #: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/parts/facilitator-picker.html
 msgid "No facilitators match your search."
 msgstr "Żaden twórca programu nie pasuje do wyszukiwania."
 
@@ -6651,6 +6652,14 @@ msgstr ""
 msgid "Whole event…"
 msgstr "Całe wydarzenie…"
 
+#: src/ludamus/templates/panel/parts/facilitator-picker.html
+msgid "Search by name…"
+msgstr "Szukaj po nazwie…"
+
+#: src/ludamus/templates/panel/parts/facilitator-picker.html
+msgid "Search facilitators by name"
+msgstr "Szukaj twórców programu po nazwie"
+
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Maps to"
 msgstr "Mapuje na"
@@ -6794,6 +6803,36 @@ msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards"
 msgstr "Drukuj tabliczki na drzwi"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Answers outside this category"
+msgstr "Odpowiedzi spoza tej kategorii"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid ""
+"This program item has answers to questions its category no longer asks. They "
+"stay as they are unless you remove them."
+msgstr ""
+"Ten punkt programu ma odpowiedzi na pytania, których jego kategoria już nie "
+"zadaje. Pozostaną bez zmian, dopóki ich nie usuniesz."
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+#, python-format
+msgid "Remove %(name)s"
+msgstr "Usuń %(name)s"
+
+#: src/ludamus/templates/panel/parts/time-slot-picker.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Preferred time slots"
+msgstr "Preferowane przedziały czasowe"
+
+#: src/ludamus/templates/panel/parts/time-slot-picker.html
+msgid ""
+"Time slots the facilitator prefers for this session. These are preferences, "
+"not a final schedule."
+msgstr ""
+"Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
+"programu. To preferencje, a nie ostateczny harmonogram."
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Sessions to assign"
@@ -7183,6 +7222,10 @@ msgstr "To wydarzenie nie ma jeszcze twórców programu."
 msgid "Create one first"
 msgstr "Najpierw utwórz twórcę programu"
 
+#: src/ludamus/templates/panel/proposal-create.html
+msgid "Loading"
+msgstr "Ładowanie…"
+
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Proposal Details"
 msgstr "Szczegóły zgłoszenia"
@@ -7267,11 +7310,6 @@ msgid "Presenter"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Preferred time slots"
-msgstr "Preferowane przedziały czasowe"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "No facilitators assigned."
 msgstr "Brak przypisanych twórców programu."
 
@@ -7299,20 +7337,8 @@ msgid "Edit Proposal"
 msgstr "Edytuj zgłoszenie"
 
 #: src/ludamus/templates/panel/proposal-edit.html
-msgid "Search by name…"
-msgstr "Szukaj po nazwie…"
-
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Assign this proposal to one or more programme tracks."
-msgstr "Przypisz to zgłoszenie do jednego lub więcej bloków programowych."
-
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid ""
-"Time slots the facilitator prefers for this session. These are preferences, "
-"not a final schedule."
-msgstr ""
-"Przedziały czasowe preferowane przez twórcę programu dla tego punktu "
-"programu. To preferencje, a nie ostateczny harmonogram."
+msgstr "Przypisz to zgłoszenie do jednego lub kilku bloków programowych."
 
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Facilitator personal data"
@@ -7321,7 +7347,7 @@ msgstr "Dane osobowe twórcy programu"
 #: src/ludamus/templates/panel/proposal-edit.html
 msgid "Personal-data answers for each assigned facilitator."
 msgstr ""
-"Odpowiedzi z danymi osobowymi dla każdego przypisanego twórcy programu."
+"Odpowiedzi dotyczące danych osobowych każdego przypisanego twórcy programu."
 
 #: src/ludamus/templates/panel/proposal-settings.html
 msgid "Proposal Settings"

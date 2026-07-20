@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import operator
 from typing import TYPE_CHECKING, Any
 
 from django import forms
@@ -8,7 +7,11 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
+from ludamus.gates.web.django.forms import (
+    build_field_from_requirement,
+    cover_image_field,
+    validate_uploaded_image,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -22,52 +25,13 @@ if TYPE_CHECKING:
     )
 
 
-def _build_field_from_requirement(
-    fields: dict[str, forms.Field],
-    field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> None:
-    field_def = req.field
-
-    if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _ in raw_options]
-
-        if field_def.is_multiple:
-            fields[field_key] = forms.MultipleChoiceField(
-                label=field_def.name,
-                choices=choices[1:],  # no blank for multi
-                required=req.is_required,
-                widget=forms.CheckboxSelectMultiple,
-            )
-        else:
-            fields[field_key] = forms.ChoiceField(
-                label=field_def.name, choices=choices, required=req.is_required
-            )
-
-        if field_def.allow_custom:
-            max_len = field_def.max_length if field_def.max_length > 0 else None
-            fields[f"{field_key}_custom"] = forms.CharField(
-                label=f"{field_def.name} (custom)", required=False, max_length=max_len
-            )
-    elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
-        fields[field_key] = forms.BooleanField(label=field_def.name, required=False)
-    else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[field_key] = forms.CharField(
-            label=field_def.name, required=req.is_required, max_length=max_len
-        )
-
-
 def build_personal_data_form(
     requirements: Sequence[PersonalFieldRequirementDTO],
 ) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {}
 
     for req in requirements:
-        _build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
+        build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
 
@@ -120,7 +84,7 @@ def build_session_details_form(
         )
 
     for req in requirements:
-        _build_field_from_requirement(fields, f"session_{req.field.slug}", req)
+        build_field_from_requirement(fields, f"session_{req.field.slug}", req)
 
     return type("SessionDetailsForm", (forms.Form,), fields)
 

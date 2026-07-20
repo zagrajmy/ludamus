@@ -4,6 +4,7 @@ from ludamus.links.db.django.models import SessionField, SessionFieldValue
 from tests.integration.web.panel.test_proposal_edit_page import (
     TestProposalEditPageView,
     _make_session,
+    _require_field,
 )
 
 
@@ -21,14 +22,14 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
             field_type="checkbox",
             order=0,
         )
+        _require_field(session, field)
         data = {
             "category_id": session.category_id,
             "title": "Updated",
             "display_name": "Host",
             "participants_limit": 5,
             "min_age": 0,
-            "session_fields_submitted": "1",
-            "session_field_adult": "true",
+            "session_adult": "true",
         }
         url = self.get_url(event, session.pk)
         first = authenticated_client.post(url, data=data)
@@ -36,7 +37,7 @@ class TestSessionFieldValueUpsertOnProposalEdit(TestProposalEditPageView):
         values = SessionFieldValue.objects.filter(session=session, field=field)
         assert values.count() == 1
 
-        data["session_field_adult"] = "false"
+        data["session_adult"] = "false"
         response = authenticated_client.post(url, data=data)
         assert response.status_code == HTTPStatus.FOUND, response.content[:500]
         sfv = SessionFieldValue.objects.get(session=session, field=field)
