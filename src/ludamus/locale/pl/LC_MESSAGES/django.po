@@ -1195,7 +1195,7 @@ msgid_plural "%(count)d facilitators updated."
 msgstr[0] "Zaktualizowano %(count)d twórcę programu."
 msgstr[1] "Zaktualizowano %(count)d twórców programu."
 msgstr[2] "Zaktualizowano %(count)d twórców programu."
-msgstr[3] "Zaktualizowano %(count)d twórcy programu."
+msgstr[3] "Zaktualizowano %(count)d twórców programu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #, python-format
@@ -1204,7 +1204,7 @@ msgid_plural "%(count)d facilitators could not be found."
 msgstr[0] "Nie znaleziono %(count)d twórcy programu."
 msgstr[1] "Nie znaleziono %(count)d twórców programu."
 msgstr[2] "Nie znaleziono %(count)d twórców programu."
-msgstr[3] "Nie znaleziono %(count)d twórcy programu."
+msgstr[3] "Nie znaleziono %(count)d twórców programu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
@@ -7474,7 +7474,7 @@ msgstr "Wiele bloków"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Search by title, facilitator or field values"
-msgstr "Szukaj po tytule, prowadzącym lub wartościach pól"
+msgstr "Szukaj po tytule, twórcy programu lub wartościach pól"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "All categories"
