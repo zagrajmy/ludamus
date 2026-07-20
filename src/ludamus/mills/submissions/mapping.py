@@ -247,14 +247,21 @@ def session_field_values(
     row: ImportRow,
     session_id: int,
 ) -> list[SessionFieldValueData]:
-    return [
-        SessionFieldValueData(
-            session_id=session_id,
-            field_id=field_id,
-            value=cell(target=settings.questions.get(header), row=row, header=header),
-        )
-        for header, field_id in field_ids.items()
-    ]
+    # Blank cells produce no row: an unanswered question is absence, not an
+    # empty-string answer. On re-import the caller clears then re-inserts, so a
+    # newly-blanked answer correctly disappears rather than persisting "".
+    values: list[SessionFieldValueData] = []
+    for header, field_id in field_ids.items():
+        value = cell(
+            target=settings.questions.get(header), row=row, header=header
+        ).strip()
+        if value:
+            values.append(
+                SessionFieldValueData(
+                    session_id=session_id, field_id=field_id, value=value
+                )
+            )
+    return values
 
 
 def build_personal_data_field_values(
@@ -265,15 +272,22 @@ def build_personal_data_field_values(
     facilitator_id: int,
     event_id: int,
 ) -> list[PersonalDataFieldValueData]:
-    return [
-        PersonalDataFieldValueData(
-            facilitator_id=facilitator_id,
-            event_id=event_id,
-            field_id=field_id,
-            value=cell(target=settings.questions.get(header), row=row, header=header),
-        )
-        for header, field_id in field_ids.items()
-    ]
+    # Blank cells produce no row — see session_field_values for the rationale.
+    values: list[PersonalDataFieldValueData] = []
+    for header, field_id in field_ids.items():
+        value = cell(
+            target=settings.questions.get(header), row=row, header=header
+        ).strip()
+        if value:
+            values.append(
+                PersonalDataFieldValueData(
+                    facilitator_id=facilitator_id,
+                    event_id=event_id,
+                    field_id=field_id,
+                    value=value,
+                )
+            )
+    return values
 
 
 def chosen_entities(target: QuestionTarget, value: str) -> list[EntityRef]:

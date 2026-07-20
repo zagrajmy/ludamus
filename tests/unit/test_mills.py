@@ -2018,6 +2018,20 @@ class TestProposalImportService(_ImportServiceMocks):
             session_id, [{"session_id": session_id, "field_id": 55, "value": "D&D"}]
         )
 
+    def test_run_skips_blank_session_field_answer(
+        self, service, event_integrations, sessions, session_fields
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json='{"questions": {"RPG system": {"to": "field.system"}}}'
+        )
+        event_integrations.fetch_responses.return_value = _rows([{"RPG system": "  "}])
+        session_fields.read_by_slug.return_value = MagicMock(pk=55)
+        sessions.create.return_value = 7
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        sessions.save_field_values.assert_not_called()
+
     def test_run_provisions_session_field_from_its_definition(
         self, service, event_integrations, sessions, session_fields
     ):
