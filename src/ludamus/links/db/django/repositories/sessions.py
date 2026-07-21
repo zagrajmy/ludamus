@@ -24,6 +24,7 @@ from ludamus.links.db.django.repositories.chronology import (
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     UNSCHEDULED_LIST_LIMIT,
     AgendaItemDTO,
     EventDTO,
@@ -170,9 +171,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             enrolled_count_cached=Count(
                 "session_participations",
                 filter=Q(
-                    session_participations__status=(
-                        SessionParticipationStatus.CONFIRMED
-                    )
+                    session_participations__status__in=OCCUPYING_PARTICIPATION_STATUSES
                 ),
             ),
             waiting_count_cached=Count(
