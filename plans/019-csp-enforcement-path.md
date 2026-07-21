@@ -981,7 +981,7 @@ problem, deliberately out of scope here, and the natural next plan:
 - Inline `<style>` **blocks** can be nonce'd exactly the same way
   scripts were in this plan (cheap, same `csp_nonce` mechanism).
 - Inline `style="..."` **attributes** are the actual blocker: CSP
-  nonces apply to `<style>`/`<script>` *elements*, not to `style=`
+  nonces apply to `<style>`/`<script>` _elements_, not to `style=`
   attributes on arbitrary elements — there is no
   `style="{{ csp_nonce }}" ..."` equivalent. Removing `'unsafe-inline'`
   from `style-src` requires either (a) `'unsafe-hashes'` plus a
