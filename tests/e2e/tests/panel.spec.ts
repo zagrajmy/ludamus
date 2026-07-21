@@ -1208,15 +1208,15 @@ test.describe("Backoffice Panel", () => {
     await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/merge/");
 
     // Search-and-collect flow: a search field, and nothing pre-selected.
-    await expect(page.locator("#merge-search")).toBeVisible();
+    await expect(page.getByLabel("Search", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Selected for merge (0)" })).toBeVisible();
   });
 
   test("merge page search finds facilitators by name", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/merge/");
 
-    await page.locator("#merge-search").fill("Alice");
-    await page.locator("#merge-search").press("Enter");
+    await page.getByLabel("Search", { exact: true }).fill("Alice");
+    await page.getByLabel("Search", { exact: true }).press("Enter");
 
     // "Alice" surfaces add-able results...
     await expect(page.getByRole("button", { name: "Add" }).first()).toBeVisible();
@@ -1230,8 +1230,8 @@ test.describe("Backoffice Panel", () => {
     await page.goto("/panel/event/frostfire-con/facilitators/merge/");
 
     // Collect two facilitators into the basket via search-and-add.
-    await page.locator("#merge-search").fill("Alice");
-    await page.locator("#merge-search").press("Enter");
+    await page.getByLabel("Search", { exact: true }).fill("Alice");
+    await page.getByLabel("Search", { exact: true }).press("Enter");
 
     await page.getByRole("button", { name: "Add" }).first().click();
     await expect(page.getByRole("heading", { name: "Selected for merge (1)" })).toBeVisible();
