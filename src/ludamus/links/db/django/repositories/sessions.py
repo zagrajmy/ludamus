@@ -1,22 +1,31 @@
 import json
 import re
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q, QuerySet
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
+    SPACE_MAX_DEPTH,
     AgendaItem,
     Event,
     Session,
     SessionFieldValue,
+    SessionParticipationStatus,
     Space,
     TimeSlot,
     Track,
 )
-from ludamus.links.db.django.repositories.chronology import event_dto
+from ludamus.links.db.django.repositories.chronology import (
+    event_dto,
+    location_data,
+    session_card_stats,
+)
 from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
+    AgendaItemDTO,
     EventDTO,
     FacilitatorDTO,
     NotFoundError,
@@ -31,11 +40,16 @@ from ludamus.pacts import (
     SessionRepositoryProtocol,
     SessionStatus,
     SessionUpdateData,
-    SpaceDTO,
+    SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
+)
+from ludamus.pacts.chronology import (
+    SessionModalDTO,
+    SessionModalRepositoryProtocol,
+    SessionModalSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
 
@@ -53,7 +67,131 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     return hours * 60 + minutes
 
 
-class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
+def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    # str(space) walks the whole ancestor chain, so eager-load every level up to
+    # the max nesting depth to avoid per-row parent queries.
+    return queryset.select_related(
+        "presenter",
+        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
+        "event",
+        "event__sphere",
+        "category",
+    ).prefetch_related(
+        "session_participations__user",
+        "field_values__field",
+        "event__enrollment_configs",
+        "tracks",
+    )
+
+
+def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
+    return SessionFieldValueDTO(
+        allow_custom=fv.field.allow_custom,
+        field_icon=fv.field.icon,
+        field_id=fv.field_id,
+        field_name=fv.field.name,
+        field_order=fv.field.order,
+        field_question=fv.field.question,
+        field_slug=fv.field.slug,
+        field_type=fv.field.field_type,
+        is_public=fv.field.is_public,
+        value=fv.value,
+    )
+
+
+def _session_modal_dto(
+    session: Session, *, viewer_user_ids: list[int], editor_user_id: int | None
+) -> SessionModalDTO:
+    now = datetime.now(tz=UTC)
+    agenda_item = session.agenda_item
+    participations = list(session.session_participations.all())
+    viewer_ids = set(viewer_user_ids)
+    field_values = sorted(
+        (
+            field_value_dto(fv)
+            for fv in session.field_values.all()
+            if fv.field.is_public
+        ),
+        key=lambda fv: (fv.field_order, fv.field_name),
+    )
+    event = session.event
+    event_override = event.allow_facilitator_session_edit
+    sphere_default = event.sphere.allow_facilitator_session_edit
+    edit_allowed = sphere_default if event_override is None else event_override
+    return SessionModalDTO(
+        session=SessionDTO.model_validate(session),
+        agenda_item=AgendaItemDTO.model_validate(agenda_item),
+        presenter=(
+            user_dto(session.presenter) if session.presenter is not None else None
+        ),
+        participations=[
+            SessionModalSeatDTO(
+                user=user_dto(participation.user),
+                status=SessionParticipationStatus(participation.status),
+                creation_time=participation.creation_time,
+            )
+            for participation in participations
+        ],
+        location=location_data(agenda_item.space),
+        field_values=field_values,
+        **session_card_stats(session).model_dump(),
+        viewer_enrolled=any(
+            participation.user_id in viewer_ids
+            and participation.status == SessionParticipationStatus.CONFIRMED
+            for participation in participations
+        ),
+        viewer_waiting=any(
+            participation.user_id in viewer_ids
+            and participation.status == SessionParticipationStatus.WAITING
+            for participation in participations
+        ),
+        can_edit=(
+            edit_allowed
+            and session.presenter_id is not None
+            and session.presenter_id == editor_user_id
+        ),
+        is_ongoing=agenda_item.start_time <= now,
+        is_ended=agenda_item.end_time <= now,
+    )
+
+
+class SessionRepository(  # ruff:ignore[too-many-public-methods]
+    SessionRepositoryProtocol, SessionModalRepositoryProtocol
+):
+    @staticmethod
+    def read_modal(
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
+    ) -> SessionModalDTO | None:
+        base = Session.objects.filter(agenda_item__isnull=False).annotate(
+            enrolled_count_cached=Count(
+                "session_participations",
+                filter=Q(
+                    session_participations__status=(
+                        SessionParticipationStatus.CONFIRMED
+                    )
+                ),
+            ),
+            waiting_count_cached=Count(
+                "session_participations",
+                filter=Q(
+                    session_participations__status=(SessionParticipationStatus.WAITING)
+                ),
+            ),
+        )
+        try:
+            session = with_session_card_relations(base).get(
+                pk=session_id, event_id=event_id
+            )
+        except Session.DoesNotExist:
+            return None
+        return _session_modal_dto(
+            session, viewer_user_ids=viewer_user_ids, editor_user_id=editor_user_id
+        )
+
     @staticmethod
     def create(
         session_data: SessionData,
@@ -200,11 +338,25 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         return event_dto(event)
 
     @staticmethod
-    def read_spaces(session_id: int) -> list[SpaceDTO]:
-        spaces = Space.objects.filter(
-            event__proposal_categories__sessions__id=session_id
+    def read_space_options(session_id: int) -> list[SpaceOptionDTO]:
+        # Only leaves (childless nodes) are bookable; group each by its
+        # immediate parent's name so the picker can render optgroups.
+        spaces = (
+            Space.objects.filter(
+                event__proposal_categories__sessions__id=session_id,
+                children__isnull=True,
+            )
+            .select_related("parent")
+            .order_by("order", "name")
         )
-        return [SpaceDTO.model_validate(space) for space in spaces]
+        return [
+            SpaceOptionDTO(
+                pk=space.id,
+                name=space.name,
+                group=space.parent.name if space.parent else "",
+            )
+            for space in spaces
+        ]
 
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
@@ -338,21 +490,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
             .select_related("field")
             .order_by("field__order", "field__name")
         )
-        return [
-            SessionFieldValueDTO(
-                allow_custom=v.field.allow_custom,
-                field_icon=v.field.icon,
-                field_id=v.field_id,
-                field_name=v.field.name,
-                field_order=v.field.order,
-                field_question=v.field.question,
-                field_slug=v.field.slug,
-                field_type=v.field.field_type,
-                is_public=v.field.is_public,
-                value=v.value,
-            )
-            for v in values
-        ]
+        return [field_value_dto(v) for v in values]
 
     @staticmethod
     def delete_field_values_for_fields(session_id: int, field_ids: list[int]) -> int:
@@ -371,6 +509,7 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
         field_filters = filters.get("field_filters")
         search = filters.get("search")
         track_pk = filters.get("track_pk")
+        multi_tracks = filters.get("multi_tracks")
         category_pk = filters.get("category_pk")
         status = filters.get("status")
         scheduled = filters.get("scheduled")
@@ -410,6 +549,11 @@ class SessionRepository(SessionRepositoryProtocol):  # noqa: PLR0904
 
         if track_pk is not None:
             qs = qs.filter(tracks__pk=track_pk)
+
+        if multi_tracks:
+            qs = qs.annotate(_track_count=Count("tracks", distinct=True)).filter(
+                _track_count__gt=1
+            )
 
         return [
             SessionListItemDTO(

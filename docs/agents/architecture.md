@@ -5,7 +5,7 @@
 | Layer | Location | Purpose |
 | ----- | -------- | ------- |
 | pacts | `pacts.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
-| specs | `specs/{subdomain}.py` | Business invariants — pure constants, no IO |
+| specs | `specs/{noun}.py` | Business invariants — pure constants, no IO |
 | mills | `mills.py` | Business logic, Django-free |
 | links | `links/` | Repositories, UoW, external clients |
 | gates | `gates/` | Views, forms, URLs, templatetags |
@@ -140,7 +140,7 @@ Services return DTOs; views render them.
 
 ### Mills layout
 
-`mills/{subdomain}.py` is promoted to a package when it crosses ~1000
+`mills/{noun}.py` is promoted to a package when it crosses ~1000
 lines. Modules slice **by service** — one view-facing service per module,
 named after its area (`mills/submissions/importing.py`, `import_log.py`,
 `field_layout.py`, `personal_data_fields.py`). A service holds the methods
@@ -158,7 +158,7 @@ Shared code splits by kind:
   never exposed on `request.services`, and it owns no transactions —
   services open `atomic()` and call engine methods inside it.
 
-`pacts/{subdomain}.py` stays a single module; each service gets its own
+`pacts/{noun}.py` stays a single module; each service gets its own
 protocol there (`ProposalImportServiceProtocol`, `ImportLogServiceProtocol`,
 `ImportFieldLayoutServiceProtocol`).
 
@@ -186,7 +186,7 @@ shape. `ServiceInjectionMiddleware` attaches `request.services` per request.
 
 Views are glue: parse forms, call services, render DTOs. They never reach
 into repos or build services themselves. Type-hint request as
-`RootRequestProtocol` (or a subdomain-specific request like `PanelRequest`):
+`RootRequestProtocol` (or a narrower request like `PanelRequest`):
 
 ```python
 def get(self, request: PanelRequest, slug: str) -> TemplateResponse:
@@ -214,7 +214,7 @@ surface — write a new mills service instead.
 ## Specs
 
 Business invariants consumed only by mills. No IO, no Django.
-Sliced by subdomain, mirroring pacts and mills:
+Sliced by noun, mirroring pacts and mills:
 
 ```python
 # specs/event.py
@@ -234,343 +234,260 @@ SESSION_LIMITS: SessionLimits = {"max_per_user": 5}
 
 ---
 
-## Subdomains and Bounded Contexts
+## Nouns
 
-The application has five subdomains. Each subdomain
-contains one or more bounded contexts with distinct
-responsibilities, URL namespaces, templates, and DTOs.
+Slice by **noun**, cut by **verb**; gates slice by **page**. A noun is a
+fat data cow: the model cluster everything else hangs off. A verb is an
+activity (`enroll`, `propose`, `schedule`, `present`) — its modules hold
+the records and logic of actions, not first-class data. No catch-all
+verbs (`manage`, `organize`): a cut must name a real activity — if you
+can't name one, the file isn't too big yet. Gates mirror the sitemap
+(a page or page group plus its action views); mills mirror the domain.
+
+The old **subdomain** / **bounded context** vocabulary is banned.
+Directory, URL, template, and test paths still carry the legacy subdomain
+names; they are renamed opportunistically, tracked by the
+`old-subdomain-loc` tingle metric. New code slices by noun.
+
+| Legacy subdomain | Noun | Scope |
+| ---------------- | ---- | ----- |
+| Chronology | event | Scheduling, venues, enrollment, public event pages |
+| Submissions | event | Proposal intake: CFP config, curation, `Session` lifecycle |
+| Crowd | user | Authentication, profiles, delegate accounts |
+| Multiverse | sphere | Sphere and concepts depending only on Sphere |
+| Notice Board | encounter | Informal gatherings decoupled from events |
+| — (RFC 0001) | party | The drużyna: the group that enrolls together |
+
+---
+
+### event
+
+The fattest noun — legacy `chronology` and `submissions` both map here,
+which dissolves the old ownership split: proposal intake writes `Session`,
+scheduling and enrollment read it, all inside one noun. Verb cuts as it
+grows: `propose` (CFP config, proposals, facilitators), `enroll`,
+`schedule` (venues, time slots, tracks, timetable), `present` (public
+pages, printing).
+
+Enrollment behaviour currently bolted onto the `Session` model
+(`enrolled_count`, `is_full`, `effective_participants_limit`,
+`is_enrollment_available`, `SessionManager.has_conflicts`) belongs in
+`enroll` mills/specs, not on the model.
+
+#### Pages: Public event pages
+
+What visitors see: event details, session list, session cards.
+
+- **URLs:** `/chronology/event/<slug>/` (namespace `chronology`)
+- **Views:** `adapters/web/django/views.py` — `EventPageView`
+- **Templates:** `templates/chronology/event.html`,
+  `_session_card.html`, `session_tags.html`
+- **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
+
+#### Pages: Proposal wizard
+
+The multi-step wizard through which facilitators submit session proposals.
+
+- **URLs:** `/chronology/session/propose/` (namespace `session`)
+- **Views:** `gates/web/django/chronology/views.py` —
+  `ProposeSessionPageView` and component views for each wizard step
+  (category, personal data, time slots, session details, review, submit)
+- **Templates:** `templates/chronology/propose/`
+- **Service:** `ProposeSessionService` — resolves field requirements per
+  category, creates `Facilitator`, persists `Session` and field values,
+  rate-limits by IP
+- **DTOs:** `ProposalCategoryDTO`, `SessionFieldRequirementDTO`,
+  `PersonalFieldRequirementDTO`, `TimeSlotRequirementDTO`,
+  `FacilitatorDTO`, `SessionData`
+
+#### Pages: Enrollment
+
+Session sign-ups for authenticated users and anonymous attendees;
+proposal acceptance by organizers.
+
+- **URLs:** `/chronology/session/<id>/enrollment/`,
+  `/chronology/session/<id>/accept/`, `/chronology/anonymous/`
+- **Views:** `adapters/web/django/views.py` — `SessionEnrollPageView`,
+  `SessionEnrollmentAnonymousPageView`, `ProposalAcceptPageView`,
+  `EventAnonymousActivateActionView`, `AnonymousLoadActionView`,
+  `AnonymousResetActionView`
+- **Templates:** `templates/chronology/enroll_select.html`,
+  `anonymous_enroll.html`, `anonymous_manage.html`, `accept_proposal.html`
+- **Services:** `AcceptProposalService` (transitions session → ACCEPTED,
+  creates `AgendaItem`), `AnonymousEnrollmentService` (code-based
+  anonymous user lookup)
+- **DTOs:** `EnrollmentConfigDTO`, `UserEnrollmentConfigDTO`,
+  `VirtualEnrollmentConfig`, `AgendaItemDTO`
+
+#### Pages: Panel (event-scoped)
+
+The organiser backoffice: event configuration, scheduling, venues,
+enrollment administration, intake configuration, and curation — one page
+group, no ownership split.
+
+- **URLs:** `/panel/event/<slug>/…` (namespace `panel`)
+- **Views:** `gates/web/django/chronology/panel/views/` — one module per
+  page (`proposals.py`, `facilitators.py`, `timetable.py`, `cfp.py`,
+  `personal_data_fields.py`, `session_fields.py`, `venues.py`,
+  `time_slots.py`, `tracks.py`, `event_settings.py`, `discounts.py`,
+  `print.py`, `integrations.py`, `google_docs_import.py`, …)
+- **Templates:** `templates/panel/`
+- **Service:** `PanelService` — event stats aggregation, cascade-safe
+  entity deletion, time slot overlap validation
 
 <!-- markdownlint-disable MD013 -->
 
-| Subdomain | Scope | Bounded contexts |
-| --------- | ----- | ---------------- |
-| Multiverse | Sphere and concepts depending only on Sphere | Panel |
-| Submissions | Configure the call (categories, fields, requirements) and curate proposals; owns the `Session` lifecycle (create/update) | Proposal Wizard, Panel |
-| Chronology | Events, scheduling, venues, enrollment, public pages | Public Event Pages, Enrollment, Panel |
-| Notice Board | Informal social gatherings decoupled from the formal event/session lifecycle | Encounters |
-| Crowd | Authentication, profiles, delegate accounts | Auth, Profile |
+| Area | Views | Templates |
+| ---- | ----- | --------- |
+| Proposal categories | `panel/views/cfp.py` | `cfp-*.html` |
+| Proposals / sessions | `panel/views/proposals.py` | `proposal-*.html` |
+| Personal data fields | `panel/views/personal_data_fields.py` | `personal-data-field-*.html` |
+| Session fields | `panel/views/session_fields.py` | `session-field-*.html` |
+| Facilitators | `panel/views/facilitators.py` | `facilitator-*.html` |
+| Event settings | `panel/views/event_settings.py` | `settings.html` |
+| Time slots | `panel/views/time_slots.py` | `time-slot*.html` |
+| Tracks | `panel/views/tracks.py` | `track-*.html` |
+| Venues (Space tree) | `panel/views/venues.py` | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 
 ---
 
-### Multiverse
+### sphere
 
-Sphere-scoped configuration shared across the events
-that live under a sphere. Holds `Sphere` itself plus
-anything that depends only on Sphere (no Event coupling).
+Legacy name: `multiverse`. Sphere-scoped configuration shared across the
+events that live under a sphere. Holds `Sphere` itself plus anything that
+depends only on Sphere (no Event coupling).
 
-#### Bounded Context: Panel (Multiverse)
+#### Pages: Panel (sphere-scoped)
 
-Sphere-scoped backoffice for sphere managers. Parallel
-to `chronology/panel` (which is event-scoped) and uses
-its own access mixin keyed off `current_sphere_id`
-without an `EventContextMixin`.
+Sphere-scoped backoffice for sphere managers. Parallel to the event panel
+and uses its own access mixin keyed off `current_sphere_id` without an
+`EventContextMixin`.
 
-- **URLs:** `/multiverse/sphere/<slug>/…`
-  (namespace `multiverse:panel`)
+- **URLs:** `/multiverse/sphere/<slug>/…` (namespace `multiverse:panel`)
 - **Views:** `gates/web/django/multiverse/panel/views/…`
 - **Templates:** `templates/multiverse/panel/`
-- **Pacts/Mills/Specs:** `pacts/multiverse.py`,
-  `mills/multiverse.py`, `specs/multiverse.py`
-  (split into `multiverse/{context}.py` when big)
-- **Access:** `SphereAccessMixin` (sphere-manager check
-  via `request.di.uow.spheres.is_manager`)
+- **Pacts/Mills/Specs:** `pacts/multiverse.py`, `mills/multiverse.py`
+  (legacy module names; new cuts use `sphere`)
+- **Access:** `SphereAccessMixin` (sphere-manager check via
+  `request.di.uow.spheres.is_manager`)
 - **First feature:** sphere-scoped import-connections CRUD
   ("Połączenia importu" subpage)
 
 `Sphere` ORM models and repositories continue to live in
-`links/db/django/models.py` and
-`links/db/django/repositories.py` per the split-when-big
-rule; they are not moved into a multiverse-named file.
+`links/db/django/models.py` and `links/db/django/repositories.py` per the
+split-when-big rule; they are not moved into a sphere-named file.
 
 ---
 
-### Submissions
+### encounter
 
-The front door for programme content: configure *what*
-is asked for and curate *what comes in*. Owns the
-`Session` lifecycle — proposals are created and updated
-here — plus the configurable intake forms (proposal
-categories, personal-data fields, session fields, their
-requirements) and facilitators.
+Legacy name: `notice_board`. Informal social gathering system, decoupled
+from the formal event/session lifecycle.
 
-The handoff to Chronology is proposal **acceptance**:
-`AcceptProposalService` transitions a `Session` to
-ACCEPTED and creates the `AgendaItem` that places it in
-space and time. After acceptance Chronology reads
-`Session` for scheduling and enrollment; Submissions
-keeps ownership of writes to the proposal itself.
+#### Pages: Encounters
 
-Enrollment behaviour currently bolted onto the `Session`
-model (`enrolled_count`, `is_full`,
-`effective_participants_limit`, `is_enrollment_available`,
-`SessionManager.has_conflicts`) is a Chronology concern
-and belongs in Chronology `mills`/`specs`, not on the
-Submissions-owned model.
-
-#### Bounded Context: Proposal Wizard
-
-The multi-step wizard through which facilitators submit
-session proposals.
-
-- **URLs:** `/chronology/session/propose/`
-  (namespace `session`)
-- **Views:** `gates/web/django/chronology/views.py` —
-  `ProposeSessionPageView` and component views for each
-  wizard step (category, personal data, time slots,
-  session details, review, submit)
-- **Templates:** `templates/chronology/propose/`
-- **Service:** `ProposeSessionService` — resolves field
-  requirements per category, creates `Facilitator`,
-  persists `Session` and field values, rate-limits by IP
-- **DTOs:** `ProposalCategoryDTO`,
-  `SessionFieldRequirementDTO`,
-  `PersonalFieldRequirementDTO`,
-  `TimeSlotRequirementDTO`, `FacilitatorDTO`,
-  `SessionData`
-
-#### Bounded Context: Panel (Submissions)
-
-The intake-configuration and curation areas of the
-organiser backoffice. They share the `panel:` namespace
-and `gates/web/django/panel.py` view file with Panel
-(Chronology); the split is by subdomain ownership, not
-by URL or file.
-
-<!-- markdownlint-disable MD013 -->
-
-| Area | Views | Templates |
-| ---- | ----- | --------- |
-| Proposal categories | `CFPPageView` | `cfp-*.html` |
-| Proposals / sessions | `ProposalsPageView` | `proposal-*.html` |
-| Personal data fields | `PersonalDataFieldsPageView` | `personal-data-field-*.html` |
-| Session fields | `SessionFieldsPageView` | `session-field-*.html` |
-| Facilitators | `FacilitatorsPageView` | `facilitator-*.html` |
-
-<!-- markdownlint-enable MD013 -->
-
----
-
-### Chronology
-
-Manages events, scheduling, venues, enrollment, and the
-public event pages. Consumes `Session` (owned by
-Submissions) for scheduling and enrollment.
-
-#### Bounded Context: Public Event Pages
-
-What visitors see: event details, session list,
-session cards.
-
-- **URLs:** `/chronology/event/<slug>/`
-  (namespace `chronology`)
-- **Views:** `adapters/web/django/views.py` —
-  `EventPageView`
-- **Templates:** `templates/chronology/event.html`,
-  `_session_card.html`, `session_tags.html`
-- **DTOs:** `EventDTO`, `SessionDTO`,
-  `SessionListItemDTO`, `TrackDTO`
-
-#### Bounded Context: Enrollment
-
-Session sign-ups for authenticated users and
-anonymous attendees; proposal acceptance by
-organizers.
-
-- **URLs:**
-  `/chronology/session/<id>/enrollment/`,
-  `/chronology/session/<id>/accept/`,
-  `/chronology/anonymous/`
-- **Views:** `adapters/web/django/views.py` —
-  `SessionEnrollPageView`,
-  `SessionEnrollmentAnonymousPageView`,
-  `ProposalAcceptPageView`,
-  `EventAnonymousActivateActionView`,
-  `AnonymousLoadActionView`,
-  `AnonymousResetActionView`
-- **Templates:**
-  `templates/chronology/enroll_select.html`,
-  `anonymous_enroll.html`,
-  `anonymous_manage.html`,
-  `accept_proposal.html`
-- **Services:** `AcceptProposalService`
-  (transitions session → ACCEPTED, creates
-  `AgendaItem`), `AnonymousEnrollmentService`
-  (code-based anonymous user lookup)
-- **DTOs:** `EnrollmentConfigDTO`,
-  `UserEnrollmentConfigDTO`,
-  `VirtualEnrollmentConfig`, `AgendaItemDTO`
-
-#### Bounded Context: Panel (Chronology)
-
-The backoffice for event organisers. Covers event
-configuration, scheduling, venues, and enrollment
-administration. Proposal-configuration areas live in
-Panel (Submissions) above — same `panel:` namespace and
-view file, different subdomain.
-
-- **URLs:** `/panel/event/<slug>/…`
-  (namespace `panel`)
-- **Views:** `gates/web/django/panel.py`
-- **Templates:** `templates/panel/`
-- **Service:** `PanelService` — event stats
-  aggregation, cascade-safe entity deletion,
-  time slot overlap validation
-
-Internal areas (Chronology-owned):
-
-<!-- markdownlint-disable MD013 -->
-
-| Area | Views | Templates |
-| ---- | ----- | --------- |
-| Event settings | `EventSettingsPageView` | `settings.html` |
-| Time slots | `TimeSlotsPageView` | `time-slot*.html` |
-| Tracks | `TracksPageView` | `track-*.html` |
-| Venues (Space tree) | `SpacesPageView` + `Space*` CRUD | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
-
-<!-- markdownlint-enable MD013 -->
-
----
-
-### Notice Board
-
-Informal social gathering system, decoupled from
-the formal event/session lifecycle.
-
-#### Bounded Context: Encounters
-
-Users create one-off encounters (game sessions,
-meetups) and others RSVP to join them. Includes
-the public share page, RSVP actions, and calendar
+Users create one-off encounters (game sessions, meetups) and others RSVP
+to join them. Includes the public share page, RSVP actions, and calendar
 exports.
 
-- **URLs:** `/encounters/` (authenticated),
-  `/e/<share_code>/` (public,
+- **URLs:** `/encounters/` (authenticated), `/e/<share_code>/` (public,
   namespace `notice-board`)
-- **Views:**
-  `gates/web/django/notice_board/views.py` —
-  `EncountersIndexPageView`,
-  `EncounterCreatePageView`,
-  `EncounterEditPageView`,
-  `EncounterDeleteActionView`,
-  `EncounterDetailPageView`,
-  `EncounterRSVPActionView`,
-  `EncounterCancelRSVPActionView`,
-  `EncounterQrView`, `EncounterIcsView`
+- **Views:** `gates/web/django/notice_board/views.py` —
+  `EncountersIndexPageView`, `EncounterCreatePageView`,
+  `EncounterEditPageView`, `EncounterDeleteActionView`,
+  `EncounterDetailPageView`, `EncounterRSVPActionView`,
+  `EncounterCancelRSVPActionView`, `EncounterQrView`, `EncounterIcsView`
 - **Templates:** `templates/notice_board/`
-- **Service:** `EncounterService` —
-  `build_detail()` (encounter + RSVPs +
-  computed availability), `build_index()`
-  (upcoming/past split, own vs RSVP'd)
-- **DTOs:** `EncounterDTO`,
-  `EncounterRSVPDTO`,
-  `EncounterDetailResult`,
-  `EncounterIndexItem`,
-  `EncounterIndexResult`, `EncounterData`
-- **Repositories:** `EncounterRepository`,
-  `EncounterRSVPRepository`
-- **External integrations:** Google Calendar
-  and Outlook deep links, iCalendar `.ics`
-  export, QR code generation
+- **Service:** `EncounterService` — `build_detail()` (encounter + RSVPs +
+  computed availability), `build_index()` (upcoming/past split, own vs
+  RSVP'd)
+- **DTOs:** `EncounterDTO`, `EncounterRSVPDTO`, `EncounterDetailResult`,
+  `EncounterIndexItem`, `EncounterIndexResult`, `EncounterData`
+- **Repositories:** `EncounterRepository`, `EncounterRSVPRepository`
+- **External integrations:** Google Calendar and Outlook deep links,
+  iCalendar `.ics` export, QR code generation
 
 ---
 
-### Crowd
+### user
 
-Authentication, user profiles, and delegate
+Legacy name: `crowd`. Authentication, user profiles, and delegate
 accounts.
 
-#### Bounded Context: Auth
+#### Pages: Auth
 
-Auth0 OAuth login/logout. State token management
-and JWT validation; user upsert on callback.
+Auth0 OAuth login/logout. State token management and JWT validation;
+user upsert on callback.
 
-- **URLs:** `/crowd/auth0/`
-  (namespace `auth0`)
-- **Views:** `gates/web/django/crowd/auth.py` —
-  `Auth0LoginActionView`,
-  `Auth0LoginCallbackActionView`,
-  `Auth0LogoutActionView`,
-  `Auth0LogoutRedirectActionView`,
-  `LoginRequiredPageView`
-- **Templates:**
-  `templates/crowd/login_required.html`
-- **Service:** `CrowdAuthService`
-  (`request.services.crowd_auth`) — user
-  provisioning on callback, identity sync,
-  sphere-domain checks
-- **External integration:** Auth0 PKCE/state
-  OAuth flow
+- **URLs:** `/crowd/auth0/` (namespace `auth0`)
+- **Views:** `gates/web/django/crowd/auth.py` — `Auth0LoginActionView`,
+  `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
+  `Auth0LogoutRedirectActionView`, `LoginRequiredPageView`
+- **Templates:** `templates/crowd/login_required.html`
+- **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — user
+  provisioning on callback, identity sync, sphere-domain checks
+- **External integration:** Auth0 PKCE/state OAuth flow
 
-#### Bounded Context: Profile
+#### Pages: Profile
 
-User profile management and delegate (connected)
-accounts.
+User profile management and delegate (connected) accounts.
 
-- **URLs:** `/crowd/profile/`,
-  `/crowd/profile/connected-users/` and
+- **URLs:** `/crowd/profile/`, `/crowd/profile/connected-users/` and
   `/crowd/claim/<token>/`
-- **Views:** `gates/web/django/crowd/profile.py` —
-  `ProfilePageView`,
-  `ProfileAvatarPageView`,
-  `ProfileShadowbanPageView`,
+- **Views:** `gates/web/django/crowd/profile.py` — `ProfilePageView`,
+  `ProfileAvatarPageView`, `ProfileShadowbanPageView`,
   `ProfileConnectedUsersPageView`,
   `ProfileConnectedUserUpdateActionView`,
   `ProfileConnectedUserDeleteActionView`,
-  `ProfileConnectedUserClaimLinkActionView`,
-  `ClaimPageView`
-- **Templates:**
-  `templates/crowd/user/edit.html`,
-  `avatar.html`, `parties.html`,
-  `shadowbans.html`, `crowd/claim.html`
-- **Services:** `ProfileService` (self-profile
-  reads/updates, avatar, confirmed-participation
-  count), `CompanionsService` (connected-user CRUD),
-  `ClaimService` (issue/redeem claim links),
-  `ShadowbanService`
-- **DTOs:** `UserDTO`, `ConnectedUserDTO`,
-  `AvatarPageDTO`, `UserData`, `UserType`
-  (`ACTIVE` / `CONNECTED` / `ANONYMOUS`)
-- **Repositories:** `UserRepository`,
-  `ConnectedUserRepository`,
+  `ProfileConnectedUserClaimLinkActionView`, `ClaimPageView`
+- **Templates:** `templates/crowd/user/edit.html`, `avatar.html`,
+  `parties.html`, `shadowbans.html`, `crowd/claim.html`
+- **Services:** `ProfileService` (self-profile reads/updates, avatar,
+  confirmed-participation count), `CompanionsService` (connected-user
+  CRUD), `ClaimService` (issue/redeem claim links), `ShadowbanService`
+- **DTOs:** `UserDTO`, `ConnectedUserDTO`, `AvatarPageDTO`, `UserData`,
+  `UserType` (`ACTIVE` / `CONNECTED` / `ANONYMOUS`)
+- **Repositories:** `UserRepository`, `ConnectedUserRepository`,
   `ProfileStatsRepository`
-- **External integration:**
-  `MembershipApiClient` (`links/ticket_api.py`)
-  — fetches enrollment quotas; Gravatar
-  (`links/gravatar.py`) — email-hash avatar
+- **External integration:** `MembershipApiClient` (`links/ticket_api.py`)
+  — fetches enrollment quotas; Gravatar (`links/gravatar.py`) —
+  email-hash avatar
 
 ---
 
-## Subdomain → Models
+### party
 
-ORM models — currently in `adapters/db/django/models.py`,
-relocating to `links/db/django/` per refactor 4 — mapped
-to the subdomain that owns them. Subdomain-level only, no
-bounded-context breakdown.
+The drużyna: the group that enrolls together. Party CRUD, membership
+invites, consent, and the companion (login-less member) lifecycle. See
+RFC 0001. Already noun-named: `pacts/party.py`, `mills/party.py`,
+`links/db/django/party.py`.
+
+---
+
+## Noun → Models
+
+ORM models — in `links/db/django/models.py` — mapped to the noun that
+owns them.
 
 <!-- markdownlint-disable MD013 -->
 
-| Subdomain | Models |
-| --------- | ------ |
-| Crowd | `User` |
-| Multiverse | `Sphere`, `Connection` |
-| Notice Board | `Encounter`, `EncounterRSVP` |
-| Submissions | `Session`, `ProposalCategory`, `EventProposalSettings`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement` |
-| Chronology | `Event`, `EventSettings`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+| Noun | Models |
+| ---- | ------ |
+| user | `User` |
+| sphere | `Sphere`, `Connection` |
+| encounter | `Encounter`, `EncounterRSVP` |
+| party | `Party`, `PartyMembership` |
+| event | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->
 
-Boundary notes:
+Notes:
 
-- `Session` is owned by Submissions (it creates and
-  updates the row) and read across the boundary by
-  Chronology. `AgendaItem`, `SessionParticipation` and
-  `ScheduleChangeLog` (Chronology) FK into `Session`;
-  `Session`'s M2Ms reference `TimeSlot` and `Track`
-  (Chronology).
-- Enrollment is Chronology: the `SessionParticipation`
-  and `*EnrollmentConfig` models, plus the enrollment
-  behaviour still living on the `Session` model.
-- `Tag` / `TagCategory` are slated for deletion and are
-  intentionally absent from this mapping.
+- The old Submissions/Chronology ownership split over `Session` is gone —
+  proposal intake writes it, scheduling and enrollment read it, all
+  inside the event noun. The remaining debt is the enrollment behaviour
+  still living on the `Session` model (see the event section).
+- `Tag` / `TagCategory` are slated for deletion and are intentionally
+  absent from this mapping.

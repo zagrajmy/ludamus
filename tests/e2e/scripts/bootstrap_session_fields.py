@@ -16,11 +16,11 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-import django  # noqa: E402
+import django  # ruff:ignore[module-import-not-at-top-of-file]
 
 django.setup()
 
-from ludamus.adapters.db.django.models import (  # noqa: E402
+from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
     EventSettings,
     Session,
     SessionField,
@@ -31,7 +31,7 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
 def main() -> None:
     sessions = Session.objects.select_related("event")
     if not sessions.exists():
-        print("No sessions found. Run bootstrap_data.py first.")  # noqa: T201
+        print("No sessions found. Run bootstrap_data.py first.")  # ruff:ignore[print]
         return
 
     for session in sessions:
@@ -113,9 +113,9 @@ def main() -> None:
             session=session, field=tone_field, defaults={"value": ["komedia", "absurd"]}
         )
 
-        print(f"  Added field values to: {session.title}")  # noqa: T201
+        print(f"  Added field values to: {session.title}")  # ruff:ignore[print]
 
-    print("Done.")  # noqa: T201
+    print("Done.")  # ruff:ignore[print]
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EventBan
+from ludamus.links.db.django.models import EventBan
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 

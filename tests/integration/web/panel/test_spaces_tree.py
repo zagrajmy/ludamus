@@ -7,8 +7,9 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.text import slugify
 
-from ludamus.adapters.db.django.models import Space
+from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.venues import SpaceNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
@@ -34,7 +35,7 @@ def _base_context(event, *, rooms=0):
     }
 
 
-def _node(space, *, depth, is_leaf, children=None):
+def _node(space, *, depth, is_leaf, children=None, track_names=None):
     return SpaceNodeDTO(
         pk=space.pk,
         event_id=space.event_id,
@@ -43,9 +44,11 @@ def _node(space, *, depth, is_leaf, children=None):
         slug=space.slug,
         capacity=space.capacity,
         description=space.description,
+        location=space.location,
         order=space.order,
         depth=depth,
         is_leaf=is_leaf,
+        track_names=track_names or [],
         children=children or [],
     )
 
@@ -119,6 +122,37 @@ class TestSpacesTreePage:
             },
         )
 
+    def test_leaf_shows_location_and_track_pills(self, manager_client, event):
+        leaf = _root(event, "Room A", location="Building B", capacity=12)
+        for name in ("Board Games", "Card Games", "Larp", "RPG"):
+            track = Track.objects.create(
+                event_id=event.pk, name=name, slug=slugify(name)
+            )
+            track.spaces.add(leaf.pk)
+
+        response = manager_client.get(_venues_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/spaces.html",
+            context_data={
+                **_base_context(event, rooms=1),
+                "tree": [
+                    _node(
+                        leaf,
+                        depth=1,
+                        is_leaf=True,
+                        track_names=["Board Games", "Card Games", "Larp", "RPG"],
+                    )
+                ],
+            },
+            contains=[
+                'title="Building B"',
+                'title="RPG">+1<span class="sr-only">: RPG</span>',
+            ],
+        )
+
 
 class TestSpaceCreate:
     @staticmethod
@@ -174,6 +208,23 @@ class TestSpaceCreate:
                 **_base_context(event, rooms=1),
                 "tree": [_node(room, depth=1, is_leaf=True)],
             },
+        )
+
+    def test_create_room_with_location(self, manager_client, event):
+        response = manager_client.post(
+            self._root_url(event),
+            data={"name": "Room A", "location": "Building B, room 214"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space created successfully.")],
+            url=_venues_url(event),
+        )
+        assert (
+            Space.objects.get(event=event, name="Room A").location
+            == "Building B, room 214"
         )
 
     def test_create_child(self, manager_client, event):
@@ -287,6 +338,22 @@ class TestSpaceEdit:
         node.refresh_from_db()
         assert node.name == "Grand Hall"
         assert node.slug == "grand-hall"
+
+    def test_edit_sets_location(self, manager_client, event):
+        node = _root(event, "Hall")
+
+        response = manager_client.post(
+            self._url(event, node.pk), data={"name": "Hall", "location": "2nd floor"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Space updated successfully.")],
+            url=_venues_url(event),
+        )
+        node.refresh_from_db()
+        assert node.location == "2nd floor"
 
     def test_get_edit_form(self, manager_client, event):
         node = _root(event, "Hall")

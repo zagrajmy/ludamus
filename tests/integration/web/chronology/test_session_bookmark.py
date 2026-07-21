@@ -4,7 +4,7 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import SessionBookmark
+from ludamus.links.db.django.models import SessionBookmark
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,

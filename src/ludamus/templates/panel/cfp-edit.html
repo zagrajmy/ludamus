@@ -279,11 +279,7 @@
                                                 {% translate "Required" %}
                                             </option>
                                         {% endif %}
-                                        <option value="optional"
-                                                {% if field.field_type == "checkbox" %}{% if field.pk in field_requirements %}selected{% endif %}
-                                                {% else %}
-                                                {% if field_requirements|get_item:field.pk is False %}selected{% endif %}
-                                                {% endif %}>{% translate "Optional" %}</option>
+                                        <option value="optional" {% if field.field_type == "checkbox" %}{% if field.pk in field_requirements %}selected{% endif %} {% else %} {% if field_requirements|get_item:field.pk is False %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
                                     </select>
                                 </div>
                             {% endfor %}
@@ -324,11 +320,7 @@
                                                 {% translate "Required" %}
                                             </option>
                                         {% endif %}
-                                        <option value="optional"
-                                                {% if field.field_type == "checkbox" %}{% if field.pk in session_field_requirements %}selected{% endif %}
-                                                {% else %}
-                                                {% if session_field_requirements|get_item:field.pk is False %}selected{% endif %}
-                                                {% endif %}>{% translate "Optional" %}</option>
+                                        <option value="optional" {% if field.field_type == "checkbox" %}{% if field.pk in session_field_requirements %}selected{% endif %} {% else %} {% if session_field_requirements|get_item:field.pk is False %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
                                     </select>
                                 </div>
                             {% endfor %}

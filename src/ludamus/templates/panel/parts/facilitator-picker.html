@@ -1,0 +1,46 @@
+{% load i18n %}
+{# Search-first picker: with hundreds of facilitators per event, only the #}
+{# already-selected rows show until the search narrows the list. #}
+<input type="text"
+       id="facilitator-search"
+       placeholder="{% translate "Search by name…" %}"
+       aria-label="{% translate "Search facilitators by name" %}"
+       autocomplete="off"
+       class="w-full border border-border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+<div class="space-y-2" id="facilitator-list">
+    {% for f in all_facilitators %}
+        <label class="facilitator-row flex items-center text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
+               data-name="{{ f.display_name|lower }}">
+            <input type="checkbox"
+                   name="facilitator_ids"
+                   value="{{ f.pk }}"
+                   {% if f.pk in assigned_facilitator_pks %}checked{% endif %}
+                   class="mr-2 accent-primary">
+            {{ f.display_name }}
+        </label>
+    {% endfor %}
+</div>
+<p id="no-facilitators-found"
+   class="hidden text-sm text-foreground-muted mt-2">{% translate "No facilitators match your search." %}</p>
+<script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
+    (function() {
+        const search = document.getElementById('facilitator-search');
+        const list = document.getElementById('facilitator-list');
+        if (!search || !list) return;
+
+        function refresh() {
+            const query = search.value.toLowerCase().trim();
+            let matches = 0;
+            list.querySelectorAll('.facilitator-row').forEach(function(row) {
+                const matched = query && (row.dataset.name || '').includes(query);
+                if (matched) matches++;
+                const checked = row.querySelector('input').checked;
+                row.classList.toggle('hidden', !matched && !checked);
+            });
+            document.getElementById('no-facilitators-found')
+                .classList.toggle('hidden', !query || matches > 0);
+        }
+        search.addEventListener('input', refresh);
+        list.addEventListener('change', refresh);
+    })();
+</script>

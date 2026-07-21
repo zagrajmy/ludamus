@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
+{% load django_vite %}
 {% block title_prefix %}
     {% translate "Proposals" %} -
 {% endblock title_prefix %}
@@ -32,6 +33,12 @@
             {% if filter_search %}
                 <input type="hidden" name="search" value="{{ filter_search }}">
             {% endif %}
+            {% if filter_status %}
+                <input type="hidden" name="status" value="{{ filter_status }}">
+            {% endif %}
+            {% if filter_category_pk %}
+                <input type="hidden" name="category" value="{{ filter_category_pk }}">
+            {% endif %}
             <label for="track-scope"
                    class="text-xs text-foreground-muted whitespace-nowrap hidden sm:inline">
                 {% translate "Track" %}
@@ -41,6 +48,7 @@
                     onchange="this.form.submit()"
                     class="px-3 py-1.5 border border-border rounded-lg text-sm bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">{% translate "All tracks" %}</option>
+                <option value="multi" {% if filter_track_multi %}selected{% endif %}>{% translate "Multiple tracks" %}</option>
                 {% for track in all_tracks %}
                     <option value="{{ track.pk }}"
                             {% if filter_track_pk == track.pk %}selected{% endif %}
@@ -57,8 +65,17 @@
     <div class="p-4">
         {% if current_event %}
             <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
-                <form method="get" class="flex flex-wrap gap-4 items-end">
-                    {% if filter_track_pk %}<input type="hidden" name="track" value="{{ filter_track_pk }}">{% endif %}
+                <form method="get"
+                      id="proposals-filter-form"
+                      data-autosubmit
+                      hx-get=""
+                      hx-target="#proposals-results"
+                      hx-select="#proposals-results"
+                      hx-swap="outerHTML"
+                      hx-push-url="true"
+                      hx-indicator="#filter-spinner"
+                      class="flex flex-wrap gap-4 items-end">
+                    <input type="hidden" name="track" value="{{ filter_track_value }}">
                     <div class="w-full sm:w-48 min-w-0">
                         <label for="filter-search"
                                title="{% translate "Search" %}"
@@ -140,90 +157,139 @@
                             {% endif %}
                         </div>
                     {% endfor %}
-                    <div class="flex items-center">
-                        <button type="submit" class="btn btn-primary text-sm">{% translate "Filter" %}</button>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="sr-only">{% translate "Filter" %}</button>
+                        <span id="filter-spinner"
+                              class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
+                              role="status"
+                              aria-label="{% translate "Filtering" %}"></span>
                         <a href="{% url 'panel:proposals' slug=current_event.slug %}"
                            class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
                     </div>
                 </form>
             </div>
-            {% if proposals %}
-                {% tessera_table %}
-                <thead class="bg-bg-tertiary">
-                    <tr>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Title" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Display Name" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Category" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Status" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Created" %}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-bg-secondary divide-y divide-border">
-                    {% for proposal in proposals %}
-                        <tr>
-                            <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
-                                   class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
-                            </td>
-                            <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
-                                title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                {{ proposal.creation_time|date:"d M Y H:i" }}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            {% end_tessera_table %}
-            {% if page_obj.paginator.num_pages > 1 %}
-                <div class="flex items-center justify-between mt-4 text-sm">
-                    <span class="text-foreground-muted">
-                        {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
+            {% vite_asset 'src/filter-autosubmit.ts' %}
+            {% vite_asset 'src/bulk-status.ts' %}
+            <div id="proposals-results">
+                {% if proposals %}
+                    <form method="post"
+                          action="{% url 'panel:proposal-bulk-status' slug=current_event.slug %}"
+                          id="bulk-status-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <span class="text-sm text-foreground-muted mr-1">
+                                {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
+                            </span>
+                            <span class="text-sm text-foreground-muted">{% translate "Set status:" %}</span>
+                            <button type="submit"
+                                    name="action"
+                                    value="accept"
+                                    class="btn btn-primary text-sm bulk-action-btn">{% translate "Accept" %}</button>
+                            <button type="submit"
+                                    name="action"
+                                    value="hold"
+                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Hold" %}</button>
+                            <button type="submit"
+                                    name="action"
+                                    value="pending"
+                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Move to pending" %}</button>
+                            <button type="submit"
+                                    name="action"
+                                    value="reject"
+                                    class="btn btn-danger text-sm bulk-action-btn">{% translate "Reject" %}</button>
+                        </div>
+                        {% tessera_table %}
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 w-12">
+                                    <input type="checkbox"
+                                           id="bulk-select-all"
+                                           aria-label="{% translate "Select all proposals" %}"
+                                           class="rounded border-border">
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Title" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Display Name" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Category" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Status" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Created" %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-bg-secondary divide-y divide-border">
+                            {% for proposal in proposals %}
+                                <tr>
+                                    <td class="px-6 py-4">
+                                        <input type="checkbox"
+                                               name="proposal_ids"
+                                               value="{{ proposal.pk }}"
+                                               aria-label="{% blocktranslate with title=proposal.title %}Select {{ title }}{% endblocktranslate %}"
+                                               class="bulk-row-checkbox rounded border-border">
+                                    </td>
+                                    <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
+                                        <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
+                                           class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
+                                    </td>
+                                    <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
+                                        title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                        {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                        {{ proposal.creation_time|date:"d M Y H:i" }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    {% end_tessera_table %}
+                </form>
+                {% if page_obj.paginator.num_pages > 1 %}
+                    <div class="flex items-center justify-between mt-4 text-sm">
+                        <span class="text-foreground-muted">
+                            {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
                             Page {{ page }} of {{ total }}
                         {% endblocktranslate %}
-                    </span>
-                    <div class="flex items-center gap-2">
-                        {% if page_obj.has_previous %}
-                            <a href="{% querystring page=page_obj.previous_page_number %}"
-                               class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
-                        {% endif %}
-                        {% if page_obj.has_next %}
-                            <a href="{% querystring page=page_obj.next_page_number %}"
-                               class="btn btn-secondary text-sm">{% translate "Next" %}</a>
-                        {% endif %}
+                        </span>
+                        <div class="flex items-center gap-2">
+                            {% if page_obj.has_previous %}
+                                <a href="{% querystring page=page_obj.previous_page_number %}"
+                                   class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
+                            {% endif %}
+                            {% if page_obj.has_next %}
+                                <a href="{% querystring page=page_obj.next_page_number %}"
+                                   class="btn btn-secondary text-sm">{% translate "Next" %}</a>
+                            {% endif %}
+                        </div>
                     </div>
+                {% endif %}
+            {% else %}
+                <div class="card p-8 text-center">
+                    {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
+                        <p class="text-foreground-muted">{% translate "No proposals match the current filters." %}</p>
+                    {% else %}
+                        <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
+                        {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+                        {% translate "Create Session" as t_create %}
+                        {% tessera_button t_create href=create_url icon="plus" %}
+                    {% endif %}
                 </div>
             {% endif %}
-        {% else %}
-            <div class="card p-8 text-center">
-                {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
-                    <p class="text-foreground-muted">{% translate "No proposals match the current filters." %}</p>
-                {% else %}
-                    <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
-                    {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
-                    {% translate "Create Session" as t_create %}
-                    {% tessera_button t_create href=create_url icon="plus" %}
-                {% endif %}
-            </div>
-        {% endif %}
+        </div>
         {% if deleted_proposals %}
             <h2 class="mt-8 mb-3 text-sm font-semibold text-foreground-muted uppercase tracking-wider">
                 {% translate "Recently deleted" %}

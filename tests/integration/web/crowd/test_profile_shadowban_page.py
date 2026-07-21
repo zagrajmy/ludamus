@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     SessionParticipationStatus,
@@ -17,7 +17,12 @@ from tests.integration.utils import assert_response
 
 def _meet(session: Session) -> ShadowbanMeetSessionDTO:
     return ShadowbanMeetSessionDTO(
-        session_id=session.pk, title=session.title, event_slug=session.event.slug
+        session_id=session.pk,
+        title=session.title,
+        event_slug=session.event.slug,
+        event_name=session.event.name,
+        sphere_name=session.event.sphere.name,
+        sphere_domain=session.event.sphere.site.domain,
     )
 
 
@@ -162,6 +167,8 @@ class TestProfileShadowbanPageView:
 
         response = authenticated_client.get(self.URL)
 
+        event = session.event
+        sep = chr(0x203A)
         assert_response(
             response,
             HTTPStatus.OK,
@@ -174,7 +181,11 @@ class TestProfileShadowbanPageView:
                 "profile_active_tab": "safety",
             },
             template_name="crowd/user/safety.html",
-            contains=session.title,
+            contains=[
+                f"//{event.sphere.site.domain}/event/{event.slug}/?session={session.pk}",
+                f"{event.sphere.name} {sep} {event.name} {sep} ",
+                f'<span class="underline">{session.title}</span>',
+            ],
         )
 
     def test_get_lists_players_met_at_a_shared_session(

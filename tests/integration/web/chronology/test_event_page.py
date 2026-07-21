@@ -13,7 +13,16 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
 
-from ludamus.adapters.db.django.models import (
+from ludamus.adapters.web.django.views import EventPageView
+from ludamus.gates.web.django.chronology.event_presentation import (
+    ParticipationInfo,
+    SessionData,
+    build_display_field_row,
+)
+from ludamus.gates.web.django.chronology.schedule import ScheduleDay, ScheduleHour
+from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
     EnrollmentConfig,
     EventSettings,
@@ -22,16 +31,9 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
     UserEnrollmentConfig,
 )
-from ludamus.adapters.web.django.views import EventPageView
-from ludamus.gates.web.django.chronology.event_presentation import (
-    ParticipationInfo,
-    SessionData,
-    build_display_field_row,
-)
-from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -96,6 +98,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -124,7 +128,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data=ANY,
             template_name=["chronology/event.html"],
             contains=f'href="?session={agenda_item.session.pk}"',
             not_contains="Missing variable session_link_base",
@@ -152,7 +156,7 @@ class TestEventPageView:
         )
 
     def test_ok_compact_schedule_for_big_event(
-        self, agenda_item, client, event, monkeypatch
+        self, active_user, agenda_item, client, event, monkeypatch
     ):
         # Drop the threshold so a single scheduled session flips the page to the
         # compact list + hour scrubber instead of the card grid.
@@ -162,21 +166,84 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["compact_schedule"] is True
-        [day] = response.context_data["schedule_days"]
-        [hour] = day.hours
+        session_data = SessionData(
+            agenda_item=AgendaItemDTO.model_validate(agenda_item),
+            effective_participants_limit=10,
+            enrolled_count=0,
+            full_participant_info="0/10",
+            is_enrollment_available=False,
+            is_full=False,
+            is_ongoing=False,
+            presenter=UserInfo.from_user_dto(
+                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
+            ),
+            session_participations=[],
+            session=SessionDTO.model_validate(agenda_item.session),
+            should_show_as_inactive=False,
+            loc=LocationData(
+                space_name=agenda_item.space.name,
+                parent_slug=(
+                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
+                ),
+                parent_name=(
+                    agenda_item.space.parent.name if agenda_item.space.parent else ""
+                ),
+                path=str(agenda_item.space),
+            ),
+            user_enrolled=False,
+            user_waiting=False,
+        )
         # Sections bucket whole local-clock hours, not exact start times.
-        assert hour.start == timezone.localtime(agenda_item.start_time).replace(
+        hour_start = timezone.localtime(agenda_item.start_time).replace(
             minute=0, second=0, microsecond=0
         )
-        assert [data.session.pk for data in hour.sessions] == [agenda_item.session.pk]
-        content = response.content.decode()
-        assert "schedule-rail" in content
-        assert 'data-rail-hour="' in content
-        assert f"?session={agenda_item.session.pk}" in content
-        # The compact list replaces the multi-column card grid.
-        assert "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3" not in content
+        schedule_day = ScheduleDay(
+            first_start=agenda_item.start_time,
+            hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+        )
+        url = self._get_url(event.slug)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {agenda_item.start_time: [session_data]},
+                "object": event,
+                "pending_review_visible": False,
+                "pending_sessions": [],
+                "pending_wizard_view": False,
+                "own_pending_proposals": [],
+                "sessions": [session_data],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                "compact_schedule": True,
+                "schedule_days": [schedule_day],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": url,
+                "schedule_rooms_url": f"{url}?view=rooms",
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains=[
+                "schedule-rail",
+                'data-rail-hour="',
+                f"?session={agenda_item.session.pk}",
+            ],
+            # The compact list replaces the multi-column card grid.
+            not_contains="grid-cols-1 lg:grid-cols-2 xl:grid-cols-3",
+        )
 
     def test_ok_compact_schedule_marks_bookmarked_session(
         self, agenda_item, active_user, authenticated_client, event, monkeypatch, space
@@ -192,16 +259,21 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert 'data-bookmarked="true"' in content
-        assert 'aria-pressed="true"' in content
-        assert 'data-bookmarked="false"' in content
-        assert 'aria-pressed="false"' in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            contains=[
+                'data-bookmarked="true"',
+                'aria-pressed="true"',
+                'data-bookmarked="false"',
+                'aria-pressed="false"',
+            ],
+        )
 
-    @pytest.mark.usefixtures("agenda_item")
     def test_ok_compact_schedule_omits_not_available_label(
-        self, client, event, monkeypatch
+        self, active_user, agenda_item, client, event, monkeypatch
     ):
         # The session has no active enrollment config, so it is not available.
         # On the compact layout that must render as blank, not a repeated label.
@@ -211,8 +283,77 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert "Not Available" not in response.content.decode()
+        session_data = SessionData(
+            agenda_item=AgendaItemDTO.model_validate(agenda_item),
+            effective_participants_limit=10,
+            enrolled_count=0,
+            full_participant_info="0/10",
+            is_enrollment_available=False,
+            is_full=False,
+            is_ongoing=False,
+            presenter=UserInfo.from_user_dto(
+                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
+            ),
+            session_participations=[],
+            session=SessionDTO.model_validate(agenda_item.session),
+            should_show_as_inactive=False,
+            loc=LocationData(
+                space_name=agenda_item.space.name,
+                parent_slug=(
+                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
+                ),
+                parent_name=(
+                    agenda_item.space.parent.name if agenda_item.space.parent else ""
+                ),
+                path=str(agenda_item.space),
+            ),
+            user_enrolled=False,
+            user_waiting=False,
+        )
+        hour_start = timezone.localtime(agenda_item.start_time).replace(
+            minute=0, second=0, microsecond=0
+        )
+        schedule_day = ScheduleDay(
+            first_start=agenda_item.start_time,
+            hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+        )
+        url = self._get_url(event.slug)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {agenda_item.start_time: [session_data]},
+                "object": event,
+                "pending_review_visible": False,
+                "pending_sessions": [],
+                "pending_wizard_view": False,
+                "own_pending_proposals": [],
+                "sessions": [session_data],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                "compact_schedule": True,
+                "schedule_days": [schedule_day],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": url,
+                "schedule_rooms_url": f"{url}?view=rooms",
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            not_contains="Not Available",
+        )
 
     def test_ok_compact_schedule_renders_all_row_variants(
         self, client, event, space, monkeypatch
@@ -317,7 +458,12 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
         days = response.context_data["schedule_days"]
         # The ended/ongoing sessions may straddle local midnight, so derive the
         # expected day grouping with the same local-date rule the view uses.
@@ -359,11 +505,23 @@ class TestEventPageView:
             assert re.search(rf">\s*{label}\s*<", content), label
         assert "1 waiting" in content
         assert "2h" in content
-        # The ledger row no longer carries the enrolled-count title; the count
-        # lives in the session modal's capacity chip instead.
-        assert re.search(r">\s*4/5\s*<", content)
+        # The ledger row no longer carries the enrolled count; it lives in the
+        # lazy-loaded session modal's capacity chip instead.
         assert 'title="4 participants enrolled"' not in content
         assert content.count("data-schedule-day") == len(expected_dates)
+        modal = client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": scarce.pk},
+            )
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains="4/5",
+        )
 
     def test_ok_compact_rooms_view(
         self, active_user, authenticated_client, event, monkeypatch
@@ -404,9 +562,21 @@ class TestEventPageView:
 
         response = authenticated_client.get(f"{self._get_url(event.slug)}?view=rooms")
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["schedule_view_is_rooms"] is True
-        assert response.context_data["schedule_view_is_list"] is False
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            contains=[
+                "schedule-rail",
+                f"?session={in_arena.pk}",
+                # Both bookmark-toggle tile states render for the viewer.
+                'aria-pressed="false"',
+                'aria-pressed="true"',
+            ],
+        )
+        # room_lane_days is populated only in the rooms view; its structure is
+        # the subject of this test, so assert it directly.
         [day] = response.context_data["room_lane_days"]
         assert day.rooms == ["Arena", "Stage"]
         assert [(m.row, m.has_sessions) for m in day.hour_marks] == [
@@ -425,16 +595,10 @@ class TestEventPageView:
         content = response.content.decode()
         assert re.search(r">\s*Arena\s*</div>", content)
         assert re.search(r">\s*Stage\s*</div>", content)
-        assert "schedule-rail" in content
-        assert f"?session={in_arena.pk}" in content
-        # Both bookmark-toggle tile states render for the authenticated viewer.
-        assert 'aria-pressed="false"' in content
-        assert 'aria-pressed="true"' in content
         assert re.search(r">\s*16\+\s*<", content)
 
-    @pytest.mark.usefixtures("agenda_item")
     def test_ok_compact_unknown_view_falls_back_to_list(
-        self, client, event, monkeypatch
+        self, active_user, agenda_item, client, event, monkeypatch
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
@@ -442,10 +606,77 @@ class TestEventPageView:
 
         response = client.get(f"{self._get_url(event.slug)}?view=starfield")
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["schedule_view_is_list"] is True
-        assert response.context_data["room_lane_days"] == []
-        assert "session-grid" in response.content.decode()
+        session_data = SessionData(
+            agenda_item=AgendaItemDTO.model_validate(agenda_item),
+            effective_participants_limit=10,
+            enrolled_count=0,
+            full_participant_info="0/10",
+            is_enrollment_available=False,
+            is_full=False,
+            is_ongoing=False,
+            presenter=UserInfo.from_user_dto(
+                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
+            ),
+            session_participations=[],
+            session=SessionDTO.model_validate(agenda_item.session),
+            should_show_as_inactive=False,
+            loc=LocationData(
+                space_name=agenda_item.space.name,
+                parent_slug=(
+                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
+                ),
+                parent_name=(
+                    agenda_item.space.parent.name if agenda_item.space.parent else ""
+                ),
+                path=str(agenda_item.space),
+            ),
+            user_enrolled=False,
+            user_waiting=False,
+        )
+        hour_start = timezone.localtime(agenda_item.start_time).replace(
+            minute=0, second=0, microsecond=0
+        )
+        schedule_day = ScheduleDay(
+            first_start=agenda_item.start_time,
+            hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+        )
+        url = self._get_url(event.slug)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {agenda_item.start_time: [session_data]},
+                "object": event,
+                "pending_review_visible": False,
+                "pending_sessions": [],
+                "pending_wizard_view": False,
+                "own_pending_proposals": [],
+                "sessions": [session_data],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                "compact_schedule": True,
+                "schedule_days": [schedule_day],
+                "schedule_view_is_list": True,
+                "schedule_view_is_rooms": False,
+                "room_lane_days": [],
+                "schedule_list_url": url,
+                "schedule_rooms_url": f"{url}?view=rooms",
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+            contains="session-grid",
+        )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_ok_live_event_card_slot_shows_now_and_propose(
@@ -463,7 +694,12 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
         content = response.content.decode()
         assert re.search(r">\s*Now\s*</span>", content)
         assert re.search(r">\s*Propose\s*</span>", content)
@@ -486,6 +722,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -524,6 +762,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -562,6 +802,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -627,6 +869,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -658,6 +902,47 @@ class TestEventPageView:
         assert match
         assert match.group(1)
 
+    def test_track_and_category_filters_expose_data_and_controls(
+        self, client, event, space
+    ):
+        category_a = ProposalCategoryFactory(event=event, name="RPG", slug="rpg")
+        category_b = ProposalCategoryFactory(
+            event=event, name="Board games", slug="board"
+        )
+        track_a = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        track_b = Track.objects.create(
+            event=event, name="Side Room", slug="side", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        session_a = SessionFactory(event=event, category=category_a, min_age=0)
+        session_a.tracks.add(track_a, private_track)
+        session_b = SessionFactory(event=event, category=category_b, min_age=0)
+        session_b.tracks.add(track_b)
+        AgendaItemFactory(session=session_a, space=space)
+        AgendaItemFactory(
+            session=session_b,
+            space=space,
+            start_time=timezone.now() + timedelta(days=7, hours=3),
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        content = response.content.decode()
+        # Filter controls render (only when >1 value exists, so this also
+        # proves has_track_filter / has_category_filter).
+        assert 'data-category="__track"' in content
+        assert 'data-category="__category"' in content
+        # Cards carry the filter pairs; private tracks stay hidden.
+        assert "__track:Main Hall" in content
+        assert "__track:Side Room" in content
+        assert "__category:RPG" in content
+        assert "__category:Board games" in content
+        assert "__track:Backstage" not in content
+
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
@@ -675,6 +960,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -720,8 +1007,13 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert b"All ages" not in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            not_contains="All ages",
+        )
 
     def test_session_card_shows_overflow_tag_trigger(self, agenda_item, client, event):
         session_field = SessionField.objects.create(
@@ -742,9 +1034,13 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert b"session-tags-more" in response.content
-        assert b"+1" in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            contains=["session-tags-more", "+1"],
+        )
 
     def _add_scheduled_session(self, *, event, space, session_field):
         presenter = UserFactory()
@@ -783,7 +1079,12 @@ class TestEventPageView:
 
         with CaptureQueriesContext(connection) as small_event_queries:
             response = client.get(self._get_url(event.slug))
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
 
         for _ in range(6):
             self._add_scheduled_session(
@@ -792,7 +1093,12 @@ class TestEventPageView:
 
         with CaptureQueriesContext(connection) as big_event_queries:
             response = client.get(self._get_url(event.slug))
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
 
         assert len(big_event_queries.captured_queries) == len(
             small_event_queries.captured_queries
@@ -843,6 +1149,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -873,8 +1181,13 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert placeholder_cover_url(session.pk).encode() not in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            not_contains=placeholder_cover_url(session.pk),
+        )
 
     def test_shows_placeholder_cover_when_event_opts_in(
         self, agenda_item, client, event
@@ -886,8 +1199,13 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert placeholder_cover_url(session.pk).encode() in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            contains=placeholder_cover_url(session.pk),
+        )
 
     def test_ok_superuser_proposal(
         self, authenticated_client, event, active_user, pending_session
@@ -916,6 +1234,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -992,6 +1312,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1043,6 +1365,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1092,6 +1416,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1136,6 +1462,7 @@ class TestEventPageView:
             session_participations=[],
             loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
             can_edit=True,
+            category_name=pending_session.category.name,
         )
         assert_response(
             response,
@@ -1146,6 +1473,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1244,6 +1573,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1308,6 +1639,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1374,6 +1707,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1440,6 +1775,7 @@ class TestEventPageView:
             ),
             user_enrolled=False,
             user_waiting=False,
+            category_name=session.category.name,
         )
         assert_response(
             response,
@@ -1450,6 +1786,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1514,6 +1852,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -1575,6 +1915,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -1612,6 +1954,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1660,6 +2004,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1699,6 +2045,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1742,6 +2090,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1784,6 +2134,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1829,6 +2181,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {},
                 "object": event,
@@ -1918,6 +2272,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -1985,6 +2341,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2080,6 +2438,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2166,6 +2526,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2255,6 +2617,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2341,6 +2705,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2429,6 +2795,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2513,6 +2881,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2609,6 +2979,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2697,6 +3069,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2794,6 +3168,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2885,6 +3261,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": True,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {},
                 "hour_data": {agenda_item.start_time: [session_data]},
                 "object": event,
@@ -2978,6 +3356,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [session_field],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3003,6 +3383,7 @@ class TestEventPageView:
         self, agenda_item, client, event
     ):
         """Values past the visible limit collapse into a hover popover."""
+        session = agenda_item.session
         session_field = SessionField.objects.create(
             event=event,
             name="Game Type",
@@ -3014,7 +3395,7 @@ class TestEventPageView:
             icon="puzzle-piece",
         )
         SessionFieldValue.objects.create(
-            session=agenda_item.session,
+            session=session,
             field=session_field,
             value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
         )
@@ -3023,12 +3404,14 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
         # Four values stay visible; the two extras collapse into the "+N" popover.
-        assert "+2" in content
-        assert "Echo" in content
-        assert "Foxtrot" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+            contains=["+2", "Echo", "Foxtrot"],
+        )
 
     def test_ok_session_with_non_displayed_field_excluded_from_rows(
         self, active_user, agenda_item, client, event
@@ -3098,6 +3481,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3189,6 +3574,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3281,6 +3668,8 @@ class TestEventPageView:
                 "enrollment_requires_slots": False,
                 "event": event,
                 "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
                 "future_unavailable_hour_data": {
                     agenda_item.start_time: [session_data]
                 },
@@ -3340,7 +3729,35 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "pending_review_visible": True,
+                "pending_sessions": [],
+                "pending_wizard_view": False,
+                "own_pending_proposals": [],
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+        )
 
 
 class TestEventPageEditAffordance:
@@ -3376,9 +3793,20 @@ class TestEventPageEditAffordance:
             s for s in response.context["sessions"] if s.session.pk == session.pk
         )
         assert session_data.can_edit is True
-        content = response.content.decode()
-        assert edit_url in content
-        assert f'data-edit-open="{session.pk}"' in content
+        # The edit button lives in the lazy-loaded session modal, not the page.
+        modal = authenticated_client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": session.pk},
+            )
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains=[edit_url, f'data-edit-open="{session.pk}"'],
+        )
 
     def test_non_owner_no_edit_affordance(self, authenticated_client, event, space):
         other = UserFactory(username="other", email="other@example.com")

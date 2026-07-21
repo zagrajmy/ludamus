@@ -10,13 +10,19 @@ from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.pacts import (
         AgendaItemDTO,
         LocationData,
         SessionDTO,
         SessionFieldValueDTO,
     )
-    from ludamus.pacts.chronology import PartyEventHistoryDTO, PartySessionHistoryDTO
+    from ludamus.pacts.chronology import (
+        PartyEventHistoryDTO,
+        PartySessionHistoryDTO,
+        SessionModalDTO,
+    )
     from ludamus.pacts.crowd import UserDTO
 
 
@@ -77,6 +83,8 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     bookmark_count: int = 0
     displayed_field_rows: list[DisplayFieldRow] = field(default_factory=list)
     field_values: list[SessionFieldValueDTO] = field(default_factory=list)
+    track_names: list[str] = field(default_factory=list)
+    category_name: str = ""
     waiting_count: int = 0
     is_ongoing: bool = False
     is_ended: bool = False
@@ -130,8 +138,35 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         )
 
     @property
+    def filter_categories(self) -> str:
+        # Extends the public-tag-category channel (slug:value;...) that
+        # session-filters.ts already parses, so track and proposal category
+        # ride the same client-side filter mechanism with no new JS. The
+        # __track / __category keys can't be a real SessionField slug in
+        # practice.
+        # ponytail: names with ':' or ';' would break parsing, same as the
+        # existing tag values; track/category names never contain them.
+        parts = [self.public_tag_categories] if self.public_tag_categories else []
+        parts.extend(f"__track:{name}" for name in self.track_names)
+        if self.category_name:
+            parts.append(f"__category:{self.category_name}")
+        return ";".join(parts)
+
+    @property
     def location_label(self) -> str:
         return self.loc.get("path", "")
+
+
+def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
+    # A track/category dropdown is only worth showing when there's more than one
+    # value to pick between, matching how Venue/Day/Hour reveal themselves.
+    card_list = list(cards)
+    tracks = {name for c in card_list for name in c.track_names}
+    categories = {c.category_name for c in card_list if c.category_name}
+    return {
+        "has_track_filter": len(tracks) > 1,
+        "has_category_filter": len(categories) > 1,
+    }
 
 
 class EventInfo(EventListItemDTO):
@@ -257,6 +292,58 @@ def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> Sessi
         waiting_count=item.waiting_count,
         is_ongoing=item.agenda_item.start_time <= now < item.agenda_item.end_time,
         is_ended=item.agenda_item.end_time <= now,
+    )
+
+
+def present_session_modal(
+    dto: SessionModalDTO,
+    *,
+    event_banned: bool,
+    banned_presenter_ids: set[int],
+    shadowbanned_ids: frozenset[int],
+) -> SessionData:
+    if dto.presenter is not None:
+        presenter = _user_info(dto.presenter)
+    else:
+        name = dto.session.display_name
+        presenter = UserInfo(
+            avatar_url=None,
+            discord_username="",
+            full_name=name,
+            name=name,
+            pk=0,
+            slug="",
+            username=name,
+        )
+    card = SessionData(
+        agenda_item=dto.agenda_item,
+        is_enrollment_available=dto.is_enrollment_available,
+        presenter=presenter,
+        session=dto.session,
+        is_full=dto.is_full,
+        full_participant_info=dto.full_participant_info,
+        effective_participants_limit=dto.effective_participants_limit,
+        enrolled_count=dto.enrolled_count,
+        session_participations=[
+            ParticipationInfo(
+                user=_user_info(seat.user),
+                status=seat.status,
+                creation_time=seat.creation_time,
+                is_shadowbanned=seat.user.pk in shadowbanned_ids,
+            )
+            for seat in dto.participations
+        ],
+        loc=dto.location,
+        can_edit=dto.can_edit,
+        user_enrolled=dto.viewer_enrolled,
+        user_waiting=dto.viewer_waiting,
+        field_values=dto.field_values,
+        waiting_count=dto.waiting_count,
+        is_ongoing=dto.is_ongoing,
+        is_ended=dto.is_ended,
+    )
+    return mask_session_card(
+        card, event_banned=event_banned, banned_presenter_ids=banned_presenter_ids
     )
 
 

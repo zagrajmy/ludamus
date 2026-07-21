@@ -9,7 +9,7 @@ from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
     EncounterRSVP,
@@ -38,7 +38,7 @@ register(AnonymousUserFactory)
 
 
 @pytest.fixture(autouse=True)
-def _django_db(transactional_db):
+def _django_db(db):
     pass
 
 
@@ -349,7 +349,7 @@ def agenda_item(session, space):
 
 
 @pytest.fixture(autouse=True, name="sphere")
-def sphere_fixture(settings, transactional_db):  # noqa: ARG001
+def sphere_fixture(settings, db):  # ruff:ignore[unused-function-argument]
     site, __ = Site.objects.update_or_create(
         domain=settings.ROOT_DOMAIN, defaults={"name": settings.ROOT_DOMAIN}
     )
@@ -365,7 +365,7 @@ def sphere_fixture(settings, transactional_db):  # noqa: ARG001
 
 @pytest.fixture(name="faker")
 def faker_fixture():
-    from faker import Faker as FakerLib  # noqa: PLC0415
+    from faker import Faker as FakerLib  # ruff:ignore[import-outside-top-level]
 
     fake = FakerLib()
     # Wrap date_time methods to always include UTC timezone

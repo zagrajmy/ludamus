@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.adapters.db.django.models import User
+from ludamus.links.db.django.models import User
 from tests.integration.utils import assert_response
 
 

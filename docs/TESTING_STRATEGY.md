@@ -47,12 +47,53 @@ Rules:
 - assert all mock calls
 - assert all side effects
 
+### Database fixtures
+
+Default is `db` (autouse in `tests/integration/conftest.py`): wraps the test in
+a transaction, rolls back. Nothing commits.
+
+`transactional_db` (identical to `@pytest.mark.django_db(transaction=True)`)
+does the opposite of its name: **no** wrapping transaction, writes really
+commit, teardown truncates every table and re-emits `post_migrate`. Reach for
+it only when the test asserts real transaction behavior:
+
+- `transaction.on_commit()` callbacks — never fire under `db`
+- `select_for_update()` row locking (also needs `@pytest.mark.postgres`)
+- a second connection or thread must see the data (live server)
+- asserting a failed `atomic()` block rolled back
+
+Apply it to the whole test class, not one method — mark the class with
+`@pytest.mark.usefixtures("transactional_db")` so a sibling test added later
+inherits the transaction semantics its neighbours already rely on.
+
+Cost is not only speed. The teardown flush deletes rows seeded by data
+migrations (`0002_default_site`), then `post_migrate` re-creates whatever it
+would create against an empty table. Later tests in the same run see a
+different database than migrations built — `example.com` appears, the
+`ROOT_DOMAIN` site vanishes. Tests that pass only because an earlier
+transactional test flushed the table fail the moment they run first.
+
+For `on_commit` prefer `django_capture_on_commit_callbacks(execute=True)` over
+`transactional_db`: it runs the callbacks without real commits, keeping the
+rollback path.
+
+```python
+with django_capture_on_commit_callbacks(execute=True):
+    call_command("send_printables_reminders")
+
+assert len(mailoutbox) == 1
+```
+
+Wrap **negative** assertions in it too. `assert mailoutbox == []` under `db`
+passes unconditionally — the callback never ran, so the check cannot fail.
+
 ### Views and commands
 
 Verify view→template **context contract**: views produce the right data for
 every branch.
 
-Structure: `{subdomain}/{bounded_context}/test_url_name.py`
+Structure: `{noun}/{page}/test_url_name.py` (existing directories keep
+their legacy subdomain names until renamed)
 
 Rules:
 

@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from django.core.management import call_command
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Notification
+from ludamus.links.db.django.models import Notification
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import EventFactory, UserFactory
 
@@ -19,11 +19,14 @@ def _event_starting_in(sphere, delta):
 
 
 class TestSendPrintablesReminders:
-    def test_reminds_organizers_within_lead_time(self, sphere, active_user, mailoutbox):
+    def test_reminds_organizers_within_lead_time(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
         sphere.managers.add(active_user)
         event = _event_starting_in(sphere, timedelta(days=1))
 
-        call_command("send_printables_reminders")
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
 
         assert len(mailoutbox) == 1
         email = mailoutbox[0]
@@ -36,51 +39,64 @@ class TestSendPrintablesReminders:
         event.refresh_from_db()
         assert event.printables_reminder_sent_at is not None
 
-    def test_skips_event_already_printed(self, sphere, active_user, mailoutbox):
+    def test_skips_event_already_printed(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
         sphere.managers.add(active_user)
         event = _event_starting_in(sphere, timedelta(days=1))
         event.printables_last_printed_at = datetime.now(UTC)
         event.save(update_fields=["printables_last_printed_at"])
 
-        call_command("send_printables_reminders")
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
 
         assert mailoutbox == []
         event.refresh_from_db()
         assert event.printables_reminder_sent_at is None
 
-    def test_skips_event_already_reminded(self, sphere, active_user, mailoutbox):
+    def test_skips_event_already_reminded(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
         sphere.managers.add(active_user)
         event = _event_starting_in(sphere, timedelta(days=1))
         event.printables_reminder_sent_at = datetime.now(UTC)
         event.save(update_fields=["printables_reminder_sent_at"])
 
-        call_command("send_printables_reminders")
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
 
         assert mailoutbox == []
 
-    def test_skips_event_outside_lead_time(self, sphere, active_user, mailoutbox):
+    def test_skips_event_outside_lead_time(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
         sphere.managers.add(active_user)
         _event_starting_in(sphere, timedelta(days=5))
 
-        call_command("send_printables_reminders")
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
 
         assert mailoutbox == []
 
-    def test_skips_event_that_already_started(self, sphere, active_user, mailoutbox):
+    def test_skips_event_that_already_started(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
         sphere.managers.add(active_user)
         _event_starting_in(sphere, timedelta(hours=-1))
 
-        call_command("send_printables_reminders")
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
 
         assert mailoutbox == []
 
     def test_skips_managers_without_email_and_leaves_event_unmarked(
-        self, sphere, mailoutbox
+        self, sphere, mailoutbox, django_capture_on_commit_callbacks
     ):
         sphere.managers.add(UserFactory(username="no-email", email=""))
         event = _event_starting_in(sphere, timedelta(days=1))
 
-        call_command("send_printables_reminders")
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
 
         assert mailoutbox == []
         event.refresh_from_db()

@@ -12,7 +12,11 @@ from ludamus.pacts.venues import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.venues import SpaceNodeDTO, SpaceTreeRepositoryProtocol
+    from ludamus.pacts.venues import (
+        SpaceInputDTO,
+        SpaceNodeDTO,
+        SpaceTreeRepositoryProtocol,
+    )
 
 
 def _leaf_pks(node: SpaceNodeDTO) -> list[int]:
@@ -83,38 +87,14 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         return self._spaces.read(pk)
 
     def create(
-        self,
-        *,
-        event_id: int,
-        parent_id: int | None,
-        name: str,
-        capacity: int | None,
-        description: str,
+        self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO:
-        return self._spaces.create(
-            event_id=event_id,
-            parent_id=parent_id,
-            name=name,
-            capacity=capacity,
-            description=description,
-        )
+        return self._spaces.create(event_id=event_id, parent_id=parent_id, data=data)
 
     def update(
-        self,
-        *,
-        pk: int,
-        name: str,
-        capacity: int | None,
-        description: str,
-        parent_id: int | None,
+        self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceNodeDTO:
-        return self._spaces.update(
-            pk=pk,
-            name=name,
-            capacity=capacity,
-            description=description,
-            parent_id=parent_id,
-        )
+        return self._spaces.update(pk=pk, parent_id=parent_id, data=data)
 
     def list_reparent_targets(self, *, pk: int, event_pk: int) -> list[tuple[int, str]]:
         # Valid new parents for the node: every space in the event except the

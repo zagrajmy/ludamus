@@ -36,6 +36,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
+        "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
         "design-page": resolve(rootDir, "src/design-page.ts"),
@@ -44,6 +45,8 @@ export default defineConfig({
         "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
         "event-timeline": resolve(rootDir, "src/event-timeline.ts"),
+        "facilitator-columns": resolve(rootDir, "src/facilitator-columns.ts"),
+        "filter-autosubmit": resolve(rootDir, "src/filter-autosubmit.ts"),
         flash: resolve(rootDir, "src/flash.ts"),
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
         index: resolve(rootDir, "src/index.css"),

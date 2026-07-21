@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Q
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     REASON_MAX_LENGTH,
     AgendaItem,
     EventBan,
@@ -26,7 +26,7 @@ from ludamus.pacts.safety import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.adapters.db.django.models import User
+    from ludamus.links.db.django.models import User
 else:
     from django.contrib.auth import get_user_model
 
@@ -52,36 +52,36 @@ def _met_sessions_by_player(
     confirmed = SessionParticipationStatus.CONFIRMED
     rows: dict[tuple[int, int], ShadowbanMeetSessionDTO] = {}
 
-    def add_row(user_id: int, session_id: int, title: str, event_slug: str) -> None:
-        rows.setdefault(
-            (user_id, session_id),
-            ShadowbanMeetSessionDTO(
-                session_id=session_id, title=title, event_slug=event_slug
-            ),
-        )
-
-    presented_rows = (
-        SessionParticipation.objects.filter(
-            user_id__in=player_ids, session__presenter_id=owner_id
-        )
-        .values_list("user_id", "session_id", "session__title", "session__event__slug")
-        .distinct()
+    presented = SessionParticipation.objects.filter(
+        user_id__in=player_ids, session__presenter_id=owner_id
     )
-    for user_id, session_id, title, event_slug in presented_rows:
-        add_row(user_id, session_id, title, event_slug)
-
-    alongside_rows = (
-        SessionParticipation.objects.filter(
-            user_id__in=player_ids,
-            status=confirmed,
-            session__session_participations__user_id=owner_id,
-            session__session_participations__status=confirmed,
-        )
-        .values_list("user_id", "session_id", "session__title", "session__event__slug")
-        .distinct()
+    alongside = SessionParticipation.objects.filter(
+        user_id__in=player_ids,
+        status=confirmed,
+        session__session_participations__user_id=owner_id,
+        session__session_participations__status=confirmed,
     )
-    for user_id, session_id, title, event_slug in alongside_rows:
-        add_row(user_id, session_id, title, event_slug)
+    for queryset in (presented, alongside):
+        for row in queryset.values(
+            "user_id",
+            "session_id",
+            "session__title",
+            "session__event__slug",
+            "session__event__name",
+            "session__event__sphere__name",
+            "session__event__sphere__site__domain",
+        ).distinct():
+            rows.setdefault(
+                (row["user_id"], row["session_id"]),
+                ShadowbanMeetSessionDTO(
+                    session_id=row["session_id"],
+                    title=row["session__title"],
+                    event_slug=row["session__event__slug"],
+                    event_name=row["session__event__name"],
+                    sphere_name=row["session__event__sphere__name"],
+                    sphere_domain=row["session__event__sphere__site__domain"],
+                ),
+            )
 
     by_player: dict[int, list[ShadowbanMeetSessionDTO]] = {
         player_id: [] for player_id in player_ids
