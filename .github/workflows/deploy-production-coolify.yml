@@ -87,7 +87,11 @@ jobs:
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
             if [ -n "$v" ]; then
-              printf "%s='%s'\n" "$k" "$v" >> .env.local
+              # @json double-quotes and backslash-escapes the value, unlike a
+              # naive single-quoted printf, which breaks the moment a secret
+              # contains a quote of its own.
+              printf '%s=%s\n' "$k" "$(jq -nr --arg v "$v" '$v | @json')" \
+                >> .env.local
               jq --arg k "$k" --arg v "$v" \
                 '. + [{key: $k, value: $v, is_preview: false}]' \
                 envs.json > envs.json.tmp && mv envs.json.tmp envs.json
@@ -180,10 +184,13 @@ jobs:
           # prod-start, which runs migrate + collectstatic before gunicorn.
           for i in $(seq 1 60); do
             sleep 10
+            # A transient network hiccup (dropped connection, truncated
+            # response) must not crash the watch under `set -eu`; fall back
+            # to a status that matches neither case arm so the loop retries.
             status="$(curl -fsS \
               -H "Authorization: Bearer $COOLIFY_TOKEN" \
               "$COOLIFY_URL/api/v1/deployments/$deployment_uuid" \
-              | jq -r '.status')"
+              | jq -r '.status' || echo 'transient_error')"
             echo "[$i] status: $status"
             case "$status" in
               finished) exit 0 ;;
