@@ -19,7 +19,6 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
 from django.views.generic.base import TemplateView, View
@@ -40,6 +39,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
     build_display_field_row,
+    filter_availability,
     mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
@@ -54,7 +54,6 @@ from ludamus.gates.web.django.entities import (
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
-    SPACE_MAX_DEPTH,
     AgendaItem,
     EnrollmentConfig,
     Event,
@@ -64,7 +63,10 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.mills import AcceptProposalService
+from ludamus.links.db.django.repositories.sessions import (
+    field_value_dto,
+    with_session_card_relations,
+)
 from ludamus.mills.enrollment import get_user_enrollment_config
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -76,7 +78,6 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SessionRepositoryProtocol,
     SessionStatus,
     SpherePage,
 )
@@ -95,7 +96,7 @@ from .design_fixtures import (
     mock_session_data_ended,
     mock_user,
 )
-from .forms import create_enrollment_form, create_proposal_acceptance_form
+from .forms import create_enrollment_form
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -250,22 +251,7 @@ def _field_value_dtos_from_models(
     field_values: Iterable[SessionFieldValue],
 ) -> list[SessionFieldValueDTO]:
     return sorted(
-        (
-            SessionFieldValueDTO(
-                allow_custom=fv.field.allow_custom,
-                field_icon=fv.field.icon,
-                field_id=fv.field_id,
-                field_name=fv.field.name,
-                field_question=fv.field.question,
-                field_slug=fv.field.slug,
-                field_type=fv.field.field_type,
-                is_public=fv.field.is_public,
-                value=fv.value,
-                field_order=fv.field.order,
-            )
-            for fv in field_values
-            if fv.field.is_public
-        ),
+        (field_value_dto(fv) for fv in field_values if fv.field.is_public),
         key=lambda fv: (fv.field_order, fv.field_name),
     )
 
@@ -303,19 +289,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Get all sessions for this event that are published
         event_sessions = (
-            Session.objects.filter(event=self.object, agenda_item__isnull=False)
-            .select_related(
-                # str(space) walks the whole ancestor chain, so eager-load every
-                # level up to the max nesting depth to avoid per-row parent queries.
-                "presenter",
-                "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
-                "event",
-                "event__sphere",
-            )
-            .prefetch_related(
-                "session_participations__user",
-                "field_values__field",
-                "event__enrollment_configs",
+            with_session_card_relations(
+                Session.objects.filter(event=self.object, agenda_item__isnull=False)
             )
             .annotate(
                 enrolled_count_cached=Count(
@@ -414,17 +389,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Add user enrollment config for authenticated users
         user_enrollment_config = None
-        if (
-            self.request.context.current_user_slug
-            and self.request.di.uow.active_users.read(
-                self.request.context.current_user_slug
-            ).email
-        ):
+        slug = self.request.context.current_user_slug
+        user_email = self.request.di.uow.active_users.read(slug).email if slug else None
+        if user_email:
             user_enrollment_config = get_user_enrollment_config(
                 event=EventDTO.model_validate(self.object),
-                user_email=self.request.di.uow.active_users.read(
-                    self.request.context.current_user_slug
-                ).email,
+                user_email=user_email,
                 enrollment_config_repo=self.request.di.uow.enrollment_configs,
                 ticket_api=self.request.di.ticket_api,
                 check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
@@ -440,6 +410,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context.update(self._get_anonymous_context())
 
         context["filterable_tag_categories"] = _get_public_select_fields(self.object)
+        context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context())
 
         return context
@@ -528,21 +499,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
     def _get_own_pending_sessions(self) -> QuerySet[Session]:
         # The author's unscheduled proposals, rendered as schedule-style cards.
-        # Same eager-loading shape as event_sessions, minus the agenda item.
-        return (
+        # Same eager-loading shape as event_sessions (agenda_item is null here).
+        return with_session_card_relations(
             Session.objects.filter(
                 category__event_id=self.object.pk,
                 status=SessionStatus.PENDING,
                 presenter_id=self.request.context.current_user_id,
             )
-            .select_related("presenter", "agenda_item", "event", "event__sphere")
-            .prefetch_related(
-                "session_participations__user",
-                "field_values__field",
-                "event__enrollment_configs",
-            )
-            .order_by("-creation_time")
-        )
+        ).order_by("-creation_time")
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -723,6 +687,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 session=SessionDTO.model_validate(session),
                 presenter=presenter,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
+                track_names=[t.name for t in session.tracks.all() if t.is_public],
+                category_name=session.category.name if session.category else "",
                 # is_session_eligible dereferences agenda_item, and an
                 # unscheduled proposal can't be enrolled in anyway.
                 is_enrollment_available=(
@@ -886,70 +852,6 @@ _status_by_choice = {
     "enroll": SessionParticipationStatus.CONFIRMED,
     "waitlist": SessionParticipationStatus.WAITING,
 }
-
-
-class SessionOfferClaimView(View):
-    """Login-free claim of an offered waiting-list spot via its token link.
-
-    Works for anonymous waiters (the token is the credential). GET shows the
-    offer; POST claims the whole party.
-    """
-
-    @staticmethod
-    def get(request: RootRequest, token: str) -> HttpResponse:
-        offer = request.services.waitlist_promotion.peek_offer(token=token)
-        if offer is None:
-            messages.error(
-                request, _("This offer is no longer available or has expired.")
-            )
-            return redirect("web:events")
-        return TemplateResponse(
-            request, "chronology/offer_claim.html", {"offer": offer, "token": token}
-        )
-
-    @staticmethod
-    def post(request: RootRequest, token: str) -> HttpResponse:
-        result = request.services.waitlist_promotion.claim_offer(token=token)
-        if result.success and result.event_slug:
-            messages.success(
-                request, _("Spot claimed — you are now confirmed for this session.")
-            )
-            return redirect("web:chronology:event", slug=result.event_slug)
-        messages.error(request, _("This offer has expired or was already claimed."))
-        return redirect("web:events")
-
-
-class SessionOfferDeclineView(View):
-    """Login-free decline of an offered spot via its token link.
-
-    The way out of a seat held by a party leader (or an unwanted waitlist
-    offer): drops the offered rows and rolls the freed seats on.
-    """
-
-    @staticmethod
-    def post(request: RootRequest, token: str) -> HttpResponse:
-        result = request.services.waitlist_promotion.decline_offer(token=token)
-        if result.success and result.event_slug:
-            messages.success(request, _("Offer declined — the seat was released."))
-            return redirect("web:chronology:event", slug=result.event_slug)
-        messages.error(request, _("This offer is no longer available or has expired."))
-        return redirect("web:events")
-
-
-class NotificationsMarkReadView(LoginRequiredMixin, View):
-    """POST: mark all of the current user's notifications as read."""
-
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        request.services.notifications.mark_all_read(request.context.current_user_id)
-        next_url = request.POST.get("next", "")
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url, allowed_hosts={request.get_host()}
-        ):
-            return redirect(next_url)
-        return redirect("web:index")
 
 
 class SessionEnrollPageView(LoginRequiredMixin, View):
@@ -1872,141 +1774,3 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             enrolled_by_id=self.request.context.current_user_id,
             viewer_name=self._actor_name(),
         )
-
-
-class ProposalAcceptPageView(LoginRequiredMixin, View):
-    @staticmethod
-    def _get_session_and_event(
-        request: AuthenticatedRootRequest, event_slug: str, session_id: int
-    ) -> tuple[SessionDTO, EventDTO]:
-        session_repository = request.di.uow.sessions
-        try:
-            session = session_repository.read(session_id)
-        except NotFoundError as exception:
-            raise RedirectError(
-                reverse("web:index"), error=_("Session not found.")
-            ) from exception
-
-        event = session_repository.read_event(session.pk)
-
-        if event.slug != event_slug:
-            raise RedirectError(
-                reverse("web:index"), error=_("Session not found.")
-            ) from None
-
-        if session.status != SessionStatus.PENDING:
-            raise RedirectError(
-                reverse("web:chronology:event", kwargs={"slug": event.slug}),
-                warning=_("This proposal has already been accepted."),
-            )
-
-        service = AcceptProposalService(request.di.uow, context=request.context)
-        if not service.can_accept_proposals():
-            raise RedirectError(
-                reverse("web:chronology:event", kwargs={"slug": event.slug}),
-                error=_(
-                    "You don't have permission to accept proposals for this event."
-                ),
-            )
-
-        return session, event
-
-    @staticmethod
-    def _build_context(
-        request: AuthenticatedRootRequest,
-        session: SessionDTO,
-        event: EventDTO,
-        form: forms.Form,
-    ) -> dict[str, Any]:
-        session_repository = request.di.uow.sessions
-        field_values = session_repository.read_field_values(session.pk)
-        return {
-            "session": session,
-            "event": event,
-            "presenter": session_repository.read_presenter(session.pk),
-            "spaces": session_repository.read_spaces(session.pk),
-            "time_slots": session_repository.read_time_slots(session.pk),
-            "preferred_time_slot_ids": session_repository.read_preferred_time_slot_ids(
-                session.pk
-            ),
-            "form": form,
-            "field_values": field_values,
-        }
-
-    def get(
-        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        session, event = self._get_session_and_event(request, event_slug, session_id)
-        session_repository = request.di.uow.sessions
-
-        self._check_spaces(session, session_repository)
-        self._check_time_slots(session, session_repository)
-
-        form_class = create_proposal_acceptance_form(event)
-        form = form_class()
-
-        return TemplateResponse(
-            request,
-            "chronology/accept_proposal.html",
-            self._build_context(request, session, event, form),
-        )
-
-    def post(
-        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        session, event = self._get_session_and_event(request, event_slug, session_id)
-
-        form_class = create_proposal_acceptance_form(event)
-        form = form_class(data=request.POST)
-        if not form.is_valid():
-            return TemplateResponse(
-                request,
-                "chronology/accept_proposal.html",
-                self._build_context(request, session, event, form),
-            )
-
-        service = AcceptProposalService(request.di.uow, context=request.context)
-        service.accept_session(
-            session=session,
-            space_id=form.cleaned_data["space"].id,
-            time_slot_id=form.cleaned_data["time_slot"].id,
-        )
-
-        messages.success(
-            self.request,
-            _("Proposal '{}' has been accepted and added to the agenda.").format(
-                session.title
-            ),
-        )
-        return redirect("web:chronology:event", slug=event.slug)
-
-    @staticmethod
-    def _check_spaces(
-        session: SessionDTO, session_repository: SessionRepositoryProtocol
-    ) -> None:
-        if not session_repository.read_spaces(session.pk):
-            raise RedirectError(
-                reverse(
-                    "web:chronology:event",
-                    kwargs={"slug": session_repository.read_event(session.pk).slug},
-                ),
-                error=_(
-                    "No spaces configured for this event. Please create spaces first."
-                ),
-            )
-
-    @staticmethod
-    def _check_time_slots(
-        session: SessionDTO, session_repository: SessionRepositoryProtocol
-    ) -> None:
-        if not session_repository.read_time_slots(session.pk):
-            raise RedirectError(
-                reverse(
-                    "web:chronology:event",
-                    kwargs={"slug": session_repository.read_event(session.pk).slug},
-                ),
-                error=_(
-                    "No time slots configured for this event. "
-                    "Please create time slots first."
-                ),
-            )

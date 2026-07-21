@@ -52,12 +52,14 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ProposalAcceptContextDTO,
     ProposalScheduledError,
     SessionPlacement,
     SessionPositionDTO,
     SourceQuestion,
     SpaceColumnDTO,
     SpaceGroupDTO,
+    SpaceTimeConflictError,
     TimeLabelDTO,
     TimetableGridDTO,
     TrackProgressDTO,
@@ -88,6 +90,7 @@ if TYPE_CHECKING:
         TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
@@ -97,6 +100,20 @@ if TYPE_CHECKING:
 
 def _duration_hours(start: datetime, end: datetime) -> float:
     return max((end - start).total_seconds() / 3600, 0.0)
+
+
+def _slot_start(slot: TimeSlotDTO) -> datetime:
+    return slot.start_time
+
+
+def _merged_slot_ranges(slots: list[TimeSlotDTO]) -> list[tuple[datetime, datetime]]:
+    merged: list[tuple[datetime, datetime]] = []
+    for slot in sorted(slots, key=_slot_start):
+        if merged and slot.start_time <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], slot.end_time))
+        else:
+            merged.append((slot.start_time, slot.end_time))
+    return merged
 
 
 def _position_sessions(
@@ -594,6 +611,81 @@ class ProposalStatusService:
             self._sessions.update(session_pk, {"status": status})
 
 
+class ProposalAcceptanceService:
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        sessions: SessionRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        active_users: UserRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._sessions = sessions
+        self._agenda_items = agenda_items
+        self._active_users = active_users
+        self._spheres = spheres
+
+    def get_accept_context(
+        self, *, session_id: int, user_slug: str, sphere_id: int
+    ) -> ProposalAcceptContextDTO | None:
+        try:
+            session = self._sessions.read(session_id)
+        except NotFoundError:
+            return None
+        return ProposalAcceptContextDTO(
+            session=session,
+            event=self._sessions.read_event(session.pk),
+            presenter=self._sessions.read_presenter(session.pk),
+            space_options=self._sessions.read_space_options(session.pk),
+            time_slots=self._sessions.read_time_slots(session.pk),
+            preferred_time_slot_ids=self._sessions.read_preferred_time_slot_ids(
+                session.pk
+            ),
+            field_values=self._sessions.read_field_values(session.pk),
+            can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
+        )
+
+    def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
+        user = self._active_users.read(user_slug)
+        if user.is_superuser or user.is_staff:
+            return True
+        return self._spheres.is_manager(sphere_id, user_slug)
+
+    def accept_session(
+        self, *, session_id: int, space_id: int, time_slot_id: int
+    ) -> None:
+        session = self._sessions.read(session_id)
+        time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
+        with self._transaction.atomic():
+            if self._agenda_items.list_overlapping_in_space(
+                space_id,
+                time_slot.start_time,
+                time_slot.end_time,
+                exclude_session_pk=session_id,
+            ):
+                raise SpaceTimeConflictError
+            # The session already has a unique slug from proposal creation;
+            # regenerating it here dropped the uniqueness suffix and collided.
+            self._sessions.update(
+                session_id,
+                {
+                    "status": SessionStatus.ACCEPTED,
+                    "display_name": session.display_name,
+                },
+            )
+            self._agenda_items.create(
+                {
+                    "space_id": space_id,
+                    "session_id": session_id,
+                    "session_confirmed": True,
+                    "start_time": time_slot.start_time,
+                    "end_time": time_slot.end_time,
+                }
+            )
+
+
 class ConflictDetectionService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -740,8 +832,8 @@ class ConflictDetectionService:
             if not (preferred := preferred_by_session.get(item.session_id, [])):
                 continue
             if any(
-                slot.start_time <= item.start_time and slot.end_time >= item.end_time
-                for slot in preferred
+                start <= item.start_time and end >= item.end_time
+                for start, end in _merged_slot_ranges(preferred)
             ):
                 continue
             track_name, manager_names = self._slot_violation_track_attribution(
@@ -870,11 +962,23 @@ class TimetableOverviewService:
                 event_pk, {"track_pk": track.pk}
             )
             accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
-            scheduled = [s for s in accepted if s.is_scheduled]
             accepted_count = len(accepted)
-            scheduled_count = len(scheduled)
+            scheduled_count = sum(1 for s in accepted if s.is_scheduled)
+            pending_count = sum(
+                1 for s in sessions if s.status == SessionStatus.PENDING
+            )
+            on_hold_count = sum(
+                1 for s in sessions if s.status == SessionStatus.ON_HOLD
+            )
+            rejected_count = sum(
+                1 for s in sessions if s.status == SessionStatus.REJECTED
+            )
+            # Progress is measured against the active pool (everything not
+            # rejected / on hold), so pending proposals still awaiting a
+            # decision count as unscheduled program to place.
+            active_count = pending_count + accepted_count
             progress_pct = (
-                round(scheduled_count * 100 / accepted_count) if accepted_count else 0
+                round(scheduled_count * 100 / active_count) if active_count else 0
             )
             manager_names = self._uow.tracks.list_manager_names(track.pk)
             result.append(
@@ -884,6 +988,9 @@ class TimetableOverviewService:
                     manager_names=manager_names,
                     accepted_count=accepted_count,
                     scheduled_count=scheduled_count,
+                    pending_count=pending_count,
+                    on_hold_count=on_hold_count,
+                    rejected_count=rejected_count,
                     progress_pct=progress_pct,
                 )
             )
@@ -1165,6 +1272,27 @@ class SessionContentEditService:
                     for fv in old_values
                 ]
             )
+            # Logged as old -> None so the entry reverts by re-saving the value
+            # (build_inverse_content_edit restores `old`).
+            removal_changes: list[ContentFieldChange] = []
+            if data.remove_field_ids:
+                old_by_id = {fv.field_id: fv.value for fv in old_values}
+                removed = [
+                    field_id
+                    for field_id in data.remove_field_ids
+                    if field_id in old_by_id
+                ]
+                if removed:
+                    self._sessions.delete_field_values_for_fields(session_id, removed)
+                    removal_changes = [
+                        {
+                            "field": "",
+                            "field_id": field_id,
+                            "old": old_by_id[field_id],
+                            "new": None,
+                        }
+                        for field_id in removed
+                    ]
             m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
                 before = [
@@ -1192,6 +1320,7 @@ class SessionContentEditService:
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )
+            changes.extend(removal_changes)
             changes.extend(m2m_changes)
             if changes:
                 log_data: ContentChangeLogData = {

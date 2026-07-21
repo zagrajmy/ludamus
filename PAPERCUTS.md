@@ -104,3 +104,15 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-17: `mise run test:py -- some/path.py` silently runs the WHOLE suite:
+  the task is 'pytest tests/integration tests/unit' so an appended path is an
+  extra target, not a filter. Wasted two 5-minute full runs before noticing.
+  Use -k instead, or make the task use a default arg.
+- 2026-07-18: mise run test:py failed once with VariableDoesNotExist for
+  danger_ring in TestEventImportLogPageView (navbar avatar include); full rerun
+  passed - flaky, possibly test-order or faker-data dependent
+- 2026-07-20: Ran mise run test:py with specific test paths after -- but the
+  full suite ran anyway (paths are appended to the fixed targets, so they're an
+  extra target rather than a filter); also test_import_views
+  test_get_groups_errors_and_successes flaked once in a full run, passed on
+  rerun

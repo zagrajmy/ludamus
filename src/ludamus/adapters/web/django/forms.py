@@ -14,8 +14,6 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     SessionParticipationStatus,
-    Space,
-    TimeSlot,
 )
 from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
 
@@ -492,72 +490,3 @@ def create_enrollment_form(
     # error, so the guests block keys off an always-present flag.
     form.has_guests = roster.guest_count is not None  # type: ignore [attr-defined]
     return form
-
-
-def create_proposal_acceptance_form(event: EventDTO) -> type[forms.Form]:
-    # Query spaces with related area and venue for proper grouping
-    # Only leaves (childless nodes) are bookable; tree roots/mids are skipped.
-    spaces = (
-        Space.objects.filter(event_id=event.pk, children__isnull=True)
-        .select_related("parent")
-        .order_by("order", "name")
-    )
-
-    # Build grouped choices keyed by the leaf's parent-path string
-    grouped_choices: dict[str, list[tuple[int, str]]] = {}
-    for space in spaces:
-        group_label = str(space.parent) if space.parent else _("Ungrouped")
-        if group_label not in grouped_choices:
-            grouped_choices[group_label] = []
-        grouped_choices[group_label].append((space.id, space.name))
-
-    # Convert to choices format with optgroups
-    choices: list[tuple[str, str] | tuple[str, list[tuple[int, str]]]] = [
-        ("", _("Select a space..."))
-    ]
-    choices.extend(list(grouped_choices.items()))
-
-    space_field = forms.ChoiceField(
-        choices=choices,
-        label=_("Space"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-        help_text=_("Select the space where this session will take place"),
-        required=True,
-    )
-
-    time_slot_field = forms.ModelChoiceField(
-        queryset=TimeSlot.objects.filter(event_id=event.pk).order_by("start_time"),
-        label=_("Time slot"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-        help_text=_("Select the time slot for this session"),
-        empty_label=_("Select a time slot..."),
-        required=True,
-    )
-
-    def clean_space(self: forms.Form) -> Space:
-        if not (space_id := self.cleaned_data.get("space")):  # pragma: no cover
-            raise ValidationError(_("This field is required."))
-        try:
-            return Space.objects.get(pk=int(space_id), event_id=event.pk)
-        except (Space.DoesNotExist, ValueError) as e:
-            raise ValidationError(_("Invalid space selection.")) from e
-
-    def clean(self: forms.Form) -> dict[str, Any] | None:
-        if (cleaned_data := super(forms.Form, self).clean()) and Session.objects.filter(
-            agenda_item__space=cleaned_data.get("space"),
-            agenda_item__start_time=cleaned_data["time_slot"].start_time,
-            agenda_item__end_time=cleaned_data["time_slot"].end_time,
-        ).exists():
-            raise ValidationError(
-                _("There is already a session scheduled at this space and time.")
-            )
-        return cleaned_data
-
-    form_attrs = {
-        "space": space_field,
-        "time_slot": time_slot_field,
-        "clean_space": clean_space,
-        "clean": clean,
-    }
-
-    return type("ProposalAcceptanceForm", (forms.Form,), form_attrs)

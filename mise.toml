@@ -16,17 +16,17 @@ enter = "poetry install"
 # binary).
 [tools]
 python = "3.14"
-node = "v25.6.1"
-"pipx:poetry" = "2.3.2"
-"npm:@ast-grep/cli" = { version = "0.42.1", npm_args = "--ignore-scripts=false" }
-markdownlint-cli2 = "0.22.1"
+node = "25.6.1"
+"pipx:poetry" = "2.4.1"
+"npm:@ast-grep/cli" = { version = "0.44.1", npm_args = "--ignore-scripts=false" }
+markdownlint-cli2 = "0.23.1"
 "npm:@endevco/aube" = { version = "latest", npm_args = "--ignore-scripts=false" }
-hk = "1.48.0"
+hk = "1.51.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
 hadolint = "2.14.0"
-"github:reteps/dockerfmt" = "0.5.2"
-pipx = "1.15.0"
+"github:reteps/dockerfmt" = "0.5.4"
+pipx = "1.16.0"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -159,18 +159,18 @@ run = ["pip-audit .", "deptry src tests"]
 
 [tasks."test:unit"]
 description = "Run unit tests"
-run = "pytest tests/unit"
+run = "pytest -n auto tests/unit"
 env = { _.file = '.env.test' }
 
 [tasks."test:unit:cov"]
 description = "Run unit tests"
-run = "pytest tests/unit --cov=tests.unit --cov=ludamus"
+run = "pytest -n auto tests/unit --cov=tests.unit --cov=ludamus"
 env = { _.file = '.env.test' }
 
 [tasks."test:int:cov:diff"]
 description = "Show test coverage of integration tests for lines changed since main"
 run = [
-    "pytest tests/integration --cov=ludamus.gates --cov=ludamus.links --cov=ludamus.adapters.web --cov=src/ludamus/templates/",
+    "pytest -n auto tests/integration --cov=ludamus.gates --cov=ludamus.links --cov=ludamus.adapters.web --cov=src/ludamus/templates/",
     "coverage xml",
     "diff-cover coverage.xml --compare-branch=main",
 ]
@@ -178,18 +178,18 @@ env = { _.file = '.env.test' }
 
 [tasks."test:int"]
 description = "Run integration tests"
-run = "pytest tests/integration"
+run = "pytest -n auto tests/integration"
 env = { _.file = '.env.test' }
 
 [tasks."test:int:cov"]
 description = "Run integration tests"
-run = "pytest tests/integration --cov=tests.integration --cov=ludamus"
+run = "pytest -n auto tests/integration --cov=tests.integration --cov=ludamus  --cov=src/ludamus/templates/"
 env = { _.file = '.env.test' }
 
 [tasks."test:unit:cov:diff"]
 description = "Show test coverage of unit tests for lines changed since main"
 run = [
-    "pytest tests/unit --cov=ludamus.mills",
+    "pytest -n auto tests/unit --cov=ludamus.mills",
     "coverage xml",
     "diff-cover coverage.xml --compare-branch=main",
 ]
@@ -197,12 +197,12 @@ env = { _.file = '.env.test' }
 
 [tasks."test:py"]
 description = "Run all Python tests"
-run = "pytest tests/integration tests/unit"
+run = "pytest -n auto tests/integration tests/unit"
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 [tasks."test:py:cov"]
 description = "Run all Python tests"
-run = "pytest tests/integration tests/unit --cov"
+run = "pytest -n auto tests/integration tests/unit --cov"
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 ### End-to-End tests

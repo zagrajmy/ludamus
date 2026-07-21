@@ -30,6 +30,27 @@ class PageMatcher:
         return f"PageMatcher(number={self.number}, num_pages={self.num_pages})"
 
 
+class FormErrorsMatcher:
+    def __init__(self, **errors: list[str]) -> None:
+        self.errors = errors
+
+    def __eq__(self, other: object) -> bool:
+        return {
+            field: list(messages)
+            for field, messages in getattr(other, "errors", {}).items()
+        } == self.errors
+
+    def __hash__(self) -> int:
+        return hash(
+            frozenset(
+                (field, tuple(messages)) for field, messages in self.errors.items()
+            )
+        )
+
+    def __repr__(self) -> str:
+        return f"FormErrorsMatcher({self.errors})"
+
+
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)
@@ -96,6 +117,16 @@ def assert_response_404(
         messages=messages,
         **response_fields,
     )
+
+
+def checkbox_tag(content: str, name: str, pk: int) -> str:
+    # The single <input> tag for a multi-value checkbox (name repeats per row,
+    # value carries the pk), so a test can check its checked state without
+    # depending on attribute order. Scoping by name matters: pks restart at 1
+    # per table, so a bare value="1" search can match an unrelated element.
+    match = re.search(rf'<input[^>]*name="{name}"[^>]*value="{pk}"[^>]*>', content)
+    assert match, f"no checkbox {name}={pk}"
+    return match.group(0)
 
 
 def input_tag(content: str, pk: int) -> str:

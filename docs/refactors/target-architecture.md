@@ -3,7 +3,7 @@
 ## Direction
 
 GLIMPSE already has all the structural pieces for hexagonal. The evolution is
-two independent changes that can be applied per bounded context incrementally,
+two independent changes that can be applied per noun incrementally,
 with the first landing as a strangler fig so no view sees both shapes at once.
 
 ---
@@ -63,21 +63,21 @@ inside a `chronology` bucket, then `panel` inside `chronology`, both
 flattened).
 
 **Rule of thumb**: a single namespace level holds up to ~12 members; beyond
-that, split into sub-buckets grouped by subdomain or bounded context.
-Applies to the repo registry, the services tree, and `pacts` subdomain
+that, split into sub-buckets grouped by noun or verb.
+Applies to the repo registry, the services tree, and `pacts` noun
 modules alike. Until the count crosses the threshold, names like
 `personal_data_fields` or `proposals` are findable enough on their own.
 
 A folder must contain at least 2 files before it exists. Reverse and
 flatten the moment a bucket drops back to a single leaf.
 
-### Cross-subdomain access is fine
+### Cross-noun access is fine
 
-Repos cross subdomains freely — data access is not behavior. Enrollment
-reading `crowd.users` is normal and not a boundary violation. The smell to
-watch is duplicated *behavior* across subdomains; the fix for that is an
+Repos cross nouns freely — data access is not behavior. Enrollment
+reading user repos is normal and not a boundary violation. The smell to
+watch is duplicated *behavior* across nouns; the fix for that is an
 aggregate invariant (preferred — enforced at construction/transition) or a
-shared lower-level mill function, not a rule against cross-subdomain repo
+shared lower-level mill function, not a rule against cross-noun repo
 access.
 
 Service-to-service calls are also fine when reusing real orchestration. The
@@ -87,9 +87,9 @@ another for one trivial read it could do via a repo).
 
 ### How (per file)
 
-1. Add the service protocol + needed DTOs to `pacts/{subdomain}.py`. Add
+1. Add the service protocol + needed DTOs to `pacts/{noun}.py`. Add
    the property to `ServicesProtocol` in `pacts/services.py`.
-2. Implement the service in `mills/{subdomain}.py` — constructor takes
+2. Implement the service in `mills/{noun}.py` — constructor takes
    specific repo protocols and `TransactionProtocol`.
 3. Add the leaf as `@cached_property` on `Services` in `inits/services.py`.
    Add any new repo leaves to `inits/repositories.py`.
@@ -121,7 +121,7 @@ moved. Don't pull them in preemptively.
 
 ---
 
-## Change 2: Pacts restructured by subdomain/context
+## Change 2: Pacts restructured by noun/verb
 
 ### Pacts current state
 
@@ -135,14 +135,14 @@ layer sitting below business logic, which is an inversion.
 
 ```text
 pacts/
-  {subdomain}.py                      # flat when subdomain is small
-  {subdomain}/{bounded_context}.py    # split when subdomain grows fat
+  {noun}.py             # flat while the noun is small
+  {noun}/{verb}.py      # cut by verb when the noun grows fat
 mills/
-  {subdomain}.py                      # same axis — mirror pacts
-  {subdomain}/{bounded_context}.py
+  {noun}.py             # same axis — mirror pacts
+  {noun}/{verb}.py
 ```
 
-Each pacts module holds whatever belongs to that subdomain/context at the
+Each pacts module holds whatever belongs to that noun (or verb cut) at the
 boundary: DTOs, write TypedDicts, repo protocols, service protocols, errors.
 Split by domain concern, not by technical kind (no `repos/`, `services/`,
 `clients/` directories). Same ~12-members-per-level rule of thumb applies.
@@ -176,12 +176,12 @@ once the distinction is clear in the code.
 ## Symmetry after both changes
 
 ```text
-pacts/{subdomain}[/{context}]   ↔  mills/{subdomain}[/{context}]
-specs/{subdomain}.py               pure invariants, used only by mills
-inits/repositories.py              flat ≤12/level, internal only
-inits/services.py                  flat ≤12/level, as request.services
-links/{port}/{adapter}/{entity}    implements repo protocols from pacts
-links/{port}/{adapter}             implements client protocols from pacts
+pacts/{noun}[/{verb}]   ↔  mills/{noun}[/{verb}]
+specs/{noun}.py            pure invariants, used only by mills
+inits/repositories.py      flat ≤12/level, internal only
+inits/services.py          flat ≤12/level, as request.services
+links/{port}/{adapter}/{kind}   implements repo protocols from pacts
+links/{port}/{adapter}          implements client protocols from pacts
 ```
 
 `gates` touches only `pacts` protocols and `request.services`. `mills` owns
