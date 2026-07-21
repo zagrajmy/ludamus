@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, date, datetime
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
@@ -23,8 +24,13 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.forms import SessionEditForm
-from ludamus.gates.web.django.helpers import get_client_ip
+from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
+from ludamus.gates.web.django.forms import SessionEditForm, field_descriptors
+from ludamus.gates.web.django.helpers import (
+    get_client_ip,
+    is_event_published,
+    parse_dynamic_field_value,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import (
     ProposeSessionService,
@@ -32,33 +38,40 @@ from ludamus.mills import (
     is_proposal_active,
 )
 from ludamus.mills.chronology import SessionEditNotAllowedError
-from ludamus.pacts import NotFoundError, RedirectError, SessionFieldValueData
+from ludamus.pacts import (
+    NotFoundError,
+    RedirectError,
+    SessionFieldValueData,
+    SessionStatus,
+)
+from ludamus.pacts.chronology import SpaceTimeConflictError
 
 from .forms import (
     SessionCoverImageForm,
     build_personal_data_form,
     build_session_details_form,
+    create_proposal_acceptance_form,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+    from django import forms
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.datastructures import MultiValueDict
 
-    from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
     from ludamus.pacts import (
         AuthenticatedRequestContext,
         EventDTO,
         EventProposalSettingsDTO,
         PersonalDataFieldDTO,
-        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldDTO,
-        SessionFieldRequirementDTO,
         SessionSelfEditContext,
         TimeSlotRequirementDTO,
     )
+    from ludamus.pacts.chronology import ProposalAcceptContextDTO
     from ludamus.pacts.services import ServicesProtocol
 
     BaseView = View
@@ -131,37 +144,6 @@ def _apply_wizard_cover_from_form(
         _delete_wizard_cover(wizard)
     elif cover:
         _stash_wizard_cover(wizard, cover)
-
-
-def _field_descriptors(
-    prefix: str,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    form: object,
-) -> list[dict[str, object]]:
-    descriptors = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
-        bound_field = form[field_key]  # type: ignore[index]
-        desc = {
-            "key": field_key,
-            "bound_field": bound_field,
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        if req.field.allow_custom:
-            desc["custom_bound_field"] = form[f"{field_key}_custom"]  # type: ignore[index]
-        descriptors.append(desc)
-    return descriptors
 
 
 def _timeslot_descriptors(
@@ -325,7 +307,7 @@ def _personal_context(
         "proposal_settings": _proposal_settings(request, event),
         "category": category,
         "form": form,
-        "field_descriptors": _field_descriptors("personal", requirements, form),
+        "field_descriptors": field_descriptors("personal", requirements, form),
         "current_step": "personal",
         "wizard_steps": _wizard_steps(service, category, has_category=has_category),
         "show_back_button": has_category,
@@ -414,7 +396,7 @@ def _render_details(
             "form": form,
             "image_form": _wizard_image_form(wizard),
             "durations": category.durations,
-            "field_descriptors": _field_descriptors("session", requirements, form),
+            "field_descriptors": field_descriptors("session", requirements, form),
             "public_tracks": public_tracks,
             "selected_track_pks": selected_track_pks,
             "current_step": "details",
@@ -681,7 +663,7 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
                 "proposal_settings": _proposal_settings(request, event),
                 "category": category,
                 "form": form,
-                "field_descriptors": _field_descriptors("personal", requirements, form),
+                "field_descriptors": field_descriptors("personal", requirements, form),
                 "current_step": "personal",
                 "wizard_steps": _wizard_steps(
                     service, category, has_category=has_category
@@ -801,7 +783,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                     "form": form,
                     "image_form": display_image_form,
                     "durations": category.durations,
-                    "field_descriptors": _field_descriptors(
+                    "field_descriptors": field_descriptors(
                         "session", requirements, form
                     ),
                     "current_step": "details",
@@ -891,22 +873,16 @@ def _collect_session_field_values(
 ) -> list[SessionFieldValueData] | None:
     if request.POST.get("session_fields_submitted") != "1":
         return None
-    entries: list[SessionFieldValueData] = []
-    for field, _current in session_fields:
-        key = f"session_field_{field.slug}"
-        value: str | list[str] | bool
-        if field.field_type == "checkbox":
-            value = request.POST.get(key) == "true"
-        elif field.is_multiple:
-            value = request.POST.getlist(key)
-        else:
-            value = request.POST.get(key, "")
-            if field.allow_custom and not value:
-                value = request.POST.get(f"{key}_custom", "")
-        entries.append(
-            SessionFieldValueData(session_id=session_id, field_id=field.pk, value=value)
+    return [
+        SessionFieldValueData(
+            session_id=session_id,
+            field_id=field.pk,
+            value=parse_dynamic_field_value(
+                request=request, field=field, key=f"session_field_{field.slug}"
+            ),
         )
-    return entries
+        for field, _current in session_fields
+    ]
 
 
 class SessionEditView(LoginRequiredMixin, View):
@@ -1025,3 +1001,203 @@ class SessionBookmarkToggleView(View):
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
+
+
+class SessionModalComponentView(View):
+    request: RootRequest
+
+    def get(
+        self, request: RootRequest, *, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        event = self._get_event(event_slug)
+        shadowbanned_ids, banned_by, event_banned = self._safety(event)
+        dto = request.services.session_modal.read(
+            event_id=event.pk,
+            session_id=session_id,
+            viewer_user_ids=self._viewer_user_ids(),
+            editor_user_id=self.request.context.current_user_id,
+        )
+        if dto is None:
+            raise Http404
+        data = present_session_modal(
+            dto,
+            event_banned=event_banned,
+            banned_presenter_ids=banned_by,
+            shadowbanned_ids=shadowbanned_ids,
+        )
+        return TemplateResponse(
+            request,
+            "chronology/parts/session-modal.html",
+            {"data": data, "event": event, "event_banned": event_banned},
+        )
+
+    def _get_event(self, event_slug: str) -> EventDTO:
+        try:
+            event = self.request.services.events.read_by_slug(
+                self.request.context.current_sphere_id, event_slug
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
+        if not is_event_published(event) and not self._is_manager():
+            raise Http404
+        return event
+
+    def _is_manager(self) -> bool:
+        slug = self.request.context.current_user_slug
+        return slug is not None and self.request.services.sites.is_manager(
+            self.request.context.current_sphere_id, slug
+        )
+
+    def _safety(self, event: EventDTO) -> tuple[frozenset[int], set[int], bool]:
+        shadowbanned_ids: frozenset[int] = frozenset()
+        banned_by: set[int] = set()
+        event_banned = False
+        if (current_user_id := self.request.context.current_user_id) is not None:
+            banned_by = self.request.services.shadowban.banning_owner_ids(
+                current_user_id
+            )
+            shadowbanned_ids = frozenset(
+                self.request.services.shadowban.banned_user_ids(current_user_id)
+            )
+            event_banned = self.request.services.event_bans.is_banned(
+                event_id=event.pk, user_id=current_user_id
+            )
+        return shadowbanned_ids, banned_by, event_banned
+
+    def _viewer_user_ids(self) -> list[int]:
+        if (slug := self.request.context.current_user_slug) is not None:
+            user_id = self.request.context.current_user_id
+            ids = [user_id] if user_id is not None else []
+            ids.extend(
+                companion.pk
+                for companion in self.request.services.companions.list_companions(slug)
+            )
+            return ids
+        return self._anonymous_viewer_user_ids()
+
+    def _anonymous_viewer_user_ids(self) -> list[int]:
+        session = self.request.session
+        if not session.get("anonymous_enrollment_active"):
+            return []
+        code = session.get("anonymous_user_code")
+        if code is None or (
+            session.get("anonymous_site_id") != self.request.context.current_site_id
+        ):
+            return []
+        with contextlib.suppress(NotFoundError):
+            user = self.request.services.anonymous_enrollment.get_user_by_code(
+                code=code
+            )
+            return [user.pk]
+        return []
+
+
+class ProposalAcceptPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    def get(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        context = self._load(request, event_slug, session_id)
+        self._require_configured(context)
+        form = self._build_form(context)()
+        return self._render(request, context, form)
+
+    def post(
+        self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        context = self._load(request, event_slug, session_id)
+        form = self._build_form(context)(data=request.POST)
+        if not form.is_valid():
+            return self._render(request, context, form)
+
+        try:
+            request.services.proposal_acceptance.accept_session(
+                session_id=context.session.pk,
+                space_id=form.cleaned_data["space"],
+                time_slot_id=form.cleaned_data["time_slot"],
+            )
+        except SpaceTimeConflictError:
+            form.add_error(
+                None, _("There is already a session scheduled at this space and time.")
+            )
+            return self._render(request, context, form)
+
+        messages.success(
+            request,
+            _("Proposal '{}' has been accepted and added to the agenda.").format(
+                context.session.title
+            ),
+        )
+        return redirect("web:chronology:event", slug=context.event.slug)
+
+    @staticmethod
+    def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
+        return create_proposal_acceptance_form(
+            space_options=context.space_options, time_slots=context.time_slots
+        )
+
+    @staticmethod
+    def _load(
+        request: AuthenticatedRootRequest, event_slug: str, session_id: int
+    ) -> ProposalAcceptContextDTO:
+        context = request.services.proposal_acceptance.get_accept_context(
+            session_id=session_id,
+            user_slug=request.context.current_user_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
+        if context is None or context.event.slug != event_slug:
+            raise RedirectError(reverse("web:index"), error=_("Session not found."))
+
+        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
+        if context.session.status != SessionStatus.PENDING:
+            raise RedirectError(
+                event_url, warning=_("This proposal has already been accepted.")
+            )
+        if not context.can_accept:
+            raise RedirectError(
+                event_url,
+                error=_(
+                    "You don't have permission to accept proposals for this event."
+                ),
+            )
+        return context
+
+    @staticmethod
+    def _require_configured(context: ProposalAcceptContextDTO) -> None:
+        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
+        if not context.space_options:
+            raise RedirectError(
+                event_url,
+                error=_(
+                    "No spaces configured for this event. Please create spaces first."
+                ),
+            )
+        if not context.time_slots:
+            raise RedirectError(
+                event_url,
+                error=_(
+                    "No time slots configured for this event. "
+                    "Please create time slots first."
+                ),
+            )
+
+    @staticmethod
+    def _render(
+        request: AuthenticatedRootRequest,
+        context: ProposalAcceptContextDTO,
+        form: forms.Form,
+    ) -> HttpResponse:
+        return TemplateResponse(
+            request,
+            "chronology/accept_proposal.html",
+            {
+                "session": context.session,
+                "event": context.event,
+                "presenter": context.presenter,
+                "time_slots": context.time_slots,
+                "preferred_time_slot_ids": context.preferred_time_slot_ids,
+                "form": form,
+                "field_values": context.field_values,
+            },
+        )

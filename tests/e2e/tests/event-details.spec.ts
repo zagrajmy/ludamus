@@ -232,6 +232,14 @@ test.describe("Event detail page", () => {
     const sessionId = controls?.replace("session-", "");
     expect(sessionId).toBeTruthy();
 
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    const detailDialog = page.getByRole("dialog", {
+      name: "Cozy Storytellers Circle",
+    });
+    await expect(detailDialog).toBeVisible();
+
+    // The modal is fetched on open (lazy-loaded), so it only exists in the DOM
+    // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
       const description = document.querySelector(
         `#session-${id} [id^="info-"] [data-morph="desc"]`,
@@ -242,12 +250,6 @@ test.describe("Event detail page", () => {
         (_, index) => `<p>Long mobile session description paragraph ${index + 1}.</p>`,
       ).join("");
     }, sessionId);
-
-    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
-    const detailDialog = page.getByRole("dialog", {
-      name: "Cozy Storytellers Circle",
-    });
-    await expect(detailDialog).toBeVisible();
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
@@ -366,14 +368,14 @@ test.describe("Anonymous code modal", () => {
     await expect(dialog).toBeHidden();
     await flash.getByRole("button", { name: "Dismiss" }).click();
     await expect(flash).toHaveAttribute("data-flash-closing", "true");
-    // The flash's opacity transition takes 0.26s (index.css `.alert`), so the
-    // poll window must clear that with margin — 200ms was tighter than the
-    // transition itself and flaked under CI paint/GC jitter.
+    // The exit fades opacity over 260ms and hard-removes the flash ~360ms after
+    // the click. Sample densely across that whole window so a delayed transition
+    // start (under CI/parallel load) is still caught before the element is gone.
     await expect
       .poll(
         () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
         {
-          timeout: 1000,
+          timeout: 2000,
           intervals: [50],
         },
       )

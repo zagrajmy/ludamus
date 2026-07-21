@@ -1,1 +1,1 @@
-from ludamus.inits.legacy import *  # noqa: F403
+from ludamus.inits.legacy import *  # ruff:ignore[undefined-local-with-import-star]
