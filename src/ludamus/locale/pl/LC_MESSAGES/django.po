@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-20 19:31+0200\n"
+"POT-Creation-Date: 2026-07-21 06:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -867,7 +867,6 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Duration"
 msgstr "Czas trwania"
 
@@ -7338,7 +7337,6 @@ msgstr "Utwórz zgłoszenie"
 
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Proposal Details"
 msgstr "Szczegóły zgłoszenia"
 
