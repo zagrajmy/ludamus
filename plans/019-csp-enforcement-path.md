@@ -36,6 +36,17 @@
 
 ## Status
 
+> **Executed in full, including the gated Step 8.** The maintainer
+> authorized the enforcement flip in this plan's own PR (#583) rather
+> than staging it behind separate report-only production data — see
+> that PR's description for the rationale. `SECURE_CSP` is set in
+> production, `CSP_REPORT_ONLY_POLICY` was renamed to `CSP_POLICY`,
+> and `style-src` tightening was deliberately deferred (see "Deferred
+> / next step" below). The STOP conditions, Done criteria, and Step
+> 6-8 text below describe the plan **as originally written, before
+> that authorization** — read them as history, not as a live gate on
+> future work against this branch.
+
 - **Priority**: P3
 - **Effort**: M
 - **Risk**: MED (touching every inline `<script>` and every `hx-on:`
@@ -354,6 +365,9 @@ from doing the risky flip early.
 
 - Setting `SECURE_CSP` (the enforcing header) — Step Group C is
   GATED; see STOP conditions. Do not flip enforcement in this pass.
+  _(As executed: the maintainer lifted this gate for PR #583 — see
+  the "Status" note above. This scope list describes the plan as
+  originally authored.)_
 - A `report-uri` / `report-to` ingestion endpoint or third-party
   collector — Step Group C only writes the **decision note**; wiring
   an endpoint is a separate, human-scoped follow-up (plan 007's
@@ -783,6 +797,12 @@ larger effort not covered here).
 
 destination decision note and enforcement flip
 
+**Executed in PR #583** — the maintainer explicitly authorized the
+flip without a separate report-only production window (see "Status"
+above); the decision-note part (a `report-uri`/`report-to` endpoint)
+remains deferred, tracked in "Deferred / next step" below. The gate
+text that follows describes the plan as originally authored.
+
 **STOP: do not perform this step unless the maintainer has reviewed
 production report-only violation data and explicitly told you to
 proceed.** See STOP conditions below. If you reach this point in a
@@ -853,7 +873,10 @@ Machine-checkable. ALL must hold for Step Groups A and B (Steps 1-7):
   src/ludamus/edges/settings.py` shows `CSP.UNSAFE_INLINE` only on the
   `style-src` line, and no `CSP.UNSAFE_EVAL` anywhere
 - [ ] `grep -cn "SECURE_CSP =" src/ludamus/edges/settings.py` returns
-  0 (still no enforcing policy — Step 8 is gated)
+  0 (still no enforcing policy — Step 8 is gated). _As executed in
+  PR #583, Step 8 was authorized, so this specific check no longer
+  holds — see the additional Step 8 criteria below and the "Status"
+  note at the top of this plan._
 - [ ] `mise run test:py` exits 0
 - [ ] `mise run check` exits 0
 - [ ] `mise run lint-client` exits 0

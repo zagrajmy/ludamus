@@ -90,10 +90,11 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     // Exercise panel-chrome.ts's delegated data-action listeners (the
     // hx-on: -> data-action conversion this plan's Finding 1 depends on
     // staying eval-free): fold the sidebar, then a category toggle.
-    await page.locator("#sidebarFoldBtn").click();
+    const foldButton = page.getByRole("button", { name: "Toggle sidebar" });
+    await foldButton.click();
     await expect(page.locator("html")).toHaveAttribute("data-folded", "");
-    await page.locator("#sidebarFoldBtn").click();
-    await page.locator('[data-cat="program"] [data-action="toggle-category"]').click();
+    await foldButton.click();
+    await page.getByRole("button", { name: "Program" }).click();
 
     await assertNoCspViolations(page);
 
@@ -112,8 +113,10 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     await expect(page.getByRole("heading", { name: "Configure Category" })).toBeVisible();
 
     // Exercise the duration-list inline script so a blocked handler (rather
-    // than just a blocked <script> tag) would also be caught.
-    await page.locator("#add-duration-btn").click();
+    // than just a blocked <script> tag) would also be caught. The rendered
+    // rows are plain divs with no distinct accessible role, so the count
+    // assertion stays scoped by id/class rather than getByRole/getByText.
+    await page.getByRole("button", { name: "Add" }).click();
     await expect(page.locator("#durations-list .duration-item")).not.toHaveCount(0);
 
     await assertNoCspViolations(page);

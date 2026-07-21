@@ -21,7 +21,7 @@
                     </p>
                 </div>
             </div>
-            <button onclick="dismissEncountersInfo()"
+            <button id="dismiss-encounters-info-btn"
                     class="ml-4 flex-shrink-0 text-foreground-muted opacity-50 hover:opacity-100">
                 {% icon "x-mark" class="w-5 h-5" %}
             </button>
@@ -74,5 +74,7 @@
             var banner = document.getElementById('encounters-info-banner');
             if (banner) banner.style.display = 'none';
         }
+
+        document.getElementById('dismiss-encounters-info-btn').addEventListener('click', dismissEncountersInfo);
     </script>
 {% endblock extra_scripts %}
