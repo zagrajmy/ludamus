@@ -21,7 +21,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie
+from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -194,8 +194,7 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="get")
-@method_decorator(vary_on_cookie, name="get")
+@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
@@ -265,8 +264,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="get")
-@method_decorator(vary_on_cookie, name="get")
+@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
