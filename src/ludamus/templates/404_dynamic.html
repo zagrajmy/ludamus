@@ -20,7 +20,7 @@
             <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
             <p class="mb-6 text-foreground">{{ guidance }}</p>
             <div class="flex flex-col sm:flex-row gap-3">
-                <button onclick="history.back()" class="btn btn-secondary">
+                <button id="history-back-btn" class="btn btn-secondary">
                     {% icon "arrow-left" class="w-5 h-5" %}
                     {% translate "Go Back" %}
                 </button>
@@ -32,3 +32,10 @@
         </div>
     </div>
 {% endblock body %}
+{% block extra_scripts %}
+    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
+        document.getElementById('history-back-btn').addEventListener('click', function() {
+            history.back();
+        });
+    </script>
+{% endblock extra_scripts %}
