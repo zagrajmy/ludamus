@@ -14,15 +14,15 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.cache import patch_vary_headers
 from django.utils.decorators import method_decorator
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
+from django.views.decorators.vary import vary_on_cookie
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -194,14 +194,10 @@ def _is_manager(request: RootRequest) -> bool:
 
 
 @method_decorator(cache_control(private=True, max_age=180), name="get")
+@method_decorator(vary_on_cookie, name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
-
-    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        response = super().get(request, *args, **kwargs)
-        patch_vary_headers(response, ["Cookie"])
-        return response
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -284,16 +280,12 @@ COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
 @method_decorator(cache_control(private=True, max_age=180), name="get")
+@method_decorator(vary_on_cookie, name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
     request: RootRequest
-
-    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        response = super().get(request, *args, **kwargs)
-        patch_vary_headers(response, ["Cookie"])
-        return response
 
     def get_queryset(self) -> QuerySet[Event]:
         return (
