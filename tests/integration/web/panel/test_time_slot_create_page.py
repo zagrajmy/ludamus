@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
 
-from ludamus.adapters.db.django.models import TimeSlot
+from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response

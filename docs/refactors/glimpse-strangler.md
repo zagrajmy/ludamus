@@ -26,16 +26,12 @@ views. What remains in `adapters/`:
   - Public Event Pages — `EventPageView`, `EventsPageView`, `IndexRedirectView`
   - Enrollment — `SessionEnrollPageView`, `ProposalAcceptPageView`
   - `DesignPageView`, error views
-- **`adapters/db/django/models.py`** is still the real ORM module;
-  `links/db/django/repositories/` imports from it
-  (`from ludamus.adapters.db.django.models import ...`). See
-  [links-db-layout.md](links-db-layout.md) for the relocation.
 - **`adapters/web/django/`** also still owns `forms.py`, `entities.py`,
   `middlewares.py` (`RequestContextMiddleware`, `RedirectErrorMiddleware`,
   still on `request.di.uow.spheres`), `error_views.py`, `design_fixtures.py`,
   `templatetags/tessera/`.
-- `INSTALLED_APPS` still references `adapters.web.django.apps.WebMainConfig`
-  and `adapters.db.django.apps.DBMainConfig`.
+- `adapters/oauth.py` — the OAuth client, still imported by the Auth gate.
+- `INSTALLED_APPS` still references `adapters.web.django.apps.WebMainConfig`.
 
 Already migrated into `gates/`: the whole **Panel** (chronology + multiverse),
 **Notice Board / Encounters**, the **CFP** wizard, **Crowd** (both **Auth**
@@ -49,8 +45,12 @@ and **Profile**), and anonymous enrollment
 - Encounters fully in `gates` + `links` + `mills`/`pacts`.
 - Panel views split into one file per area under
   `gates/web/django/chronology/panel/views/`.
+- The whole persistence adapter moved: `adapters/db/` → `links/db/` (models,
+  migrations, admin, repositories, `uow.py`), with `INSTALLED_APPS` pointing at
+  `ludamus.links.db.django.apps.DBMainConfig`. See
+  [links-db-layout.md](links-db-layout.md).
 - Enrollment slot math (`get_used_slots`, `can_enroll_users`,
-  `get_vc_available_slots`) moved out of `adapters/db/django/models.py` into
+  `get_vc_available_slots`) moved out of the ORM models into
   `mills/enrollment.py`, with the ORM query behind
   `EnrollmentParticipationRepositoryProtocol`
   (`links/db/django/enrollment.py`). An `EnrollmentService` now lives on
@@ -92,12 +92,12 @@ homes, lifting the remaining `request.di.uow` access onto
 `SessionEnrollmentAnonymousPageView`, `EventAnonymousActivateActionView`,
 `AnonymousLoadActionView` and `AnonymousResetActionView` all live in
 `gates/web/django/chronology/anonymous.py`. Then relocate the ORM models
-(`adapters/db/django/models.py` → `links/db/django/`) so `adapters/` can be
+(`links/db/django/models.py` → `links/db/django/`) so `adapters/` can be
 emptied and locked down with an importlinter contract.
 
 ## Definition of done
 
-- `adapters/web/django/views.py` and `models.py` are gone.
+- `adapters/web/django/views.py` is gone.
 - `adapters/` contains nothing importable, and an importlinter contract is
   added forbidding any new `ludamus.adapters` imports (then the package is
   deleted).

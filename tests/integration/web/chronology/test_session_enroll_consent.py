@@ -7,7 +7,8 @@ from django.contrib import messages
 from django.contrib.messages import get_messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.inits.services import Services
+from ludamus.links.db.django.models import (
     Notification,
     Party,
     PartyMembership,
@@ -16,7 +17,6 @@ from ludamus.adapters.db.django.models import (
     User,
     UserEnrollmentConfig,
 )
-from ludamus.inits.services import Services
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import (

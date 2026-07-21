@@ -25,11 +25,14 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # noqa: E402
+import django  # ruff:ignore[module-import-not-at-top-of-file]
 
 django.setup()
 
-from ludamus.adapters.db.django.models import Event, Facilitator  # noqa: E402
+from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+    Event,
+    Facilitator,
+)
 
 
 def _seed_facilitators(event: Event) -> None:

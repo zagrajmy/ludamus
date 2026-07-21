@@ -69,6 +69,15 @@
                             {{ facilitator.slug }}
                         </dd>
                     </div>
+                    {% if facilitator.internal_comment %}
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Internal comment" %}</dt>
+                            <dd class="text-foreground whitespace-pre-line break-words">
+                                {{ facilitator.internal_comment }}
+                            </dd>
+                            <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
+                        </div>
+                    {% endif %}
                 </dl>
             </div>
         </div>

@@ -27,7 +27,7 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
-from ludamus.pacts.submissions import ImportLogStatus
+from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Iterator
@@ -39,7 +39,6 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
-MAX_COMPANIONS = 6  # Maximum number of companions per manager
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -604,6 +603,9 @@ class Space(models.Model):
     # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True, default="")
+    # Free-form metadata: building address, room number, floor, etc. Keeps the
+    # description clean of structural location info.
+    location = models.CharField(max_length=255, blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
     # Time
@@ -730,13 +732,6 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class AccreditationType(models.TextChoices):
-    NONE = "none", _("None")
-    STANDARD = "standard", _("Standard")
-    GUEST = "guest", _("Guest")
-    HONORARY = "honorary", _("Honorary")
-
-
 class Facilitator(models.Model):
     """Program creator / session facilitator, decoupled from User accounts."""
 
@@ -753,8 +748,15 @@ class Facilitator(models.Model):
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
     accreditation_type = models.CharField(
-        max_length=20, choices=AccreditationType.choices, default=AccreditationType.NONE
+        max_length=20,
+        choices=[(t.value, t.name.title()) for t in AccreditationType],
+        default=AccreditationType.NONE,
     )
+    # Reversible triage marker: organizers flag likely duplicates/removals, then
+    # act on them (merge or delete) as a separate deliberate step.
+    flagged_for_deletion = models.BooleanField(default=False)
+    # Free-form organizer note, never shown to attendees.
+    internal_comment = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "facilitator"
@@ -1473,6 +1475,25 @@ class EventSettings(models.Model):
 
     def __str__(self) -> str:
         return f"Settings for {self.event}"
+
+
+class EventPanelSettings(models.Model):
+    """Organizer-only (backoffice) settings — never surfaced to attendees."""
+
+    event = models.OneToOneField(
+        Event, on_delete=models.CASCADE, related_name="panel_settings"
+    )
+    # The facilitators list's columns, in display order. Each entry is either a
+    # built-in key ("name", "linked", "sessions", "accreditation") or
+    # "field_<pk>" naming a PersonalDataField. Empty means the default set.
+    # The keys double as the list's sort keys, so a column sorts by construction.
+    facilitator_columns = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = "event_panel_settings"
+
+    def __str__(self) -> str:
+        return f"Panel settings for {self.event}"
 
 
 class Track(models.Model):

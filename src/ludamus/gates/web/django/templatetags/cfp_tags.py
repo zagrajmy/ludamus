@@ -11,6 +11,7 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 
 if TYPE_CHECKING:
     from ludamus.pacts import SessionDTO
+    from ludamus.pacts.submissions import FacilitatorColumnDTO
 
 register = template.Library()
 
@@ -26,7 +27,7 @@ def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
 
 
 @register.filter
-def cfp_status(category: Any) -> dict[str, str]:  # type: ignore[misc] # noqa: ANN401
+def cfp_status(category: Any) -> dict[str, str]:  # type: ignore[misc] # ruff:ignore[any-type]
     """Return status info for a proposal category.
 
     Returns:
@@ -75,12 +76,33 @@ def content_field_label(field_key: str) -> str:
         "tracks": _("Tracks"),
         "time_slots": _("Time slots"),
         "accreditation_type": _("Accreditation type"),
+        "internal_comment": _("Internal comment"),
     }
     return labels.get(field_key, field_key)
 
 
 @register.filter
-def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc] # noqa: ANN401
+def facilitator_column_label(column: FacilitatorColumnDTO) -> str:
+    """Label a column of the panel's facilitator list.
+
+    Returns:
+        The field's own name for personal-data columns, else the built-in's
+        translated label.
+    """
+    if column.field is not None:
+        return column.field.name
+    # Built per call so gettext resolves in the active request language.
+    labels = {
+        "name": _("Display Name"),
+        "linked": _("Linked User"),
+        "sessions": _("Sessions"),
+        "accreditation": _("Accreditation"),
+    }
+    return labels.get(column.key, column.key)
+
+
+@register.filter
+def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc] # ruff:ignore[any-type]
     """Get an item from a dictionary by key.
 
     Returns:
@@ -139,7 +161,7 @@ def has_field_value(value: object) -> bool:
 
 
 @register.filter
-def format_field_value(value: Any) -> str:  # type: ignore[misc] # noqa: ANN401
+def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[any-type]
     """Format a session field value for display.
 
     Returns:

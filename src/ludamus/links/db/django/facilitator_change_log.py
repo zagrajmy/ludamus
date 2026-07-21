@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ludamus.adapters.db.django.models import FacilitatorChangeLog
+from ludamus.links.db.django.models import FacilitatorChangeLog
 from ludamus.pacts import (
     FacilitatorChangeLogData,
     FacilitatorChangeLogDTO,

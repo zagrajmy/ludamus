@@ -31,9 +31,13 @@
                         {% if candidate.met_sessions %}
                             <ul class="mt-1 flex flex-col gap-0.5 text-xs text-foreground-muted">
                                 {% for meet in candidate.met_sessions %}
-                                    <li>
-                                        <a href="{% url 'web:chronology:event' slug=meet.event_slug %}?session={{ meet.session_id }}"
-                                           class="text-primary hover:underline break-words">{{ meet.title }}</a>
+                                    {% blocktranslate asvar meet_label with sphere=meet.sphere_name event=meet.event_name session=meet.title trimmed %}
+                                        {{ sphere }} › {{ event }} › {{ session }}
+                                    {% endblocktranslate %}
+                                    <li class="min-w-0">
+                                        <a href="//{{ meet.sphere_domain }}{% url 'web:chronology:event' slug=meet.event_slug %}?session={{ meet.session_id }}"
+                                           title="{{ meet_label }}"
+                                           class="block truncate hover:text-foreground">{{ meet.sphere_name }} › {{ meet.event_name }} › <span class="underline">{{ meet.title }}</span></a>
                                     </li>
                                 {% endfor %}
                             </ul>
@@ -51,10 +55,15 @@
                         {% tessera_button t_remove variant="secondary" size="sm" full_width_mobile=False %}
                     </form>
                 {% else %}
+                    {% translate "Sessions you run always look full to them, so they can never join." as sb_body_1 %}
+                    {% translate "You'll also get an email when they sign up at an event you're participating in." as sb_body_2 %}
+                    {% translate "We never tell them about it." as sb_body_3 %}
                     <form action="{% url 'web:crowd:profile-safety' %}"
                           method="post"
                           class="shrink-0"
-                          data-confirm="{% blocktranslate with name=candidate.full_name %}Shadowban {{ name }}? Sessions you run always look full to them, so they can never join. You get an email when they sign up at an event where you run a session, or into a session you play in. We never tell them.{% endblocktranslate %}"
+                          data-confirm="{{ sb_body_1 }}\n\n{{ sb_body_2 }}\n\n{{ sb_body_3 }}"
+                          data-confirm-title="{% blocktranslate with name=candidate.full_name %}Do you want to shadowban {{ name }}?{% endblocktranslate %}"
+                          data-confirm-variant="primary"
                           data-confirm-action="{{ t_shadowban }}">
                         {% csrf_token %}
                         <input type="hidden" name="slug" value="{{ candidate.slug }}">

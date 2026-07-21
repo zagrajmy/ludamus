@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.adapters.db.django.models import AgendaItem, Track
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.models import AgendaItem, Track
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemUpdateData,

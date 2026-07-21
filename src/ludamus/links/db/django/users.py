@@ -4,7 +4,7 @@ from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts.crowd import UserDTO
 
 if TYPE_CHECKING:
-    from ludamus.adapters.db.django.models import User
+    from ludamus.links.db.django.models import User
 
 
 def display_avatar_url(user: User) -> str:

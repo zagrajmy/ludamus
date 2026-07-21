@@ -3,12 +3,13 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     EventBan,
     SessionParticipation,
     SessionParticipationStatus,
 )
 from tests.integration.conftest import UserFactory
+from tests.integration.utils import assert_response
 
 
 def _event_url(slug: str) -> str:
@@ -73,8 +74,7 @@ class TestEventBanFakeFull:
             _enroll_url(agenda_item.session.pk, agenda_item.session.event.slug)
         )
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert response.url == _event_url(event.slug)
+        assert_response(response, HTTPStatus.FOUND, url=_event_url(event.slug))
 
     def test_real_participants_hidden_from_banned_viewer(
         self, authenticated_client, agenda_item, active_user, event

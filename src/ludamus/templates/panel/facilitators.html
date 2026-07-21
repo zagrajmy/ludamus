@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load cfp_tags %}
 {% block title_prefix %}
     {% translate "Facilitators" %} -
 {% endblock title_prefix %}
@@ -14,35 +15,84 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <div class="flex items-center space-x-3">
-            {% url 'panel:facilitator-merge' slug=current_event.slug as merge_url %}
-            {% translate "Merge facilitators" as t_merge %}
-            {% tessera_button t_merge href=merge_url variant="secondary" icon="funnel" %}
-            {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
-            {% translate "New Facilitator" as t_new_facilitator %}
-            {% tessera_button t_new_facilitator href=create_url icon="plus" %}
-        </div>
+        {% url 'panel:facilitator-create' slug=current_event.slug as create_url %}
+        {% translate "New Facilitator" as t_new_facilitator %}
+        {% tessera_button t_new_facilitator href=create_url icon="plus" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
     <div class="p-4">
         {% if current_event %}
+            {% tab_shell "panel/_facilitator_tabs.html" %}
+            {% tab_shell_body %}
+            {% if facilitators or filters_active %}
+                <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
+                    <form method="get" class="flex flex-wrap gap-4 items-end">
+                        {% if filter_sort and filter_sort != "name" %}
+                            <input type="hidden" name="sort" value="{{ filter_sort }}">
+                        {% endif %}
+                        <div class="w-full sm:w-64 min-w-0">
+                            {% translate "Search" as t_search %}
+                            {% include "components/label.html" with for_id="filter-search" text=t_search only %}
+                            {% translate "Name, linked user or field values" as t_search_placeholder %}
+                            {% include "components/text-field.html" with name="search" id="filter-search" value=filter_search placeholder=t_search_placeholder only %}
+                        </div>
+                        <div class="w-full sm:w-48 min-w-0">
+                            {% translate "Accreditation" as t_accreditation %}
+                            {% include "components/label.html" with for_id="filter-accreditation" text=t_accreditation only %}
+                            {% select id="filter-accreditation" name="accreditation" class="truncate" %}
+                                <option value="">{% translate "All accreditations" %}</option>
+                                {% for value, label in accreditation_types %}
+                                    <option value="{{ value }}"
+                                            {% if filter_accreditation == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            {% end_select %}
+                        </div>
+                        {% for field in filterable_fields %}
+                            {% with pk_str=field.pk|stringformat:"s" %}
+                                {% with field_id="filter-field-"|add:pk_str field_name="field_"|add:pk_str %}
+                                    <div class="w-full sm:w-48 min-w-0">
+                                        {% include "components/label.html" with for_id=field_id text=field.name only %}
+                                        {% if field.field_type == "select" %}
+                                            {% select id=field_id name=field_name class="truncate" %}
+                                                <option value="">—</option>
+                                                {% for option in field.options %}
+                                                    <option value="{{ option.value }}"
+                                                            {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
+                                                        {{ option.label }}
+                                                    </option>
+                                                {% endfor %}
+                                            {% end_select %}
+                                        {% else %}
+                                            <div class="flex items-center h-9">
+                                                {% include "components/checkbox-field.html" with name=field_name id=field_id value="true" checked=filter_fields|get_item:field.pk aria_label=field.name only %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% endwith %}
+                            {% endwith %}
+                        {% endfor %}
+                        <div class="flex items-center pb-2">
+                            {% translate "Flagged for deletion only" as t_flagged %}
+                            {% include "components/checkbox-field.html" with name="flagged" id="filter-flagged" value="true" checked=filter_flagged label=t_flagged only %}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% translate "Filter" as t_filter %}
+                            {% tessera_button t_filter full_width_mobile=False %}
+                            {% url 'panel:facilitators' slug=current_event.slug as clear_url %}
+                            {% translate "Clear" as t_clear %}
+                            {% tessera_button t_clear href=clear_url variant="secondary" %}
+                        </div>
+                    </form>
+                </div>
+            {% endif %}
             {% if facilitators %}
                 {% tessera_table %}
                 <thead class="bg-bg-tertiary">
                     <tr>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Display Name" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Linked User" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Sessions" %}
-                        </th>
+                        {% for column in columns %}
+                            {% include "panel/_sort_th.html" with column=column.key label=column|facilitator_column_label %}
+                        {% endfor %}
                         <th scope="col"
                             class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
                             {% translate "Actions" %}
@@ -51,26 +101,73 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for facilitator in facilitators %}
-                        <tr class="hover:bg-bg-tertiary">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                   class="text-primary hover:text-primary/80"
-                                   title="{{ facilitator.display_name }}">{{ facilitator.display_name|truncatechars:50 }}</a>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                {% if facilitator.user_id %}
-                                    {% translate "Linked" %}
-                                {% else %}
-                                    <span class="text-foreground-muted">{% translate "None" %}</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.session_count }}</td>
+                        <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+                            {% for column in columns %}
+                                {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
+                                    {# The first column carries the link to the facilitator, whichever column the organizer put there. #}
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
+                                        title="{{ value }}">
+                                        {% if forloop.first %}
+                                            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                               aria-label="{{ facilitator.display_name }}"
+                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
+                                            {% if facilitator.flagged_for_deletion %}
+                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
+                                                    {% translate "Flagged" %}
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ value|truncatechars:40 }}
+                                        {% endif %}
+                                    </td>
+                                {% endwith %}
+                            {% endfor %}
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                   class="text-primary hover:text-primary/80 inline-flex items-center">
-                                    {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                    {% translate "Edit" %}
-                                </a>
+                                <div class="inline-flex items-center gap-3 justify-end">
+                                    {% if facilitator.accreditation_type != "guest" %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Mark as guest" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Mark {{ name }} as guest{% endblocktranslate %}"
+                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                {% icon "user-plus" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    {% if facilitator.flagged_for_deletion %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-unflag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Remove deletion flag" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Remove deletion flag from {{ name }}{% endblocktranslate %}"
+                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                {% icon "arrow-uturn-left" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-flag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Flag for deletion" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Flag {{ name }} for deletion{% endblocktranslate %}"
+                                                    class="text-foreground-muted hover:text-danger inline-flex items-center">
+                                                {% icon "flag" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                       class="text-primary hover:text-primary/80 inline-flex items-center">
+                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                        {% translate "Edit" %}
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}
@@ -95,6 +192,12 @@
                     </div>
                 </div>
             {% endif %}
+        {% elif filters_active %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted mb-4">{% translate "No facilitators match your filters." %}</p>
+                <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+                   class="btn btn-secondary text-sm">{% translate "Clear filters" %}</a>
+            </div>
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted mb-4">{% translate "No facilitators yet." %}</p>
@@ -103,10 +206,12 @@
                 {% tessera_button t_new_facilitator href=create_url icon="plus" %}
             </div>
         {% endif %}
-    {% else %}
-        <div class="card p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-        </div>
-    {% endif %}
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
+{% else %}
+<div class="card p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
+{% endif %}
 </div>
 {% endblock content %}
