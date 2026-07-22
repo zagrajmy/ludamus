@@ -91,12 +91,24 @@ non-consciously (regular proportions, aligned radii, consistent stroke).
 Also optical correction: pure math that *looks* wrong is wrong — overshoot
 curves, thin junctions; "every great gridded logo cheats the grid".
 
-- **9–10** — consistent stroke/radii system; visible evidence of optical
+- **9–10** — consistent stroke/radii system; principal dimensions follow
+  a declared ratio system (φ/Fibonacci, √2, or simple rationals — adjacent
+  element ratios within ~3% of the system); visible evidence of optical
   correction; clean node economy (lint).
 - **6–8** — mostly consistent; minor mismatched radii or stroke drift.
 - **3–5** — structural inconsistency (mismatched twins, wobbly curves —
   typical unrepaired AI output).
 - **0–2** — no governing geometry.
+
+### On the golden ratio
+
+φ (1.618) and Fibonacci dimensions (8, 13, 21, 34, 55…) are a solid
+default system: integer-friendly, self-similar, and aligned with the
+pattern-recognition evidence. But the system must *govern construction*,
+not decorate the case study afterward — famous "golden ratio logos" are
+often post-hoc retrofits. Any consistent ratio system scores; a forced φ
+overlay on unrelated geometry does not. The eye still wins: optical
+corrections may break the system by small amounts, and that is correct.
 
 ## Layout bonus/penalty (combination marks only, ±3)
 

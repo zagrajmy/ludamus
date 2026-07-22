@@ -1415,7 +1415,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
         (blob bounding boxes, gaps, and corner curvature recovered from
         fill ratios). <em>Floating</em> is cell 1; <em>tucked</em> is cell
         3 — the table-die "fridge", seats flush in the silhouette behind a
-        knockout channel. <em>Pulled seat</em> is Bass's improvement.
+        knockout channel. <em>Pulled seat</em> is Bass's improvement; <em>fib</em> rebuilds the icon from the Fibonacci sequence (gap 8, seats 21×34, table 55 — every adjacent ratio is φ).
         Export writes the exact SVG you see (channels export paper-filled;
         boolean-subtract them in final art).
       </p>
@@ -1430,6 +1430,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
             <button class="lab-btn" data-preset="v1">wariant 1 · floating</button>
             <button class="lab-btn" data-preset="fridge">wariant 3 · fridge</button>
             <button class="lab-btn" data-preset="bass">bass · pulled seat</button>
+            <button class="lab-btn" data-preset="fib">fib · golden ratio</button>
           </div>
           <div class="lab-btns">
             <button class="lab-btn primary" id="lab-copy">copy SVG</button>
@@ -1460,6 +1461,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
         v1: { mode: "floating", outer: "rounded", table: 64, tExp: 5.1, tRot: 0, seatW: 31, seatH: 21, sExp: 4.0, gap: 6, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
         fridge: { mode: "tucked", outer: "flat", table: 78, tExp: 5.3, tRot: 0, seatW: 26, seatH: 11, sExp: 3.5, gap: 3.5, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
         bass: { mode: "floating", outer: "rounded", table: 64, tExp: 5.1, tRot: 0, seatW: 31, seatH: 21, sExp: 4.0, gap: 6, pull: 12, pullSide: "right", jitter: 0, color: "coral" },
+        fib: { mode: "floating", outer: "rounded", table: 55, tExp: 5.1, tRot: 0, seatW: 34, seatH: 21, sExp: 4.0, gap: 8, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
       };
       const SLIDERS = [
         { k: "table", label: "table size", min: 40, max: 92, step: 1 },
