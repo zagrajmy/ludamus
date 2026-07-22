@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zagrajmy — logo pitch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap");
+
+      :root {
+        --warm-50: #fdfcfb;
+        --warm-100: #f7f5f3;
+        --warm-200: #f0ece8;
+        --warm-300: #e4ddd6;
+        --warm-400: #c9bfb3;
+        --warm-600: #7d7164;
+        --warm-700: #5c534a;
+        --warm-900: #252220;
+        --coral-100: #ffe5df;
+        --coral-500: #f85a3c;
+        --coral-600: #e53e20;
+        --coral-950: #4a1610;
+        --teal-500: #14b89b;
+        --teal-700: #0f7666;
+        --ink: #252220;
+        --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+        corner-shape: superellipse(1.8);
+        margin: 0;
+      }
+
+      html {
+        scroll-snap-type: y proximity;
+      }
+
+      body {
+        font-family: "Outfit", system-ui, sans-serif;
+        background: var(--warm-100);
+        color: var(--ink);
+        line-height: 1.55;
+      }
+
+      .slide {
+        min-height: 100vh;
+        scroll-snap-align: start;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 4rem clamp(1.5rem, 6vw, 6rem);
+        border-bottom: 1px solid var(--warm-300);
+        position: relative;
+      }
+
+      .slide-tag {
+        position: absolute;
+        top: 2rem;
+        left: clamp(1.5rem, 6vw, 6rem);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--warm-600);
+      }
+
+      .slide-num {
+        position: absolute;
+        top: 2rem;
+        right: clamp(1.5rem, 6vw, 6rem);
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--warm-400);
+        font-variant-numeric: tabular-nums;
+      }
+
+      h1 {
+        font-size: clamp(2.6rem, 7vw, 5rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+      }
+
+      h2 {
+        font-size: clamp(1.9rem, 4vw, 3rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
+        max-width: 56rem;
+      }
+
+      h3 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+      }
+
+      p {
+        max-width: 46rem;
+      }
+
+      .lede {
+        font-size: clamp(1.05rem, 2vw, 1.3rem);
+        color: var(--warm-700);
+        max-width: 44rem;
+      }
+
+      .accent {
+        color: var(--coral-500);
+      }
+
+      .muted {
+        color: var(--warm-600);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+      }
+
+      .card {
+        background: var(--warm-50);
+        border: 1px solid var(--warm-300);
+        border-radius: 1rem;
+        padding: 1.25rem 1.4rem;
+        box-shadow: var(--shadow-card);
+      }
+
+      .card p {
+        font-size: 0.95rem;
+        color: var(--warm-700);
+      }
+
+      .card .who {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--coral-600);
+        margin-bottom: 0.3rem;
+      }
+
+      blockquote {
+        font-size: clamp(1.3rem, 2.6vw, 2rem);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        max-width: 50rem;
+        border-left: 4px solid var(--coral-500);
+        padding-left: 1.25rem;
+        margin: 1.5rem 0 0.5rem;
+      }
+
+      blockquote + .muted {
+        padding-left: calc(1.25rem + 4px);
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1.25rem;
+      }
+
+      .pill {
+        border-radius: 999px;
+        padding: 0.3rem 0.9rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: var(--warm-200);
+        color: var(--warm-700);
+        border: 1px solid var(--warm-300);
+      }
+
+      .pill.bad {
+        background: var(--coral-100);
+        color: var(--coral-950);
+        border-color: #ffcfc5;
+        text-decoration: line-through;
+        text-decoration-thickness: 1.5px;
+      }
+
+      .pill.good {
+        background: #f0fdfa;
+        color: var(--teal-700);
+        border-color: #9af5df;
+      }
+
+      .concept {
+        display: grid;
+        grid-template-columns: minmax(14rem, 22rem) 1fr;
+        gap: clamp(1.5rem, 4vw, 4rem);
+        align-items: start;
+        margin-top: 1rem;
+      }
+
+      @media (max-width: 46rem) {
+        .concept {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .sketch {
+        background: var(--warm-50);
+        border: 1px solid var(--warm-300);
+        border-radius: 1.25rem;
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow: var(--shadow-card);
+      }
+
+      .sketch figcaption {
+        font-size: 0.75rem;
+        color: var(--warm-600);
+        text-align: center;
+      }
+
+      .mini-row {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .prompt {
+        margin-top: 1.25rem;
+        background: var(--warm-900);
+        color: var(--warm-100);
+        border-radius: 0.9rem;
+        padding: 1rem 1.1rem;
+        font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+        font-size: 0.8rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        position: relative;
+        max-width: 46rem;
+      }
+
+      .prompt::before {
+        content: "image-model prompt";
+        position: absolute;
+        top: -0.7rem;
+        left: 0.9rem;
+        background: var(--coral-500);
+        color: #fff;
+        font-family: "Outfit", sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        font-family: "Outfit", sans-serif;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: var(--warm-700);
+        color: var(--warm-100);
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.25rem 0.7rem;
+        cursor: pointer;
+      }
+
+      .copy-btn:hover {
+        background: var(--coral-500);
+      }
+
+      table {
+        border-collapse: collapse;
+        margin-top: 1.5rem;
+        width: 100%;
+        max-width: 60rem;
+        background: var(--warm-50);
+        border-radius: 1rem;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        font-size: 0.92rem;
+      }
+
+      th,
+      td {
+        padding: 0.65rem 0.9rem;
+        text-align: left;
+        border-bottom: 1px solid var(--warm-200);
+      }
+
+      th {
+        background: var(--warm-200);
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--warm-700);
+      }
+
+      td.score {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+
+      .steps {
+        counter-reset: step;
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1.5rem;
+        max-width: 48rem;
+        padding: 0;
+      }
+
+      .steps li {
+        list-style: none;
+        counter-increment: step;
+        background: var(--warm-50);
+        border: 1px solid var(--warm-300);
+        border-radius: 0.9rem;
+        padding: 0.9rem 1.1rem 0.9rem 3.3rem;
+        position: relative;
+        box-shadow: var(--shadow-card);
+      }
+
+      .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0.9rem;
+        top: 0.9rem;
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 0.55rem;
+        background: var(--coral-500);
+        color: #fff;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+        font-size: 0.9rem;
+      }
+
+      .footer-note {
+        font-size: 0.8rem;
+        color: var(--warm-600);
+        margin-top: 2.5rem;
+      }
+
+      .kbd-hint {
+        position: fixed;
+        bottom: 1rem;
+        right: 1.25rem;
+        font-size: 0.72rem;
+        color: var(--warm-600);
+        background: var(--warm-50);
+        border: 1px solid var(--warm-300);
+        border-radius: 999px;
+        padding: 0.3rem 0.8rem;
+        box-shadow: var(--shadow-card);
+        z-index: 10;
+      }
+
+      @media print {
+        .slide {
+          min-height: auto;
+          page-break-after: always;
+        }
+
+        .kbd-hint,
+        .copy-btn {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 1 · Title -->
+    <section class="slide">
+      <span class="slide-tag">Zagrajmy · branding</span>
+      <span class="slide-num">01</span>
+      <svg viewBox="0 0 120 120" width="72" height="72" aria-hidden="true" style="margin-bottom: 2rem">
+        <rect x="14" y="14" width="42" height="42" rx="13" fill="#e4ddd6" />
+        <rect x="64" y="14" width="42" height="42" rx="13" fill="#e4ddd6" />
+        <rect x="14" y="64" width="42" height="42" rx="13" fill="#e4ddd6" />
+        <rect x="66" y="63" width="42" height="42" rx="13" fill="#f85a3c" transform="rotate(14 87 84)" />
+      </svg>
+      <h1>A logo worth<br />playing for.<span class="accent">_</span></h1>
+      <p class="lede" style="margin-top: 1.5rem">
+        Research-driven logo concepts for <strong>Zagrajmy</strong> — the Polish
+        tabletop &amp; convention platform. Not a rebrand: a mark that finally
+        matches the product's warm, confident design language.
+      </p>
+      <p class="footer-note">
+        Text-first pitch → pick a direction → generate with image models →
+        vectorize → rebuild in real type.
+      </p>
+    </section>
+
+    <!-- 2 · The problem -->
+    <section class="slide">
+      <span class="slide-tag">Where we are</span>
+      <span class="slide-num">02</span>
+      <h2>We currently have two logos, and neither is doing the job.</h2>
+      <div class="concept">
+        <figure class="sketch">
+          <div class="mini-row">
+            <svg viewBox="0 0 120 120" width="110" height="110" aria-label="Recreation of the current Ludamus logo">
+              <text x="34" y="44" font-family="Outfit, sans-serif" font-size="40" font-weight="800" fill="#9457b8">LU</text>
+              <text x="26" y="76" font-family="Outfit, sans-serif" font-size="40" font-weight="800" fill="#e8c822" transform="rotate(-2 60 66)">DA</text>
+              <text x="6" y="112" font-family="Outfit, sans-serif" font-size="40" font-weight="800" fill="#1cbfa5" transform="rotate(2 60 100)">MUS</text>
+            </svg>
+            <svg viewBox="0 0 100 100" width="84" height="84" aria-label="Current navbar cube mark">
+              <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#262626" />
+              <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#1A1A1A" />
+              <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#F05537" />
+            </svg>
+          </div>
+          <figcaption>
+            Left: the LUDAMUS PNG (og:image). Right: the navbar cube SVG.
+          </figcaption>
+        </figure>
+        <div>
+          <h3>The stacked LUDAMUS mark</h3>
+          <p class="muted">
+            Three clashing hues (purple, yellow, teal) that exist nowhere in the
+            product palette, drop shadows that die at small sizes, raster-only,
+            and it spells <em>Ludamus</em> while the brand users see is
+            <em>Zagrajmy</em>.
+          </p>
+          <h3 style="margin-top: 1.25rem">The navbar cube</h3>
+          <p class="muted">
+            Closer — flat, geometric, coral. But its coral (<code>#F05537</code>)
+            doesn't match the token (<code>#f85a3c</code>), the isometric cube
+            reads as "generic tech/crypto box", and it was never designed as a
+            system with the wordmark, favicon, or og-image.
+          </p>
+          <p style="margin-top: 1.25rem">
+            <strong>Diagnosis:</strong> no single mark passes the basic
+            professional tests — one-color survival, 16&nbsp;px legibility,
+            palette fit, name match.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · What the masters say -->
+    <section class="slide">
+      <span class="slide-tag">Research · principles</span>
+      <span class="slide-num">03</span>
+      <h2>What the best logo designers actually teach</h2>
+      <blockquote>
+        "A logo derives meaning from the quality of the thing it symbolizes,
+        not the other way around."
+      </blockquote>
+      <p class="muted">— Paul Rand (IBM, UPS, ABC)</p>
+      <div class="cards">
+        <div class="card">
+          <p class="who">Sagi Haviv · CG&amp;H</p>
+          <p>
+            Three criteria, nothing else: <strong>appropriate</strong> to the
+            brand, <strong>distinctive</strong> enough to be remembered,
+            <strong>simple</strong> enough to survive every size and medium. A
+            logo shouldn't carry the whole brand story.
+          </p>
+        </div>
+        <div class="card">
+          <p class="who">Michael Bierut · Pentagram</p>
+          <p>
+            A new logo is "an empty vessel awaiting the meaning that will be
+            poured into it by history and experience." Preloaded symbolism
+            (eagles, globes… meeples) only limits what the mark can become.
+          </p>
+        </div>
+        <div class="card">
+          <p class="who">Lindon Leader · FedEx</p>
+          <p>
+            "Simplicity and clarity. Great design is born of those two things."
+            The famous arrow wasn't briefed — it was <em>discovered</em> in
+            iteration 200+. Rigorous typographic iteration beats symbol-first
+            illustration.
+          </p>
+        </div>
+        <div class="card">
+          <p class="who">Saul Bass · AT&amp;T</p>
+          <p>
+            "Pushed to its utmost limits in terms of abstraction and ambiguity,
+            yet still readable." If it's simple-simple, it's boring — aim for
+            the idea that makes you think and rethink.
+          </p>
+        </div>
+        <div class="card">
+          <p class="who">Paul Rand · the 7-step test</p>
+          <p>
+            Score distinctiveness, visibility, adaptability, memorability,
+            universality, timelessness 1–10 each — and
+            <strong>simplicity 1–15</strong>. Reduction is the heaviest-weighted
+            discipline, not a nice-to-have.
+          </p>
+        </div>
+        <div class="card">
+          <p class="who">Aaron Draplin · DDC</p>
+          <p>
+            Anti-precious pragmatism: sketch exhaustively before touching
+            vectors, show thick <em>and</em> thin, and "let me make you
+            something that is <em>yours</em>" — not a designer's signature
+            style.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · Landscape -->
+    <section class="slide">
+      <span class="slide-tag">Research · landscape</span>
+      <span class="slide-num">04</span>
+      <h2>The space splits into two poles — and the middle is empty.</h2>
+      <p class="lede">
+        Gaming platforms are either <strong>corporate-serious</strong> (Roll20's
+        black wordmark, Gen Con's no-effects rules, PAX minimalism) or
+        <strong>chaotic-fun</strong> (Partiful's sticker maximalism, clip-art
+        dice clusters). Event platforms own orange (Meetup, Eventbrite) or
+        neon purple (Luma). Nobody owns
+        <em>warm, confident, communal</em> — which is exactly where our design
+        system already lives.
+      </p>
+      <h3 style="margin-top: 2rem">Cliché blacklist (invisible from overuse)</h3>
+      <div class="pill-row">
+        <span class="pill bad">meeple</span>
+        <span class="pill bad">d20</span>
+        <span class="pill bad">dice pips</span>
+        <span class="pill bad">chess pawn</span>
+        <span class="pill bad">playing cards</span>
+        <span class="pill bad">speech bubble</span>
+        <span class="pill bad">neon gradient aura</span>
+        <span class="pill bad">controller / d-pad</span>
+      </div>
+      <h3 style="margin-top: 2rem">Whitespace we can claim</h3>
+      <div class="pill-row">
+        <span class="pill good">warm restraint, one accent color</span>
+        <span class="pill good">abstraction from real product mechanics</span>
+        <span class="pill good">Polish poster-school geometry</span>
+        <span class="pill good">the table, not the game pieces</span>
+        <span class="pill good">name-legible combination mark</span>
+      </div>
+    </section>
+
+    <!-- 5 · Foundations -->
+    <section class="slide">
+      <span class="slide-tag">Brand foundations</span>
+      <span class="slide-num">05</span>
+      <h2>The name is already an invitation. The mark must extend it.</h2>
+      <p class="lede">
+        <strong class="accent">Zagrajmy</strong> = "let's play" — first-person
+        plural, a hand extended. The engine is even named the same thing in
+        Latin: <strong>ludamus</strong>, "let us play". The brand's one idea is
+        <em>communal invitation</em>, and the product's mechanics are tables,
+        seats, and schedules.
+      </p>
+      <div class="cards">
+        <div class="card">
+          <h3>Typeface</h3>
+          <p>
+            Outfit (400–800) is the product's only face. The wordmark should be
+            built from it — customized, not replaced.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Color</h3>
+          <p>
+            Coral <code>#f85a3c</code> as the single accent on warm paper
+            (<code>#fdfcfb</code>/<code>#f7f5f3</code>), ink
+            <code>#252220</code>, teal <code>#14b89b</code> reserved for
+            secondary UI — the mark itself stays one-accent.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Shape language</h3>
+          <p>
+            The whole UI renders with
+            <code>corner-shape:&nbsp;superellipse(1.8)</code>. The squircle is
+            our native geometry — the logo should be built from it.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Constraint</h3>
+          <p>
+            Not a rebrand. The mark must drop into today's navbar, favicon and
+            og:image without touching the rest of the system.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · Brief -->
+    <section class="slide">
+      <span class="slide-tag">The brief</span>
+      <span class="slide-num">06</span>
+      <h2>Every concept must pass six gates before we generate a pixel.</h2>
+      <ol class="steps">
+        <li>
+          <strong>16 px test</strong> — reads as one clear element at favicon
+          size and on a conference badge from across the room.
+        </li>
+        <li>
+          <strong>One-color test</strong> — works as solid ink and reversed
+          white before color is even considered. No gradients, ever.
+        </li>
+        <li>
+          <strong>Combination mark</strong> — new brands need the name legible:
+          symbol + "zagrajmy" wordmark, with the symbol able to stand alone
+          later once equity accrues.
+        </li>
+        <li>
+          <strong>Cliché gate</strong> — nothing from the blacklist. Abstraction
+          over literal game objects.
+        </li>
+        <li>
+          <strong>System fit</strong> — token coral, Outfit, superellipse
+          geometry; drops into the current UI unchanged.
+        </li>
+        <li>
+          <strong>Vessel test</strong> — per Bierut: simple enough to
+          <em>acquire</em> meaning, not so literal it explains itself to death.
+        </li>
+      </ol>
+    </section>
+
+    <!-- 7 · Concept A -->
+    <section class="slide">
+      <span class="slide-tag">Concept A</span>
+      <span class="slide-num">07</span>
+      <h2>Stół — the table, seen from above.</h2>
+      <div class="concept">
+        <figure class="sketch">
+          <svg viewBox="0 0 120 120" width="160" height="160" aria-label="Table mark sketch">
+            <rect x="30" y="30" width="60" height="60" rx="18" fill="#f85a3c" />
+            <rect x="45" y="9" width="30" height="11" rx="5.5" fill="#252220" />
+            <rect x="45" y="100" width="30" height="11" rx="5.5" fill="#252220" />
+            <rect x="9" y="45" width="11" height="30" rx="5.5" fill="#252220" />
+            <rect x="100" y="45" width="11" height="30" rx="5.5" fill="#252220" />
+          </svg>
+          <div class="mini-row">
+            <svg viewBox="0 0 120 120" width="40" height="40" aria-hidden="true">
+              <rect x="30" y="30" width="60" height="60" rx="18" fill="#252220" />
+              <rect x="45" y="9" width="30" height="11" rx="5.5" fill="#252220" />
+              <rect x="45" y="100" width="30" height="11" rx="5.5" fill="#252220" />
+              <rect x="9" y="45" width="11" height="30" rx="5.5" fill="#252220" />
+              <rect x="100" y="45" width="11" height="30" rx="5.5" fill="#252220" />
+            </svg>
+            <svg viewBox="0 0 120 120" width="20" height="20" aria-hidden="true">
+              <rect x="30" y="30" width="60" height="60" rx="18" fill="#252220" />
+              <rect x="45" y="9" width="30" height="11" rx="5.5" fill="#252220" />
+              <rect x="45" y="100" width="30" height="11" rx="5.5" fill="#252220" />
+              <rect x="9" y="45" width="11" height="30" rx="5.5" fill="#252220" />
+              <rect x="100" y="45" width="11" height="30" rx="5.5" fill="#252220" />
+            </svg>
+          </div>
+          <figcaption>Schematic sketch + one-color reduction test. Not final art.</figcaption>
+        </figure>
+        <div>
+          <p>
+            A coral superellipse tabletop with four seats — the one image every
+            tabletop genre shares (board games, RPG, cards) without depicting
+            any single one of them. It's literally what the product does:
+            <em>puts people at tables</em>.
+          </p>
+          <p class="muted" style="margin-top: 0.75rem">
+            <strong>Why it wins:</strong> gathering without meeples; reads at
+            16&nbsp;px (favicon = table+seats blob resolves cleanly); squircle
+            geometry is straight from the UI. Bass-style productive ambiguity:
+            table, plus-sign, compass rose, four players joining.
+            <br /><strong>Risk:</strong> four-seat symmetry can skew "hospital
+            plus" in one color — seat length/radius needs iteration.
+          </p>
+          <div class="prompt" data-prompt>
+flat vector logo, abstract top-down table with four rounded seats, rounded
+superellipse square, minimalist, simple geometric shapes, solid colors,
+icon only, centered composition, white background, using only #f85a3c and
+#252220, no gradients, no 3D, no drop shadows, no text, clean edges<button class="copy-btn">copy</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 · Concept B -->
+    <section class="slide">
+      <span class="slide-tag">Concept B</span>
+      <span class="slide-num">08</span>
+      <h2>W grze — the grid, with one tile in play.</h2>
+      <div class="concept">
+        <figure class="sketch">
+          <svg viewBox="0 0 120 120" width="160" height="160" aria-label="Grid mark sketch">
+            <rect x="14" y="14" width="42" height="42" rx="13" fill="#252220" />
+            <rect x="64" y="14" width="42" height="42" rx="13" fill="#252220" />
+            <rect x="14" y="64" width="42" height="42" rx="13" fill="#252220" />
+            <rect x="66" y="63" width="42" height="42" rx="13" fill="#f85a3c" transform="rotate(14 87 84)" />
+          </svg>
+          <div class="mini-row">
+            <svg viewBox="0 0 120 120" width="40" height="40" aria-hidden="true">
+              <rect x="14" y="14" width="42" height="42" rx="13" fill="#252220" />
+              <rect x="64" y="14" width="42" height="42" rx="13" fill="#252220" />
+              <rect x="14" y="64" width="42" height="42" rx="13" fill="#252220" />
+              <rect x="66" y="63" width="42" height="42" rx="13" fill="#252220" transform="rotate(14 87 84)" />
+            </svg>
+            <svg viewBox="0 0 120 120" width="20" height="20" aria-hidden="true">
+              <rect x="14" y="14" width="42" height="42" rx="13" fill="#252220" />
+              <rect x="64" y="14" width="42" height="42" rx="13" fill="#252220" />
+              <rect x="14" y="64" width="42" height="42" rx="13" fill="#252220" />
+              <rect x="66" y="63" width="42" height="42" rx="13" fill="#252220" transform="rotate(14 87 84)" />
+            </svg>
+          </div>
+          <figcaption>Schematic sketch + one-color reduction test. Not final art.</figcaption>
+        </figure>
+        <div>
+          <p>
+            Four squircle tiles — a timetable grid, a game board, a hall of
+            tables — with one tile tilted and coral: <em>the session that's
+            live, the piece being played, the person who just joined</em>. The
+            mark is derived from the product's actual mechanic (schedule grids),
+            which the landscape research flagged as unclaimed territory.
+          </p>
+          <p class="muted" style="margin-top: 0.75rem">
+            <strong>Why it wins:</strong> order + one act of play = the whole
+            brand in one gesture; genuinely ownable (no one in the niche has
+            it); the tilted tile animates beautifully (hover: tile snaps into
+            play). <br /><strong>Risk:</strong> reads "app grid / dashboard" if
+            the tilt is too timid — the rotation angle is the design.
+          </p>
+          <div class="prompt" data-prompt>
+flat vector logo, four rounded squares in a 2x2 grid, one square tilted
+15 degrees breaking the grid, minimalist, geometric, solid colors, icon
+only, centered composition, white background, using only #f85a3c and
+#252220, no gradients, no 3D, no shadows, no text, clean edges<button class="copy-btn">copy</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 · Concept C -->
+    <section class="slide">
+      <span class="slide-tag">Concept C</span>
+      <span class="slide-num">09</span>
+      <h2>Zetka — a Z that moves forward.</h2>
+      <div class="concept">
+        <figure class="sketch">
+          <svg viewBox="0 0 120 120" width="160" height="160" aria-label="Z monogram sketch">
+            <rect x="8" y="8" width="104" height="104" rx="30" fill="#f85a3c" />
+            <path d="M36 34 H84 V48 L56 72 H84 V86 H36 V72 L64 48 H36 Z" fill="#fdfcfb" />
+          </svg>
+          <div class="mini-row">
+            <svg viewBox="0 0 120 120" width="40" height="40" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="104" rx="30" fill="#252220" />
+              <path d="M36 34 H84 V48 L56 72 H84 V86 H36 V72 L64 48 H36 Z" fill="#fdfcfb" />
+            </svg>
+            <svg viewBox="0 0 120 120" width="20" height="20" aria-hidden="true">
+              <rect x="8" y="8" width="104" height="104" rx="30" fill="#252220" />
+              <path d="M36 34 H84 V48 L56 72 H84 V86 H36 V72 L64 48 H36 Z" fill="#fdfcfb" />
+            </svg>
+          </div>
+          <figcaption>Schematic sketch + one-color reduction test. Not final art.</figcaption>
+        </figure>
+        <div>
+          <p>
+            A geometric Z monogram in a coral superellipse tile. The diagonal is
+            drawn as a <em>path</em> — the zigzag route through a convention
+            hall, a turn passing from player to player. Very few brands own a Z;
+            in Poland the letter instantly keys to the name.
+          </p>
+          <p class="muted" style="margin-top: 0.75rem">
+            <strong>Why it wins:</strong> strongest 16&nbsp;px performance of
+            all concepts (app-icon-native); Leader-style potential for a
+            discovered negative-space arrow in the diagonal; trivially drops
+            into the navbar today. <br /><strong>Risk:</strong> monograms are
+            the most "empty vessel" of vessels — it says nothing about play
+            until the brand pours meaning in (Bierut would call that a feature).
+          </p>
+          <div class="prompt" data-prompt>
+flat vector logo, bold geometric letter Z monogram inside rounded
+superellipse app icon tile, angular zigzag path, minimalist, solid colors,
+icon only, centered composition, white background, using only #f85a3c and
+#fdfcfb, no gradients, no 3D, no shadows, clean edges, modern geometric
+sans-serif style<button class="copy-btn">copy</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 · Concept D -->
+    <section class="slide">
+      <span class="slide-tag">Concept D</span>
+      <span class="slide-num">10</span>
+      <h2>Wykrzyknik — the wordmark that shouts politely.</h2>
+      <div class="concept">
+        <figure class="sketch">
+          <svg viewBox="0 0 300 90" width="260" height="78" aria-label="Wordmark sketch">
+            <text x="10" y="60" font-family="Outfit, sans-serif" font-size="46" font-weight="700" letter-spacing="-1" fill="#252220">zagrajmy</text>
+            <rect x="262" y="24" width="11" height="26" rx="4" fill="#f85a3c" transform="rotate(8 267 37)" />
+            <rect x="266" y="56" width="10" height="10" rx="3.5" fill="#f85a3c" />
+          </svg>
+          <div class="mini-row">
+            <svg viewBox="0 0 300 90" width="150" height="45" aria-hidden="true">
+              <text x="10" y="60" font-family="Outfit, sans-serif" font-size="46" font-weight="700" letter-spacing="-1" fill="#252220">zagrajmy</text>
+              <rect x="262" y="24" width="11" height="26" rx="4" fill="#252220" transform="rotate(8 267 37)" />
+              <rect x="266" y="56" width="10" height="10" rx="3.5" fill="#252220" />
+            </svg>
+          </div>
+          <figcaption>Schematic sketch (Outfit 700 + tilted coral “!”). Not final art.</figcaption>
+        </figure>
+        <div>
+          <p>
+            Wordmark-first: lowercase <strong>zagrajmy</strong> set in customized
+            Outfit, closed with a coral exclamation mark that leans forward —
+            the invitation made typographic. The grammar does the work: the name
+            <em>is</em> the call to action.
+          </p>
+          <p class="muted" style="margin-top: 0.75rem">
+            <strong>Why it wins:</strong> maximum name legibility (the research
+            consensus for young brands); Leader-style iteration surface —
+            letterspacing, the j–y descender rhythm, a discovered ligature could
+            become the real mark; the "!" tile alone becomes the favicon.
+            <br /><strong>Risk:</strong> "!" can feel pushy if overweighted, and
+            a wordmark alone leaves no strong square symbol until the "!"
+            earns recognition.
+          </p>
+          <div class="prompt" data-prompt>
+flat vector wordmark logo, lowercase word "zagrajmy" in modern geometric
+sans-serif, tilted rounded exclamation mark accent after the word,
+minimalist typography logo, solid colors, white background, using only
+#252220 and #f85a3c, no gradients, no 3D, no shadows, clean edges,
+perfect letter spacing<button class="copy-btn">copy</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 · Concept E -->
+    <section class="slide">
+      <span class="slide-tag">Concept E</span>
+      <span class="slide-num">11</span>
+      <h2>Kostka 2.0 — evolve the cube we already ship.</h2>
+      <div class="concept">
+        <figure class="sketch">
+          <svg viewBox="0 0 100 100" width="150" height="150" aria-label="Refined cube sketch">
+            <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#252220" />
+            <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#3d3732" />
+            <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#f85a3c" />
+          </svg>
+          <div class="mini-row">
+            <svg viewBox="0 0 100 100" width="38" height="38" aria-hidden="true">
+              <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#252220" />
+              <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#252220" opacity="0.75" />
+              <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#252220" opacity="0.45" />
+            </svg>
+            <svg viewBox="0 0 100 100" width="19" height="19" aria-hidden="true">
+              <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#252220" />
+              <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#252220" opacity="0.75" />
+              <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#252220" opacity="0.45" />
+            </svg>
+          </div>
+          <figcaption>Token-corrected colors + tint-based one-color fallback. Not final art.</figcaption>
+        </figure>
+        <div>
+          <p>
+            The conservative option: keep the navbar's isometric cube but design
+            it properly — token coral, warm ink instead of pure black, softened
+            corners to match the superellipse language, and a real lockup with
+            the wordmark. A cube is a die with the pips removed: the one game
+            object abstract enough to survive the cliché gate.
+          </p>
+          <p class="muted" style="margin-top: 0.75rem">
+            <strong>Why it wins:</strong> zero migration cost, continuity for
+            existing users, honest "evolution not revolution".
+            <br /><strong>Risk:</strong> isometric cubes are the tech-startup
+            cliché <em>outside</em> gaming; opacity-tint one-color fallback is a
+            structural weakness the other concepts don't have. Weakest
+            differentiation of the five.
+          </p>
+          <div class="prompt" data-prompt>
+flat vector logo, minimal isometric cube with three faces, rounded
+corners, one face coral, minimalist, geometric, solid colors, icon only,
+centered composition, white background, using only #f85a3c, #252220 and
+#3d3732, no gradients, no pips, no 3D rendering, no shadows, clean edges<button class="copy-btn">copy</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 · Scores -->
+    <section class="slide">
+      <span class="slide-tag">Evaluation</span>
+      <span class="slide-num">12</span>
+      <h2>Rand-style scorecard (provisional, pre-iteration)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Criterion</th>
+            <th>A · Stół</th>
+            <th>B · W grze</th>
+            <th>C · Zetka</th>
+            <th>D · Wykrzyknik</th>
+            <th>E · Kostka</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Distinctive (10)</td><td class="score">8</td><td class="score">9</td><td class="score">7</td><td class="score">7</td><td class="score">4</td></tr>
+          <tr><td>Appropriate (10)</td><td class="score">9</td><td class="score">9</td><td class="score">6</td><td class="score">8</td><td class="score">6</td></tr>
+          <tr><td>16 px / adaptable (10)</td><td class="score">8</td><td class="score">7</td><td class="score">9</td><td class="score">5</td><td class="score">6</td></tr>
+          <tr><td>Timeless (10)</td><td class="score">8</td><td class="score">7</td><td class="score">8</td><td class="score">7</td><td class="score">5</td></tr>
+          <tr><td>Simplicity (15)</td><td class="score">12</td><td class="score">11</td><td class="score">13</td><td class="score">10</td><td class="score">9</td></tr>
+          <tr>
+            <td><strong>Total (55)</strong></td>
+            <td class="score"><strong>45</strong></td>
+            <td class="score"><strong class="accent">43</strong></td>
+            <td class="score"><strong>43</strong></td>
+            <td class="score"><strong>37</strong></td>
+            <td class="score"><strong>30</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="lede" style="margin-top: 2rem">
+        <strong>Recommendation:</strong> develop <strong>A&nbsp;(Stół)</strong>
+        and <strong>B&nbsp;(W&nbsp;grze)</strong> through image generation, with
+        D's wordmark treatment as the lockup for whichever symbol wins. Haviv
+        would tell us to commit to one — we take two into generation and let
+        the 16&nbsp;px favicon test make the final call.
+      </p>
+    </section>
+
+    <!-- 13 · Pipeline -->
+    <section class="slide">
+      <span class="slide-tag">Next steps</span>
+      <span class="slide-num">13</span>
+      <h2>From prompt to production vector</h2>
+      <ol class="steps">
+        <li>
+          <strong>Generate</strong> — run the concept prompts through
+          <em>GPT-image / Ideogram v3</em> (best text &amp; flat shapes),
+          <em>Recraft V3</em> (native SVG output — fastest path), and
+          <em>Qwen-Image</em> (strongest text rendering). 10–20 variants per
+          concept; always pass exact hex codes.
+        </li>
+        <li>
+          <strong>Cull hard</strong> — keep only candidates with crisp edges and
+          consistent geometry. Expect and reject: mushy boundaries, sneaky
+          gradients, warped letters, mismatched "twin" shapes.
+        </li>
+        <li>
+          <strong>Vectorize</strong> — Recraft's built-in vectorize or
+          Vectorizer.ai for clean few-node paths; Illustrator Image Trace /
+          Inkscape+potrace when we want manual control.
+        </li>
+        <li>
+          <strong>Rebuild, don't trace, the type</strong> — the wordmark is
+          reset in real Outfit and kerned by hand. AI output is "an image of a
+          logo", never the logo.
+        </li>
+        <li>
+          <strong>Correct optically</strong> — snap to a simple grid, then cheat
+          it where the eye demands (overshoots, junction thinning). Every great
+          gridded logo cheats the grid.
+        </li>
+        <li>
+          <strong>Ship the system</strong> — 3 tiers: full lockup → symbol →
+          16&nbsp;px favicon; each a deliberate redesign. Replace
+          <code>logo.png</code>, <code>favicon.ico</code>, navbar SVG and
+          og:image in one PR.
+        </li>
+      </ol>
+      <p class="footer-note">
+        Research: 4 parallel agents · designer canon (Rand, Bass, Leader,
+        Bierut, Scher, Haviv, Draplin, Glaser + Koto, Order, DIA, Smith &amp;
+        Diction, Manual) · niche landscape (Roll20, Gen Con, PAX, Pyrkon,
+        Partiful, Eventbrite, Luma) · principles &amp; tests · AI→vector
+        pipeline. Sources listed in the accompanying research digest.
+      </p>
+    </section>
+
+    <div class="kbd-hint">↑ ↓ arrows or scroll · ⌘P to print</div>
+
+    <script>
+      const slides = [...document.querySelectorAll(".slide")];
+      document.addEventListener("keydown", (e) => {
+        const dir = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 }[e.key];
+        if (!dir) return;
+        e.preventDefault();
+        const current = slides.reduce(
+          (best, s, i) =>
+            Math.abs(s.getBoundingClientRect().top) < Math.abs(slides[best].getBoundingClientRect().top) ? i : best,
+          0
+        );
+        const idx = Math.min(slides.length - 1, Math.max(0, current + dir));
+        slides[idx].scrollIntoView({ behavior: "smooth" });
+      });
+      document.querySelectorAll(".copy-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const text = btn.parentElement.textContent.replace(/copy$/, "").trim();
+          navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = "copied";
+            setTimeout(() => (btn.textContent = "copy"), 1200);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
