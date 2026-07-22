@@ -370,6 +370,120 @@
         z-index: 10;
       }
 
+      .lab {
+        display: grid;
+        grid-template-columns: 1fr minmax(16rem, 20rem);
+        gap: clamp(1.5rem, 3vw, 3rem);
+        align-items: start;
+        margin-top: 1rem;
+      }
+
+      @media (max-width: 46rem) {
+        .lab {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .lab-stage {
+        background: #fff;
+        border: 1px solid var(--warm-300);
+        border-radius: 1.25rem;
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow: var(--shadow-card);
+        transition: background 0.2s;
+      }
+
+      .lab-stage.reversed {
+        background: var(--warm-900);
+      }
+
+      .lab-sizes {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-end;
+      }
+
+      .lab-panel {
+        background: #1c1a18;
+        border-radius: 0.9rem;
+        padding: 0.9rem;
+        font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+        font-size: 0.72rem;
+        color: #d8d3cd;
+        display: grid;
+        gap: 0.55rem;
+        box-shadow: var(--shadow-card);
+      }
+
+      .lab-row {
+        display: grid;
+        grid-template-columns: 9.5rem 1fr 2.6rem;
+        gap: 0.6rem;
+        align-items: center;
+      }
+
+      .lab-row label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #a69a8c;
+      }
+
+      .lab-row output {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: #fdfcfb;
+      }
+
+      .lab-row input[type="range"] {
+        width: 100%;
+        accent-color: var(--coral-500);
+        height: 1rem;
+      }
+
+      .lab-row select {
+        background: #2b2825;
+        color: #fdfcfb;
+        border: 1px solid #3d3732;
+        border-radius: 0.4rem;
+        font: inherit;
+        padding: 0.15rem 0.3rem;
+        grid-column: 2 / 4;
+      }
+
+      .lab-btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+      }
+
+      .lab-btn {
+        font-family: "Outfit", sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        border: 1px solid #3d3732;
+        background: #2b2825;
+        color: #fdfcfb;
+        border-radius: 0.5rem;
+        padding: 0.3rem 0.7rem;
+        cursor: pointer;
+      }
+
+      .lab-btn:hover {
+        background: var(--coral-500);
+        border-color: var(--coral-500);
+      }
+
+      .lab-btn.primary {
+        background: var(--coral-500);
+        border-color: var(--coral-500);
+      }
+
       @media print {
         .slide {
           min-height: auto;
@@ -1288,6 +1402,38 @@ detail, clean edges<button class="copy-btn">copy</button></div>
       </p>
     </section>
 
+    <!-- 19 · Lab -->
+    <section class="slide">
+      <span class="slide-tag">Lab · Stół playground</span>
+      <span class="slide-num">19</span>
+      <h2>Stół lab — pull the sliders, not the seats.</h2>
+      <p class="lede">
+        The two winning generations from the exploration sheet, rebuilt as
+        parametric vectors (not traced — every proportion is a number).
+        Presets match the sheet; <em>jitter</em> morphs the strict variant
+        into the relaxed one, <em>pulled seat</em> is Bass's improvement.
+        Export writes the exact SVG you see.
+      </p>
+      <div class="lab">
+        <div class="lab-stage" id="lab-stage">
+          <div id="lab-main"></div>
+          <div class="lab-sizes" id="lab-sizes" aria-label="Size reduction test"></div>
+        </div>
+        <div>
+          <div class="lab-panel" id="lab-panel"></div>
+          <div class="lab-btns">
+            <button class="lab-btn" data-preset="v1">wariant 1 · strict</button>
+            <button class="lab-btn" data-preset="v2">wariant 2 · relaxed</button>
+            <button class="lab-btn" data-preset="bass">bass · pulled seat</button>
+          </div>
+          <div class="lab-btns">
+            <button class="lab-btn primary" id="lab-copy">copy SVG</button>
+            <button class="lab-btn" id="lab-download">download .svg</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <div class="kbd-hint">↑ ↓ arrows or scroll · ⌘P to print</div>
 
     <script>
@@ -1304,6 +1450,140 @@ detail, clean edges<button class="copy-btn">copy</button></div>
         const idx = Math.min(slides.length - 1, Math.max(0, current + dir));
         slides[idx].scrollIntoView({ behavior: "smooth" });
       });
+      // --- Stół lab: parametric table mark ---
+      const PRESETS = {
+        v1: { table: 64, tExp: 3.4, tRot: 0, seatW: 27, seatH: 14, sExp: 3.4, gap: 6, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
+        v2: { table: 64, tExp: 3.4, tRot: 1.5, seatW: 27, seatH: 14, sExp: 3.4, gap: 6, pull: 0, pullSide: "none", jitter: 0.5, color: "mono" },
+        bass: { table: 64, tExp: 3.4, tRot: 0, seatW: 27, seatH: 14, sExp: 3.4, gap: 6, pull: 12, pullSide: "right", jitter: 0, color: "coral" },
+      };
+      const SLIDERS = [
+        { k: "table", label: "table size", min: 40, max: 92, step: 1 },
+        { k: "tExp", label: "table superellipse n", min: 1.8, max: 6, step: 0.1 },
+        { k: "tRot", label: "table rotation", min: -12, max: 12, step: 0.5 },
+        { k: "seatW", label: "seat length", min: 14, max: 44, step: 1 },
+        { k: "seatH", label: "seat thickness", min: 6, max: 22, step: 1 },
+        { k: "sExp", label: "seat superellipse n", min: 1.8, max: 8, step: 0.1 },
+        { k: "gap", label: "seat gap", min: 2, max: 18, step: 1 },
+        { k: "pull", label: "pulled seat offset", min: 0, max: 24, step: 1 },
+        { k: "jitter", label: "jitter (wariant 2)", min: 0, max: 1, step: 0.01 },
+      ];
+      const INK = "#252220", CORAL = "#f85a3c", PAPER = "#fdfcfb";
+      const labState = { ...PRESETS.v1 };
+      const ROT_SEEDS = [0.9, -0.55, 0.75, -0.85];
+      const POS_SEEDS = [-0.4, 0.8, -0.6, 0.5];
+
+      function sePath(cx, cy, rx, ry, n, rot) {
+        const steps = 96;
+        const rad = ((rot || 0) * Math.PI) / 180;
+        const cr = Math.cos(rad), sr = Math.sin(rad);
+        let d = "";
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / steps) * Math.PI * 2;
+          const c = Math.cos(t), s = Math.sin(t);
+          const px = rx * Math.sign(c) * Math.abs(c) ** (2 / n);
+          const py = ry * Math.sign(s) * Math.abs(s) ** (2 / n);
+          const x = cx + px * cr - py * sr;
+          const y = cy + px * sr + py * cr;
+          d += (i ? "L" : "M") + x.toFixed(2) + " " + y.toFixed(2);
+        }
+        return d + "Z";
+      }
+
+      function labSvg(p, size) {
+        const inkColor = p.color === "reversed" ? PAPER : INK;
+        const tableColor = p.color === "coral" ? CORAL : inkColor;
+        const half = p.table / 2;
+        const sides = [
+          { name: "top", ang: -90 },
+          { name: "right", ang: 0 },
+          { name: "bottom", ang: 90 },
+          { name: "left", ang: 180 },
+        ];
+        let shapes = sePath(60, 60, half, half, p.tExp, p.tRot + p.jitter * 1.5);
+        let paths = `<path d="${shapes}" fill="${tableColor}"/>`;
+        sides.forEach((side, i) => {
+          const pull = p.pullSide === side.name ? p.pull : 0;
+          const dist = half + p.gap + p.seatH / 2 + pull + POS_SEEDS[i] * p.jitter * 2;
+          const rad = (side.ang * Math.PI) / 180;
+          const cx = 60 + Math.cos(rad) * dist;
+          const cy = 60 + Math.sin(rad) * dist;
+          const horizontal = side.name === "top" || side.name === "bottom";
+          const rx = horizontal ? p.seatW / 2 : p.seatH / 2;
+          const ry = horizontal ? p.seatH / 2 : p.seatW / 2;
+          const rot = ROT_SEEDS[i] * p.jitter * 7;
+          paths += `<path d="${sePath(cx, cy, rx, ry, p.sExp, rot)}" fill="${inkColor}"/>`;
+        });
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="${size}" height="${size}">${paths}</svg>`;
+      }
+
+      const labPanel = document.getElementById("lab-panel");
+      if (labPanel) {
+        SLIDERS.forEach((s) => {
+          const row = document.createElement("div");
+          row.className = "lab-row";
+          row.innerHTML = `<label for="lab-${s.k}">${s.label}</label>
+            <input type="range" id="lab-${s.k}" min="${s.min}" max="${s.max}" step="${s.step}">
+            <output id="lab-${s.k}-out"></output>`;
+          labPanel.appendChild(row);
+          row.querySelector("input").addEventListener("input", (e) => {
+            labState[s.k] = parseFloat(e.target.value);
+            labRender();
+          });
+        });
+        const selects = [
+          { k: "pullSide", label: "pulled side", opts: ["none", "top", "right", "bottom", "left"] },
+          { k: "color", label: "color", opts: ["mono", "coral", "reversed"] },
+        ];
+        selects.forEach((sel) => {
+          const row = document.createElement("div");
+          row.className = "lab-row";
+          row.innerHTML = `<label for="lab-${sel.k}">${sel.label}</label>
+            <select id="lab-${sel.k}">${sel.opts.map((o) => `<option>${o}</option>`).join("")}</select>`;
+          labPanel.appendChild(row);
+          row.querySelector("select").addEventListener("change", (e) => {
+            labState[sel.k] = e.target.value;
+            labRender();
+          });
+        });
+
+        function labRender() {
+          SLIDERS.forEach((s) => {
+            document.getElementById(`lab-${s.k}`).value = labState[s.k];
+            document.getElementById(`lab-${s.k}-out`).textContent =
+              s.step < 1 ? labState[s.k].toFixed(s.step < 0.1 ? 2 : 1) : labState[s.k];
+          });
+          document.getElementById("lab-pullSide").value = labState.pullSide;
+          document.getElementById("lab-color").value = labState.color;
+          document.getElementById("lab-main").innerHTML = labSvg(labState, 240);
+          document.getElementById("lab-sizes").innerHTML = [48, 32, 24, 16]
+            .map((s) => labSvg(labState, s))
+            .join("");
+          document.getElementById("lab-stage").classList.toggle("reversed", labState.color === "reversed");
+        }
+
+        document.querySelectorAll("[data-preset]").forEach((btn) =>
+          btn.addEventListener("click", () => {
+            Object.assign(labState, PRESETS[btn.dataset.preset]);
+            labRender();
+          })
+        );
+        document.getElementById("lab-copy").addEventListener("click", (e) => {
+          navigator.clipboard.writeText(labSvg(labState, 240)).then(() => {
+            e.target.textContent = "copied";
+            setTimeout(() => (e.target.textContent = "copy SVG"), 1200);
+          });
+        });
+        document.getElementById("lab-download").addEventListener("click", () => {
+          const blob = new Blob([labSvg(labState, 240)], { type: "image/svg+xml" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "stol-logo.svg";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+        labRender();
+      }
+
       document.querySelectorAll(".copy-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const text = btn.parentElement.textContent.replace(/copy$/, "").trim();
