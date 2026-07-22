@@ -1408,11 +1408,14 @@ detail, clean edges<button class="copy-btn">copy</button></div>
       <span class="slide-num">19</span>
       <h2>Stół lab — pull the sliders, not the seats.</h2>
       <p class="lede">
-        The two winning generations from the exploration sheet, rebuilt as
-        parametric vectors (not traced — every proportion is a number).
-        Presets match the sheet; <em>jitter</em> morphs the strict variant
-        into the relaxed one, <em>pulled seat</em> is Bass's improvement.
-        Export writes the exact SVG you see.
+        Cells 1 and 3 from the exploration sheet, rebuilt as parametric
+        vectors with proportions <em>measured from the generations</em>
+        (blob bounding boxes, gaps, and corner curvature recovered from
+        fill ratios). <em>Floating</em> is cell 1; <em>tucked</em> is cell
+        3 — the table-die "fridge", seats flush in the silhouette behind a
+        knockout channel. <em>Pulled seat</em> is Bass's improvement.
+        Export writes the exact SVG you see (channels export paper-filled;
+        boolean-subtract them in final art).
       </p>
       <div class="lab">
         <div class="lab-stage" id="lab-stage">
@@ -1422,8 +1425,8 @@ detail, clean edges<button class="copy-btn">copy</button></div>
         <div>
           <div class="lab-panel" id="lab-panel"></div>
           <div class="lab-btns">
-            <button class="lab-btn" data-preset="v1">wariant 1 · strict</button>
-            <button class="lab-btn" data-preset="v2">wariant 2 · relaxed</button>
+            <button class="lab-btn" data-preset="v1">wariant 1 · floating</button>
+            <button class="lab-btn" data-preset="fridge">wariant 3 · fridge</button>
             <button class="lab-btn" data-preset="bass">bass · pulled seat</button>
           </div>
           <div class="lab-btns">
@@ -1452,20 +1455,20 @@ detail, clean edges<button class="copy-btn">copy</button></div>
       });
       // --- Stół lab: parametric table mark ---
       const PRESETS = {
-        v1: { table: 64, tExp: 3.4, tRot: 0, seatW: 27, seatH: 14, sExp: 3.4, gap: 6, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
-        v2: { table: 64, tExp: 3.4, tRot: 1.5, seatW: 27, seatH: 14, sExp: 3.4, gap: 6, pull: 0, pullSide: "none", jitter: 0.5, color: "mono" },
-        bass: { table: 64, tExp: 3.4, tRot: 0, seatW: 27, seatH: 14, sExp: 3.4, gap: 6, pull: 12, pullSide: "right", jitter: 0, color: "coral" },
+        v1: { mode: "floating", table: 64, tExp: 5.1, tRot: 0, seatW: 31, seatH: 21, sExp: 4.0, gap: 6, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
+        fridge: { mode: "tucked", table: 78, tExp: 5.3, tRot: 0, seatW: 26, seatH: 11, sExp: 3.5, gap: 3.5, pull: 0, pullSide: "none", jitter: 0, color: "mono" },
+        bass: { mode: "floating", table: 64, tExp: 5.1, tRot: 0, seatW: 31, seatH: 21, sExp: 4.0, gap: 6, pull: 12, pullSide: "right", jitter: 0, color: "coral" },
       };
       const SLIDERS = [
         { k: "table", label: "table size", min: 40, max: 92, step: 1 },
-        { k: "tExp", label: "table superellipse n", min: 1.8, max: 6, step: 0.1 },
+        { k: "tExp", label: "table superellipse n", min: 1.8, max: 7, step: 0.1 },
         { k: "tRot", label: "table rotation", min: -12, max: 12, step: 0.5 },
         { k: "seatW", label: "seat length", min: 14, max: 44, step: 1 },
-        { k: "seatH", label: "seat thickness", min: 6, max: 22, step: 1 },
+        { k: "seatH", label: "seat thickness", min: 6, max: 26, step: 1 },
         { k: "sExp", label: "seat superellipse n", min: 1.8, max: 8, step: 0.1 },
-        { k: "gap", label: "seat gap", min: 2, max: 18, step: 1 },
+        { k: "gap", label: "gap / channel", min: 2, max: 18, step: 0.5 },
         { k: "pull", label: "pulled seat offset", min: 0, max: 24, step: 1 },
-        { k: "jitter", label: "jitter (wariant 2)", min: 0, max: 1, step: 0.01 },
+        { k: "jitter", label: "jitter (relaxed)", min: 0, max: 1, step: 0.01 },
       ];
       const INK = "#252220", CORAL = "#f85a3c", PAPER = "#fdfcfb";
       const labState = { ...PRESETS.v1 };
@@ -1490,8 +1493,11 @@ detail, clean edges<button class="copy-btn">copy</button></div>
       }
 
       function labSvg(p, size) {
-        const inkColor = p.color === "reversed" ? PAPER : INK;
+        const reversed = p.color === "reversed";
+        const inkColor = reversed ? PAPER : INK;
+        const bgColor = reversed ? INK : "#ffffff";
         const tableColor = p.color === "coral" ? CORAL : inkColor;
+        const tucked = p.mode === "tucked";
         const half = p.table / 2;
         const sides = [
           { name: "top", ang: -90 },
@@ -1499,11 +1505,12 @@ detail, clean edges<button class="copy-btn">copy</button></div>
           { name: "bottom", ang: 90 },
           { name: "left", ang: 180 },
         ];
-        let shapes = sePath(60, 60, half, half, p.tExp, p.tRot + p.jitter * 1.5);
-        let paths = `<path d="${shapes}" fill="${tableColor}"/>`;
+        let paths = `<path d="${sePath(60, 60, half, half, p.tExp, p.tRot + p.jitter * 1.5)}" fill="${tableColor}"/>`;
         sides.forEach((side, i) => {
           const pull = p.pullSide === side.name ? p.pull : 0;
-          const dist = half + p.gap + p.seatH / 2 + pull + POS_SEEDS[i] * p.jitter * 2;
+          const dist = tucked
+            ? half - p.seatH / 2 + pull + POS_SEEDS[i] * p.jitter * 2
+            : half + p.gap + p.seatH / 2 + pull + POS_SEEDS[i] * p.jitter * 2;
           const rad = (side.ang * Math.PI) / 180;
           const cx = 60 + Math.cos(rad) * dist;
           const cy = 60 + Math.sin(rad) * dist;
@@ -1511,6 +1518,9 @@ detail, clean edges<button class="copy-btn">copy</button></div>
           const rx = horizontal ? p.seatW / 2 : p.seatH / 2;
           const ry = horizontal ? p.seatH / 2 : p.seatW / 2;
           const rot = ROT_SEEDS[i] * p.jitter * 7;
+          if (tucked) {
+            paths += `<path d="${sePath(cx, cy, rx + p.gap, ry + p.gap, p.sExp, rot)}" fill="${bgColor}"/>`;
+          }
           paths += `<path d="${sePath(cx, cy, rx, ry, p.sExp, rot)}" fill="${inkColor}"/>`;
         });
         return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="${size}" height="${size}">${paths}</svg>`;
@@ -1531,6 +1541,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
           });
         });
         const selects = [
+          { k: "mode", label: "seats", opts: ["floating", "tucked"] },
           { k: "pullSide", label: "pulled side", opts: ["none", "top", "right", "bottom", "left"] },
           { k: "color", label: "color", opts: ["mono", "coral", "reversed"] },
         ];
@@ -1552,6 +1563,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
             document.getElementById(`lab-${s.k}-out`).textContent =
               s.step < 1 ? labState[s.k].toFixed(s.step < 0.1 ? 2 : 1) : labState[s.k];
           });
+          document.getElementById("lab-mode").value = labState.mode;
           document.getElementById("lab-pullSide").value = labState.pullSide;
           document.getElementById("lab-color").value = labState.color;
           document.getElementById("lab-main").innerHTML = labSvg(labState, 240);
