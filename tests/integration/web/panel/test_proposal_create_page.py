@@ -620,7 +620,22 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-create.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                **_fields_context(event, category),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=0,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+            },
             messages=[
                 (
                     messages.ERROR,
