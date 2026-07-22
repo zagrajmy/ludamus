@@ -63,7 +63,10 @@
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
-    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}">
+    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}"
+          data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}"
+          data-flash-region-label="{% translate "Notifications" %}"
+          data-flash-dismiss-label="{% translate "Dismiss" %}">
         {% comment %}
             App-shell scroll container: the document itself never scrolls, an
             inner element owns the scroll. A top-layer <dialog> then always

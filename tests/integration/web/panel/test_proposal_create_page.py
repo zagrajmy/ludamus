@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
+from django.db import DataError
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -16,6 +18,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     TimeSlot,
 )
+from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import (
     EventDTO,
     FacilitatorListItemDTO,
@@ -555,6 +558,77 @@ class TestProposalCreatePageView:
             },
         )
         assert response.context["form"].errors
+
+    @pytest.mark.postgres
+    def test_post_second_same_title_session_saves(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Regression: a title whose slug lands near varchar(50) saved on the
+        # first create but overflowed on the second (collision suffix pushed the
+        # slug past 50), 500ing on Postgres. SQLite ignores the length, so this
+        # only bites — and is only tested — on a real Postgres backend.
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        slug_max_length = 50
+        submissions = 2
+        title = "Midnight Heist One-Shot Adventure For New Players"
+        data = {
+            "facilitator_ids": [facilitator.pk],
+            "category_id": category.pk,
+            "title": title,
+            "display_name": "Test Host",
+        }
+
+        for _ in range(submissions):
+            authenticated_client.post(self.get_url(event), data=data)
+
+        sessions = Session.objects.filter(title=title)
+        assert sessions.count() == submissions
+        assert all(len(session.slug) <= slug_max_length for session in sessions)
+
+    def test_post_surfaces_db_error_as_form_error(
+        self, authenticated_client, active_user, sphere, event, monkeypatch
+    ):
+        # An unexpected DB constraint/data error must re-render the form with an
+        # error, not throw the user to the generic 500 page (which reads as a
+        # transient glitch) or look like a silent success.
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        def _raise(*_args, **_kwargs):
+            raise DataError("value too long for type character varying(50)")
+
+        monkeypatch.setattr(SessionRepository, "create", _raise)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Boom",
+                "display_name": "Test Host",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-create.html",
+            context_data=ANY,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Couldn't save the session. Please check your input and try again.",
+                )
+            ],
+        )
+        assert not Session.objects.filter(title="Boom").exists()
 
 
 class TestProposalCreateCategoryFields:

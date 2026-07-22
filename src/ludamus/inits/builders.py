@@ -11,8 +11,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.inits.repositories import Repositories
-from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
+from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.printing import PrintablesReminderService
 

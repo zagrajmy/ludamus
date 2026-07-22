@@ -185,6 +185,61 @@ const wire = (): void => {
   }
 };
 
+// Programmatically raise a sticky error toast, reusing the same markup/behavior
+// as server-rendered flashes. The `.flash-region` toaster is only server-
+// rendered when there are messages, so create it on <body> (it's position:fixed)
+// when a client-side error needs to surface with no region present.
+export const pushErrorFlash = (message: string): void => {
+  let region = document.querySelector<HTMLElement>(".flash-region");
+  if (!region) {
+    region = document.createElement("div");
+    region.className = "flash-region";
+    region.setAttribute("role", "region");
+    region.setAttribute("aria-label", document.body.dataset.flashRegionLabel ?? "");
+    document.body.append(region);
+  }
+
+  const alert = document.createElement("div");
+  alert.className = "alert alert-danger backdrop-blur-lg flex items-center";
+  alert.dataset.flash = "sticky";
+  alert.setAttribute("role", "alert");
+  alert.setAttribute("aria-live", "assertive");
+
+  const text = document.createElement("span");
+  text.className = "text-sm";
+  text.textContent = message;
+
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.dataset.flashDismiss = "";
+  dismiss.className =
+    "ml-auto pl-3 shrink-0 opacity-70 hover:opacity-100 transition-opacity cursor-pointer";
+  dismiss.setAttribute("aria-label", document.body.dataset.flashDismissLabel ?? "");
+  dismiss.textContent = "✕";
+
+  alert.append(text, dismiss);
+  region.append(alert);
+  initFlash(alert);
+};
+
+// htmx silently drops non-2xx responses (no swap, no navigation), so a server
+// error on an htmx form/component leaves the user with no feedback — exactly
+// the "it said it worked but didn't" trap. Surface 5xx and transport failures
+// as an error toast. 4xx is left alone: endpoints may return it deliberately
+// with their own inline handling.
+const SERVER_ERROR_STATUS = 500;
+
+const serverErrorMessage = (): string =>
+  document.body.dataset.serverErrorMessage ?? "Something went wrong.";
+
+document.body.addEventListener("htmx:responseError", (event) => {
+  const { xhr } = (event as CustomEvent<{ xhr?: XMLHttpRequest }>).detail;
+  if (xhr && xhr.status >= SERVER_ERROR_STATUS) pushErrorFlash(serverErrorMessage());
+});
+document.body.addEventListener("htmx:sendError", () => {
+  pushErrorFlash(serverErrorMessage());
+});
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", wire);
 } else {
