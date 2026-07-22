@@ -19,7 +19,7 @@ const PROPOSAL_TITLE_EDITED = "Midnight Heist One-Shot (revised)";
 // first attempt died after the facilitator was already created — every later
 // name-based lookup would then match 2+ elements and fail strict mode. Keep
 // the name unique per attempt instead.
-let facilitator = "Wanda Frost";
+let facilitator: string = "Wanda Frost";
 
 test.describe("Panel facilitator + proposal CRUD", () => {
   test.beforeEach(async ({ page }) => {
@@ -43,16 +43,16 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
     // Redirects back to the list with the new facilitator present.
     await page.waitForURL(/\/facilitators\/$/);
-    await page.getByRole("link", { name: facilitator }).click();
+    await page.getByRole("link", { name: facilitator, exact: true }).click();
 
     // Detail page shows the cached name and the accreditation we picked.
-    await expect(page.getByRole("heading", { name: facilitator })).toBeVisible();
+    await expect(page.getByRole("heading", { name: facilitator, exact: true })).toBeVisible();
     await expect(page.getByText("Standard")).toBeVisible();
   });
 
   test("edits the facilitator accreditation", async ({ page }) => {
     await page.goto(FACILITATORS_URL);
-    await page.getByRole("link", { name: facilitator }).click();
+    await page.getByRole("link", { name: facilitator, exact: true }).click();
     // The detail page carries two "Edit" links (header button + the empty
     // personal-data hint); the header one comes first in the DOM.
     await page.getByRole("link", { name: "Edit" }).first().click();
@@ -74,7 +74,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
     // The picker is search-first: rows stay hidden until the search matches.
     await page.getByPlaceholder("Search by name…").fill(facilitator);
-    await page.getByRole("checkbox", { name: facilitator }).check();
+    await page.getByRole("checkbox", { name: facilitator, exact: true }).check();
     await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
     await page.getByLabel("Title").fill(PROPOSAL_TITLE);
     await page.getByLabel("Display Name").fill(facilitator);
