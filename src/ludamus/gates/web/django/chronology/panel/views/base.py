@@ -177,9 +177,10 @@ _SLUG_BASE_MAX_LENGTH = 45
 
 
 def make_unique_slug(
-    name: str, default: str, check_exists: Callable[[str], bool]
+    *, name: str, default: str, check_exists: Callable[[str], bool]
 ) -> str:
-    base_slug = slugify(name)[:_SLUG_BASE_MAX_LENGTH] or default
+    # Cap after the fallback so an over-long default can't overflow either.
+    base_slug = (slugify(name) or default)[:_SLUG_BASE_MAX_LENGTH]
     slug = base_slug
     for _attempt in range(4):
         if not check_exists(slug):

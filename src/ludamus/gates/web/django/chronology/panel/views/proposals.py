@@ -898,9 +898,11 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
     ) -> int:
         title = form.cleaned_data["title"]
         session_slug = make_unique_slug(
-            title,
-            "session",
-            lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
+            name=title,
+            default="session",
+            check_exists=lambda s: self.request.di.uow.sessions.slug_exists(
+                current_event.pk, s
+            ),
         )
         # The form's MultipleChoiceField already validated each id against the
         # event's facilitators, so the cleaned list is event-scoped.
