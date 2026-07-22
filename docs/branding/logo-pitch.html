@@ -561,6 +561,115 @@
         }
       }
 
+      .motion-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+        gap: 1.25rem;
+        margin-top: 2rem;
+        max-width: 62rem;
+      }
+
+      .motion-card {
+        background: #fff;
+        border: 1px solid var(--warm-300);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: var(--shadow-card);
+        cursor: pointer;
+        user-select: none;
+        transition: transform 160ms var(--ease-out);
+      }
+
+      .motion-card:active {
+        transform: scale(0.985);
+      }
+
+      .motion-card svg {
+        width: 9.5rem;
+        height: 9.5rem;
+      }
+
+      .motion-card figcaption {
+        font-size: 0.72rem;
+        color: var(--warm-600);
+        text-align: center;
+      }
+
+      .motion-card path {
+        transition:
+          d 360ms cubic-bezier(0.77, 0, 0.175, 1),
+          fill 360ms cubic-bezier(0.77, 0, 0.175, 1),
+          opacity 300ms ease;
+      }
+
+      .motion-card.morphed path {
+        transition-duration: 560ms, 560ms, 380ms;
+      }
+
+      .motion-card .mc {
+        opacity: 0;
+      }
+
+      /* spring pop-in: seats scale from their own centers */
+      #mo-spring .ms {
+        transition:
+          transform 700ms var(--ease-spring-a-bit),
+          opacity 260ms ease-out;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      #mo-spring:not(.in) .ms {
+        transform: scale(0.65);
+        opacity: 0;
+        transition: none;
+      }
+
+      #mo-spring.in .ms1 { transition-delay: 0ms; }
+      #mo-spring.in .ms2 { transition-delay: 60ms; }
+      #mo-spring.in .ms3 { transition-delay: 120ms; }
+      #mo-spring.in .ms4 { transition-delay: 180ms; }
+
+      #mo-die.morphed .mt { d: path("M96 60C96 96.23 96.23 96 60 96C23.77 96 24 96.23 24 60C24 23.77 23.77 24 60 24C96.23 24 96 23.77 96 60Z"); }
+      #mo-die.morphed .ms1 { d: path("M51 45C51 48.31 48.31 51 45 51C41.69 51 39 48.31 39 45C39 41.69 41.69 39 45 39C48.31 39 51 41.69 51 45Z"); fill: #fdfcfb; }
+      #mo-die.morphed .ms2 { d: path("M81 45C81 48.31 78.31 51 75 51C71.69 51 69 48.31 69 45C69 41.69 71.69 39 75 39C78.31 39 81 41.69 81 45Z"); fill: #fdfcfb; }
+      #mo-die.morphed .ms3 { d: path("M81 75C81 78.31 78.31 81 75 81C71.69 81 69 78.31 69 75C69 71.69 71.69 69 75 69C78.31 69 81 71.69 81 75Z"); fill: #fdfcfb; }
+      #mo-die.morphed .ms4 { d: path("M51 75C51 78.31 48.31 81 45 81C41.69 81 39 78.31 39 75C39 71.69 41.69 69 45 69C48.31 69 51 71.69 51 75Z"); fill: #fdfcfb; }
+
+      #mo-fridge.morphed .mt { d: path("M99 60C99 99.25 99.25 99 60 99C20.75 99 21 99.25 21 60C21 20.75 20.75 21 60 21C99.25 21 99 20.75 99 60Z"); fill: #252220; }
+      #mo-fridge.morphed .ms1 { d: path("M73 26.5C73 31.2 71.1 32 60 32C48.9 32 47 31.2 47 26.5C47 21.8 48.9 21 60 21C71.1 21 73 21.8 73 26.5Z"); }
+      #mo-fridge.morphed .ms2 { d: path("M99 60C99 71.1 98.2 73 93.5 73C88.8 73 88 71.1 88 60C88 48.9 88.8 47 93.5 47C98.2 47 99 48.9 99 60Z"); }
+      #mo-fridge.morphed .ms3 { d: path("M73 93.5C73 98.2 71.1 99 60 99C48.9 99 47 98.2 47 93.5C47 88.8 48.9 88 60 88C71.1 88 73 88.8 73 93.5Z"); }
+      #mo-fridge.morphed .ms4 { d: path("M32 60C32 71.1 31.2 73 26.5 73C21.8 73 21 71.1 21 60C21 48.9 21.8 47 26.5 47C31.2 47 32 48.9 32 60Z"); }
+      #mo-fridge.morphed .mc1 { d: path("M77.2 26.75C77.2 34.61 74.69 35.95 60 35.95C45.31 35.95 42.8 34.61 42.8 26.75C42.8 18.89 45.31 17.55 60 17.55C74.69 17.55 77.2 18.89 77.2 26.75Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .mc2 { d: path("M102.45 60C102.45 74.69 101.11 77.2 93.25 77.2C85.39 77.2 84.05 74.69 84.05 60C84.05 45.31 85.39 42.8 93.25 42.8C101.11 42.8 102.45 45.31 102.45 60Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .mc3 { d: path("M77.2 93.25C77.2 101.11 74.69 102.45 60 102.45C45.31 102.45 42.8 101.11 42.8 93.25C42.8 85.39 45.31 84.05 60 84.05C74.69 84.05 77.2 85.39 77.2 93.25Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .mc4 { d: path("M35.95 60C35.95 74.69 34.61 77.2 26.75 77.2C18.89 77.2 17.55 74.69 17.55 60C17.55 45.31 18.89 42.8 26.75 42.8C34.61 42.8 35.95 45.31 35.95 60Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+
+      #mo-sword.morphed .mt { d: path("M65 60C65 83.06 64.27 87 60 87C55.73 87 55 83.06 55 60C55 36.94 55.73 33 60 33C64.27 33 65 36.94 65 60Z"); fill: #252220; }
+      #mo-sword.morphed .ms1 { d: path("M65.8 20C65.8 23.2 63.2 25.8 60 25.8C56.8 25.8 54.2 23.2 54.2 20C54.2 16.8 56.8 14.2 60 14.2C63.2 14.2 65.8 16.8 65.8 20Z"); fill: #f85a3c; }
+      #mo-sword.morphed .ms2 { d: path("M63.4 25.4C63.4 28.49 63.09 28.8 60 28.8C56.91 28.8 56.6 28.49 56.6 25.4C56.6 22.31 56.91 22 60 22C63.09 22 63.4 22.31 63.4 25.4Z"); }
+      #mo-sword.morphed .ms3 { d: path("M65 93C65 93 60 100 60 100C60 100 55 93 55 93C55 93 60 86 60 86C60 86 65 93 65 93Z"); }
+      #mo-sword.morphed .ms4 { d: path("M74 31.5C74 34.32 70.96 35.1 60 35.1C49.04 35.1 46 34.32 46 31.5C46 28.68 49.04 27.9 60 27.9C70.96 27.9 74 28.68 74 31.5Z"); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .motion-card path {
+          transition-property: fill, opacity;
+        }
+
+        #mo-spring:not(.in) .ms {
+          transform: none;
+        }
+
+        #mo-spring .ms {
+          transition: opacity 260ms ease-out;
+        }
+      }
+
       @media print {
         .slide {
           min-height: auto;
@@ -602,6 +711,7 @@
       <a href="#s18"><span class="nav-num">18</span>Pipeline</a>
       <a href="#s19"><span class="nav-num">19</span>Stół lab</a>
       <a href="#s20"><span class="nav-num">20</span>Lockup</a>
+      <a href="#s21"><span class="nav-num">21</span>Motion</a>
   </nav>
     <!-- 1 · Title -->
     <section class="slide" id="s01">
@@ -1551,12 +1661,14 @@ detail, clean edges<button class="copy-btn">copy</button></div>
       <span class="slide-num">20</span>
       <h2>The lockup — trimmed to the z.</h2>
       <p class="lede">
-        The combination mark, live-linked to the lab (measured preset by
-        default — not the Fibonacci cut). Seat thickness equals the j stem
-        (6.70 units) so icon and type share one stroke, and the icon is
-        centered on the <strong>z-height band</strong> — from baseline to the
-        z's top, the same box CSS <code>text-box: trim-both</code> trims to —
-        rather than on the taller tittle-to-descender box.
+        <strong>The chosen direction:</strong> the chunky combination mark —
+        tabletop flush with the <strong>z-height band</strong> (baseline to
+        the z's top, the box CSS <code>text-box: trim-both</code> trims to),
+        seats at 7.02 against the 6.70 stem, coral tabletop with a mono
+        variant. The superellipse's rounded corners are what make flush
+        alignment sit right where Outfit's sharp z owns its full box. Ships
+        as <code>zagrajmy-combination-mark(-mono).svg</code>; still
+        live-linked to the lab below.
       </p>
       <div class="concept" style="grid-template-columns: 1fr">
         <figure class="sketch" style="background: #fff">
@@ -1570,7 +1682,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
             coral table
           </label>
           <label class="lockup-toggle">
-            <input type="checkbox" id="lockup-chunky" />
+            <input type="checkbox" id="lockup-chunky" checked />
             chunky · table = z
           </label>
           <figcaption>
@@ -1594,6 +1706,38 @@ detail, clean edges<button class="copy-btn">copy</button></div>
             favicon cut (wider channels), demonstrating the tier system. The
             coral toggle recolors both lockups.
           </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 21 · Motion -->
+    <section class="slide" id="s21">
+      <span class="slide-tag">System · motion</span>
+      <span class="slide-num">21</span>
+      <h2>Motion — one geometry, many pieces.</h2>
+      <p class="lede">
+        Every shape in the system is the same four-curve superellipse, so the
+        mark doesn't crossfade — it <em>morphs</em>. The table is the
+        baseline; its four seats become the d6's four pips, tuck in as the
+        fridge, or reforge into the sword. Hover (or tap) to play; the chairs
+        spring in with the product's own spring curve.
+      </p>
+      <div class="motion-grid">
+        <figure class="motion-card" id="mo-spring">
+          <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
+          <figcaption>chairs pop in · spring, staggered · click replays</figcaption>
+        </figure>
+        <figure class="motion-card morph" id="mo-die">
+          <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
+          <figcaption>table → d6 · the seats are the four</figcaption>
+        </figure>
+        <figure class="motion-card morph" id="mo-fridge">
+          <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="mc mc1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#fdfcfb"/><path class="mc mc2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#fdfcfb"/><path class="mc mc3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#fdfcfb"/><path class="mc mc4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#fdfcfb"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
+          <figcaption>table → fridge · seats tuck flush</figcaption>
+        </figure>
+        <figure class="motion-card morph" id="mo-sword">
+          <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
+          <figcaption>table → sword · zapis reforged</figcaption>
         </figure>
       </div>
     </section>
@@ -1830,6 +1974,33 @@ detail, clean edges<button class="copy-btn">copy</button></div>
           { rootMargin: "-45% 0px -45% 0px" }
         );
         slides.forEach((sl) => sl.id && obs.observe(sl));
+      }
+
+      const springCard = document.getElementById("mo-spring");
+      if (springCard) {
+        const replaySpring = () => {
+          springCard.classList.remove("in");
+          void springCard.getBoundingClientRect();
+          requestAnimationFrame(() => springCard.classList.add("in"));
+        };
+        springCard.addEventListener("click", replaySpring);
+        new IntersectionObserver(
+          (entries, obs) => {
+            if (entries.some((en) => en.isIntersecting)) {
+              replaySpring();
+              obs.disconnect();
+            }
+          },
+          { threshold: 0.5 }
+        ).observe(springCard);
+        const hoverFine = matchMedia("(hover: hover) and (pointer: fine)").matches;
+        document.querySelectorAll(".motion-card.morph").forEach((card) => {
+          if (hoverFine) {
+            card.addEventListener("mouseenter", () => card.classList.add("morphed"));
+            card.addEventListener("mouseleave", () => card.classList.remove("morphed"));
+          }
+          card.addEventListener("click", () => card.classList.toggle("morphed"));
+        });
       }
     </script>
   </body>
