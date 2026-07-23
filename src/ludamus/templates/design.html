@@ -304,12 +304,12 @@
         <code class="text-xs text-foreground-muted">data-morph</code>
     </div>
     <div class="flex items-end gap-10">
-        <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+        <div class="flex flex-col items-center gap-2 text-foreground"
              data-morph="tuck-in">
             {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
             <code class="text-xs text-foreground-muted">tuck-in · navbar hover</code>
         </div>
-        <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+        <div class="flex flex-col items-center gap-2 text-foreground"
              data-morph="d6">
             {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
             <code class="text-xs text-foreground-muted">d6</code>
@@ -322,8 +322,9 @@
         <code class="text-xs text-foreground-muted">Logo Builder</code>
         <code class="text-xs text-foreground-muted">brand/logo-lockup.html</code>
     </div>
-    <div class="w-full max-w-md text-neutral-800 dark:text-neutral-200"
-         data-morph="tuck-in">{% include "components/brand/logo-lockup.html" with extra_class="w-full" %}</div>
+    <div class="w-full max-w-md text-foreground" data-morph="tuck-in">
+        {% include "components/brand/logo-lockup.html" with extra_class="w-full" %}
+    </div>
     <div class="flex flex-wrap gap-6">
         {% include "components/checkbox-field.html" with id="lb-coral" name="lb-coral" label="Coral table" checked=True only %}
     </div>

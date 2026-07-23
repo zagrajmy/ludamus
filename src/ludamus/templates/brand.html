@@ -9,19 +9,19 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border border border-border">
         <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-lockup.html</code>
-            <div class="w-full max-w-md text-neutral-800 dark:text-neutral-200"
-                 data-morph="tuck-in">{% include "components/brand/logo-lockup.html" with extra_class="w-full" %}</div>
+            <div class="w-full max-w-md text-foreground" data-morph="tuck-in">
+                {% include "components/brand/logo-lockup.html" with extra_class="w-full" %}
+            </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">mono</code>
-            <div class="w-full max-w-sm text-neutral-800 dark:text-neutral-200"
-                 data-morph="tuck-in">
+            <div class="w-full max-w-sm text-foreground" data-morph="tuck-in">
                 {% include "components/brand/logo-lockup.html" with extra_class="w-full mono" %}
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-mark.html</code>
-            <div class="text-neutral-800 dark:text-neutral-200" data-morph="tuck-in">
+            <div class="text-foreground" data-morph="tuck-in">
                 {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
             </div>
         </div>
@@ -54,12 +54,12 @@
         <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 flex flex-col gap-4 [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">motion</code>
             <div class="flex items-end gap-10">
-                <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+                <div class="flex flex-col items-center gap-2 text-foreground"
                      data-morph="tuck-in">
                     {% include "components/brand/logo-mark.html" with extra_class="size-20" %}
                     <code class="text-xs text-foreground-muted">tuck-in</code>
                 </div>
-                <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+                <div class="flex flex-col items-center gap-2 text-foreground"
                      data-morph="d6">
                     {% include "components/brand/logo-mark.html" with extra_class="size-20" %}
                     <code class="text-xs text-foreground-muted">d6</code>

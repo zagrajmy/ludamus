@@ -370,6 +370,12 @@ button:active {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
 .blob {
   border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
 }

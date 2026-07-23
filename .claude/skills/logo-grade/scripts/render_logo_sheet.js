@@ -27,13 +27,13 @@ const KEEP = /^(none|transparent|url\()/i;
 function transformPaints(svg, color) {
   return svg
     .replace(/(fill|stroke)="([^"]*)"/g, (m, prop, val) =>
-      KEEP.test(val.trim()) ? m : `${prop}="${color}"`
+      KEEP.test(val.trim()) ? m : `${prop}="${color}"`,
     )
     .replace(/(fill|stroke)='([^']*)'/g, (m, prop, val) =>
-      KEEP.test(val.trim()) ? m : `${prop}='${color}'`
+      KEEP.test(val.trim()) ? m : `${prop}='${color}'`,
     )
     .replace(/(fill|stroke)\s*:\s*([^;"'}<]+)/g, (m, prop, val) =>
-      KEEP.test(val.trim()) ? m : `${prop}: ${color}`
+      KEEP.test(val.trim()) ? m : `${prop}: ${color}`,
     );
 }
 
@@ -54,9 +54,7 @@ if (isSvg) {
   whiteVersion = img(toDataUri(transformPaints(svg, "#ffffff")));
 } else {
   const ext = path.extname(input).slice(1).replace("jpg", "jpeg");
-  const uri = `data:image/${ext};base64,${fs
-    .readFileSync(input)
-    .toString("base64")}`;
+  const uri = `data:image/${ext};base64,${fs.readFileSync(input).toString("base64")}`;
   source = img(uri);
   oneColor = null;
   whiteVersion = source;
@@ -94,7 +92,7 @@ const cells = [
   const page = await browser.newPage({ viewport: { width: 1160, height: 640 } });
   await page.setContent(
     `<body style="margin:0;padding:16px;background:#f5f5f5;display:flex;
-      flex-wrap:wrap;gap:16px;align-items:flex-end">${cells}</body>`
+      flex-wrap:wrap;gap:16px;align-items:flex-end">${cells}</body>`,
   );
   await page.waitForTimeout(250);
   await page.screenshot({ path: output, fullPage: true });
