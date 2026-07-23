@@ -93,6 +93,9 @@ rule: AI output is *an image of a logo*. Rebuild the wordmark in real type
 
 ## Sources
 
+All accessed 2026-07-22; model comparisons and landscape claims reflect
+that date.
+
 Principles: fortheinterested.com (Rand 7-step), printmag.com (CG&H
 interview), logodesignlove.com (Bierut, Haviv, concept counts),
 99percentinvisible.org (Bierut "Negative Space"), wadads.com /

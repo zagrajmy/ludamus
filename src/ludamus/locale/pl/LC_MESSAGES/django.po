@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-20 13:50+0200\n"
+"POT-Creation-Date: 2026-07-23 13:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -660,37 +660,30 @@ msgid "%(name)s (manages their own enrollment)"
 msgstr "%(name)s (zarządza swoimi zapisami)"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Seat held (awaiting their approval): {}"
 msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Guests you bring: {}"
 msgstr "Goście, których zabierasz: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Bring fewer "
 "guests or use the waiting list for account holders."
@@ -699,7 +692,6 @@ msgstr ""
 "Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -1092,7 +1084,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1731,7 +1722,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -1740,7 +1730,6 @@ msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -2962,6 +2951,54 @@ msgstr "Polityka prywatności"
 #: src/ludamus/templates/base.html
 msgid "Terms of Service"
 msgstr "Regulamin"
+
+#: src/ludamus/templates/brand.html
+msgid "Logo & Brand Guidelines"
+msgstr "Logo i identyfikacja wizualna"
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Coral marks the tabletop and small accents. It is never a surface — the logo "
+"does not appear on, or as, a full-coral field, so overlap with other orange "
+"brands is not a concern."
+msgstr ""
+"Koral wyznacza blat stołu i drobne akcenty. Nigdy nie jest powierzchnią — "
+"logo nie pojawia się na koralowym tle ani jako koralowa plama, więc "
+"zbieżność z innymi pomarańczowymi markami nie jest problemem."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Seats and wordmark inherit the text color; use the mono variant on coral-"
+"adjacent or busy grounds."
+msgstr ""
+"Krzesła i logotyp dziedziczą kolor tekstu; na tłach koralowych lub "
+"niespokojnych używaj wariantu mono."
+
+#: src/ludamus/templates/brand.html
+msgid "One ink plus coral, at most. No gradients, no outlines, no shadows."
+msgstr "Najwyżej jedna farba plus koral. Bez gradientów, obrysów i cieni."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"tuck-in — seats tuck flush into the tabletop — is the baseline hover, used "
+"on the navbar logo."
+msgstr ""
+"tuck-in — krzesła wsuwają się równo w blat — to podstawowa animacja "
+"najechania, używana na logo w pasku nawigacji."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"d6 morphs the table into a die face. Reserve it for playful, rare moments."
+msgstr ""
+"d6 zamienia stół w ściankę kości. Zarezerwuj go na rzadkie, zabawowe "
+"momenty."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"These two are the entire motion vocabulary; do not invent new logo "
+"animations."
+msgstr ""
+"Te dwa ruchy to cały słownik animacji; nie wymyślaj nowych animacji logo."
 
 #: src/ludamus/templates/chronology/_accept_timeslot_control.html
 msgid "Choose a time…"

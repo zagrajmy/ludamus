@@ -41,9 +41,7 @@ function toDataUri(svg) {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-function img(src) {
-  return `<img src="${src}" style="width:100%;height:100%;object-fit:contain">`;
-}
+const img = (src) => `<img src="${src}">`;
 
 const isSvg = input.toLowerCase().endsWith(".svg");
 let source, oneColor, whiteVersion;
@@ -102,7 +100,8 @@ const cells = [
   });
   const page = await browser.newPage({ viewport: { width: 1160, height: 640 } });
   await page.setContent(
-    `<body style="margin:0;padding:16px;background:#f5f5f5;display:flex;
+    `<style>img{width:100%;height:100%;object-fit:contain}</style>
+    <body style="margin:0;padding:16px;background:#f5f5f5;display:flex;
       flex-wrap:wrap;gap:16px;align-items:flex-end">${cells}</body>`,
   );
   await page.waitForTimeout(250);
