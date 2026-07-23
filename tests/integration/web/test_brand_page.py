@@ -7,7 +7,7 @@ from tests.integration.utils import assert_response
 
 
 class TestBrandPageView:
-    URL = reverse("brand")
+    URL = reverse("web:brand")
 
     def test_ok(self, client):
         response = client.get(self.URL)

@@ -10,19 +10,19 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border border border-border">
         <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-lockup.html</code>
-            <div class="w-full max-w-md text-foreground" data-morph="tuck-in">
+            <div class="w-full max-w-md text-foreground" data-brand-hover="tuck-in">
                 {% include "components/brand/logo-lockup.html" with extra_class="w-full" %}
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">mono</code>
-            <div class="w-full max-w-sm text-foreground" data-morph="tuck-in">
-                {% include "components/brand/logo-lockup.html" with extra_class="w-full mono" %}
+            <div class="w-full max-w-sm text-foreground" data-brand-hover="tuck-in">
+                {% include "components/brand/logo-lockup.html" with extra_class="w-full" mono=True %}
             </div>
         </div>
         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-mark.html</code>
-            <div class="text-foreground" data-morph="tuck-in">
+            <div class="text-foreground" data-brand-hover="tuck-in">
                 {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
             </div>
         </div>
@@ -44,7 +44,7 @@
             </div>
             <ul class="text-sm text-foreground-secondary list-disc pl-5 space-y-1 max-w-prose">
                 <li>
-                    {% translate "Coral marks the tabletop and small accents. It is never a surface — the logo does not appear on, or as, a full-coral field, so overlap with other orange brands is not a concern." %}
+                    {% translate "Coral marks the tabletop and small accents. It is never a surface: the logo does not appear on or as a full-coral field, so overlap with other orange brands is not a concern." %}
                 </li>
                 <li>
                     {% translate "Seats and wordmark inherit the text color; use the mono variant on coral-adjacent or busy grounds." %}
@@ -52,27 +52,54 @@
                 <li>{% translate "One ink plus coral, at most. No gradients, no outlines, no shadows." %}</li>
             </ul>
         </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 flex flex-col gap-3">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">usage</code>
+            <ul class="text-sm text-foreground-secondary list-disc pl-5 space-y-1 max-w-prose">
+                <li>{% translate "Use the full lockup where the platform speaks: the navbar, sign-in, e-mails, social cards." %}</li>
+                <li>
+                    {% translate "Use the bare mark where space is tight or the name is already on screen: favicons, avatars, badges." %}
+                </li>
+                <li>{% translate "The logo signs the platform. Events and spheres speak under their own names." %}</li>
+                <li>
+                    {% translate "Keep one chair of clear space around the mark, and never render it below 16 px or the lockup below 120 px wide." %}
+                </li>
+            </ul>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 flex flex-col gap-3">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">don'ts</code>
+            <ul class="text-sm text-foreground-secondary list-disc pl-5 space-y-1 max-w-prose">
+                <li>{% translate "Do not recolor. Coral, ink, and mono are the whole palette." %}</li>
+                <li>{% translate "Do not stretch, rotate, or crop the mark." %}</li>
+                <li>{% translate "Do not add shadows, gradients, or outlines." %}</li>
+                <li>{% translate "Do not redraw the mark or set the wordmark in another font. Copy the templates." %}</li>
+                <li>{% translate "Do not place the logo on busy grounds. Switch to mono or calm the background." %}</li>
+                <li>{% translate "Do not build the logo into another logo, product name, or event brand." %}</li>
+            </ul>
+        </div>
         <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 flex flex-col gap-4 [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">motion</code>
             <div class="flex items-end gap-10">
                 <div class="flex flex-col items-center gap-2 text-foreground"
-                     data-morph="tuck-in">
+                     data-brand-hover="tuck-in">
                     {% include "components/brand/logo-mark.html" with extra_class="size-20" %}
                     <code class="text-xs text-foreground-muted">tuck-in</code>
                 </div>
                 <div class="flex flex-col items-center gap-2 text-foreground"
-                     data-morph="d6">
+                     data-brand-hover="d6">
                     {% include "components/brand/logo-mark.html" with extra_class="size-20" %}
                     <code class="text-xs text-foreground-muted">d6</code>
                 </div>
             </div>
             <ul class="text-sm text-foreground-secondary list-disc pl-5 space-y-1 max-w-prose">
                 <li>
-                    {% translate "tuck-in — seats tuck flush into the tabletop — is the baseline hover, used on the navbar logo." %}
+                    {% translate "tuck-in, where the seats slide flush into the tabletop, is the baseline hover. The navbar logo uses it." %}
                 </li>
                 <li>{% translate "d6 morphs the table into a die face. Reserve it for playful, rare moments." %}</li>
                 <li>{% translate "These two are the entire motion vocabulary; do not invent new logo animations." %}</li>
             </ul>
+            <p class="text-xs text-foreground-muted max-w-prose">
+                {% translate "A case these rules do not cover? Ask before improvising." %}
+            </p>
         </div>
     </div>
 {% endblock body %}

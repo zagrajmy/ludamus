@@ -122,8 +122,12 @@ def _forbidden_tag_findings(tags: list[str]) -> list[Finding]:
 
 def _own_paint(element: Element, attr: str) -> str:
     style = element.get("style", "")
-    declarations = dict(part.split(":", 1) for part in style.split(";") if ":" in part)
-    styled = declarations.get(attr, "").strip()
+    declarations = {
+        key.strip(): value.strip()
+        for key, _, value in (part.partition(":") for part in style.split(";"))
+        if value
+    }
+    styled = declarations.get(attr, "")
     if styled:  # inline style beats the presentation attribute
         return styled
     return (element.get(attr) or "").strip()

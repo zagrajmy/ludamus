@@ -9,7 +9,6 @@ from django.db import connection
 from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.decorators.cache import never_cache
-from django.views.generic.base import TemplateView
 from django.views.static import serve
 
 if TYPE_CHECKING:
@@ -52,7 +51,6 @@ def healthz(
 
 urlpatterns: list[URLResolver | URLPattern] = [
     path("healthz/", healthz),
-    path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path("", include("ludamus.adapters.web.django.urls", namespace="web")),
     path(
         "panel/",
