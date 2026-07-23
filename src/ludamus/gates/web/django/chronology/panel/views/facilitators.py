@@ -8,13 +8,17 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    facilitator_tab_urls,
     make_unique_slug,
 )
 from ludamus.gates.web.django.forms import (
@@ -22,22 +26,99 @@ from ludamus.gates.web.django.forms import (
     FacilitatorEditForm,
     FacilitatorForm,
 )
+from ludamus.gates.web.django.helpers import parse_dynamic_field_value
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
     FacilitatorMergeError,
+    FacilitatorUpdateData,
     NotFoundError,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.submissions import AccreditationType, FacilitatorListQuery
 
 if TYPE_CHECKING:
-    from django.http import HttpResponse
+    from collections.abc import Sequence
 
-    from ludamus.pacts import PersonalDataFieldDTO
+    from django.http import HttpResponse
+    from django.utils.functional import _StrPromise
+
+    from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
+    from ludamus.pacts.submissions import (
+        FacilitatorColumnDTO,
+        FacilitatorListContextDTO,
+        FacilitatorPanelServiceProtocol,
+    )
 
 
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
+
+
+def _personal_entries_from_post(
+    *,
+    request: PanelRequest,
+    fields: Sequence[PersonalDataFieldDTO],
+    facilitator_id: int,
+    event_id: int,
+) -> list[PersonalDataFieldValueData]:
+    return [
+        PersonalDataFieldValueData(
+            facilitator_id=facilitator_id,
+            event_id=event_id,
+            field_id=field.pk,
+            value=parse_dynamic_field_value(
+                request=request, field=field, key=f"personal_{field.slug}"
+            ),
+        )
+        for field in fields
+    ]
+
+
+def _format_field_value(*, value: str | list[str] | bool | None) -> str:
+    if isinstance(value, bool):
+        return _("Yes") if value else _("No")
+    if isinstance(value, list):
+        return ", ".join(value)
+    return value or ""
+
+
+def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
+    if key == "name":
+        return facilitator.display_name
+    if key == "linked":
+        return _("Linked") if facilitator.user_id else _("None")
+    if key == "sessions":
+        return str(facilitator.session_count)
+    return str(
+        ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
+    )
+
+
+def _build_column_values(
+    *,
+    panel: FacilitatorPanelServiceProtocol,
+    facilitators: Sequence[FacilitatorListItemDTO],
+    columns: Sequence[FacilitatorColumnDTO],
+) -> dict[int, dict[str, str]]:
+    raw_values = panel.column_values(
+        facilitator_ids=[f.pk for f in facilitators],
+        field_ids=[column.field.pk for column in columns if column.field is not None],
+    )
+    # One ready-to-render string per (facilitator, column), so the template
+    # renders every column the same way whatever the organizer chose.
+    return {
+        facilitator.pk: {
+            column.key: (
+                _format_field_value(
+                    value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
+                )
+                if column.field is not None
+                else _builtin_cell(key=column.key, facilitator=facilitator)
+            )
+            for column in columns
+        }
+        for facilitator in facilitators
+    }
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -45,21 +126,64 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _read_query(self) -> FacilitatorListQuery:
+        accreditation = self.request.GET.get("accreditation", "").strip()
+        return FacilitatorListQuery(
+            search=self.request.GET.get("search", "").strip(),
+            accreditation=(accreditation if accreditation in AccreditationType else ""),
+            flagged=self.request.GET.get("flagged") == "true",
+            sort=self.request.GET.get("sort", "").strip() or "name",
+            raw_field_filters={
+                int(key.removeprefix("field_")): self.request.GET.get(key, "")
+                for key in self.request.GET
+                if key.startswith("field_") and key.removeprefix("field_").isdigit()
+            },
+        )
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
+        query = self._read_query()
+        list_context = self.request.services.facilitator_panel.list_context(
+            event_id=current_event.pk, query=query
         )
-        page_obj = Paginator(all_facilitators, _FACILITATORS_PAGE_SIZE).get_page(
-            self.request.GET.get("page")
+        page_obj = Paginator(
+            list_context.facilitators, _FACILITATORS_PAGE_SIZE
+        ).get_page(self.request.GET.get("page"))
+
+        column_values = _build_column_values(
+            panel=self.request.services.facilitator_panel,
+            facilitators=list(page_obj.object_list),
+            columns=list_context.columns,
         )
 
         context["active_nav"] = "facilitators"
+        context["active_tab"] = "list"
+        context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = list(page_obj.object_list)
         context["page_obj"] = page_obj
+        context["columns"] = list_context.columns
+        context["column_values"] = column_values
+        context["filterable_fields"] = list_context.filterable_fields
+        context["filter_fields"] = {
+            field.pk: query.raw_field_filters.get(field.pk, "")
+            for field in list_context.filterable_fields
+        }
+        context["filter_search"] = query.search
+        context["filter_accreditation"] = query.accreditation or None
+        context["filter_flagged"] = query.flagged
+        context["filter_sort"] = query.sort
+        context["filters_active"] = bool(
+            query.search
+            or query.accreditation
+            or query.flagged
+            or list_context.field_filters
+        )
+        context["accreditation_types"] = [
+            (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
+        ]
         return TemplateResponse(self.request, "panel/facilitators.html", context)
 
 
@@ -131,8 +255,12 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
+        context["personal_fields"] = [(field, None) for field in fields]
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -140,10 +268,14 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
         form = FacilitatorForm(self.request.POST)
         if not form.is_valid():
             context["active_nav"] = "facilitators"
             context["form"] = form
+            context["personal_fields"] = [(field, None) for field in fields]
             return TemplateResponse(
                 self.request, "panel/facilitator-create.html", context
             )
@@ -154,7 +286,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
             "facilitator",
             lambda s: self.request.di.uow.facilitators.slug_exists(current_event.pk, s),
         )
-        self.request.di.uow.facilitators.create(
+        facilitator = self.request.di.uow.facilitators.create(
             FacilitatorData(
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 display_name=display_name,
@@ -163,6 +295,19 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 user_id=None,
             )
         )
+        entries = _personal_entries_from_post(
+            request=self.request,
+            fields=fields,
+            facilitator_id=facilitator.pk,
+            event_id=current_event.pk,
+        )
+        if entries:
+            self.request.services.personal_data_field_values.update_personal_data(
+                event_id=current_event.pk,
+                facilitator_id=facilitator.pk,
+                entries=entries,
+                user_id=self.request.context.current_user_id,
+            )
         messages.success(self.request, _("Facilitator created successfully."))
         return redirect("panel:facilitators", slug=slug)
 
@@ -202,7 +347,10 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["form"] = FacilitatorEditForm(
-            initial={"accreditation_type": facilitator.accreditation_type}
+            initial={
+                "accreditation_type": facilitator.accreditation_type,
+                "internal_comment": facilitator.internal_comment,
+            }
         )
         context["personal_fields"] = personal_fields
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
@@ -238,29 +386,19 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
             current_event.pk
         )
-        entries: list[PersonalDataFieldValueData] = []
-        for field in all_personal_fields:
-            key = f"personal_{field.slug}"
-            if field.field_type == "checkbox":
-                value: str | list[str] | bool = self.request.POST.get(key) == "true"
-            elif field.is_multiple:
-                value = self.request.POST.getlist(key)
-            else:
-                value = self.request.POST.get(key, "")
-                if field.allow_custom and not value:
-                    value = self.request.POST.get(f"{key}_custom", "")
-            entries.append(
-                PersonalDataFieldValueData(
-                    facilitator_id=facilitator.pk,
-                    event_id=current_event.pk,
-                    field_id=field.pk,
-                    value=value,
-                )
-            )
+        entries = _personal_entries_from_post(
+            request=self.request,
+            fields=all_personal_fields,
+            facilitator_id=facilitator.pk,
+            event_id=current_event.pk,
+        )
         self.request.services.personal_data_field_values.update_facilitator(
             event_id=current_event.pk,
             facilitator_id=facilitator.pk,
-            accreditation_type=form.cleaned_data["accreditation_type"],
+            data=FacilitatorUpdateData(
+                accreditation_type=form.cleaned_data["accreditation_type"],
+                internal_comment=form.cleaned_data["internal_comment"],
+            ),
             entries=entries,
             user_id=self.request.context.current_user_id,
         )
@@ -276,31 +414,55 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _list_context(self, event_id: int) -> FacilitatorListContextDTO:
+        return self.request.services.facilitator_panel.list_context(
+            event_id=event_id, query=FacilitatorListQuery()
+        )
+
+    def _render(
+        self,
+        *,
+        context: dict[str, object],
+        slug: str,
+        list_context: FacilitatorListContextDTO,
+        preselected_ids: set[int],
+        error: str | None,
+    ) -> HttpResponse:
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "merge"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+        context["facilitators"] = list_context.facilitators
+        context["columns"] = list_context.columns
+        context["column_values"] = _build_column_values(
+            panel=self.request.services.facilitator_panel,
+            facilitators=list_context.facilitators,
+            columns=list_context.columns,
+        )
+        context["preselected_ids"] = preselected_ids
+        context["error"] = error
+        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
+
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
         raw_ids = self.request.GET.getlist("ids")
-        preselected_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-
-        context["active_nav"] = "facilitators"
-        context["facilitators"] = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
+        return self._render(
+            context=context,
+            slug=slug,
+            list_context=self._list_context(current_event.pk),
+            preselected_ids={int(fid) for fid in raw_ids if fid.isdigit()},
+            error=None,
         )
-        context["preselected_ids"] = preselected_ids
-        context["error"] = None
-        return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(
-            current_event.pk
-        )
-        valid_pks = {f.pk for f in all_facilitators}
+        list_context = self._list_context(current_event.pk)
+        valid_pks = {f.pk for f in list_context.facilitators}
         raw_selected = self.request.POST.getlist("facilitator_ids")
         selected_ids = [
             n for fid in raw_selected if fid.isdigit() and (n := int(fid)) in valid_pks
@@ -314,29 +476,134 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
         min_required = 2
         if len(selected_ids) < min_required or target_id not in selected_ids:
-            context["active_nav"] = "facilitators"
-            context["facilitators"] = all_facilitators
-            context["preselected_ids"] = set(selected_ids)
-            context["error"] = _(
-                "Select at least two facilitators and choose a merge target."
-            )
-            return TemplateResponse(
-                self.request, "panel/facilitator-merge.html", context
+            return self._render(
+                context=context,
+                slug=slug,
+                list_context=list_context,
+                preselected_ids=set(selected_ids),
+                error=_("Select at least two facilitators and choose a merge target."),
             )
 
         source_ids = [fid for fid in selected_ids if fid != target_id]
         try:
             FacilitatorMergeService(self.request.di.uow).merge(target_id, source_ids)
         except FacilitatorMergeError:
-            context["active_nav"] = "facilitators"
-            context["facilitators"] = all_facilitators
-            context["preselected_ids"] = set(selected_ids)
-            context["error"] = _(
-                "Cannot merge facilitators that each have a linked user account."
-            )
-            return TemplateResponse(
-                self.request, "panel/facilitator-merge.html", context
+            return self._render(
+                context=context,
+                slug=slug,
+                list_context=list_context,
+                preselected_ids=set(selected_ids),
+                error=_(
+                    "Cannot merge facilitators that each have a linked user account."
+                ),
             )
 
         messages.success(self.request, _("Facilitators merged successfully."))
+        return redirect("panel:facilitators", slug=slug)
+
+
+class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
+    """Shared POST handler for single-facilitator triage actions."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+    success_message: str | _StrPromise = ""
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        raise NotImplementedError
+
+    def post(
+        self, _request: PanelRequest, slug: str, facilitator_slug: str
+    ) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            self._apply(current_event.pk, facilitator_slug)
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitators", slug=slug)
+
+        messages.success(self.request, self.success_message)
+        return redirect(self._safe_next(slug))
+
+    def _safe_next(self, slug: str) -> str:
+        next_url = self.request.POST.get("next", "")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return next_url
+        return reverse("panel:facilitators", kwargs={"slug": slug})
+
+
+class FacilitatorFlagActionView(_FacilitatorActionView):
+    """Flag a facilitator for deletion (POST only)."""
+
+    success_message = gettext_lazy("Facilitator flagged for deletion.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_flag(
+            event_id=event_id, facilitator_slug=facilitator_slug, flagged=True
+        )
+
+
+class FacilitatorUnflagActionView(_FacilitatorActionView):
+    """Clear a facilitator's deletion flag (POST only)."""
+
+    success_message = gettext_lazy("Facilitator unflagged.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_flag(
+            event_id=event_id, facilitator_slug=facilitator_slug, flagged=False
+        )
+
+
+class FacilitatorMarkGuestActionView(_FacilitatorActionView):
+    """Set a facilitator's accreditation to guest (POST only)."""
+
+    success_message = gettext_lazy("Facilitator marked as guest.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.set_accreditation(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            accreditation_type=AccreditationType.GUEST.value,
+            user_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
+    """Choose which personal-data fields show as columns on the list."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        columns = self.request.services.facilitator_panel.columns_context(
+            current_event.pk
+        )
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "columns"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+        context["chosen_columns"] = columns.chosen
+        context["available_columns"] = columns.available
+        return TemplateResponse(self.request, "panel/facilitator-columns.html", context)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        # The chosen keys arrive in display order; the service drops anything
+        # that isn't this event's own column.
+        self.request.services.facilitator_panel.set_columns(
+            event_id=current_event.pk, columns=self.request.POST.getlist("columns")
+        )
+        messages.success(self.request, _("Columns updated."))
         return redirect("panel:facilitators", slug=slug)

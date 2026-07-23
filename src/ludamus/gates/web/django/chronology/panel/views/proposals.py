@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
@@ -22,7 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import create_proposal_form
+from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -40,6 +41,8 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from django import forms
     from django.http import HttpResponse, QueryDict
     from django.utils.functional import _StrPromise
@@ -49,8 +52,11 @@ if TYPE_CHECKING:
         FacilitatorDTO,
         FacilitatorListItemDTO,
         PersonalDataFieldDTO,
+        ProposalCategoryDTO,
         SessionDTO,
         SessionFieldDTO,
+        SessionFieldRequirementDTO,
+        SessionFieldValueDTO,
         TimeSlotDTO,
         TrackDTO,
     )
@@ -59,6 +65,100 @@ if TYPE_CHECKING:
         tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
     ]
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
+
+
+def resolve_category(
+    request: PanelRequest, event: EventDTO, data: QueryDict
+) -> ProposalCategoryDTO | None:
+    # The category drives which session fields render, but it is picked inside
+    # the same form — so read it back from the submission (or the HTMX swap)
+    # and fall back to the event's first category on a fresh page.
+    if not (categories := request.di.uow.proposal_categories.list_by_event(event.pk)):
+        return None
+    raw = data.get("category_id", "").strip()
+    if raw.isdigit():
+        chosen = next((c for c in categories if c.pk == int(raw)), None)
+        if chosen is not None:
+            return chosen
+    return categories[0]
+
+
+@dataclass(frozen=True)
+class OrphanFieldValue:
+    """A stored answer to a question the session's category no longer asks."""
+
+    field_id: int
+    name: str
+    display_value: str
+
+
+def _display_field_value(
+    field: SessionFieldDTO | None, stored: SessionFieldValueDTO
+) -> str:
+    # Stored answers hold option *values*; show the option labels an organizer
+    # would recognise, and a checkbox as a word rather than "True".
+    raw = stored.value
+    if isinstance(raw, bool):
+        return _("Yes") if raw else _("No")
+    labels = {option.value: option.label for option in field.options} if field else {}
+    if isinstance(raw, list):
+        return ", ".join(labels.get(v) or v for v in raw)
+    return labels.get(raw) or raw
+
+
+def session_field_requirements(
+    request: PanelRequest, category: ProposalCategoryDTO | None
+) -> list[SessionFieldRequirementDTO]:
+    if category is None:
+        return []
+    return request.di.uow.proposal_categories.list_session_field_requirements(
+        category.pk
+    )
+
+
+def build_create_form(
+    request: PanelRequest,
+    event: EventDTO,
+    category: ProposalCategoryDTO | None,
+    data: QueryDict | None = None,
+) -> forms.Form:
+    categories = request.di.uow.proposal_categories.list_by_event(event.pk)
+    facilitators = request.di.uow.facilitators.list_by_event(event.pk)
+    form_class = create_proposal_form(
+        [(c.pk, c.name) for c in categories],
+        facilitators=[(f.pk, f.display_name) for f in facilitators],
+        requirements=session_field_requirements(request, category),
+        category=category,
+    )
+    if data is not None:
+        return form_class(data)
+    # Preselect the resolved category so the picker agrees with the fields
+    # rendered beneath it.
+    return form_class(initial={"category_id": category.pk} if category else None)
+
+
+def collect_session_field_values(
+    *,
+    session_id: int,
+    requirements: Sequence[SessionFieldRequirementDTO],
+    form: forms.Form,
+) -> list[SessionFieldValueData]:
+    # Only the category's own fields are read back; a value the category no
+    # longer asks for is left untouched rather than blanked.
+    values: list[SessionFieldValueData] = []
+    for req in requirements:
+        key = f"session_{req.field.slug}"
+        value = form.cleaned_data.get(key)
+        if req.field.allow_custom and not value:
+            value = form.cleaned_data.get(f"{key}_custom", "")
+        values.append(
+            SessionFieldValueData(
+                session_id=session_id,
+                field_id=req.field.pk,
+                value=value if value is not None else "",
+            )
+        )
+    return values
 
 
 _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
@@ -158,6 +258,14 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["managed_track_pks"] = managed_pks
         context["filter_track_pk"] = filter_track_pk
         context["filter_track_multi"] = filter_track_multi
+        # Value the other filter form echoes back so the track selection
+        # round-trips. Empty string ("All tracks") must stay present in the
+        # query, or the absent-param default re-selects the managed track.
+        context["filter_track_value"] = (
+            "multi"
+            if filter_track_multi
+            else str(filter_track_pk) if filter_track_pk is not None else ""
+        )
         context["categories"] = categories
         context["filter_category_pk"] = filter_category_pk
         status_labels = {
@@ -391,37 +499,103 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         valid_pks = {f.pk for f in all_facilitators}
         return list(submitted_ids & valid_pks)
 
-    def _collect_session_field_values(
-        self, session_pk: int, event_pk: int
-    ) -> list[SessionFieldValueData] | None:
-        if self.request.POST.get("session_fields_submitted") != "1":
-            return None
-        event_fields = self.request.di.uow.session_fields.list_by_event(event_pk)
-        field_entries: list[SessionFieldValueData] = []
-        for field in event_fields:
-            key = f"session_field_{field.slug}"
-            if field.field_type == "checkbox":
-                value: str | list[str] | bool = self.request.POST.get(key) == "true"
-            elif field.is_multiple:
-                value = self.request.POST.getlist(key)
-            else:
-                value = self.request.POST.get(key, "")
-                if field.allow_custom and not value:
-                    value = self.request.POST.get(f"{key}_custom", "")
-            field_entries.append(
-                SessionFieldValueData(
-                    session_id=session_pk, field_id=field.pk, value=value
-                )
-            )
-        return field_entries
+    def _collect_remove_field_ids(self, event_pk: int, proposal_id: int) -> list[int]:
+        raw_ids = self.request.POST.getlist("remove_field_ids")
+        submitted = {int(fid) for fid in raw_ids if fid.isdigit()}
+        # Only answers the category no longer asks for may be removed here; the
+        # rest are edited through their own inputs.
+        orphan_pks = {
+            orphan.field_id for orphan in self._orphan_values(event_pk, proposal_id)
+        }
+        return list(submitted & orphan_pks)
 
-    def _get_session_fields(
+    def _session_category(
         self, event_pk: int, proposal_id: int
-    ) -> list[tuple[SessionFieldDTO, str | list[str] | bool | None]]:
-        fields = self.request.di.uow.session_fields.list_by_event(event_pk)
-        existing = self.request.di.uow.sessions.read_field_values(proposal_id)
-        values_by_slug = {fv.field_slug: fv.value for fv in existing}
-        return [(field, values_by_slug.get(field.slug)) for field in fields]
+    ) -> ProposalCategoryDTO | None:
+        # A submitted / HTMX-swapped category wins, so the fields and the
+        # orphan list follow the picker; otherwise fall back to the stored one.
+        categories = self.request.di.uow.proposal_categories.list_by_event(event_pk)
+        data = self.request.POST if self.request.method == "POST" else self.request.GET
+        raw = data.get("category_id", "").strip()
+        if raw.isdigit() and (
+            chosen := next((c for c in categories if c.pk == int(raw)), None)
+        ):
+            return chosen
+        category_id = self.request.di.uow.sessions.read(proposal_id).category_id
+        return next((c for c in categories if c.pk == category_id), None)
+
+    def _build_form(
+        self,
+        event_pk: int,
+        category: ProposalCategoryDTO | None,
+        session: SessionDTO,
+        data: QueryDict | None = None,
+    ) -> forms.Form:
+        requirements = session_field_requirements(self.request, category)
+        form_class = create_proposal_form(
+            self._category_choices(event_pk),
+            requirements=requirements,
+            category=category,
+        )
+        if data is not None:
+            return form_class(data, self.request.FILES)
+        initial: dict[str, Any] = {
+            "title": session.title,
+            "display_name": session.display_name,
+            "description": session.description,
+            "contact_email": session.contact_email,
+            "participants_limit": session.participants_limit,
+            "min_age": session.min_age,
+            "duration": session.duration,
+            "category_id": session.category_id,
+            "cover_image": session.cover_image_url or None,
+        }
+        stored = {
+            fv.field_id: fv.value
+            for fv in self.request.di.uow.sessions.read_field_values(session.pk)
+        }
+        for req in requirements:
+            if req.field.pk in stored:
+                initial[f"session_{req.field.slug}"] = stored[req.field.pk]
+        return form_class(initial=initial)
+
+    def _add_field_context(
+        self,
+        context: dict[str, Any],
+        *,
+        event_pk: int,
+        proposal_id: int,
+        category: ProposalCategoryDTO | None,
+        form: forms.Form,
+    ) -> None:
+        context["field_descriptors"] = field_descriptors(
+            "session", session_field_requirements(self.request, category), form
+        )
+        context["orphan_values"] = self._orphan_values(event_pk, proposal_id)
+        context["fields_url"] = reverse(
+            "panel:proposal-edit-fields",
+            kwargs={"slug": context["current_event"].slug, "proposal_id": proposal_id},
+        )
+
+    def _orphan_values(self, event_pk: int, proposal_id: int) -> list[OrphanFieldValue]:
+        category = self._session_category(event_pk, proposal_id)
+        asked_pks = {
+            req.field.pk for req in session_field_requirements(self.request, category)
+        }
+        fields_by_pk = {
+            f.pk: f for f in self.request.di.uow.session_fields.list_by_event(event_pk)
+        }
+        return [
+            OrphanFieldValue(
+                field_id=value.field_id,
+                name=value.field_question or value.field_name,
+                display_value=_display_field_value(
+                    fields_by_pk.get(value.field_id), value
+                ),
+            )
+            for value in self.request.di.uow.sessions.read_field_values(proposal_id)
+            if value.field_id not in asked_pks
+        ]
 
     def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -442,23 +616,18 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         all_facilitators, assigned_pks = self._get_facilitator_context(
             current_event.pk, proposal_id
         )
-        form_class = create_proposal_form(self._category_choices(current_event.pk))
+        category = self._session_category(current_event.pk, proposal_id)
+        form = self._build_form(current_event.pk, category, session)
         context["active_nav"] = "proposals"
         context["proposal"] = session
-        context["form"] = form_class(
-            initial={
-                "title": session.title,
-                "display_name": session.display_name,
-                "description": session.description,
-                "contact_email": session.contact_email,
-                "participants_limit": session.participants_limit,
-                "min_age": session.min_age,
-                "duration": session.duration,
-                "category_id": session.category_id,
-                "cover_image": session.cover_image_url or None,
-            }
+        context["form"] = form
+        self._add_field_context(
+            context,
+            event_pk=current_event.pk,
+            proposal_id=proposal_id,
+            category=category,
+            form=form,
         )
-        session_fields = self._get_session_fields(current_event.pk, proposal_id)
         all_tracks, assigned_track_pks = self._get_track_context(
             current_event.pk, proposal_id
         )
@@ -467,7 +636,6 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["all_facilitators"] = all_facilitators
         context["assigned_facilitator_pks"] = assigned_pks
-        context["session_fields"] = session_fields
         context["all_tracks"] = all_tracks
         context["assigned_track_pks"] = assigned_track_pks
         context["all_time_slots"] = all_time_slots
@@ -494,6 +662,9 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
         # Prefer the invalid submission over persisted values so in-progress
         # selections survive the re-render.
+        submitted_facilitators = self._collect_facilitator_ids(event_pk)
+        if submitted_facilitators is not None:
+            assigned_pks = set(submitted_facilitators)
         if (submitted_tracks := self._collect_track_ids(event_pk)) is not None:
             assigned_track_pks = set(submitted_tracks)
         if (submitted_slots := self._collect_time_slot_ids(event_pk)) is not None:
@@ -508,7 +679,13 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         context["form"] = form
         context["all_facilitators"] = all_facilitators
         context["assigned_facilitator_pks"] = assigned_pks
-        context["session_fields"] = self._get_session_fields(event_pk, session.pk)
+        self._add_field_context(
+            context,
+            event_pk=event_pk,
+            proposal_id=session.pk,
+            category=self._session_category(event_pk, session.pk),
+            form=form,
+        )
         context["all_tracks"] = all_tracks
         context["assigned_track_pks"] = assigned_track_pks
         context["all_time_slots"] = all_time_slots
@@ -532,8 +709,8 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
-        form_class = create_proposal_form(self._category_choices(current_event.pk))
-        form = form_class(self.request.POST, self.request.FILES)
+        category = self._session_category(current_event.pk, proposal_id)
+        form = self._build_form(current_event.pk, category, session, self.request.POST)
         if not form.is_valid():
             return self._render_invalid(
                 context, form=form, session=session, event_pk=current_event.pk
@@ -553,17 +730,21 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         if cover is not None:
             update_data["cover_image"] = cover
 
-        field_values = self._collect_session_field_values(session.pk, current_event.pk)
+        requirements = session_field_requirements(self.request, category)
+        remove_field_ids = self._collect_remove_field_ids(current_event.pk, proposal_id)
         self.request.services.session_content_edit.apply(
             session_id=proposal_id,
             event_id=current_event.pk,
             user_id=self.request.context.current_user_id,
             data=SessionContentEditData(
                 update=update_data,
-                field_values=field_values,
+                field_values=collect_session_field_values(
+                    session_id=proposal_id, requirements=requirements, form=form
+                ),
                 facilitator_ids=self._collect_facilitator_ids(current_event.pk),
                 track_ids=self._collect_track_ids(current_event.pk),
                 time_slot_ids=self._collect_time_slot_ids(current_event.pk),
+                remove_field_ids=remove_field_ids,
             ),
         )
 
@@ -592,37 +773,72 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def _get_form(
-        self, current_event: EventDTO, data: QueryDict | None = None
-    ) -> forms.Form:
-        categories = self.request.di.uow.proposal_categories.list_by_event(
+    def _render(
+        self,
+        context: dict[str, Any],
+        *,
+        current_event: EventDTO,
+        category: ProposalCategoryDTO | None,
+        form: forms.Form,
+    ) -> HttpResponse:
+        context["active_nav"] = "proposals"
+        context["form"] = form
+        context["category"] = category
+        context["all_facilitators"] = self.request.di.uow.facilitators.list_by_event(
             current_event.pk
         )
-        choices = [(c.pk, c.name) for c in categories]
-        facilitators = self.request.di.uow.facilitators.list_by_event(current_event.pk)
-        facilitator_choices = [(f.pk, f.display_name) for f in facilitators]
-        form_class = create_proposal_form(choices, facilitator_choices)
-        return form_class(data) if data is not None else form_class()
+        # The picker partial keys checked state off pks, so translate the
+        # form's raw (possibly re-submitted) values back to ints.
+        raw_ids: list[str] = []
+        if "facilitator_ids" in form.fields:
+            raw_ids = form["facilitator_ids"].value() or []
+        context["assigned_facilitator_pks"] = {
+            int(v) for v in raw_ids if str(v).isdigit()
+        } & {f.pk for f in context["all_facilitators"]}
+        all_time_slots = self.request.di.uow.time_slots.list_by_event(current_event.pk)
+        context["all_time_slots"] = all_time_slots
+        # Slots live outside the form (checkbox list, like on edit), so an
+        # invalid submission re-reads the in-progress selection from POST.
+        context["assigned_time_slot_pks"] = {
+            int(v) for v in self.request.POST.getlist("time_slot_ids") if v.isdigit()
+        } & {ts.pk for ts in all_time_slots}
+        context["field_descriptors"] = field_descriptors(
+            "session", session_field_requirements(self.request, category), form
+        )
+        # A session being created has no stored answers, so it can never have
+        # any outside its category.
+        context["orphan_values"] = []
+        context["fields_url"] = reverse(
+            "panel:proposal-create-fields", kwargs={"slug": current_event.slug}
+        )
+        return TemplateResponse(self.request, "panel/proposal-create.html", context)
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        context["active_nav"] = "proposals"
-        context["form"] = self._get_form(current_event)
-        return TemplateResponse(self.request, "panel/proposal-create.html", context)
+        category = resolve_category(self.request, current_event, self.request.GET)
+        return self._render(
+            context,
+            current_event=current_event,
+            category=category,
+            form=build_create_form(self.request, current_event, category),
+        )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        form = self._get_form(current_event, self.request.POST)
+        category = resolve_category(self.request, current_event, self.request.POST)
+        form = build_create_form(
+            self.request, current_event, category, self.request.POST
+        )
         if not form.is_valid():
-            context["active_nav"] = "proposals"
-            context["form"] = form
-            return TemplateResponse(self.request, "panel/proposal-create.html", context)
+            return self._render(
+                context, current_event=current_event, category=category, form=form
+            )
 
         title = form.cleaned_data["title"]
         session_slug = make_unique_slug(
@@ -651,8 +867,86 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             ),
             facilitator_ids=facilitator_ids,
         )
+        if requirements := session_field_requirements(self.request, category):
+            self.request.di.uow.sessions.save_field_values(
+                proposal_id,
+                collect_session_field_values(
+                    session_id=proposal_id, requirements=requirements, form=form
+                ),
+            )
+        submitted_slot_ids = {
+            int(v) for v in self.request.POST.getlist("time_slot_ids") if v.isdigit()
+        }
+        valid_slot_pks = {
+            ts.pk
+            for ts in self.request.di.uow.time_slots.list_by_event(current_event.pk)
+        }
+        if time_slot_ids := list(submitted_slot_ids & valid_slot_pks):
+            self.request.di.uow.sessions.set_time_slots(proposal_id, time_slot_ids)
         messages.success(self.request, _("Proposal created successfully."))
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+
+class ProposalCreateFieldsComponentView(PanelAccessMixin, EventContextMixin, View):
+    """Re-render the create form's session fields for the picked category."""
+
+    request: PanelRequest
+    http_method_names = ("get",)
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        category = resolve_category(self.request, current_event, self.request.GET)
+        requirements = session_field_requirements(self.request, category)
+        form = build_create_form(self.request, current_event, category)
+        return TemplateResponse(
+            self.request,
+            "panel/parts/proposal-session-fields.html",
+            {
+                "field_descriptors": field_descriptors("session", requirements, form),
+                "form": form,
+                "category": category,
+                "orphan_values": [],
+            },
+        )
+
+
+class ProposalEditFieldsComponentView(ProposalEditPageView):
+    """Re-render the edit form's session fields for the picked category."""
+
+    http_method_names = ("get",)
+
+    def get(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            session = self.request.di.uow.sessions.read(proposal_id)
+        except NotFoundError:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        session_event = self.request.di.uow.sessions.read_event(proposal_id)
+        if session_event.pk != current_event.pk:
+            messages.error(self.request, _("Proposal not found."))
+            return redirect("panel:proposals", slug=slug)
+
+        category = self._session_category(current_event.pk, proposal_id)
+        form = self._build_form(current_event.pk, category, session)
+        self._add_field_context(
+            context,
+            event_pk=current_event.pk,
+            proposal_id=proposal_id,
+            category=category,
+            form=form,
+        )
+        context["form"] = form
+        return TemplateResponse(
+            self.request, "panel/parts/proposal-session-fields.html", context
+        )
 
 
 class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):

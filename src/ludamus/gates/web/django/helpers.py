@@ -8,7 +8,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from ludamus.pacts import EventDTO
+    from ludamus.pacts import EventDTO, PersonalDataFieldDTO, SessionFieldDTO
 
 
 def is_event_published(event: EventDTO) -> bool:
@@ -16,6 +16,19 @@ def is_event_published(event: EventDTO) -> bool:
         event.publication_time is not None
         and event.publication_time <= datetime.now(tz=UTC)
     )
+
+
+def parse_dynamic_field_value(
+    *, request: HttpRequest, field: PersonalDataFieldDTO | SessionFieldDTO, key: str
+) -> str | list[str] | bool:
+    if field.field_type == "checkbox":
+        return request.POST.get(key) == "true"
+    if field.is_multiple:
+        return request.POST.getlist(key)
+    value = request.POST.get(key, "")
+    if field.allow_custom and not value:
+        value = request.POST.get(f"{key}_custom", "")
+    return value
 
 
 def get_client_ip(request: HttpRequest) -> str:

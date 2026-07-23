@@ -309,7 +309,6 @@ class Auth0LogoutActionView(RedirectView):
         last_domain = self.request.services.sites.read(
             self.request.context.current_sphere_id
         ).site.domain
-        messages.success(self.request, _("You have been successfully logged out."))
 
         return _auth0_logout_url(
             self.request, last_domain=last_domain, redirect_to=redirect_to

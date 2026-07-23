@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.submissions import FacilitatorListFilters
 
 
 class NotFoundError(Exception):
@@ -77,6 +78,7 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    internal_comment: str = ""
     pk: int
     slug: str
     user_id: int | None
@@ -93,6 +95,7 @@ class FacilitatorData(TypedDict, total=False):
 class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
+    internal_comment: str
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -100,6 +103,7 @@ class FacilitatorListItemDTO(BaseModel):
 
     accreditation_type: str
     display_name: str
+    flagged_for_deletion: bool = False
     pk: int
     session_count: int
     slug: str
@@ -834,7 +838,7 @@ class SphereRepositoryProtocol(Protocol):
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
-class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
+class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def create(
         session_data: SessionData,
@@ -1021,7 +1025,9 @@ class SpaceRepositoryProtocol(Protocol):
     def lock(pk: int) -> None: ...
 
 
-class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split planned
+class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-methods]
+    Protocol
+):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
@@ -1291,7 +1297,11 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod
-    def list_by_event(event_id: int) -> list[FacilitatorListItemDTO]: ...
+    def list_by_event(
+        event_id: int, filters: FacilitatorListFilters | None = None
+    ) -> list[FacilitatorListItemDTO]: ...
+    @staticmethod
+    def set_flag(pk: int, *, flagged: bool) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1305,6 +1315,10 @@ class PersonalDataFieldValueRepositoryProtocol(Protocol):
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
+    @staticmethod
+    def list_values_for_facilitators(
+        facilitator_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def list_field_ids_for_facilitator_event(
         facilitator_id: int, event_id: int
@@ -1404,11 +1418,14 @@ class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
     # `field_values` None leaves dynamic answers untouched (partial POST guard).
+    # `remove_field_ids` drops answers to fields the session's category no
+    # longer asks for — the only edit the panel allows on those.
     update: SessionUpdateData
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
     time_slot_ids: list[int] | None = None
+    remove_field_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):
@@ -1469,7 +1486,7 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
-class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
+class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
     @property

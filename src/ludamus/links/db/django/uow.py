@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
 
-class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
+class UnitOfWork(UnitOfWorkProtocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def atomic() -> AbstractContextManager[None]:
         return transaction.atomic()

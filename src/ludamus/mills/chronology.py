@@ -5,9 +5,8 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
-import math
 from collections import defaultdict
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
@@ -25,9 +24,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
-    TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
-    TIMETABLE_SNAP_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -55,13 +52,8 @@ from ludamus.pacts.chronology import (
     ProposalAcceptContextDTO,
     ProposalScheduledError,
     SessionPlacement,
-    SessionPositionDTO,
     SourceQuestion,
-    SpaceColumnDTO,
-    SpaceGroupDTO,
     SpaceTimeConflictError,
-    TimeLabelDTO,
-    TimetableGridDTO,
     TrackProgressDTO,
 )
 from ludamus.pacts.legacy import resolve_cover_image
@@ -84,7 +76,6 @@ if TYPE_CHECKING:
         SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
-        SpaceDTO,
         SphereRepositoryProtocol,
         TimeSlotDTO,
         TrackRepositoryProtocol,
@@ -102,49 +93,18 @@ def _duration_hours(start: datetime, end: datetime) -> float:
     return max((end - start).total_seconds() / 3600, 0.0)
 
 
-def _position_sessions(
-    items: list[AgendaItemDTO], event_start: datetime
-) -> list[SessionPositionDTO]:
-    # Compute time-domain positions for sessions in a single space column.
-    # Overlapping sessions are placed side by side by splitting the column width.
-    if not items:
-        return []
+def _slot_start(slot: TimeSlotDTO) -> datetime:
+    return slot.start_time
 
-    # Group items into non-overlapping clusters using a sweep
-    groups: list[list[AgendaItemDTO]] = []
-    current_group: list[AgendaItemDTO] = []
-    group_end: datetime | None = None
 
-    for item in items:
-        if group_end is None or item.start_time >= group_end:
-            if current_group:
-                groups.append(current_group)
-            current_group = [item]
-            group_end = item.end_time
+def _merged_slot_ranges(slots: list[TimeSlotDTO]) -> list[tuple[datetime, datetime]]:
+    merged: list[tuple[datetime, datetime]] = []
+    for slot in sorted(slots, key=_slot_start):
+        if merged and slot.start_time <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], slot.end_time))
         else:
-            current_group.append(item)
-            group_end = max(group_end, item.end_time)
-    if current_group:
-        groups.append(current_group)
-
-    positions: list[SessionPositionDTO] = []
-    for group in groups:
-        n = len(group)
-        lane_width_pct = 100.0 / n
-        for i, item in enumerate(group):
-            offset_min = (item.start_time - event_start).total_seconds() / 60
-            duration_min = (item.end_time - item.start_time).total_seconds() / 60
-            positions.append(
-                SessionPositionDTO(
-                    agenda_item=item,
-                    start_minutes=round(offset_min),
-                    duration_minutes=round(duration_min),
-                    lane_start_pct=i * lane_width_pct,
-                    lane_width_pct=lane_width_pct,
-                )
-            )
-
-    return positions
+            merged.append((slot.start_time, slot.end_time))
+    return merged
 
 
 def require_session_in_event(
@@ -154,313 +114,6 @@ def require_session_in_event(
     # the request must belong to it, or it is cross-event tampering.
     if sessions.read_event(session_pk).pk != event_pk:
         raise NotFoundError
-
-
-class TimetableService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
-
-    def build_grid(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        track_pk: int | None = None,
-        space_page: int = 1,
-        selected_date: date | None = None,
-    ) -> TimetableGridDTO:
-        all_nodes = self._uow.spaces.list_by_event(event_pk)
-        node_name_by_pk = {node.pk: node.name for node in all_nodes}
-        leaf_spaces = self._leaves_in_tree_order(all_nodes)
-        if track_pk is not None:
-            track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
-            leaf_spaces = [s for s in leaf_spaces if s.pk in track_space_pks]
-
-        total_spaces = len(leaf_spaces)
-        total_pages = max(1, math.ceil(total_spaces / TIMETABLE_ROOM_PAGE_SIZE))
-        space_page = max(1, min(space_page, total_pages))
-        start = (space_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
-        spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
-
-        all_slots = self._uow.time_slots.list_by_event(event_pk)
-        windows_by_date = slot_windows_by_local_date(all_slots, tz)
-        available_dates = sorted(windows_by_date.keys())
-
-        if selected_date is None or selected_date not in windows_by_date:
-            selected_date = available_dates[0] if available_dates else None
-
-        groups = self._build_space_groups(spaces, node_name_by_pk)
-
-        if selected_date is None:
-            return TimetableGridDTO(
-                spaces=spaces,
-                columns=[SpaceColumnDTO(space=s, sessions=[]) for s in spaces],
-                groups=groups,
-                time_labels=[],
-                total_minutes=0,
-                event_start_iso="",
-                slot_minutes=TIMETABLE_SLOT_MINUTES,
-                snap_minutes=TIMETABLE_SNAP_MINUTES,
-                page=space_page,
-                total_pages=total_pages,
-                total_spaces=total_spaces,
-                available_dates=available_dates,
-                selected_date=None,
-            )
-
-        day_windows = windows_by_date[selected_date]
-        grid_start = min(w[0] for w in day_windows).replace(
-            minute=0, second=0, microsecond=0
-        )
-        latest_end = max(w[1] for w in day_windows)
-        grid_end = latest_end.replace(minute=0, second=0, microsecond=0)
-        if latest_end != grid_end:
-            grid_end += timedelta(hours=1)
-
-        total_minutes = int((grid_end - grid_start).total_seconds() / 60)
-        num_slots = total_minutes // TIMETABLE_SLOT_MINUTES
-
-        slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
-        time_labels = [
-            TimeLabelDTO(
-                time=grid_start + slot_delta * i,
-                offset_minutes=i * TIMETABLE_SLOT_MINUTES,
-            )
-            for i in range(num_slots + 1)
-        ]
-
-        all_items = (
-            self._uow.agenda_items.list_by_track(track_pk)
-            if track_pk is not None
-            else self._uow.agenda_items.list_by_event(event_pk)
-        )
-        space_pk_set = {s.pk for s in spaces}
-        space_items: dict[int, list[AgendaItemDTO]] = defaultdict(list)
-        for item in all_items:
-            if (
-                item.space_id in space_pk_set
-                and item.start_time < grid_end
-                and item.end_time > grid_start
-            ):
-                space_items[item.space_id].append(item)
-
-        columns: list[SpaceColumnDTO] = []
-        for space in spaces:
-            items_for_space = space_items.get(space.pk, [])
-            items_for_space.sort(key=lambda x: x.start_time)
-            columns.append(
-                SpaceColumnDTO(
-                    space=space,
-                    sessions=_position_sessions(
-                        items_for_space, event_start=grid_start
-                    ),
-                )
-            )
-
-        return TimetableGridDTO(
-            spaces=spaces,
-            columns=columns,
-            groups=groups,
-            time_labels=time_labels,
-            total_minutes=num_slots * TIMETABLE_SLOT_MINUTES,
-            event_start_iso=grid_start.isoformat(),
-            slot_minutes=TIMETABLE_SLOT_MINUTES,
-            snap_minutes=TIMETABLE_SNAP_MINUTES,
-            page=space_page,
-            total_pages=total_pages,
-            total_spaces=total_spaces,
-            available_dates=available_dates,
-            selected_date=selected_date,
-        )
-
-    @staticmethod
-    def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
-        # Depth-first walk of the space tree, returning only the leaves (the
-        # bookable rooms) in display order. Siblings keep `nodes` ordering.
-        children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
-        for node in nodes:
-            children[node.parent_id].append(node)
-
-        leaves: list[SpaceDTO] = []
-
-        def walk(node: SpaceDTO) -> None:
-            if kids := children.get(node.pk, []):
-                for kid in kids:
-                    walk(kid)
-            else:
-                leaves.append(node)
-
-        for root in children.get(None, []):
-            walk(root)
-        return leaves
-
-    @staticmethod
-    def _build_space_groups(
-        spaces: list[SpaceDTO], name_by_pk: dict[int, str]
-    ) -> list[SpaceGroupDTO]:
-        # One header cell per run of consecutive leaves sharing an immediate
-        # parent (collapsing the old venue-row + area-row to a single row).
-        groups: list[SpaceGroupDTO] = []
-        for space in spaces:
-            parent_pk = space.parent_id
-            if not groups or groups[-1].parent_pk != parent_pk:
-                groups.append(
-                    SpaceGroupDTO(
-                        parent_pk=parent_pk,
-                        parent_name=name_by_pk.get(parent_pk, "") if parent_pk else "",
-                        span=0,
-                    )
-                )
-            groups[-1].span += 1
-        return groups
-
-    def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
-        require_session_in_event(self._uow.sessions, session_pk, event_pk)
-
-    def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
-        # Only leaf spaces (bookable rooms) may hold a session; a branch node
-        # would violate the leaf-only invariant the timetable grid relies on.
-        leaf_pks = {
-            s.pk
-            for s in self._leaves_in_tree_order(
-                self._uow.spaces.list_by_event(event_pk)
-            )
-        }
-        if space_pk not in leaf_pks:
-            raise NotFoundError
-
-    def assign_session(
-        self,
-        session_pk: int,
-        placement: SessionPlacement,
-        event_pk: int,
-        user_pk: int | None = None,
-    ) -> None:
-        with self._uow.atomic():
-            self._require_session_in_event(session_pk, event_pk)
-            self._require_space_in_event(placement.space_pk, event_pk)
-            # Lock the target Space row before creating the placement so a
-            # concurrent subtree delete (which locks the same rows before its
-            # no-sessions check) can't cascade this AgendaItem away in the gap
-            # between that check and the delete.
-            self._uow.spaces.lock(placement.space_pk)
-            # Moving an already-scheduled session invalidates any prior
-            # confirmation, so a re-assignment always lands unconfirmed --
-            # even in an auto-confirm event -- and must be re-verified.
-            is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
-            # Re-assigning an already-scheduled session: drop the old placement
-            # first so the new one becomes its only agenda item.
-            if is_move:
-                self.unassign_session(session_pk, event_pk=event_pk, user_pk=user_pk)
-            session = self._uow.sessions.read(session_pk)
-            if session.status != SessionStatus.ACCEPTED:
-                msg = f"Session {session_pk} is not in ACCEPTED status"
-                raise ValueError(msg)
-            event = self._uow.sessions.read_event(session_pk)
-            self._uow.agenda_items.create(
-                {
-                    "session_id": session_pk,
-                    "space_id": placement.space_pk,
-                    "start_time": placement.start_time,
-                    "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions and not is_move,
-                }
-            )
-            log_data: ScheduleChangeLogData = {
-                "event_id": event.pk,
-                "session_id": session_pk,
-                "user_id": user_pk,
-                "action": ScheduleChangeAction.ASSIGN,
-                "new_space_id": placement.space_pk,
-                "new_start_time": placement.start_time,
-                "new_end_time": placement.end_time,
-            }
-            self._uow.schedule_change_logs.create(log_data)
-
-    def unassign_session(
-        self, session_pk: int, event_pk: int, user_pk: int | None = None
-    ) -> None:
-        self._require_session_in_event(session_pk, event_pk)
-        if (agenda_item := self._uow.agenda_items.read_by_session(session_pk)) is None:
-            raise NotFoundError
-        event = self._uow.sessions.read_event(session_pk)
-        self._uow.agenda_items.delete(agenda_item.pk)
-        log_data: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": session_pk,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.UNASSIGN,
-            "old_space_id": agenda_item.space_id,
-            "old_start_time": agenda_item.start_time,
-            "old_end_time": agenda_item.end_time,
-        }
-        self._uow.schedule_change_logs.create(log_data)
-
-    def revert_change(
-        self, log_pk: int, event_pk: int, user_pk: int | None = None
-    ) -> None:
-        log = self._uow.schedule_change_logs.read(log_pk)
-        if log.event_id != event_pk:
-            # The log belongs to another event — reject before reverting.
-            raise NotFoundError
-        # Lock the session row so concurrent reverts (and assign/unassign)
-        # serialize: the latest-pk check and all mutations run under one
-        # transaction, so a second revert re-reads a now-stale latest_pk and
-        # is rejected instead of racing past the check (TOCTOU).
-        with self._uow.atomic():
-            self._uow.sessions.lock(log.session_id)
-            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
-                event_pk, log.session_id
-            )
-            if latest_pk != log_pk:
-                # Only the most recent change for a session may be undone, so
-                # reverts always unwind history in order.
-                msg = "Only the latest change for a session can be reverted"
-                raise ValueError(msg)
-            if log.action == ScheduleChangeAction.ASSIGN:
-                agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
-                if agenda_item is None:
-                    raise NotFoundError
-                self._uow.agenda_items.delete(agenda_item.pk)
-            elif log.action == ScheduleChangeAction.UNASSIGN:
-                if (
-                    log.old_space_id is None
-                    or log.old_start_time is None
-                    or log.old_end_time is None
-                ):
-                    msg = "Cannot revert UNASSIGN: missing original placement data"
-                    raise ValueError(msg)
-                session = self._uow.sessions.read(log.session_id)
-                if session.status != SessionStatus.ACCEPTED:
-                    msg = f"Session {log.session_id} is not in ACCEPTED status"
-                    raise ValueError(msg)
-                self._uow.agenda_items.create(
-                    {
-                        "session_id": log.session_id,
-                        "space_id": log.old_space_id,
-                        "start_time": log.old_start_time,
-                        "end_time": log.old_end_time,
-                        "session_confirmed": False,
-                    }
-                )
-            else:
-                msg = f"Cannot revert action: {log.action}"
-                raise ValueError(msg)
-            event = self._uow.sessions.read_event(log.session_id)
-            revert_log: ScheduleChangeLogData = {
-                "event_id": event.pk,
-                "session_id": log.session_id,
-                "user_id": user_pk,
-                "action": ScheduleChangeAction.REVERT,
-            }
-            if log.action == ScheduleChangeAction.ASSIGN:
-                revert_log["old_space_id"] = log.new_space_id
-                revert_log["old_start_time"] = log.new_start_time
-                revert_log["old_end_time"] = log.new_end_time
-            elif log.action == ScheduleChangeAction.UNASSIGN:
-                revert_log["new_space_id"] = log.old_space_id
-                revert_log["new_start_time"] = log.old_start_time
-                revert_log["new_end_time"] = log.old_end_time
-            self._uow.schedule_change_logs.create(revert_log)
 
 
 class SessionConfirmationService:
@@ -532,10 +185,14 @@ class SessionDeletionService:
                     "session_id": session_pk,
                     "user_id": user_pk,
                     "action": ScheduleChangeAction.UNASSIGN,
-                    "old_space_id": agenda_item.space_id,
-                    "old_start_time": agenda_item.start_time,
-                    "old_end_time": agenda_item.end_time,
                 }
+                log_data.update(
+                    {
+                        "old_space_id": agenda_item.space_id,
+                        "old_start_time": agenda_item.start_time,
+                        "old_end_time": agenda_item.end_time,
+                    }
+                )
                 self._schedule_change_logs.create(log_data)
             # Participations are retained as history (not cancelled).
             self._sessions.soft_delete(session_pk)
@@ -818,8 +475,8 @@ class ConflictDetectionService:
             if not (preferred := preferred_by_session.get(item.session_id, [])):
                 continue
             if any(
-                slot.start_time <= item.start_time and slot.end_time >= item.end_time
-                for slot in preferred
+                start <= item.start_time and end >= item.end_time
+                for start, end in _merged_slot_ranges(preferred)
             ):
                 continue
             track_name, manager_names = self._slot_violation_track_attribution(
@@ -1258,6 +915,27 @@ class SessionContentEditService:
                     for fv in old_values
                 ]
             )
+            # Logged as old -> None so the entry reverts by re-saving the value
+            # (build_inverse_content_edit restores `old`).
+            removal_changes: list[ContentFieldChange] = []
+            if data.remove_field_ids:
+                old_by_id = {fv.field_id: fv.value for fv in old_values}
+                removed = [
+                    field_id
+                    for field_id in data.remove_field_ids
+                    if field_id in old_by_id
+                ]
+                if removed:
+                    self._sessions.delete_field_values_for_fields(session_id, removed)
+                    removal_changes = [
+                        {
+                            "field": "",
+                            "field_id": field_id,
+                            "old": old_by_id[field_id],
+                            "new": None,
+                        }
+                        for field_id in removed
+                    ]
             m2m_changes: list[ContentFieldChange] = []
             if data.facilitator_ids is not None:
                 before = [
@@ -1285,6 +963,7 @@ class SessionContentEditService:
             changes = diff_session_content(
                 old_session, data.update, old_values, values_for_diff
             )
+            changes.extend(removal_changes)
             changes.extend(m2m_changes)
             if changes:
                 log_data: ContentChangeLogData = {

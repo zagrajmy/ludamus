@@ -53,9 +53,13 @@ class SelectNode(template.Node):
         return render_to_string(
             "components/select.html",
             {
-                "attrs": mark_safe(" ".join(attr_parts)),  # noqa: S308
+                "attrs": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
+                    " ".join(attr_parts)
+                ),
                 "extra_class": extra_class,
-                "slot": mark_safe(self.nodelist.render(context)),  # noqa: S308
+                "slot": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
+                    self.nodelist.render(context)
+                ),
             },
         )
 

@@ -135,6 +135,74 @@ test.describe("Backoffice Panel", () => {
     });
   });
 
+  test("uses square top corners on panel tab strips", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await expect(page.locator(".tab-shell")).toHaveCSS("border-top-left-radius", "0px");
+    await expect(page.locator(".tab-shell")).toHaveCSS("border-top-right-radius", "0px");
+  });
+
+  test("fills the remaining panel height with the tab body", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/cfp/");
+
+    const panel = await page.getByRole("main").boundingBox();
+    const tabBody = await page.locator(".tab-shell > div").last().boundingBox();
+
+    expect(panel).not.toBeNull();
+    expect(tabBody).not.toBeNull();
+    expect(Math.abs(panel!.y + panel!.height - (tabBody!.y + tabBody!.height))).toBeLessThanOrEqual(
+      1,
+    );
+  });
+
+  test("does not scale panel category collapsibles on pointer down", async ({ page }) => {
+    await page.goto("/panel/");
+
+    const category = page.getByRole("button", { name: "Program" });
+    await category.hover();
+    await page.mouse.down();
+    await expect(category).toHaveCSS("scale", "1");
+    await page.mouse.up();
+  });
+
+  test("keeps the sidebar toggle at the top while scrolling", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 320 });
+    await page.goto("/panel/");
+
+    const foldButton = page.getByRole("button", { name: "Toggle sidebar" });
+    const eventSelector = page.getByRole("combobox", { name: "Event" });
+    const sidebar = page.getByRole("complementary");
+    await expect(eventSelector).toBeVisible();
+
+    const controls = await Promise.all([eventSelector.boundingBox(), foldButton.boundingBox()]);
+    expect(controls.every(Boolean)).toBe(true);
+    const selectorCenter = controls[0]!.y + controls[0]!.height / 2;
+    const buttonCenter = controls[1]!.y + controls[1]!.height / 2;
+    expect(Math.abs(selectorCenter - buttonCenter)).toBeLessThanOrEqual(1);
+
+    const topBeforeScroll = await foldButton.evaluate(
+      (button) => button.getBoundingClientRect().top,
+    );
+    await sidebar.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+    const topAfterScroll = await foldButton.evaluate(
+      (button) => button.getBoundingClientRect().top,
+    );
+    expect(topAfterScroll).toBe(topBeforeScroll);
+
+    await foldButton.click();
+    await expect(sidebar).toHaveCSS("width", "64px");
+    await expect(eventSelector).toBeHidden();
+  });
+
+  test("uses the sidebar icon for mobile navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/panel/");
+
+    const menuButton = page.getByRole("button", { name: "Open navigation" });
+    await menuButton.click();
+    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+  });
+
   // --- Step 1: Event Settings ---
 
   test("navigates to event settings and displays form", async ({ page }) => {
@@ -552,9 +620,10 @@ test.describe("Backoffice Panel", () => {
     await addLink.click();
 
     // Fill project-specific times so cross-browser runs do not collide.
-    await page.locator("#id_start_time").fill(startTime);
-    await page.locator("#id_end_time").fill(endTime);
-    await page.getByRole("button", { name: "Create" }).click();
+    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await createDialog.getByLabel("Start time").fill(startTime);
+    await createDialog.getByLabel("End time").fill(endTime);
+    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
 
     await expect(page.getByText("Time slot created successfully.")).toBeVisible();
     const createdSlot = page.getByText(`${startTime} – ${endTime}`);
@@ -678,11 +747,12 @@ test.describe("Backoffice Panel", () => {
         if (await page.getByText(`${start.time} – ${end.time}`).count()) continue;
 
         await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-        await page.locator("#id_date").fill(start.date);
-        await page.locator("#id_end_date").fill(end.date);
-        await page.locator("#id_start_time").fill(start.time);
-        await page.locator("#id_end_time").fill(end.time);
-        await page.getByRole("button", { name: "Create" }).click();
+        const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+        await createDialog.getByRole("textbox", { name: /^Date/ }).fill(start.date);
+        await createDialog.getByRole("textbox", { name: /^End date/ }).fill(end.date);
+        await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(start.time);
+        await createDialog.getByRole("textbox", { name: /^End time/ }).fill(end.time);
+        await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
 
         await expect(page.getByText("Time slot created successfully.")).toBeVisible();
       }
@@ -1047,9 +1117,9 @@ test.describe("Backoffice Panel", () => {
       const genreSelectId = await genreLabel.getAttribute("for");
       const genreFilter = page.locator(`#${genreSelectId}`);
 
-      // Filter by Fantasy — proposal should be visible
+      // Filter by Fantasy — the form autosubmits on change
       await genreFilter.selectOption("Fantasy");
-      await page.getByRole("button", { name: "Filter" }).click();
+      await page.waitForURL(/field_\d+=Fantasy/);
       await expect(
         page.getByRole("link", {
           name: proposalTitle,
@@ -1059,7 +1129,7 @@ test.describe("Backoffice Panel", () => {
       // Filter by Sci-Fi — proposal should not be visible
       const genreFilterAfter = page.locator(`#${genreSelectId}`);
       await genreFilterAfter.selectOption("Sci-Fi");
-      await page.getByRole("button", { name: "Filter" }).click();
+      await page.waitForURL(/field_\d+=Sci-Fi/);
       await expect(
         page.getByRole("link", {
           name: proposalTitle,
@@ -1158,11 +1228,12 @@ test.describe("Backoffice Panel", () => {
     const slotEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 15);
 
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-    await page.locator("#id_date").fill(slotStart.date);
-    await page.locator("#id_end_date").fill(slotEnd.date);
-    await page.locator("#id_start_time").fill(slotStart.time);
-    await page.locator("#id_end_time").fill(slotEnd.time);
-    await page.getByRole("button", { name: "Create" }).click();
+    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await createDialog.getByRole("textbox", { name: /^Date/ }).fill(slotStart.date);
+    await createDialog.getByRole("textbox", { name: /^End date/ }).fill(slotEnd.date);
+    await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(slotStart.time);
+    await createDialog.getByRole("textbox", { name: /^End time/ }).fill(slotEnd.time);
+    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
     await expect(page.getByText("Time slot created successfully.")).toBeVisible();
 
     // Try creating overlapping slot: offset+5 to offset+20
@@ -1170,11 +1241,12 @@ test.describe("Backoffice Panel", () => {
     const overlapStart = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 5);
     const overlapEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 20);
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-    await page.locator("#id_date").fill(overlapStart.date);
-    await page.locator("#id_end_date").fill(overlapEnd.date);
-    await page.locator("#id_start_time").fill(overlapStart.time);
-    await page.locator("#id_end_time").fill(overlapEnd.time);
-    await page.getByRole("button", { name: "Create" }).click();
+    const overlapDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await overlapDialog.getByRole("textbox", { name: /^Date/ }).fill(overlapStart.date);
+    await overlapDialog.getByRole("textbox", { name: /^End date/ }).fill(overlapEnd.date);
+    await overlapDialog.getByRole("textbox", { name: /^Start time/ }).fill(overlapStart.time);
+    await overlapDialog.getByRole("textbox", { name: /^End time/ }).fill(overlapEnd.time);
+    await overlapDialog.getByRole("button", { name: "Add Time Slot" }).click();
 
     // Verify error message about overlap
     await expect(page.getByText("overlaps with an existing slot")).toBeVisible();
@@ -1201,7 +1273,7 @@ test.describe("Backoffice Panel", () => {
     await page.goto("/panel/event/frostfire-con/facilitators/");
 
     // One clear merge entry point
-    await expect(page.getByRole("link", { name: /Merge facilitators/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Merge", exact: true })).toBeVisible();
 
     // The old inline selection UI is gone: no "Merge selected" button, no row checkboxes
     await expect(page.getByRole("button", { name: /Merge selected/ })).toHaveCount(0);
@@ -1211,7 +1283,7 @@ test.describe("Backoffice Panel", () => {
   test("merge link opens the merge page with no pre-selection", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/");
 
-    await page.getByRole("link", { name: /Merge facilitators/ }).click();
+    await page.getByRole("tab", { name: "Merge", exact: true }).click();
 
     await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/merge/");
 

@@ -195,6 +195,11 @@ urlpatterns = [
         name="proposal-create",
     ),
     path(
+        "event/<slug:slug>/proposals/create/fields/",
+        proposals.ProposalCreateFieldsComponentView.as_view(),
+        name="proposal-create-fields",
+    ),
+    path(
         "event/<slug:slug>/proposals/log/",
         proposals.ContentLogPageView.as_view(),
         name="content-log",
@@ -213,6 +218,11 @@ urlpatterns = [
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
         proposals.ProposalEditPageView.as_view(),
         name="proposal-edit",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
+        proposals.ProposalEditFieldsComponentView.as_view(),
+        name="proposal-edit-fields",
     ),
     path(
         "event/<slug:slug>/proposals/do/bulk-status",
@@ -342,6 +352,11 @@ urlpatterns = [
         name="facilitator-create",
     ),
     path(
+        "event/<slug:slug>/facilitators/columns/",
+        facilitators.FacilitatorColumnsPageView.as_view(),
+        name="facilitator-columns",
+    ),
+    path(
         "event/<slug:slug>/facilitators/merge/",
         facilitators.FacilitatorMergePageView.as_view(),
         name="facilitator-merge",
@@ -355,6 +370,21 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
         facilitators.FacilitatorEditPageView.as_view(),
         name="facilitator-edit",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/flag",
+        facilitators.FacilitatorFlagActionView.as_view(),
+        name="facilitator-flag",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unflag",
+        facilitators.FacilitatorUnflagActionView.as_view(),
+        name="facilitator-unflag",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",
+        facilitators.FacilitatorMarkGuestActionView.as_view(),
+        name="facilitator-mark-guest",
     ),
     path(
         "event/<slug:slug>/discounts/",
