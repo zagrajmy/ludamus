@@ -24,6 +24,7 @@ class TestBrandPageView:
                 "tuck-in",
                 "#f85a3c",
                 "favicon-dev.svg",
+                "brand/zagrajmy-logo-pack.zip",
             ],
         )
 

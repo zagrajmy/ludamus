@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load static %}
+{% load tessera %}
 {% block title %}
     {% translate "Logo & Brand Guidelines" %}
 {% endblock title %}
@@ -10,6 +12,11 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border border border-border">
         <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
             <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-lockup.html</code>
+            <div class="absolute top-3 right-3">
+                {% translate "Download logos" as download_label %}
+                {% static "brand/zagrajmy-logo-pack.zip" as logo_pack_url %}
+                {% tessera_button text=download_label href=logo_pack_url variant="secondary" size="sm" icon="arrow-down-tray" %}
+            </div>
             <div class="w-full max-w-md text-foreground" data-brand-hover="tuck-in">
                 {% include "components/brand/logo-lockup.html" with extra_class="w-full" %}
             </div>
