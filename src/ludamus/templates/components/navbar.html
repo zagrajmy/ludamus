@@ -5,7 +5,7 @@
         <div class="flex justify-between h-14">
             <div class="flex items-center gap-6">
                 <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
-                   class="flex items-center gap-2 text-neutral-800 dark:text-neutral-200"
+                   class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200"
                    data-brand-hover="tuck-in">
                     {% include "components/brand/logo-mark.html" with extra_class="size-10 sm:hidden" %}
                     <span class="sr-only sm:hidden">zagrajmy</span>

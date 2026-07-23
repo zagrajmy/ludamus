@@ -30,10 +30,15 @@
               content="{% block twitter_description %}Event webapp{% endblock twitter_description %}">
         <meta name="twitter:image"
               content="{% block twitter_image %}https://zagrajmy.net/static/logo.png{% endblock twitter_image %}">
+        {% comment %}Title standard: "{page name} • {sphere name}". Pages set
+        block title; pages whose name IS the sphere (landing) empty out
+        title_suffix instead.{% endcomment %}
         <title>
             {% block title %}
-                {{ current_sphere.name }}
             {% endblock title %}
+            {% block title_suffix %}
+                {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
+            {% endblock title_suffix %}
         </title>
         <link rel="icon" type="image/svg+xml" href="{% static favicon %}">
         <link rel="alternate icon"
