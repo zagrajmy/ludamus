@@ -45,6 +45,29 @@ test.describe("Navbar notifications dropdown", () => {
 });
 
 test.describe("Navbar profile menu (a11y upgrade)", () => {
+  test("opens on hover, preserves the safe path, and closes on pointer out", async ({ page }) => {
+    await page.goto("/events/");
+
+    const trigger = page.getByRole("button", { name: /Account menu/ });
+    const panel = page.locator("#navbar-profile-panel");
+
+    await trigger.hover();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    const triggerBox = await trigger.boundingBox();
+    const panelBox = await panel.boundingBox();
+    if (!triggerBox || !panelBox) throw new Error("Profile menu is not laid out");
+
+    await page.mouse.move(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height);
+    await page.mouse.move(panelBox.x + panelBox.width - 4, panelBox.y - 4);
+    await page.mouse.move(panelBox.x + panelBox.width - 4, panelBox.y + 4);
+
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await page.mouse.move(panelBox.x - 20, panelBox.y + 20);
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {
     await page.goto("/events/");
 

@@ -32,7 +32,7 @@
                 {% if request.user.is_authenticated %}
                     {% include "components/notifications.html" %}
                     <!-- User dropdown menu -->
-                    <div class="relative" data-menu>
+                    <div class="relative" data-menu data-menu-hover>
                         <!-- Avatar trigger -->
                         <button type="button"
                                 data-menu-button
@@ -47,6 +47,8 @@
                              data-menu-panel
                              hidden
                              class="absolute right-0 top-full mt-2 z-50">
+                            <span aria-hidden="true"
+                                  class="absolute right-0 -top-2 block h-2 w-48 pointer-events-auto [clip-path:polygon(81.25%_0,100%_0,100%_100%,0_100%)]"></span>
                             <div class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border"
                                  style="box-shadow: var(--shadow-elevated)">
                                 <!-- User info header -->
