@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -32,9 +32,27 @@ from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+    from django.utils.functional import Promise
 
-    from ludamus.pacts import FacilitatorDTO
+    from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO
     from ludamus.pacts.discounts import DiscountDTO
+
+
+class _DiscountAssignment(TypedDict):
+    facilitator: FacilitatorListItemDTO
+    form: DiscountForm
+
+
+class _DiscountRow(TypedDict):
+    facilitator: FacilitatorListItemDTO
+    accreditation_type_display: str | Promise
+    discount: DiscountDTO | None
+
+
+class _DiscountsContext(TypedDict):
+    active_nav: str
+    assignments: list[_DiscountAssignment]
+    rows: list[_DiscountRow]
 
 
 def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
@@ -72,14 +90,14 @@ def _discounts_context(
     *,
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
-) -> dict[str, object]:
+) -> _DiscountsContext:
     facilitators = request.di.uow.facilitators.list_by_event(event_pk)
     discounts_by_facilitator = {
         discount.facilitator_id: discount
         for discount in request.services.discounts.list_by_event(event_pk)
     }
-    rows = []
-    assignments = []
+    rows: list[_DiscountRow] = []
+    assignments: list[_DiscountAssignment] = []
     for facilitator in facilitators:
         discount = discounts_by_facilitator.get(facilitator.pk)
         rows.append(

@@ -96,8 +96,7 @@
                     class="modal w-[calc(100%-2rem)] max-w-md p-0"
                     aria-labelledby="discount-assign-modal-{{ assignment.facilitator.pk }}-title">
                 <form method="post"
-                      action="{% url 'panel:discount-assign' slug=current_event.slug facilitator_id=assignment.facilitator.pk %}?assign={{ assignment.facilitator.pk }}"
-                      onsubmit="this.querySelector('button[type=submit]').disabled = true">
+                      action="{% url 'panel:discount-assign' slug=current_event.slug facilitator_id=assignment.facilitator.pk %}?assign={{ assignment.facilitator.pk }}">
                     {% csrf_token %}
                     <div class="px-6 pt-5 pb-4">
                         <h3 id="discount-assign-modal-{{ assignment.facilitator.pk }}-title"
