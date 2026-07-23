@@ -135,6 +135,13 @@ test.describe("Backoffice Panel", () => {
     });
   });
 
+  test("uses square top corners on panel tab strips", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await expect(page.locator(".tab-shell")).toHaveCSS("border-top-left-radius", "0px");
+    await expect(page.locator(".tab-shell")).toHaveCSS("border-top-right-radius", "0px");
+  });
+
   // --- Step 1: Event Settings ---
 
   test("navigates to event settings and displays form", async ({ page }) => {
