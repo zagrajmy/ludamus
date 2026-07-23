@@ -51,34 +51,34 @@
                         aria-label="{% blocktranslate with name=node.name %}More actions for {{ name }}{% endblocktranslate %}">
                     {% icon "ellipsis-horizontal" class="w-4 h-4" %}
                 </button>
-                <div data-menu-panel
-                     hidden
-                     class="absolute right-0 z-10 mt-2 w-44 rounded-lg border border-border bg-bg-secondary shadow-lg">
-                    <form method="post"
-                          action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
-                        {% csrf_token %}
-                        <button type="submit"
-                                class="flex w-full items-center rounded-t-lg px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                            {% icon "document-duplicate" class="mr-2 w-4 h-4" %}
-                            {% translate "Duplicate" %}
-                        </button>
-                    </form>
-                    <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.pk %}"
-                       class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                        {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
-                        {% translate "Copy to event" %}
-                    </a>
-                    <hr class="my-1">
-                    <form method="post"
-                          action="{% url 'panel:space-delete' slug=current_event.slug pk=node.pk %}"
-                          data-confirm="{% translate "Delete this space and everything inside it?" %}">
-                        {% csrf_token %}
-                        <button type="submit"
-                                class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
-                            {% icon "trash" class="mr-2 w-4 h-4" %}
-                            {% translate "Delete" %}
-                        </button>
-                    </form>
+                <div data-menu-panel hidden class="absolute right-0 z-10 mt-2">
+                    <div {% include "components/menu_surface.html" with extra_class="w-44 rounded-lg border border-border bg-bg-secondary shadow-lg" %}>
+                        <form method="post"
+                              action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center rounded-t-lg px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                {% icon "document-duplicate" class="mr-2 w-4 h-4" %}
+                                {% translate "Duplicate" %}
+                            </button>
+                        </form>
+                        <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.pk %}"
+                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                            {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
+                            {% translate "Copy to event" %}
+                        </a>
+                        <hr class="my-1">
+                        <form method="post"
+                              action="{% url 'panel:space-delete' slug=current_event.slug pk=node.pk %}"
+                              data-confirm="{% translate "Delete this space and everything inside it?" %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
+                                {% icon "trash" class="mr-2 w-4 h-4" %}
+                                {% translate "Delete" %}
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

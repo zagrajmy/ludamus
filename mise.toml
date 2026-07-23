@@ -64,6 +64,10 @@ run = "djlint src --lint --reformat --format-css --format-js --profile=django"
 description = "Lint Python with Ruff and auto-fix violations"
 run = "ruff check --fix scripts src tests"
 
+[tasks."format:oxfmt"]
+description = "Format frontend code with Oxfmt"
+run = 'aube exec oxfmt --write "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,css}"'
+
 [tasks."format:taplo"]
 description = "Format TOML files"
 run = "taplo format --config=.taplo.toml"
@@ -75,6 +79,7 @@ run = [
     { task = "format:black" },
     { task = "format:djlint" },
     { task = "format:ruff" },
+    { task = "format:oxfmt" },
 ]
 
 ## Lint
@@ -217,10 +222,8 @@ env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 
 [tasks."test:e2e"]
 description = "Run end-to-end Playwright tests"
-run = [
-    "npx playwright test",
-    "coverage report --rcfile={{ config_root }}/pyproject.toml",
-]
+run = "./scripts/run_e2e.sh"
+raw_args = true
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 dir = "tests/e2e"
 

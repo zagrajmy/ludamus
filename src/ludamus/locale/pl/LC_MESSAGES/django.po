@@ -1798,10 +1798,6 @@ msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "You have been successfully logged out."
-msgstr "Zostałeś pomyślnie wylogowany."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
 msgstr "Nieprawidłowy adres URL przekierowania."
 
@@ -3669,11 +3665,12 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/discounts/create.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/discounts/export.html
+#: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -3684,7 +3681,6 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-copy.html
 #: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-create.html
 #: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
@@ -3801,6 +3797,7 @@ msgstr "Wszystkie rodzaje atrakcji"
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
 #: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "All"
 msgstr "Wszystkie"
 
@@ -3929,7 +3926,6 @@ msgstr "Nowa integracja"
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/time-slot-create.html
 msgid "Create"
 msgstr "Utwórz"
 
@@ -5659,6 +5655,15 @@ msgstr "Kopiuj do wydarzenia"
 msgid "Delete this space and everything inside it?"
 msgstr "Usunąć tę przestrzeń i całą jej zawartość?"
 
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
+msgid "New Time Slot"
+msgstr "Nowy przedział czasowy"
+
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Add Time Slot"
+msgstr "Dodaj przedział czasowy"
+
 #: src/ludamus/templates/panel/_time-slot-form.html
 msgid "Time Slot Details"
 msgstr "Szczegóły przedziału czasowego"
@@ -5769,16 +5774,12 @@ msgid "Close navigation"
 msgstr "Zamknij nawigację"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Backoffice"
-msgstr "Panel organizatora"
+msgid "Event"
+msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Event"
-msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle category"
@@ -6124,16 +6125,6 @@ msgstr "Zmiany twórców programu"
 msgid "Facilitator"
 msgstr "Prowadzący"
 
-#: src/ludamus/templates/panel/discounts/create.html
-msgid "Assign discount"
-msgstr "Przyznaj zniżkę"
-
-#: src/ludamus/templates/panel/discounts/create.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Assign"
-msgstr "Przypisz"
-
 #: src/ludamus/templates/panel/discounts/edit.html
 msgid "Edit discount"
 msgstr "Edytuj zniżkę"
@@ -6187,6 +6178,15 @@ msgstr "Zniżka"
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Are you sure you want to remove this discount?"
 msgstr "Czy na pewno chcesz usunąć tę zniżkę?"
+
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Assign"
+msgstr "Przypisz"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Assign discount"
+msgstr "Przyznaj zniżkę"
 
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -6721,7 +6721,7 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/parts/timetable-day-grid.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -7742,23 +7742,14 @@ msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
 "odwzorować większy obiekt."
 
-#: src/ludamus/templates/panel/time-slot-create.html
-msgid "New Time Slot"
-msgstr "Nowy przedział czasowy"
-
-#: src/ludamus/templates/panel/time-slot-create.html
-#: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Schedule Configuration"
-msgstr "Konfiguracja harmonogramu"
-
 #: src/ludamus/templates/panel/time-slot-edit.html
 msgid "Edit Time Slot"
 msgstr "Edytuj przedział czasowy"
 
+#: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Add Time Slot"
-msgstr "Dodaj przedział czasowy"
+msgid "Schedule Configuration"
+msgstr "Konfiguracja harmonogramu"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid "What are Time Slots?"
