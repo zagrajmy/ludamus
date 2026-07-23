@@ -6,6 +6,7 @@ from django.urls import reverse
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     SessionField,
+    SessionFieldRequirement,
     SessionFieldValue,
 )
 from ludamus.pacts import ContentChangeLogDTO, EventDTO
@@ -145,15 +146,15 @@ class TestContentLogRevertActionView:
             field_type="text",
             order=0,
         )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False, order=0
+        )
         _edit(
             authenticated_client,
             event,
             session,
             title="Updated title",
-            extra={
-                "session_fields_submitted": "1",
-                "session_field_system": "Pathfinder",
-            },
+            extra={"session_system": "Pathfinder"},
         )
         log = ContentChangeLog.objects.get(session=session)
 

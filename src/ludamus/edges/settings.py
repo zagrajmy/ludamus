@@ -65,6 +65,9 @@ env = environ.Env(
     # SQLite file when the app DB is SQLite.
     DBOS_SYSTEM_DATABASE_URL=(str, ""),
     ENV=str,
+    # Staging runs with ENV=production; this flag is the only way the app
+    # can tell the two apart (currently: the favicon variant).
+    IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
@@ -74,6 +77,7 @@ env = environ.Env(
 # Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
+IS_STAGING = env("IS_STAGING")
 IN_TESTS = env("IN_TESTS")
 
 # Quick-start development settings - unsuitable for production
@@ -170,6 +174,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.template.context_processors.media",
                 "ludamus.gates.web.django.context_processors.sites",
+                "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -484,6 +489,10 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # The markdown lib logs every extension load at DEBUG on each call;
+        # render_markdown runs once per session, so on big event pages this
+        # floods the dev console and dominates render time. Quiet it.
+        "MARKDOWN": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",

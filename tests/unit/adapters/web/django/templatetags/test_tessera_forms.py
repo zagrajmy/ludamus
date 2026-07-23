@@ -169,16 +169,14 @@ class TestTesseraErrors:
     def test_renders_non_field_errors(self) -> None:
         form = SimpleForm(data={})
         form.is_valid()  # Initialize errors
-        form._errors["__all__"] = form.error_class(["Form-level error"])  # noqa: SLF001
+        form._errors["__all__"] = form.error_class(["Form-level error"])
         html = tessera_errors(form)
         assert "Form-level error" in html
 
     def test_escapes_xss_in_error_messages(self) -> None:
         form = SimpleForm(data={})
         form.is_valid()  # Initialize errors
-        form._errors["__all__"] = form.error_class(  # noqa: SLF001
-            ['<script>alert("xss")</script>']
-        )
+        form._errors["__all__"] = form.error_class(['<script>alert("xss")</script>'])
         html = tessera_errors(form)
         assert "<script>" not in html
         assert "&lt;script&gt;" in html

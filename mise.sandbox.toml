@@ -9,9 +9,8 @@
 
 [settings]
 disable_tools = ["python", "pipx", "github:reteps/dockerfmt"]
-# Mid-bootstrap the aube shim can't resolve yet, so pin mise's npm backend to
-# plain npm instead of letting it auto-detect aube.
-npm.package_manager = "npm"
+# npm.package_manager = "npm" moved to mise.toml — the aube-shim bootstrap
+# problem it solves also hits fresh CI runners, not just sandboxes.
 
 [tool_alias]
 hk = "cargo:hk"

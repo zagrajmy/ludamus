@@ -16,13 +16,17 @@ from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
+    EventDTO,
     LocationData,
     SessionContentEditData,
     SessionDTO,
     SessionFieldValueData,
+    SessionFieldValueDTO,
     SessionParticipationStatus,
     SessionSelfEditContext,
     SpaceDTO,
+    SpaceOptionDTO,
+    TimeSlotDTO,
 )
 from ludamus.pacts.party import PartyDTO
 
@@ -244,24 +248,51 @@ class ProposalStatusServiceProtocol(Protocol):
     def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
+class SpaceTimeConflictError(Exception):
+    """Another session already occupies that space during the chosen slot."""
+
+
+class ProposalAcceptContextDTO(BaseModel):
+    session: SessionDTO
+    event: EventDTO
+    presenter: UserDTO | None
+    space_options: list[SpaceOptionDTO]
+    time_slots: list[TimeSlotDTO]
+    preferred_time_slot_ids: list[int]
+    field_values: list[SessionFieldValueDTO]
+    can_accept: bool
+
+
+class ProposalAcceptanceServiceProtocol(Protocol):
+    def get_accept_context(
+        self, *, session_id: int, user_slug: str, sphere_id: int
+    ) -> ProposalAcceptContextDTO | None: ...
+    def accept_session(
+        self, *, session_id: int, space_id: int, time_slot_id: int
+    ) -> None: ...
+
+
 class PartySessionSeatDTO(BaseModel):
     user: UserDTO
     status: SessionParticipationStatus
     creation_time: datetime
 
 
-class PartySessionHistoryDTO(BaseModel):
-    session: SessionDTO
-    agenda_item: AgendaItemDTO
-    presenter: UserDTO | None
-    participations: list[PartySessionSeatDTO]
-    location: LocationData
+class SessionCardStatsDTO(BaseModel):
     enrolled_count: int
     waiting_count: int
     is_full: bool
     is_enrollment_available: bool
     effective_participants_limit: int
     full_participant_info: str
+
+
+class PartySessionHistoryDTO(SessionCardStatsDTO):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[PartySessionSeatDTO]
+    location: LocationData
     viewer_enrolled: bool
 
 
@@ -288,6 +319,48 @@ class PartySessionHistoryServiceProtocol(Protocol):
     def read_detail(
         self, *, party_pk: int, viewer_pk: int
     ) -> PartyDetailDTO | None: ...
+
+
+class SessionModalSeatDTO(BaseModel):
+    user: UserDTO
+    status: SessionParticipationStatus
+    creation_time: datetime
+
+
+class SessionModalDTO(SessionCardStatsDTO):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[SessionModalSeatDTO]
+    location: LocationData
+    field_values: list[SessionFieldValueDTO]
+    viewer_enrolled: bool
+    viewer_waiting: bool
+    can_edit: bool
+    is_ongoing: bool
+    is_ended: bool
+
+
+class SessionModalRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_modal(
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
+    ) -> SessionModalDTO | None: ...
+
+
+class SessionModalServiceProtocol(Protocol):
+    def read(
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
+    ) -> SessionModalDTO | None: ...
 
 
 TIMETABLE_ROOM_PAGE_SIZE = 5
@@ -427,7 +500,16 @@ class TrackProgressDTO(BaseModel):
     manager_names: list[str]
     accepted_count: int
     scheduled_count: int
+    pending_count: int = 0
+    on_hold_count: int = 0
+    rejected_count: int = 0
     progress_pct: int
+
+    @property
+    def active_count(self) -> int:
+        # The scheduling target: proposals still in play (not rejected / on
+        # hold). Denominator of the scheduled/total ratio.
+        return self.pending_count + self.accepted_count
 
     @property
     def unassigned_count(self) -> int:

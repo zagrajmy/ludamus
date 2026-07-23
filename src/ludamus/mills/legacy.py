@@ -9,8 +9,6 @@ import nh3
 
 from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts import (
-    AgendaItemData,
-    AuthenticatedRequestContext,
     CacheProtocol,
     DateTimeRangeProtocol,
     EncounterDetailResult,
@@ -30,11 +28,9 @@ from ludamus.pacts import (
     ProposeSessionResult,
     RequestContext,
     SessionData,
-    SessionDTO,
     SessionFieldRequirementDTO,
     SessionFieldValueData,
     SessionStatus,
-    SessionUpdateData,
     TimeSlotRequirementDTO,
     TrackDTO,
     UnitOfWorkProtocol,
@@ -457,48 +453,6 @@ def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> b
         return False
     cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
     return True
-
-
-class AcceptProposalService:
-    def __init__(
-        self, uow: UnitOfWorkProtocol, context: AuthenticatedRequestContext
-    ) -> None:
-        self._uow = uow
-        self._context = context
-
-    def can_accept_proposals(self) -> bool:
-        user = self._uow.active_users.read(self._context.current_user_slug)
-        if user.is_superuser or user.is_staff:
-            return True
-
-        return self._uow.spheres.is_manager(
-            self._context.current_sphere_id, self._context.current_user_slug
-        )
-
-    def accept_session(
-        self, *, session: SessionDTO, space_id: int, time_slot_id: int
-    ) -> None:
-        time_slot = self._uow.sessions.read_time_slot(session.pk, time_slot_id)
-
-        with self._uow.atomic():
-            # The session already has a unique slug from proposal creation;
-            # regenerating it here dropped the uniqueness suffix and collided.
-            self._uow.sessions.update(
-                session.pk,
-                SessionUpdateData(
-                    status=SessionStatus.ACCEPTED, display_name=session.display_name
-                ),
-            )
-
-            self._uow.agenda_items.create(
-                AgendaItemData(
-                    space_id=space_id,
-                    session_id=session.pk,
-                    session_confirmed=True,
-                    start_time=time_slot.start_time,
-                    end_time=time_slot.end_time,
-                )
-            )
 
 
 class PanelService:

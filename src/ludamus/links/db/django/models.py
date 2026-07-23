@@ -603,6 +603,9 @@ class Space(models.Model):
     # Details
     capacity = models.PositiveIntegerField(null=True, blank=True)
     description = models.TextField(blank=True, default="")
+    # Free-form metadata: building address, room number, floor, etc. Keeps the
+    # description clean of structural location info.
+    location = models.CharField(max_length=255, blank=True, default="")
     # Ordering
     order = models.PositiveIntegerField(default=0)
     # Time
@@ -749,6 +752,11 @@ class Facilitator(models.Model):
         choices=[(t.value, t.name.title()) for t in AccreditationType],
         default=AccreditationType.NONE,
     )
+    # Reversible triage marker: organizers flag likely duplicates/removals, then
+    # act on them (merge or delete) as a separate deliberate step.
+    flagged_for_deletion = models.BooleanField(default=False)
+    # Free-form organizer note, never shown to attendees.
+    internal_comment = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "facilitator"
@@ -1467,6 +1475,25 @@ class EventSettings(models.Model):
 
     def __str__(self) -> str:
         return f"Settings for {self.event}"
+
+
+class EventPanelSettings(models.Model):
+    """Organizer-only (backoffice) settings — never surfaced to attendees."""
+
+    event = models.OneToOneField(
+        Event, on_delete=models.CASCADE, related_name="panel_settings"
+    )
+    # The facilitators list's columns, in display order. Each entry is either a
+    # built-in key ("name", "linked", "sessions", "accreditation") or
+    # "field_<pk>" naming a PersonalDataField. Empty means the default set.
+    # The keys double as the list's sort keys, so a column sorts by construction.
+    facilitator_columns = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = "event_panel_settings"
+
+    def __str__(self) -> str:
+        return f"Panel settings for {self.event}"
 
 
 class Track(models.Model):

@@ -10,6 +10,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     group_sessions_by_state,
 )
 from ludamus.pacts import AgendaItemDTO
+from ludamus.pacts.legacy import SessionFieldValueDTO
 
 
 def _make_session_data(
@@ -120,6 +121,46 @@ class TestSessionDataLocationLabel:
         data = _make_session_data(loc=_loc())
 
         assert not data.location_label
+
+
+class TestSessionDataFilterCategories:
+    def test_empty_without_tracks_or_category(self):
+        data = _make_session_data()
+
+        assert not data.filter_categories
+
+    def test_track_names_become_track_pairs(self):
+        data = _make_session_data(track_names=["Main", "Side"])
+
+        assert data.filter_categories == "__track:Main;__track:Side"
+
+    def test_category_becomes_category_pair(self):
+        data = _make_session_data(category_name="RPG")
+
+        assert data.filter_categories == "__category:RPG"
+
+    def test_track_and_category_combined(self):
+        data = _make_session_data(track_names=["Main"], category_name="RPG")
+
+        assert data.filter_categories == "__track:Main;__category:RPG"
+
+    def test_prepends_public_field_tags(self):
+        data = _make_session_data(
+            field_values=[
+                SessionFieldValueDTO(
+                    field_name="System",
+                    field_question="",
+                    field_slug="system",
+                    field_type="select",
+                    is_public=True,
+                    value=["D&D"],
+                )
+            ],
+            track_names=["Main"],
+            category_name="RPG",
+        )
+
+        assert data.filter_categories == "system:D&D;__track:Main;__category:RPG"
 
 
 class TestBuildScheduleDays:

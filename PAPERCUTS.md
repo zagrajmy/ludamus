@@ -137,3 +137,20 @@ If you fix a papercut, remove it.
   a file, requiring an identical second run to prove cleanliness.
 - 2026-07-23: Focused Playwright runs silently found no tests when an auth spec
   was paired with the chromium project; use chromium-auth for *.auth.spec.ts.
+- 2026-07-17: `mise run test:py -- some/path.py` silently runs the WHOLE suite:
+  the task is 'pytest tests/integration tests/unit' so an appended path is an
+  extra target, not a filter. Wasted two 5-minute full runs before noticing.
+  Use -k instead, or make the task use a default arg.
+- 2026-07-18: mise run test:py failed once with VariableDoesNotExist for
+  danger_ring in TestEventImportLogPageView (navbar avatar include); full rerun
+  passed - flaky, possibly test-order or faker-data dependent
+- 2026-07-20: Ran mise run test:py with specific test paths after -- but the
+  full suite ran anyway (paths are appended to the fixed targets, so they're an
+  extra target rather than a filter); also test_import_views
+  test_get_groups_errors_and_successes flaked once in a full run, passed on
+  rerun
+- 2026-07-22: mise run/exec in the web sandbox re-attempts installing missing
+  tools (pipx:shellcheck-py, hadolint) and dies on pypi resolution before
+  running the requested task, even with MISE_ENV=sandbox - this also blocks mise
+  run papercut itself; worked around with scratchpad playwright-core + /opt/pw-
+  browsers/chromium for screenshots and hand-appending this entry

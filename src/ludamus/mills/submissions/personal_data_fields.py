@@ -242,12 +242,13 @@ class PersonalDataFieldValueService:
         *,
         event_id: int,
         facilitator_id: int,
-        accreditation_type: str,
+        data: FacilitatorUpdateData,
         entries: list[PersonalDataFieldValueData],
         user_id: int | None = None,
     ) -> None:
         # The dedicated facilitator-edit page write path: accreditation +
-        # personal data in one transaction, logged as a single edit entry.
+        # internal comment + personal data in one transaction, logged as a
+        # single edit entry.
         with self._transaction.atomic():
             facilitator = self._facilitators.read(facilitator_id)
             if facilitator.event_id != event_id:
@@ -255,7 +256,11 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            if facilitator.accreditation_type != accreditation_type:
+            accreditation_type = data.get("accreditation_type")
+            if (
+                accreditation_type is not None
+                and facilitator.accreditation_type != accreditation_type
+            ):
                 changes.append(
                     {
                         "field": "accreditation_type",
@@ -264,10 +269,20 @@ class PersonalDataFieldValueService:
                         "new": accreditation_type,
                     }
                 )
-            self._facilitators.update(
-                facilitator_id,
-                FacilitatorUpdateData(accreditation_type=accreditation_type),
-            )
+            internal_comment = data.get("internal_comment")
+            if (
+                internal_comment is not None
+                and facilitator.internal_comment != internal_comment
+            ):
+                changes.append(
+                    {
+                        "field": "internal_comment",
+                        "field_id": None,
+                        "old": facilitator.internal_comment,
+                        "new": internal_comment,
+                    }
+                )
+            self._facilitators.update(facilitator_id, data)
             if entries:
                 self._personal_data_field_values.save(entries)
             self._log(

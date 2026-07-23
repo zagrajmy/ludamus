@@ -349,7 +349,7 @@ def agenda_item(session, space):
 
 
 @pytest.fixture(autouse=True, name="sphere")
-def sphere_fixture(settings, db):  # noqa: ARG001
+def sphere_fixture(settings, db):  # ruff:ignore[unused-function-argument]
     site, __ = Site.objects.update_or_create(
         domain=settings.ROOT_DOMAIN, defaults={"name": settings.ROOT_DOMAIN}
     )
@@ -365,7 +365,7 @@ def sphere_fixture(settings, db):  # noqa: ARG001
 
 @pytest.fixture(name="faker")
 def faker_fixture():
-    from faker import Faker as FakerLib  # noqa: PLC0415
+    from faker import Faker as FakerLib  # ruff:ignore[import-outside-top-level]
 
     fake = FakerLib()
     # Wrap date_time methods to always include UTC timezone
