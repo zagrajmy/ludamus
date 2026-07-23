@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, Literal
 
 from django.http import Http404, HttpResponse
@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.printing import AreaScheduleQueryDTO, PrintTimetableQueryDTO
@@ -139,10 +140,7 @@ class PublicEventPrintView(View):
         except NotFoundError as exc:
             raise Http404 from exc
 
-        published = (
-            event.publication_time is not None
-            and event.publication_time <= datetime.now(tz=UTC)
-        )
+        published = is_event_published(event)
         if not published and not has_panel_access(request):
             raise Http404
 

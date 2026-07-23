@@ -1,0 +1,49 @@
+{% load i18n %}
+{% load tessera %}
+<div id="proposal-session-fields"
+     class="space-y-6 break-inside-avoid mb-6">
+    {% if field_descriptors %}
+        <div class="card">
+            <div class="card-body">
+                <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Fields" %}</h3>
+                {% for desc in field_descriptors %}
+                    {% tessera_field desc.bound_field %}
+                    {% if desc.custom_bound_field %}
+                        {% tessera_field desc.custom_bound_field %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+    {% if orphan_values %}
+        <div class="card">
+            <div class="card-body">
+                <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Answers outside this category" %}</h3>
+                <p class="text-sm text-foreground-muted mb-6">
+                    {% blocktranslate trimmed %}
+                        This program item has answers to questions its category no longer asks.
+                        They stay as they are unless you remove them.
+                    {% endblocktranslate %}
+                </p>
+                <ul class="space-y-4">
+                    {% for orphan in orphan_values %}
+                        <li class="flex items-start justify-between gap-4">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-foreground-secondary">{{ orphan.name }}</p>
+                                <p class="text-sm text-foreground break-words">{{ orphan.display_value }}</p>
+                            </div>
+                            <label class="flex items-center gap-2 text-sm text-foreground-muted shrink-0">
+                                <input type="checkbox"
+                                       name="remove_field_ids"
+                                       value="{{ orphan.field_id }}"
+                                       aria-label="{% blocktranslate with name=orphan.name %}Remove {{ name }}{% endblocktranslate %}"
+                                       class="rounded border-border">
+                                {% translate "Remove" %}
+                            </label>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    {% endif %}
+</div>

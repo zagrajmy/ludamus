@@ -1,57 +1,28 @@
 from __future__ import annotations
 
-import operator
 from typing import TYPE_CHECKING, Any
 
 from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
+from ludamus.gates.web.django.forms import (
+    build_field_from_requirement,
+    cover_image_field,
+    validate_uploaded_image,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import PersonalFieldRequirementDTO, SessionFieldRequirementDTO
-
-
-def _build_field_from_requirement(
-    fields: dict[str, forms.Field],
-    field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> None:
-    field_def = req.field
-
-    if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _ in raw_options]
-
-        if field_def.is_multiple:
-            fields[field_key] = forms.MultipleChoiceField(
-                label=field_def.name,
-                choices=choices[1:],  # no blank for multi
-                required=req.is_required,
-                widget=forms.CheckboxSelectMultiple,
-            )
-        else:
-            fields[field_key] = forms.ChoiceField(
-                label=field_def.name, choices=choices, required=req.is_required
-            )
-
-        if field_def.allow_custom:
-            max_len = field_def.max_length if field_def.max_length > 0 else None
-            fields[f"{field_key}_custom"] = forms.CharField(
-                label=f"{field_def.name} (custom)", required=False, max_length=max_len
-            )
-    elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
-        fields[field_key] = forms.BooleanField(label=field_def.name, required=False)
-    else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[field_key] = forms.CharField(
-            label=field_def.name, required=req.is_required, max_length=max_len
-        )
+    from ludamus.pacts import (
+        PersonalFieldRequirementDTO,
+        SessionFieldRequirementDTO,
+        SpaceOptionDTO,
+        TimeSlotDTO,
+    )
 
 
 def build_personal_data_form(
@@ -60,7 +31,7 @@ def build_personal_data_form(
     fields: dict[str, forms.Field] = {}
 
     for req in requirements:
-        _build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
+        build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
 
@@ -113,7 +84,7 @@ def build_session_details_form(
         )
 
     for req in requirements:
-        _build_field_from_requirement(fields, f"session_{req.field.slug}", req)
+        build_field_from_requirement(fields, f"session_{req.field.slug}", req)
 
     return type("SessionDetailsForm", (forms.Form,), fields)
 
@@ -125,3 +96,72 @@ class SessionCoverImageForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
+
+
+def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(error) from exc
+    if value not in allowed:
+        raise ValidationError(error)
+    return value
+
+
+def create_proposal_acceptance_form(
+    *, space_options: Sequence[SpaceOptionDTO], time_slots: Sequence[TimeSlotDTO]
+) -> type[forms.Form]:
+    # Group bookable leaf spaces under their parent name (optgroups); the
+    # service supplies the options so the form stays free of the ORM.
+    grouped: dict[str, list[tuple[int, str]]] = {}
+    for option in space_options:
+        grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
+            (option.pk, option.name)
+        )
+    choices: list[tuple[str, str] | tuple[str, list[tuple[int, str]]]] = [
+        ("", gettext("Select a space..."))
+    ]
+    choices.extend(grouped.items())
+
+    allowed_space_ids = {option.pk for option in space_options}
+    allowed_time_slot_ids = {slot.pk for slot in time_slots}
+
+    space_field = forms.ChoiceField(
+        choices=choices,
+        label=_("Space"),
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text=_("Select the space where this session will take place"),
+        required=True,
+    )
+    # The template renders its own time-slot <select> from the context, so this
+    # field only validates the posted pk server-side.
+    time_slot_field = forms.ChoiceField(
+        choices=[(slot.pk, str(slot.pk)) for slot in time_slots],
+        label=_("Time slot"),
+        required=True,
+    )
+
+    def clean_space(self: forms.Form) -> int:
+        return _validated_choice_id(
+            self.cleaned_data["space"],
+            allowed=allowed_space_ids,
+            error=gettext("Invalid space selection."),
+        )
+
+    def clean_time_slot(self: forms.Form) -> int:
+        return _validated_choice_id(
+            self.cleaned_data["time_slot"],
+            allowed=allowed_time_slot_ids,
+            error=gettext("Invalid time slot selection."),
+        )
+
+    return type(
+        "ProposalAcceptanceForm",
+        (forms.Form,),
+        {
+            "space": space_field,
+            "time_slot": time_slot_field,
+            "clean_space": clean_space,
+            "clean_time_slot": clean_time_slot,
+        },
+    )

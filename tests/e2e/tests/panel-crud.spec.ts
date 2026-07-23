@@ -64,6 +64,8 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     // header one.
     await page.getByRole("link", { name: "Create Session" }).first().click();
 
+    // The picker is search-first: rows stay hidden until the search matches.
+    await page.getByPlaceholder("Search by name…").fill(FACILITATOR);
     await page.getByRole("checkbox", { name: FACILITATOR }).check();
     await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
     await page.getByLabel("Title").fill(PROPOSAL_TITLE);
