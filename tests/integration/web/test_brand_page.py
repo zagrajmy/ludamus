@@ -37,7 +37,7 @@ class TestBrandPageView:
             HTTPStatus.OK,
             context_data={"view": ANY},
             template_name=["brand.html"],
-            contains="favicon-staging.svg",
+            contains=["favicon-staging.svg", "favicon-staging-dark.svg"],
             not_contains="favicon-dev.svg",
         )
 
@@ -50,6 +50,6 @@ class TestBrandPageView:
             HTTPStatus.OK,
             context_data={"view": ANY},
             template_name=["brand.html"],
-            contains="/static/favicon.svg",
+            contains=["/static/favicon.svg", "favicon-dark.svg"],
             not_contains="favicon-dev.svg",
         )

@@ -40,11 +40,20 @@
                 {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
             {% endblock title_suffix %}
         </title>
-        <link rel="icon" type="image/svg+xml" href="{% static favicon %}">
+        {% comment %}Chrome/Safari don't apply an SVG favicon's internal
+        prefers-color-scheme media query in the tab, so we swap the href to a
+        baked dark variant from JS. This follows the OS setting (matchMedia),
+        not the in-app theme switch, so the icon always matches the tab bar.
+        {% endcomment %}
+        <link rel="icon"
+              type="image/svg+xml"
+              href="{% static favicon %}"
+              data-favicon-light="{% static favicon %}"
+              data-favicon-dark="{% static favicon_dark %}">
         <link rel="alternate icon"
               type="image/x-icon"
               href="{% static 'favicon.ico' %}">
-        <!-- Theme initialization (before CSS to prevent flash) -->
+        <!-- Theme + favicon initialization (before CSS to prevent flash) -->
         <script>
             (function() {
                 var theme = localStorage.getItem('theme');
@@ -55,6 +64,17 @@
                 } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                     document.documentElement.classList.add('dark');
                 }
+
+                // Follow the OS colour scheme for the tab icon (Chrome/Safari
+                // ignore an SVG favicon's internal prefers-color-scheme query).
+                var link = document.querySelector('link[rel="icon"][data-favicon-dark]');
+                if (!link) return;
+                var mq = window.matchMedia('(prefers-color-scheme: dark)');
+                function applyFavicon() {
+                    link.href = mq.matches ? link.dataset.faviconDark : link.dataset.faviconLight;
+                }
+                applyFavicon();
+                mq.addEventListener('change', applyFavicon);
             })();
         </script>
         {% vite_hmr_client %}
