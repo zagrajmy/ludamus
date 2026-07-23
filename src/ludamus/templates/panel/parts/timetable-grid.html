@@ -36,9 +36,10 @@
     {% endif %}
     <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
          data-timetable-days
-         style="--grid-extent: {{ grid.total_minutes }}">
-        <div class="sticky top-0 z-20 flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-stretch border-b border-neutral-700 pr-px"
-             {% if grid.days|length == 1 %}style="min-width: calc(4rem + 9rem * {{ grid.days.0.columns|length }})"{% endif %}>
+         {% if grid.days|length == 1 %}data-single-day{% endif %}
+         style="--grid-extent: {{ grid.total_minutes }};
+                --day-columns: {{ grid.days.0.columns|length }}">
+        <div class="timetable-day-strip sticky top-0 z-20 flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-stretch border-b border-neutral-700 pr-px">
             <div class="sticky left-0 z-40 flex w-16 flex-none items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
             {% for day in grid.days %}
                 <div class="timetable-day-header flex {% if grid.days|length == 1 %}flex-1{% else %}flex-none{% endif %} flex-col border-l border-neutral-700"
@@ -68,8 +69,7 @@
                 </div>
             {% endfor %}
         </div>
-        <div class="flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-start"
-             {% if grid.days|length == 1 %}style="min-width: calc(4rem + 9rem * {{ grid.days.0.columns|length }})"{% endif %}>
+        <div class="timetable-day-strip flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-start">
             <div class="timetable-time-axis sticky left-0 z-10 w-16 flex-none border-r border-border bg-bg-secondary shadow-sm">
                 {% for label in grid.time_labels %}
                     <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
