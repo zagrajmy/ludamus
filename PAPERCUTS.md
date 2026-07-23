@@ -157,3 +157,9 @@ If you fix a papercut, remove it.
 - 2026-07-23: Wrapped validation commands used zsh reserved variable status, so
   result capture failed after the tasks completed; use a task-specific exit
   variable.
+- 2026-07-24: Running a focused E2E via mise run test:e2e with an anchored
+  suite/title grep matched zero tests; Playwright output did not reveal the
+  actual full title. Retried with the unique test-name substring.
+- 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
+  unrelated existing errors, so it cannot provide a clean focused-test signal.
+  Playwright still transpiles and executes the changed spec successfully.
