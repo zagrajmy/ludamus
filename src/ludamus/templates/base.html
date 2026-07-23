@@ -146,6 +146,7 @@
                                     available under BSD-3-Clause license.
                                 </p>
                                 <div class="flex flex-wrap justify-center sm:justify-end gap-4">
+                                    <a href="{% url 'web:brand' %}" class="hover:underline text-primary">{% translate "Brand" %}</a>
                                     <a href="mailto:{{ SUPPORT_EMAIL }}"
                                        class="hover:underline text-primary">{% translate "Contact" %}</a>
                                     <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' %}"
