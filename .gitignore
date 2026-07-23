@@ -236,4 +236,3 @@ CLAUDE.local.md
 
 # skill-creator eval workspaces (transient test artifacts)
 .claude/skills/*-workspace/
-
