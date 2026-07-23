@@ -303,7 +303,8 @@
                                 class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
-                                aria-controls="filter-panel">
+                                aria-controls="filter-panel"
+                                aria-label="{% translate "Filters" %}">
                             <span class="hidden sm:inline">{% translate "Filters" %}</span>
                             {% icon "adjustments-horizontal" class="w-5 h-5" variant="mini" %}
                             <span id="active-filter-count"
@@ -666,6 +667,15 @@
             opacity: 1;
             pointer-events: auto;
             transform: scale(1) translateY(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .filters-popover-wrapper .filter-panel,
+            .filters-popover-wrapper .filter-panel.is-open {
+                transform: none;
+                transition: opacity 0.15s linear;
+            }
         }
 
         /* On narrow screens the right-anchored popover would overflow the left
