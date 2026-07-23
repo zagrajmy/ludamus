@@ -55,8 +55,8 @@
                             <p class="text-sm text-foreground-muted mb-4">
                                 {% translate "Where the selected facilitators disagree, choose what the merged facilitator keeps." %}
                             </p>
-                            <div class="space-y-4">
-                                <fieldset>
+                            <div class="divide-y divide-border">
+                                <fieldset class="py-4 first:pt-0 last:pb-0">
                                     <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</legend>
                                     {% for name in name_choices %}
                                         {% radio name="display_name" value=name checked=forloop.first %}
@@ -64,21 +64,23 @@
                                         {% end_radio %}
                                     {% endfor %}
                                 </fieldset>
-                                <fieldset>
+                                <fieldset class="py-4 first:pt-0 last:pb-0">
                                     <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</legend>
-                                    {% for value, label in accreditation_choices %}
+                                    {% for value, label, sources in accreditation_choices %}
                                         {% radio name="accreditation_type" value=value checked=forloop.first %}
                                             {{ label }}
+                                            <span class="text-foreground-muted">· {{ sources }}</span>
                                         {% end_radio %}
                                     {% endfor %}
                                 </fieldset>
                                 {% for field, choices in field_choices %}
-                                    <fieldset>
+                                    <fieldset class="py-4 first:pt-0 last:pb-0">
                                         <legend class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</legend>
                                         {% with pk_str=field.pk|stringformat:"s" %}
-                                            {% for index, label in choices %}
+                                            {% for index, label, sources in choices %}
                                                 {% radio name="personal_"|add:pk_str value=index checked=forloop.first %}
                                                     {{ label }}
+                                                    <span class="text-foreground-muted">· {{ sources }}</span>
                                                 {% end_radio %}
                                             {% endfor %}
                                         {% endwith %}

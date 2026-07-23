@@ -75,7 +75,10 @@ def _personal_entries_from_post(
     ]
 
 
-def _format_field_value(*, value: str | list[str] | bool | None) -> str:
+type _FieldValue = str | list[str] | bool
+
+
+def _format_field_value(*, value: _FieldValue | None) -> str:
     if isinstance(value, bool):
         return _("Yes") if value else _("No")
     if isinstance(value, list):
@@ -401,22 +404,34 @@ def _distinct(values: Iterable[str]) -> list[str]:
     return seen
 
 
+def _attributed[T](pairs: Iterable[tuple[str, T]]) -> list[tuple[T, str]]:
+    # Distinct values in facilitator order, each carrying the facilitators
+    # that hold it — the reconcile screen says whose value you are keeping.
+    groups: list[tuple[T, list[str]]] = []
+    for name, value in pairs:
+        for existing, names in groups:
+            if existing == value:
+                names.append(name)
+                break
+        else:
+            groups.append((value, [name]))
+    return [(value, ", ".join(names)) for value, names in groups]
+
+
 def _field_options(
     merge_context: FacilitatorMergeContextDTO,
-) -> list[tuple[PersonalDataFieldDTO, list[str | list[str] | bool]]]:
+) -> list[tuple[PersonalDataFieldDTO, list[tuple[_FieldValue, str]]]]:
     # One entry per field somebody answered, with the distinct answers in
     # facilitator order — the reconcile screen offers them as choices.
-    options: list[tuple[PersonalDataFieldDTO, list[str | list[str] | bool]]] = []
+    options: list[tuple[PersonalDataFieldDTO, list[tuple[_FieldValue, str]]]] = []
     for field in merge_context.fields:
-        values: list[str | list[str] | bool] = []
-        for facilitator in merge_context.facilitators:
-            value = merge_context.values.get(facilitator.pk, {}).get(field.slug)
-            if not value:
-                continue
-            if value not in values:
-                values.append(value)
-        if values:
-            options.append((field, values))
+        answers = [
+            (facilitator.display_name, value)
+            for facilitator in merge_context.facilitators
+            if (value := merge_context.values.get(facilitator.pk, {}).get(field.slug))
+        ]
+        if answers:
+            options.append((field, _attributed(answers)))
     return options
 
 
@@ -497,20 +512,21 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             f.display_name for f in merge_context.facilitators
         )
         context["accreditation_choices"] = [
-            (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)])
-            for value in _distinct(
-                f.accreditation_type for f in merge_context.facilitators
+            (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)], sources)
+            for value, sources in _attributed(
+                (f.display_name, f.accreditation_type)
+                for f in merge_context.facilitators
             )
         ]
         context["field_choices"] = [
             (
                 field,
                 [
-                    (index, _format_field_value(value=value))
-                    for index, value in enumerate(values)
+                    (index, _format_field_value(value=value), sources)
+                    for index, (value, sources) in enumerate(options)
                 ],
             )
-            for field, values in _field_options(merge_context)
+            for field, options in _field_options(merge_context)
         ]
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
@@ -554,11 +570,11 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
         # Radio choices arrive as indexes into the option lists the confirm
         # screen rendered, so list-typed answers survive the round trip.
-        values: dict[int, str | list[str] | bool] = {}
+        values: dict[int, _FieldValue] = {}
         for field, options in _field_options(merge_context):
             raw = self.request.POST.get(f"personal_{field.pk}", "")
             if raw.isdigit() and int(raw) < len(options):
-                values[field.pk] = options[int(raw)]
+                values[field.pk] = options[int(raw)][0]
 
         try:
             self.request.services.facilitator_panel.merge(

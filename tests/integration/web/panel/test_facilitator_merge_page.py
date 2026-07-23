@@ -1,6 +1,7 @@
 """Integration tests for the facilitator merge flow."""
 
 from http import HTTPStatus
+from itertools import starmap
 
 from django.contrib import messages
 from django.urls import reverse
@@ -85,8 +86,8 @@ def _search_context(
     }
 
 
-def _accreditation_choice(value):
-    return (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)])
+def _accreditation_choice(value, sources):
+    return (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)], sources)
 
 
 def _field_dto(field):
@@ -110,9 +111,9 @@ def _confirm_context(
         "confirm": True,
         "facilitators": [FacilitatorDTO.model_validate(f) for f in facilitators],
         "name_choices": name_choices,
-        "accreditation_choices": [
-            _accreditation_choice(value) for value in accreditation_choices
-        ],
+        "accreditation_choices": list(
+            starmap(_accreditation_choice, accreditation_choices)
+        ),
         "field_choices": field_choices,
         "error": error,
     }
@@ -267,8 +268,19 @@ class TestFacilitatorMergeConfirm:
                 event,
                 facilitators=[adam, jan],
                 name_choices=["Adam Kowalski", "Jan Wysocki"],
-                accreditation_choices=["guest", "none"],
-                field_choices=[(_field_dto(field), [(0, "Vegan"), (1, "Vegetarian")])],
+                accreditation_choices=[
+                    ("guest", "Adam Kowalski"),
+                    ("none", "Jan Wysocki"),
+                ],
+                field_choices=[
+                    (
+                        _field_dto(field),
+                        [
+                            (0, "Vegan", "Adam Kowalski"),
+                            (1, "Vegetarian", "Jan Wysocki"),
+                        ],
+                    )
+                ],
                 error=None,
             ),
         )
@@ -380,7 +392,7 @@ class TestFacilitatorMergeConfirm:
                 event,
                 facilitators=[adam, jan],
                 name_choices=["Adam Kowalski", "Jan Wysocki"],
-                accreditation_choices=["none"],
+                accreditation_choices=[("none", "Adam Kowalski, Jan Wysocki")],
                 field_choices=[],
                 error=MERGE_ERROR,
             ),
