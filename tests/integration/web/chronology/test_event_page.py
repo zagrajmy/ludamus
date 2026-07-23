@@ -3721,9 +3721,8 @@ class TestEventPageView:
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
-    @pytest.mark.usefixtures("panel_access_user")
     def test_unpublished_event_visible_for_manager_and_superuser(
-        self, authenticated_client, sphere
+        self, authenticated_client, panel_access_user, sphere
     ):
         event = EventFactory(sphere=sphere, publication_time=None)
 
@@ -3745,7 +3744,7 @@ class TestEventPageView:
                 "object": event,
                 "pending_review_visible": True,
                 "pending_sessions": [],
-                "pending_wizard_view": False,
+                "pending_wizard_view": panel_access_user.is_superuser,
                 "own_pending_proposals": [],
                 "sessions": [],
                 "user_enrollment_config": None,
