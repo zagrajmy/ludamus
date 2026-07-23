@@ -53,8 +53,19 @@ if (isSvg) {
   oneColor = img(toDataUri(transformPaints(svg, "#252220")));
   whiteVersion = img(toDataUri(transformPaints(svg, "#ffffff")));
 } else {
-  const ext = path.extname(input).slice(1).replace("jpg", "jpeg");
-  const uri = `data:image/${ext};base64,${fs.readFileSync(input).toString("base64")}`;
+  const RASTER_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  };
+  const mime = RASTER_MIME[path.extname(input).toLowerCase()];
+  if (!mime) {
+    console.error(`unsupported input type: ${input}`);
+    process.exit(2);
+  }
+  const uri = `data:${mime};base64,${fs.readFileSync(input).toString("base64")}`;
   source = img(uri);
   oneColor = null;
   whiteVersion = source;

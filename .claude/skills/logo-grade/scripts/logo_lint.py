@@ -34,6 +34,22 @@ WHITE = (255, 255, 255)
 DARK_REF = (23, 23, 23)  # #171717
 RADIUS_ATTRS = {"r", "rx", "ry"}
 SIZED_SHAPES = {"rect", "circle", "ellipse"}
+SHAPE_TAGS = {
+    "path",
+    "rect",
+    "circle",
+    "ellipse",
+    "line",
+    "polyline",
+    "polygon",
+    "text",
+}
+# Path commands whose arguments are pure x,y pairs - enough for a rough
+# bounding box without a real path interpreter. Anything else (arcs, H/V,
+# relative commands) makes the path unmeasurable here.
+PAIR_COMMANDS = {"M", "L", "C", "S", "Q", "T", "Z"}
+MIN_PATH_NUMBERS = 4  # at least two x,y pairs to span a box
+NUMBER_RE = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 FORBIDDEN_TAGS = (
     ("linearGradient", "gradient", "gradient dependence"),
     ("radialGradient", "gradient", "gradient dependence"),
@@ -75,7 +91,7 @@ def parse_color(value: str) -> Rgb | None:
         return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16))
     functional = re.fullmatch(r"rgb\((\d+),\s*(\d+),\s*(\d+)\)", value)
     if functional:
-        red, green, blue = (int(group) for group in functional.groups())
+        red, green, blue = (min(int(group), 255) for group in functional.groups())
         return (red, green, blue)
     return None
 
@@ -89,7 +105,7 @@ def _finding(lint_id: str, severity: str, msg: str) -> Finding:
 
 
 def _canvas_size(root: Element) -> float | None:
-    numbers = [float(n) for n in re.findall(r"-?[\d.]+", root.get("viewBox", ""))]
+    numbers = [float(n) for n in re.findall(NUMBER_RE, root.get("viewBox", ""))]
     if len(numbers) == VIEWBOX_PARTS:
         return min(numbers[2], numbers[3])
     return None
@@ -104,22 +120,32 @@ def _forbidden_tag_findings(tags: list[str]) -> list[Finding]:
     return findings
 
 
-def _paint_value(element: Element, attr: str) -> str:
-    direct = element.get(attr)
-    if direct:
-        return direct
+def _own_paint(element: Element, attr: str) -> str:
     style = element.get("style", "")
     declarations = dict(part.split(":", 1) for part in style.split(";") if ":" in part)
-    return declarations.get(attr, "").strip()
+    styled = declarations.get(attr, "").strip()
+    if styled:  # inline style beats the presentation attribute
+        return styled
+    return (element.get(attr) or "").strip()
 
 
-def _ink_colors(elements: list[Element]) -> set[Rgb]:
+def _ink_colors(root: Element) -> set[Rgb]:
+    # fill/stroke inherit, so walk the tree carrying effective paints and
+    # census only what renderable shapes actually end up painted with.
     inks = set()
-    for element in elements:
+    stack: list[tuple[Element, dict[str, str]]] = [(root, {"fill": "", "stroke": ""})]
+    while stack:
+        element, inherited = stack.pop()
+        paints = {}
         for attr in ("fill", "stroke"):
-            rgb = parse_color(_paint_value(element, attr))
-            if rgb and rgb != WHITE:
-                inks.add(rgb)
+            own = _own_paint(element, attr)
+            paints[attr] = inherited[attr] if not own or own == "inherit" else own
+        if local_name(element.tag) in SHAPE_TAGS:
+            for paint in paints.values():
+                rgb = parse_color(paint)
+                if rgb and rgb != WHITE:
+                    inks.add(rgb)
+        stack.extend((child, paints) for child in element)
     return inks
 
 
@@ -140,22 +166,44 @@ def _node_count(elements: list[Element]) -> int:
     )
 
 
+def _primitive_dims(element: Element) -> list[float]:
+    dims = []
+    for attr in ("width", "height", *RADIUS_ATTRS):
+        raw = element.get(attr)
+        if raw:
+            with suppress(ValueError):
+                factor = 2 if attr in RADIUS_ATTRS else 1
+                dims.append(float(raw) * factor)
+    return dims
+
+
+def _path_dims(d: str) -> list[float]:
+    # Rough control-point bounding box; only sound for absolute pair-argument
+    # commands. The box circumscribes the curve, so this can under-report tiny
+    # paths but never flags a healthy one.
+    if not d or set(re.findall(r"[A-Za-df-z]", d)) - PAIR_COMMANDS:
+        return []
+    numbers = [float(n) for n in re.findall(NUMBER_RE, d)]
+    if len(numbers) < MIN_PATH_NUMBERS or len(numbers) % 2:
+        return []
+    xs, ys = numbers[0::2], numbers[1::2]
+    return [max(xs) - min(xs), max(ys) - min(ys)]
+
+
 def _tiny_features(elements: list[Element], canvas: float | None) -> list[str]:
     if not canvas:
         return []
     tiny = []
     for element in elements:
-        if local_name(element.tag) not in SIZED_SHAPES:
+        tag = local_name(element.tag)
+        if tag in SIZED_SHAPES:
+            dims = _primitive_dims(element)
+        elif tag == "path":
+            dims = _path_dims(element.get("d", ""))
+        else:
             continue
-        dims = []
-        for attr in ("width", "height", *RADIUS_ATTRS):
-            raw = element.get(attr)
-            if raw:
-                with suppress(ValueError):
-                    factor = 2 if attr in RADIUS_ATTRS else 1
-                    dims.append(float(raw) * factor)
         if dims and min(dims) < canvas * TINY_FRACTION:
-            tiny.append(f"<{local_name(element.tag)}> min dim {min(dims):.1f}")
+            tiny.append(f"<{tag}> min dim {min(dims):.1f}")
     return tiny
 
 
@@ -229,16 +277,21 @@ def _shape_findings(
 
 
 def lint_file(path: Path) -> dict[str, Any]:
-    raw = path.read_text(encoding="utf-8", errors="replace")
     try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
         root = DefusedElementTree.fromstring(raw)
-    except (DefusedElementTree.ParseError, DefusedXmlException, ValueError) as exc:
+    except (
+        OSError,
+        DefusedElementTree.ParseError,
+        DefusedXmlException,
+        ValueError,
+    ) as exc:
         return {"file": str(path), "error": f"not parseable SVG: {exc}"}
     if local_name(root.tag) != "svg":
         return {"file": str(path), "error": "not an SVG document"}
 
     elements = list(root.iter())
-    inks = _ink_colors(elements)
+    inks = _ink_colors(root)
     node_count = _node_count(elements)
     findings = [
         *_forbidden_tag_findings([local_name(e.tag) for e in elements]),

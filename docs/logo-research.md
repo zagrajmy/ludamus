@@ -1,8 +1,8 @@
 # Zagrajmy logo research digest
 
 Compiled 2026-07-22 from four parallel research passes: designer canon,
-principles, niche landscape, and the AI-to-vector pipeline. It fed the
-logo pitch deck and the brand system that landed in
+principles, niche landscape, and the AI-to-vector pipeline. It informed
+the brand system that landed in
 `src/ludamus/templates/components/brand/`.
 
 ## 1. Designers worth stealing from
