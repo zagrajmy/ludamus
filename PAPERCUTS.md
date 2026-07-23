@@ -125,3 +125,13 @@ If you fix a papercut, remove it.
 - 2026-07-23: Rebuilding frontend assets while the no-reload E2E server was
   running left Django's cached Vite manifest pointing at a deleted CSS file;
   browser tests rendered unstyled until the server was restarted.
+- 2026-07-23: Ran mise tasks in the sandbox; mise failed with 'Operation not
+  permitted' until retried with escalated permissions.
+- 2026-07-23: Ran 'mise run test:int' with a path expecting a focused test; task
+  appended the path after its hardcoded tests/integration target and launched
+  the full suite instead.
+- 2026-07-23: Concurrent UI work deleted a template while the E2E wrapper's
+  post-test formatter scanned it, so a passing focused browser test reported
+  task failure; rerun after agents settle.
+- 2026-07-23: mise run format returns failure when djlint successfully reformats
+  a file, requiring an identical second run to prove cleanliness.
