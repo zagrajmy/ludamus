@@ -5,7 +5,8 @@ description:
   Haviv, Bass, Leader + neuro-design principles). Use whenever the user asks
   to rate, grade, score, review, compare, lint, or pick between logo
   candidates, marks, wordmarks, favicons, or brand icons — including
-  AI-generated logo sheets, SVG marks in docs/branding/assets, and "which of
+  AI-generated logo sheets, the brand SVGs in
+  src/ludamus/templates/components/brand/, and "which of
   these is better?" questions about any logo image. Also use before shipping
   any new logo asset (navbar SVG, favicon, og:image) to verify it passes the
   hard gates.

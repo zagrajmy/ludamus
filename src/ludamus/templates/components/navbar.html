@@ -5,12 +5,9 @@
         <div class="flex justify-between h-14">
             <div class="flex items-center gap-6">
                 <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
-                   class="flex items-center space-x-2 text-neutral-800 dark:text-neutral-200"
+                   class="flex items-center text-neutral-800 dark:text-neutral-200"
                    data-morph="tuck-in">
-                    {% include "components/brand/logo-mark.html" with extra_class="size-8" %}
-                    <span class="text-xl font-semibold tracking-tight hidden sm:inline">
-                        <span class="text-neutral-800 dark:text-neutral-200">{{ current_sphere.name }}</span>
-                    </span>
+                    {% include "components/brand/logo-lockup.html" with extra_class="h-8 w-auto" %}
                 </a>
                 {% if current_sphere.enabled_pages|length > 1 %}
                     {% if request.resolver_match %}
