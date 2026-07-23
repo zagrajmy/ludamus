@@ -8,9 +8,10 @@
                    class="flex items-center gap-2 text-neutral-800 dark:text-neutral-200"
                    data-brand-hover="tuck-in">
                     {% include "components/brand/logo-mark.html" with extra_class="size-10 sm:hidden" %}
+                    <span class="sr-only sm:hidden">zagrajmy</span>
                     {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
-                    <span class="hidden sm:flex items-baseline gap-2 text-lg font-medium tracking-tight">
-                        <span class="text-foreground-muted">/</span>
+                    <span class="hidden sm:flex items-baseline gap-2 text-xl font-semibold tracking-tight">
+                        <span class="text-foreground-muted" aria-hidden="true">/</span>
                         {{ current_sphere.name }}
                     </span>
                 </a>

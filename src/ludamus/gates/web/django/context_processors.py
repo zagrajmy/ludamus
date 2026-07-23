@@ -94,3 +94,15 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
         ),
         navbar_notifications=request.services.notifications.get_navbar(user_dto.pk),
     )
+
+
+class BrandingContextData(TypedDict):
+    favicon: str
+
+
+def branding(_request: HttpRequest) -> BrandingContextData:
+    if settings.IS_STAGING:
+        return BrandingContextData(favicon="favicon-staging.svg")
+    if settings.IS_PRODUCTION:
+        return BrandingContextData(favicon="favicon.svg")
+    return BrandingContextData(favicon="favicon-dev.svg")

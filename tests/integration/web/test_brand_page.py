@@ -17,5 +17,11 @@ class TestBrandPageView:
             HTTPStatus.OK,
             context_data={"view": ANY},
             template_name=["brand.html"],
-            contains=["Logo & Brand Guidelines", "logo-lockup", "tuck-in", "#f85a3c"],
+            contains=[
+                "Logo & Brand Guidelines",
+                "logo-lockup",
+                "tuck-in",
+                "#f85a3c",
+                "favicon-dev.svg",
+            ],
         )
