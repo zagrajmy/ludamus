@@ -25,10 +25,11 @@ const init = (root: HTMLElement): void => {
       panel.hidden = false;
     }
 
-    if (!animate) {
+    if (animate) {
+      surface.style.removeProperty("transition-duration");
+      if (open) void surface.offsetWidth;
+    } else {
       surface.style.transitionDuration = "0ms";
-    } else if (open) {
-      void surface.offsetWidth;
     }
 
     surface.toggleAttribute("data-menu-visible", open);
@@ -40,7 +41,10 @@ const init = (root: HTMLElement): void => {
       surface.addEventListener(
         "transitionend",
         () => {
-          if (!isOpen()) panel.hidden = true;
+          if (!isOpen()) {
+            panel.hidden = true;
+            if (panel.contains(document.activeElement)) button.focus();
+          }
         },
         { once: true },
       );
@@ -59,7 +63,7 @@ const init = (root: HTMLElement): void => {
     }
   });
 
-  if (root.hasAttribute("data-menu-hover")) {
+  if (Object.hasOwn(root.dataset, "menuHover")) {
     button.addEventListener("pointerenter", () => {
       if (!HOVER_QUERY.matches || isOpen()) return;
       setOpen(true, true);

@@ -50,12 +50,15 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
 
     const trigger = page.getByRole("button", { name: /Account menu/ });
     const panel = page.locator("#navbar-profile-panel");
+    const surface = panel.locator("[data-menu-surface]");
 
     await trigger.hover();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(surface).toHaveCSS("transition-duration", "0.15s");
 
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(surface).toHaveCSS("transition-duration", "0.1s");
     await expect(panel).toBeHidden();
 
     await trigger.click();
@@ -74,6 +77,7 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
     await page.mouse.move(panelBox.x - 20, panelBox.y + 20);
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await expect(panel).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {

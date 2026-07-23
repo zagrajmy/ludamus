@@ -22,7 +22,8 @@ loadEnv(path.join(repoRoot, ".env.e2e"));
 
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 
-const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
+const WEB_COMMAND =
+  "mise run test:e2e:prep && exec coverage run --source=src -m django runserver --insecure --noreload localhost:8000";
 
 const isCI = !!process.env.CI;
 const skipIos = !!process.env.E2E_SKIP_IOS;
@@ -32,6 +33,7 @@ const webServerEnv: Record<string, string> = Object.fromEntries(
     (entry): entry is [string, string] => typeof entry[1] === "string",
   ),
 );
+webServerEnv.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
 
 export default defineConfig({
   testDir: "./tests",
