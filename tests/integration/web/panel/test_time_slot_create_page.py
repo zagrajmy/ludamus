@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -16,10 +17,7 @@ def _create_modal_form(response):
     context = response.context_data
     assert context is not None
     assert_response(
-        response,
-        HTTPStatus.OK,
-        template_name="panel/time-slots.html",
-        context_data=context,
+        response, HTTPStatus.OK, template_name="panel/time-slots.html", context_data=ANY
     )
     return context["create_form"]
 

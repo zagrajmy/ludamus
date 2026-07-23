@@ -198,6 +198,21 @@ class TestTesseraButton:
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
 
+    def test_spreads_html_attributes(self) -> None:
+        html = tessera_button(
+            "Assign",
+            href="?assign=1",
+            aria_controls="discount-assign-modal-1",
+            aria_haspopup="dialog",
+            data_modal_close="discount-assign-modal-1",
+            title="Assign discount",
+        )
+        assert 'href="?assign=1"' in html
+        assert 'aria-controls="discount-assign-modal-1"' in html
+        assert 'aria-haspopup="dialog"' in html
+        assert 'data-modal-close="discount-assign-modal-1"' in html
+        assert 'title="Assign discount"' in html
+
 
 class TestRenderLabel:
     def test_empty_when_no_label(self) -> None:

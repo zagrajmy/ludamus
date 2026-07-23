@@ -40,7 +40,6 @@ def _empty_grid():
         total_pages=1,
         total_spaces=0,
         available_dates=[],
-        selected_date=None,
     )
 
 
@@ -127,8 +126,7 @@ class TestTimetablePageView:
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
-                "selected_date": None,
-                "date_param": "",
+                "date_selection": "all",
                 "slug": event.slug,
                 "tab_urls": {
                     "timetable": reverse(
@@ -160,8 +158,8 @@ class TestTimetablePageView:
         assert len(grid.spaces) == 1
         assert grid.spaces[0].pk == space.pk
         assert len(grid.time_labels) > 0
-        assert grid.selected_date is not None
-        assert grid.available_dates == [grid.selected_date]
+        assert grid.date_selection == "all"
+        assert grid.available_dates == [grid.days[0].date]
         assert time_slot is not None
 
     def test_grid_contains_scheduled_session(
@@ -213,8 +211,8 @@ class TestTimetablePageView:
             time_slot.start_time.date(),
             second_slot.start_time.date(),
         ]
-        assert grid.show_all_days is True
-        assert context["date_param"] == "all"
+        assert grid.date_selection == "all"
+        assert context["date_selection"] == "all"
         content = response.content.decode()
         expected_day_count = 2
         assert content.count('class="timetable-calendar ') == 1

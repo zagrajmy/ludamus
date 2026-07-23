@@ -49,10 +49,10 @@
                     <label for="timetable-date"
                            class="text-sm text-foreground-muted {% if all_tracks %}sm:ml-2{% endif %}">{% translate "Day:" %}</label>
                     {% select id="timetable-date" name="date" onchange="this.form.submit()" class="h-9 sm:w-40" %}
-                        <option value="all" {% if grid.show_all_days %}selected{% endif %}>{% translate "All" %}</option>
+                        <option value="all" {% if grid.date_selection == "all" %}selected{% endif %}>{% translate "All" %}</option>
                         {% for d in grid.available_dates %}
                             <option value="{{ d|date:"Y-m-d" }}"
-                                    {% if grid.selected_date == d %}selected{% endif %}>{{ d|date:"D, M j" }}</option>
+                                    {% if grid.date_selection == d %}selected{% endif %}>{{ d|date:"D, M j" }}</option>
                         {% endfor %}
                     {% end_select %}
                 {% endif %}
@@ -72,10 +72,10 @@
                     {% icon "printer" class="size-4" %}
                     <span class="hidden sm:inline">{{ t_print }}</span>
                 </button>
-                <div data-menu-panel
-                     hidden
-                     class="absolute right-0 mt-1 z-40 flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3 shadow-xl">
-                    {% include "panel/parts/print-controls.html" %}
+                <div data-menu-panel hidden class="absolute right-0 mt-1 z-40">
+                    <div {% include "components/menu_surface.html" with extra_class="flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3 shadow-xl" %}>
+                        {% include "panel/parts/print-controls.html" %}
+                    </div>
                 </div>
             </div>
             {% if filter_track_pk %}
@@ -127,7 +127,7 @@
                  data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
                  data-confirm-move="{% translate "This program item is confirmed. Moving it will clear the confirmation." %}"
                  data-confirm-move-action="{% translate "Move" %}"
-                 hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}{% if date_param %}&date={{ date_param }}{% endif %}&room_page={{ grid.page }}"
+                 hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page }}"
                  hx-swap="innerHTML"
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
         </div>

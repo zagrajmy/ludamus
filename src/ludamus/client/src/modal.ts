@@ -419,8 +419,13 @@ if (navigation) {
     if (!e.canIntercept || e.hashChange) return;
     const url = new URL(e.destination.url);
     if (url.origin !== location.origin || url.pathname !== location.pathname) return;
+    const reloadLink = [
+      ...document.querySelectorAll<HTMLAnchorElement>("a[data-modal-reload]"),
+    ].some((link) => new URL(link.href, location.href).href === url.href);
+    if (reloadLink) return;
 
     for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+      if (link.hasAttribute("data-modal-reload")) continue;
       const href = link.getAttribute("href");
       const modalId = link.getAttribute("aria-controls");
       if (!href || !modalId) continue;
@@ -509,6 +514,7 @@ setupModalCloseTriggers();
 
 const setupFallbackLinkHandlers = (): void => {
   for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+    if (link.hasAttribute("data-modal-reload")) continue;
     const modalId = link.getAttribute("aria-controls");
     const href = link.getAttribute("href");
     if (!modalId || !href) continue;

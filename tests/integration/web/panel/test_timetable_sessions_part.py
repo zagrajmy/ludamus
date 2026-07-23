@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -80,8 +81,7 @@ class TestTimetableSessionListPartView:
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "filter_track_pk": None,
-                "selected_date": None,
-                "date_param": "",
+                "date_selection": "all",
                 "slug": event.slug,
             },
         )
@@ -322,13 +322,12 @@ class TestTimetableSessionListPartView:
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-list.html",
-            context_data=response.context_data,
+            context_data=ANY,
             contains="date=all",
         )
         context = response.context
         assert session.pk in [item.pk for item in context["sessions"]]
-        assert context["selected_date"] is None
-        assert context["date_param"] == "all"
+        assert context["date_selection"] == "all"
 
     def test_caps_results_at_limit_and_flags_has_more(
         self, authenticated_client, active_user, sphere, event, proposal_category

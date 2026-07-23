@@ -44,7 +44,6 @@ def _empty_grid():
         total_pages=1,
         total_spaces=0,
         available_dates=[],
-        selected_date=None,
     )
 
 
@@ -106,7 +105,7 @@ class TestTimetableGridPartView:
                 "filter_track_pk": None,
                 "conflict_session_pks": set(),
                 "slot_violation_session_pks": set(),
-                "date_param": "",
+                "date_selection": "all",
                 "slug": event.slug,
             },
         )
@@ -130,7 +129,7 @@ class TestTimetableGridPartView:
             context_data=response.context_data,
         )
         context = response.context
-        assert context["date_param"] == "all"
+        assert context["date_selection"] == "all"
         assert [day.date for day in context["grid"].days] == [
             time_slot.start_time.date(),
             second_slot.start_time.date(),

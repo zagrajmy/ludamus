@@ -50,9 +50,16 @@ test.describe("Timetable", () => {
   test("single-day timetable omits its date tier and fills the calendar", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
+    const daySelect = page.getByLabel("Day:");
+    const firstDate = await daySelect.locator("option").nth(1).getAttribute("value");
+    expect(firstDate).not.toBeNull();
+    await Promise.all([
+      page.waitForURL((url) => url.searchParams.get("date") === firstDate),
+      daySelect.selectOption(firstDate!),
+    ]);
+
     const calendar = page.locator(".timetable-calendar");
     const dayHeader = calendar.locator(".timetable-day-header");
-    const dayGrid = calendar.locator(".timetable-day-grid");
     await expect(dayHeader.locator("h2")).toHaveCount(0);
 
     const rightEdges = await calendar.evaluate((element) => {
@@ -76,7 +83,7 @@ test.describe("Timetable", () => {
     await expect(days).toHaveCount(2);
     await expect(timetable.locator(".timetable-time-axis")).toHaveCount(1);
     await expect(timetable.getByText("Time", { exact: true })).toHaveCount(1);
-    await expect(page.locator("#timetable-date")).toHaveValue("all");
+    await expect(page.getByLabel("Day:")).toHaveValue("all");
     await expect(timetable.locator(".timetable-day-header h2")).toHaveCount(2);
 
     const timeAxisPosition = await timetable
@@ -106,11 +113,10 @@ test.describe("Timetable", () => {
     await expect(sessionList.getByText("All Days Workshop")).toBeVisible({
       timeout: 10000,
     });
-    await sessionList.locator("[data-session-pk]", { hasText: "All Days Workshop" }).click();
+    await sessionList.getByText("All Days Workshop", { exact: true }).click();
 
-    const leftPane = page.locator("#left-pane");
-    await expect(leftPane.getByText("Session details")).toBeVisible();
-    await leftPane.getByRole("button", { name: "Assign" }).click();
+    await expect(page.getByText("Session details")).toBeVisible();
+    await page.getByRole("button", { name: "Assign" }).click();
     await expect(days.nth(0).locator(".timetable-preferred-slot")).toHaveCount(2);
     await expect(days.nth(1).locator(".timetable-preferred-slot")).toHaveCount(2);
     await days
@@ -125,8 +131,8 @@ test.describe("Timetable", () => {
     await expect(days.nth(0).getByText("All Days Workshop")).toHaveCount(0);
 
     await days.nth(1).getByText("All Days Workshop").click();
-    await expect(leftPane.getByRole("button", { name: "Unassign" })).toBeVisible();
-    await leftPane.getByRole("button", { name: "Unassign" }).click();
+    await expect(page.getByRole("button", { name: "Unassign" })).toBeVisible();
+    await page.getByRole("button", { name: "Unassign" }).click();
     await expect(sessionList.getByText("All Days Workshop")).toBeVisible({
       timeout: 10000,
     });

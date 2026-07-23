@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, TypedDict
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -31,12 +32,6 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO, TimeSlotDTO
 
 
-class _DatedCreateForm(TypedDict):
-    day: date
-    modal_id: str
-    form: TimeSlotForm
-
-
 class _TimeSlotsContext(TypedDict):
     active_nav: str
     active_tab: str
@@ -51,7 +46,6 @@ class _TimeSlotsContext(TypedDict):
     has_next: bool
     total_pages: int
     create_form: TimeSlotForm
-    dated_create_forms: list[_DatedCreateForm]
 
 
 def _validate_time_slot(
@@ -82,13 +76,14 @@ def _event_days(start: date, end: date) -> list[date]:
 
 
 def _time_slots_context(
-    request: PanelRequest, event: EventDTO, *, create_form: TimeSlotForm | None = None
+    *, request: PanelRequest, event: EventDTO, create_form: TimeSlotForm | None = None
 ) -> _TimeSlotsContext:
     days_per_page = TimeSlotsPageView.DAYS_PER_PAGE
     all_days = _event_days(
         localtime(event.start_time).date(), localtime(event.end_time).date()
     )
-    page = int(request.GET.get("page", 0))
+    raw_page = request.GET.get("page", "")
+    page = int(raw_page) if raw_page.isdigit() else 0
     total_pages = max(1, (len(all_days) + days_per_page - 1) // days_per_page)
     page = max(0, min(page, total_pages - 1))
 
@@ -135,17 +130,6 @@ def _time_slots_context(
                 auto_id="new_time_slot_%s",
             )
         ),
-        "dated_create_forms": [
-            {
-                "day": day,
-                "modal_id": f"time-slot-create-modal-{day:%Y%m%d}",
-                "form": TimeSlotForm(
-                    initial={"date": day.isoformat(), "end_date": day.isoformat()},
-                    auto_id=f"new_time_slot_{day:%Y%m%d}_%s",
-                ),
-            }
-            for day in visible_days
-        ],
     }
 
 
@@ -160,7 +144,7 @@ class TimeSlotsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        context.update(_time_slots_context(self.request, current_event))
+        context.update(_time_slots_context(request=self.request, event=current_event))
         return TemplateResponse(self.request, "panel/time-slots.html", context)
 
 
@@ -177,7 +161,8 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
         time_slots_url = reverse("panel:time-slots", kwargs={"slug": slug})
         date_param = self.request.GET.get("date")
         if _date_initial(date_param):
-            return redirect(f"{time_slots_url}?create=1&date={date_param}")
+            query = urlencode({"create": "1", "date": date_param})
+            return redirect(f"{time_slots_url}?{query}")
         return redirect(f"{time_slots_url}?create=1")
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -188,7 +173,9 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
         form = TimeSlotForm(self.request.POST)
         if not form.is_valid():
             context.update(
-                _time_slots_context(self.request, current_event, create_form=form)
+                _time_slots_context(
+                    request=self.request, event=current_event, create_form=form
+                )
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 
@@ -205,7 +192,9 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
         existing = self.request.di.uow.time_slots.list_by_event(current_event.pk)
         if not _validate_time_slot(form, start_time, end_time, current_event, existing):
             context.update(
-                _time_slots_context(self.request, current_event, create_form=form)
+                _time_slots_context(
+                    request=self.request, event=current_event, create_form=form
+                )
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 

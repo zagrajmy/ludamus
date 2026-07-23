@@ -165,7 +165,7 @@
                         title="{{ t_toggle_sidebar }}"
                         aria-label="{{ t_toggle_sidebar }}"
                         hx-on:click="var h=document.documentElement;var f=h.toggleAttribute('data-folded');try{localStorage.setItem('panel-sidebar-folded',f?'1':'0');}catch(e){}">
-                    {% include "panel/parts/sidebar-icon.html" with icon_id="sidebarFoldIcon" icon_class="size-5" %}
+                    {% include "panel/parts/sidebar-icon.html" with icon_class="size-5" %}
                 </button>
             </div>
             <nav class="sidebar-section px-2 gap-0.5 flex flex-col">
@@ -313,7 +313,7 @@
             </nav>
         </aside>
         <!-- Main Content -->
-        <main class="panel-main flex min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
             <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">
@@ -365,7 +365,7 @@
                      role="region"
                      aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
             {% endif %}
-            <div class="relative z-0 flex flex-1 flex-col">
+            <div class="relative z-0 flex min-h-0 flex-1 flex-col">
                 {% block content %}
                 {% endblock content %}
             </div>

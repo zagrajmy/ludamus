@@ -3,33 +3,10 @@
     --minute-px: 1px;
   }
 
-  .timetable-calendar[data-single-day] .timetable-day-strip {
-    min-width: calc(4rem + 9rem * var(--day-columns));
-  }
-
-  .timetable-calendar [data-column-count="1"] {
-    --column-count: 1;
-  }
-
-  .timetable-calendar [data-column-count="2"] {
-    --column-count: 2;
-  }
-
-  .timetable-calendar [data-column-count="3"] {
-    --column-count: 3;
-  }
-
-  .timetable-calendar [data-column-count="4"] {
-    --column-count: 4;
-  }
-
-  .timetable-calendar [data-column-count="5"] {
-    --column-count: 5;
-  }
-
   .timetable-day-grid,
   .timetable-day-header {
-    width: calc(9rem * var(--column-count));
+    flex: 1 0 calc(9rem * var(--column-count));
+    min-width: calc(9rem * var(--column-count));
   }
 
   .timetable-header-cell {

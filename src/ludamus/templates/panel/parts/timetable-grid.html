@@ -18,32 +18,30 @@
             </span>
             {% if grid.page > 1 %}
                 <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if date_param %}&date={{ date_param }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
+                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'-1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if date_param %}&date={{ date_param }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'-1' }}"
                         class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">← {% translate "Previous" %}</button>
             {% endif %}
             {% if grid.page < grid.total_pages %}
                 <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if date_param %}&date={{ date_param }}{% endif %}&room_page={{ grid.page|add:'1' }}"
+                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if date_param %}&date={{ date_param }}{% endif %}&room_page={{ grid.page|add:'1' }}"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'1' }}"
                         class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Next" %} →</button>
             {% endif %}
         </div>
     {% endif %}
     <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
          data-timetable-days
-         {% if grid.days|length == 1 %}data-single-day{% endif %}
-         style="--grid-extent: {{ grid.total_minutes }};
-                --day-columns: {{ grid.days.0.columns|length }}">
-        <div class="timetable-day-strip sticky top-0 z-20 flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-stretch border-b border-neutral-700 pr-px">
+         style="--grid-extent: {{ grid.total_minutes }}">
+        <div class="timetable-day-strip sticky top-0 z-20 flex min-w-full w-max items-stretch border-b border-neutral-700 pr-px">
             <div class="sticky left-0 z-40 flex w-16 flex-none items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
             {% for day in grid.days %}
-                <div class="timetable-day-header flex {% if grid.days|length == 1 %}flex-1{% else %}flex-none{% endif %} flex-col border-l border-neutral-700"
-                     data-column-count="{{ day.columns|length }}">
+                <div class="timetable-day-header flex flex-col border-l border-neutral-700"
+                     style="--column-count: {{ day.columns|length }}">
                     {% if grid.days|length > 1 %}
                         <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
                             class="flex h-9 items-center border-b border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
@@ -69,7 +67,7 @@
                 </div>
             {% endfor %}
         </div>
-        <div class="timetable-day-strip flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-start">
+        <div class="timetable-day-strip flex min-w-full w-max items-start">
             <div class="timetable-time-axis sticky left-0 z-10 w-16 flex-none border-r border-border bg-bg-secondary shadow-sm">
                 {% for label in grid.time_labels %}
                     <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
@@ -79,15 +77,15 @@
                 {% endfor %}
             </div>
             {% for day in grid.days %}
-                <section class="timetable-day-grid {% if grid.days|length == 1 %}flex-1{% else %}flex-none{% endif %} {% if not forloop.first %}border-l border-border{% endif %}"
-                         data-column-count="{{ day.columns|length }}"
+                <section class="timetable-day-grid {% if not forloop.first %}border-l border-border{% endif %}"
+                         style="--column-count: {{ day.columns|length }}"
                          data-timetable-day="{{ day.date|date:'Y-m-d' }}"
                          data-date="{{ day.date|date:'Y-m-d' }}"
                          data-event-start="{{ day.event_start_iso }}"
                          data-slot-minutes="{{ grid.slot_minutes }}"
                          data-snap-minutes="{{ grid.snap_minutes }}"
                          data-total-minutes="{{ grid.total_minutes }}"
-                         {% if grid.days|length > 1 %}aria-labelledby="timetable-day-{{ day.date|date:'Ymd' }}"{% else %}aria-label="{{ day.date|date:'l, M j' }}"{% endif %}>
+                         aria-label="{{ day.date|date:'l, M j' }}">
                     {% include "panel/parts/timetable-day-grid.html" %}
                 </section>
             {% endfor %}

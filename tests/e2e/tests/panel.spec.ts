@@ -158,7 +158,7 @@ test.describe("Backoffice Panel", () => {
   test("does not scale panel category collapsibles on pointer down", async ({ page }) => {
     await page.goto("/panel/");
 
-    const category = page.locator(".sidebar-cat-header").first();
+    const category = page.getByRole("button", { name: "Program" });
     await category.hover();
     await page.mouse.down();
     await expect(category).toHaveCSS("scale", "1");
@@ -170,11 +170,8 @@ test.describe("Backoffice Panel", () => {
     await page.goto("/panel/");
 
     const foldButton = page.getByRole("button", { name: "Toggle sidebar" });
-    const foldIcon = page.locator("#sidebarFoldIcon");
-    const eventSelector = page.locator("#eventSelector");
-    const scrollArea = page.locator("#sidebar");
-    await expect(foldButton.locator('path[d="M15 4l0 16"]')).toHaveCount(1);
-    await expect(foldIcon).toHaveCSS("rotate", "180deg");
+    const eventSelector = page.getByRole("combobox", { name: "Event" });
+    const sidebar = page.getByRole("complementary");
     await expect(eventSelector).toBeVisible();
 
     const controls = await Promise.all([eventSelector.boundingBox(), foldButton.boundingBox()]);
@@ -186,15 +183,14 @@ test.describe("Backoffice Panel", () => {
     const topBeforeScroll = await foldButton.evaluate(
       (button) => button.getBoundingClientRect().top,
     );
-    await scrollArea.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+    await sidebar.evaluate((element) => element.scrollTo(0, element.scrollHeight));
     const topAfterScroll = await foldButton.evaluate(
       (button) => button.getBoundingClientRect().top,
     );
     expect(topAfterScroll).toBe(topBeforeScroll);
 
     await foldButton.click();
-    await expect(page.locator("#sidebar")).toHaveCSS("width", "64px");
-    await expect(foldIcon).toHaveCSS("rotate", "180deg");
+    await expect(sidebar).toHaveCSS("width", "64px");
     await expect(eventSelector).toBeHidden();
   });
 
@@ -203,8 +199,8 @@ test.describe("Backoffice Panel", () => {
     await page.goto("/panel/");
 
     const menuButton = page.getByRole("button", { name: "Open navigation" });
-    await expect(menuButton.locator('path[d="M15 4l0 16"]')).toHaveCount(1);
-    await expect(menuButton.locator("span")).toHaveCSS("rotate", "180deg");
+    await menuButton.click();
+    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
   });
 
   // --- Step 1: Event Settings ---
@@ -1208,7 +1204,7 @@ test.describe("Backoffice Panel", () => {
       })
       .first();
     const addHref = await addLink.getAttribute("href");
-    const dateMatch = addHref?.match(/create=(\d{4}-\d{2}-\d{2})/);
+    const dateMatch = addHref?.match(/date=(\d{4}-\d{2}-\d{2})/);
     const dateStr = dateMatch?.[1] ?? "";
 
     // Get event start hour

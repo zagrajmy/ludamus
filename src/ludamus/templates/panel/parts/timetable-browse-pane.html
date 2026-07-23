@@ -1,25 +1,27 @@
 {% load i18n %}
-<div id="left-pane"
-     class="card w-full lg:w-72 flex-none p-3 flex flex-col gap-2">
-    <div class="font-medium text-sm text-foreground-secondary">{% translate "Sessions to assign" %}</div>
-    <input type="text"
-           name="search"
-           value="{{ search|default:'' }}"
-           aria-label="{% translate "Search sessions" %}"
-           placeholder="{% translate "Search…" %}"
-           class="w-full text-sm border border-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary"
-           hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&date={{ date_param }}"
-           hx-trigger="keyup changed delay:300ms"
-           hx-target="#session-list"
-           hx-swap="innerHTML"
-           hx-include="[name=search]">
-    <div id="session-list"
-         role="region"
-         aria-live="polite"
-         aria-label="{% translate "Sessions to assign" %}"
-         hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}&date={{ date_param }}"
-         hx-swap="innerHTML"
-         hx-trigger="load, timetableChanged from:body">
-        <div class="text-xs text-foreground-muted">{% translate "Loading…" %}</div>
+{% with date_value=date_selection|date:"Y-m-d"|default:date_selection %}
+    <div id="left-pane"
+         class="card w-full lg:w-72 flex-none p-3 flex flex-col gap-2">
+        <div class="font-medium text-sm text-foreground-secondary">{% translate "Sessions to assign" %}</div>
+        <input type="text"
+               name="search"
+               value="{{ search|default:'' }}"
+               aria-label="{% translate "Search sessions" %}"
+               placeholder="{% translate "Search…" %}"
+               class="w-full text-sm border border-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary"
+               hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&date={{ date_value }}"
+               hx-trigger="keyup changed delay:300ms"
+               hx-target="#session-list"
+               hx-swap="innerHTML"
+               hx-include="[name=search]">
+        <div id="session-list"
+             role="region"
+             aria-live="polite"
+             aria-label="{% translate "Sessions to assign" %}"
+             hx-get="{% url 'panel:timetable-sessions-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}&date={{ date_value }}"
+             hx-swap="innerHTML"
+             hx-trigger="load, timetableChanged from:body">
+            <div class="text-xs text-foreground-muted">{% translate "Loading…" %}</div>
+        </div>
     </div>
-</div>
+{% endwith %}

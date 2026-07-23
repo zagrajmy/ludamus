@@ -13,8 +13,8 @@ from ludamus.mills.chronology import (
     SessionConfirmationService,
     SessionContentEditService,
     TimetableOverviewService,
-    TimetableService,
 )
+from ludamus.mills.timetable import TimetableService
 from ludamus.pacts import (
     AgendaItemDTO,
     EventDTO,
@@ -180,8 +180,7 @@ class TestBuildGridOverlappingSessions:
             0,
             60,
         ]
-        assert grid.selected_date is None
-        assert grid.show_all_days is True
+        assert grid.date_selection == "all"
         uow.agenda_items.list_by_event.assert_called_once_with(1)
 
 

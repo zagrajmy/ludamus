@@ -17,9 +17,9 @@ const app = simulation({
   },
 });
 
-app.listen(port, () => {
+app.listen(port, "127.0.0.1", () => {
   console.log(
-    `Auth0 simulation server started at https://localhost:${port}\n` +
+    "Auth0 simulation server started at https://auth0.localhost\n" +
       `Email: ${email}\nPassword: ${password}\n` +
       "\nPress Ctrl+C to stop the server",
   );

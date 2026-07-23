@@ -85,9 +85,9 @@ def _scoped_facilitator(
 
 
 def _discounts_context(
+    *,
     request: PanelRequest,
     event_pk: int,
-    *,
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
 ) -> _DiscountsContext:
@@ -127,7 +127,9 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        context.update(_discounts_context(self.request, current_event.pk))
+        context.update(
+            _discounts_context(request=self.request, event_pk=current_event.pk)
+        )
         return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
 
@@ -173,8 +175,8 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if not form.is_valid():
             context.update(
                 _discounts_context(
-                    self.request,
-                    current_event.pk,
+                    request=self.request,
+                    event_pk=current_event.pk,
                     assign_facilitator_id=facilitator_id,
                     assign_form=form,
                 )

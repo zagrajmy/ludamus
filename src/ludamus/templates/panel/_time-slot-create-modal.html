@@ -14,9 +14,8 @@
             </div>
         </div>
         <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
-            <button type="button"
-                    class="btn btn-secondary"
-                    data-modal-close="{{ modal_id }}">{% translate "Cancel" %}</button>
+            {% translate "Cancel" as t_cancel %}
+            {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close=modal_id %}
             {% translate "Add Time Slot" as t_add_time_slot %}
             {% tessera_button t_add_time_slot %}
         </div>

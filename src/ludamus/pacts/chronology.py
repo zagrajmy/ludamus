@@ -400,6 +400,9 @@ class TimetableDayGridDTO(BaseModel):
     event_start_iso: str
 
 
+type DateSelection = date | Literal["all"]
+
+
 class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
     groups: list[SpaceGroupDTO]
@@ -412,8 +415,7 @@ class TimetableGridDTO(BaseModel):
     total_pages: int
     total_spaces: int
     available_dates: list[date] = []
-    selected_date: date | None = None
-    show_all_days: bool = False
+    date_selection: DateSelection = "all"
 
 
 class ConflictType(StrEnum):

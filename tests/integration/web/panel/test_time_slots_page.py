@@ -94,21 +94,34 @@ class TestTimeSlotsPageView:
                 "has_next": False,
                 "total_pages": 1,
                 "create_form": ANY,
-                "dated_create_forms": [
-                    {
-                        "day": day,
-                        "modal_id": f"time-slot-create-modal-{day:%Y%m%d}",
-                        "form": ANY,
-                    }
-                ],
             },
             contains=[
                 'aria-controls="time-slot-create-modal"',
-                f'aria-controls="time-slot-create-modal-{day:%Y%m%d}"',
+                f"?create=1&date={day:%Y-%m-%d}",
+                "data-modal-reload",
                 '<dialog id="time-slot-create-modal"',
                 "New Time Slot",
             ],
+            not_contains=f"time-slot-create-modal-{day:%Y%m%d}",
         )
+
+    def test_create_query_prefills_shared_modal(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        day = localtime(event.start_time).date().isoformat()
+
+        response = authenticated_client.get(
+            self.get_url(event), {"create": "1", "date": day}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=ANY,
+        )
+        assert response.context["create_form"].initial == {"date": day, "end_date": day}
 
     def test_get_returns_empty_state_when_no_slots(
         self, authenticated_client, active_user, sphere, event
@@ -246,17 +259,6 @@ class TestTimeSlotsPageView:
                 "has_next": True,
                 "total_pages": 1 + 1,
                 "create_form": ANY,
-                "dated_create_forms": [
-                    {
-                        "day": start + timedelta(days=i),
-                        "modal_id": (
-                            "time-slot-create-modal-"
-                            f"{start + timedelta(days=i):%Y%m%d}"
-                        ),
-                        "form": ANY,
-                    }
-                    for i in range(3)
-                ],
             },
         )
 
@@ -312,19 +314,23 @@ class TestTimeSlotsPageView:
                 "has_next": False,
                 "total_pages": 1 + 1,
                 "create_form": ANY,
-                "dated_create_forms": [
-                    {
-                        "day": start + timedelta(days=i),
-                        "modal_id": (
-                            "time-slot-create-modal-"
-                            f"{start + timedelta(days=i):%Y%m%d}"
-                        ),
-                        "form": ANY,
-                    }
-                    for i in range(3, 5)
-                ],
             },
         )
+
+    def test_get_invalid_page_defaults_to_first_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event), {"page": "abc"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=ANY,
+        )
+        assert response.context["page"] == 0
 
     def test_get_shows_orphaned_slots_before_event_start(
         self, authenticated_client, active_user, sphere, event

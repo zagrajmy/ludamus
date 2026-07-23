@@ -9,18 +9,12 @@ const HOVER_QUERY = globalThis.matchMedia("(hover: hover)");
 const init = (root: HTMLElement): void => {
   const button = root.querySelector<HTMLElement>("[data-menu-button]");
   const panel = root.querySelector<HTMLElement>("[data-menu-panel]");
-  if (!button || !panel) return;
-
-  const surface = panel.querySelector<HTMLElement>("[data-menu-surface]");
+  const surface = panel?.querySelector<HTMLElement>("[data-menu-surface]");
+  if (!button || !panel || !surface) return;
   const isOpen = (): boolean => button.getAttribute("aria-expanded") === "true";
 
   const setOpen = (open: boolean, animate = false): void => {
     button.setAttribute("aria-expanded", open ? "true" : "false");
-    if (!surface) {
-      panel.hidden = !open;
-      return;
-    }
-
     if (open) {
       panel.hidden = false;
     }

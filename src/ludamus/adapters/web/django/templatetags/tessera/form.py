@@ -131,8 +131,7 @@ def tessera_button(  # ruff:ignore[too-many-arguments] — template-tag adapter;
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
-    onclick: str | None = None,
-    title: str | None = None,
+    **attrs: str | int | bool | None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
 
@@ -155,6 +154,5 @@ def tessera_button(  # ruff:ignore[too-many-arguments] — template-tag adapter;
         disabled=disabled,
         icon=icon,
         full_width_mobile=full_width_mobile,
-        onclick=onclick,
-        title=title,
+        **attrs,
     )
