@@ -135,3 +135,5 @@ If you fix a papercut, remove it.
   task failure; rerun after agents settle.
 - 2026-07-23: mise run format returns failure when djlint successfully reformats
   a file, requiring an identical second run to prove cleanliness.
+- 2026-07-23: Focused Playwright runs silently found no tests when an auth spec
+  was paired with the chromium project; use chromium-auth for *.auth.spec.ts.
