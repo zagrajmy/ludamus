@@ -3,8 +3,11 @@ from __future__ import annotations
 import math
 import sys
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
+from pathlib import Path
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
+from uuid import uuid4
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
 from django.contrib.sites.models import Site
@@ -39,6 +42,16 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
+
+
+def hashed_upload_to(instance: models.Model, filename: str) -> str:
+    # User-supplied filenames collide (every phone ships an "image.png"), and on
+    # GCS a collision overwrites the earlier file instead of getting a suffix.
+    # The uuid makes the name unique; the model name keeps uploads in one folder
+    # per model, and the suffix keeps the served content type right.
+    model_name = type(instance).__name__.lower()
+    digest = sha256(f"{model_name}-{filename}-{uuid4().hex}".encode()).hexdigest()
+    return f"{model_name}s/{digest}{Path(filename).suffix.lower()}"
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -287,7 +300,7 @@ class Sphere(models.Model):
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
     # Branding fallback — used on printables when an event has no logo of its own
-    logo = models.ImageField(upload_to="spheres/", blank=True)
+    logo = models.ImageField(upload_to=hashed_upload_to, blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -317,9 +330,9 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
-    cover_image = models.ImageField(upload_to="events/", blank=True)
+    cover_image = models.ImageField(upload_to=hashed_upload_to, blank=True)
     # Branding — shown on printables (the public /print page)
-    logo = models.ImageField(upload_to="events/", blank=True)
+    logo = models.ImageField(upload_to=hashed_upload_to, blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -837,7 +850,7 @@ class Session(SoftDeleteModel):
     description = models.TextField(default="", blank=True)
     # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
     # purge the stored file during hard garbage-collection of dead sessions.
-    cover_image = models.ImageField(upload_to="sessions/", blank=True)
+    cover_image = models.ImageField(upload_to=hashed_upload_to, blank=True)
     duration = models.CharField(
         max_length=20,
         default="",
@@ -1422,7 +1435,7 @@ class Encounter(models.Model):
     place = models.CharField(max_length=255, default="", blank=True)
     max_participants = models.PositiveIntegerField(default=0)
     share_code = models.CharField(max_length=6, unique=True)
-    header_image = models.ImageField(upload_to="encounters/", blank=True)
+    header_image = models.ImageField(upload_to=hashed_upload_to, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:
