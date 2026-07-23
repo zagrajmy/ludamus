@@ -152,6 +152,48 @@ test.describe("Backoffice Panel", () => {
     await page.mouse.up();
   });
 
+  test("keeps the sidebar toggle at the top while scrolling", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 320 });
+    await page.goto("/panel/");
+
+    const foldButton = page.getByRole("button", { name: "Toggle sidebar" });
+    const foldIcon = page.locator("#sidebarFoldIcon");
+    const eventSelector = page.locator("#eventSelector");
+    const scrollArea = page.locator("#sidebar");
+    await expect(foldButton.locator('path[d="M15 4l0 16"]')).toHaveCount(1);
+    await expect(foldIcon).toHaveCSS("rotate", "180deg");
+    await expect(eventSelector).toBeVisible();
+
+    const controls = await Promise.all([eventSelector.boundingBox(), foldButton.boundingBox()]);
+    expect(controls.every(Boolean)).toBe(true);
+    const selectorCenter = controls[0]!.y + controls[0]!.height / 2;
+    const buttonCenter = controls[1]!.y + controls[1]!.height / 2;
+    expect(Math.abs(selectorCenter - buttonCenter)).toBeLessThanOrEqual(1);
+
+    const topBeforeScroll = await foldButton.evaluate(
+      (button) => button.getBoundingClientRect().top,
+    );
+    await scrollArea.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+    const topAfterScroll = await foldButton.evaluate(
+      (button) => button.getBoundingClientRect().top,
+    );
+    expect(topAfterScroll).toBe(topBeforeScroll);
+
+    await foldButton.click();
+    await expect(page.locator("#sidebar")).toHaveCSS("width", "64px");
+    await expect(foldIcon).toHaveCSS("rotate", "180deg");
+    await expect(eventSelector).toBeHidden();
+  });
+
+  test("uses the sidebar icon for mobile navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/panel/");
+
+    const menuButton = page.getByRole("button", { name: "Open navigation" });
+    await expect(menuButton.locator('path[d="M15 4l0 16"]')).toHaveCount(1);
+    await expect(menuButton.locator("span")).toHaveCSS("rotate", "180deg");
+  });
+
   // --- Step 1: Event Settings ---
 
   test("navigates to event settings and displays form", async ({ page }) => {
