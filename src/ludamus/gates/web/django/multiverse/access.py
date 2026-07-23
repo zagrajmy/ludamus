@@ -32,6 +32,8 @@ class SphereAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     request: MultiverseRequest
 
     def test_func(self) -> bool:
+        if self.request.user.is_superuser:
+            return True
         ctx = self.request.context
         return self.request.services.sphere_panel.is_manager(
             ctx.current_sphere_id, ctx.current_user_slug

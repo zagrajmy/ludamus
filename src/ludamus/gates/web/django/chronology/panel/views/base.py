@@ -44,6 +44,8 @@ class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
             True if user is a manager of the current sphere, False otherwise.
         """
         # LoginRequiredMixin ensures user is authenticated before this is called
+        if self.request.user.is_superuser:
+            return True
         current_sphere_id = self.request.context.current_sphere_id
         user_slug = self.request.context.current_user_slug
         return self.request.di.uow.spheres.is_manager(current_sphere_id, user_slug)

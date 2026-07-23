@@ -55,6 +55,19 @@ class TestSphereSettingsPageView:
             url="/",
         )
 
+    def test_get_ok_for_superuser_non_manager(self, authenticated_client, active_user):
+        active_user.is_superuser = True
+        active_user.save()
+
+        response = authenticated_client.get(self.url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/sphere-settings.html",
+            context_data=GENERAL_PANEL_CONTEXT,
+        )
+
     def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
 

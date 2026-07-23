@@ -1,6 +1,21 @@
 from django.urls import reverse
 
 
+class TestSitesContext:
+    def test_superuser_is_sphere_manager(self, authenticated_client, active_user):
+        active_user.is_superuser = True
+        active_user.save()
+
+        response = authenticated_client.get(reverse("web:events"))
+
+        assert response.context["is_sphere_manager"] is True
+
+    def test_regular_user_is_not_sphere_manager(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:events"))
+
+        assert response.context["is_sphere_manager"] is False
+
+
 class TestCurrentUserContext:
     def test_authenticated_render_exposes_current_user(
         self, authenticated_client, active_user

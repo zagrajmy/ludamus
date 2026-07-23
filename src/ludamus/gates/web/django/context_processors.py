@@ -44,7 +44,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
 
     is_sphere_manager = False
     if request.user.is_authenticated and request.context.current_user_slug:
-        is_sphere_manager = sites_service.is_manager(
+        is_sphere_manager = request.user.is_superuser or sites_service.is_manager(
             current_sphere.pk, request.context.current_user_slug
         )
 
