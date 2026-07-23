@@ -210,10 +210,20 @@ env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 
 [tasks."test:e2e"]
 description = "Run end-to-end Playwright tests"
-run = [
-    "npx playwright test",
-    "coverage report --rcfile={{ config_root }}/pyproject.toml",
-]
+usage = '''
+arg "[playwright_args]" var=#true double_dash="optional"
+'''
+run = '''
+python - <<'PY'
+import os
+import shlex
+import subprocess
+
+args = shlex.split(os.environ.get("usage_playwright_args", ""))
+subprocess.run(["npx", "playwright", "test", *args], check=True)
+PY
+coverage report --rcfile={{ config_root }}/pyproject.toml
+'''
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 dir = "tests/e2e"
 

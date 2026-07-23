@@ -115,3 +115,24 @@ If you fix a papercut, remove it.
 - 2026-07-23: Ran a mixed JS/Python lint batch from src/ludamus/client while
   passing repository-root-relative paths; every path-based check failed. Run
   mixed checks from repo root or use paths relative to the chosen workdir.
+- 2026-07-23: The first focused UI validation found the new Playwright test was
+  not oxfmt-formatted; run oxfmt before the check when adding multi-line browser
+  interactions.
+- 2026-07-23: Focused profile-menu E2E caught pointerenter then button-focus
+  then click ordering: clearing hover state on trigger focus made the click
+  close the freshly opened menu. Commit hover state only when focus enters the
+  panel.
+- 2026-07-23: Focused Playwright completed 6/6 tests successfully, but graceful
+  webServer shutdown printed test:e2e:serve ERROR and KeyboardInterrupt
+  tracebacks despite exit code 0; successful browser runs should shut down
+  quietly.
+- 2026-07-23: Standalone Playwright screenshot with .auth-state.json timed out
+  waiting for Account menu although the configured chromium-auth project passed;
+  standalone context did not reproduce the project authentication state.
+- 2026-07-23: Ran mise run test:e2e with Playwright file and --grep arguments →
+  the task ignored them for Playwright, ran the full suite, then forwarded them
+  to coverage and failed after 152 tests passed.
+- 2026-07-23: Added a variadic usage contract to a multiline mise test:e2e task,
+  but mise still appended --help to the runner instead of exposing it through
+  usage_playwright_args; it launched the full suite. Multiline tasks are unsafe
+  for transparent argument forwarding.

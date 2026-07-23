@@ -11,26 +11,49 @@ const init = (root: HTMLElement): void => {
   const panel = root.querySelector<HTMLElement>("[data-menu-panel]");
   if (!button || !panel) return;
 
-  let openedByHover = false;
-
+  const surface = panel.querySelector<HTMLElement>("[data-menu-surface]");
   const isOpen = (): boolean => button.getAttribute("aria-expanded") === "true";
 
-  const setOpen = (open: boolean): void => {
+  const setOpen = (open: boolean, animate = false): void => {
     button.setAttribute("aria-expanded", open ? "true" : "false");
-    panel.hidden = !open;
+    if (!surface) {
+      panel.hidden = !open;
+      return;
+    }
+
+    if (open) {
+      panel.hidden = false;
+    }
+
+    if (!animate) {
+      surface.style.transitionDuration = "0ms";
+    } else if (open) {
+      void surface.offsetWidth;
+    }
+
+    surface.toggleAttribute("data-menu-visible", open);
+
+    if (!animate) {
+      panel.hidden = !open;
+      requestAnimationFrame(() => surface.style.removeProperty("transition-duration"));
+    } else if (!open) {
+      surface.addEventListener(
+        "transitionend",
+        () => {
+          if (!isOpen()) panel.hidden = true;
+        },
+        { once: true },
+      );
+    }
   };
 
-  const close = (): void => {
-    openedByHover = false;
-    setOpen(false);
-  };
+  const close = (animate = false): void => setOpen(false, animate);
 
   setOpen(false);
 
-  button.addEventListener("click", () => {
-    const open = openedByHover || !isOpen();
-    openedByHover = false;
-    setOpen(open);
+  button.addEventListener("click", (event: MouseEvent) => {
+    const open = !isOpen();
+    setOpen(open, event.detail > 0);
     if (open) {
       panel.querySelector<HTMLElement>(FOCUSABLE)?.focus();
     }
@@ -39,19 +62,12 @@ const init = (root: HTMLElement): void => {
   if (root.hasAttribute("data-menu-hover")) {
     button.addEventListener("pointerenter", () => {
       if (!HOVER_QUERY.matches || isOpen()) return;
-      openedByHover = true;
-      setOpen(true);
+      setOpen(true, true);
     });
 
     root.addEventListener("pointerleave", () => {
-      if (HOVER_QUERY.matches && openedByHover) {
-        close();
-      }
-    });
-
-    root.addEventListener("focusin", (event: FocusEvent) => {
-      if (isOpen() && panel.contains(event.target as Node)) {
-        openedByHover = false;
+      if (HOVER_QUERY.matches && isOpen()) {
+        close(true);
       }
     });
   }
@@ -65,7 +81,7 @@ const init = (root: HTMLElement): void => {
 
   document.addEventListener("click", (event: MouseEvent) => {
     if (isOpen() && !root.contains(event.target as Node)) {
-      close();
+      close(event.detail > 0);
     }
   });
 

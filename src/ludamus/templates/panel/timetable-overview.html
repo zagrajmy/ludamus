@@ -79,7 +79,7 @@
                                         <td class="pr-2 text-neutral-400 whitespace-nowrap">{{ row.time|date:"H:i" }}</td>
                                         {% for cell in row.cells %}
                                             <td class="px-0.5 py-0.5">
-                                                <div class="w-4 h-3 rounded-sm {% if cell.status == 'scheduled' %}bg-info{% elif cell.status == 'conflict' %}bg-danger{% else %}bg-neutral-200{% endif %}">
+                                                <div class="w-4 h-3 rounded-sm {% if cell.status == 'scheduled' %}bg-info{% elif cell.status == 'conflict' %}bg-danger{% else %}bg-neutral-200 dark:bg-neutral-700{% endif %}">
                                                 </div>
                                             </td>
                                         {% endfor %}
@@ -91,7 +91,7 @@
                 {% endfor %}
             </div>
             <div class="mt-2 flex gap-4 text-xs text-foreground-muted">
-                <span><span class="inline-block w-3 h-3 rounded-sm bg-neutral-200 mr-1"></span>{% translate "Empty" %}</span>
+                <span><span class="inline-block w-3 h-3 rounded-sm bg-neutral-200 dark:bg-neutral-700 mr-1"></span>{% translate "Empty" %}</span>
                 <span><span class="inline-block w-3 h-3 rounded-sm bg-info mr-1"></span>{% translate "Scheduled" %}</span>
                 <span><span class="inline-block w-3 h-3 rounded-sm bg-danger mr-1"></span>{% translate "Conflict" %}</span>
             </div>

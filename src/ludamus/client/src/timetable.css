@@ -8,6 +8,10 @@
     min-width: calc(9rem * var(--columns));
   }
 
+  .timetable-sticky-header {
+    min-width: calc(4rem + 9rem * var(--column-count));
+  }
+
   .timetable-time-axis,
   .timetable-column {
     height: calc(var(--grid-extent) * var(--minute-px) + 20px);

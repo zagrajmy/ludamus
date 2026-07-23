@@ -32,6 +32,18 @@ test.describe("Timetable", () => {
     });
   });
 
+  test("header spans the overflowing timetable on narrow screens", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    const dimensions = await page.locator("#timetable-calendar").evaluate((calendar) => ({
+      headerWidth: calendar.firstElementChild?.getBoundingClientRect().width,
+      timetableWidth: calendar.scrollWidth,
+    }));
+
+    expect(dimensions.headerWidth).toBe(dimensions.timetableWidth);
+  });
+
   test("session list loads via HTMX and shows unscheduled sessions", async ({ page }) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,

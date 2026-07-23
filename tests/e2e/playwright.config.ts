@@ -111,6 +111,6 @@ export default defineConfig({
     stdout: "pipe",
     stderr: "pipe",
     cwd: repoRoot,
-    gracefulShutdown: { signal: "SIGINT", timeout: 5000 },
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
   },
 });

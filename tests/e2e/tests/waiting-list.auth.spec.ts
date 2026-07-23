@@ -54,6 +54,13 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
     await trigger.hover();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
 
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(panel).toBeHidden();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
     const triggerBox = await trigger.boundingBox();
     const panelBox = await panel.boundingBox();
     if (!triggerBox || !panelBox) throw new Error("Profile menu is not laid out");
@@ -66,6 +73,7 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
 
     await page.mouse.move(panelBox.x - 20, panelBox.y + 20);
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(panel).toBeHidden();
   });
 
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {
@@ -89,7 +97,8 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
   test("open menu has no critical or serious axe violations", async ({ page }) => {
     await page.goto("/events/");
 
-    await page.getByRole("button", { name: /Account menu/ }).click();
+    await page.getByRole("button", { name: /Account menu/ }).focus();
+    await page.keyboard.press("Enter");
     await expect(page.getByRole("link", { name: /Log out/ })).toBeVisible();
 
     await analyzePageAccessibility(page, { include: "nav" });
