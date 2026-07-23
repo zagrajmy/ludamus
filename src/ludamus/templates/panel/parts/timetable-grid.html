@@ -24,7 +24,7 @@
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
                         hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
-                        class="btn btn-secondary text-sm">← {% translate "Previous" %}</button>
+                        class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">← {% translate "Previous" %}</button>
             {% endif %}
             {% if grid.page < grid.total_pages %}
                 <button type="button"
@@ -32,7 +32,7 @@
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
                         hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'1' }}"
-                        class="btn btn-secondary text-sm">{% translate "Next" %} →</button>
+                        class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Next" %} →</button>
             {% endif %}
         </div>
     {% endif %}
@@ -43,9 +43,10 @@
          data-slot-minutes="{{ grid.slot_minutes }}"
          data-snap-minutes="{{ grid.snap_minutes }}"
          data-total-minutes="{{ grid.total_minutes }}"
-         style="--grid-extent: {{ grid.total_minutes }}">
+         style="--grid-extent: {{ grid.total_minutes }};
+                --column-count: {{ grid.columns|length }}">
         <!-- Space headers (sticky, two rows: parent group / space) -->
-        <div class="sticky top-0 z-20 border-b border-neutral-700">
+        <div class="timetable-sticky-header sticky top-0 z-20 border-b border-neutral-700">
             <!-- Parent-group row -->
             <div class="flex bg-neutral-900 border-b border-neutral-700">
                 <div class="w-16 flex-none shrink-0 bg-neutral-900"></div>
