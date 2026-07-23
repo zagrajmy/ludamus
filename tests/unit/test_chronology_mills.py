@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -101,13 +101,19 @@ class TestBuildGridOverlappingSessions:
             start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
         )
-        uow.agenda_items.list_by_event.return_value = [item_a, item_b]
+        item_c = _make_item(
+            pk=3,
+            space_id=1,
+            start_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [item_a, item_b, item_c]
 
         svc = TimetableService(uow)
         grid = svc.build_grid(event_pk=1, tz=UTC)
 
         sessions = grid.days[0].columns[0].sessions
-        expected_count = 2
+        expected_count = 3
         expected_half_width = 50.0
         assert len(sessions) == expected_count
         assert sessions[0].lane_width_pct == pytest.approx(expected_half_width)
@@ -182,6 +188,35 @@ class TestBuildGridOverlappingSessions:
         ]
         assert grid.date_selection == "all"
         uow.agenda_items.list_by_event.assert_called_once_with(1)
+
+    def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
+            )
+        ]
+        uow.agenda_items.list_by_event.return_value = []
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
+        )
+
+        assert grid.date_selection == date(2026, 1, 1)
+        assert grid.total_minutes == 2 * 60
 
 
 class TestRevertChange:
@@ -273,6 +308,41 @@ class TestRevertChange:
 
         with pytest.raises(ValueError, match="is not in ACCEPTED status"):
             service.revert_change(log_pk=1, event_pk=1)
+
+    def test_revert_unassign_restores_the_original_placement(self, service, mock_uow):
+        log = MagicMock()
+        log.event_id = 1
+        log.action = ScheduleChangeAction.UNASSIGN
+        log.session_id = 1
+        log.old_space_id = 5
+        log.old_start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        log.old_end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.schedule_change_logs.read.return_value = log
+        mock_uow.sessions.read.return_value.status = SessionStatus.ACCEPTED
+        mock_uow.sessions.read_event.return_value.pk = 1
+
+        service.revert_change(log_pk=1, event_pk=1, user_pk=9)
+
+        mock_uow.agenda_items.create.assert_called_once_with(
+            {
+                "session_id": 1,
+                "space_id": 5,
+                "start_time": log.old_start_time,
+                "end_time": log.old_end_time,
+                "session_confirmed": False,
+            }
+        )
+        mock_uow.schedule_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 1,
+                "user_id": 9,
+                "action": ScheduleChangeAction.REVERT,
+                "new_space_id": 5,
+                "new_start_time": log.old_start_time,
+                "new_end_time": log.old_end_time,
+            }
+        )
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
         """Lines 240-241: unknown action type."""

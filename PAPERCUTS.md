@@ -154,3 +154,6 @@ If you fix a papercut, remove it.
   running the requested task, even with MISE_ENV=sandbox - this also blocks mise
   run papercut itself; worked around with scratchpad playwright-core + /opt/pw-
   browsers/chromium for screenshots and hand-appending this entry
+- 2026-07-23: Wrapped validation commands used zsh reserved variable status, so
+  result capture failed after the tasks completed; use a task-specific exit
+  variable.

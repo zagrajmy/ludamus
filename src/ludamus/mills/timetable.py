@@ -47,8 +47,7 @@ def _position_sessions(
         else:
             current_group.append(item)
             group_end = max(group_end, item.end_time)
-    if current_group:
-        groups.append(current_group)
+    groups.append(current_group)
 
     positions: list[SessionPositionDTO] = []
     for group in groups:
@@ -400,7 +399,7 @@ class TimetableService:
                 revert_log["old_space_id"] = log.new_space_id
                 revert_log["old_start_time"] = log.new_start_time
                 revert_log["old_end_time"] = log.new_end_time
-            elif log.action == ScheduleChangeAction.UNASSIGN:
+            else:
                 revert_log["new_space_id"] = log.old_space_id
                 revert_log["new_start_time"] = log.old_start_time
                 revert_log["new_end_time"] = log.old_end_time

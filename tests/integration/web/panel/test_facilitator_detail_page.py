@@ -1,6 +1,7 @@
 """Integration tests for the facilitator detail page."""
 
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -8,6 +9,7 @@ from django.urls import reverse
 from ludamus.links.db.django.models import (
     Facilitator,
     PersonalDataField,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
 )
@@ -324,4 +326,38 @@ class TestFacilitatorDetailPageView:
                 "has_personal_data": False,
                 "sessions": [],
             },
+        )
+
+    def test_get_renders_personal_data_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        values = [
+            ("Consent", "consent", "checkbox", True),
+            ("Declined", "declined", "checkbox", False),
+            ("Nickname", "nickname", "text", "Bob"),
+            ("Empty", "empty", "text", ""),
+        ]
+        for order, (name, slug, field_type, value) in enumerate(values):
+            field = _make_personal_data_field(
+                event,
+                name=name,
+                question=name,
+                slug=slug,
+                field_type=field_type,
+                order=order,
+            )
+            PersonalDataFieldValue.objects.create(
+                facilitator=facilitator, event=event, field=field, value=value
+            )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data=ANY,
+            contains=["Consent", "Yes", "Declined", "Nickname", "Bob", "Empty"],
         )

@@ -317,6 +317,29 @@ class TestTimeSlotsPageView:
             },
         )
 
+    def test_get_excludes_slots_from_other_pages_without_marking_them_orphaned(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.end_time = event.start_time + timedelta(days=4)
+        event.save()
+        hidden_day = localtime(event.start_time) + timedelta(days=4)
+        slot = TimeSlot.objects.create(
+            event=event, start_time=hidden_day, end_time=hidden_day + timedelta(hours=1)
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=ANY,
+        )
+        assert TimeSlotDTO.model_validate(slot) in response.context["time_slots"]
+        assert response.context["orphaned_slots"] == []
+        assert all(not slots for slots in response.context["days"].values())
+
     def test_get_invalid_page_defaults_to_first_page(
         self, authenticated_client, active_user, sphere, event
     ):
