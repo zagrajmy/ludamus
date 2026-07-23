@@ -10,8 +10,15 @@
                     {% include "components/brand/logo-mark.html" with extra_class="size-5.5 sm:hidden" %}
                     <span class="sr-only sm:hidden">zagrajmy</span>
                     {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
-                    <span class="hidden sm:flex items-baseline gap-2 text-xl font-semibold tracking-tight">
+                    <span class="hidden sm:flex items-center gap-2 text-xl font-semibold tracking-tight">
                         <span class="text-foreground-muted" aria-hidden="true">/</span>
+                        {% if current_sphere.logo_url %}
+                            <img src="{{ current_sphere.logo_url }}"
+                                 alt=""
+                                 width="24"
+                                 height="24"
+                                 class="h-6 w-auto rounded object-contain">
+                        {% endif %}
                         {{ current_sphere.name }}
                     </span>
                 </a>
