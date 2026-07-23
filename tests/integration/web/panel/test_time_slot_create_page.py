@@ -7,11 +7,17 @@ from django.urls import reverse
 from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import TimeSlot
-from ludamus.pacts import EventDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+
+def _create_modal_form(response):
+    assert_response(
+        response, HTTPStatus.OK, template_name="panel/time-slots.html", context_data=ANY
+    )
+    return response.context["create_form"]
 
 
 class TestTimeSlotCreatePageView:
@@ -53,23 +59,10 @@ class TestTimeSlotCreatePageView:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
+            HTTPStatus.FOUND,
+            url=(
+                reverse("panel:time-slots", kwargs={"slug": event.slug}) + "?create=1"
+            ),
         )
 
     def test_get_prefills_date_from_query_param(
@@ -77,19 +70,36 @@ class TestTimeSlotCreatePageView:
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.get(self.get_url(event) + "?date=2026-03-10")
+        response = authenticated_client.get(
+            self.get_url(event) + "?date=2026-03-10", follow=True
+        )
 
-        assert response.context["form"].initial["date"] == "2026-03-10"
+        assert response.redirect_chain == [
+            (
+                reverse("panel:time-slots", kwargs={"slug": event.slug})
+                + "?create=1&date=2026-03-10",
+                HTTPStatus.FOUND,
+            )
+        ]
+        assert response.context["create_form"].initial["date"] == "2026-03-10"
 
     def test_get_ignores_invalid_date_query_param(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.get(self.get_url(event) + "?date=not-a-date")
+        response = authenticated_client.get(
+            self.get_url(event) + "?date=not-a-date", follow=True
+        )
 
         assert response.status_code == HTTPStatus.OK
-        assert "date" not in response.context["form"].initial
+        assert response.redirect_chain == [
+            (
+                reverse("panel:time-slots", kwargs={"slug": event.slug}) + "?create=1",
+                HTTPStatus.FOUND,
+            )
+        ]
+        assert "date" not in response.context["create_form"].initial
 
     def test_post_creates_time_slot(
         self, authenticated_client, active_user, sphere, event
@@ -170,27 +180,7 @@ class TestTimeSlotCreatePageView:
             self.get_url(event), {"date": "", "start_time": "", "end_time": ""}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
-        )
-        assert response.context["form"].errors
+        assert _create_modal_form(response).errors
 
     def test_get_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -240,29 +230,8 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
-        )
-        assert (
-            "Start must be before end." in response.context["form"].non_field_errors()
-        )
+        form = _create_modal_form(response)
+        assert "Start must be before end." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
 
     def test_post_rejects_slot_outside_event_dates(
@@ -281,30 +250,8 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
-        )
-        assert (
-            "Time slot must be within event dates."
-            in response.context["form"].non_field_errors()
-        )
+        form = _create_modal_form(response)
+        assert "Time slot must be within event dates." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
 
     def test_post_rejects_slot_after_event_end(
@@ -323,30 +270,8 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
-        )
-        assert (
-            "Time slot must be within event dates."
-            in response.context["form"].non_field_errors()
-        )
+        form = _create_modal_form(response)
+        assert "Time slot must be within event dates." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
 
     def test_post_rejects_overlapping_slot(
@@ -370,30 +295,8 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
-        )
-        assert (
-            "Time slot overlaps with an existing slot."
-            in response.context["form"].non_field_errors()
-        )
+        form = _create_modal_form(response)
+        assert "Time slot overlaps with an existing slot." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 1
 
     def test_post_allows_adjacent_slots(
@@ -471,28 +374,6 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/time-slot-create.html",
-            context_data={
-                "active_nav": "cfp",
-                "form": ANY,
-                "events": [EventDTO.model_validate(event)],
-                "current_event": EventDTO.model_validate(event),
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-            },
-        )
-        assert (
-            "Time slot must be within event dates."
-            in response.context["form"].non_field_errors()
-        )
+        form = _create_modal_form(response)
+        assert "Time slot must be within event dates." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0

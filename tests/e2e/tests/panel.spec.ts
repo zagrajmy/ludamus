@@ -617,9 +617,10 @@ test.describe("Backoffice Panel", () => {
     await addLink.click();
 
     // Fill project-specific times so cross-browser runs do not collide.
-    await page.locator("#id_start_time").fill(startTime);
-    await page.locator("#id_end_time").fill(endTime);
-    await page.getByRole("button", { name: "Create" }).click();
+    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await createDialog.getByLabel("Start time").fill(startTime);
+    await createDialog.getByLabel("End time").fill(endTime);
+    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
 
     await expect(page.getByText("Time slot created successfully.")).toBeVisible();
     const createdSlot = page.getByText(`${startTime} – ${endTime}`);
@@ -743,11 +744,12 @@ test.describe("Backoffice Panel", () => {
         if (await page.getByText(`${start.time} – ${end.time}`).count()) continue;
 
         await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-        await page.locator("#id_date").fill(start.date);
-        await page.locator("#id_end_date").fill(end.date);
-        await page.locator("#id_start_time").fill(start.time);
-        await page.locator("#id_end_time").fill(end.time);
-        await page.getByRole("button", { name: "Create" }).click();
+        const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+        await createDialog.getByRole("textbox", { name: /^Date/ }).fill(start.date);
+        await createDialog.getByRole("textbox", { name: /^End date/ }).fill(end.date);
+        await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(start.time);
+        await createDialog.getByRole("textbox", { name: /^End time/ }).fill(end.time);
+        await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
 
         await expect(page.getByText("Time slot created successfully.")).toBeVisible();
       }
@@ -1206,7 +1208,7 @@ test.describe("Backoffice Panel", () => {
       })
       .first();
     const addHref = await addLink.getAttribute("href");
-    const dateMatch = addHref?.match(/date=(\d{4}-\d{2}-\d{2})/);
+    const dateMatch = addHref?.match(/create=(\d{4}-\d{2}-\d{2})/);
     const dateStr = dateMatch?.[1] ?? "";
 
     // Get event start hour
@@ -1223,11 +1225,12 @@ test.describe("Backoffice Panel", () => {
     const slotEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 15);
 
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-    await page.locator("#id_date").fill(slotStart.date);
-    await page.locator("#id_end_date").fill(slotEnd.date);
-    await page.locator("#id_start_time").fill(slotStart.time);
-    await page.locator("#id_end_time").fill(slotEnd.time);
-    await page.getByRole("button", { name: "Create" }).click();
+    const createDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await createDialog.getByRole("textbox", { name: /^Date/ }).fill(slotStart.date);
+    await createDialog.getByRole("textbox", { name: /^End date/ }).fill(slotEnd.date);
+    await createDialog.getByRole("textbox", { name: /^Start time/ }).fill(slotStart.time);
+    await createDialog.getByRole("textbox", { name: /^End time/ }).fill(slotEnd.time);
+    await createDialog.getByRole("button", { name: "Add Time Slot" }).click();
     await expect(page.getByText("Time slot created successfully.")).toBeVisible();
 
     // Try creating overlapping slot: offset+5 to offset+20
@@ -1235,11 +1238,12 @@ test.describe("Backoffice Panel", () => {
     const overlapStart = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 5);
     const overlapEnd = dateTimeAfter(dateStr, baseHour, safeMin, offsetMin + 20);
     await page.goto("/panel/event/frostfire-con/cfp/time-slots/create/");
-    await page.locator("#id_date").fill(overlapStart.date);
-    await page.locator("#id_end_date").fill(overlapEnd.date);
-    await page.locator("#id_start_time").fill(overlapStart.time);
-    await page.locator("#id_end_time").fill(overlapEnd.time);
-    await page.getByRole("button", { name: "Create" }).click();
+    const overlapDialog = page.getByRole("dialog", { name: "New Time Slot" });
+    await overlapDialog.getByRole("textbox", { name: /^Date/ }).fill(overlapStart.date);
+    await overlapDialog.getByRole("textbox", { name: /^End date/ }).fill(overlapEnd.date);
+    await overlapDialog.getByRole("textbox", { name: /^Start time/ }).fill(overlapStart.time);
+    await overlapDialog.getByRole("textbox", { name: /^End time/ }).fill(overlapEnd.time);
+    await overlapDialog.getByRole("button", { name: "Add Time Slot" }).click();
 
     // Verify error message about overlap
     await expect(page.getByText("overlaps with an existing slot")).toBeVisible();

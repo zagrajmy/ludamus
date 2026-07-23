@@ -372,6 +372,12 @@ class TestRenderInput:
         html = render_input(form["name"])
         assert 'placeholder="Enter name"' in html
 
+    def test_respects_explicit_input_type(self) -> None:
+        form = SimpleForm()
+        form.fields["name"].widget.attrs["type"] = "date"
+        html = render_input(form["name"])
+        assert 'type="date"' in html
+
     def test_error_styling(self) -> None:
         form = SimpleForm(data={"name": ""})
         form.is_valid()

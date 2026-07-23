@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
@@ -43,65 +44,100 @@ def _validate_time_slot(
     return not errors
 
 
+def _date_initial(raw_date: str | None) -> dict[str, str]:
+    if raw_date is None:
+        return {}
+    try:
+        date.fromisoformat(raw_date)
+    except ValueError:
+        return {}
+    return {"date": raw_date, "end_date": raw_date}
+
+
+def _event_days(start: date, end: date) -> list[date]:
+    return [start + timedelta(days=i) for i in range((end - start).days + 1)]
+
+
+def _time_slots_context(
+    request: PanelRequest, event: EventDTO, *, create_form: TimeSlotForm | None = None
+) -> dict[str, object]:
+    days_per_page = TimeSlotsPageView.DAYS_PER_PAGE
+    all_days = _event_days(
+        localtime(event.start_time).date(), localtime(event.end_time).date()
+    )
+    page = int(request.GET.get("page", 0))
+    total_pages = max(1, (len(all_days) + days_per_page - 1) // days_per_page)
+    page = max(0, min(page, total_pages - 1))
+
+    start_idx = page * days_per_page
+    visible_days = all_days[start_idx : start_idx + days_per_page]
+
+    time_slots = request.di.uow.time_slots.list_by_event(event.pk)
+
+    event_start = localtime(event.start_time).date()
+    event_end = localtime(event.end_time).date()
+    visible_set = set(visible_days)
+    days: dict[str, list[TimeSlotDTO]] = {day.isoformat(): [] for day in visible_days}
+    orphaned_slots: list[TimeSlotDTO] = []
+    continuation_slots: set[tuple[int, str]] = set()
+    for time_slot in time_slots:
+        slot_date = localtime(time_slot.start_time).date()
+        end_date = localtime(time_slot.end_time).date()
+        if slot_date in visible_set:
+            days[slot_date.isoformat()].append(time_slot)
+        elif slot_date < event_start or slot_date > event_end:
+            orphaned_slots.append(time_slot)
+        if end_date != slot_date and end_date in visible_set:
+            days[end_date.isoformat()].append(time_slot)
+            continuation_slots.add((time_slot.pk, end_date.isoformat()))
+
+    return {
+        "active_nav": "cfp",
+        "active_tab": "time_slots",
+        "tab_urls": cfp_tab_urls(event.slug),
+        "time_slots": time_slots,
+        "days": days,
+        "orphaned_slots": orphaned_slots,
+        "continuation_slots": continuation_slots,
+        "event_days": visible_days,
+        "page": page,
+        "has_prev": page > 0,
+        "has_next": page < total_pages - 1,
+        "total_pages": total_pages,
+        "create_form": (
+            create_form
+            if create_form is not None
+            else TimeSlotForm(
+                initial=_date_initial(request.GET.get("date")),
+                auto_id="new_time_slot_%s",
+            )
+        ),
+        "dated_create_forms": [
+            {
+                "day": day,
+                "modal_id": f"time-slot-create-modal-{day:%Y%m%d}",
+                "form": TimeSlotForm(
+                    initial={"date": day.isoformat(), "end_date": day.isoformat()},
+                    auto_id=f"new_time_slot_{day:%Y%m%d}_%s",
+                ),
+            }
+            for day in visible_days
+        ],
+    }
+
+
 class TimeSlotsPageView(PanelAccessMixin, EventContextMixin, View):
     """List time slots for an event, grouped by date."""
 
     DAYS_PER_PAGE = 3
     request: PanelRequest
 
-    @staticmethod
-    def _event_days(start: date, end: date) -> list[date]:
-        return [start + timedelta(days=i) for i in range((end - start).days + 1)]
-
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        all_days = self._event_days(
-            localtime(current_event.start_time).date(),
-            localtime(current_event.end_time).date(),
-        )
-        page = int(self.request.GET.get("page", 0))
-        total_pages = max(
-            1, (len(all_days) + self.DAYS_PER_PAGE - 1) // self.DAYS_PER_PAGE
-        )
-        page = max(0, min(page, total_pages - 1))
-
-        start_idx = page * self.DAYS_PER_PAGE
-        visible_days = all_days[start_idx : start_idx + self.DAYS_PER_PAGE]
-
-        time_slots = self.request.di.uow.time_slots.list_by_event(current_event.pk)
-
-        event_start = localtime(current_event.start_time).date()
-        event_end = localtime(current_event.end_time).date()
-        visible_set = set(visible_days)
-        days: dict[str, list[TimeSlotDTO]] = {d.isoformat(): [] for d in visible_days}
-        orphaned_slots: list[TimeSlotDTO] = []
-        continuation_slots: set[tuple[int, str]] = set()
-        for ts in time_slots:
-            ts_date = localtime(ts.start_time).date()
-            end_date = localtime(ts.end_time).date()
-            if ts_date in visible_set:
-                days[ts_date.isoformat()].append(ts)
-            elif ts_date < event_start or ts_date > event_end:
-                orphaned_slots.append(ts)
-            if end_date != ts_date and end_date in visible_set:
-                days[end_date.isoformat()].append(ts)
-                continuation_slots.add((ts.pk, end_date.isoformat()))
-
-        context["active_nav"] = "cfp"
-        context["active_tab"] = "time_slots"
-        context["tab_urls"] = cfp_tab_urls(slug)
-        context["time_slots"] = time_slots
-        context["days"] = days
-        context["orphaned_slots"] = orphaned_slots
-        context["continuation_slots"] = continuation_slots
-        context["event_days"] = visible_days
-        context["page"] = page
-        context["has_prev"] = page > 0
-        context["has_next"] = page < total_pages - 1
-        context["total_pages"] = total_pages
+        context.update(_time_slots_context(self.request, current_event))
         return TemplateResponse(self.request, "panel/time-slots.html", context)
 
 
@@ -111,23 +147,15 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
+        _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        initial: dict[str, str] = {}
-        if date_param := self.request.GET.get("date"):
-            try:
-                date.fromisoformat(date_param)
-            except ValueError:
-                pass
-            else:
-                initial["date"] = date_param
-                initial["end_date"] = date_param
-
-        context["active_nav"] = "cfp"
-        context["form"] = TimeSlotForm(initial=initial)
-        return TemplateResponse(self.request, "panel/time-slot-create.html", context)
+        time_slots_url = reverse("panel:time-slots", kwargs={"slug": slug})
+        date_param = self.request.GET.get("date")
+        if _date_initial(date_param):
+            return redirect(f"{time_slots_url}?create=1&date={date_param}")
+        return redirect(f"{time_slots_url}?create=1")
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -136,11 +164,10 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         form = TimeSlotForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
-            context["form"] = form
-            return TemplateResponse(
-                self.request, "panel/time-slot-create.html", context
+            context.update(
+                _time_slots_context(self.request, current_event, create_form=form)
             )
+            return TemplateResponse(self.request, "panel/time-slots.html", context)
 
         start_date = form.cleaned_data["date"]
         end_date = form.cleaned_data["end_date"]
@@ -154,11 +181,10 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         existing = self.request.di.uow.time_slots.list_by_event(current_event.pk)
         if not _validate_time_slot(form, start_time, end_time, current_event, existing):
-            context["active_nav"] = "cfp"
-            context["form"] = form
-            return TemplateResponse(
-                self.request, "panel/time-slot-create.html", context
+            context.update(
+                _time_slots_context(self.request, current_event, create_form=form)
             )
+            return TemplateResponse(self.request, "panel/time-slots.html", context)
 
         self.request.di.uow.time_slots.create(current_event.pk, start_time, end_time)
 

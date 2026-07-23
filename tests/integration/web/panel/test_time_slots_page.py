@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -92,7 +93,21 @@ class TestTimeSlotsPageView:
                 "has_prev": False,
                 "has_next": False,
                 "total_pages": 1,
+                "create_form": ANY,
+                "dated_create_forms": [
+                    {
+                        "day": day,
+                        "modal_id": f"time-slot-create-modal-{day:%Y%m%d}",
+                        "form": ANY,
+                    }
+                ],
             },
+            contains=[
+                'aria-controls="time-slot-create-modal"',
+                f'aria-controls="time-slot-create-modal-{day:%Y%m%d}"',
+                '<dialog id="time-slot-create-modal"',
+                "New Time Slot",
+            ],
         )
 
     def test_get_returns_empty_state_when_no_slots(
@@ -230,6 +245,18 @@ class TestTimeSlotsPageView:
                 "has_prev": False,
                 "has_next": True,
                 "total_pages": 1 + 1,
+                "create_form": ANY,
+                "dated_create_forms": [
+                    {
+                        "day": start + timedelta(days=i),
+                        "modal_id": (
+                            "time-slot-create-modal-"
+                            f"{start + timedelta(days=i):%Y%m%d}"
+                        ),
+                        "form": ANY,
+                    }
+                    for i in range(3)
+                ],
             },
         )
 
@@ -284,6 +311,18 @@ class TestTimeSlotsPageView:
                 "has_prev": True,
                 "has_next": False,
                 "total_pages": 1 + 1,
+                "create_form": ANY,
+                "dated_create_forms": [
+                    {
+                        "day": start + timedelta(days=i),
+                        "modal_id": (
+                            "time-slot-create-modal-"
+                            f"{start + timedelta(days=i):%Y%m%d}"
+                        ),
+                        "form": ANY,
+                    }
+                    for i in range(3, 5)
+                ],
             },
         )
 
