@@ -2986,7 +2986,7 @@ msgid ""
 "Seats and wordmark inherit the text color; use the mono variant on coral-"
 "adjacent or busy grounds."
 msgstr ""
-"Krzesła i logotyp dziedziczą kolor tekstu; na tłach koralowych lub "
+"Krzesła i logotyp dziedziczą kolor tekstu; na tłach zbliżonych do koralu lub "
 "niespokojnych używaj wariantu mono."
 
 #: src/ludamus/templates/brand.html
