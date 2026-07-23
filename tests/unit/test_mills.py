@@ -2663,6 +2663,35 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         assert result.personal_entries.added == 1
         personal_data_field_values.save.assert_called_once()
 
+    def test_apply_skips_a_blank_personal_answer(
+        self,
+        service,
+        event_integrations,
+        sessions,
+        personal_data_field_values,
+        log_entries,
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=ImportSettings(
+                questions={"Phone": QuestionTarget(to="personal.phone")},
+                definitions=FieldDefinitions(
+                    personal_fields={"phone": FieldDefinition(name="Phone")}
+                ),
+            ).model_dump_json()
+        )
+        log_entries.list_for_integration.return_value = [
+            self._entry(session_id=5, response_json='{"Phone": "  "}')
+        ]
+        sessions.read.return_value = MagicMock(category_id=1, contact_email="x")
+        sessions.read_preferred_time_slot_ids.return_value = [1]
+        sessions.read_track_ids.return_value = [1]
+        sessions.read_facilitators.return_value = [MagicMock(pk=7)]
+
+        result = service.apply_field_layout(2, 3)
+
+        assert result.personal_entries.added == 0
+        personal_data_field_values.save.assert_not_called()
+
 
 class TestMappingHelpers:
     MAX_CHAR_LENGTH = 255
