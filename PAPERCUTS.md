@@ -116,3 +116,8 @@ If you fix a papercut, remove it.
   extra target rather than a filter); also test_import_views
   test_get_groups_errors_and_successes flaked once in a full run, passed on
   rerun
+- 2026-07-22: mise run/exec in the web sandbox re-attempts installing missing
+  tools (pipx:shellcheck-py, hadolint) and dies on pypi resolution before
+  running the requested task, even with MISE_ENV=sandbox - this also blocks mise
+  run papercut itself; worked around with scratchpad playwright-core + /opt/pw-
+  browsers/chromium for screenshots and hand-appending this entry

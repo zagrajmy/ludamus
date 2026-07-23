@@ -5,17 +5,21 @@
         <div class="flex justify-between h-14">
             <div class="flex items-center gap-6">
                 <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
-                   class="flex items-center space-x-2">
-                    <svg viewBox="0 0 100 100"
-                         fill="none"
-                         xmlns="http://www.w3.org/2000/svg"
-                         class="size-8">
-                        <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#262626" />
-                        <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#1A1A1A" />
-                        <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#F05537" />
-                    </svg>
-                    <span class="text-xl font-semibold tracking-tight hidden sm:inline">
-                        <span class="text-neutral-800 dark:text-neutral-200">{{ current_sphere.name }}</span>
+                   class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200"
+                   data-brand-hover="tuck-in">
+                    {% include "components/brand/logo-mark.html" with extra_class="size-5.5 sm:hidden" %}
+                    <span class="sr-only sm:hidden">zagrajmy</span>
+                    {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
+                    <span class="hidden sm:flex items-center gap-2 text-xl font-semibold tracking-tight">
+                        <span class="text-foreground-muted" aria-hidden="true">/</span>
+                        {% if current_sphere.logo_url %}
+                            <img src="{{ current_sphere.logo_url }}"
+                                 alt=""
+                                 width="24"
+                                 height="24"
+                                 class="h-6 w-auto rounded object-contain">
+                        {% endif %}
+                        {{ current_sphere.name }}
                     </span>
                 </a>
                 {% if current_sphere.enabled_pages|length > 1 %}
