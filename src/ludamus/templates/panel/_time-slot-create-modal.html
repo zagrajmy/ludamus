@@ -4,8 +4,7 @@
         class="modal w-[calc(100%-2rem)] max-w-md p-0"
         aria-labelledby="{{ modal_id }}-title">
     <form method="post"
-          action="{% url 'panel:time-slot-create' slug=current_event.slug %}?create=1"
-          onsubmit="this.querySelector('button[type=submit]').disabled = true">
+          action="{% url 'panel:time-slot-create' slug=current_event.slug %}?create=1">
         {% csrf_token %}
         <div class="px-6 pt-5 pb-4">
             <h3 id="{{ modal_id }}-title" class="font-semibold text-foreground">{% translate "New Time Slot" %}</h3>

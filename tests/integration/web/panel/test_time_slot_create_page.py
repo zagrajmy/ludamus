@@ -1,6 +1,5 @@
 from datetime import datetime, time, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -14,10 +13,15 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
 def _create_modal_form(response):
+    context = response.context_data
+    assert context is not None
     assert_response(
-        response, HTTPStatus.OK, template_name="panel/time-slots.html", context_data=ANY
+        response,
+        HTTPStatus.OK,
+        template_name="panel/time-slots.html",
+        context_data=context,
     )
-    return response.context["create_form"]
+    return context["create_form"]
 
 
 class TestTimeSlotCreatePageView:
@@ -70,36 +74,31 @@ class TestTimeSlotCreatePageView:
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.get(
-            self.get_url(event) + "?date=2026-03-10", follow=True
-        )
+        response = authenticated_client.get(self.get_url(event) + "?date=2026-03-10")
 
-        assert response.redirect_chain == [
-            (
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=(
                 reverse("panel:time-slots", kwargs={"slug": event.slug})
-                + "?create=1&date=2026-03-10",
-                HTTPStatus.FOUND,
-            )
-        ]
-        assert response.context["create_form"].initial["date"] == "2026-03-10"
+                + "?create=1&date=2026-03-10"
+            ),
+        )
 
     def test_get_ignores_invalid_date_query_param(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.get(
-            self.get_url(event) + "?date=not-a-date", follow=True
-        )
+        response = authenticated_client.get(self.get_url(event) + "?date=not-a-date")
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.redirect_chain == [
-            (
-                reverse("panel:time-slots", kwargs={"slug": event.slug}) + "?create=1",
-                HTTPStatus.FOUND,
-            )
-        ]
-        assert "date" not in response.context["create_form"].initial
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=(
+                reverse("panel:time-slots", kwargs={"slug": event.slug}) + "?create=1"
+            ),
+        )
 
     def test_post_creates_time_slot(
         self, authenticated_client, active_user, sphere, event

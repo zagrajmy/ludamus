@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -29,6 +29,29 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.pacts import EventDTO, TimeSlotDTO
+
+
+class _DatedCreateForm(TypedDict):
+    day: date
+    modal_id: str
+    form: TimeSlotForm
+
+
+class _TimeSlotsContext(TypedDict):
+    active_nav: str
+    active_tab: str
+    tab_urls: dict[str, str]
+    time_slots: list[TimeSlotDTO]
+    days: dict[str, list[TimeSlotDTO]]
+    orphaned_slots: list[TimeSlotDTO]
+    continuation_slots: set[tuple[int, str]]
+    event_days: list[date]
+    page: int
+    has_prev: bool
+    has_next: bool
+    total_pages: int
+    create_form: TimeSlotForm
+    dated_create_forms: list[_DatedCreateForm]
 
 
 def _validate_time_slot(
@@ -60,7 +83,7 @@ def _event_days(start: date, end: date) -> list[date]:
 
 def _time_slots_context(
     request: PanelRequest, event: EventDTO, *, create_form: TimeSlotForm | None = None
-) -> dict[str, object]:
+) -> _TimeSlotsContext:
     days_per_page = TimeSlotsPageView.DAYS_PER_PAGE
     all_days = _event_days(
         localtime(event.start_time).date(), localtime(event.end_time).date()
