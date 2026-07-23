@@ -424,7 +424,7 @@ if (navigation) {
     ].some((link) => new URL(link.href, location.href).href === url.href);
     if (reloadLink) return;
 
-    for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+    for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
       if (Object.hasOwn(link.dataset, "modalReload")) continue;
       const href = link.getAttribute("href");
       const modalId = link.getAttribute("aria-controls");
@@ -513,7 +513,7 @@ syncModalsFromUrl();
 setupModalCloseTriggers();
 
 const setupFallbackLinkHandlers = (): void => {
-  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
     if (Object.hasOwn(link.dataset, "modalReload")) continue;
     const modalId = link.getAttribute("aria-controls");
     const href = link.getAttribute("href");
