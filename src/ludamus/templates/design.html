@@ -321,9 +321,11 @@
         {% include "components/brand/logo-lockup.html" with extra_class="w-full" %}
     </div>
     <div class="flex flex-wrap items-center gap-6">
-        {% include "components/checkbox-field.html" with id="lb-coral" name="lb-coral" label="Coral table" checked=True only %}
+        {% translate "Coral table" as coral_label %}
+        {% include "components/checkbox-field.html" with id="lb-coral" name="lb-coral" label=coral_label checked=True only %}
         {% static "brand/zagrajmy-logo-pack.zip" as logo_pack_url %}
-        {% tessera_button text="Download" href=logo_pack_url variant="secondary" size="sm" icon="arrow-down-tray" %}
+        {% translate "Download" as download_label %}
+        {% tessera_button text=download_label href=logo_pack_url variant="secondary" size="sm" icon="arrow-down-tray" %}
     </div>
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">

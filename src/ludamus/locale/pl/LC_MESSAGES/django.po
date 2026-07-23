@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-23 14:52+0200\n"
+"POT-Creation-Date: 2026-07-23 15:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5109,6 +5109,14 @@ msgstr "Pokaż trwały komunikat błędu"
 #: src/ludamus/templates/design.html
 msgid "Dismiss all"
 msgstr "Zamknij wszystkie"
+
+#: src/ludamus/templates/design.html
+msgid "Coral table"
+msgstr "Koralowy stół"
+
+#: src/ludamus/templates/design.html
+msgid "Download"
+msgstr "Pobierz"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
