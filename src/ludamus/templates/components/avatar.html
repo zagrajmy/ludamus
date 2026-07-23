@@ -9,7 +9,7 @@
             {% endif %}
             <div class="{{ size_class }} {{ border_class }} {% if danger_ring|default:False %}ring-2 ring-danger{% endif %} rounded-full shrink-0 relative overflow-hidden"
                  role="img"
-                 aria-label="{{ avatar_label|default:name_value }}">
+                 aria-label="{% if danger_ring|default:False %}{{ avatar_label }}{% else %}{{ name_value }}{% endif %}">
                 <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
                      aria-hidden="true">
                     <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>

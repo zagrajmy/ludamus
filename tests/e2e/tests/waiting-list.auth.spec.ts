@@ -34,6 +34,30 @@ test.describe("Navbar notifications dropdown", () => {
     await expect(item).toBeHidden();
   });
 
+  test("uses the profile menu motion", async ({ page }) => {
+    await page.goto("/events/");
+
+    const trigger = page.getByRole("button", { name: /Notifications/ });
+    const panel = page.locator("#navbar-notifications-panel");
+    const surface = panel.locator("[data-menu-surface]");
+
+    await expect
+      .poll(() => surface.evaluate((element) => Number.parseFloat(getComputedStyle(element).scale)))
+      .toBeCloseTo(0.98);
+    await expect(surface).toHaveCSS("filter", "blur(1px)");
+
+    await trigger.click();
+    await expect(surface).toHaveCSS("transition-duration", "0.21s");
+    await expect
+      .poll(() => surface.evaluate((element) => Number.parseFloat(getComputedStyle(element).scale)))
+      .toBeCloseTo(1);
+    await expect(surface).toHaveCSS("filter", "none");
+
+    await trigger.click();
+    await expect(surface).toHaveCSS("transition-duration", "0.16s");
+    await expect(panel).toBeHidden();
+  });
+
   test("open dropdown has no critical or serious axe violations", async ({ page }) => {
     await page.goto("/events/");
 
