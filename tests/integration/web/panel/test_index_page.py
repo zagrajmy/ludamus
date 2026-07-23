@@ -212,7 +212,7 @@ class TestEventIndexPageView:
         )
 
     def test_can_view_different_events(
-        self, authenticated_client, active_user, sphere, event, faker  # noqa: ARG002
+        self, authenticated_client, active_user, sphere, event, faker
     ):
         sphere.managers.add(active_user)
         event2 = EventFactory(sphere=sphere, slug=faker.slug())

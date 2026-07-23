@@ -20,9 +20,9 @@ PNG_BYTES = (
 
 @pytest.fixture
 def _reset_healthz_cache():
-    urls_module._healthz_cache.update(time=0.0, ok=True)  # noqa: SLF001
+    urls_module._healthz_cache.update(time=0.0, ok=True)
     yield
-    urls_module._healthz_cache.update(time=0.0, ok=True)  # noqa: SLF001
+    urls_module._healthz_cache.update(time=0.0, ok=True)
 
 
 class TestHealthz:
@@ -45,7 +45,7 @@ class TestHealthz:
         cursor_mock.assert_not_called()
 
     def test_returns_cached_error_within_window(self, client):
-        urls_module._healthz_cache.update(time=math.inf, ok=False)  # noqa: SLF001
+        urls_module._healthz_cache.update(time=math.inf, ok=False)
 
         response = client.get("/healthz/")
 

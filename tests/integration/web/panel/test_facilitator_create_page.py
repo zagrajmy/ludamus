@@ -6,11 +6,28 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Facilitator
-from ludamus.pacts import EventDTO
+from ludamus.links.db.django.models import (
+    Facilitator,
+    PersonalDataField,
+    PersonalDataFieldValue,
+)
+from ludamus.pacts import EventDTO, PersonalDataFieldDTO
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+
+
+def _field_dto(field):
+    return PersonalDataFieldDTO(
+        field_type=field.field_type,
+        is_multiple=field.is_multiple,
+        name=field.name,
+        options=[],
+        order=field.order,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
 
 
 def _base_context(event):
@@ -82,7 +99,7 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY},
+            context_data={**_base_context(event), "form": ANY, "personal_fields": []},
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
@@ -149,7 +166,7 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY},
+            context_data={**_base_context(event), "form": ANY, "personal_fields": []},
         )
         assert response.context["form"].errors
 
@@ -190,9 +207,57 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY},
+            context_data={**_base_context(event), "form": ANY, "personal_fields": []},
         )
         assert response.context["form"].errors["accreditation_type"]
         assert response.context["form"].errors["accreditation_type"][0] in (
             response.content.decode()
         )
+
+    def test_get_renders_personal_data_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-create.html",
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "personal_fields": [(_field_dto(field), None)],
+            },
+            contains='name="personal_vegan"',
+        )
+
+    def test_post_saves_personal_data_field_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Vegan",
+            question="Are you vegan?",
+            slug="vegan",
+            field_type="checkbox",
+            order=0,
+        )
+
+        authenticated_client.post(
+            self.get_url(event), data={"display_name": "Bob", "personal_vegan": "true"}
+        )
+
+        facilitator = Facilitator.objects.get(event=event, display_name="Bob")
+        value = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
+        assert value.value is True

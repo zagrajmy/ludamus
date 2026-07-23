@@ -36,6 +36,16 @@ class PrintTimetableQueryDTO:
 
 
 @dataclass(frozen=True)
+class DoorCardsQueryDTO:
+    event_pk: int
+    tz: tzinfo
+    scope_space_pks: frozenset[int] | None = None
+    scope_name: str | None = None
+    confirmed_only: bool = False
+    time_range: tuple[datetime, datetime] | None = None
+
+
+@dataclass(frozen=True)
 class AreaScheduleQueryDTO:
     event_pk: int
     time_range: tuple[datetime, datetime]
@@ -47,8 +57,7 @@ class AreaScheduleQueryDTO:
 class DoorCardEntryDTO(BaseModel):
     start_time: datetime
     end_time: datetime
-    # None marks an empty time slot, rendered as a visible gap on the card.
-    session: PrintSessionDTO | None
+    session: PrintSessionDTO
 
 
 class DoorCardDayDTO(BaseModel):
@@ -196,15 +205,7 @@ class PrintablesReminderServiceProtocol(Protocol):
 
 class PrintMaterialsServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]: ...
-    def build_door_cards(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        scope_space_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
-    ) -> DoorCardsDocumentDTO: ...
+    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO: ...
     def build_timetable(
         self, query: PrintTimetableQueryDTO
     ) -> PrintTimetableDocumentDTO: ...
