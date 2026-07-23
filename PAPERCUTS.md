@@ -115,3 +115,13 @@ If you fix a papercut, remove it.
 - 2026-07-23: Ran a mixed JS/Python lint batch from src/ludamus/client while
   passing repository-root-relative paths; every path-based check failed. Run
   mixed checks from repo root or use paths relative to the chosen workdir.
+- 2026-07-23: Formatting the Playwright test with aube exec -C tests/e2e failed
+  because oxfmt is only available from the repository toolchain; running it from
+  the repository root worked. format:djlint also exits nonzero after
+  successfully reformatting a file, requiring a second pass.
+- 2026-07-23: Running format:djlint for one navbar change reformatted an
+  unrelated dirty template, then exited nonzero. A scoped formatter/check target
+  would avoid disturbing concurrent work.
+- 2026-07-23: Rebuilding frontend assets while the no-reload E2E server was
+  running left Django's cached Vite manifest pointing at a deleted CSS file;
+  browser tests rendered unstyled until the server was restarted.
