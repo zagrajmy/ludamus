@@ -52,7 +52,7 @@
             <div class="contents">
                 <div class="card break-inside-avoid mb-6">
                     <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Details" %}</h3>
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Details" %}</h3>
                         <div class="space-y-6">
                             <div>
                                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -187,7 +187,7 @@
                             <p class="text-sm text-foreground-muted">
                                 {% translate "This event has no facilitators yet." %}
                                 <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
-                                   class="text-primary hover:underline ml-1">{% translate "Create one first" %}</a>
+                                   class="text-primary underline hover:no-underline ml-1">{% translate "Create one first" %}</a>
                             </p>
                         </div>
                     </div>
@@ -202,7 +202,7 @@
                             </p>
                             <div class="space-y-2">
                                 {% for t in all_tracks %}
-                                    <label class="flex items-center text-sm">
+                                    <label class="flex items-center py-2 text-sm">
                                         <input type="checkbox"
                                                name="track_ids"
                                                value="{{ t.pk }}"
