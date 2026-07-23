@@ -123,7 +123,7 @@ class TestDiscountsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
-            context_data={**_base_context(event), "rows": []},
+            context_data={**_base_context(event), "assignments": [], "rows": []},
         )
 
     def test_list_shows_discount_and_accreditation(
@@ -143,6 +143,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
+                "assignments": [],
                 "rows": [
                     {
                         "facilitator": _facilitator_list_dto(facilitator),
@@ -168,6 +169,9 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
+                "assignments": [
+                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                ],
                 "rows": [
                     {
                         "facilitator": _facilitator_list_dto(facilitator),
@@ -176,7 +180,12 @@ class TestDiscountsPageView:
                     }
                 ],
             },
-            contains="Assign",
+            contains=[
+                "Assign",
+                f'aria-controls="discount-assign-modal-{facilitator.pk}"',
+                f'<dialog id="discount-assign-modal-{facilitator.pk}"',
+                "Assign discount",
+            ],
             not_contains="Remove",
         )
 
@@ -197,6 +206,7 @@ class TestDiscountsPageView:
             template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
+                "assignments": [],
                 "rows": [
                     {
                         "facilitator": _facilitator_list_dto(facilitator),
@@ -239,7 +249,7 @@ class TestDiscountCreatePageView:
             url="/",
         )
 
-    def test_get_ok_for_sphere_manager(
+    def test_get_redirects_to_table_modal_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -249,13 +259,11 @@ class TestDiscountCreatePageView:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name="panel/discounts/create.html",
-            context_data={
-                **_base_context(event),
-                "facilitator": _facilitator_dto(facilitator),
-                "form": ANY,
-            },
+            HTTPStatus.FOUND,
+            url=(
+                reverse("panel:discounts", kwargs={"slug": event.slug})
+                + f"?assign={facilitator.pk}"
+            ),
         )
 
     def test_get_redirects_when_facilitator_not_in_event(
@@ -312,14 +320,26 @@ class TestDiscountCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/discounts/create.html",
+            template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
-                "facilitator": _facilitator_dto(facilitator),
-                "form": ANY,
+                "assignments": [
+                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                ],
+                "rows": [
+                    {
+                        "facilitator": _facilitator_list_dto(facilitator),
+                        "accreditation_type_display": "None",
+                        "discount": None,
+                    }
+                ],
             },
+            contains=[
+                f'<dialog id="discount-assign-modal-{facilitator.pk}"',
+                "Value must be greater than zero.",
+            ],
         )
-        assert response.context["form"].errors
+        assert response.context["assignments"][0]["form"].errors
 
     def test_post_rejects_zero_value(
         self, authenticated_client, active_user, sphere, event
@@ -334,14 +354,22 @@ class TestDiscountCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/discounts/create.html",
+            template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
-                "facilitator": _facilitator_dto(facilitator),
-                "form": ANY,
+                "assignments": [
+                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                ],
+                "rows": [
+                    {
+                        "facilitator": _facilitator_list_dto(facilitator),
+                        "accreditation_type_display": "None",
+                        "discount": None,
+                    }
+                ],
             },
         )
-        assert response.context["form"].errors
+        assert response.context["assignments"][0]["form"].errors
         assert not Discount.objects.filter(facilitator=facilitator).exists()
 
     def test_post_shows_error_on_invalid_kind(
@@ -357,14 +385,22 @@ class TestDiscountCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/discounts/create.html",
+            template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
-                "facilitator": _facilitator_dto(facilitator),
-                "form": ANY,
+                "assignments": [
+                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                ],
+                "rows": [
+                    {
+                        "facilitator": _facilitator_list_dto(facilitator),
+                        "accreditation_type_display": "None",
+                        "discount": None,
+                    }
+                ],
             },
         )
-        assert response.context["form"].errors
+        assert response.context["assignments"][0]["form"].errors
 
     def test_post_shows_error_on_too_long_note(
         self, authenticated_client, active_user, sphere, event
@@ -380,14 +416,22 @@ class TestDiscountCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/discounts/create.html",
+            template_name="panel/discounts/list.html",
             context_data={
                 **_base_context(event),
-                "facilitator": _facilitator_dto(facilitator),
-                "form": ANY,
+                "assignments": [
+                    {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
+                ],
+                "rows": [
+                    {
+                        "facilitator": _facilitator_list_dto(facilitator),
+                        "accreditation_type_display": "None",
+                        "discount": None,
+                    }
+                ],
             },
         )
-        assert response.context["form"].errors
+        assert response.context["assignments"][0]["form"].errors
 
     def test_post_redirects_when_facilitator_not_in_event(
         self, authenticated_client, active_user, sphere, event

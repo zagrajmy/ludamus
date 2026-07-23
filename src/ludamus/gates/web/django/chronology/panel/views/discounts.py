@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.utils.translation import ngettext
 from django.views.generic.base import View
@@ -65,6 +66,41 @@ def _scoped_facilitator(
     return facilitator if facilitator.event_id == event_pk else None
 
 
+def _discounts_context(
+    request: PanelRequest,
+    event_pk: int,
+    *,
+    assign_facilitator_id: int | None = None,
+    assign_form: DiscountForm | None = None,
+) -> dict[str, object]:
+    facilitators = request.di.uow.facilitators.list_by_event(event_pk)
+    discounts_by_facilitator = {
+        discount.facilitator_id: discount
+        for discount in request.services.discounts.list_by_event(event_pk)
+    }
+    rows = []
+    assignments = []
+    for facilitator in facilitators:
+        discount = discounts_by_facilitator.get(facilitator.pk)
+        rows.append(
+            {
+                "facilitator": facilitator,
+                "accreditation_type_display": ACCREDITATION_TYPE_LABELS[
+                    AccreditationType(facilitator.accreditation_type)
+                ],
+                "discount": discount,
+            }
+        )
+        if discount is None:
+            form = (
+                assign_form
+                if facilitator.pk == assign_facilitator_id and assign_form is not None
+                else DiscountForm(auto_id=f"discount_{facilitator.pk}_%s")
+            )
+            assignments.append({"facilitator": facilitator, "form": form})
+    return {"active_nav": "discounts", "assignments": assignments, "rows": rows}
+
+
 class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
     request: PanelRequest
 
@@ -73,26 +109,7 @@ class DiscountsPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        facilitators = self.request.di.uow.facilitators.list_by_event(current_event.pk)
-        discounts_by_facilitator = {
-            discount.facilitator_id: discount
-            for discount in self.request.services.discounts.list_by_event(
-                current_event.pk
-            )
-        }
-        rows = [
-            {
-                "facilitator": facilitator,
-                "accreditation_type_display": ACCREDITATION_TYPE_LABELS[
-                    AccreditationType(facilitator.accreditation_type)
-                ],
-                "discount": discounts_by_facilitator.get(facilitator.pk),
-            }
-            for facilitator in facilitators
-        ]
-
-        context["active_nav"] = "discounts"
-        context["rows"] = rows
+        context.update(_discounts_context(self.request, current_event.pk))
         return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
 
@@ -102,7 +119,7 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
     def get(
         self, _request: PanelRequest, *, slug: str, facilitator_id: int
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
+        _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
@@ -115,10 +132,8 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:discounts", slug=slug)
 
-        context["active_nav"] = "discounts"
-        context["facilitator"] = facilitator
-        context["form"] = DiscountForm()
-        return TemplateResponse(self.request, "panel/discounts/create.html", context)
+        discounts_url = reverse("panel:discounts", kwargs={"slug": slug})
+        return redirect(f"{discounts_url}?assign={facilitator_id}")
 
     def post(
         self, _request: PanelRequest, *, slug: str, facilitator_id: int
@@ -138,12 +153,15 @@ class DiscountCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         form = DiscountForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "discounts"
-            context["facilitator"] = facilitator
-            context["form"] = form
-            return TemplateResponse(
-                self.request, "panel/discounts/create.html", context
+            context.update(
+                _discounts_context(
+                    self.request,
+                    current_event.pk,
+                    assign_facilitator_id=facilitator_id,
+                    assign_form=form,
+                )
             )
+            return TemplateResponse(self.request, "panel/discounts/list.html", context)
 
         self.request.services.discounts.create(
             current_event.pk, _form_data(form, facilitator_id)

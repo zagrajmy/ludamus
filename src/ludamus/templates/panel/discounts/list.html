@@ -78,15 +78,43 @@
                                     {% tessera_button t_remove variant="danger" size="sm" icon="trash" full_width_mobile=False %}
                                 </form>
                             {% else %}
-                                {% url 'panel:discount-assign' slug=current_event.slug facilitator_id=row.facilitator.pk as assign_url %}
-                                {% translate "Assign" as t_assign %}
-                                {% tessera_button t_assign href=assign_url variant="secondary" size="sm" icon="plus" full_width_mobile=False %}
+                                <a href="?assign={{ row.facilitator.pk }}"
+                                   class="btn btn-secondary px-3 py-1.5 text-xs gap-1.5 rounded-xl"
+                                   aria-controls="discount-assign-modal-{{ row.facilitator.pk }}"
+                                   aria-haspopup="dialog">
+                                    {% icon "plus" class="w-3.5 h-3.5" %}
+                                    {% translate "Assign" %}
+                                </a>
                             {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
         {% end_tessera_table %}
+        {% for assignment in assignments %}
+            <dialog id="discount-assign-modal-{{ assignment.facilitator.pk }}"
+                    class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                    aria-labelledby="discount-assign-modal-{{ assignment.facilitator.pk }}-title">
+                <form method="post"
+                      action="{% url 'panel:discount-assign' slug=current_event.slug facilitator_id=assignment.facilitator.pk %}?assign={{ assignment.facilitator.pk }}"
+                      onsubmit="this.querySelector('button[type=submit]').disabled = true">
+                    {% csrf_token %}
+                    <div class="px-6 pt-5 pb-4">
+                        <h3 id="discount-assign-modal-{{ assignment.facilitator.pk }}-title"
+                            class="font-semibold text-foreground">{% translate "Assign discount" %}</h3>
+                        <p class="mt-1 text-sm text-foreground-muted">{{ assignment.facilitator.display_name }}</p>
+                        <div class="mt-4">{% tessera_form assignment.form %}</div>
+                    </div>
+                    <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                data-modal-close="discount-assign-modal-{{ assignment.facilitator.pk }}">{% translate "Cancel" %}</button>
+                        {% translate "Assign discount" as t_assign_discount %}
+                        {% tessera_button t_assign_discount %}
+                    </div>
+                </form>
+            </dialog>
+        {% endfor %}
     {% else %}
         <div class="card p-8 text-center">
             <p class="text-foreground-muted">{% translate "No facilitators yet." %}</p>
