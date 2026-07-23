@@ -37,13 +37,16 @@
     <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
          data-timetable-days
          style="--grid-extent: {{ grid.total_minutes }}">
-        <div class="sticky top-0 z-20 flex w-max items-stretch border-b border-neutral-700 pr-px">
+        <div class="sticky top-0 z-20 flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-stretch border-b border-neutral-700 pr-px"
+             {% if grid.days|length == 1 %}style="min-width: calc(4rem + 9rem * {{ grid.days.0.columns|length }})"{% endif %}>
             <div class="sticky left-0 z-40 flex w-16 flex-none items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
             {% for day in grid.days %}
-                <div class="timetable-day-header flex flex-none flex-col border-l border-neutral-700"
+                <div class="timetable-day-header flex {% if grid.days|length == 1 %}flex-1{% else %}flex-none{% endif %} flex-col border-l border-neutral-700"
                      data-column-count="{{ day.columns|length }}">
-                    <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
-                        class="flex h-9 items-center border-b border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
+                    {% if grid.days|length > 1 %}
+                        <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
+                            class="flex h-9 items-center border-b border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
+                    {% endif %}
                     <div class="flex border-b border-neutral-700 bg-neutral-900">
                         {% for group in grid.groups %}
                             <div class="timetable-header-cell border-l border-neutral-700 bg-neutral-900 px-3 py-1 text-center first:border-l-0"
@@ -65,7 +68,8 @@
                 </div>
             {% endfor %}
         </div>
-        <div class="flex w-max items-start">
+        <div class="flex {% if grid.days|length == 1 %}w-full{% else %}w-max{% endif %} items-start"
+             {% if grid.days|length == 1 %}style="min-width: calc(4rem + 9rem * {{ grid.days.0.columns|length }})"{% endif %}>
             <div class="timetable-time-axis sticky left-0 z-10 w-16 flex-none border-r border-border bg-bg-secondary shadow-sm">
                 {% for label in grid.time_labels %}
                     <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
@@ -75,7 +79,7 @@
                 {% endfor %}
             </div>
             {% for day in grid.days %}
-                <section class="timetable-day-grid flex-none {% if not forloop.first %}border-l border-border{% endif %}"
+                <section class="timetable-day-grid {% if grid.days|length == 1 %}flex-1{% else %}flex-none{% endif %} {% if not forloop.first %}border-l border-border{% endif %}"
                          data-column-count="{{ day.columns|length }}"
                          data-timetable-day="{{ day.date|date:'Y-m-d' }}"
                          data-date="{{ day.date|date:'Y-m-d' }}"
@@ -83,7 +87,7 @@
                          data-slot-minutes="{{ grid.slot_minutes }}"
                          data-snap-minutes="{{ grid.snap_minutes }}"
                          data-total-minutes="{{ grid.total_minutes }}"
-                         aria-labelledby="timetable-day-{{ day.date|date:'Ymd' }}">
+                         {% if grid.days|length > 1 %}aria-labelledby="timetable-day-{{ day.date|date:'Ymd' }}"{% else %}aria-label="{{ day.date|date:'l, M j' }}"{% endif %}>
                     {% include "panel/parts/timetable-day-grid.html" %}
                 </section>
             {% endfor %}

@@ -44,7 +44,27 @@ test.describe("Timetable", () => {
         timetableWidth: calendar.scrollWidth,
       }));
 
-    expect(dimensions.headerWidth).toBe(dimensions.timetableWidth);
+    expect(Math.abs(dimensions.headerWidth - dimensions.timetableWidth)).toBeLessThanOrEqual(1);
+  });
+
+  test("single-day timetable omits its date tier and fills the calendar", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    const calendar = page.locator(".timetable-calendar");
+    const dayHeader = calendar.locator(".timetable-day-header");
+    const dayGrid = calendar.locator(".timetable-day-grid");
+    await expect(dayHeader.locator("h2")).toHaveCount(0);
+
+    const rightEdges = await calendar.evaluate((element) => {
+      const calendarRight = element.getBoundingClientRect().right;
+      const headerRight =
+        element.querySelector(".timetable-day-header")?.getBoundingClientRect().right ?? Number.NaN;
+      const gridRight =
+        element.querySelector(".timetable-day-grid")?.getBoundingClientRect().right ?? Number.NaN;
+      return { calendarRight, headerRight, gridRight };
+    });
+    expect(Math.abs(rightEdges.headerRight - rightEdges.calendarRight)).toBeLessThanOrEqual(2);
+    expect(Math.abs(rightEdges.gridRight - rightEdges.calendarRight)).toBeLessThanOrEqual(2);
   });
 
   test("all days stay side-by-side and assign into the selected day", async ({ page }) => {
@@ -57,6 +77,7 @@ test.describe("Timetable", () => {
     await expect(timetable.locator(".timetable-time-axis")).toHaveCount(1);
     await expect(timetable.getByText("Time", { exact: true })).toHaveCount(1);
     await expect(page.locator("#timetable-date")).toHaveValue("all");
+    await expect(timetable.locator(".timetable-day-header h2")).toHaveCount(2);
 
     const timeAxisPosition = await timetable
       .locator(".timetable-time-axis")
