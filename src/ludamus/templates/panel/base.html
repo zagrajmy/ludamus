@@ -27,12 +27,22 @@
         })();
     </script>
     <style>
+        .panel-shell .app-scroll>nav {
+            position: static;
+        }
+
         .panel-shell .app-scroll>nav>.max-w-7xl {
             max-width: none;
         }
 
+        .panel-shell .app-scroll>footer>.max-w-7xl {
+            max-width: none;
+        }
+
         @media (width >=64rem) {
-            .panel-shell .app-scroll>nav>.max-w-7xl {
+
+            .panel-shell .app-scroll>nav>.max-w-7xl,
+            .panel-shell .app-scroll>footer>.max-w-7xl {
                 padding-inline: 16px;
             }
         }
@@ -110,12 +120,6 @@
         html.catc-sphere [data-cat="sphere"] .sidebar-cat-chevron {
             transform: rotate(-90deg);
         }
-
-        @media (min-width: 1024px) {
-            html[data-folded] #sidebar .sidebar-cat-body {
-                display: block !important;
-            }
-        }
     </style>
 {% endblock extra_head %}
 {% block body_class %}
@@ -132,13 +136,13 @@
         </button>
         <!-- Sidebar -->
         <aside id="sidebar"
-               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-neutral-900 text-white flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen">
-            <div class="sidebar-toggle sticky top-0 z-10 flex items-center justify-end gap-1 bg-neutral-900 p-2">
+               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen">
+            <div class="sidebar-toggle sticky top-0 z-10 flex items-center justify-end gap-1 bg-bg-tertiary p-2 dark:bg-bg-secondary">
                 {% if events %}
                     <div class="sidebar-fold-hide relative min-w-0 flex-1">
                         <label for="eventSelector" class="sr-only">{% translate "Event" %}</label>
                         <select id="eventSelector"
-                                class="w-full appearance-none bg-neutral-800 border border-neutral-700 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                class="w-full appearance-none bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
                                 hx-on:change="window.location.href = '/panel/event/' + this.value + '/'">
                             {% for event in events %}
                                 <option value="{{ event.slug }}"
@@ -147,7 +151,7 @@
                                 </option>
                             {% endfor %}
                         </select>
-                        <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400"
+                        <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-muted"
                              viewBox="0 0 20 20"
                              fill="currentColor">
                             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -157,7 +161,7 @@
                 {% translate "Toggle sidebar" as t_toggle_sidebar %}
                 <button id="sidebarFoldBtn"
                         type="button"
-                        class="sidebar-fold-btn items-center justify-center p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition flex-shrink-0"
+                        class="sidebar-fold-btn items-center justify-center p-2 text-foreground-muted hover:text-foreground hover:bg-bg-secondary dark:hover:bg-bg-tertiary rounded-lg transition flex-shrink-0"
                         title="{{ t_toggle_sidebar }}"
                         aria-label="{{ t_toggle_sidebar }}"
                         hx-on:click="var h=document.documentElement;var f=h.toggleAttribute('data-folded');try{localStorage.setItem('panel-sidebar-folded',f?'1':'0');}catch(e){}">
@@ -171,14 +175,14 @@
                         {% translate "Dashboard" as t_dashboard %}
                         <a href="{% url 'panel:event-index' slug=current_event.slug %}"
                            title="{{ t_dashboard }}"
-                           class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'index' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                           class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'index' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                             {% icon "home" class="size-4.5 mr-2" %}
                             <span class="sidebar-label">{{ t_dashboard }}</span>
                         </a>
                         <div class="sidebar-cat" data-cat="program">
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
+                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
                                     hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                 <span>{% translate "Program" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -187,35 +191,35 @@
                                 {% translate "Call for Proposals" as t_cfp %}
                                 <a href="{% url 'panel:cfp' slug=current_event.slug %}"
                                    title="{{ t_cfp }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'cfp' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'cfp' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "rectangle-stack" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_cfp }}</span>
                                 </a>
                                 {% translate "Proposals" as t_proposals %}
                                 <a href="{% url 'panel:proposals' slug=current_event.slug %}"
                                    title="{{ t_proposals }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'proposals' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'proposals' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "document-text" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_proposals }}</span>
                                 </a>
                                 {% translate "Facilitators" as t_facilitators %}
                                 <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
                                    title="{{ t_facilitators }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'facilitators' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'facilitators' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "user-group" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_facilitators }}</span>
                                 </a>
                                 {% translate "Discounts" as t_discounts %}
                                 <a href="{% url 'panel:discounts' slug=current_event.slug %}"
                                    title="{{ t_discounts }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'discounts' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'discounts' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "ticket" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_discounts }}</span>
                                 </a>
                                 {% translate "Google Docs Import" as t_google_docs_import %}
                                 <a href="{% url 'panel:import' slug=current_event.slug %}"
                                    title="{{ t_google_docs_import }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'import' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'import' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "arrow-down-tray" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_google_docs_import }}</span>
                                 </a>
@@ -224,7 +228,7 @@
                         <div class="sidebar-cat" data-cat="schedule">
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
+                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
                                     hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                 <span>{% translate "Schedule" context "Sidebar category" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -233,28 +237,28 @@
                                 {% translate "Venues" as t_venues %}
                                 <a href="{% url 'panel:venues' slug=current_event.slug %}"
                                    title="{{ t_venues }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'venues' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'venues' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "building-office-2" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_venues }}</span>
                                 </a>
                                 {% translate "Tracks" as t_tracks %}
                                 <a href="{% url 'panel:tracks' slug=current_event.slug %}"
                                    title="{{ t_tracks }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'tracks' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'tracks' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "tag" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_tracks }}</span>
                                 </a>
                                 {% translate "Schedule" as t_timetable %}
                                 <a href="{% url 'panel:timetable' slug=current_event.slug %}"
                                    title="{{ t_timetable }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'timetable' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'timetable' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "calendar-days" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_timetable }}</span>
                                 </a>
                                 {% translate "Print Materials" as t_print %}
                                 <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
                                    title="{{ t_print }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "printer" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_print }}</span>
                                 </a>
@@ -263,7 +267,7 @@
                         <div class="sidebar-cat" data-cat="settings">
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
+                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
                                     hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                 <span>{% translate "Settings" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -272,7 +276,7 @@
                                 {% translate "Event Settings" as t_event_settings %}
                                 <a href="{% url 'panel:event-settings' slug=current_event.slug %}"
                                    title="{{ t_event_settings }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'settings' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'settings' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_event_settings }}</span>
                                 </a>
@@ -280,17 +284,17 @@
                             {% translate "Bans" as t_bans %}
                             <a href="{% url 'panel:bans' slug=current_event.slug %}"
                                title="{{ t_bans }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                 {% icon "no-symbol" class="size-4.5 mr-2" %}
                                 <span class="sidebar-label">{{ t_bans }}</span>
                             </a>
                         </div>
                     {% endif %}
-                    <div class="sidebar-cat {% if current_event %}mt-4 pt-2 border-t border-neutral-800{% endif %}"
+                    <div class="sidebar-cat {% if current_event %}mt-4 pt-2 border-t border-border{% endif %}"
                          data-cat="sphere">
                         <button type="button"
                                 title="{{ t_toggle_cat }}"
-                                class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
+                                class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
                                 hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                             <span>{% translate "Sphere" %}</span>
                             <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -299,7 +303,7 @@
                             {% translate "Sphere settings" as t_sphere_settings %}
                             <a href="{% url 'multiverse:panel:sphere-settings' %}"
                                title="{{ t_sphere_settings }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'sphere-settings' %}text-white bg-neutral-800{% else %}text-neutral-300 hover:bg-neutral-800{% endif %} rounded-lg transition hover:duration-0">
+                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'sphere-settings' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                 {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
                                 <span class="sidebar-label">{{ t_sphere_settings }}</span>
                             </a>
@@ -309,9 +313,9 @@
             </nav>
         </aside>
         <!-- Main Content -->
-        <main class="panel-main flex-1 min-w-0 [&_.tab-shell]:rounded-t-none">
+        <main class="panel-main flex min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
-            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-14 z-10">
+            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
@@ -361,7 +365,7 @@
                      role="region"
                      aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
             {% endif %}
-            <div class="relative z-0">
+            <div class="relative z-0 flex flex-1 flex-col">
                 {% block content %}
                 {% endblock content %}
             </div>

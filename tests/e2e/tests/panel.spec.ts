@@ -142,6 +142,19 @@ test.describe("Backoffice Panel", () => {
     await expect(page.locator(".tab-shell")).toHaveCSS("border-top-right-radius", "0px");
   });
 
+  test("fills the remaining panel height with the tab body", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/cfp/");
+
+    const panel = await page.getByRole("main").boundingBox();
+    const tabBody = await page.locator(".tab-shell > div").last().boundingBox();
+
+    expect(panel).not.toBeNull();
+    expect(tabBody).not.toBeNull();
+    expect(Math.abs(panel!.y + panel!.height - (tabBody!.y + tabBody!.height))).toBeLessThanOrEqual(
+      1,
+    );
+  });
+
   test("does not scale panel category collapsibles on pointer down", async ({ page }) => {
     await page.goto("/panel/");
 
