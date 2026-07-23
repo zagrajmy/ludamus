@@ -104,3 +104,14 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-23: Running mise tasks in the managed sandbox failed with Operation
+  not permitted, so task discovery required a retry outside the sandbox.
+- 2026-07-23: Running mise run test:int with focused files still prepended
+  tests/integration, so a focused logout check unexpectedly ran the full
+  2,298-test integration suite.
+- 2026-07-23: Checking the seeded manager via user.spheres failed because
+  Sphere.managers keeps Django's default reverse name; use user.sphere_set or
+  query Sphere.managers directly.
+- 2026-07-23: Ran a mixed JS/Python lint batch from src/ludamus/client while
+  passing repository-root-relative paths; every path-based check failed. Run
+  mixed checks from repo root or use paths relative to the chosen workdir.

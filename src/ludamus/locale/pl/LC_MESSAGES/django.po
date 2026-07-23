@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-17 07:44+0200\n"
+"POT-Creation-Date: 2026-07-23 14:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1714,10 +1714,6 @@ msgstr ""
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "You have been successfully logged out."
-msgstr "Zostałeś pomyślnie wylogowany."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
@@ -7702,6 +7698,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "You have been successfully logged out."
+#~ msgstr "Zostałeś pomyślnie wylogowany."
 
 #~ msgid ""
 #~ "This party still has companions. Remove them first — their profiles would "

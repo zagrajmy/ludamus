@@ -477,6 +477,15 @@ def main() -> None:
     )
     sphere.managers.add(manager)
 
+    local_manager = User.objects.create_user(
+        username="auth0|local-manager",
+        email="default@example.com",
+        password=None,
+        name="Local Manager",
+        slug="auth0local-manager",
+    )
+    sphere.managers.add(local_manager)
+
     # Second sphere with NO events — used to test panel redirect
     _, empty_sphere = _create_site("another.localhost:8000", name="Empty Sphere")
     empty_manager = User.objects.create_user(
