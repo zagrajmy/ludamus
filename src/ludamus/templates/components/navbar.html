@@ -56,18 +56,18 @@
                                 </div>
                                 {% if is_sphere_manager %}
                                     <a href="{% url 'panel:index' %}"
-                                       class="flex items-center gap-1.5 px-3.5 py-3 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
+                                       class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                         {% icon "squares-2x2" class="w-4 h-4 opacity-60" %}
                                         {% translate "Panel" %}
                                     </a>
                                 {% endif %}
                                 <a href="{% url 'web:crowd:profile' %}"
-                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
+                                   class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                     {% icon "user-circle" class="w-4 h-4 opacity-60" %}
                                     {% translate "Edit profile" %}
                                 </a>
                                 <a href="{% url 'web:crowd:auth0:logout' %}"
-                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-border">
+                                   class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-border">
                                     {% icon "arrow-right-on-rectangle" class="w-4 h-4 opacity-60" %}
                                     {% translate "Log out" %}
                                 </a>
