@@ -5,7 +5,9 @@
  *
  * Cells: 256px reference | 48/32/16px | grayscale | one-color silhouette
  * (SVG only) | white-on-dark | 8px blur (squint / pre-attentive test).
- * Needs playwright-core (npm i playwright-core) and Chromium at
+ * SVG input is embedded as a base64 data: image, never inlined into the
+ * page DOM. Needs playwright-core resolvable from this script (npm i
+ * playwright-core in this directory or any ancestor) and Chromium at
  * /opt/pw-browsers/chromium (Claude Code web sandbox default).
  */
 const { chromium } = require("playwright-core");
@@ -18,37 +20,58 @@ if (!input || !output) {
   process.exit(2);
 }
 
-const isSvg = input.toLowerCase().endsWith(".svg");
-let source;
-if (isSvg) {
-  source = fs.readFileSync(input, "utf8");
-} else {
-  const ext = path.extname(input).slice(1).replace("jpg", "jpeg");
-  source = `<img src="data:image/${ext};base64,${fs
-    .readFileSync(input)
-    .toString("base64")}" style="width:100%">`;
+const KEEP = /^(none|transparent|url\()/i;
+
+// Rewrite every fill/stroke paint to `color`, in attributes (either quote
+// style) and inline CSS declarations, preserving none/transparent/url().
+function transformPaints(svg, color) {
+  return svg
+    .replace(/(fill|stroke)="([^"]*)"/g, (m, prop, val) =>
+      KEEP.test(val.trim()) ? m : `${prop}="${color}"`
+    )
+    .replace(/(fill|stroke)='([^']*)'/g, (m, prop, val) =>
+      KEEP.test(val.trim()) ? m : `${prop}='${color}'`
+    )
+    .replace(/(fill|stroke)\s*:\s*([^;"'}<]+)/g, (m, prop, val) =>
+      KEEP.test(val.trim()) ? m : `${prop}: ${color}`
+    );
 }
 
-const oneColor = isSvg
-  ? source
-      .replace(/fill="(?!none)[^"]*"/g, 'fill="#252220"')
-      .replace(/stroke="(?!none)[^"]*"/g, 'stroke="#252220"')
-  : null;
-const whiteVersion = isSvg
-  ? source
-      .replace(/fill="(?!none)[^"]*"/g, 'fill="#ffffff"')
-      .replace(/stroke="(?!none)[^"]*"/g, 'stroke="#ffffff"')
-  : source;
+function toDataUri(svg) {
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+function img(src) {
+  return `<img src="${src}" style="width:100%;height:100%;object-fit:contain">`;
+}
+
+const isSvg = input.toLowerCase().endsWith(".svg");
+let source, oneColor, whiteVersion;
+if (isSvg) {
+  const svg = fs.readFileSync(input, "utf8");
+  source = img(toDataUri(svg));
+  oneColor = img(toDataUri(transformPaints(svg, "#252220")));
+  whiteVersion = img(toDataUri(transformPaints(svg, "#ffffff")));
+} else {
+  const ext = path.extname(input).slice(1).replace("jpg", "jpeg");
+  const uri = `data:image/${ext};base64,${fs
+    .readFileSync(input)
+    .toString("base64")}`;
+  source = img(uri);
+  oneColor = null;
+  whiteVersion = source;
+}
 
 function cell(label, inner, opts = {}) {
   const bg = opts.dark ? "#171717" : "#ffffff";
   const fg = opts.dark ? "#999" : "#666";
   const filter = opts.filter ? `filter:${opts.filter};` : "";
   const w = opts.w || 200;
+  const size = opts.inner || w - 24;
   return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
     <div style="width:${w}px;height:${w}px;background:${bg};display:flex;
       align-items:center;justify-content:center;border:1px solid #ddd">
-      <div style="width:${opts.inner || w - 24}px;${filter}">${inner}</div>
+      <div style="width:${size}px;height:${size}px;${filter}">${inner}</div>
     </div>
     <span style="font:11px monospace;color:${fg}">${label}</span></div>`;
 }

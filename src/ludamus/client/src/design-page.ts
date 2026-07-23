@@ -71,12 +71,9 @@ const logoBuilder = document.querySelector<HTMLElement>("[data-logo-builder]");
 if (logoBuilder) {
   const lockup = logoBuilder.querySelector<SVGElement>(".logo-lockup");
   const coral = logoBuilder.querySelector<HTMLInputElement>("#lb-coral");
-  const chunky = logoBuilder.querySelector<HTMLInputElement>("#lb-chunky");
   const sync = () => {
     lockup?.classList.toggle("mono", coral ? !coral.checked : false);
-    lockup?.classList.toggle("chunky", chunky ? chunky.checked : true);
   };
   coral?.addEventListener("change", sync);
-  chunky?.addEventListener("change", sync);
   sync();
 }

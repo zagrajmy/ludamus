@@ -45,14 +45,15 @@ unavailable, grade from renders only" in the report.
 
 ### Stage 2 — render matrix
 
-Run `node scripts/render_logo_sheet.js <file> <outdir>`. It produces one sheet
+Run `node scripts/render_logo_sheet.js <file> <out.png>`. It produces one sheet
 with: 256 px reference · 48/32/16 px reductions · grayscale · forced
 one-color silhouette · white-on-dark · 8 px blur ("squint" — approximates
 pre-attentive/peripheral vision from the neuro-design research).
 
 Requires Chromium at `/opt/pw-browsers/chromium` and `playwright-core`
-(`npm i playwright-core` in a scratch dir). If unavailable, render what you
-can with PIL and say which cells are missing.
+resolvable from the script (`npm i playwright-core` in this `scripts/`
+directory or any ancestor). If unavailable, render what you can with PIL and
+say which cells are missing.
 
 ### Stage 3 — vision grading
 

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}
+    Logo & Brand Guidelines
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">Logo & Brand Guidelines</h1>
+{% endblock header %}
+{% block body %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border border border-border">
+        <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-lockup.html</code>
+            <div class="w-full max-w-md text-neutral-800 dark:text-neutral-200"
+                 data-morph="tuck-in">{% include "components/brand/logo-lockup.html" with extra_class="w-full" %}</div>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">mono</code>
+            <div class="w-full max-w-sm text-neutral-800 dark:text-neutral-200"
+                 data-morph="tuck-in">
+                {% include "components/brand/logo-lockup.html" with extra_class="w-full mono" %}
+            </div>
+        </div>
+        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">brand/logo-mark.html</code>
+            <div class="text-neutral-800 dark:text-neutral-200" data-morph="tuck-in">
+                {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
+            </div>
+        </div>
+        <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 flex flex-col gap-4">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">color</code>
+            <div class="flex flex-wrap gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="size-8 rounded-md bg-coral-500 border border-border"></span>
+                    <code class="text-xs text-foreground-muted">coral · #f85a3c</code>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="size-8 rounded-md bg-warm-900 border border-border"></span>
+                    <code class="text-xs text-foreground-muted">ink · #252220</code>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="size-8 rounded-md bg-warm-50 border border-border"></span>
+                    <code class="text-xs text-foreground-muted">paper · #fdfcfb</code>
+                </div>
+            </div>
+            <ul class="text-sm text-foreground-secondary list-disc pl-5 space-y-1 max-w-prose">
+                <li>
+                    Coral marks the tabletop and small accents. It is never a surface —
+                    the logo does not appear on, or as, a full-coral field, so overlap
+                    with other orange brands is not a concern.
+                </li>
+                <li>Seats and wordmark inherit the text color; use the mono variant on coral-adjacent or busy grounds.</li>
+                <li>One ink plus coral, at most. No gradients, no outlines, no shadows.</li>
+            </ul>
+        </div>
+        <div class="relative sm:col-span-2 bg-background pt-12 px-8 pb-8 flex flex-col gap-4 [--brand-knockout:var(--color-background)]">
+            <code class="absolute top-3 left-3 text-xs text-foreground-muted">motion</code>
+            <div class="flex items-end gap-10">
+                <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+                     data-morph="tuck-in">
+                    {% include "components/brand/logo-mark.html" with extra_class="size-20" %}
+                    <code class="text-xs text-foreground-muted">tuck-in</code>
+                </div>
+                <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+                     data-morph="d6">
+                    {% include "components/brand/logo-mark.html" with extra_class="size-20" %}
+                    <code class="text-xs text-foreground-muted">d6</code>
+                </div>
+            </div>
+            <ul class="text-sm text-foreground-secondary list-disc pl-5 space-y-1 max-w-prose">
+                <li>tuck-in — seats tuck flush into the tabletop — is the baseline hover, used on the navbar logo.</li>
+                <li>d6 morphs the table into a die face. Reserve it for playful, rare moments.</li>
+                <li>These two are the entire motion vocabulary; do not invent new logo animations.</li>
+            </ul>
+        </div>
+    </div>
+{% endblock body %}
