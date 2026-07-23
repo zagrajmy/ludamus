@@ -133,7 +133,10 @@ def _ink_colors(root: Element) -> set[Rgb]:
     # fill/stroke inherit, so walk the tree carrying effective paints and
     # census only what renderable shapes actually end up painted with.
     inks = set()
-    stack: list[tuple[Element, dict[str, str]]] = [(root, {"fill": "", "stroke": ""})]
+    # SVG paint defaults: unstyled shapes render black fill, no stroke.
+    stack: list[tuple[Element, dict[str, str]]] = [
+        (root, {"fill": "#000000", "stroke": "none"})
+    ]
     while stack:
         element, inherited = stack.pop()
         paints = {}
