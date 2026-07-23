@@ -142,6 +142,16 @@ test.describe("Backoffice Panel", () => {
     await expect(page.locator(".tab-shell")).toHaveCSS("border-top-right-radius", "0px");
   });
 
+  test("does not scale panel category collapsibles on pointer down", async ({ page }) => {
+    await page.goto("/panel/");
+
+    const category = page.locator(".sidebar-cat-header").first();
+    await category.hover();
+    await page.mouse.down();
+    await expect(category).toHaveCSS("scale", "1");
+    await page.mouse.up();
+  });
+
   // --- Step 1: Event Settings ---
 
   test("navigates to event settings and displays form", async ({ page }) => {

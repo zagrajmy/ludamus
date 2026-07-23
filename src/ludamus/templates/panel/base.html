@@ -191,7 +191,7 @@
                             <div class="sidebar-cat" data-cat="program">
                                 <button type="button"
                                         title="{{ t_toggle_cat }}"
-                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
                                         hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                     <span>{% translate "Program" %}</span>
                                     <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -237,7 +237,7 @@
                             <div class="sidebar-cat" data-cat="schedule">
                                 <button type="button"
                                         title="{{ t_toggle_cat }}"
-                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
                                         hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                     <span>{% translate "Schedule" context "Sidebar category" %}</span>
                                     <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -276,7 +276,7 @@
                             <div class="sidebar-cat" data-cat="settings">
                                 <button type="button"
                                         title="{{ t_toggle_cat }}"
-                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                        class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
                                         hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                     <span>{% translate "Settings" %}</span>
                                     <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
@@ -303,7 +303,7 @@
                              data-cat="sphere">
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white"
+                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-white active:scale-100!"
                                     hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
                                 <span>{% translate "Sphere" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
