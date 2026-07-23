@@ -54,7 +54,7 @@
                                     <p class="text-sm font-medium truncate text-foreground-primary">{{ request.user.full_name|default:"User" }}</p>
                                     <p class="text-xs truncate mt-0.5 text-foreground-secondary">{{ request.user.email }}</p>
                                 </div>
-                                {% if is_sphere_manager %}
+                                {% if has_panel_access %}
                                     <a href="{% url 'panel:index' %}"
                                        class="flex items-center gap-1.5 px-3.5 py-3 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                         {% icon "squares-2x2" class="w-4 h-4 opacity-60" %}

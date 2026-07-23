@@ -31,6 +31,7 @@ from ludamus.adapters.web.django.forms import (
     RosterMember,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_session
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
@@ -182,16 +183,6 @@ class IndexRedirectView(View):
         return redirect("web:events")
 
 
-def _is_manager(request: RootRequest) -> bool:
-    return (
-        request.user.is_authenticated
-        and request.context.current_user_slug is not None
-        and request.di.uow.spheres.is_manager(
-            request.context.current_sphere_id, request.context.current_user_slug
-        )
-    )
-
-
 @method_decorator(cache_control(private=True, max_age=180), name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
@@ -204,7 +195,7 @@ class EventsPageView(TemplateView):
             sphere_id
         )
         items = self.request.services.events.list_for_sphere(
-            sphere_id, include_unpublished=_is_manager(self.request)
+            sphere_id, include_unpublished=has_panel_access(self.request)
         )
         context["upcoming_events"] = self._with_covers(
             sorted(
@@ -298,7 +289,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
 
-        if not self.object.is_published and not _is_manager(self.request):
+        if not self.object.is_published and not has_panel_access(self.request):
             raise Http404
 
         # Get all sessions for this event that are published

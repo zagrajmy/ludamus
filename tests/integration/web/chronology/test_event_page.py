@@ -3332,10 +3332,10 @@ class TestEventPageView:
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
-    def test_unpublished_event_visible_for_manager(
-        self, authenticated_client, active_user, sphere
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_unpublished_event_visible_for_manager_and_superuser(
+        self, authenticated_client, sphere
     ):
-        sphere.managers.add(active_user)
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self._get_url(event.slug))

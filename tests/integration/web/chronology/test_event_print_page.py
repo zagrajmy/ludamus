@@ -2,6 +2,7 @@ from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.urls import reverse
 from django.utils import timezone
 
@@ -212,10 +213,10 @@ class TestPublicEventPrintView:
 
         assert_response_404(response)
 
-    def test_manager_previews_unpublished_event(
-        self, authenticated_client, active_user, sphere, event, session, space
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_manager_and_superuser_preview_unpublished_event(
+        self, authenticated_client, event, session, space
     ):
-        sphere.managers.add(active_user)
         event.publication_time = timezone.now() + timedelta(days=1)
         event.save()
         _confirmed_item(event, session, space)

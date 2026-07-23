@@ -1,19 +1,18 @@
+import pytest
 from django.urls import reverse
 
 
 class TestSitesContext:
-    def test_superuser_is_sphere_manager(self, authenticated_client, active_user):
-        active_user.is_superuser = True
-        active_user.save()
-
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_manager_and_superuser_have_panel_access(self, authenticated_client):
         response = authenticated_client.get(reverse("web:events"))
 
-        assert response.context["is_sphere_manager"] is True
+        assert response.context["has_panel_access"] is True
 
-    def test_regular_user_is_not_sphere_manager(self, authenticated_client):
+    def test_regular_user_has_no_panel_access(self, authenticated_client):
         response = authenticated_client.get(reverse("web:events"))
 
-        assert response.context["is_sphere_manager"] is False
+        assert response.context["has_panel_access"] is False
 
 
 class TestCurrentUserContext:

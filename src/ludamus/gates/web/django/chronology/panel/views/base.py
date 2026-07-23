@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.mills import PanelService, is_proposal_active
 from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
 
@@ -38,17 +39,7 @@ class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     request: PanelRequest
 
     def test_func(self) -> bool:
-        """Check if user is a sphere manager.
-
-        Returns:
-            True if user is a manager of the current sphere, False otherwise.
-        """
-        # LoginRequiredMixin ensures user is authenticated before this is called
-        if self.request.user.is_superuser:
-            return True
-        current_sphere_id = self.request.context.current_sphere_id
-        user_slug = self.request.context.current_user_slug
-        return self.request.di.uow.spheres.is_manager(current_sphere_id, user_slug)
+        return has_panel_access(self.request)
 
     def handle_no_permission(self) -> HttpResponseRedirect:
         """Handle no permission based on authentication status.

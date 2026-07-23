@@ -14,6 +14,8 @@ from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.access import has_panel_access
+
 if TYPE_CHECKING:
     from ludamus.pacts import AuthenticatedRequestContext
     from ludamus.pacts.services import ServicesProtocol
@@ -32,12 +34,7 @@ class SphereAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     request: MultiverseRequest
 
     def test_func(self) -> bool:
-        if self.request.user.is_superuser:
-            return True
-        ctx = self.request.context
-        return self.request.services.sphere_panel.is_manager(
-            ctx.current_sphere_id, ctx.current_user_slug
-        )
+        return has_panel_access(self.request)
 
     def handle_no_permission(self) -> HttpResponseRedirect:
         if not self.request.user.is_authenticated:

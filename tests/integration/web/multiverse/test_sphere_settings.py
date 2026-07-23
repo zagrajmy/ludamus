@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -55,22 +56,8 @@ class TestSphereSettingsPageView:
             url="/",
         )
 
-    def test_get_ok_for_superuser_non_manager(self, authenticated_client, active_user):
-        active_user.is_superuser = True
-        active_user.save()
-
-        response = authenticated_client.get(self.url)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="multiverse/panel/sphere-settings.html",
-            context_data=GENERAL_PANEL_CONTEXT,
-        )
-
-    def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
-        sphere.managers.add(active_user)
-
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_get_ok_for_manager_and_superuser(self, authenticated_client):
         response = authenticated_client.get(self.url)
 
         assert_response(

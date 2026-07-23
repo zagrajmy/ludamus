@@ -223,6 +223,16 @@ def staff_client(client, staff_user):
     return client
 
 
+@pytest.fixture(params=["manager", "superuser"])
+def panel_access_user(request, active_user, sphere):
+    if request.param == "manager":
+        sphere.managers.add(active_user)
+    else:
+        active_user.is_superuser = True
+        active_user.save()
+    return active_user
+
+
 @pytest.fixture(name="active_user")
 def active_user_fixture():
     return UserFactory(
