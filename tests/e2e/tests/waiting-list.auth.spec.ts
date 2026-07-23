@@ -52,13 +52,29 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
     const panel = page.locator("#navbar-profile-panel");
     const surface = panel.locator("[data-menu-surface]");
 
+    await expect
+      .poll(() => surface.evaluate((element) => Number.parseFloat(getComputedStyle(element).scale)))
+      .toBeCloseTo(0.98);
+    await expect(surface).toHaveCSS("filter", "blur(1px)");
+
     await trigger.hover();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(surface).toHaveCSS("transition-duration", "0.15s");
+    await expect(surface).toHaveCSS("transition-duration", "0.21s");
+    await expect
+      .poll(() => surface.evaluate((element) => Number.parseFloat(getComputedStyle(element).scale)))
+      .toBeCloseTo(1);
+    await expect(surface).toHaveCSS("filter", "none");
+
+    const transformOrigin = await surface.evaluate((element) => {
+      const [x, y] = getComputedStyle(element).transformOrigin.split(" ").map(Number.parseFloat);
+      return { x, y, width: element.offsetWidth };
+    });
+    expect(transformOrigin.x).toBeCloseTo(transformOrigin.width);
+    expect(transformOrigin.y).toBe(0);
 
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await expect(surface).toHaveCSS("transition-duration", "0.1s");
+    await expect(surface).toHaveCSS("transition-duration", "0.16s");
     await expect(panel).toBeHidden();
 
     await trigger.click();
