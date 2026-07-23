@@ -615,25 +615,7 @@
         opacity: 0;
       }
 
-      /* spring pop-in: seats scale from their own centers */
-      #mo-spring .ms {
-        transition:
-          transform 700ms var(--ease-spring-a-bit),
-          opacity 260ms ease-out;
-        transform-box: fill-box;
-        transform-origin: center;
-      }
 
-      #mo-spring:not(.in) .ms {
-        transform: scale(0.65);
-        opacity: 0;
-        transition: none;
-      }
-
-      #mo-spring.in .ms1 { transition-delay: 0ms; }
-      #mo-spring.in .ms2 { transition-delay: 60ms; }
-      #mo-spring.in .ms3 { transition-delay: 120ms; }
-      #mo-spring.in .ms4 { transition-delay: 180ms; }
 
       #mo-die.morphed .mt { d: path("M96 60C96 96.23 96.23 96 60 96C23.77 96 24 96.23 24 60C24 23.77 23.77 24 60 24C96.23 24 96 23.77 96 60Z"); }
       #mo-die.morphed .ms1 { d: path("M51 45C51 48.31 48.31 51 45 51C41.69 51 39 48.31 39 45C39 41.69 41.69 39 45 39C48.31 39 51 41.69 51 45Z"); fill: #fdfcfb; }
@@ -642,28 +624,19 @@
       #mo-die.morphed .ms4 { d: path("M51 75C51 78.31 48.31 81 45 81C41.69 81 39 78.31 39 75C39 71.69 41.69 69 45 69C48.31 69 51 71.69 51 75Z"); fill: #fdfcfb; }
 
       #mo-fridge.morphed .mt { d: path("M99 60C99 99.25 99.25 99 60 99C20.75 99 21 99.25 21 60C21 20.75 20.75 21 60 21C99.25 21 99 20.75 99 60Z"); }
-      #mo-fridge.morphed .ms1 { d: path("M73 26.5C73 31.2 71.1 32 60 32C48.9 32 47 31.2 47 26.5C47 21.8 48.9 21 60 21C71.1 21 73 21.8 73 26.5Z"); }
-      #mo-fridge.morphed .ms2 { d: path("M99 60C99 71.1 98.2 73 93.5 73C88.8 73 88 71.1 88 60C88 48.9 88.8 47 93.5 47C98.2 47 99 48.9 99 60Z"); }
-      #mo-fridge.morphed .ms3 { d: path("M73 93.5C73 98.2 71.1 99 60 99C48.9 99 47 98.2 47 93.5C47 88.8 48.9 88 60 88C71.1 88 73 88.8 73 93.5Z"); }
-      #mo-fridge.morphed .ms4 { d: path("M32 60C32 71.1 31.2 73 26.5 73C21.8 73 21 71.1 21 60C21 48.9 21.8 47 26.5 47C31.2 47 32 48.9 32 60Z"); }
-      #mo-fridge.morphed .mc1 { d: path("M77.2 26.75C77.2 34.61 74.69 35.95 60 35.95C45.31 35.95 42.8 34.61 42.8 26.75C42.8 18.89 45.31 17.55 60 17.55C74.69 17.55 77.2 18.89 77.2 26.75Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
-      #mo-fridge.morphed .mc2 { d: path("M102.45 60C102.45 74.69 101.11 77.2 93.25 77.2C85.39 77.2 84.05 74.69 84.05 60C84.05 45.31 85.39 42.8 93.25 42.8C101.11 42.8 102.45 45.31 102.45 60Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
-      #mo-fridge.morphed .mc3 { d: path("M77.2 93.25C77.2 101.11 74.69 102.45 60 102.45C45.31 102.45 42.8 101.11 42.8 93.25C42.8 85.39 45.31 84.05 60 84.05C74.69 84.05 77.2 85.39 77.2 93.25Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
-      #mo-fridge.morphed .mc4 { d: path("M35.95 60C35.95 74.69 34.61 77.2 26.75 77.2C18.89 77.2 17.55 74.69 17.55 60C17.55 45.31 18.89 42.8 26.75 42.8C34.61 42.8 35.95 45.31 35.95 60Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .ms1 { d: path("M73 21C73 29.25 67.15 32 60 32C52.85 32 47 29.25 47 21C51.42 21 55.71 21 60 21C64.29 21 68.58 21 73 21Z"); }
+      #mo-fridge.morphed .ms2 { d: path("M99 73C90.75 73 88 67.15 88 60C88 52.85 90.75 47 99 47C99 51.42 99 55.71 99 60C99 64.29 99 68.58 99 73Z"); }
+      #mo-fridge.morphed .ms3 { d: path("M47 99C47 90.75 52.85 88 60 88C67.15 88 73 90.75 73 99C68.58 99 64.29 99 60 99C55.71 99 51.42 99 47 99Z"); }
+      #mo-fridge.morphed .ms4 { d: path("M21 47C29.25 47 32 52.85 32 60C32 67.15 29.25 73 21 73C21 68.58 21 64.29 21 60C21 55.71 21 51.42 21 47Z"); }
+      #mo-fridge.morphed .mc1 { d: path("M77.2 21.12C77.2 32.4 69.46 36.2 60 36.2C50.54 36.2 42.8 32.4 42.8 21.12C48.65 21.12 54.32 21.12 60 21.12C65.68 21.12 71.35 21.12 77.2 21.12Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .mc2 { d: path("M98.88 77.2C87.6 77.2 83.8 69.46 83.8 60C83.8 50.54 87.6 42.8 98.88 42.8C98.88 48.65 98.88 54.32 98.88 60C98.88 65.68 98.88 71.35 98.88 77.2Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .mc3 { d: path("M42.8 98.88C42.8 87.6 50.54 83.8 60 83.8C69.46 83.8 77.2 87.6 77.2 98.88C71.35 98.88 65.68 98.88 60 98.88C54.32 98.88 48.65 98.88 42.8 98.88Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
+      #mo-fridge.morphed .mc4 { d: path("M21.12 42.8C32.4 42.8 36.2 50.54 36.2 60C36.2 69.46 32.4 77.2 21.12 77.2C21.12 71.35 21.12 65.68 21.12 60C21.12 54.32 21.12 48.65 21.12 42.8Z"); opacity: 1; transition-delay: 0ms, 0ms, 180ms; }
 
-      #mo-sword.morphed .ms2 { d: path("M140 60C137 63.2 128 65 119 65C106 65 98 64.2 98 60C98 55.8 106 55 119 55C128 55 137 56.8 140 60Z"); }
 
       @media (prefers-reduced-motion: reduce) {
         .motion-card path {
           transition-property: fill, opacity;
-        }
-
-        #mo-spring:not(.in) .ms {
-          transform: none;
-        }
-
-        #mo-spring .ms {
-          transition: opacity 260ms ease-out;
         }
       }
 
@@ -1714,27 +1687,20 @@ detail, clean edges<button class="copy-btn">copy</button></div>
       <h2>Motion — one geometry, many pieces.</h2>
       <p class="lede">
         Every shape in the system is the same four-curve superellipse, so the
-        mark doesn't crossfade — it <em>morphs</em>. The table is the
-        baseline; its four seats become the d6's four pips, tuck in as the
-        fridge, or reforge into the sword. Hover (or tap) to play; the chairs
-        spring in with the product's own spring curve.
+        mark doesn't crossfade — it <em>morphs</em>. Two motions ship:
+        <strong>tuck-in</strong> (seats tuck flush into the tabletop — the
+        baseline hover on the navbar logo) and <strong>table → d6</strong>
+        (the seats sweep in as the four pips). Hover or tap to play. Both
+        live in the product at <code>/design</code>.
       </p>
       <div class="motion-grid">
-        <figure class="motion-card" id="mo-spring">
-          <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
-          <figcaption>chairs pop in · spring, staggered · click replays</figcaption>
-        </figure>
         <figure class="motion-card morph" id="mo-die">
           <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
-          <figcaption>table → d6 · the seats are the four</figcaption>
+          <figcaption>table → d6 · the seats are the four pips</figcaption>
         </figure>
         <figure class="motion-card morph" id="mo-fridge">
           <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="mc mc1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#fdfcfb"/><path class="mc mc2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#fdfcfb"/><path class="mc mc3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#fdfcfb"/><path class="mc mc4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#fdfcfb"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
-          <figcaption>table → fridge · seats tuck flush</figcaption>
-        </figure>
-        <figure class="motion-card morph" id="mo-sword">
-          <svg viewBox="0 0 120 120" aria-hidden="true"><path class="mt" d="M92 60C92 91.82 91.82 92 60 92C28.18 92 28 91.82 28 60C28 28.18 28.18 28 60 28C91.82 28 92 28.18 92 60Z" fill="#f85a3c"/><path class="ms ms1" d="M75.5 11.5C75.5 21.05 74.09 22 60 22C45.91 22 44.5 21.05 44.5 11.5C44.5 1.95 45.91 1 60 1C74.09 1 75.5 1.95 75.5 11.5Z" fill="#252220"/><path class="ms ms2" d="M119 60C119 74.09 118.05 75.5 108.5 75.5C98.95 75.5 98 74.09 98 60C98 45.91 98.95 44.5 108.5 44.5C118.05 44.5 119 45.91 119 60Z" fill="#252220"/><path class="ms ms3" d="M75.5 108.5C75.5 118.05 74.09 119 60 119C45.91 119 44.5 118.05 44.5 108.5C44.5 98.95 45.91 98 60 98C74.09 98 75.5 98.95 75.5 108.5Z" fill="#252220"/><path class="ms ms4" d="M22 60C22 74.09 21.05 75.5 11.5 75.5C1.95 75.5 1 74.09 1 60C1 45.91 1.95 44.5 11.5 44.5C21.05 44.5 22 45.91 22 60Z" fill="#252220"/></svg>
-          <figcaption>table → sword · the right chair prolongs</figcaption>
+          <figcaption>tuck-in · the baseline navbar hover</figcaption>
         </figure>
       </div>
     </section>
@@ -1973,23 +1939,7 @@ detail, clean edges<button class="copy-btn">copy</button></div>
         slides.forEach((sl) => sl.id && obs.observe(sl));
       }
 
-      const springCard = document.getElementById("mo-spring");
-      if (springCard) {
-        const replaySpring = () => {
-          springCard.classList.remove("in");
-          void springCard.getBoundingClientRect();
-          requestAnimationFrame(() => springCard.classList.add("in"));
-        };
-        springCard.addEventListener("click", replaySpring);
-        new IntersectionObserver(
-          (entries, obs) => {
-            if (entries.some((en) => en.isIntersecting)) {
-              replaySpring();
-              obs.disconnect();
-            }
-          },
-          { threshold: 0.5 }
-        ).observe(springCard);
+      {
         const hoverFine = matchMedia("(hover: hover) and (pointer: fine)").matches;
         document.querySelectorAll(".motion-card.morph").forEach((card) => {
           if (hoverFine) {

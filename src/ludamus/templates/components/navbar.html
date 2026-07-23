@@ -5,15 +5,9 @@
         <div class="flex justify-between h-14">
             <div class="flex items-center gap-6">
                 <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
-                   class="flex items-center space-x-2">
-                    <svg viewBox="0 0 100 100"
-                         fill="none"
-                         xmlns="http://www.w3.org/2000/svg"
-                         class="size-8">
-                        <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#262626" />
-                        <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#1A1A1A" />
-                        <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#F05537" />
-                    </svg>
+                   class="flex items-center space-x-2 text-neutral-800 dark:text-neutral-200"
+                   data-morph="tuck-in">
+                    {% include "components/brand/logo-mark.html" with extra_class="size-8" %}
                     <span class="text-xl font-semibold tracking-tight hidden sm:inline">
                         <span class="text-neutral-800 dark:text-neutral-200">{{ current_sphere.name }}</span>
                     </span>

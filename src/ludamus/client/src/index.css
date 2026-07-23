@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @import "./progressive-blur.css";
+@import "./brand-mark.css";
 @import "./modal.css";
 @import "./filters.css";
 @import "./tabs.css";

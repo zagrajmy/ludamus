@@ -298,6 +298,37 @@
                 class="btn btn-secondary px-3 py-1.5 text-xs">Success</button>
     </div>
 </div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">brand/logo-mark.html</code>
+        <code class="text-xs text-foreground-muted">data-morph</code>
+    </div>
+    <div class="flex items-end gap-10">
+        <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+             data-morph="tuck-in">
+            {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
+            <code class="text-xs text-foreground-muted">tuck-in · navbar hover</code>
+        </div>
+        <div class="flex flex-col items-center gap-2 text-neutral-800 dark:text-neutral-200"
+             data-morph="d6">
+            {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
+            <code class="text-xs text-foreground-muted">d6</code>
+        </div>
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-6 sm:col-span-1 lg:col-span-2"
+     data-logo-builder>
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">Logo Builder</code>
+        <code class="text-xs text-foreground-muted">brand/logo-lockup.html</code>
+    </div>
+    <div class="w-full max-w-md text-neutral-800 dark:text-neutral-200"
+         data-morph="tuck-in">{% include "components/brand/logo-lockup.html" with extra_class="w-full chunky" %}</div>
+    <div class="flex flex-wrap gap-6">
+        {% include "components/checkbox-field.html" with id="lb-coral" name="lb-coral" label="Coral table" checked=True only %}
+        {% include "components/checkbox-field.html" with id="lb-chunky" name="lb-chunky" label="Chunky · table = z" checked=True only %}
+    </div>
+</div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
     <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
         <code class="text-xs text-foreground-muted">tab-shell.html</code>

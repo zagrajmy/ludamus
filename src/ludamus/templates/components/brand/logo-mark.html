@@ -1,0 +1,13 @@
+{% comment %}
+Zagrajmy mark: coral table, four chairs in currentColor. The chunky
+geometry (tabletop = z-band of the wordmark). Wrap a parent in
+data-morph="tuck-in" (or "d6") to enable the hover morph from
+brand-mark.css. Size with extra_class (e.g. "size-8").
+{% endcomment %}
+<svg viewBox="0 0 120 120"
+     fill="none"
+     xmlns="http://www.w3.org/2000/svg"
+     aria-hidden="true"
+     class="brand-mark {{ extra_class }}">
+    {% include "components/brand/mark-paths.html" %}
+</svg>
