@@ -33,7 +33,6 @@ deferred finding later.
 | 016 | Delete read_site and SphereDTO.site_id | P3 | S | 006 | DONE |
 | 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | DONE |
 | 018 | Skip notices warn; cancel works with no config | P2 | S | 017 | DONE |
-| 019 | Show all schedule days side-by-side | P2 | M | — | TODO |
 
 ## Execution log (2026-07-09)
 

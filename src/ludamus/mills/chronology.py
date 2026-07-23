@@ -8,7 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -59,6 +59,7 @@ from ludamus.pacts.chronology import (
     SpaceColumnDTO,
     SpaceGroupDTO,
     TimeLabelDTO,
+    TimetableDayGridDTO,
     TimetableGridDTO,
     TrackProgressDTO,
 )
@@ -159,12 +160,15 @@ class TimetableService:
 
     def build_grid(
         self,
+        *,
         event_pk: int,
         tz: tzinfo,
         track_pk: int | None = None,
         space_page: int = 1,
-        selected_date: date | None = None,
+        date_selection: date | Literal["all"] | None = None,
     ) -> TimetableGridDTO:
+        show_all_days = date_selection == "all"
+        selected_date = date_selection if isinstance(date_selection, date) else None
         all_nodes = self._uow.spaces.list_by_event(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = self._leaves_in_tree_order(all_nodes)
@@ -182,54 +186,87 @@ class TimetableService:
         windows_by_date = slot_windows_by_local_date(all_slots, tz)
         available_dates = sorted(windows_by_date.keys())
 
-        if selected_date is None or selected_date not in windows_by_date:
+        if not show_all_days and (
+            selected_date is None or selected_date not in windows_by_date
+        ):
             selected_date = available_dates[0] if available_dates else None
+        elif show_all_days:
+            selected_date = None
 
         groups = self._build_space_groups(spaces, node_name_by_pk)
-
-        if selected_date is None:
-            return TimetableGridDTO(
-                spaces=spaces,
-                columns=[SpaceColumnDTO(space=s, sessions=[]) for s in spaces],
-                groups=groups,
-                time_labels=[],
-                total_minutes=0,
-                event_start_iso="",
-                slot_minutes=TIMETABLE_SLOT_MINUTES,
-                snap_minutes=TIMETABLE_SNAP_MINUTES,
-                page=space_page,
-                total_pages=total_pages,
-                total_spaces=total_spaces,
-                available_dates=available_dates,
-                selected_date=None,
-            )
-
-        day_windows = windows_by_date[selected_date]
-        grid_start = min(w[0] for w in day_windows).replace(
-            minute=0, second=0, microsecond=0
+        dates_to_render = (
+            available_dates
+            if show_all_days
+            else [selected_date] if selected_date is not None else []
         )
-        latest_end = max(w[1] for w in day_windows)
-        grid_end = latest_end.replace(minute=0, second=0, microsecond=0)
-        if latest_end != grid_end:
-            grid_end += timedelta(hours=1)
-
-        total_minutes = int((grid_end - grid_start).total_seconds() / 60)
-        num_slots = total_minutes // TIMETABLE_SLOT_MINUTES
-
-        slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
-        time_labels = [
-            TimeLabelDTO(
-                time=grid_start + slot_delta * i,
-                offset_minutes=i * TIMETABLE_SLOT_MINUTES,
-            )
-            for i in range(num_slots + 1)
-        ]
-
         all_items = (
             self._uow.agenda_items.list_by_track(track_pk)
             if track_pk is not None
             else self._uow.agenda_items.list_by_event(event_pk)
         )
+        grid_start_minute, grid_end_minute = self._grid_minute_bounds(
+            dates_to_render, windows_by_date
+        )
+        total_minutes = grid_end_minute - grid_start_minute
+        days = [
+            self._build_day_grid(
+                date_to_render=date_to_render,
+                day_windows=windows_by_date[date_to_render],
+                spaces=spaces,
+                all_items=all_items,
+                grid_minute_bounds=(grid_start_minute, grid_end_minute),
+            )
+            for date_to_render in dates_to_render
+        ]
+        time_labels: list[TimeLabelDTO] = []
+        if dates_to_render:
+            first_date = dates_to_render[0]
+            first_window_start = windows_by_date[first_date][0][0]
+            first_midnight = datetime.combine(
+                first_date, datetime.min.time(), tzinfo=first_window_start.tzinfo
+            )
+            label_start = first_midnight + timedelta(minutes=grid_start_minute)
+            slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
+            time_labels = [
+                TimeLabelDTO(
+                    time=label_start + slot_delta * i,
+                    offset_minutes=i * TIMETABLE_SLOT_MINUTES,
+                )
+                for i in range(total_minutes // TIMETABLE_SLOT_MINUTES + 1)
+            ]
+
+        return TimetableGridDTO(
+            spaces=spaces,
+            groups=groups,
+            days=days,
+            time_labels=time_labels,
+            total_minutes=total_minutes,
+            slot_minutes=TIMETABLE_SLOT_MINUTES,
+            snap_minutes=TIMETABLE_SNAP_MINUTES,
+            page=space_page,
+            total_pages=total_pages,
+            total_spaces=total_spaces,
+            available_dates=available_dates,
+            selected_date=selected_date,
+            show_all_days=show_all_days,
+        )
+
+    @staticmethod
+    def _build_day_grid(
+        *,
+        date_to_render: date,
+        day_windows: list[tuple[datetime, datetime]],
+        spaces: list[SpaceDTO],
+        all_items: list[AgendaItemDTO],
+        grid_minute_bounds: tuple[int, int],
+    ) -> TimetableDayGridDTO:
+        grid_start_minute, grid_end_minute = grid_minute_bounds
+        day_midnight = datetime.combine(
+            date_to_render, datetime.min.time(), tzinfo=day_windows[0][0].tzinfo
+        )
+        grid_start = day_midnight + timedelta(minutes=grid_start_minute)
+        grid_end = day_midnight + timedelta(minutes=grid_end_minute)
+
         space_pk_set = {s.pk for s in spaces}
         space_items: dict[int, list[AgendaItemDTO]] = defaultdict(list)
         for item in all_items:
@@ -253,20 +290,41 @@ class TimetableService:
                 )
             )
 
-        return TimetableGridDTO(
-            spaces=spaces,
-            columns=columns,
-            groups=groups,
-            time_labels=time_labels,
-            total_minutes=num_slots * TIMETABLE_SLOT_MINUTES,
-            event_start_iso=grid_start.isoformat(),
-            slot_minutes=TIMETABLE_SLOT_MINUTES,
-            snap_minutes=TIMETABLE_SNAP_MINUTES,
-            page=space_page,
-            total_pages=total_pages,
-            total_spaces=total_spaces,
-            available_dates=available_dates,
-            selected_date=selected_date,
+        return TimetableDayGridDTO(
+            date=date_to_render, columns=columns, event_start_iso=grid_start.isoformat()
+        )
+
+    @staticmethod
+    def _grid_minute_bounds(
+        dates_to_render: list[date],
+        windows_by_date: dict[date, list[tuple[datetime, datetime]]],
+    ) -> tuple[int, int]:
+        if not dates_to_render:
+            return 0, 0
+
+        start_minutes: list[int] = []
+        end_minutes: list[int] = []
+        for day in dates_to_render:
+            for window_start, window_end in windows_by_date[day]:
+                start_minutes.append(window_start.hour * 60 + window_start.minute)
+                if window_end.date() > day:
+                    end_minutes.append(24 * 60)
+                else:
+                    end_minutes.append(
+                        math.ceil(
+                            (
+                                window_end.hour * 60
+                                + window_end.minute
+                                + window_end.second / 60
+                            )
+                            / TIMETABLE_SLOT_MINUTES
+                        )
+                        * TIMETABLE_SLOT_MINUTES
+                    )
+
+        return (
+            min(start_minutes) // TIMETABLE_SLOT_MINUTES * TIMETABLE_SLOT_MINUTES,
+            max(end_minutes),
         )
 
     @staticmethod

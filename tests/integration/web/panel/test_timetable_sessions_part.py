@@ -81,6 +81,7 @@ class TestTimetableSessionListPartView:
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "filter_track_pk": None,
                 "selected_date": None,
+                "date_param": "",
                 "slug": event.slug,
             },
         )
@@ -298,6 +299,36 @@ class TestTimetableSessionListPartView:
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
         assert session.pk in session_pks
+
+    def test_all_date_param_does_not_filter_and_stays_in_links(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            participants_limit=10,
+            min_age=0,
+        )
+        session.time_slots.add(
+            TimeSlotFactory(
+                event=event, start_time=event.start_time + timedelta(days=1)
+            )
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-list.html",
+            context_data=response.context_data,
+            contains="date=all",
+        )
+        context = response.context
+        assert session.pk in [item.pk for item in context["sessions"]]
+        assert context["selected_date"] is None
+        assert context["date_param"] == "all"
 
     def test_caps_results_at_limit_and_flags_has_more(
         self, authenticated_client, active_user, sphere, event, proposal_category

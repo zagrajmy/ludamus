@@ -15,7 +15,7 @@
                  draggable="true"
                  data-session-pk="{{ session.pk }}"
                  data-duration="{{ session.duration_minutes }}"
-                 hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}&date={{ selected_date|date:'Y-m-d' }}"
+                 hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}&date={{ date_param }}"
                  hx-target="#left-pane"
                  hx-swap="outerHTML">
                 <div class="text-sm font-medium text-foreground truncate">{{ session.title }}</div>

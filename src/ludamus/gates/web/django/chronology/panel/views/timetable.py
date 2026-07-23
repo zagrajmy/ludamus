@@ -58,13 +58,22 @@ def _build_back_url(slug: str, query: QueryDict) -> str:
     return f"{base}?{urlencode(params)}" if params else base
 
 
-def _parse_date_param(raw: str | None) -> date | None:
+def _parse_date_selection(raw: str | None) -> tuple[date | None, bool, str]:
+    if raw == "all":
+        return None, True, "all"
     if not raw:
-        return None
+        return None, False, ""
     try:
-        return date.fromisoformat(raw)
+        selected_date = date.fromisoformat(raw)
     except ValueError:
-        return None
+        return None, False, ""
+    return selected_date, False, selected_date.isoformat()
+
+
+def _grid_date_param(grid_selected_date: date | None, *, show_all_days: bool) -> str:
+    if show_all_days:
+        return "all"
+    return grid_selected_date.isoformat() if grid_selected_date else ""
 
 
 class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
@@ -88,7 +97,9 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         except ValueError:
             room_page = 1
 
-        selected_date = _parse_date_param(self.request.GET.get("date"))
+        selected_date, show_all_days, _ = _parse_date_selection(
+            self.request.GET.get("date")
+        )
 
         category_pk_raw = self.request.GET.get("category", "").strip()
         category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
@@ -101,7 +112,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
             tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
-            selected_date=selected_date,
+            date_selection="all" if show_all_days else selected_date,
         )
         conflict_service = ConflictDetectionService(uow)
         conflicts = conflict_service.list_all_for_track(
@@ -125,6 +136,9 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["max_duration_minutes"] = max_duration_minutes
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["selected_date"] = grid.selected_date
+        context["date_param"] = _grid_date_param(
+            grid.selected_date, show_all_days=grid.show_all_days
+        )
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
         context["active_tab"] = "timetable"
@@ -149,7 +163,9 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
         category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
-        selected_date = _parse_date_param(self.request.GET.get("date"))
+        selected_date, _, date_param = _parse_date_selection(
+            self.request.GET.get("date")
+        )
 
         uow = self.request.di.uow
         sessions, has_more = uow.sessions.list_unscheduled_by_event(
@@ -177,6 +193,7 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
             "duration_chips": duration_chips,
             "filter_track_pk": filter_track_pk,
             "selected_date": selected_date,
+            "date_param": date_param,
             "slug": slug,
         }
         return TemplateResponse(
@@ -201,7 +218,9 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
         search = self.request.GET.get("search", "").strip()
-        selected_date = _parse_date_param(self.request.GET.get("date"))
+        selected_date, _, date_param = _parse_date_selection(
+            self.request.GET.get("date")
+        )
 
         context = {
             "filter_track_pk": filter_track_pk,
@@ -209,6 +228,7 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
             "max_duration_minutes": max_duration_minutes,
             "search": search,
             "selected_date": selected_date,
+            "date_param": date_param,
             "slug": slug,
             "current_event": current_event,
         }
@@ -285,7 +305,9 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
         except ValueError:
             room_page = 1
 
-        selected_date = _parse_date_param(self.request.GET.get("date"))
+        selected_date, show_all_days, _ = _parse_date_selection(
+            self.request.GET.get("date")
+        )
 
         uow = self.request.di.uow
         grid = TimetableService(uow).build_grid(
@@ -293,7 +315,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
             tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
-            selected_date=selected_date,
+            date_selection="all" if show_all_days else selected_date,
         )
         slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
             event_pk=current_event.pk, track_pk=filter_track_pk
@@ -304,6 +326,9 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
             "filter_track_pk": filter_track_pk,
             "conflict_session_pks": set(),
             "slot_violation_session_pks": {v.session_pk for v in slot_violations},
+            "date_param": _grid_date_param(
+                grid.selected_date, show_all_days=grid.show_all_days
+            ),
             "slug": slug,
         }
         return TemplateResponse(

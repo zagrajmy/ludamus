@@ -27,16 +27,14 @@
     {% tab_shell_body %}
     <!-- Filter bar: track + date + category chips + duration chips -->
     <div id="filter-bar" class="mb-4 flex items-center gap-4 flex-wrap">
-        {% if all_tracks or grid.available_dates %}
+        {% if all_tracks or grid.available_dates|length > 1 %}
             <form method="get"
                   action="{% url 'panel:timetable' slug=current_event.slug %}"
-                  class="flex items-center gap-2 flex-wrap">
+                  class="grid w-full grid-cols-[auto_1fr] items-center gap-2 sm:flex sm:w-auto sm:flex-nowrap">
                 {% if room_page > 1 %}<input type="hidden" name="room_page" value="{{ room_page }}">{% endif %}
                 {% if all_tracks %}
-                    <span class="text-sm text-foreground-muted">{% translate "Track:" %}</span>
-                    <select name="track"
-                            onchange="this.form.submit()"
-                            class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                    <label for="timetable-track" class="text-sm text-foreground-muted">{% translate "Track:" %}</label>
+                    {% select id="timetable-track" name="track" onchange="this.form.submit()" class="h-9 sm:w-44" %}
                         <option value="">{% translate "All tracks" %}</option>
                         {% for track in all_tracks %}
                             <option value="{{ track.pk }}"
@@ -45,18 +43,18 @@
                                 {{ track.name }}
                             </option>
                         {% endfor %}
-                    </select>
+                    {% end_select %}
                 {% endif %}
-                {% if grid.available_dates %}
-                    <span class="text-sm text-foreground-muted ml-2">{% translate "Day:" %}</span>
-                    <select name="date"
-                            onchange="this.form.submit()"
-                            class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                {% if grid.available_dates|length > 1 %}
+                    <label for="timetable-date"
+                           class="text-sm text-foreground-muted {% if all_tracks %}sm:ml-2{% endif %}">{% translate "Day:" %}</label>
+                    {% select id="timetable-date" name="date" onchange="this.form.submit()" class="h-9 sm:w-40" %}
+                        <option value="all" {% if grid.show_all_days %}selected{% endif %}>{% translate "All" %}</option>
                         {% for d in grid.available_dates %}
                             <option value="{{ d|date:"Y-m-d" }}"
                                     {% if grid.selected_date == d %}selected{% endif %}>{{ d|date:"D, M j" }}</option>
                         {% endfor %}
-                    </select>
+                    {% end_select %}
                 {% endif %}
             </form>
         {% endif %}
@@ -129,7 +127,7 @@
                  data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
                  data-confirm-move="{% translate "This program item is confirmed. Moving it will clear the confirmation." %}"
                  data-confirm-move-action="{% translate "Move" %}"
-                 hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page }}"
+                 hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}{% if date_param %}&date={{ date_param }}{% endif %}&room_page={{ grid.page }}"
                  hx-swap="innerHTML"
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
         </div>

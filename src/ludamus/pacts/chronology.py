@@ -321,13 +321,18 @@ class SpaceGroupDTO(BaseModel):
     span: int
 
 
+class TimetableDayGridDTO(BaseModel):
+    date: date
+    columns: list[SpaceColumnDTO]
+    event_start_iso: str
+
+
 class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
-    columns: list[SpaceColumnDTO]
     groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
     time_labels: list[TimeLabelDTO]
     total_minutes: int
-    event_start_iso: str
     slot_minutes: int
     snap_minutes: int
     page: int
@@ -335,6 +340,7 @@ class TimetableGridDTO(BaseModel):
     total_spaces: int
     available_dates: list[date] = []
     selected_date: date | None = None
+    show_all_days: bool = False
 
 
 class ConflictType(StrEnum):

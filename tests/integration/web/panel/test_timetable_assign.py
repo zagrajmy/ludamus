@@ -23,6 +23,7 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    TimeSlotFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
@@ -33,11 +34,10 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 def _empty_grid():
     return TimetableGridDTO(
         spaces=[],
-        columns=[],
         groups=[],
+        days=[],
         time_labels=[],
         total_minutes=0,
-        event_start_iso="",
         slot_minutes=TIMETABLE_SLOT_MINUTES,
         snap_minutes=TIMETABLE_SNAP_MINUTES,
         page=1,
@@ -106,9 +106,40 @@ class TestTimetableGridPartView:
                 "filter_track_pk": None,
                 "conflict_session_pks": set(),
                 "slot_violation_session_pks": set(),
+                "date_param": "",
                 "slug": event.slug,
             },
         )
+
+    def test_all_days_returns_each_day_grid(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        sphere.managers.add(active_user)
+        second_slot = TimeSlotFactory(
+            event=event,
+            start_time=time_slot.start_time + timedelta(days=1),
+            end_time=time_slot.end_time + timedelta(days=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-grid.html",
+            context_data=response.context_data,
+        )
+        context = response.context
+        assert context["date_param"] == "all"
+        assert [day.date for day in context["grid"].days] == [
+            time_slot.start_time.date(),
+            second_slot.start_time.date(),
+        ]
+        content = response.content.decode()
+        expected_day_count = 2
+        assert content.count('class="timetable-calendar ') == 1
+        assert content.count('class="timetable-day-grid ') == expected_day_count
+        assert context["grid"].spaces[0].pk == space.pk
 
 
 class TestTimetableAssignView:

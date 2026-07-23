@@ -100,7 +100,7 @@ class TestBuildGridOverlappingSessions:
         svc = TimetableService(uow)
         grid = svc.build_grid(event_pk=1, tz=UTC)
 
-        sessions = grid.columns[0].sessions
+        sessions = grid.days[0].columns[0].sessions
         expected_count = 2
         expected_half_width = 50.0
         assert len(sessions) == expected_count
@@ -108,6 +108,75 @@ class TestBuildGridOverlappingSessions:
         assert sessions[1].lane_width_pct == pytest.approx(expected_half_width)
         assert sessions[0].lane_start_pct == pytest.approx(0.0)
         assert sessions[1].lane_start_pct == pytest.approx(expected_half_width)
+
+    def test_all_days_share_rooms_and_load_agenda_once(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=2,
+                start_time=datetime(2026, 1, 2, 11, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 13, 0, tzinfo=UTC),
+            ),
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            ),
+        ]
+        uow.agenda_items.list_by_event.return_value = [
+            _make_item(
+                pk=1,
+                session_title="Day one",
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            ),
+            _make_item(
+                pk=2,
+                session_id=2,
+                session_title="Day two",
+                start_time=datetime(2026, 1, 2, 11, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 12, 0, tzinfo=UTC),
+            ),
+        ]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, date_selection="all"
+        )
+
+        expected_total_minutes = 180
+        assert [day.date.isoformat() for day in grid.days] == [
+            "2026-01-01",
+            "2026-01-02",
+        ]
+        assert [day.columns[0].space.pk for day in grid.days] == [space.pk, space.pk]
+        assert [
+            day.columns[0].sessions[0].agenda_item.session_title for day in grid.days
+        ] == ["Day one", "Day two"]
+        assert grid.total_minutes == expected_total_minutes
+        assert [label.time.strftime("%H:%M") for label in grid.time_labels] == [
+            "10:00",
+            "11:00",
+            "12:00",
+            "13:00",
+        ]
+        assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [
+            0,
+            60,
+        ]
+        assert grid.selected_date is None
+        assert grid.show_all_days is True
+        uow.agenda_items.list_by_event.assert_called_once_with(1)
 
 
 class TestRevertChange:
