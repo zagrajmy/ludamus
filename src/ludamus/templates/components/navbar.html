@@ -1,21 +1,25 @@
 {% load i18n %}
 {% load tessera %}
 <nav class="sticky top-0 z-50 border-b bg-bg-secondary border-border">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         <div class="flex justify-between h-14">
             <div class="flex items-center gap-6">
                 <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
-                   class="flex items-center space-x-2">
-                    <svg viewBox="0 0 100 100"
-                         fill="none"
-                         xmlns="http://www.w3.org/2000/svg"
-                         class="size-8">
-                        <path d="M50 50 L6.7 25 L50 0 L93.3 25 L50 50" fill="#262626" />
-                        <path d="M50 50 L50 100 L6.7 75 L6.7 25 L50 50" fill="#1A1A1A" />
-                        <path d="M50 50 L93.3 25 L93.3 75 L50 100 L50 50" fill="#F05537" />
-                    </svg>
-                    <span class="text-xl font-semibold tracking-tight hidden sm:inline">
-                        <span class="text-neutral-800 dark:text-neutral-200">{{ current_sphere.name }}</span>
+                   class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200"
+                   data-brand-hover="tuck-in">
+                    {% include "components/brand/logo-mark.html" with extra_class="size-6 sm:hidden w-auto" %}
+                    <span class="sr-only sm:hidden">zagrajmy</span>
+                    {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
+                    <span class="flex items-center gap-2 text-xl font-semibold tracking-tight{% if not current_sphere.logo_url and current_sphere.enabled_pages|length > 1 %} max-sm:hidden{% endif %}">
+                        <span class="text-foreground-muted" aria-hidden="true">/</span>
+                        {% if current_sphere.logo_url %}
+                            <img src="{{ current_sphere.logo_url }}"
+                                 alt=""
+                                 width="24"
+                                 height="24"
+                                 class="h-6 w-auto rounded object-contain">
+                        {% endif %}
+                        <span class="{% if current_sphere.logo_url or current_sphere.enabled_pages|length > 1 %}max-sm:hidden{% endif %}">{{ current_sphere.name }}</span>
                     </span>
                 </a>
                 {% if current_sphere.enabled_pages|length > 1 %}
@@ -32,7 +36,7 @@
                 {% if request.user.is_authenticated %}
                     {% include "components/notifications.html" %}
                     <!-- User dropdown menu -->
-                    <div class="relative" data-menu>
+                    <div class="relative" data-menu data-menu-hover>
                         <!-- Avatar trigger -->
                         <button type="button"
                                 data-menu-button
@@ -47,7 +51,9 @@
                              data-menu-panel
                              hidden
                              class="absolute right-0 top-full mt-2 z-50">
-                            <div class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border"
+                            <span aria-hidden="true"
+                                  class="absolute right-0 -top-2 block h-2 w-48 pointer-events-auto [clip-path:polygon(81.25%_0,100%_0,100%_100%,0_100%)]"></span>
+                            <div {% include "components/menu_surface.html" with extra_class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border" %}
                                  style="box-shadow: var(--shadow-elevated)">
                                 <!-- User info header -->
                                 <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border">
@@ -56,18 +62,18 @@
                                 </div>
                                 {% if has_panel_access %}
                                     <a href="{% url 'panel:index' %}"
-                                       class="flex items-center gap-1.5 px-3.5 py-3 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
+                                       class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                         {% icon "squares-2x2" class="w-4 h-4 opacity-60" %}
                                         {% translate "Panel" %}
                                     </a>
                                 {% endif %}
                                 <a href="{% url 'web:crowd:profile' %}"
-                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
+                                   class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary">
                                     {% icon "user-circle" class="w-4 h-4 opacity-60" %}
                                     {% translate "Edit profile" %}
                                 </a>
                                 <a href="{% url 'web:crowd:auth0:logout' %}"
-                                   class="flex items-center gap-1.5 px-3.5 py-3 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-border">
+                                   class="flex items-center gap-1.5 px-3.5 py-2.75 text-sm border-t rounded-b-lg transition-colors duration-150 hover:bg-bg-tertiary text-foreground-secondary border-border">
                                     {% icon "arrow-right-on-rectangle" class="w-4 h-4 opacity-60" %}
                                     {% translate "Log out" %}
                                 </a>

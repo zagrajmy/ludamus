@@ -39,6 +39,7 @@ from ludamus.pacts.chronology import (
     ProposalScheduledError,
 )
 from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -716,6 +717,38 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
                 context, form=form, session=session, event_pk=current_event.pk
             )
 
+        # A DB constraint/data error surfaces as an inline form error (input
+        # preserved), not a bare 500 the user reads as a transient glitch.
+        try:
+            self._write_content_edit(
+                current_event=current_event,
+                session=session,
+                form=form,
+                category=category,
+            )
+        except DatabaseConstraintError:
+            messages.error(
+                self.request,
+                _("Couldn't save your changes. Please check your input and try again."),
+            )
+            return self._render_invalid(
+                context, form=form, session=session, event_pk=current_event.pk
+            )
+
+        messages.success(self.request, _("Proposal updated successfully."))
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+    def _write_content_edit(
+        self,
+        *,
+        current_event: EventDTO,
+        session: SessionDTO,
+        form: forms.Form,
+        category: ProposalCategoryDTO | None,
+    ) -> None:
+        # One savepoint around every write so a DB constraint/data error rolls
+        # the whole edit back and re-raises DatabaseConstraintError for the
+        # caller to surface.
         update_data: SessionUpdateData = {
             "category_id": int(form.cleaned_data["category_id"]),
             "title": form.cleaned_data["title"],
@@ -729,43 +762,42 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
         if cover is not None:
             update_data["cover_image"] = cover
-
         requirements = session_field_requirements(self.request, category)
-        remove_field_ids = self._collect_remove_field_ids(current_event.pk, proposal_id)
-        self.request.services.session_content_edit.apply(
-            session_id=proposal_id,
-            event_id=current_event.pk,
-            user_id=self.request.context.current_user_id,
-            data=SessionContentEditData(
-                update=update_data,
-                field_values=collect_session_field_values(
-                    session_id=proposal_id, requirements=requirements, form=form
+        remove_field_ids = self._collect_remove_field_ids(current_event.pk, session.pk)
+        with self.request.di.uow.savepoint():
+            self.request.services.session_content_edit.apply(
+                session_id=session.pk,
+                event_id=current_event.pk,
+                user_id=self.request.context.current_user_id,
+                data=SessionContentEditData(
+                    update=update_data,
+                    field_values=collect_session_field_values(
+                        session_id=session.pk, requirements=requirements, form=form
+                    ),
+                    facilitator_ids=self._collect_facilitator_ids(current_event.pk),
+                    track_ids=self._collect_track_ids(current_event.pk),
+                    time_slot_ids=self._collect_time_slot_ids(current_event.pk),
+                    remove_field_ids=remove_field_ids,
                 ),
-                facilitator_ids=self._collect_facilitator_ids(current_event.pk),
-                track_ids=self._collect_track_ids(current_event.pk),
-                time_slot_ids=self._collect_time_slot_ids(current_event.pk),
-                remove_field_ids=remove_field_ids,
-            ),
-        )
-
-        if (personal_data := self._collect_personal_data(current_event.pk)) is not None:
-            for facilitator_id, entries in personal_data.items():
-                self.request.services.personal_data_field_values.update_personal_data(
-                    event_id=current_event.pk,
-                    facilitator_id=facilitator_id,
-                    entries=entries,
-                    user_id=self.request.context.current_user_id,
-                )
-
-        # T2: raising (or unlimiting) capacity frees seats — promote waiters.
-        new_limit = form.cleaned_data.get("participants_limit") or 0
-        if new_limit == 0 or new_limit > session.participants_limit:
-            self.request.services.waitlist_promotion.fill_freed_seats(
-                session_id=proposal_id
             )
 
-        messages.success(self.request, _("Proposal updated successfully."))
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+            personal_data = self._collect_personal_data(current_event.pk)
+            if personal_data is not None:
+                for facilitator_id, entries in personal_data.items():
+                    service = self.request.services.personal_data_field_values
+                    service.update_personal_data(
+                        event_id=current_event.pk,
+                        facilitator_id=facilitator_id,
+                        entries=entries,
+                        user_id=self.request.context.current_user_id,
+                    )
+
+            # T2: raising (or unlimiting) capacity frees seats — promote waiters.
+            new_limit = form.cleaned_data.get("participants_limit") or 0
+            if new_limit == 0 or new_limit > session.participants_limit:
+                self.request.services.waitlist_promotion.fill_freed_seats(
+                    session_id=session.pk
+                )
 
 
 class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
@@ -840,40 +872,42 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 context, current_event=current_event, category=category, form=form
             )
 
+        # A DB constraint/data error surfaces as an inline form error (input
+        # preserved), not a bare 500 the user reads as a transient glitch.
+        try:
+            proposal_id = self._write_new_session(
+                current_event=current_event, category=category, form=form
+            )
+        except DatabaseConstraintError:
+            messages.error(
+                self.request,
+                _("Couldn't save the session. Please check your input and try again."),
+            )
+            return self._render(
+                context, current_event=current_event, category=category, form=form
+            )
+        messages.success(self.request, _("Proposal created successfully."))
+        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+
+    def _write_new_session(
+        self,
+        *,
+        current_event: EventDTO,
+        category: ProposalCategoryDTO | None,
+        form: forms.Form,
+    ) -> int:
         title = form.cleaned_data["title"]
         session_slug = make_unique_slug(
-            title,
-            "session",
-            lambda s: self.request.di.uow.sessions.slug_exists(current_event.pk, s),
+            name=title,
+            default="session",
+            check_exists=lambda s: self.request.di.uow.sessions.slug_exists(
+                current_event.pk, s
+            ),
         )
-
         # The form's MultipleChoiceField already validated each id against the
         # event's facilitators, so the cleaned list is event-scoped.
         facilitator_ids = [int(fid) for fid in form.cleaned_data["facilitator_ids"]]
-        proposal_id = self.request.di.uow.sessions.create(
-            SessionData(
-                category_id=int(form.cleaned_data["category_id"]),
-                event_id=current_event.pk,
-                contact_email=form.cleaned_data.get("contact_email") or "",
-                description=form.cleaned_data.get("description") or "",
-                display_name=form.cleaned_data["display_name"],
-                duration=form.cleaned_data.get("duration") or "",
-                min_age=form.cleaned_data.get("min_age") or 0,
-                participants_limit=form.cleaned_data.get("participants_limit") or 0,
-                presenter_id=None,
-                slug=session_slug,
-                status=SessionStatus.PENDING,
-                title=title,
-            ),
-            facilitator_ids=facilitator_ids,
-        )
-        if requirements := session_field_requirements(self.request, category):
-            self.request.di.uow.sessions.save_field_values(
-                proposal_id,
-                collect_session_field_values(
-                    session_id=proposal_id, requirements=requirements, form=form
-                ),
-            )
+        requirements = session_field_requirements(self.request, category)
         submitted_slot_ids = {
             int(v) for v in self.request.POST.getlist("time_slot_ids") if v.isdigit()
         }
@@ -881,10 +915,36 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             ts.pk
             for ts in self.request.di.uow.time_slots.list_by_event(current_event.pk)
         }
-        if time_slot_ids := list(submitted_slot_ids & valid_slot_pks):
-            self.request.di.uow.sessions.set_time_slots(proposal_id, time_slot_ids)
-        messages.success(self.request, _("Proposal created successfully."))
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+        # One savepoint around every write: a constraint error rolls the whole
+        # create back and re-raises DatabaseConstraintError for the caller.
+        with self.request.di.uow.savepoint():
+            proposal_id = self.request.di.uow.sessions.create(
+                SessionData(
+                    category_id=int(form.cleaned_data["category_id"]),
+                    event_id=current_event.pk,
+                    contact_email=form.cleaned_data.get("contact_email") or "",
+                    description=form.cleaned_data.get("description") or "",
+                    display_name=form.cleaned_data["display_name"],
+                    duration=form.cleaned_data.get("duration") or "",
+                    min_age=form.cleaned_data.get("min_age") or 0,
+                    participants_limit=form.cleaned_data.get("participants_limit") or 0,
+                    presenter_id=None,
+                    slug=session_slug,
+                    status=SessionStatus.PENDING,
+                    title=title,
+                ),
+                facilitator_ids=facilitator_ids,
+            )
+            if requirements:
+                self.request.di.uow.sessions.save_field_values(
+                    proposal_id,
+                    collect_session_field_values(
+                        session_id=proposal_id, requirements=requirements, form=form
+                    ),
+                )
+            if time_slot_ids := list(submitted_slot_ids & valid_slot_pks):
+                self.request.di.uow.sessions.set_time_slots(proposal_id, time_slot_ids)
+        return proposal_id
 
 
 class ProposalCreateFieldsComponentView(PanelAccessMixin, EventContextMixin, View):

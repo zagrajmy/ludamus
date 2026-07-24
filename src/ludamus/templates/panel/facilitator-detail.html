@@ -22,116 +22,118 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event and facilitator %}
-        <nav class="mb-4 text-sm">
-            <ol class="flex items-center space-x-2">
-                <li>
-                    <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-                       class="text-foreground-muted hover:text-primary">{% translate "Facilitators" %}</a>
-                </li>
-                <li class="text-foreground-muted/50">/</li>
-                <li class="text-foreground font-medium">{{ facilitator.display_name }}</li>
-            </ol>
-        </nav>
-        <div class="card mb-6">
-            <div class="card-body">
-                <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitator Details" %}</h3>
-                <dl class="space-y-3">
-                    <div>
-                        <dt class="text-xs text-foreground-muted">{% translate "Display Name" %}</dt>
-                        <dd class="text-foreground">
-                            {{ facilitator.display_name }}
-                        </dd>
-                        <p class="mt-1 text-xs text-foreground-muted">
-                            {% translate "Cached name from the submission wizard. The canonical byline is the proposal's display name." %}
-                        </p>
-                    </div>
-                    <div>
-                        <dt class="text-xs text-foreground-muted">{% translate "Accreditation type" %}</dt>
-                        <dd class="text-foreground">
-                            {{ accreditation_type_display }}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-xs text-foreground-muted">{% translate "Linked User" %}</dt>
-                        <dd class="text-foreground">
-                            {% if linked_user %}
-                                {{ linked_user.name }}
-                                {% if linked_user.email %}· {{ linked_user.email }}{% endif %}
-                            {% else %}
-                                <span class="text-foreground-muted">—</span>
-                            {% endif %}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt class="text-xs text-foreground-muted">{% translate "Slug" %}</dt>
-                        <dd class="font-mono text-sm text-foreground-muted select-all">
-                            {{ facilitator.slug }}
-                        </dd>
-                    </div>
-                    {% if facilitator.internal_comment %}
-                        <div>
-                            <dt class="text-xs text-foreground-muted">{% translate "Internal comment" %}</dt>
-                            <dd class="text-foreground whitespace-pre-line break-words">
-                                {{ facilitator.internal_comment }}
-                            </dd>
-                            <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
-                        </div>
-                    {% endif %}
-                </dl>
-            </div>
-        </div>
-        <div class="card mb-6">
-            <div class="card-body">
-                <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Sessions" %}</h3>
-                {% if sessions %}
-                    <ul class="space-y-2">
-                        {% for session in sessions %}
-                            <li class="flex items-center justify-between gap-3 text-sm">
-                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=session.pk %}"
-                                   class="text-primary hover:underline truncate"
-                                   title="{{ session.title }}">{{ session.title }}</a>
-                                {% include "panel/_proposal_status_badge.html" with status=session.status %}
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="text-sm text-foreground-muted">{% translate "No sessions attached." %}</p>
-                {% endif %}
-            </div>
-        </div>
-        {% if personal_data_items %}
+    <div class="p-4">
+        {% if current_event and facilitator %}
+            <nav class="mb-4 text-sm">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
+                           class="text-foreground-muted hover:text-primary">{% translate "Facilitators" %}</a>
+                    </li>
+                    <li class="text-foreground-muted/50">/</li>
+                    <li class="text-foreground font-medium">{{ facilitator.display_name }}</li>
+                </ol>
+            </nav>
             <div class="card mb-6">
                 <div class="card-body">
-                    <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Personal Information" %}</h3>
-                    {% if has_personal_data %}
-                        <dl class="space-y-3">
-                            {% for field, value in personal_data_items %}
-                                <div>
-                                    <dt class="text-xs text-foreground-muted">{{ field.name }}</dt>
-                                    <dd class="text-foreground">
-                                        {% if value == True %}
-                                            {% translate "Yes" %}
-                                        {% elif value == False or value is None %}
-                                            <span class="text-foreground-muted">—</span>
-                                        {% elif value %}
-                                            {{ value }}
-                                        {% else %}
-                                            <span class="text-foreground-muted">—</span>
-                                        {% endif %}
-                                    </dd>
-                                </div>
+                    <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitator Details" %}</h3>
+                    <dl class="space-y-3">
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Display Name" %}</dt>
+                            <dd class="text-foreground">
+                                {{ facilitator.display_name }}
+                            </dd>
+                            <p class="mt-1 text-xs text-foreground-muted">
+                                {% translate "Cached name from the submission wizard. The canonical byline is the proposal's display name." %}
+                            </p>
+                        </div>
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Accreditation type" %}</dt>
+                            <dd class="text-foreground">
+                                {{ accreditation_type_display }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Linked User" %}</dt>
+                            <dd class="text-foreground">
+                                {% if linked_user %}
+                                    {{ linked_user.name }}
+                                    {% if linked_user.email %}· {{ linked_user.email }}{% endif %}
+                                {% else %}
+                                    <span class="text-foreground-muted">—</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs text-foreground-muted">{% translate "Slug" %}</dt>
+                            <dd class="font-mono text-sm text-foreground-muted select-all">
+                                {{ facilitator.slug }}
+                            </dd>
+                        </div>
+                        {% if facilitator.internal_comment %}
+                            <div>
+                                <dt class="text-xs text-foreground-muted">{% translate "Internal comment" %}</dt>
+                                <dd class="text-foreground whitespace-pre-line break-words">
+                                    {{ facilitator.internal_comment }}
+                                </dd>
+                                <p class="mt-1 text-xs text-foreground-muted">{% translate "Visible to organizers only." %}</p>
+                            </div>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Sessions" %}</h3>
+                    {% if sessions %}
+                        <ul class="space-y-2">
+                            {% for session in sessions %}
+                                <li class="flex items-center justify-between gap-3 text-sm">
+                                    <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=session.pk %}"
+                                       class="text-primary hover:underline truncate"
+                                       title="{{ session.title }}">{{ session.title }}</a>
+                                    {% include "panel/_proposal_status_badge.html" with status=session.status %}
+                                </li>
                             {% endfor %}
-                        </dl>
+                        </ul>
                     {% else %}
-                        <p class="text-sm text-foreground-muted">
-                            {% translate "No personal information provided." %}
-                            <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                               class="text-primary hover:underline ml-1">{% translate "Edit" %}</a>
-                        </p>
+                        <p class="text-sm text-foreground-muted">{% translate "No sessions attached." %}</p>
                     {% endif %}
                 </div>
             </div>
+            {% if personal_data_items %}
+                <div class="card mb-6">
+                    <div class="card-body">
+                        <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Personal Information" %}</h3>
+                        {% if has_personal_data %}
+                            <dl class="space-y-3">
+                                {% for field, value in personal_data_items %}
+                                    <div>
+                                        <dt class="text-xs text-foreground-muted">{{ field.name }}</dt>
+                                        <dd class="text-foreground">
+                                            {% if value == True %}
+                                                {% translate "Yes" %}
+                                            {% elif value == False or value is None %}
+                                                <span class="text-foreground-muted">—</span>
+                                            {% elif value %}
+                                                {{ value }}
+                                            {% else %}
+                                                <span class="text-foreground-muted">—</span>
+                                            {% endif %}
+                                        </dd>
+                                    </div>
+                                {% endfor %}
+                            </dl>
+                        {% else %}
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "No personal information provided." %}
+                                <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                   class="text-primary hover:underline ml-1">{% translate "Edit" %}</a>
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
         {% endif %}
-    {% endif %}
+    </div>
 {% endblock content %}

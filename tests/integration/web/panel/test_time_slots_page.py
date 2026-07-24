@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
@@ -92,8 +93,35 @@ class TestTimeSlotsPageView:
                 "has_prev": False,
                 "has_next": False,
                 "total_pages": 1,
+                "create_form": ANY,
             },
+            contains=[
+                'aria-controls="time-slot-create-modal"',
+                f"?create=1&date={day:%Y-%m-%d}",
+                "data-modal-reload",
+                '<dialog id="time-slot-create-modal"',
+                "New Time Slot",
+            ],
+            not_contains=f"time-slot-create-modal-{day:%Y%m%d}",
         )
+
+    def test_create_query_prefills_shared_modal(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        day = localtime(event.start_time).date().isoformat()
+
+        response = authenticated_client.get(
+            self.get_url(event), {"create": "1", "date": day}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=ANY,
+        )
+        assert response.context["create_form"].initial == {"date": day, "end_date": day}
 
     def test_get_returns_empty_state_when_no_slots(
         self, authenticated_client, active_user, sphere, event
@@ -230,6 +258,7 @@ class TestTimeSlotsPageView:
                 "has_prev": False,
                 "has_next": True,
                 "total_pages": 1 + 1,
+                "create_form": ANY,
             },
         )
 
@@ -284,8 +313,47 @@ class TestTimeSlotsPageView:
                 "has_prev": True,
                 "has_next": False,
                 "total_pages": 1 + 1,
+                "create_form": ANY,
             },
         )
+
+    def test_get_excludes_slots_from_other_pages_without_marking_them_orphaned(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.end_time = event.start_time + timedelta(days=4)
+        event.save()
+        hidden_day = localtime(event.start_time) + timedelta(days=4)
+        slot = TimeSlot.objects.create(
+            event=event, start_time=hidden_day, end_time=hidden_day + timedelta(hours=1)
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=ANY,
+        )
+        assert TimeSlotDTO.model_validate(slot) in response.context["time_slots"]
+        assert response.context["orphaned_slots"] == []
+        assert all(not slots for slots in response.context["days"].values())
+
+    def test_get_invalid_page_defaults_to_first_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event), {"page": "abc"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=ANY,
+        )
+        assert response.context["page"] == 0
 
     def test_get_shows_orphaned_slots_before_event_start(
         self, authenticated_client, active_user, sphere, event

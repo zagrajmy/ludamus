@@ -35,4 +35,4 @@ if [ -n "$stale_pids" ]; then
 fi
 
 src/ludamus/client/node_modules/.bin/portless alias auth0 4400 >/dev/null 2>&1 || true
-exec src/ludamus/client/node_modules/.bin/auth0-simulator
+exec node src/ludamus/client/auth0-simulator-dev.cjs
