@@ -1325,6 +1325,9 @@ test.describe("Backoffice Panel", () => {
 
     await expect(page.getByText("Facilitators merged successfully.")).toBeVisible();
     await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/");
+
+    await expect(page.getByRole("cell", { name: "Alice Morgan", exact: true })).toBeVisible();
+    await expect(page.getByText("Alice Morgan Copy")).toHaveCount(0);
   });
 
   // --- Organization announcements CRUD ---
