@@ -18,7 +18,7 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_cache_control, assert_response
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -76,10 +76,16 @@ class TestEventsPageView:
                 "view": ANY,
             },
             template_name=["index.html"],
-            cache_control={"private", "max-age=180"},
+            cache_control={"public", "max-age=180"},
         )
         assert "Cookie" in response.headers.get("Vary", "")
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
+
+    def test_authenticated_response_is_private(self, authenticated_client):
+        response = authenticated_client.get(self.URL)
+
+        assert_cache_control(response, {"private", "max-age=180"})
+        assert "Cookie" in response.headers.get("Vary", "")
 
     def test_ok_with_event(self, client, event):
         response = client.get(self.URL)

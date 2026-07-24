@@ -13,14 +13,14 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -111,6 +111,19 @@ if TYPE_CHECKING:
 
 MINIMUM_ALLOWED_USER_AGE = 16
 
+EVENT_PAGE_CACHE_SECONDS = 180
+
+
+def _patch_audience_cache(
+    *, response: HttpResponse, request: HttpRequest, max_age: int
+) -> HttpResponse:
+    patch_vary_headers(response, ["Cookie"])
+    if request.user.is_authenticated:
+        patch_cache_control(response, private=True, max_age=max_age)
+    else:
+        patch_cache_control(response, public=True, max_age=max_age)
+    return response
+
 
 @method_decorator(cache_control(public=True, max_age=300), name="get")
 class DesignPageView(TemplateView):
@@ -194,10 +207,15 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        response = super().get(request, *args, **kwargs)
+        return _patch_audience_cache(
+            response=response, request=request, max_age=EVENT_PAGE_CACHE_SECONDS
+        )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -264,12 +282,17 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
     request: RootRequest
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        response = super().get(request, *args, **kwargs)
+        return _patch_audience_cache(
+            response=response, request=request, max_age=EVENT_PAGE_CACHE_SECONDS
+        )
 
     def get_queryset(self) -> QuerySet[Event]:
         return (
