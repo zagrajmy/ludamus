@@ -12,8 +12,8 @@
     {% if encounter.description %}| {{ encounter.description|truncatewords:25 }}{% endif %}
 {% endblock og_description %}
 {% block og_image %}
-    {% if encounter.header_image %}
-        {{ request.scheme }}://{{ request.get_host }}{{ MEDIA_URL }}{{ encounter.header_image }}
+    {% if encounter.header_image_url %}
+        {% include "chronology/_meta_image_url.html" with url=encounter.header_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}
@@ -27,8 +27,8 @@
     {% if encounter.description %}| {{ encounter.description|truncatewords:25 }}{% endif %}
 {% endblock twitter_description %}
 {% block twitter_image %}
-    {% if encounter.header_image %}
-        {{ request.scheme }}://{{ request.get_host }}{{ MEDIA_URL }}{{ encounter.header_image }}
+    {% if encounter.header_image_url %}
+        {% include "chronology/_meta_image_url.html" with url=encounter.header_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}
@@ -39,9 +39,9 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {# ── LEFT COLUMN: "what is this" ── #}
         <div class="lg:col-span-2 card card-body flex flex-col gap-4">
-            {% if encounter.header_image %}
+            {% if encounter.header_image_url %}
                 <div class="relative aspect-[2/1] overflow-hidden rounded-t-2xl">
-                    <img src="{{ MEDIA_URL }}{{ encounter.header_image }}"
+                    <img src="{{ encounter.header_image_url }}"
                          alt="{{ encounter.title }}"
                          width="800"
                          height="400"

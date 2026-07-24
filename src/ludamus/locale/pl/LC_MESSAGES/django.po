@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 06:28+0200\n"
+"POT-Creation-Date: 2026-07-24 06:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1499,6 +1499,17 @@ msgid "Proposal not found."
 msgstr "Nie znaleziono zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Couldn't save your changes. Please check your input and try again."
+msgstr ""
+"Nie udało się zapisać zmian. Sprawdź wprowadzone dane i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Couldn't save the session. Please check your input and try again."
+msgstr ""
+"Nie udało się zapisać punktu programu. Sprawdź wprowadzone dane i spróbuj "
+"ponownie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal created successfully."
 msgstr "Zgłoszenie zostało utworzone."
 
@@ -2929,10 +2940,23 @@ msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
+msgid ""
+"Something went wrong on our side and your change wasn't saved. Please try "
+"again."
+msgstr ""
+"Coś poszło nie tak po naszej stronie i Twoja zmiana nie została zapisana. "
+"Spróbuj ponownie."
+
+#: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
 #: src/ludamus/templates/panel/base.html
 msgid "Notifications"
 msgstr "Powiadomienia"
+
+#: src/ludamus/templates/base.html
+#: src/ludamus/templates/components/flash-messages.html
+msgid "Dismiss"
+msgstr "Zamknij"
 
 #: src/ludamus/templates/base.html
 msgid "Brand"
@@ -4374,10 +4398,6 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
-
-#: src/ludamus/templates/components/flash-messages.html
-msgid "Dismiss"
-msgstr "Zamknij"
 
 # Login Required Page
 #: src/ludamus/templates/components/label.html

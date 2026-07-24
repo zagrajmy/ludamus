@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
+from django.db import DataError
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -17,6 +19,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
+from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
@@ -654,6 +657,87 @@ class TestProposalCreatePageView:
             },
         )
         assert response.context["form"].errors
+
+    @pytest.mark.postgres
+    def test_post_second_same_title_session_saves(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        slug_max_length = 50
+        submissions = 2
+        title = "Midnight Heist One-Shot Adventure For New Players"
+        data = {
+            "facilitators_submitted": "1",
+            "facilitator_ids": [facilitator.pk],
+            "category_id": category.pk,
+            "title": title,
+            "display_name": "Test Host",
+        }
+
+        for _ in range(submissions):
+            authenticated_client.post(self.get_url(event), data=data)
+
+        sessions = Session.objects.filter(title=title)
+        assert sessions.count() == submissions
+        assert all(len(session.slug) <= slug_max_length for session in sessions)
+
+    def test_post_surfaces_db_error_as_form_error(
+        self, authenticated_client, active_user, sphere, event, monkeypatch
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        def _raise(*_args, **_kwargs):
+            raise DataError("value too long for type character varying(50)")
+
+        monkeypatch.setattr(SessionRepository, "create", _raise)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Boom",
+                "display_name": "Test Host",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=0,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+            },
+            messages=[
+                (
+                    messages.ERROR,
+                    "Couldn't save the session. Please check your input and try again.",
+                )
+            ],
+        )
+        assert not Session.objects.filter(title="Boom").exists()
 
 
 class TestProposalCreateCategoryFields:

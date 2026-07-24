@@ -44,7 +44,7 @@ const installNavigationApi = (): void => {
       },
       navigationType: "push",
     };
-    for (const listener of [...listeners]) listener(navigateEvent);
+    for (const listener of listeners) listener(navigateEvent);
     if (!intercepted) return;
 
     event.preventDefault();
