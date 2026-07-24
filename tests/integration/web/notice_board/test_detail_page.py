@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.entities import UserInfo
@@ -8,6 +9,7 @@ from ludamus.links.gravatar import gravatar_url
 from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
 from ludamus.pacts import EncounterDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     EncounterFactory,
     EncounterRSVPFactory,
     UserFactory,
@@ -72,6 +74,26 @@ class TestEncounterDetailPageView:
             context_data=_detail_context(encounter),
             template_name="notice_board/detail.html",
         )
+
+    def test_ok_with_header_image(self, client, encounter):
+        encounter.header_image = SimpleUploadedFile(
+            "header.png", PNG_BYTES, content_type="image/png"
+        )
+        encounter.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(encounter),
+            template_name="notice_board/detail.html",
+        )
+        assert encounter.header_image_url.encode() in response.content
 
     def test_shows_creator_discord_handle(self, client, encounter):
         encounter.creator.discord_username = "coolgm"

@@ -7,10 +7,10 @@
                 <a href="{{ request.scheme }}://{{ current_site.domain }}{% url 'web:index' %}"
                    class="flex items-center gap-1 text-neutral-800 dark:text-neutral-200"
                    data-brand-hover="tuck-in">
-                    {% include "components/brand/logo-mark.html" with extra_class="size-5.5 sm:hidden" %}
+                    {% include "components/brand/logo-mark.html" with extra_class="size-6 sm:hidden w-auto" %}
                     <span class="sr-only sm:hidden">zagrajmy</span>
                     {% include "components/brand/logo-lockup.html" with extra_class="hidden sm:block h-8 w-auto" %}
-                    <span class="hidden sm:flex items-center gap-2 text-xl font-semibold tracking-tight">
+                    <span class="flex items-center gap-2 text-xl font-semibold tracking-tight{% if not current_sphere.logo_url and current_sphere.enabled_pages|length > 1 %} max-sm:hidden{% endif %}">
                         <span class="text-foreground-muted" aria-hidden="true">/</span>
                         {% if current_sphere.logo_url %}
                             <img src="{{ current_sphere.logo_url }}"
@@ -19,7 +19,7 @@
                                  height="24"
                                  class="h-6 w-auto rounded object-contain">
                         {% endif %}
-                        {{ current_sphere.name }}
+                        <span class="{% if current_sphere.logo_url or current_sphere.enabled_pages|length > 1 %}max-sm:hidden{% endif %}">{{ current_sphere.name }}</span>
                     </span>
                 </a>
                 {% if current_sphere.enabled_pages|length > 1 %}

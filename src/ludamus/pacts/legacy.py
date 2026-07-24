@@ -10,7 +10,7 @@ from typing import (
     runtime_checkable,
 )
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -433,16 +433,10 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
-    logo: str = ""
     logo_url: str = ""
     name: str
     pk: int
     site: SiteDTO
-
-    @field_validator("logo", mode="before")
-    @classmethod
-    def _coerce_logo(cls, v: object) -> str:
-        return str(v) if v else ""
 
 
 class SphereUpdateData(TypedDict, total=False):
@@ -468,7 +462,6 @@ class EventDTO(BaseModel):
     cover_image_url: str = ""
     description: str
     end_time: datetime
-    logo: str = ""
     logo_url: str = ""
     name: str
     pk: int
@@ -480,11 +473,6 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
-
-    @field_validator("logo", mode="before")
-    @classmethod
-    def _coerce_logo(cls, v: object) -> str:
-        return str(v) if v else ""
 
 
 class EventListItemDTO(BaseModel):
@@ -511,7 +499,6 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
     header_image_url: str = ""
     max_participants: int
     pk: int
@@ -520,11 +507,6 @@ class EncounterDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     title: str
-
-    @field_validator("header_image", mode="before")
-    @classmethod
-    def _coerce_header_image(cls, v: object) -> str:
-        return str(v) if v else ""
 
 
 class EncounterRSVPDTO(BaseModel):
@@ -1487,6 +1469,8 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
 class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+    @staticmethod
+    def savepoint() -> AbstractContextManager[None]: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property

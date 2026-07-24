@@ -24,6 +24,9 @@ importers:
       oxfmt:
         specifier: 0.56.0
         version: 0.56.0
+      oxlint:
+        specifier: 1.70.0
+        version: 1.70.0
       portless:
         specifier: 0.13.0
         version: 0.13.0
