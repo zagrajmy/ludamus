@@ -45,7 +45,7 @@ whitenoise = "^6.12.0"
 django-storages = { extras = ["google"], version = "^1.14.6" }
 dbos = ">=2.23.0,<3"
 unidecode = "^1.4.0"
-defusedxml = "^0.7.1"
+lxml = "^6.1.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -83,7 +83,7 @@ yamllint = "1.38.0"
 taplo = "^0.9.3"
 tingle = "^0.4.0"
 pytest-xdist = "^3.8.0"
-types-defusedxml = "^0.7.0.20260504"
+lxml-stubs = "^0.5.1"
 
 [tool.black]
 line-length = 88
