@@ -14,6 +14,7 @@
     "dclint": "3.1.0",
     "fallow": "2.73.0",
     "oxfmt": "0.56.0",
+    "oxlint": "1.70.0",
     "portless": "0.13.0"
   },
   "pnpm": {
