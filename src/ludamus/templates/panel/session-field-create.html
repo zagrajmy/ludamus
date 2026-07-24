@@ -158,7 +158,7 @@
                             <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                         </label>
                     </div>
-                    <script>
+                    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
                         document.addEventListener('DOMContentLoaded', function() {
                             const fieldType = document.getElementById('id_field_type');
                             const optionsContainer = document.getElementById('options-container');

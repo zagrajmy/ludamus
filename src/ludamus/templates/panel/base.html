@@ -12,7 +12,7 @@
     {{ current_sphere.name }} backoffice panel for event management
 {% endblock meta_description %}
 {% block extra_head %}
-    <script>
+    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         (function() {
             try {
                 if (localStorage.getItem("panel-sidebar-folded") === "1") {
@@ -132,8 +132,7 @@
                 id="sidebarOverlay"
                 class="sidebar-overlay fixed inset-0 bg-black/50 z-40 lg:hidden hidden w-full h-full cursor-default"
                 aria-label="{% translate "Close navigation" %}"
-                hx-on:click="document.getElementById('sidebar').classList.toggle('-translate-x-full'); this.classList.toggle('hidden')">
-        </button>
+                data-action="toggle-sidebar"></button>
         <!-- Sidebar -->
         <aside id="sidebar"
                class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen">
@@ -143,9 +142,10 @@
                         <label for="eventSelector" class="sr-only">{% translate "Event" %}</label>
                         <select id="eventSelector"
                                 class="w-full appearance-none bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
-                                hx-on:change="window.location.href = '/panel/event/' + this.value + '/'">
+                                data-action="switch-event">
                             {% for event in events %}
                                 <option value="{{ event.slug }}"
+                                        data-url="{% url 'panel:event-index' slug=event.slug %}"
                                         {% if current_event and current_event.slug == event.slug %}selected{% endif %}>
                                     {{ event.name }}
                                 </option>
@@ -164,7 +164,7 @@
                         class="sidebar-fold-btn items-center justify-center p-2 text-foreground-muted hover:text-foreground hover:bg-bg-secondary dark:hover:bg-bg-tertiary rounded-lg transition flex-shrink-0"
                         title="{{ t_toggle_sidebar }}"
                         aria-label="{{ t_toggle_sidebar }}"
-                        hx-on:click="var h=document.documentElement;var f=h.toggleAttribute('data-folded');try{localStorage.setItem('panel-sidebar-folded',f?'1':'0');}catch(e){}">
+                        data-action="toggle-fold">
                     {% include "panel/parts/sidebar-icon.html" with icon_class="size-5" %}
                 </button>
             </div>
@@ -183,7 +183,7 @@
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
                                     class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    data-action="toggle-category">
                                 <span>{% translate "Program" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                             </button>
@@ -229,7 +229,7 @@
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
                                     class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    data-action="toggle-category">
                                 <span>{% translate "Schedule" context "Sidebar category" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                             </button>
@@ -268,7 +268,7 @@
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
                                     class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    data-action="toggle-category">
                                 <span>{% translate "Settings" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                             </button>
@@ -295,7 +295,7 @@
                         <button type="button"
                                 title="{{ t_toggle_cat }}"
                                 class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                data-action="toggle-category">
                             <span>{% translate "Sphere" %}</span>
                             <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                         </button>
@@ -320,7 +320,7 @@
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
                     <button type="button"
-                            hx-on:click="document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden')"
+                            data-action="toggle-sidebar"
                             aria-label="{% translate "Open navigation" %}"
                             class="lg:hidden p-2 -ml-2 text-foreground-secondary hover:text-foreground hover:bg-bg-tertiary rounded-lg flex-shrink-0">
                         {% include "panel/parts/sidebar-icon.html" with icon_class="size-6" %}
@@ -373,7 +373,8 @@
         </main>
     </div>
     {% vite_asset 'src/info-popover.ts' %}
-    <script type="module">
+    {% vite_asset 'src/panel-chrome.ts' %}
+    <script type="module"{% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
             const overlay = document.getElementById('sidebarOverlay');

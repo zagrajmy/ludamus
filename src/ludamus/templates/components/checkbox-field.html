@@ -1,7 +1,9 @@
 {# Single checkbox, with or without its inline label. #}
 {# Variables: name, id, label, value, checked, disabled, size, aria_label, #}
-{# has_errors, aria_controls, aria_expanded, hx_on_change. #}
+{# has_errors, aria_controls, aria_expanded, data_action, data_required_target. #}
 {# aria_controls and aria_expanded are independent — pass either or both. #}
+{# data_action/data_required_target render as data-action/data-required-target #}
+{# for panel-chrome.ts's delegated listeners; pass either or both. #}
 {# With a label the checkbox wraps itself in a <label>; without one it renders #}
 {# the bare input, for callers that already provide their own label context #}
 {# (e.g. a whole clickable row) — pass aria_label so it keeps an accessible #}
@@ -17,5 +19,6 @@
            {% if disabled|default:False %}disabled{% endif %}
            {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}
            {% if aria_expanded|default:"" %}aria-expanded="{{ aria_expanded }}"{% endif %}
-           {% if hx_on_change|default:"" %}hx-on:change="{{ hx_on_change }}"{% endif %}>
+           {% if data_action|default:"" %}data-action="{{ data_action }}"{% endif %}
+           {% if data_required_target|default:"" %}data-required-target="{{ data_required_target }}"{% endif %}>
     {% if label|default:"" %}<span class="ml-2 text-sm text-foreground">{{ label }}</span></label>{% endif %}

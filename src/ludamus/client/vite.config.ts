@@ -53,6 +53,7 @@ export default defineConfig({
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
+        "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
         "session-card": resolve(rootDir, "src/session-card.ts"),

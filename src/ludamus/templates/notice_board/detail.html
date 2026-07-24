@@ -245,7 +245,7 @@
             {% endif %}
         </div>
     </div>
-    <script>
+    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         (function() {
             var el = document.getElementById('encounter-countdown');
             if (!el) return;

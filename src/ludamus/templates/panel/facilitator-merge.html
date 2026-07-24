@@ -113,7 +113,7 @@
             </div>
         </div>
     </form>
-    <script>
+    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
         (function() {
             const searchInput = document.getElementById('facilitator-search');
             const rows = document.querySelectorAll('.facilitator-row');

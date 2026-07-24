@@ -22,7 +22,7 @@
 </div>
 <p id="no-facilitators-found"
    class="hidden text-sm text-foreground-muted mt-2">{% translate "No facilitators match your search." %}</p>
-<script>
+<script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
     (function() {
         const search = document.getElementById('facilitator-search');
         const list = document.getElementById('facilitator-list');

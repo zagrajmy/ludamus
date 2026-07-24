@@ -8,6 +8,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="htmx-config" content="{&quot;allowEval&quot;:false}">
         <meta name="description"
               content="{% block meta_description %}Event webapp{% endblock meta_description %}">
         <meta name="keywords"
@@ -53,8 +54,20 @@
         <link rel="alternate icon"
               type="image/x-icon"
               href="{% static 'favicon.ico' %}">
-        <!-- Theme + favicon initialization (before CSS to prevent flash) -->
-        <script>
+        {% comment %}
+        Theme + favicon initialization (before CSS to prevent flash). This is
+        the first inline script on every page that extends base.html, so its
+        "is not None" guard (not a plain truthy guard) is what forces the
+        CSP nonce to actually generate: Django's LazyNonce is falsy until
+        read, so a plain truthy guard alone would never read it and the
+        nonce would never materialize. "is not None" still renders no
+        attribute when csp_nonce is absent entirely (e.g. a template
+        rendered outside the request/CSP-middleware context), but forces
+        generation the first time a real request's nonce placeholder is
+        checked — every later guarded script on the page then reuses that
+        same cached value.
+        {% endcomment %}
+        <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
             (function() {
                 var theme = localStorage.getItem('theme');
                 if (theme === 'light') {
