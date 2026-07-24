@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-20 13:50+0200\n"
+"POT-Creation-Date: 2026-07-24 06:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1502,8 +1502,19 @@ msgid "Proposal not found."
 msgstr "Nie znaleziono zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Couldn't save your changes. Please check your input and try again."
+msgstr ""
+"Nie udało się zapisać zmian. Sprawdź wprowadzone dane i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal updated successfully."
 msgstr "Zgłoszenie zostało zaktualizowane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Couldn't save the session. Please check your input and try again."
+msgstr ""
+"Nie udało się zapisać punktu programu. Sprawdź wprowadzone dane i spróbuj "
+"ponownie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal created successfully."
@@ -1796,10 +1807,6 @@ msgstr ""
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
-
-#: src/ludamus/gates/web/django/crowd/auth.py
-msgid "You have been successfully logged out."
-msgstr "Zostałeś pomyślnie wylogowany."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
@@ -2946,10 +2953,27 @@ msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
+msgid ""
+"Something went wrong on our side and your change wasn't saved. Please try "
+"again."
+msgstr ""
+"Coś poszło nie tak po naszej stronie i Twoja zmiana nie została zapisana. "
+"Spróbuj ponownie."
+
+#: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
 #: src/ludamus/templates/panel/base.html
 msgid "Notifications"
 msgstr "Powiadomienia"
+
+#: src/ludamus/templates/base.html
+#: src/ludamus/templates/components/flash-messages.html
+msgid "Dismiss"
+msgstr "Zamknij"
+
+#: src/ludamus/templates/base.html
+msgid "Brand"
+msgstr "Marka"
 
 #: src/ludamus/templates/base.html
 msgid "Contact"
@@ -2962,6 +2986,120 @@ msgstr "Polityka prywatności"
 #: src/ludamus/templates/base.html
 msgid "Terms of Service"
 msgstr "Regulamin"
+
+#: src/ludamus/templates/brand.html
+msgid "Logo & Brand Guidelines"
+msgstr "Logo i identyfikacja wizualna"
+
+#: src/ludamus/templates/brand.html
+msgid "Download logos"
+msgstr "Pobierz logotypy"
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Coral marks the tabletop and small accents. It is never a surface: the logo "
+"does not appear on or as a full-coral field, so overlap with other orange "
+"brands is not a concern."
+msgstr ""
+"Koral wyznacza blat stołu i drobne akcenty. Nigdy nie jest powierzchnią: "
+"logo nie pojawia się na koralowym tle ani jako koralowa plama, więc "
+"zbieżność z innymi pomarańczowymi markami nie jest problemem."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Seats and wordmark inherit the text color; use the mono variant on coral-"
+"adjacent or busy grounds."
+msgstr ""
+"Krzesła i logotyp dziedziczą kolor tekstu; na tłach zbliżonych do koralu lub "
+"niespokojnych używaj wariantu mono."
+
+#: src/ludamus/templates/brand.html
+msgid "One ink plus coral, at most. No gradients, no outlines, no shadows."
+msgstr "Najwyżej jedna farba plus koral. Bez gradientów, obrysów i cieni."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Use the full lockup where the platform speaks: the navbar, sign-in, e-mails, "
+"social cards."
+msgstr ""
+"Pełnego logotypu używaj tam, gdzie mówi platforma: pasek nawigacji, "
+"logowanie, e-maile, karty społecznościowe."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Use the bare mark where space is tight or the name is already on screen: "
+"favicons, avatars, badges."
+msgstr ""
+"Samego znaku używaj tam, gdzie brakuje miejsca albo nazwa już jest na "
+"ekranie: favicony, awatary, plakietki."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"The logo signs the platform. Events and spheres speak under their own names."
+msgstr ""
+"Logo podpisuje platformę. Wydarzenia i sfery występują pod własnymi nazwami."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Keep one chair of clear space around the mark, and never render it below 16 "
+"px or the lockup below 120 px wide."
+msgstr ""
+"Zostaw wokół znaku odstęp szerokości jednego krzesła i nie schodź ze znakiem "
+"poniżej 16 px, a z logotypem poniżej 120 px szerokości."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not recolor. Coral, ink, and mono are the whole palette."
+msgstr "Nie zmieniaj kolorów. Koral, atrament i mono to cała paleta."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not stretch, rotate, or crop the mark."
+msgstr "Nie rozciągaj, nie obracaj i nie przycinaj znaku."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not add shadows, gradients, or outlines."
+msgstr "Nie dodawaj cieni, gradientów ani obrysów."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Do not redraw the mark or set the wordmark in another font. Copy the "
+"templates."
+msgstr ""
+"Nie rysuj znaku od nowa i nie składaj logotypu innym krojem. Kopiuj szablony."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Do not place the logo on busy grounds. Switch to mono or calm the background."
+msgstr "Nie kładź logo na niespokojnym tle. Przełącz na mono albo uspokój tło."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not build the logo into another logo, product name, or event brand."
+msgstr "Nie wbudowuj logo w inne logo, nazwę produktu ani markę wydarzenia."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"tuck-in, where the seats slide flush into the tabletop, is the baseline "
+"hover. The navbar logo uses it."
+msgstr ""
+"tuck-in, w którym krzesła wsuwają się równo w blat, to podstawowa animacja "
+"najechania. Używa jej logo w pasku nawigacji."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"d6 morphs the table into a die face. Reserve it for playful, rare moments."
+msgstr ""
+"d6 zamienia stół w ściankę kości. Zarezerwuj go na rzadkie, zabawowe momenty."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"These two are the entire motion vocabulary; do not invent new logo "
+"animations."
+msgstr ""
+"Te dwa ruchy to cały słownik animacji; nie wymyślaj nowych animacji logo."
+
+#: src/ludamus/templates/brand.html
+msgid "A case these rules do not cover? Ask before improvising."
+msgstr ""
+"Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
 
 #: src/ludamus/templates/chronology/_accept_timeslot_control.html
 msgid "Choose a time…"
@@ -3551,11 +3689,12 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/discounts/create.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/discounts/export.html
+#: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -3566,7 +3705,6 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-copy.html
 #: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-create.html
 #: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
@@ -3683,6 +3821,7 @@ msgstr "Wszystkie rodzaje atrakcji"
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
 #: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "All"
 msgstr "Wszystkie"
 
@@ -3811,7 +3950,6 @@ msgstr "Nowa integracja"
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/proposal-create.html
 #: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/time-slot-create.html
 msgid "Create"
 msgstr "Utwórz"
 
@@ -4278,10 +4416,6 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
-
-#: src/ludamus/templates/components/flash-messages.html
-msgid "Dismiss"
-msgstr "Zamknij"
 
 # Login Required Page
 #: src/ludamus/templates/components/label.html
@@ -4996,6 +5130,14 @@ msgstr "Pokaż trwały komunikat błędu"
 msgid "Dismiss all"
 msgstr "Zamknij wszystkie"
 
+#: src/ludamus/templates/design.html
+msgid "Coral table"
+msgstr "Koralowy stół"
+
+#: src/ludamus/templates/design.html
+msgid "Download"
+msgstr "Pobierz"
+
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -5533,6 +5675,15 @@ msgstr "Kopiuj do wydarzenia"
 msgid "Delete this space and everything inside it?"
 msgstr "Usunąć tę przestrzeń i całą jej zawartość?"
 
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
+msgid "New Time Slot"
+msgstr "Nowy przedział czasowy"
+
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Add Time Slot"
+msgstr "Dodaj przedział czasowy"
+
 #: src/ludamus/templates/panel/_time-slot-form.html
 msgid "Time Slot Details"
 msgstr "Szczegóły przedziału czasowego"
@@ -5643,16 +5794,12 @@ msgid "Close navigation"
 msgstr "Zamknij nawigację"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Backoffice"
-msgstr "Panel organizatora"
+msgid "Event"
+msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Event"
-msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle category"
@@ -5998,16 +6145,6 @@ msgstr "Zmiany twórców programu"
 msgid "Facilitator"
 msgstr "Prowadzący"
 
-#: src/ludamus/templates/panel/discounts/create.html
-msgid "Assign discount"
-msgstr "Przyznaj zniżkę"
-
-#: src/ludamus/templates/panel/discounts/create.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Assign"
-msgstr "Przypisz"
-
 #: src/ludamus/templates/panel/discounts/edit.html
 msgid "Edit discount"
 msgstr "Edytuj zniżkę"
@@ -6061,6 +6198,15 @@ msgstr "Zniżka"
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Are you sure you want to remove this discount?"
 msgstr "Czy na pewno chcesz usunąć tę zniżkę?"
+
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Assign"
+msgstr "Przypisz"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Assign discount"
+msgstr "Przyznaj zniżkę"
 
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -6595,7 +6741,7 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/parts/timetable-day-grid.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -7616,23 +7762,14 @@ msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
 "odwzorować większy obiekt."
 
-#: src/ludamus/templates/panel/time-slot-create.html
-msgid "New Time Slot"
-msgstr "Nowy przedział czasowy"
-
-#: src/ludamus/templates/panel/time-slot-create.html
-#: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Schedule Configuration"
-msgstr "Konfiguracja harmonogramu"
-
 #: src/ludamus/templates/panel/time-slot-edit.html
 msgid "Edit Time Slot"
 msgstr "Edytuj przedział czasowy"
 
+#: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Add Time Slot"
-msgstr "Dodaj przedział czasowy"
+msgid "Schedule Configuration"
+msgstr "Konfiguracja harmonogramu"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid "What are Time Slots?"
@@ -7933,150 +8070,13 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid "Session Hosts"
-#~ msgstr "Twórcy programu"
-
-#~ msgid "Personal-data columns"
-#~ msgstr "Kolumny danych osobowych"
-
-#~ msgid ""
-#~ "Select which personal-data fields show as columns on the facilitators "
-#~ "list. Organizers only."
-#~ msgstr ""
-#~ "Wybierz, które pola danych osobowych mają być kolumnami na liście twórców "
-#~ "programu. Tylko dla organizatorów."
-
-#~ msgid "No personal-data fields defined for this event yet."
-#~ msgstr "Nie zdefiniowano jeszcze pól danych osobowych dla tego wydarzenia."
-
-#~ msgid "Merge facilitators"
-#~ msgstr "Scal twórców programu"
-
-#~ msgid "Free slot"
-#~ msgstr "Wolny przedział"
-
-#~ msgid "No scheduled program."
-#~ msgstr "Brak zaplanowanego programu."
-
-#~ msgid "Select the time slot for this session"
-#~ msgstr "Wybierz przedział czasowy dla tego punktu programu"
-
-#~ msgid "Select a time slot..."
-#~ msgstr "Wybierz przedział czasowy..."
-
-#~ msgid "This field is required."
-#~ msgstr "To pole jest wymagane."
-
-#~ msgid "unassigned"
-#~ msgstr "nieprzypisane"
-
-#~ msgid "People"
-#~ msgstr "Osoby"
-
-#~ msgid ""
-#~ "This party still has companions. Remove them first — their profiles would "
-#~ "be left without a caretaker."
-#~ msgstr ""
-#~ "W tej drużynie wciąż są towarzysze. Najpierw ich usuń — ich profile "
-#~ "zostałyby bez opiekuna."
-
-#~ msgid "Connected user updated successfully!"
-#~ msgstr "Powiązana osoba została zaktualizowana!"
-
-#~ msgid "Connected user deleted successfully."
-#~ msgstr "Powiązana osoba została usunięta."
-
-#~ msgid "Remove companion"
-#~ msgstr "Usuń towarzysza"
-
 #, python-format
 #~ msgid "Remove %(name)s from your party?"
 #~ msgstr "Usunąć %(name)s z Twojej drużyny?"
 
-#~ msgid "Email"
-#~ msgstr "Email"
-
-#~ msgid "The invited person needs a Ludamus account with this email."
-#~ msgstr "Zapraszana osoba musi mieć konto Ludamus z tym adresem email."
-
-#~ msgid "Enter a valid email address."
-#~ msgstr "Podaj prawidłowy adres email."
-
-#~ msgid "Nothing scheduled in this time range."
-#~ msgstr "Nic nie zaplanowano w tym przedziale czasowym."
-
-#~ msgid "Manage party"
-#~ msgstr "Zarządzaj drużyną"
-
-#~ msgid "Start time"
-#~ msgstr "Czas rozpoczęcia"
-
-#~ msgid "You must gather your party before venturing forth."
-#~ msgstr "Przed wyruszeniem w drogę należy zebrać drużynę."
-
-#~ msgid "New party"
-#~ msgstr "Nowa drużyna"
-
-#~ msgid ""
-#~ "Add a companion you enroll yourself, or create a party and invite friends "
-#~ "— you sign up for sessions together."
-#~ msgstr ""
-#~ "Dodaj towarzysza, którego zapisujesz samodzielnie, albo utwórz drużynę i "
-#~ "zaproś znajomych — na punkty programu zapisujecie się razem."
-
-#~ msgid ""
-#~ "Players you have run sessions for or played alongside will appear here, "
-#~ "and anyone you shadowban by username or email."
-#~ msgstr ""
-#~ "Gracze, dla których prowadziłeś punkty programu lub z którymi grałeś, "
-#~ "pojawią się tutaj, a także każdy, kogo cicho zbanujesz po nazwie "
-#~ "użytkownika lub adresie e-mail."
-
-#~ msgid ""
-#~ "Assemble the people you enroll with — a party moves up waiting lists "
-#~ "together."
-#~ msgstr ""
-#~ "Zbierz osoby, z którymi się zapisujesz — drużyna awansuje na listach "
-#~ "oczekujących razem."
-
-#~ msgid ""
-#~ "A companion has no account of their own — you enroll them yourself. They "
-#~ "can take the profile over later with a claim link."
-#~ msgstr ""
-#~ "Towarzysz nie ma własnego konta — zapisujesz go samodzielnie. Później "
-#~ "może przejąć profil dzięki linkowi przejęcia."
-
-#~ msgid ""
-#~ "One-off company — they need no accounts, and their seats come from this "
-#~ "session's pool."
-#~ msgstr ""
-#~ "Jednorazowe towarzystwo — nie potrzebują kont, a ich miejsca pochodzą z "
-#~ "puli tego punktu programu."
-
-#~ msgid ""
-#~ "No companions available. You can add companions to your party in your"
-#~ msgstr "Brak towarzyszy. Towarzyszy do swojej drużyny możesz dodać w sekcji"
-
-#~ msgid "profile settings"
-#~ msgstr "ustawieniach profilu"
-
-#~ msgid "Enrolling as"
-#~ msgstr "Zapisujesz się jako"
-
-#~ msgid "Just myself"
-#~ msgstr "Tylko ja"
-
 #, python-format
 #~ msgid "Party of %(leader_name)s"
 #~ msgstr "Drużyna %(leader_name)s"
-
-#~ msgid "Tick everyone who should take part."
-#~ msgstr "Zaznacz wszystkich, którzy mają wziąć udział."
-
-#~ msgid "The session is full — everyone you add joins the waiting list."
-#~ msgstr ""
-#~ "Punkt programu jest pełny — każda dodana osoba trafia na listę "
-#~ "oczekujących."
 
 #, python-format
 #~ msgid ""
@@ -8110,84 +8110,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr[2] "Zostało %(counter)s miejsc"
 #~ msgstr[3] "Zostało %(counter)s miejsca"
 
-#~ msgid "No seat limit"
-#~ msgstr "Bez limitu miejsc"
-
-#~ msgid "Email column must be 1 or greater."
-#~ msgstr "Kolumna e-maila musi mieć wartość co najmniej 1."
-
-#~ msgid "Email column"
-#~ msgstr "Kolumna e-maila"
-
-#~ msgid ""
-#~ "The 1-indexed sheet column that holds the auto-collected respondent "
-#~ "email. Leave blank if the form does not collect email; otherwise set it "
-#~ "so the importer can synthesize a question that maps to the proposal's "
-#~ "contact email."
-#~ msgstr ""
-#~ "Kolumna arkusza (liczona od 1), w której zapisywany jest adres e-mail "
-#~ "odpowiadającego pobrany automatycznie. Pozostaw puste, jeśli formularz "
-#~ "nie zbiera adresów e-mail; w przeciwnym razie ustaw ją, aby importer mógł "
-#~ "wygenerować pytanie powiązane z e-mailem kontaktowym propozycji."
-
-#~ msgid "Email column not set."
-#~ msgstr "Kolumna e-maila nie jest ustawiona."
-
-#~ msgid ""
-#~ "When the form collects respondent email, set the 1-indexed sheet column "
-#~ "number on the Run tab so the importer can map it to the proposal's "
-#~ "contact email."
-#~ msgstr ""
-#~ "Jeśli formularz zbiera adresy e-mail odpowiadających, ustaw numer kolumny "
-#~ "arkusza (liczony od 1) na zakładce „Uruchom import”, aby importer mógł "
-#~ "powiązać go z e-mailem kontaktowym propozycji."
-
-#~ msgid "Save who's in"
-#~ msgstr "Zapisz uczestników"
-
-#~ msgid "Session type created successfully."
-#~ msgstr "Typ punktu programu został utworzony."
-
-#~ msgid "Session type not found."
-#~ msgstr "Typ punktu programu nie został znaleziony."
-
-#~ msgid "Session type updated successfully."
-#~ msgstr "Typ punktu programu został zaktualizowany."
-
-#~ msgid "Cannot delete session type with existing proposals."
-#~ msgstr "Nie można usunąć typu punktu programu z istniejącymi zgłoszeniami."
-
-#~ msgid "Session type deleted successfully."
-#~ msgstr "Typ punktu programu został usunięty."
-
-#~ msgid "Cannot delete field that is used in session types."
-#~ msgstr "Nie można usunąć pola używanego w typach punktów programu."
-
-#~ msgid "Shadowban a player"
-#~ msgstr "Cicho zbanuj gracza"
-
-#~ msgid "Harmonogram"
-#~ msgstr "Harmonogram"
-
-#~ msgid "New Session Type"
-#~ msgstr "Nowy typ punktu programu"
-
-#~ msgid "Session Type Details"
-#~ msgstr "Szczegóły typu punktu programu"
-
-#~ msgid "Configure Session Type"
-#~ msgstr "Konfiguruj typ punktu programu"
-
-#~ msgid "Describe this session type for proposers."
-#~ msgstr "Opisz ten typ punktu programu dla zgłaszających."
-
-#~ msgid ""
-#~ "Set minimum and maximum participant limits for sessions of this type."
-#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla sesji tego typu."
-
-#~ msgid "Define how long sessions of this type can be."
-#~ msgstr "Określ jak długo mogą trwać punkty programu tego typu."
-
 #, python-format
 #~ msgid "There is %(count)s existing proposal for this session type."
 #~ msgid_plural "There are %(count)s existing proposals for this session type."
@@ -8195,145 +8117,3 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr[1] "Istnieją %(count)s zgłoszenia dla tego typu punktu programu."
 #~ msgstr[2] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
 #~ msgstr[3] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
-
-#~ msgid "Select which time slots are available for this session type."
-#~ msgstr ""
-#~ "Wybierz, które przedziały czasowe są dostępne dla tego typu punktu "
-#~ "programu."
-
-#~ msgid "Session Types"
-#~ msgstr "Typy punktów programu"
-
-#~ msgid "Are you sure you want to delete this session type?"
-#~ msgstr "Czy na pewno chcesz usunąć ten typ punktu programu?"
-
-#~ msgid ""
-#~ "No session types yet. Add a session type to allow hosts to submit "
-#~ "proposals."
-#~ msgstr ""
-#~ "Brak typów punktów programu. Dodaj typ, aby twórcy mogli składać "
-#~ "zgłoszenia."
-
-#~ msgid "Creator discounts"
-#~ msgstr "Zniżki twórców programu"
-
-#~ msgid ""
-#~ "Writes every creator with their accreditation type and discount into the "
-#~ "first tab of the selected spreadsheet, replacing its current content."
-#~ msgstr ""
-#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
-#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
-
-#~ msgid "No creators yet."
-#~ msgstr "Brak twórców programu."
-
-#~ msgid "Program Hosts"
-#~ msgstr "Twórcy programu"
-
-#~ msgid "Select which session types should include this field."
-#~ msgstr "Wybierz, które typy punktów programu mają zawierać to pole."
-
-#~ msgid "No session types have been created yet."
-#~ msgstr "Nie utworzono jeszcze żadnych typów punktów programu."
-
-#~ msgid ""
-#~ "Host data fields collect contact and personal information from session "
-#~ "hosts when they submit proposals. Examples: email address, phone number, "
-#~ "Discord username. This data is shared across all session types for the "
-#~ "event - each host fills it once."
-#~ msgstr ""
-#~ "Pola danych twórcy służą do zbierania informacji kontaktowych i osobowych "
-#~ "od prowadzących punkty programu przy składaniu zgłoszeń. Przykłady: adres "
-#~ "e-mail, numer telefonu, nazwa użytkownika Discord. Dane te są wspólne dla "
-#~ "wszystkich typów punktów programu - każdy twórca wypełnia je tylko raz."
-
-#~ msgid ""
-#~ "After creating fields here, configure which ones are required or optional "
-#~ "in each session type's settings."
-#~ msgstr ""
-#~ "Po utworzeniu pól tutaj, skonfiguruj które z nich są wymagane lub "
-#~ "opcjonalne w ustawieniach każdego typu punktu programu."
-
-#~ msgid "Already Enrolled"
-#~ msgstr "Już zapisany"
-
-#~ msgid ""
-#~ "Tick everyone who should take part. If the session is full, they join the "
-#~ "waiting list automatically."
-#~ msgstr ""
-#~ "Zaznacz każdego, kto ma wziąć udział. Jeśli punkt programu jest pełny, "
-#~ "trafią na listę oczekujących."
-
-#~ msgid "Include me"
-#~ msgstr "Uwzględnij mnie"
-
-#~ msgid "Include"
-#~ msgstr "Uwzględnij"
-
-#~ msgid "Select who to enroll in"
-#~ msgstr "Wybierz kogo zapisać na"
-
-#~ msgid "All ages welcome"
-#~ msgstr "Wszystkie grupy wiekowe"
-
-#~ msgid "Enrollment Options"
-#~ msgstr "Opcje zapisu"
-
-#~ msgid "Session capacity"
-#~ msgstr "Pojemność punktu programu"
-
-#~ msgid "enrolled"
-#~ msgstr "zapisanych"
-
-#~ msgid "Select enrollment options for each user"
-#~ msgstr "Wybierz opcje zapisu dla każdego użytkownika"
-
-#~ msgid "Current Status"
-#~ msgstr "Aktualny status"
-
-#~ msgid "Join Waiting List"
-#~ msgstr "Dołącz do listy oczekujących"
-
-#~ msgid "Myself"
-#~ msgstr "Siebie"
-
-#~ msgid "On Waiting List"
-#~ msgstr "Na liście oczekujących"
-
-#~ msgid "Time Conflict"
-#~ msgstr "Konflikt czasowy"
-
-#~ msgid "withdraw"
-#~ msgstr "wycofaj"
-
-#~ msgid "decline offer"
-#~ msgstr "odrzuć ofertę"
-
-#~ msgid "Enroll Selected Users"
-#~ msgstr "Zapisz wybranych użytkowników"
-
-#~ msgid "Something broke on our end. Try again in a moment."
-#~ msgstr "Coś się zepsuło po naszej stronie. Spróbuj ponownie za chwilę."
-
-#~ msgid "Only meaningful for the innermost spaces that hold sessions."
-#~ msgstr ""
-#~ "Ma znaczenie tylko dla najbardziej wewnętrznych przestrzeni, które "
-#~ "zawierają punkty programu."
-
-#~ msgid ""
-#~ "Organise the physical layout of your event as a tree: buildings contain "
-#~ "floors or wings, which contain the individual rooms that hold sessions. "
-#~ "Nest spaces as deeply as you need; only the innermost rooms take a "
-#~ "capacity."
-#~ msgstr ""
-#~ "Zorganizuj fizyczny układ swojego wydarzenia jako drzewo: budynki "
-#~ "zawierają piętra lub skrzydła, które zawierają poszczególne sale, gdzie "
-#~ "odbywają się punkty programu. Zagnieżdżaj przestrzenie tak głęboko, jak "
-#~ "potrzebujesz; tylko najbardziej wewnętrzne sale mają pojemność."
-
-#~ msgid ""
-#~ "No spaces yet. Add a top-level space to start building your event's "
-#~ "layout."
-#~ msgstr ""
-#~ "Brak przestrzeni. Dodaj przestrzeń najwyższego poziomu, aby rozpocząć "
-#~ "budowanie układu swojego wydarzenia."

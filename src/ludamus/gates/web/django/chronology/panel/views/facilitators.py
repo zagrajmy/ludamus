@@ -282,9 +282,11 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         display_name = form.cleaned_data["display_name"]
         facilitator_slug = make_unique_slug(
-            display_name,
-            "facilitator",
-            lambda s: self.request.di.uow.facilitators.slug_exists(current_event.pk, s),
+            name=display_name,
+            default="facilitator",
+            check_exists=lambda s: self.request.di.uow.facilitators.slug_exists(
+                current_event.pk, s
+            ),
         )
         facilitator = self.request.di.uow.facilitators.create(
             FacilitatorData(

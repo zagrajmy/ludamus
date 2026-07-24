@@ -101,13 +101,19 @@ def main() -> None:
         defaults={"name": "Willow Table", "capacity": 8},
     )
 
-    # Time slot — morning block; gives the overview "capacity hours" a value.
-    slot, _ = TimeSlot.objects.get_or_create(
+    # Morning blocks on consecutive days exercise the all-days schedule.
+    slot_day_one, _ = TimeSlot.objects.get_or_create(
         event=event,
         start_time=datetime.combine(event_day, time(10, 0), tzinfo=local_tz),
         end_time=datetime.combine(event_day, time(12, 0), tzinfo=local_tz),
     )
-    slots: list[TimeSlot] = [slot]
+    second_day = event_day + timedelta(days=1)
+    slot_day_two, _ = TimeSlot.objects.get_or_create(
+        event=event,
+        start_time=datetime.combine(second_day, time(10, 0), tzinfo=local_tz),
+        end_time=datetime.combine(second_day, time(12, 0), tzinfo=local_tz),
+    )
+    slots: list[TimeSlot] = [slot_day_one, slot_day_two]
 
     # Category
     cat, _ = ProposalCategory.objects.get_or_create(
@@ -145,8 +151,8 @@ def main() -> None:
         session=overflow,
         defaults={
             "session_confirmed": True,
-            "start_time": slot.start_time,
-            "end_time": slot.end_time,
+            "start_time": slot_day_one.start_time,
+            "end_time": slot_day_one.end_time,
         },
     )
 
@@ -230,6 +236,25 @@ def main() -> None:
         s3.tracks.add(track)
         s3.facilitators.add(bob)
         # no preferred time slot for s3
+
+    all_days_session, created = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-all-days",
+        defaults={
+            "title": "All Days Workshop",
+            "display_name": "Bob Chen",
+            "description": "A movable session for the multi-day schedule test.",
+            "duration": "PT1H",
+            "participants_limit": 8,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    if created:
+        all_days_session.tracks.add(track)
+        all_days_session.facilitators.add(bob)
+        all_days_session.time_slots.set(slots)
 
 
 if __name__ == "__main__":

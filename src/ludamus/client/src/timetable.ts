@@ -22,10 +22,17 @@ const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!
 
 const grid = (): HTMLElement => document.getElementById("timetable-grid")!;
 
-const calendar = (): HTMLElement | null => document.getElementById("timetable-calendar");
+const dayGrids = (): NodeListOf<HTMLElement> =>
+  document.querySelectorAll<HTMLElement>(".timetable-day-grid");
 
 const columns = (): NodeListOf<HTMLElement> =>
   document.querySelectorAll<HTMLElement>(".timetable-column");
+
+const columnsForDayGrid = (dayGrid: HTMLElement): NodeListOf<HTMLElement> =>
+  dayGrid.querySelectorAll<HTMLElement>(".timetable-column");
+
+const dayGridForColumn = (col: HTMLElement): HTMLElement | null =>
+  col.closest<HTMLElement>(".timetable-day-grid");
 
 const csrfToken = (): string =>
   (document.querySelector("[name=csrfmiddlewaretoken]") as HTMLInputElement).value;
@@ -82,7 +89,7 @@ function hideDropGuide(): void {
 // A ghost block, snapped to the drop time and sized to the session, shown
 // inside the hovered column while dragging -- the Google-Calendar drop preview.
 function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): void {
-  const cal = calendar();
+  const cal = dayGridForColumn(col);
   if (!cal?.dataset.eventStart) return;
   const minutePx = pxPerMinute(cal);
   const topPx =
@@ -122,38 +129,37 @@ function renderPreferredSlotOverlays(): void {
   clearPreferredSlotOverlays();
   const slots = (armed ?? dragging)?.preferredSlots ?? [];
   if (slots.length === 0) return;
-  const cal = calendar();
-  if (!cal) return;
-  const { eventStart } = cal.dataset;
-  if (!eventStart) return;
 
-  const totalMinutes = Number(cal.dataset.totalMinutes);
-  if (!totalMinutes) return;
+  for (const cal of dayGrids()) {
+    const { eventStart } = cal.dataset;
+    if (!eventStart) continue;
 
-  const eventStartMs = new Date(eventStart).getTime();
-  const minutePx = pxPerMinute(cal);
-  const pxPerMs = minutePx / 60_000;
-  const totalHeightPx = totalMinutes * minutePx;
-  const cols = columns();
-  if (cols.length === 0) return;
+    const totalMinutes = Number(cal.dataset.totalMinutes);
+    if (!totalMinutes) continue;
 
-  for (const slot of slots) {
-    const startMs = new Date(slot.start).getTime();
-    const endMs = new Date(slot.end).getTime();
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+    const eventStartMs = new Date(eventStart).getTime();
+    const minutePx = pxPerMinute(cal);
+    const pxPerMs = minutePx / 60_000;
+    const totalHeightPx = totalMinutes * minutePx;
 
-    const rawTop = (startMs - eventStartMs) * pxPerMs;
-    const rawBottom = (endMs - eventStartMs) * pxPerMs;
-    const top = Math.max(0, rawTop);
-    const bottom = Math.min(totalHeightPx, rawBottom);
-    if (bottom <= top) continue;
+    for (const slot of slots) {
+      const startMs = new Date(slot.start).getTime();
+      const endMs = new Date(slot.end).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
 
-    for (const col of cols) {
-      const overlay = document.createElement("div");
-      overlay.className = "timetable-preferred-slot";
-      overlay.style.top = `calc(${top}px + 20px)`;
-      overlay.style.height = `${bottom - top}px`;
-      col.append(overlay);
+      const rawTop = (startMs - eventStartMs) * pxPerMs;
+      const rawBottom = (endMs - eventStartMs) * pxPerMs;
+      const top = Math.max(0, rawTop);
+      const bottom = Math.min(totalHeightPx, rawBottom);
+      if (bottom <= top) continue;
+
+      for (const col of columnsForDayGrid(cal)) {
+        const overlay = document.createElement("div");
+        overlay.className = "timetable-preferred-slot";
+        overlay.style.top = `calc(${top}px + 20px)`;
+        overlay.style.height = `${bottom - top}px`;
+        col.append(overlay);
+      }
     }
   }
 }
@@ -199,7 +205,7 @@ function placementFromDraggable(el: HTMLElement): Placement {
 }
 
 function startTimeAt(col: HTMLElement, clientY: number): Date | null {
-  const cal = calendar();
+  const cal = dayGridForColumn(col);
   if (!cal) return null;
   const { eventStart } = cal.dataset;
   if (!eventStart) return null;
@@ -352,7 +358,7 @@ document.addEventListener("mousemove", (e) => {
     return;
   }
 
-  const cal = calendar();
+  const cal = dayGridForColumn(col);
   const startDt = cal && startTimeAt(col, e.clientY);
   if (!cal || !startDt) return;
   const endDt = new Date(startDt.getTime() + armed.duration * 60_000);

@@ -29,6 +29,7 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
+    SpaceFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
@@ -102,6 +103,28 @@ def _expected_session_data(
 
 
 class TestSessionModalComponentView:
+    def test_offered_seats_count_toward_capacity(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(event=event, category=None, participants_limit=2)
+        AgendaItemFactory(session=session, space=space)
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = client.get(_url(event, session.pk))
+
+        data = response.context_data["data"]
+        assert data.is_full
+        assert data.enrolled_count == session.participants_limit
+
     def test_renders_modal_for_scheduled_session(
         self, active_user, agenda_item, client, event
     ):

@@ -33,6 +33,14 @@ User = get_user_model()
 
 pytest.register_assert_rewrite("tests.integration.utils")
 
+# Smallest valid 1x1 PNG. Real bytes, because ImageField runs Pillow on upload.
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 register(CompleteUserFactory)
 register(AnonymousUserFactory)
 

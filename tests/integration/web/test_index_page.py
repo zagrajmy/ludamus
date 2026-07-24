@@ -12,19 +12,13 @@ from ludamus.links.db.django.models import Announcement
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -84,6 +78,7 @@ class TestEventsPageView:
             template_name=["index.html"],
             cache_control={"private", "max-age=180"},
         )
+        assert "Cookie" in response.headers.get("Vary", "")
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
     def test_ok_with_event(self, client, event):

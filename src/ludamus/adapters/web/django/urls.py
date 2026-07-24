@@ -55,12 +55,8 @@ urlpatterns = [
         name="notifications-mark-read",
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
+    path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
-    path(
-        "design/tailwind/",
-        TemplateView.as_view(template_name="design_tailwind.html"),
-        name="design-tailwind",
-    ),
     path("", include((chronology_urls, "chronology"), namespace="chronology")),
     # Permanent redirects for links shared before the `chronology/` path segment
     # was dropped from public event URLs (issue #543, A4). View names are

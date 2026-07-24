@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @import "./progressive-blur.css";
+@import "./brand-mark.css";
 @import "./modal.css";
 @import "./filters.css";
 @import "./tabs.css";
@@ -367,6 +368,12 @@ button:active {
 
 .live-dot {
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
 }
 
 .blob {

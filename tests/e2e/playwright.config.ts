@@ -42,6 +42,7 @@ const webServerEnv: Record<string, string> = Object.fromEntries(
     (entry): entry is [string, string] => typeof entry[1] === "string",
   ),
 );
+webServerEnv.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
 
 export default defineConfig({
   testDir: "./tests",
@@ -142,6 +143,6 @@ export default defineConfig({
     stdout: "pipe",
     stderr: "pipe",
     cwd: repoRoot,
-    gracefulShutdown: { signal: "SIGINT", timeout: 5000 },
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
   },
 });

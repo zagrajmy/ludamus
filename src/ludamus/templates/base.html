@@ -31,18 +31,32 @@
               content="{% block twitter_description %}Event webapp{% endblock twitter_description %}">
         <meta name="twitter:image"
               content="{% block twitter_image %}https://zagrajmy.net/static/logo.png{% endblock twitter_image %}">
+        {% comment %}Title standard: "{page name} • {sphere name}". Pages set
+        block title; pages whose name IS the sphere (landing) empty out
+        title_suffix instead.{% endcomment %}
         <title>
             {% block title %}
-                {{ current_sphere.name }}
             {% endblock title %}
+            {% block title_suffix %}
+                {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
+            {% endblock title_suffix %}
         </title>
-        <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
-        <link rel="shortcut icon"
+        {% comment %}Chrome/Safari don't apply an SVG favicon's internal
+        prefers-color-scheme media query in the tab, so we swap the href to a
+        baked dark variant from JS. This follows the OS setting (matchMedia),
+        not the in-app theme switch, so the icon always matches the tab bar.
+        {% endcomment %}
+        <link rel="icon"
+              type="image/svg+xml"
+              href="{% static favicon %}"
+              data-favicon-light="{% static favicon %}"
+              data-favicon-dark="{% static favicon_dark %}">
+        <link rel="alternate icon"
               type="image/x-icon"
               href="{% static 'favicon.ico' %}">
         {% comment %}
-        Theme initialization (before CSS to prevent flash). This is the
-        first inline script on every page that extends base.html, so its
+        Theme + favicon initialization (before CSS to prevent flash). This is
+        the first inline script on every page that extends base.html, so its
         "is not None" guard (not a plain truthy guard) is what forces the
         CSP nonce to actually generate: Django's LazyNonce is falsy until
         read, so a plain truthy guard alone would never read it and the
@@ -63,6 +77,18 @@
                 } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                     document.documentElement.classList.add('dark');
                 }
+
+                // Follow the OS colour scheme for the tab icon (Chrome/Safari
+                // ignore an SVG favicon's internal prefers-color-scheme query).
+                var link = document.querySelector('link[rel="icon"][data-favicon-dark]');
+                if (!link) return;
+                var mq = window.matchMedia('(prefers-color-scheme: dark)');
+
+                function applyFavicon() {
+                    link.href = mq.matches ? link.dataset.faviconDark : link.dataset.faviconLight;
+                }
+                applyFavicon();
+                mq.addEventListener('change', applyFavicon);
             })();
         </script>
         {% vite_hmr_client %}
@@ -76,7 +102,10 @@
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
-    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}">
+    <body class="{% block body_class %}app-shell font-sans antialiased bg-background text-foreground{% endblock body_class %}"
+          data-server-error-message="{% translate "Something went wrong on our side and your change wasn't saved. Please try again." %}"
+          data-flash-region-label="{% translate "Notifications" %}"
+          data-flash-dismiss-label="{% translate "Dismiss" %}">
         {% comment %}
             App-shell scroll container: the document itself never scrolls, an
             inner element owns the scroll. A top-layer <dialog> then always
@@ -95,12 +124,13 @@
                     {% if messages %}
                         <div class="flash-region"
                              role="region"
+                             aria-live="polite"
                              aria-label="{% translate "Notifications" %}">
                             {% include "components/flash-messages.html" %}
                         </div>
                     {% endif %}
                     <!-- Main Content -->
-                    <main class="grow flex flex-col max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full mb-8">
+                    <main class="grow flex flex-col max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 w-full mb-8">
                         <!-- Page Header -->
                         {% block header_section %}
                             <div class="mb-6 text-center">
@@ -120,7 +150,7 @@
                 {% endblock main_region %}
                 {% block site_footer %}
                     <footer class="border-t py-6 bg-bg-secondary border-border">
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
                             <div class="flex justify-end items-center gap-2 mb-4">
                                 {% include "components/sound_switcher.html" %}
                                 {% include "components/theme_switcher.html" %}
@@ -133,6 +163,7 @@
                                     available under BSD-3-Clause license.
                                 </p>
                                 <div class="flex flex-wrap justify-center sm:justify-end gap-4">
+                                    <a href="{% url 'web:brand' %}" class="hover:underline text-primary">{% translate "Brand" %}</a>
                                     <a href="mailto:{{ SUPPORT_EMAIL }}"
                                        class="hover:underline text-primary">{% translate "Contact" %}</a>
                                     <a href="{% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' %}"
