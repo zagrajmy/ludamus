@@ -11,6 +11,7 @@ from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import SessionStatus
 from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
+    EmptyColumnSelectionError,
     ProposalListContextDTO,
     ProposalPanelServiceProtocol,
 )
@@ -154,14 +155,17 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         )
 
     def set_columns(self, *, event_id: int, columns: list[str]) -> None:
-        self._panel_settings.update_proposal_columns(
-            event_id,
-            sanitize_column_keys(
+        # An empty result would persist as "use the defaults", so the organizer
+        # who unticked everything would silently get every default column back.
+        if not (
+            keys := sanitize_column_keys(
                 keys=columns,
                 builtin_keys=_BUILTIN_COLUMN_KEYS,
                 fields=self._session_fields.list_by_event(event_id),
-            ),
-        )
+            )
+        ):
+            raise EmptyColumnSelectionError
+        self._panel_settings.update_proposal_columns(event_id, keys)
 
     def create_proposal(
         self,

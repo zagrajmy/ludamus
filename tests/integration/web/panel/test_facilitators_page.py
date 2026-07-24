@@ -1167,6 +1167,7 @@ class TestFacilitatorColumns:
                 "available_columns": [
                     PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
                 ],
+                "error": None,
             },
         )
 
@@ -1185,6 +1186,7 @@ class TestFacilitatorColumns:
                 **_event_context(event, active_tab="columns"),
                 "chosen_columns": _DEFAULT_COLUMNS,
                 "available_columns": [],
+                "error": None,
             },
         )
 
@@ -1236,6 +1238,33 @@ class TestFacilitatorColumns:
         )
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.facilitator_columns == [f"field_{field.pk}", "sessions"]
+
+    def test_post_rejects_a_selection_with_no_valid_column(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Unticking everything used to save "[]", which reads back as "use the
+        # defaults" — the organizer saw every default column return instead.
+        sphere.managers.add(active_user)
+        EventPanelSettings.objects.create(event=event, facilitator_columns=["name"])
+
+        response = authenticated_client.post(self._url(event), {"columns": ["bogus"]})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-columns.html",
+            context_data={
+                **_event_context(event, active_tab="columns"),
+                "chosen_columns": [PanelColumnDTO(key="name")],
+                "available_columns": [
+                    PanelColumnDTO(key=key)
+                    for key in ("linked", "sessions", "accreditation")
+                ],
+                "error": "Pick at least one column to show.",
+            },
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert settings.facilitator_columns == ["name"]
 
     def test_post_replaces_the_previous_set(
         self, authenticated_client, active_user, sphere, event

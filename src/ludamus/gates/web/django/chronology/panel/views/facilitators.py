@@ -43,6 +43,7 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
 )
 from ludamus.pacts.panel import (
+    EmptyColumnSelectionError,
     FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeData,
@@ -715,30 +716,48 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        columns = self.request.services.facilitator_panel.columns_context(
-            current_event.pk
-        )
+    def _render(
+        self,
+        *,
+        context: dict[str, object],
+        slug: str,
+        event_pk: int,
+        error: str | None = None,
+    ) -> HttpResponse:
+        columns = self.request.services.facilitator_panel.columns_context(event_pk)
         context["active_nav"] = "facilitators"
         context["active_tab"] = "columns"
         context["tab_urls"] = facilitator_tab_urls(slug)
         context["chosen_columns"] = columns.chosen
         context["available_columns"] = columns.available
+        context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-columns.html", context)
 
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        return self._render(context=context, slug=slug, event_pk=current_event.pk)
+
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
+        context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
         # The chosen keys arrive in display order; the service drops anything
         # that isn't this event's own column.
-        self.request.services.facilitator_panel.set_columns(
-            event_id=current_event.pk, columns=self.request.POST.getlist("columns")
-        )
+        try:
+            self.request.services.facilitator_panel.set_columns(
+                event_id=current_event.pk, columns=self.request.POST.getlist("columns")
+            )
+        except EmptyColumnSelectionError:
+            return self._render(
+                context=context,
+                slug=slug,
+                event_pk=current_event.pk,
+                error=_("Pick at least one column to show."),
+            )
+
         messages.success(self.request, _("Columns updated."))
         return redirect("panel:facilitators", slug=slug)

@@ -24,6 +24,10 @@ if TYPE_CHECKING:
     )
 
 
+class EmptyColumnSelectionError(Exception):
+    """A columns chooser submitted nothing this event recognises as a column."""
+
+
 class PanelFieldProtocol(Protocol):
     """A dynamic field usable as a list column (session or personal-data)."""
 

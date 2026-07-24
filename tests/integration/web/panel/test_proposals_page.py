@@ -60,7 +60,22 @@ _DEFAULT_COLUMNS = [
 ]
 
 
-def _list_chrome(event):
+def _cells(proposals):
+    # One ready-to-render string per (proposal, column). "status" and "created"
+    # render as a badge and a localized date in the template, not as text.
+    return {
+        proposal.pk: {
+            "title": proposal.title,
+            "host": proposal.display_name,
+            "category": proposal.category_name,
+            "status": "",
+            "created": "",
+        }
+        for proposal in proposals
+    }
+
+
+def _list_chrome(event, proposals=()):
     return {
         "active_tab": "list",
         "tab_urls": {
@@ -68,7 +83,8 @@ def _list_chrome(event):
             "columns": reverse("panel:proposal-columns", kwargs={"slug": event.slug}),
         },
         "columns": _DEFAULT_COLUMNS,
-        "column_values": {},
+        "proposals": list(proposals),
+        "column_values": _cells(proposals),
     }
 
 
@@ -268,7 +284,20 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=session.pk,
+                            title="Wide Byline",
+                            display_name=long_name,
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=session.creation_time,
+                            is_scheduled=False,
+                        )
+                    ],
+                ),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 0,
@@ -278,17 +307,6 @@ class TestProposalsPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session.pk,
-                        title="Wide Byline",
-                        display_name=long_name,
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "",
@@ -417,7 +435,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(sessions[title]) for title in order]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 0,
@@ -427,7 +445,6 @@ class TestProposalsPageView:
                     "total_proposals": 3,
                     "total_sessions": 3,
                 },
-                "proposals": [_proposal(sessions[title]) for title in order],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "",
@@ -477,7 +494,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(s) for s in page_sessions]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 0,
@@ -487,7 +504,6 @@ class TestProposalsPageView:
                     "total_proposals": _SEED_COUNT,
                     "total_sessions": _SEED_COUNT,
                 },
-                "proposals": [_proposal(s) for s in page_sessions],
                 "page_obj": PageMatcher(number=1, num_pages=num_pages),
                 "session_fields": [],
                 "filter_fields": {},
@@ -533,7 +549,20 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=session.pk,
+                            title="My Session",
+                            display_name=active_user.name,
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=session.creation_time,
+                            is_scheduled=False,
+                        )
+                    ],
+                ),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -543,17 +572,6 @@ class TestProposalsPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session.pk,
-                        title="My Session",
-                        display_name=active_user.name,
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "",
@@ -594,7 +612,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(dragon)]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 0,
@@ -604,7 +622,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [_proposal(dragon)],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "Dragon",
@@ -649,7 +666,20 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=session_pseudonym.pk,
+                            title="Session B",
+                            display_name="Mysterious Stranger",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=session_pseudonym.creation_time,
+                            is_scheduled=False,
+                        )
+                    ],
+                ),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -659,17 +689,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session_pseudonym.pk,
-                        title="Session B",
-                        display_name="Mysterious Stranger",
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session_pseudonym.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "Mysterious",
@@ -713,7 +732,20 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=session_b.pk,
+                            title="Session B",
+                            display_name="Other Person",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=session_b.creation_time,
+                            is_scheduled=False,
+                        )
+                    ],
+                ),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 2,
@@ -723,17 +755,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session_b.pk,
-                        title="Session B",
-                        display_name="Other Person",
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session_b.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "Other",
@@ -789,7 +810,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(session1)]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -799,17 +820,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session1.pk,
-                        title="D&D Adventure",
-                        display_name=active_user.name,
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session1.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [
                     SessionFieldDTO(
                         pk=field.pk,
@@ -874,7 +884,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(session1)]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -884,17 +894,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session1.pk,
-                        title="Mroczna sesja",
-                        display_name=active_user.name,
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session1.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [
                     SessionFieldDTO(
                         pk=field.pk,
@@ -957,7 +956,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(session1)]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -967,17 +966,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session1.pk,
-                        title="D&D Adventure",
-                        display_name=active_user.name,
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session1.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "D&D",
@@ -1035,7 +1023,7 @@ class TestProposalsPageView:
                 **_base_context(event),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
-                **_list_chrome(event),
+                **_list_chrome(event, [_proposal(session1)]),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "stats": {
                     "hosts_count": 1,
@@ -1045,17 +1033,6 @@ class TestProposalsPageView:
                     "total_proposals": 2,
                     "total_sessions": 2,
                 },
-                "proposals": [
-                    SessionListItemDTO(
-                        pk=session1.pk,
-                        title="Mroczna sesja",
-                        display_name=active_user.name,
-                        category_name="RPG",
-                        status=SessionStatus.PENDING,
-                        creation_time=session1.creation_time,
-                        is_scheduled=False,
-                    )
-                ],
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "przekleństwa",

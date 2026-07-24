@@ -26,7 +26,7 @@
         {% tab_shell_body %}
         {% url 'panel:facilitator-columns' slug=current_event.slug as action_url %}
         {% translate "Tick the columns the facilitators list shows, and order them top to bottom. Organizers only." as help_text %}
-        {% include "panel/parts/_columns_chooser.html" with action_url=action_url help_text=help_text label_kind="facilitator" chosen_columns=chosen_columns available_columns=available_columns only %}
+        {% include "panel/parts/_columns_chooser.html" with action_url=action_url help_text=help_text chosen_columns=chosen_columns available_columns=available_columns error=error only %}
     {% end_tab_shell_body %}
 {% end_tab_shell %}
 </div>

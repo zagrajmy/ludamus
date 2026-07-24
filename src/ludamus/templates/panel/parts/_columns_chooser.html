@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load django_vite %}
 {% load cfp_tags %}
-{# Columns chooser card: `action_url` receives the checked keys in DOM order, `label_kind` picks the built-in labels, `help_text` names the list. #}
+{# Columns chooser card: `action_url` receives the checked keys in DOM order, `help_text` names the list. #}
 <form id="columns-form"
       method="post"
       action="{{ action_url }}"
@@ -11,11 +11,12 @@
         <div class="card-body">
             <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
             <p id="columns-help" class="text-sm text-foreground-muted mb-6">{{ help_text }}</p>
+            {% if error %}<div class="card p-4 mb-6 text-sm text-danger" role="alert">{{ error }}</div>{% endif %}
             <ul class="column-list space-y-2"
                 aria-label="{% translate "Shown columns" %}"
                 aria-describedby="columns-help">
                 {% for column in chosen_columns %}
-                    {% include "panel/parts/_column_row.html" with column=column shown=True label=column|panel_column_label:label_kind only %}
+                    {% include "panel/parts/_column_row.html" with column=column shown=True label=column|panel_column_label only %}
                 {% endfor %}
             </ul>
             {% if available_columns %}
@@ -26,7 +27,7 @@
                     aria-label="{% translate "Available columns" %}"
                     aria-describedby="columns-help">
                     {% for column in available_columns %}
-                        {% include "panel/parts/_column_row.html" with column=column shown=False label=column|panel_column_label:label_kind only %}
+                        {% include "panel/parts/_column_row.html" with column=column shown=False label=column|panel_column_label only %}
                     {% endfor %}
                 </ul>
             {% endif %}

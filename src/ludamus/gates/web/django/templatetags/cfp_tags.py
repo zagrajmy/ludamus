@@ -82,8 +82,8 @@ def content_field_label(field_key: str) -> str:
 
 
 @register.filter
-def panel_column_label(column: PanelColumnDTO, list_kind: str) -> str:
-    """Label a panel list column for the given list ("facilitator"/"proposal").
+def panel_column_label(column: PanelColumnDTO) -> str:
+    """Label a panel list column.
 
     Returns:
         The field's own name for dynamic-field columns, else the built-in's
@@ -91,23 +91,21 @@ def panel_column_label(column: PanelColumnDTO, list_kind: str) -> str:
     """
     if column.field is not None:
         return column.field.name
-    # Built per call so gettext resolves in the active request language.
+    # Built per call so gettext resolves in the active request language. The
+    # facilitator and proposal built-in keys share one namespace — they don't
+    # collide, so the label doesn't need to know which list is asking.
     builtin_labels = {
-        "facilitator": {
-            "name": _("Display Name"),
-            "linked": _("Linked User"),
-            "sessions": _("Sessions"),
-            "accreditation": _("Accreditation"),
-        },
-        "proposal": {
-            "title": _("Title"),
-            "host": _("Display Name"),
-            "category": _("Category"),
-            "status": _("Status"),
-            "created": _("Created"),
-        },
+        "name": _("Display Name"),
+        "linked": _("Linked User"),
+        "sessions": _("Sessions"),
+        "accreditation": _("Accreditation"),
+        "title": _("Title"),
+        "host": _("Display Name"),
+        "category": _("Category"),
+        "status": _("Status"),
+        "created": _("Created"),
     }
-    return builtin_labels.get(list_kind, {}).get(column.key, column.key)
+    return builtin_labels.get(column.key, column.key)
 
 
 @register.filter

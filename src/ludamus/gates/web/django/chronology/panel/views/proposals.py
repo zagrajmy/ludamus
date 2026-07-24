@@ -42,7 +42,11 @@ from ludamus.pacts.chronology import (
     ProposalScheduledError,
 )
 from ludamus.pacts.legacy import resolve_cover_image
-from ludamus.pacts.panel import SCHEDULED_FILTER, ProposalListQuery
+from ludamus.pacts.panel import (
+    SCHEDULED_FILTER,
+    EmptyColumnSelectionError,
+    ProposalListQuery,
+)
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
@@ -168,25 +172,40 @@ def collect_session_field_values(
     return values
 
 
-def _field_column_values(
+def _builtin_cell(*, key: str, proposal: SessionListItemDTO) -> str:
+    if key == "title":
+        return proposal.title
+    if key == "host":
+        return proposal.display_name
+    if key == "category":
+        return proposal.category_name
+    # "status" and "created" render richly in the template — a badge and a
+    # localized date — so they carry no text cell.
+    return ""
+
+
+def _build_column_values(
     *,
     panel: ProposalPanelServiceProtocol,
     proposals: Sequence[SessionListItemDTO],
     columns: Sequence[PanelColumnDTO],
 ) -> dict[int, dict[str, str]]:
-    if not (field_columns := [c for c in columns if c.field is not None]):
-        return {}
     raw_values = panel.column_values(
         session_ids=[p.pk for p in proposals],
-        field_ids=[c.field.pk for c in field_columns if c.field is not None],
+        field_ids=[column.field.pk for column in columns if column.field is not None],
     )
+    # One ready-to-render string per (proposal, column), so the template renders
+    # every column the same way whatever the organizer chose.
     return {
         proposal.pk: {
-            column.key: format_field_value(
-                value=raw_values.get(proposal.pk, {}).get(column.field.slug)
+            column.key: (
+                format_field_value(
+                    value=raw_values.get(proposal.pk, {}).get(column.field.slug)
+                )
+                if column.field is not None
+                else _builtin_cell(key=column.key, proposal=proposal)
             )
-            for column in field_columns
-            if column.field is not None
+            for column in columns
         }
         for proposal in proposals
     }
@@ -228,7 +247,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             event_id=current_event.pk, query=query
         )
         page_obj = paginate(self.request, list_context.proposals)
-        column_values = _field_column_values(
+        column_values = _build_column_values(
             panel=self.request.services.proposal_panel,
             proposals=list(page_obj.object_list),
             columns=list_context.columns,
@@ -284,29 +303,49 @@ class ProposalColumnsPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        columns = self.request.services.proposal_panel.columns_context(current_event.pk)
+    def _render(
+        self,
+        *,
+        context: dict[str, Any],
+        slug: str,
+        event_pk: int,
+        error: str | None = None,
+    ) -> HttpResponse:
+        columns = self.request.services.proposal_panel.columns_context(event_pk)
         context["active_nav"] = "proposals"
         context["active_tab"] = "columns"
         context["tab_urls"] = proposal_tab_urls(slug)
         context["chosen_columns"] = columns.chosen
         context["available_columns"] = columns.available
+        context["error"] = error
         return TemplateResponse(self.request, "panel/proposal-columns.html", context)
 
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        return self._render(context=context, slug=slug, event_pk=current_event.pk)
+
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
+        context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
         # The chosen keys arrive in display order; the service drops anything
         # that isn't this event's own column.
-        self.request.services.proposal_panel.set_columns(
-            event_id=current_event.pk, columns=self.request.POST.getlist("columns")
-        )
+        try:
+            self.request.services.proposal_panel.set_columns(
+                event_id=current_event.pk, columns=self.request.POST.getlist("columns")
+            )
+        except EmptyColumnSelectionError:
+            return self._render(
+                context=context,
+                slug=slug,
+                event_pk=current_event.pk,
+                error=_("Pick at least one column to show."),
+            )
+
         messages.success(self.request, _("Columns updated."))
         return redirect("panel:proposals", slug=slug)
 

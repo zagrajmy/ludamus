@@ -181,6 +181,7 @@ class TestProposalColumnsPageView:
                 "available_columns": [
                     PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
                 ],
+                "error": None,
             },
         )
 
@@ -223,6 +224,73 @@ class TestProposalColumnsPageView:
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.proposal_columns == ["title"]
 
+    def test_post_rejects_a_selection_with_no_valid_column(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Unticking everything used to save "[]", which reads back as "use the
+        # defaults" — the organizer saw every default column return instead.
+        sphere.managers.add(active_user)
+        EventPanelSettings.objects.create(event=event, proposal_columns=["title"])
+
+        response = authenticated_client.post(self._url(event), {"columns": ["bogus"]})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-columns.html",
+            context_data={
+                **_base_context(event),
+                "chosen_columns": [PanelColumnDTO(key="title")],
+                "available_columns": [
+                    PanelColumnDTO(key=key)
+                    for key in ("host", "category", "status", "created")
+                ],
+                "error": "Pick at least one column to show.",
+            },
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert settings.proposal_columns == ["title"]
+
+    def test_list_links_to_the_proposal_from_whatever_column_comes_first(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        # The row's link hangs off the first column, not off "title", so a
+        # column set without "title" still reaches the detail page.
+        sphere.managers.add(active_user)
+        EventPanelSettings.objects.create(event=event, proposal_columns=["status"])
+        session = Session.objects.create(
+            event=event,
+            category=proposal_category,
+            display_name="Host",
+            title="Dragon Heist",
+            slug="dragon-heist",
+            participants_limit=5,
+            status="pending",
+        )
+
+        response = authenticated_client.get(
+            reverse("panel:proposals", kwargs={"slug": event.slug})
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            contains=[
+                reverse(
+                    "panel:proposal-detail",
+                    kwargs={"slug": event.slug, "proposal_id": session.pk},
+                )
+            ],
+            context_data=_list_page_context(
+                event,
+                category=proposal_category,
+                session=session,
+                columns=[PanelColumnDTO(key="status")],
+                column_values={session.pk: {"status": ""}},
+            ),
+        )
+
     def test_field_column_shows_values_on_the_list(
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
@@ -259,7 +327,9 @@ class TestProposalColumnsPageView:
                     PanelColumnDTO(key="title"),
                     PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
                 ],
-                column_values={session.pk: {f"field_{field.pk}": "D&D 5e"}},
+                column_values={
+                    session.pk: {"title": "Dragon Heist", f"field_{field.pk}": "D&D 5e"}
+                },
             ),
         )
 
@@ -307,6 +377,8 @@ class TestProposalColumnsPageView:
                         key=f"field_{checkbox.pk}", field=_field_dto(checkbox)
                     ),
                 ],
-                column_values={session.pk: {f"field_{checkbox.pk}": "Yes"}},
+                column_values={
+                    session.pk: {"title": "Dragon Heist", f"field_{checkbox.pk}": "Yes"}
+                },
             ),
         )

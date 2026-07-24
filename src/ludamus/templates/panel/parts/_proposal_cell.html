@@ -1,0 +1,10 @@
+{% load i18n %}
+{# One proposal cell's content. Text cells arrive pre-rendered in `value`; status
+and created stay here because a badge and a localized date aren't strings. #}
+{% if column.key == "status" %}
+    {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
+{% elif column.key == "created" %}
+    {{ proposal.creation_time|date:"d M Y H:i" }}
+{% else %}
+    {{ value }}
+{% endif %}

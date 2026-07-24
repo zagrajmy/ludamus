@@ -19,6 +19,7 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
 )
 from ludamus.pacts.panel import (
+    EmptyColumnSelectionError,
     FacilitatorDetailContextDTO,
     FacilitatorListContextDTO,
     FacilitatorMergeContextDTO,
@@ -450,14 +451,17 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         )
 
     def set_columns(self, *, event_id: int, columns: list[str]) -> None:
-        self._repos.panel_settings.update_facilitator_columns(
-            event_id,
-            sanitize_column_keys(
+        # An empty result would persist as "use the defaults", so the organizer
+        # who unticked everything would silently get every default column back.
+        if not (
+            keys := sanitize_column_keys(
                 keys=columns,
                 builtin_keys=_BUILTIN_COLUMN_KEYS,
                 fields=self._repos.personal_data_fields.list_by_event(event_id),
-            ),
-        )
+            )
+        ):
+            raise EmptyColumnSelectionError
+        self._repos.panel_settings.update_facilitator_columns(event_id, keys)
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._repos.facilitators.read_by_event_and_slug(
