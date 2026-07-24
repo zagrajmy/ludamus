@@ -1471,7 +1471,7 @@ class TestProposalEditPageView:
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
         # Search-first picker: unassigned facilitators start hidden.
         assert (
-            "facilitator-row flex items-center text-sm py-3 rounded-md"
+            "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
             " hover:bg-foreground/5 hidden" in html
         )
 
