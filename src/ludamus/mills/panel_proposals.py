@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
+    FIELD_KEY_PREFIX,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
@@ -17,11 +18,12 @@ from ludamus.pacts.panel import (
 )
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from collections.abc import Sequence
 
     from ludamus.pacts import (
         ProposalCategoryRepositoryProtocol,
         SessionData,
+        SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
@@ -34,20 +36,16 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.services import TransactionProtocol
 
-_SORT_KEYS = ("title", "host", "category", "status", "created")
 _BUILTIN_COLUMN_KEYS = ("title", "host", "category", "status", "created")
 
 
-def _sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
-    if key == "title":
-        return proposal.title.lower()
-    if key == "host":
-        return proposal.display_name.lower()
-    if key == "category":
-        return proposal.category_name.lower()
-    if key == "status":
-        return str(proposal.status)
-    return proposal.creation_time
+def _resolve_sort(sort: str, fields: Sequence[SessionFieldDTO]) -> str:
+    # A sort key naming a built-in column or one of this event's own fields is
+    # passed to the repo; anything else is dropped, so a tampered `sort` falls
+    # back to the default order instead of reaching the query.
+    key = sort.removeprefix("-")
+    valid = {*_BUILTIN_COLUMN_KEYS, *(f"{FIELD_KEY_PREFIX}{f.pk}" for f in fields)}
+    return sort if key in valid else ""
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
@@ -109,6 +107,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         else:
             status_filter, scheduled_filter = None, None
 
+        sort = _resolve_sort(query.sort, session_fields)
         proposals = self._sessions.list_sessions_by_event(
             event_id,
             {
@@ -119,18 +118,9 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                 "category_pk": category_pk,
                 "status": status_filter,
                 "scheduled": scheduled_filter,
+                "sort": sort or None,
             },
         )
-
-        sort = query.sort
-        if (sort_key := sort.removeprefix("-")) in _SORT_KEYS:
-
-            def sort_value(proposal: SessionListItemDTO) -> str | datetime:
-                return _sort_value(proposal, sort_key)
-
-            proposals = sorted(proposals, key=sort_value, reverse=sort.startswith("-"))
-        else:
-            sort = ""
 
         settings = self._panel_settings.read_or_create(event_id)
         return ProposalListContextDTO(

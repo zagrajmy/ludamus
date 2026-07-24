@@ -385,3 +385,30 @@ class TestProposalColumnsPageView:
                 },
             ),
         )
+
+    def test_field_column_sorts_by_its_stored_answer(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        field = self._field(event)
+        EventPanelSettings.objects.create(
+            event=event, proposal_columns=["title", f"field_{field.pk}"]
+        )
+        for title, system in (("Zulu", "Apocalypse World"), ("Alpha", "Zweihander")):
+            session = Session.objects.create(
+                event=event,
+                category=proposal_category,
+                display_name="Host",
+                title=title,
+                slug=title.lower(),
+                participants_limit=5,
+                status="pending",
+            )
+            SessionFieldValue.objects.create(session=session, field=field, value=system)
+
+        url = reverse("panel:proposals", kwargs={"slug": event.slug})
+        ascending = authenticated_client.get(url, {"sort": f"field_{field.pk}"})
+        descending = authenticated_client.get(url, {"sort": f"-field_{field.pk}"})
+
+        assert [p.title for p in ascending.context["proposals"]] == ["Zulu", "Alpha"]
+        assert [p.title for p in descending.context["proposals"]] == ["Alpha", "Zulu"]

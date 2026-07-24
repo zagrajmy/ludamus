@@ -3,7 +3,7 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, Exists, OuterRef, Q, QuerySet
+from django.db.models import Count, Exists, OuterRef, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
@@ -58,6 +58,28 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
+
+# Whitelist of sortable proposal columns -> ORM field, mirroring the
+# facilitator list. Anything else falls back to newest first.
+_SESSION_SORT_FIELDS = {
+    "title": "title",
+    "host": "display_name",
+    "category": "category__name",
+    "status": "status",
+    "created": "creation_time",
+}
+_FIELD_SORT_PREFIX = "field_"
+
+
+def _field_sort_pk(key: str) -> int | None:
+    rest = key.removeprefix(_FIELD_SORT_PREFIX)
+    return int(rest) if key.startswith(_FIELD_SORT_PREFIX) and rest.isdigit() else None
+
+
+def _session_order(key: str, *, descending: bool) -> tuple[str, ...]:
+    if not (order_field := _SESSION_SORT_FIELDS.get(key, "")):
+        return ("-creation_time",)
+    return (f"-{order_field}" if descending else order_field, "-pk")
 
 
 def _parse_iso8601_duration_minutes(duration: str) -> int:
@@ -577,6 +599,26 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
                 _track_count__gt=1
             )
 
+        sort = filters.get("sort") or ""
+        sort_key = sort.removeprefix("-")
+        if (field_pk := _field_sort_pk(sort_key)) is not None:
+            # A `field_<pk>` column sorts by its stored answer, pulled in with a
+            # correlated subquery. JSON values order by their text form — good
+            # enough to line up near-duplicate entries.
+            qs = qs.annotate(
+                _sort_value=Subquery(
+                    SessionFieldValue.objects.filter(
+                        session_id=OuterRef("pk"), field_id=field_pk
+                    ).values("value")[:1]
+                )
+            )
+            order: tuple[str, ...] = (
+                "-_sort_value" if sort.startswith("-") else "_sort_value",
+                "-pk",
+            )
+        else:
+            order = _session_order(sort_key, descending=sort.startswith("-"))
+
         return [
             SessionListItemDTO(
                 pk=s.pk,
@@ -587,7 +629,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
             )
-            for s in qs.order_by("-creation_time")
+            for s in qs.order_by(*order)
         ]
 
     @staticmethod

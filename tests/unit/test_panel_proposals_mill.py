@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -120,41 +119,28 @@ class TestProposalPanelService:
         filters = sessions.list_sessions_by_event.call_args[0][1]
         assert filters["field_filters"] == {1: "D&D"}
 
-    def test_sorts_by_each_secondary_key(self, service, sessions):
-        first = SimpleNamespace(
-            title="B",
-            display_name="Zoe",
-            category_name="Alpha",
-            status="accepted",
-            creation_time=datetime(2026, 1, 2, tzinfo=UTC),
-        )
-        second = SimpleNamespace(
-            title="A",
-            display_name="Amy",
-            category_name="Beta",
-            status="pending",
-            creation_time=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        sessions.list_sessions_by_event.return_value = [first, second]
+    @pytest.mark.parametrize(
+        "sort", ("title", "host", "category", "status", "created", "-title")
+    )
+    def test_built_in_sort_keys_reach_the_query(self, service, sessions, sort):
+        result = service.list_context(event_id=1, query=ProposalListQuery(sort=sort))
 
-        by_host = service.list_context(event_id=1, query=ProposalListQuery(sort="host"))
-        by_category = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="category")
-        )
-        by_status = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="status")
-        )
-        by_created = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="created")
-        )
+        assert result.sort == sort
+        assert sessions.list_sessions_by_event.call_args[0][1]["sort"] == sort
 
-        assert [p.display_name for p in by_host.proposals] == ["Amy", "Zoe"]
-        assert [p.category_name for p in by_category.proposals] == ["Alpha", "Beta"]
-        assert [p.status for p in by_status.proposals] == ["accepted", "pending"]
-        assert [p.creation_time for p in by_created.proposals] == [
-            datetime(2026, 1, 1, tzinfo=UTC),
-            datetime(2026, 1, 2, tzinfo=UTC),
+    def test_sort_by_a_field_of_this_event_reaches_the_query(
+        self, service, sessions, session_fields
+    ):
+        session_fields.list_by_event.return_value = [
+            SimpleNamespace(pk=7, field_type="select", order=0, name="System")
         ]
+
+        result = service.list_context(
+            event_id=1, query=ProposalListQuery(sort="-field_7")
+        )
+
+        assert result.sort == "-field_7"
+        assert sessions.list_sessions_by_event.call_args[0][1]["sort"] == "-field_7"
 
     @pytest.mark.parametrize(("session_ids", "field_ids"), (([], [1]), ([1], [])))
     def test_column_values_short_circuits_on_empty_ids(
@@ -165,35 +151,14 @@ class TestProposalPanelService:
         assert result == {}
         sessions.list_field_values_for_sessions.assert_not_called()
 
-    def test_sorts_by_valid_key_and_drops_invalid(self, service, sessions):
-        banana = SimpleNamespace(
-            title="Banana",
-            category_name="",
-            status="pending",
-            creation_time=datetime(2026, 1, 1, tzinfo=UTC),
-        )
-        apple = SimpleNamespace(
-            title="Apple",
-            category_name="",
-            status="pending",
-            creation_time=datetime(2026, 1, 2, tzinfo=UTC),
-        )
-        sessions.list_sessions_by_event.return_value = [banana, apple]
+    @pytest.mark.parametrize("sort", ("bogus", "field_999", "field_"))
+    def test_unknown_sort_key_never_reaches_the_query(self, service, sessions, sort):
+        # A tampered `sort` — including one naming another event's field — falls
+        # back to the default order instead of being handed to the repo.
+        result = service.list_context(event_id=1, query=ProposalListQuery(sort=sort))
 
-        ascending = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="title")
-        )
-        descending = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="-title")
-        )
-        invalid = service.list_context(
-            event_id=1, query=ProposalListQuery(sort="bogus")
-        )
-
-        assert [p.title for p in ascending.proposals] == ["Apple", "Banana"]
-        assert [p.title for p in descending.proposals] == ["Banana", "Apple"]
-        assert not invalid.sort
-        assert [p.title for p in invalid.proposals] == ["Banana", "Apple"]
+        assert not result.sort
+        assert sessions.list_sessions_by_event.call_args[0][1]["sort"] is None
 
     def test_create_writes_session_field_values_and_slots_together(
         self, service, sessions

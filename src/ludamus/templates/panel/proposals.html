@@ -212,15 +212,7 @@
                                            class="rounded border-border">
                                 </th>
                                 {% for column in columns %}
-                                    {# Dynamic-field columns aren't sortable here yet: the proposals list sorts in Python over the built-in keys only. #}
-                                    {% if column.field %}
-                                        <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                            {{ column|panel_column_label }}
-                                        </th>
-                                    {% else %}
-                                        {% include "panel/parts/_sort_th.html" with column=column.key label=column|panel_column_label %}
-                                    {% endif %}
+                                    {% include "panel/parts/_sort_th.html" with column=column.key label=column|panel_column_label %}
                                 {% endfor %}
                             </tr>
                         </thead>
