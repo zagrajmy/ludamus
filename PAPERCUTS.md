@@ -163,3 +163,5 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: Committed from a new git worktree → hook startup failed because
+  the copied mise.toml was untrusted; trust was required before hooks could run.
