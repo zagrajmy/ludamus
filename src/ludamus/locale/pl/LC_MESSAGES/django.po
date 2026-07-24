@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 06:44+0200\n"
+"POT-Creation-Date: 2026-07-24 14:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -989,6 +989,19 @@ msgid "Ban removed."
 msgstr "Ban został usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Yes"
+msgstr "Tak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/base.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "No"
+msgstr "Nie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/base.py
 msgid "You don't have permission to access the backoffice panel."
 msgstr "Nie masz uprawnień do panelu organizatora."
 
@@ -1121,19 +1134,6 @@ msgstr "Ustawienia wyświetlania zostały zapisane."
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Yes"
-msgstr "Tak"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "No"
-msgstr "Nie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/templates/panel/facilitator-merge.html
@@ -5644,6 +5644,7 @@ msgstr "Scal"
 #: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/_proposal_tabs.html
 #: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/parts/_columns_chooser.html
 #: src/ludamus/templates/panel/proposal-columns.html
 msgid "Columns"
 msgstr "Kolumny"
@@ -6273,22 +6274,6 @@ msgstr ""
 "Zaznacz kolumny widoczne na liście twórców programu i ustaw ich kolejność od "
 "góry do dołu. Tylko dla organizatorów."
 
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/proposal-columns.html
-msgid "Shown columns"
-msgstr "Wyświetlane kolumny"
-
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/proposal-columns.html
-msgctxt "column group"
-msgid "Available"
-msgstr "Dostępne"
-
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/proposal-columns.html
-msgid "Available columns"
-msgstr "Dostępne kolumny"
-
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "New Facilitator"
@@ -6868,6 +6853,19 @@ msgstr "Przenieś w górę"
 #: src/ludamus/templates/panel/parts/_column_row.html
 msgid "Move down"
 msgstr "Przenieś w dół"
+
+#: src/ludamus/templates/panel/parts/_columns_chooser.html
+msgid "Shown columns"
+msgstr "Wyświetlane kolumny"
+
+#: src/ludamus/templates/panel/parts/_columns_chooser.html
+msgctxt "column group"
+msgid "Available"
+msgstr "Dostępne"
+
+#: src/ludamus/templates/panel/parts/_columns_chooser.html
+msgid "Available columns"
+msgstr "Dostępne kolumny"
 
 #: src/ludamus/templates/panel/parts/_pagination.html
 #, python-format
@@ -8188,6 +8186,7 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "No facilitators available to merge."
 #~ msgstr "Brak twórców programu do scalenia."
+
 #, python-format
 #~ msgid "Remove %(name)s from your party?"
 #~ msgstr "Usunąć %(name)s z Twojej drużyny?"
