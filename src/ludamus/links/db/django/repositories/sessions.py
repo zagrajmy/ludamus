@@ -24,6 +24,7 @@ from ludamus.links.db.django.repositories.chronology import (
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     UNSCHEDULED_LIST_LIMIT,
     AgendaItemDTO,
     EventDTO,
@@ -65,6 +66,23 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     hours = int(m.group(1) or 0)
     minutes = int(m.group(2) or 0)
     return hours * 60 + minutes
+
+
+def annotate_session_participation_counts(
+    queryset: QuerySet[Session],
+) -> QuerySet[Session]:
+    return queryset.annotate(
+        enrolled_count_cached=Count(
+            "session_participations",
+            filter=Q(
+                session_participations__status__in=OCCUPYING_PARTICIPATION_STATUSES
+            ),
+        ),
+        waiting_count_cached=Count(
+            "session_participations",
+            filter=Q(session_participations__status=SessionParticipationStatus.WAITING),
+        ),
+    )
 
 
 def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
@@ -176,21 +194,8 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         viewer_user_ids: list[int],
         editor_user_id: int | None,
     ) -> SessionModalDTO | None:
-        base = Session.objects.filter(agenda_item__isnull=False).annotate(
-            enrolled_count_cached=Count(
-                "session_participations",
-                filter=Q(
-                    session_participations__status=(
-                        SessionParticipationStatus.CONFIRMED
-                    )
-                ),
-            ),
-            waiting_count_cached=Count(
-                "session_participations",
-                filter=Q(
-                    session_participations__status=(SessionParticipationStatus.WAITING)
-                ),
-            ),
+        base = annotate_session_participation_counts(
+            Session.objects.filter(agenda_item__isnull=False)
         )
         try:
             session = with_session_card_relations(base).get(

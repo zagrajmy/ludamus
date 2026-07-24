@@ -36,7 +36,20 @@ const createFlash = (kind: string, message: string): HTMLElement => {
   return flash;
 };
 
+const wireLogoBuilder = (): void => {
+  const builder = document.querySelector<HTMLElement>("[data-logo-builder]");
+  const lockup = builder?.querySelector<SVGElement>(".logo-lockup");
+  const coral = builder?.querySelector<HTMLInputElement>("#lb-coral");
+  if (!lockup || !coral) return;
+
+  const sync = () => lockup.classList.toggle("mono", !coral.checked);
+  coral.addEventListener("change", sync);
+  sync();
+};
+
 const wire = (): void => {
+  wireLogoBuilder();
+
   const demo = document.querySelector<HTMLElement>("[data-flash-demo]");
   if (!demo) return;
 

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-21 06:52+0200\n"
+"POT-Creation-Date: 2026-07-23 17:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1819,10 +1819,6 @@ msgid "Authentication failed"
 msgstr "Uwierzytelnienie nie powiodło się"
 
 #: src/ludamus/gates/web/django/crowd/auth.py
-msgid "You have been successfully logged out."
-msgstr "Zostałeś pomyślnie wylogowany."
-
-#: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Invalid redirect URL."
 msgstr "Nieprawidłowy adres URL przekierowania."
 
@@ -2989,6 +2985,10 @@ msgid "Notifications"
 msgstr "Powiadomienia"
 
 #: src/ludamus/templates/base.html
+msgid "Brand"
+msgstr "Marka"
+
+#: src/ludamus/templates/base.html
 msgid "Contact"
 msgstr "Kontakt"
 
@@ -2999,6 +2999,120 @@ msgstr "Polityka prywatności"
 #: src/ludamus/templates/base.html
 msgid "Terms of Service"
 msgstr "Regulamin"
+
+#: src/ludamus/templates/brand.html
+msgid "Logo & Brand Guidelines"
+msgstr "Logo i identyfikacja wizualna"
+
+#: src/ludamus/templates/brand.html
+msgid "Download logos"
+msgstr "Pobierz logotypy"
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Coral marks the tabletop and small accents. It is never a surface: the logo "
+"does not appear on or as a full-coral field, so overlap with other orange "
+"brands is not a concern."
+msgstr ""
+"Koral wyznacza blat stołu i drobne akcenty. Nigdy nie jest powierzchnią: "
+"logo nie pojawia się na koralowym tle ani jako koralowa plama, więc "
+"zbieżność z innymi pomarańczowymi markami nie jest problemem."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Seats and wordmark inherit the text color; use the mono variant on coral-"
+"adjacent or busy grounds."
+msgstr ""
+"Krzesła i logotyp dziedziczą kolor tekstu; na tłach zbliżonych do koralu lub "
+"niespokojnych używaj wariantu mono."
+
+#: src/ludamus/templates/brand.html
+msgid "One ink plus coral, at most. No gradients, no outlines, no shadows."
+msgstr "Najwyżej jedna farba plus koral. Bez gradientów, obrysów i cieni."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Use the full lockup where the platform speaks: the navbar, sign-in, e-mails, "
+"social cards."
+msgstr ""
+"Pełnego logotypu używaj tam, gdzie mówi platforma: pasek nawigacji, "
+"logowanie, e-maile, karty społecznościowe."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Use the bare mark where space is tight or the name is already on screen: "
+"favicons, avatars, badges."
+msgstr ""
+"Samego znaku używaj tam, gdzie brakuje miejsca albo nazwa już jest na "
+"ekranie: favicony, awatary, plakietki."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"The logo signs the platform. Events and spheres speak under their own names."
+msgstr ""
+"Logo podpisuje platformę. Wydarzenia i sfery występują pod własnymi nazwami."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Keep one chair of clear space around the mark, and never render it below 16 "
+"px or the lockup below 120 px wide."
+msgstr ""
+"Zostaw wokół znaku odstęp szerokości jednego krzesła i nie schodź ze znakiem "
+"poniżej 16 px, a z logotypem poniżej 120 px szerokości."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not recolor. Coral, ink, and mono are the whole palette."
+msgstr "Nie zmieniaj kolorów. Koral, atrament i mono to cała paleta."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not stretch, rotate, or crop the mark."
+msgstr "Nie rozciągaj, nie obracaj i nie przycinaj znaku."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not add shadows, gradients, or outlines."
+msgstr "Nie dodawaj cieni, gradientów ani obrysów."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Do not redraw the mark or set the wordmark in another font. Copy the "
+"templates."
+msgstr ""
+"Nie rysuj znaku od nowa i nie składaj logotypu innym krojem. Kopiuj szablony."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"Do not place the logo on busy grounds. Switch to mono or calm the background."
+msgstr "Nie kładź logo na niespokojnym tle. Przełącz na mono albo uspokój tło."
+
+#: src/ludamus/templates/brand.html
+msgid "Do not build the logo into another logo, product name, or event brand."
+msgstr "Nie wbudowuj logo w inne logo, nazwę produktu ani markę wydarzenia."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"tuck-in, where the seats slide flush into the tabletop, is the baseline "
+"hover. The navbar logo uses it."
+msgstr ""
+"tuck-in, w którym krzesła wsuwają się równo w blat, to podstawowa animacja "
+"najechania. Używa jej logo w pasku nawigacji."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"d6 morphs the table into a die face. Reserve it for playful, rare moments."
+msgstr ""
+"d6 zamienia stół w ściankę kości. Zarezerwuj go na rzadkie, zabawowe momenty."
+
+#: src/ludamus/templates/brand.html
+msgid ""
+"These two are the entire motion vocabulary; do not invent new logo "
+"animations."
+msgstr ""
+"Te dwa ruchy to cały słownik animacji; nie wymyślaj nowych animacji logo."
+
+#: src/ludamus/templates/brand.html
+msgid "A case these rules do not cover? Ask before improvising."
+msgstr ""
+"Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
 
 #: src/ludamus/templates/chronology/_accept_timeslot_control.html
 msgid "Choose a time…"
@@ -3589,11 +3703,12 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/discounts/create.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/discounts/export.html
+#: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -3604,7 +3719,6 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/panel/session-field-edit.html
 #: src/ludamus/templates/panel/space-copy.html
 #: src/ludamus/templates/panel/space-form.html
-#: src/ludamus/templates/panel/time-slot-create.html
 #: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/timetable.html
 #: src/ludamus/templates/panel/track-create.html
@@ -3714,6 +3828,7 @@ msgstr "Wszystkie rodzaje atrakcji"
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
 #: src/ludamus/templates/panel/timetable-log.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "All"
 msgstr "Wszystkie"
 
@@ -3841,7 +3956,6 @@ msgstr "Nowa integracja"
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/time-slot-create.html
 msgid "Create"
 msgstr "Utwórz"
 
@@ -5028,6 +5142,14 @@ msgstr "Pokaż trwały komunikat błędu"
 msgid "Dismiss all"
 msgstr "Zamknij wszystkie"
 
+#: src/ludamus/templates/design.html
+msgid "Coral table"
+msgstr "Koralowy stół"
+
+#: src/ludamus/templates/design.html
+msgid "Download"
+msgstr "Pobierz"
+
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -5573,6 +5695,15 @@ msgstr "Kopiuj do wydarzenia"
 msgid "Delete this space and everything inside it?"
 msgstr "Usunąć tę przestrzeń i całą jej zawartość?"
 
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
+msgid "New Time Slot"
+msgstr "Nowy przedział czasowy"
+
+#: src/ludamus/templates/panel/_time-slot-create-modal.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Add Time Slot"
+msgstr "Dodaj przedział czasowy"
+
 #: src/ludamus/templates/panel/_time-slot-form.html
 msgid "Time Slot Details"
 msgstr "Szczegóły przedziału czasowego"
@@ -5683,16 +5814,12 @@ msgid "Close navigation"
 msgstr "Zamknij nawigację"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Backoffice"
-msgstr "Panel organizatora"
+msgid "Event"
+msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Event"
-msgstr "Wydarzenie"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Toggle category"
@@ -6025,16 +6152,6 @@ msgstr "Zmiany twórców programu"
 msgid "Facilitator"
 msgstr "Prowadzący"
 
-#: src/ludamus/templates/panel/discounts/create.html
-msgid "Assign discount"
-msgstr "Przyznaj zniżkę"
-
-#: src/ludamus/templates/panel/discounts/create.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Assign"
-msgstr "Przypisz"
-
 #: src/ludamus/templates/panel/discounts/edit.html
 msgid "Edit discount"
 msgstr "Edytuj zniżkę"
@@ -6088,6 +6205,15 @@ msgstr "Zniżka"
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Are you sure you want to remove this discount?"
 msgstr "Czy na pewno chcesz usunąć tę zniżkę?"
+
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Assign"
+msgstr "Przypisz"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Assign discount"
+msgstr "Przyznaj zniżkę"
 
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -6645,7 +6771,7 @@ msgid "Mapping"
 msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/parts/timetable-day-grid.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -7729,23 +7855,14 @@ msgstr ""
 "Brak przestrzeni. Dodaj pojedynczą salę albo zagnieżdżaj przestrzenie, aby "
 "odwzorować większy obiekt."
 
-#: src/ludamus/templates/panel/time-slot-create.html
-msgid "New Time Slot"
-msgstr "Nowy przedział czasowy"
-
-#: src/ludamus/templates/panel/time-slot-create.html
-#: src/ludamus/templates/panel/time-slot-edit.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Schedule Configuration"
-msgstr "Konfiguracja harmonogramu"
-
 #: src/ludamus/templates/panel/time-slot-edit.html
 msgid "Edit Time Slot"
 msgstr "Edytuj przedział czasowy"
 
+#: src/ludamus/templates/panel/time-slot-edit.html
 #: src/ludamus/templates/panel/time-slots.html
-msgid "Add Time Slot"
-msgstr "Dodaj przedział czasowy"
+msgid "Schedule Configuration"
+msgstr "Konfiguracja harmonogramu"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid "What are Time Slots?"
@@ -8051,3 +8168,50 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "No facilitators available to merge."
 #~ msgstr "Brak twórców programu do scalenia."
+#, python-format
+#~ msgid "Remove %(name)s from your party?"
+#~ msgstr "Usunąć %(name)s z Twojej drużyny?"
+
+#, python-format
+#~ msgid "Party of %(leader_name)s"
+#~ msgstr "Drużyna %(leader_name)s"
+
+#, python-format
+#~ msgid ""
+#~ "There is %(counter)s seat left — people you tick get seats in order, and "
+#~ "once seats run out the rest join the waiting list."
+#~ msgid_plural ""
+#~ "There are %(counter)s seats left — people you tick get seats in order, "
+#~ "and once seats run out the rest join the waiting list."
+#~ msgstr[0] ""
+#~ "Zostało %(counter)s miejsce — zaznaczone osoby dostają miejsca po kolei, "
+#~ "a gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+#~ msgstr[1] ""
+#~ "Zostały %(counter)s miejsca — zaznaczone osoby dostają miejsca po kolei, "
+#~ "a gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+#~ msgstr[2] ""
+#~ "Zostało %(counter)s miejsc — zaznaczone osoby dostają miejsca po kolei, a "
+#~ "gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+#~ msgstr[3] ""
+#~ "Zostało %(counter)s miejsca — zaznaczone osoby dostają miejsca po kolei, "
+#~ "a gdy miejsc zabraknie, reszta trafia na listę oczekujących."
+
+#, python-format
+#~ msgid "Hosted by %(name)s"
+#~ msgstr "Prowadzi %(name)s"
+
+#, python-format
+#~ msgid "%(counter)s seat left"
+#~ msgid_plural "%(counter)s seats left"
+#~ msgstr[0] "Zostało %(counter)s miejsce"
+#~ msgstr[1] "Zostały %(counter)s miejsca"
+#~ msgstr[2] "Zostało %(counter)s miejsc"
+#~ msgstr[3] "Zostało %(counter)s miejsca"
+
+#, python-format
+#~ msgid "There is %(count)s existing proposal for this session type."
+#~ msgid_plural "There are %(count)s existing proposals for this session type."
+#~ msgstr[0] "Istnieje %(count)s zgłoszenie dla tego typu punktu programu."
+#~ msgstr[1] "Istnieją %(count)s zgłoszenia dla tego typu punktu programu."
+#~ msgstr[2] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."
+#~ msgstr[3] "Istnieje %(count)s zgłoszeń dla tego typu punktu programu."

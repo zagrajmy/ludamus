@@ -84,6 +84,7 @@ class TestEventsPageView:
             template_name=["index.html"],
             cache_control={"private", "max-age=180"},
         )
+        assert "Cookie" in response.headers.get("Vary", "")
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
     def test_ok_with_event(self, client, event):
