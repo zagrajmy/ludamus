@@ -2,7 +2,7 @@
 Combination mark: chunky icon + outlined Outfit wordmark. Icon is the
 shared mark-paths group, scaled per the chunky rule (tabletop flush
 with the z band). Pass mono=True for the one-ink variant;
-extra_class stays layout-only. Hover morphs paint knockout channels
+class stays layout-only. Hover morphs paint knockout channels
 in --brand-knockout (default --color-bg-secondary); set it on hosts
 with any other background.
 {% endcomment %}
@@ -10,7 +10,7 @@ with any other background.
      fill="none"
      xmlns="http://www.w3.org/2000/svg"
      role="img"
-     class="logo-lockup{% if mono|default:False %} mono{% endif %} {{ extra_class }}">
+     class="logo-lockup{% if mono|default:False %} mono{% endif %} {{ class }}">
     <title>zagrajmy</title>
     <g class="lockup-icon">
     {% include "components/brand/mark-paths.html" %}
