@@ -116,6 +116,8 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             "accreditation": query.accreditation or None,
             "flagged": query.flagged or None,
             "field_filters": field_filters or None,
+            "organizer_id": query.organizer_id,
+            "organizer_unassigned": query.organizer_unassigned or None,
             "sort": query.sort or None,
         }
         settings = self._panel_settings.read_or_create(event_id)

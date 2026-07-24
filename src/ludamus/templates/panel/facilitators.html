@@ -48,6 +48,18 @@
                                 {% endfor %}
                             {% end_select %}
                         </div>
+                        <div class="w-full sm:w-48 min-w-0">
+                            {% translate "Organizer" as t_organizer %}
+                            {% include "components/label.html" with for_id="filter-organizer" text=t_organizer only %}
+                            {% select id="filter-organizer" name="organizer" class="truncate" %}
+                                <option value="">{% translate "All organizers" %}</option>
+                                <option value="mine" {% if filter_organizer == "mine" %}selected{% endif %}>{% translate "Mine" %}</option>
+                                <option value="unassigned"
+                                        {% if filter_organizer == "unassigned" %}selected{% endif %}>
+                                    {% translate "Unassigned" %}
+                                </option>
+                            {% end_select %}
+                        </div>
                         {% for field in filterable_fields %}
                             {% with pk_str=field.pk|stringformat:"s" %}
                                 {% with field_id="filter-field-"|add:pk_str field_name="field_"|add:pk_str %}

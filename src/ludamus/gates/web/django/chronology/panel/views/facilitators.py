@@ -140,10 +140,15 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _read_query(self) -> FacilitatorListQuery:
         accreditation = self.request.GET.get("accreditation", "").strip()
+        organizer = self.request.GET.get("organizer", "").strip()
         return FacilitatorListQuery(
             search=self.request.GET.get("search", "").strip(),
             accreditation=(accreditation if accreditation in AccreditationType else ""),
             flagged=self.request.GET.get("flagged") == "true",
+            organizer_id=(
+                self.request.context.current_user_id if organizer == "mine" else None
+            ),
+            organizer_unassigned=organizer == "unassigned",
             sort=self.request.GET.get("sort", "").strip() or "name",
             raw_field_filters={
                 int(key.removeprefix("field_")): self.request.GET.get(key, "")
@@ -186,11 +191,20 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_search"] = query.search
         context["filter_accreditation"] = query.accreditation or None
         context["filter_flagged"] = query.flagged
+        # Derived from the resolved query, so a tampered value renders as "all"
+        # rather than as a selected option the list is not actually filtered by.
+        context["filter_organizer"] = (
+            "mine"
+            if query.organizer_id
+            else "unassigned" if query.organizer_unassigned else ""
+        )
         context["filter_sort"] = query.sort
         context["filters_active"] = bool(
             query.search
             or query.accreditation
             or query.flagged
+            or query.organizer_id
+            or query.organizer_unassigned
             or list_context.field_filters
         )
         context["accreditation_types"] = [

@@ -958,6 +958,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if filters.get("flagged"):
             qs = qs.filter(flagged_for_deletion=True)
 
+        if filters.get("organizer_unassigned"):
+            qs = qs.filter(organizer__isnull=True)
+        elif organizer_id := filters.get("organizer_id"):
+            qs = qs.filter(organizer_id=organizer_id)
+
         for field_id, value in (filters.get("field_filters") or {}).items():
             # Each condition is its own join, so different fields AND together.
             qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)

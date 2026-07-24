@@ -99,6 +99,7 @@ def _base_context(event):
         "filter_search": "",
         "filter_accreditation": None,
         "filter_flagged": False,
+        "filter_organizer": "",
         "filter_sort": "name",
         "filters_active": False,
         "accreditation_types": [
@@ -479,6 +480,131 @@ class TestFacilitatorsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "filter_flagged": True,
                 "filters_active": True,
+            },
+        )
+
+    def test_mine_filter_keeps_only_my_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other = UserFactory(username="other", name="Other Organizer")
+        Facilitator.objects.create(
+            event=event,
+            display_name="Mine",
+            slug="mine",
+            user=None,
+            organizer=active_user,
+        )
+        Facilitator.objects.create(
+            event=event,
+            display_name="Theirs",
+            slug="theirs",
+            user=None,
+            organizer=other,
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"organizer": "mine"})
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Mine",
+                organizer_id=active_user.pk,
+                organizer_name=active_user.name,
+                pk=response.context["facilitators"][0].pk,
+                slug="mine",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_organizer": "mine",
+                "filters_active": True,
+            },
+        )
+
+    def test_unassigned_filter_keeps_only_unclaimed_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Taken",
+            slug="taken",
+            user=None,
+            organizer=active_user,
+        )
+        Facilitator.objects.create(
+            event=event, display_name="Free", slug="free", user=None
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"organizer": "unassigned"}
+        )
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Free",
+                pk=response.context["facilitators"][0].pk,
+                slug="free",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "filter_organizer": "unassigned",
+                "filters_active": True,
+            },
+        )
+
+    def test_tampered_organizer_filter_falls_back_to_all(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"organizer": "everyone"}
+        )
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
 
