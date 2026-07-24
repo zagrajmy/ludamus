@@ -1,0 +1,177 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% load django_vite %}
+{% block title_prefix %}
+    {% if proposal %}
+        {% translate "Edit Proposal" %} -
+    {% else %}
+        {% translate "Create Session" %} -
+    {% endif %}
+{% endblock title_prefix %}
+{% block page_title %}
+    {% if proposal %}
+        {{ proposal.title }}
+    {% else %}
+        {% translate "Create Session" %}
+    {% endif %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Proposals" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        <div class="flex items-center space-x-3">
+            {% translate "Cancel" as t_cancel %}
+            {% tessera_button t_cancel href=cancel_url variant="secondary" %}
+            {% if proposal %}
+                {% translate "Save" as t_save %}
+                {% tessera_button t_save icon="check" form="proposal-form" full_width_mobile=False %}
+            {% else %}
+                {% translate "Create" as t_create %}
+                {% tessera_button t_create icon="plus" form="proposal-form" full_width_mobile=False %}
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        <form id="proposal-form"
+              method="post"
+              enctype="multipart/form-data"
+              class="p-4 lg:p-6 columns-1 lg:columns-2 xl:columns-3 gap-6">
+            {% csrf_token %}
+            <div class="contents">
+                <div class="card break-inside-avoid mb-6">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Details" %}</h3>
+                        <div class="space-y-6">
+                            <div>{% tessera_field form.title %}</div>
+                            <div>
+                                <div class="flex items-center gap-1 mb-1">
+                                    {% translate "Category" as t_category %}
+                                    {% include "components/label.html" with for_id="id_category_id" text=t_category required=True only %}
+                                    <span id="category-spinner"
+                                          class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
+                                          role="status"
+                                          aria-label="{% translate "Loading" %}"></span>
+                                </div>
+                                {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors %}
+                                    {% for value, label in form.category_id.field.choices %}
+                                        <option value="{{ value }}"
+                                                {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                {% end_select %}
+                                {% if form.category_id.errors %}<p class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>{% endif %}
+                            </div>
+                            <div>{% tessera_field form.cover_image %}</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>{% tessera_field form.display_name %}</div>
+                                <div>{% tessera_field form.contact_email %}</div>
+                            </div>
+                            <div>{% tessera_field form.description %}</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>{% tessera_field form.participants_limit %}</div>
+                                <div>{% tessera_field form.min_age %}</div>
+                            </div>
+                            {# Free text when the category configures no durations, a picker when it does. #}
+                            {% tessera_field form.duration %}
+                        </div>
+                    </div>
+                </div>
+                {% include "panel/parts/proposal-session-fields.html" %}
+            </div>
+            <div class="contents">
+                {% if all_facilitators %}
+                    <div class="card break-inside-avoid mb-6">
+                        <div class="card-body">
+                            <input type="hidden" name="facilitators_submitted" value="1">
+                            <h3 class="text-lg font-semibold text-foreground mb-2">
+                                {% translate "Facilitators" %}{% if not proposal %}<span class="text-danger ml-0.5">*</span>{% endif %}
+                            </h3>
+                            <div class="{% if form.non_field_errors %}border border-danger rounded-lg p-2{% endif %}">
+                                {% include "panel/parts/facilitator-picker.html" %}
+                            </div>
+                            {% if form.non_field_errors %}
+                                <p class="mt-1 text-sm text-danger">{{ form.non_field_errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% elif not proposal %}
+                    <div class="card break-inside-avoid mb-6">
+                        <div class="card-body">
+                            <h3 class="text-lg font-semibold text-foreground mb-2">
+                                {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
+                            </h3>
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "This event has no facilitators yet." %}
+                                <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
+                                   class="text-primary underline hover:no-underline ml-1">{% translate "Create one first" %}</a>
+                            </p>
+                        </div>
+                    </div>
+                {% endif %}
+                {% if all_tracks %}
+                    <div class="card break-inside-avoid mb-6">
+                        <div class="card-body">
+                            <input type="hidden" name="tracks_submitted" value="1">
+                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Tracks" %}</h3>
+                            <p class="text-sm text-foreground-muted mb-4">
+                                {% translate "Assign this proposal to one or more programme tracks." %}
+                            </p>
+                            <div class="space-y-2">
+                                {% for t in all_tracks %}
+                                    <label class="flex items-center gap-2 py-2 text-sm">
+                                        {% if t.pk in assigned_track_pks %}
+                                            {% include "components/checkbox-field.html" with name="track_ids" value=t.pk checked=True label="" only %}
+                                        {% else %}
+                                            {% include "components/checkbox-field.html" with name="track_ids" value=t.pk label="" only %}
+                                        {% endif %}
+                                        {{ t.name }}
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                {% if all_time_slots %}
+                    <div class="card break-inside-avoid mb-6">
+                        <div class="card-body">
+                            <input type="hidden" name="time_slots_submitted" value="1">
+                            {% include "panel/parts/time-slot-picker.html" %}
+                        </div>
+                    </div>
+                {% endif %}
+                {% if facilitator_personal_data %}
+                    <div class="card break-inside-avoid mb-6">
+                        <div class="card-body">
+                            <input type="hidden" name="personal_data_submitted" value="1">
+                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitator personal data" %}</h3>
+                            <p class="text-sm text-foreground-muted mb-4">
+                                {% translate "Personal-data answers for each assigned facilitator." %}
+                            </p>
+                            <div class="space-y-3">
+                                {% for facilitator, name_prefix, items in facilitator_personal_data %}
+                                    <details class="border border-border rounded-lg">
+                                        <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ facilitator.display_name }}</summary>
+                                        <div class="px-4 pb-4 pt-2">
+                                            <input type="hidden"
+                                                   name="personal_data_facilitator_ids"
+                                                   value="{{ facilitator.pk }}">
+                                            {% include "panel/_personal_data_fields.html" with fields=items name_prefix=name_prefix %}
+                                        </div>
+                                    </details>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </form>
+        {% vite_asset 'src/encounter-form.ts' %}
+    {% endif %}
+{% endblock content %}

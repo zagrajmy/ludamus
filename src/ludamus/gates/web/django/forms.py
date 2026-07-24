@@ -581,19 +581,25 @@ class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
     title = forms.CharField(
-        max_length=255, strip=True, error_messages={"required": _("Title is required.")}
+        max_length=255,
+        strip=True,
+        label=_("Title"),
+        error_messages={"required": _("Title is required.")},
     )
     display_name = forms.CharField(
         max_length=255,
         strip=True,
+        label=_("Display Name"),
         error_messages={"required": _("Display name is required.")},
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 5})
+        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
     )
-    contact_email = forms.EmailField(required=False)
-    participants_limit = forms.IntegerField(required=False, min_value=0)
-    min_age = forms.IntegerField(required=False, min_value=0)
+    contact_email = forms.EmailField(required=False, label=_("Contact Email"))
+    participants_limit = forms.IntegerField(
+        required=False, min_value=0, label=_("Participants Limit")
+    )
+    min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
     duration = forms.CharField(required=False)
     cover_image = cover_image_field()
 
@@ -606,7 +612,11 @@ class SessionEditForm(forms.Form):
 def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
     # Stays optional (blank = no limit, as organizers expect) but honours the
     # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {"required": False, "min_value": min_limit or 0}
+    kwargs: dict[str, Any] = {
+        "required": False,
+        "min_value": min_limit or 0,
+        "label": _("Participants Limit"),
+    }
     if max_limit:
         kwargs["max_value"] = max_limit
     return forms.IntegerField(**kwargs)
@@ -615,7 +625,6 @@ def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.Intege
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
-    facilitators: list[tuple[int, str]] | None = None,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
@@ -628,17 +637,6 @@ def create_proposal_form(
             },
         )
     }
-    # Create variant only: a required facilitator binding so a hand-added
-    # proposal can never exist with zero facilitators. The edit view omits
-    # this — it manages facilitators through its own inline list.
-    if facilitators is not None:
-        attrs["facilitator_ids"] = forms.MultipleChoiceField(
-            choices=facilitators,
-            error_messages={
-                "required": _("Please select at least one facilitator."),
-                "invalid_choice": _("Invalid facilitator selection."),
-            },
-        )
 
     if category and (
         category.min_participants_limit or category.max_participants_limit

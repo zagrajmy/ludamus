@@ -6,12 +6,12 @@
     </p>
     <div class="space-y-2">
         {% for ts in all_time_slots %}
-            <label class="flex items-center text-sm py-3 rounded-md hover:bg-foreground/5">
-                <input type="checkbox"
-                       name="time_slot_ids"
-                       value="{{ ts.pk }}"
-                       {% if ts.pk in assigned_time_slot_pks %}checked{% endif %}
-                       class="mr-2 accent-primary">
+            <label class="flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5">
+                {% if ts.pk in assigned_time_slot_pks %}
+                    {% include "components/checkbox-field.html" with name="time_slot_ids" value=ts.pk checked=True label="" only %}
+                {% else %}
+                    {% include "components/checkbox-field.html" with name="time_slot_ids" value=ts.pk label="" only %}
+                {% endif %}
                 {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
             </label>
         {% endfor %}

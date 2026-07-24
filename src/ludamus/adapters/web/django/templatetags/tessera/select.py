@@ -33,9 +33,8 @@ class SelectNode(template.Node):
             k: v.resolve(context) for k, v in self.attrs.items()
         }
 
-        # `class` styles the element; every other keyword is forwarded as an
-        # HTML attribute on the <select>.
         extra_class = str(resolved.pop("class", ""))
+        has_errors = bool(resolved.pop("has_errors", False))
 
         attr_parts: list[str] = []
         for key, value in resolved.items():
@@ -57,6 +56,7 @@ class SelectNode(template.Node):
                     " ".join(attr_parts)
                 ),
                 "extra_class": extra_class,
+                "has_errors": has_errors,
                 "slot": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
                     self.nodelist.render(context)
                 ),

@@ -1,21 +1,20 @@
 {% load i18n %}
 {# Search-first picker: with hundreds of facilitators per event, only the #}
 {# already-selected rows show until the search narrows the list. #}
-<input type="text"
-       id="facilitator-search"
-       placeholder="{% translate "Search by name…" %}"
-       aria-label="{% translate "Search facilitators by name" %}"
-       autocomplete="off"
-       class="w-full border border-border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+{% translate "Search by name…" as t_search_placeholder %}
+{% translate "Search facilitators by name" as t_search_label %}
+<div class="mb-4">
+    {% include "components/text-field.html" with name="" id="facilitator-search" placeholder=t_search_placeholder aria_label=t_search_label autocomplete="off" only %}
+</div>
 <div class="space-y-2" id="facilitator-list">
     {% for f in all_facilitators %}
-        <label class="facilitator-row flex items-center text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
+        <label class="facilitator-row flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
                data-name="{{ f.display_name|lower }}">
-            <input type="checkbox"
-                   name="facilitator_ids"
-                   value="{{ f.pk }}"
-                   {% if f.pk in assigned_facilitator_pks %}checked{% endif %}
-                   class="mr-2 accent-primary">
+            {% if f.pk in assigned_facilitator_pks %}
+                {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk checked=True label="" only %}
+            {% else %}
+                {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk label="" only %}
+            {% endif %}
             {{ f.display_name }}
         </label>
     {% endfor %}

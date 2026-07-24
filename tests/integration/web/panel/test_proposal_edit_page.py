@@ -81,6 +81,12 @@ def _fields_url(event, proposal_id):
     )
 
 
+def _cancel_url(event, proposal_id):
+    return reverse(
+        "panel:proposal-detail", kwargs={"slug": event.slug, "proposal_id": proposal_id}
+    )
+
+
 def _base_context(event):
     return {
         "current_event": EventDTO.model_validate(event),
@@ -191,7 +197,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -209,6 +215,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -228,7 +235,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -246,6 +253,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -399,7 +407,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -410,6 +418,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
+                "cancel_url": _cancel_url(event, session.pk),
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [],
@@ -485,7 +494,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "events": [
@@ -507,6 +516,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -905,7 +915,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -932,6 +942,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1122,7 +1133,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -1140,6 +1151,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1320,7 +1332,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=[
                 'name="session_genres"',
@@ -1413,7 +1425,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=[
                 'name="tracks_submitted"',
@@ -1450,7 +1462,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=['id="facilitator-search"', "Alice", "Bob"],
         )
@@ -1459,7 +1471,7 @@ class TestProposalEditPageView:
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
         # Search-first picker: unassigned facilitators start hidden.
         assert (
-            "facilitator-row flex items-center text-sm py-3 rounded-md"
+            "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
             " hover:bg-foreground/5 hidden" in html
         )
 
@@ -1485,7 +1497,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -1512,6 +1524,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],

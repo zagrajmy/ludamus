@@ -6,6 +6,7 @@ from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
@@ -17,25 +18,26 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
     SessionFieldValue,
     TimeSlot,
+    Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts import (
-    EventDTO,
-    FacilitatorListItemDTO,
-    ProposalCategoryDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
-def _fields_context(event, category):
+def _fields_context(event):
     # The create page resolves a category up front so the session fields it
     # renders match the one preselected in the picker.
     return {
-        "category": ProposalCategoryDTO.model_validate(category),
         "field_descriptors": [],
         "orphan_values": [],
         "fields_url": reverse(
@@ -58,10 +60,15 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "proposals",
+        "cancel_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
+        "proposal": None,
         "all_facilitators": [],
         "assigned_facilitator_pks": set(),
+        "all_tracks": [],
+        "assigned_track_pks": set(),
         "all_time_slots": [],
         "assigned_time_slot_pks": set(),
+        "facilitator_personal_data": [],
     }
 
 
@@ -112,17 +119,17 @@ class TestProposalCreatePageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
         response = authenticated_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
             },
         )
@@ -142,7 +149,7 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
             contains=[
                 'name="facilitator_ids"',
@@ -150,7 +157,7 @@ class TestProposalCreatePageView:
                 "Alice",
                 'id="facilitator-search"',
                 (
-                    "facilitator-row flex items-center text-sm py-3 rounded-md"
+                    "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
                     " hover:bg-foreground/5 hidden"
                 ),
             ],
@@ -169,6 +176,7 @@ class TestProposalCreatePageView:
             self.get_url(event),
             data={
                 "category_id": category.pk,
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "display_name": "Test Host",
             },
@@ -177,10 +185,10 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
                 "all_facilitators": [
                     FacilitatorListItemDTO(
@@ -211,20 +219,25 @@ class TestProposalCreatePageView:
             self.get_url(event),
             data={
                 "category_id": category.pk,
+                "facilitators_submitted": "1",
                 "title": "Missing Facilitator",
                 "display_name": "Test Host",
             },
         )
 
-        form = response.context["form"]
-        assert form.errors
+        # The form itself is valid; the "at least one facilitator" invariant is
+        # enforced by the view and surfaced next to the picker.
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data=ANY,
-            contains=['name="facilitator_ids"', form["facilitator_ids"].errors[0]],
+            contains=[
+                'name="facilitator_ids"',
+                "Please select at least one facilitator.",
+            ],
         )
+        assert not Session.objects.filter(title="Missing Facilitator").exists()
 
     # POST tests
 
@@ -284,6 +297,7 @@ class TestProposalCreatePageView:
         response = authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "My New Session",
@@ -320,6 +334,7 @@ class TestProposalCreatePageView:
         response = authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "My New Session",
@@ -346,11 +361,51 @@ class TestProposalCreatePageView:
             facilitator.pk
         ]
 
-    def test_get_renders_time_slot_checkboxes(
+    def test_post_creates_session_with_cover_image(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Session With Cover",
+                "display_name": "Test Host",
+                "description": "",
+                "contact_email": "",
+                "participants_limit": "",
+                "min_age": "",
+                "duration": "",
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                ),
+            },
+        )
+
+        new_session = Session.objects.get(title="Session With Cover")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert new_session.cover_image
+
+    def test_get_renders_time_slot_checkboxes(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         slot = TimeSlot.objects.create(
             event=event,
             start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
@@ -362,10 +417,10 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
                 "all_time_slots": [TimeSlotDTO.model_validate(slot)],
             },
@@ -389,10 +444,12 @@ class TestProposalCreatePageView:
         authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Slotted Session",
                 "display_name": "Test Host",
+                "time_slots_submitted": "1",
                 "time_slot_ids": [slot.pk],
             },
         )
@@ -418,10 +475,12 @@ class TestProposalCreatePageView:
         authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Slotted Session",
                 "display_name": "Test Host",
+                "time_slots_submitted": "1",
                 "time_slot_ids": [foreign_slot.pk],
             },
         )
@@ -445,6 +504,7 @@ class TestProposalCreatePageView:
             data={
                 "category_id": category.pk,
                 "display_name": "Test Host",
+                "time_slots_submitted": "1",
                 "time_slot_ids": [slot.pk],
             },
         )
@@ -452,10 +512,10 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
                 "all_time_slots": [TimeSlotDTO.model_validate(slot)],
                 "assigned_time_slot_pks": {slot.pk},
@@ -463,6 +523,87 @@ class TestProposalCreatePageView:
         )
         content = response.content.decode()
         assert "checked" in checkbox_tag(content, "time_slot_ids", slot.pk)
+
+    def test_get_renders_track_checkboxes(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data=ANY,
+            contains=[
+                'name="tracks_submitted"',
+                'name="track_ids"',
+                f'value="{track.pk}"',
+                "Main Track",
+            ],
+        )
+
+    def test_post_creates_session_with_tracks(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Tracked Session",
+                "display_name": "Test Host",
+                "tracks_submitted": "1",
+                "track_ids": [track.pk],
+            },
+        )
+
+        new_session = Session.objects.get(title="Tracked Session")
+        assert list(new_session.tracks.values_list("pk", flat=True)) == [track.pk]
+
+    def test_post_ignores_track_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        other_event = EventFactory(sphere=sphere)
+        foreign_track = Track.objects.create(
+            event=other_event, name="Foreign", slug="foreign", is_public=True
+        )
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Tracked Session",
+                "display_name": "Test Host",
+                "tracks_submitted": "1",
+                "track_ids": [foreign_track.pk],
+            },
+        )
+
+        new_session = Session.objects.get(title="Tracked Session")
+        assert not new_session.tracks.exists()
 
     def test_post_without_facilitator_shows_error(
         self, authenticated_client, active_user, sphere, event
@@ -487,14 +628,13 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
             },
         )
-        assert response.context["form"].errors
         assert not Session.objects.filter(title="No Facilitator").exists()
 
     def test_post_ignores_facilitator_from_other_event(
@@ -510,6 +650,7 @@ class TestProposalCreatePageView:
         response = authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [foreign.pk],
                 "category_id": category.pk,
                 "title": "Foreign Facilitator",
@@ -517,13 +658,15 @@ class TestProposalCreatePageView:
             },
         )
 
+        # The foreign facilitator is filtered out as not event-scoped, leaving
+        # zero facilitators — the view blocks creation.
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "events": [
                     EventDTO.model_validate(other_event),
                     EventDTO.model_validate(event),
@@ -531,14 +674,13 @@ class TestProposalCreatePageView:
                 "form": ANY,
             },
         )
-        assert response.context["form"].errors
         assert not Session.objects.filter(title="Foreign Facilitator").exists()
 
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -548,12 +690,12 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             # An empty category_id falls back to the event's first category, so
             # the form still renders that category's fields alongside the error.
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
             },
         )
@@ -563,10 +705,6 @@ class TestProposalCreatePageView:
     def test_post_second_same_title_session_saves(
         self, authenticated_client, active_user, sphere, event
     ):
-        # Regression: a title whose slug lands near varchar(50) saved on the
-        # first create but overflowed on the second (collision suffix pushed the
-        # slug past 50), 500ing on Postgres. SQLite ignores the length, so this
-        # only bites — and is only tested — on a real Postgres backend.
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
@@ -576,6 +714,7 @@ class TestProposalCreatePageView:
         submissions = 2
         title = "Midnight Heist One-Shot Adventure For New Players"
         data = {
+            "facilitators_submitted": "1",
             "facilitator_ids": [facilitator.pk],
             "category_id": category.pk,
             "title": title,
@@ -592,9 +731,6 @@ class TestProposalCreatePageView:
     def test_post_surfaces_db_error_as_form_error(
         self, authenticated_client, active_user, sphere, event, monkeypatch
     ):
-        # An unexpected DB constraint/data error must re-render the form with an
-        # error, not throw the user to the generic 500 page (which reads as a
-        # transient glitch) or look like a silent success.
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
@@ -609,6 +745,7 @@ class TestProposalCreatePageView:
         response = authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Boom",
@@ -619,10 +756,10 @@ class TestProposalCreatePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-create.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
-                **_fields_context(event, category),
+                **_fields_context(event),
                 "form": ANY,
                 "all_facilitators": [
                     FacilitatorListItemDTO(
@@ -709,11 +846,23 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             # field_descriptors carry BoundFields, which don't compare usefully.
+            # The component renders without page chrome, so no active_nav.
             context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": False,
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 0,
+                    "total_sessions": 0,
+                },
                 "field_descriptors": ANY,
                 "form": ANY,
-                "category": ProposalCategoryDTO.model_validate(category_b),
                 "orphan_values": [],
+                "fields_url": self.get_fields_url(event),
             },
             contains='name="session_only-b"',
             not_contains='name="session_only-a"',
@@ -771,10 +920,21 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": False,
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 0,
+                    "total_sessions": 0,
+                },
                 "field_descriptors": [],
                 "form": ANY,
-                "category": None,
                 "orphan_values": [],
+                "fields_url": self.get_fields_url(event),
             },
         )
 
@@ -792,6 +952,7 @@ class TestProposalCreateCategoryFields:
         authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Saved Fields",
@@ -818,6 +979,7 @@ class TestProposalCreateCategoryFields:
         response = authenticated_client.post(
             self.get_url(event),
             data={
+                "facilitators_submitted": "1",
                 "facilitator_ids": [facilitator.pk],
                 "category_id": category.pk,
                 "title": "Missing Required",
