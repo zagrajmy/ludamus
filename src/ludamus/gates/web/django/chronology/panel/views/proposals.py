@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -63,6 +63,12 @@ if TYPE_CHECKING:
         tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
     ]
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
+
+
+class _HasPk(Protocol):
+    # The three checkbox pickers hold unrelated DTOs; all the shared code needs
+    # from them is a pk.
+    pk: int
 
 
 @dataclass(frozen=True)
@@ -466,41 +472,53 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
             if value.field_id not in asked_pks
         ]
 
-    @staticmethod
-    def _selected_pks(
-        *, stored: Iterable[int], submitted: list[int] | None, valid: set[int]
-    ) -> set[int]:
+    def _collect_ids(
+        self, *, plural: str, singular: str, valid: set[int]
+    ) -> list[int] | None:
+        # The hidden sentinel separates "this picker wasn't on the page" (leave
+        # the stored selection alone) from "submitted with nothing ticked".
+        if self.request.POST.get(f"{plural}_submitted") != "1":
+            return None
+        raw_ids = self.request.POST.getlist(f"{singular}_ids")
+        return list({int(i) for i in raw_ids if i.isdigit()} & valid)
+
+    def _picker_context(
+        self,
+        context: dict[str, Any],
+        *,
+        plural: str,
+        singular: str,
+        all_items: Sequence[_HasPk],
+        stored: Iterable[int],
+    ) -> None:
+        valid = {item.pk for item in all_items}
+        submitted = self._collect_ids(plural=plural, singular=singular, valid=valid)
+        context[f"all_{plural}"] = all_items
         # An in-progress (re-submitted) selection wins over the stored values so
         # it survives an invalid re-render; both are constrained to valid pks.
-        source = submitted if submitted is not None else stored
-        return set(source) & valid
+        context[f"assigned_{singular}_pks"] = (
+            set(submitted) if submitted is not None else set(stored) & valid
+        )
 
     def _collect_track_ids(self, event_pk: int) -> list[int] | None:
-        if self.request.POST.get("tracks_submitted") != "1":
-            return None
-        raw_ids = self.request.POST.getlist("track_ids")
-        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
-        valid_pks = {t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)}
-        return list(submitted_ids & valid_pks)
+        tracks = self.request.di.uow.tracks.list_by_event(event_pk)
+        return self._collect_ids(
+            plural="tracks", singular="track", valid={t.pk for t in tracks}
+        )
 
     def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
-        if self.request.POST.get("time_slots_submitted") != "1":
-            return None
-        raw_ids = self.request.POST.getlist("time_slot_ids")
-        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
-        valid_pks = {
-            ts.pk for ts in self.request.di.uow.time_slots.list_by_event(event_pk)
-        }
-        return list(submitted_ids & valid_pks)
+        slots = self.request.di.uow.time_slots.list_by_event(event_pk)
+        return self._collect_ids(
+            plural="time_slots", singular="time_slot", valid={s.pk for s in slots}
+        )
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
-        if self.request.POST.get("facilitators_submitted") != "1":
-            return None
-        raw_ids = self.request.POST.getlist("facilitator_ids")
-        submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
-        valid_pks = {f.pk for f in all_facilitators}
-        return list(submitted_ids & valid_pks)
+        facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
+        return self._collect_ids(
+            plural="facilitators",
+            singular="facilitator",
+            valid={f.pk for f in facilitators},
+        )
 
     def _get_facilitator_personal_data(
         self, event_pk: int, proposal_id: int
@@ -609,43 +627,37 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
         context["proposal"] = session
         context["form"] = form
 
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
-        context["all_facilitators"] = all_facilitators
-        context["assigned_facilitator_pks"] = self._selected_pks(
+        sessions = self.request.di.uow.sessions
+        self._picker_context(
+            context,
+            plural="facilitators",
+            singular="facilitator",
+            all_items=self.request.di.uow.facilitators.list_by_event(event_pk),
             stored=(
-                (
-                    f.pk
-                    for f in self.request.di.uow.sessions.read_facilitators(proposal_id)
-                )
+                (f.pk for f in sessions.read_facilitators(proposal_id))
                 if proposal_id is not None
                 else ()
             ),
-            submitted=self._collect_facilitator_ids(event_pk),
-            valid={f.pk for f in all_facilitators},
         )
-
-        all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
-        context["all_tracks"] = all_tracks
-        context["assigned_track_pks"] = self._selected_pks(
+        self._picker_context(
+            context,
+            plural="tracks",
+            singular="track",
+            all_items=self.request.di.uow.tracks.list_by_event(event_pk),
             stored=(
-                self.request.di.uow.sessions.read_track_ids(proposal_id)
-                if proposal_id is not None
-                else ()
+                sessions.read_track_ids(proposal_id) if proposal_id is not None else ()
             ),
-            submitted=self._collect_track_ids(event_pk),
-            valid={t.pk for t in all_tracks},
         )
-
-        all_time_slots = self.request.di.uow.time_slots.list_by_event(event_pk)
-        context["all_time_slots"] = all_time_slots
-        context["assigned_time_slot_pks"] = self._selected_pks(
+        self._picker_context(
+            context,
+            plural="time_slots",
+            singular="time_slot",
+            all_items=self.request.di.uow.time_slots.list_by_event(event_pk),
             stored=(
-                self.request.di.uow.sessions.read_preferred_time_slot_ids(proposal_id)
+                sessions.read_preferred_time_slot_ids(proposal_id)
                 if proposal_id is not None
                 else ()
             ),
-            submitted=self._collect_time_slot_ids(event_pk),
-            valid={ts.pk for ts in all_time_slots},
         )
 
         self._add_field_context(
