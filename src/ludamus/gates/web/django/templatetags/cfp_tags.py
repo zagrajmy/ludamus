@@ -11,7 +11,7 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 
 if TYPE_CHECKING:
     from ludamus.pacts import SessionDTO
-    from ludamus.pacts.submissions import FacilitatorColumnDTO
+    from ludamus.pacts.panel import PanelColumnDTO
 
 register = template.Library()
 
@@ -77,28 +77,36 @@ def content_field_label(field_key: str) -> str:
         "time_slots": _("Time slots"),
         "accreditation_type": _("Accreditation type"),
         "internal_comment": _("Internal comment"),
+        "merged_from": _("Merged from"),
     }
     return labels.get(field_key, field_key)
 
 
 @register.filter
-def facilitator_column_label(column: FacilitatorColumnDTO) -> str:
-    """Label a column of the panel's facilitator list.
+def panel_column_label(column: PanelColumnDTO) -> str:
+    """Label a panel list column.
 
     Returns:
-        The field's own name for personal-data columns, else the built-in's
+        The field's own name for dynamic-field columns, else the built-in's
         translated label.
     """
     if column.field is not None:
         return column.field.name
-    # Built per call so gettext resolves in the active request language.
-    labels = {
+    # Built per call so gettext resolves in the active request language. The
+    # facilitator and proposal built-in keys share one namespace — they don't
+    # collide, so the label doesn't need to know which list is asking.
+    builtin_labels = {
         "name": _("Display Name"),
         "linked": _("Linked User"),
         "sessions": _("Sessions"),
         "accreditation": _("Accreditation"),
+        "title": _("Title"),
+        "host": _("Display Name"),
+        "category": _("Category"),
+        "status": _("Status"),
+        "created": _("Created"),
     }
-    return labels.get(column.key, column.key)
+    return builtin_labels.get(column.key, column.key)
 
 
 @register.filter

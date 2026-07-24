@@ -1267,78 +1267,67 @@ test.describe("Backoffice Panel", () => {
 
   // --- Facilitators: merge ---
 
-  test("facilitators list shows a single merge entry and no inline selection UI", async ({
-    page,
-  }) => {
+  test("facilitators list exposes the merge tab and the bulk selection bar", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/");
 
-    // One clear merge entry point
+    // Merge has its own dedicated tab (the single merge destination).
     await expect(page.getByRole("tab", { name: "Merge", exact: true })).toBeVisible();
 
-    // The old inline selection UI is gone: no "Merge selected" button, no row checkboxes
-    await expect(page.getByRole("button", { name: /Merge selected/ })).toHaveCount(0);
-    await expect(page.getByRole("table").getByRole("checkbox")).toHaveCount(0);
+    // The unified bulk-triage bar is present: row checkboxes drive flag /
+    // mark-guest, and "Merge selected" is a shortcut into the merge flow.
+    await expect(page.getByRole("table").getByRole("checkbox").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /Merge selected/ })).toBeVisible();
   });
 
-  test("merge link opens the merge page with no pre-selection", async ({ page }) => {
+  test("merge tab opens the merge page with an empty basket", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/");
 
     await page.getByRole("tab", { name: "Merge", exact: true }).click();
 
     await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/merge/");
 
-    // Search field is present
-    await expect(page.locator("#facilitator-search")).toBeVisible();
-
-    // All facilitator checkboxes are unchecked
-    const checkboxes = page.locator(".facilitator-checkbox");
-    const count = await checkboxes.count();
-    expect(count).toBeGreaterThanOrEqual(2);
-    for (let i = 0; i < count; i++) {
-      await expect(checkboxes.nth(i)).not.toBeChecked();
-    }
+    // Search-and-collect flow: a search field, and nothing pre-selected.
+    await expect(page.getByLabel("Search", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Selected for merge (0)" })).toBeVisible();
   });
 
-  test("merge page search filters facilitators by name", async ({ page }) => {
+  test("merge page search finds facilitators by name", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/merge/");
 
-    await page.locator("#facilitator-search").fill("Alice");
+    await page.getByLabel("Search", { exact: true }).fill("Alice");
+    await page.getByLabel("Search", { exact: true }).press("Enter");
 
-    // Matching rows remain visible
-    await expect(
-      page
-        .locator(".facilitator-row")
-        .filter({ has: page.locator("label", { hasText: /Alice/ }) })
-        .first(),
-    ).toBeVisible();
+    // "Alice" surfaces add-able results...
+    await expect(page.getByRole("button", { name: "Add" }).first()).toBeVisible();
+    await expect(page.getByText(/Alice Morgan/).first()).toBeVisible();
 
-    // Bob Chen row is hidden
-    await expect(page.locator(".facilitator-row").filter({ hasText: "Bob Chen" })).toBeHidden();
+    // ...but "Bob Chen" does not match the query.
+    await expect(page.getByText("Bob Chen")).toHaveCount(0);
   });
 
-  test("merge page merges selected facilitators into target", async ({ page }) => {
+  test("merge page merges two facilitators into a target", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/merge/");
 
-    const rows = page.locator(".facilitator-row");
-    await expect(rows.first()).toBeVisible();
-    await expect(rows.nth(1)).toBeVisible();
+    // Collect two facilitators into the basket via search-and-add.
+    await page.getByLabel("Search", { exact: true }).fill("Alice");
+    await page.getByLabel("Search", { exact: true }).press("Enter");
 
-    const firstName = (await rows.nth(0).locator("label").textContent())?.trim();
-    const secondName = (await rows.nth(1).locator("label").textContent())?.trim();
-    expect(firstName).toBeTruthy();
-    expect(secondName).toBeTruthy();
+    await page.getByRole("button", { name: "Add" }).first().click();
+    await expect(page.getByRole("heading", { name: "Selected for merge (1)" })).toBeVisible();
+    await page.getByRole("button", { name: "Add" }).first().click();
+    await expect(page.getByRole("heading", { name: "Selected for merge (2)" })).toBeVisible();
 
-    await page.getByLabel(firstName!, { exact: true }).check();
-    await page.getByLabel(secondName!, { exact: true }).check();
-    await rows.nth(0).locator('input[name="target_id"]').check();
-
-    await page.getByRole("button", { name: /Merge/ }).click();
+    // Review, then merge with the pre-selected target and reconcile defaults.
+    await page.getByRole("button", { name: "Review and merge" }).click();
+    await page.getByRole("button", { name: "Merge", exact: true }).click();
+    // The merge form is guarded by the confirm modal (accept button reads "Merge").
+    await page.getByRole("alertdialog").getByRole("button", { name: "Merge" }).click();
 
     await expect(page.getByText("Facilitators merged successfully.")).toBeVisible();
     await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/");
 
-    await expect(page.getByText(secondName!)).not.toBeVisible();
-    await expect(page.getByRole("cell", { name: firstName!, exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Alice Morgan", exact: true })).toBeVisible();
+    await expect(page.getByText("Alice Morgan Copy")).toHaveCount(0);
   });
 
   // --- Organization announcements CRUD ---

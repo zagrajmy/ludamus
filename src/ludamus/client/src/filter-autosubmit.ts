@@ -35,3 +35,14 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosub
     lastSubmitted = serialize(form);
   });
 }
+
+// `select[data-navigate]` options carry URLs (e.g. the page-size picker):
+// choosing one navigates there. Degrades without JS to a no-op control.
+for (const select of document.querySelectorAll<HTMLSelectElement>("select[data-navigate]")) {
+  select.addEventListener("change", () => {
+    // Same-origin guard: option values are server-rendered, but never let a
+    // stray javascript:/external URL through.
+    const url = new URL(select.value, globalThis.location.origin);
+    if (url.origin === globalThis.location.origin) globalThis.location.assign(url);
+  });
+}

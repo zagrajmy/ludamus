@@ -19,7 +19,6 @@ from ludamus.pacts import (
     EventStatsData,
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorMergeError,
     NotFoundError,
     PanelStatsDTO,
     PersonalDataFieldValueData,
@@ -546,30 +545,3 @@ class PanelService:
                 break
 
         return errors
-
-
-class FacilitatorMergeService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
-
-    def merge(self, target_id: int, source_ids: list[int]) -> None:
-        if not source_ids:
-            msg = "At least one source facilitator is required"
-            raise FacilitatorMergeError(msg)
-        if target_id in source_ids:
-            msg = "Target cannot be among source facilitators"
-            raise FacilitatorMergeError(msg)
-
-        all_ids = [target_id, *source_ids]
-        linked_count = sum(
-            1 for fid in all_ids if self._uow.facilitators.read(fid).user_id is not None
-        )
-        if linked_count > 1:
-            msg = "Cannot merge facilitators that each have a linked user account."
-            raise FacilitatorMergeError(msg)
-
-        with self._uow.atomic():
-            self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
-            self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
-            for source_id in source_ids:
-                self._uow.facilitators.delete(source_id)

@@ -51,7 +51,7 @@ from ludamus.pacts.chronology import (
     SessionCardStatsDTO,
 )
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
@@ -309,6 +309,12 @@ class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
     def update_facilitator_columns(event_id: int, columns: list[str]) -> None:
         EventPanelSettings.objects.update_or_create(
             event_id=event_id, defaults={"facilitator_columns": columns}
+        )
+
+    @staticmethod
+    def update_proposal_columns(event_id: int, columns: list[str]) -> None:
+        EventPanelSettings.objects.update_or_create(
+            event_id=event_id, defaults={"proposal_columns": columns}
         )
 
 

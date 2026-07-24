@@ -30,6 +30,24 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+def log_facilitator_changes(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    changes: list[ContentFieldChange],
+) -> None:
+    if changes:
+        log_data: FacilitatorChangeLogData = {
+            "event_id": event_id,
+            "facilitator_id": facilitator_id,
+            "user_id": user_id,
+            "changes": changes,
+        }
+        repo.create(log_data)
+
+
 class CFPPersonalDataFieldService:
     """Backoffice operations for an event's personal-data fields."""
 
@@ -125,7 +143,7 @@ def _is_blank(*, value: str | list[str] | bool | None) -> bool:
     return value in {None, "", False}
 
 
-def _diff_personal_data(
+def diff_personal_data(
     *,
     old_by_slug: dict[str, str | list[str] | bool],
     fields_by_id: dict[int, PersonalDataFieldDTO],
@@ -183,7 +201,7 @@ class PersonalDataFieldValueService:
         fields_by_id = {
             f.pk: f for f in self._personal_data_fields.list_by_event(event_id)
         }
-        return _diff_personal_data(
+        return diff_personal_data(
             old_by_slug=old_by_slug, fields_by_id=fields_by_id, entries=entries
         )
 
@@ -195,14 +213,13 @@ class PersonalDataFieldValueService:
         user_id: int | None,
         changes: list[ContentFieldChange],
     ) -> None:
-        if changes:
-            log_data: FacilitatorChangeLogData = {
-                "event_id": event_id,
-                "facilitator_id": facilitator_id,
-                "user_id": user_id,
-                "changes": changes,
-            }
-            self._facilitator_change_logs.create(log_data)
+        log_facilitator_changes(
+            repo=self._facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            changes=changes,
+        )
 
     def update_personal_data(
         self,

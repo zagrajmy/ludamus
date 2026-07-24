@@ -12,6 +12,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     index,
     integrations,
     personal_data_fields,
+    proposal_edit,
     proposals,
     session_fields,
     time_slots,
@@ -191,12 +192,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/create/",
-        proposals.ProposalCreatePageView.as_view(),
+        proposal_edit.ProposalCreatePageView.as_view(),
         name="proposal-create",
     ),
     path(
         "event/<slug:slug>/proposals/create/fields/",
-        proposals.ProposalCreateFieldsComponentView.as_view(),
+        proposal_edit.ProposalCreateFieldsComponentView.as_view(),
         name="proposal-create-fields",
     ),
     path(
@@ -215,13 +216,23 @@ urlpatterns = [
         name="proposal-detail",
     ),
     path(
+        "event/<slug:slug>/proposals/columns/",
+        proposals.ProposalColumnsPageView.as_view(),
+        name="proposal-columns",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/history/",
+        proposals.ProposalHistoryPageView.as_view(),
+        name="proposal-history",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
-        proposals.ProposalEditPageView.as_view(),
+        proposal_edit.ProposalEditPageView.as_view(),
         name="proposal-edit",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
-        proposals.ProposalEditFieldsComponentView.as_view(),
+        proposal_edit.ProposalEditFieldsComponentView.as_view(),
         name="proposal-edit-fields",
     ),
     path(
@@ -357,6 +368,11 @@ urlpatterns = [
         name="facilitator-columns",
     ),
     path(
+        "event/<slug:slug>/facilitators/do/bulk-action",
+        facilitators.FacilitatorBulkActionView.as_view(),
+        name="facilitator-bulk-action",
+    ),
+    path(
         "event/<slug:slug>/facilitators/merge/",
         facilitators.FacilitatorMergePageView.as_view(),
         name="facilitator-merge",
@@ -365,6 +381,11 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/history/",
+        facilitators.FacilitatorHistoryPageView.as_view(),
+        name="facilitator-history",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",

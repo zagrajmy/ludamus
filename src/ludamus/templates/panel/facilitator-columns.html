@@ -24,29 +24,9 @@
     <div class="px-3 sm:px-4 py-6">
         {% tab_shell "panel/_facilitator_tabs.html" %}
         {% tab_shell_body %}
-        <form id="columns-form"
-              method="post"
-              action="{% url 'panel:facilitator-columns' slug=current_event.slug %}"
-              class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
-                    <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Tick the columns the facilitators list shows, and order them top to bottom. Organizers only." %}
-                    </p>
-                    <ul id="column-list" class="space-y-2">
-                        {% for column in chosen_columns %}
-                            {% include "panel/_facilitator_column_row.html" with column=column shown=True only %}
-                        {% endfor %}
-                        {% for column in available_columns %}
-                            {% include "panel/_facilitator_column_row.html" with column=column shown=False only %}
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-        </form>
-        {% vite_asset 'src/facilitator-columns.ts' %}
+        {% url 'panel:facilitator-columns' slug=current_event.slug as action_url %}
+        {% translate "Tick the columns the facilitators list shows, and order them top to bottom. Organizers only." as help_text %}
+        {% include "panel/parts/_columns_chooser.html" with action_url=action_url help_text=help_text chosen_columns=chosen_columns available_columns=available_columns error=error only %}
     {% end_tab_shell_body %}
 {% end_tab_shell %}
 </div>

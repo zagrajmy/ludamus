@@ -475,6 +475,12 @@ class TestContentEditRevert:
             ),
         )
 
+    def test_session_history_rejects_cross_event_session(self, service, repos):
+        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+
+        with pytest.raises(NotFoundError):
+            service.session_history(event_id=1, session_id=5)
+
     def test_revert_raises_when_nothing_is_revertible(self, service, repos):
         changes = [
             {"field": "cover_image", "field_id": None, "old": "old.png", "new": ""}

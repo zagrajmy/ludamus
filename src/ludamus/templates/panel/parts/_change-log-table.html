@@ -1,0 +1,80 @@
+{% load i18n %}
+{% load cfp_tags %}
+{% load tessera %}
+{% if logs %}
+    {% tessera_table %}
+    <thead class="bg-bg-tertiary">
+        <tr>
+            <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                {% translate "Time" %}
+            </th>
+            <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                {% translate "User" %}
+            </th>
+            {% if item_header %}
+                <th scope="col"
+                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                    {{ item_header }}
+                </th>
+            {% endif %}
+            <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                {% translate "Changes" %}
+            </th>
+            {% if revertible_pks %}
+                <th scope="col" class="px-6 py-3">
+                    <span class="sr-only">{% translate "Actions" %}</span>
+                </th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody class="bg-bg-secondary divide-y divide-border">
+        {% translate "Field" as field_fallback %}
+        {% for log in logs %}
+            <tr class="align-top">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ log.creation_time|date:"d.m H:i:s" }}</td>
+                <td class="px-6 py-4 text-sm text-foreground">{{ log.user_name|default:"—" }}</td>
+                {% if item_header %}
+                    <td class="px-6 py-4 text-sm font-medium text-foreground">{{ log.item_name }}</td>
+                {% endif %}
+                <td class="px-6 py-4 text-sm text-foreground-secondary">
+                    <ul class="space-y-1">
+                        {% for change in log.changes %}
+                            <li>
+                                <span class="font-medium text-foreground">
+                                    {% if change.field_id %}
+                                        {{ field_names|get_item:change.field_id|default:field_fallback }}
+                                    {% else %}
+                                        {{ change.field|content_field_label }}
+                                    {% endif %}
+                                :</span>
+                                <span class="text-foreground-muted">{{ change.old|default:"—" }}</span>
+                                <span aria-hidden="true">→</span>
+                                <span>{{ change.new|default:"—" }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </td>
+                {% if revertible_pks %}
+                    <td class="px-6 py-4 text-right">
+                        {% if log.pk in revertible_pks %}
+                            <form method="post"
+                                  action="{% url 'panel:content-log-revert' slug=slug pk=log.pk %}"
+                                  data-confirm="{% translate "Are you sure you want to revert this change?" %}"
+                                  data-confirm-action="{% translate "Revert" %}">
+                                {% csrf_token %}
+                                {% translate "Revert" as t_revert %}
+                                {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
+                            </form>
+                        {% endif %}
+                    </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+    </tbody>
+{% end_tessera_table %}
+{% elif empty_text %}
+<div class="text-sm text-foreground-muted">{{ empty_text }}</div>
+{% endif %}

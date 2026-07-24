@@ -1,0 +1,30 @@
+{% load i18n %}
+{% load tessera %}
+{% if page_obj.paginator.count > page_sizes.0 %}
+    <div class="flex items-center justify-between mt-4 text-sm">
+        <span class="text-foreground-muted">
+            {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
+                Page {{ page }} of {{ total }}
+            {% endblocktranslate %}
+        </span>
+        <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 text-foreground-muted">
+                {% translate "Per page:" %}
+                {% select data_navigate="true" class="text-sm" %}
+                    {% for size in page_sizes %}
+                        <option value="{% querystring page_size=size page=1 %}"
+                                {% if page_obj.paginator.per_page == size %}selected{% endif %}>{{ size }}</option>
+                    {% endfor %}
+                {% end_select %}
+            </label>
+            {% if page_obj.has_previous %}
+                <a href="{% querystring page=page_obj.previous_page_number %}"
+                   class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a href="{% querystring page=page_obj.next_page_number %}"
+                   class="btn btn-secondary text-sm">{% translate "Next" %}</a>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}

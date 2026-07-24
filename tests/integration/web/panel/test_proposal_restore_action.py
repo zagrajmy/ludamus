@@ -79,7 +79,7 @@ class TestProposalRestoreActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session restored.")],
+            messages=[(messages.SUCCESS, "Proposal restored.")],
             url=reverse("panel:proposals", kwargs={"slug": event.slug}),
         )
         restored = Session.objects.get(pk=session.pk)

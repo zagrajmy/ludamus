@@ -46,12 +46,13 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.panel_facilitators import FacilitatorPanelService
+from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -62,7 +63,8 @@ from ludamus.mills.submissions.personal_data_fields import (
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.submissions import FacilitatorPanelRepos, ImportRepos
+from ludamus.pacts.panel import FacilitatorPanelRepos
+from ludamus.pacts.submissions import ImportRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -107,6 +109,8 @@ class Services:
                 personal_data_field_values=self._repos.personal_data_field_values,
                 facilitator_change_logs=self._repos.facilitator_change_logs,
                 panel_settings=self._repos.event_panel_settings,
+                sessions=self._repos.sessions,
+                users=self._repos.active_users,
             ),
         )
 
@@ -228,6 +232,16 @@ class Services:
             self._repos.sessions,
             self._repos.agenda_items,
             ScheduleChangeLogRepository(),
+        )
+
+    @cached_property
+    def proposal_panel(self) -> ProposalPanelService:
+        return ProposalPanelService(
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            proposal_categories=self._repos.proposal_categories,
+            panel_settings=self._repos.event_panel_settings,
         )
 
     @cached_property

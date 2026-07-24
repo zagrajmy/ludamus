@@ -2,10 +2,10 @@
 {% load i18n %}
 {% load tessera %}
 {% block title_prefix %}
-    {% translate "Create Session" %} -
+    {% translate "New Proposal" %} -
 {% endblock title_prefix %}
 {% block page_title %}
-    {% translate "Create Session" %}
+    {% translate "New Proposal" %}
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
@@ -19,7 +19,7 @@
                class="btn btn-secondary">{% translate "Cancel" %}</a>
             <button type="submit" form="proposal-create-form" class="btn btn-primary">
                 {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create" %}
+                {% translate "Create Proposal" %}
             </button>
         </div>
     {% endif %}
@@ -32,7 +32,7 @@
             {% csrf_token %}
             <div class="card break-inside-avoid mb-6">
                 <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Details" %}</h3>
+                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Proposal Details" %}</h3>
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1">
