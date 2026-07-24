@@ -34,17 +34,15 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.submissions import ImportLogEntryDTO
-from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
+from tests.integration.conftest import (
+    PNG_BYTES,
+    AgendaItemFactory,
+    EventFactory,
+    SpaceFactory,
+)
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 def _base_context(event):

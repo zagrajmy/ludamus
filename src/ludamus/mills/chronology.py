@@ -7,11 +7,11 @@ the file grows past ~12 top-level members or 1000 lines.
 
 from collections import defaultdict
 from datetime import datetime, timedelta, tzinfo
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.slugs import unique_slug
 from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
     EventDTO,
@@ -404,14 +404,13 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         base_slug: str,
         facilitator_ids: list[int],
     ) -> int:
-        base = base_slug or "session"
-        slug = base
-        for _attempt in range(4):
-            if not self._sessions.slug_exists(event_id, slug):
-                break
-            slug = f"{base}-{token_urlsafe(3)}"
-        data["slug"] = slug
-        return self._sessions.create(data, facilitator_ids=facilitator_ids)
+        slug = unique_slug(
+            base=base_slug,
+            default="session",
+            exists=lambda s: self._sessions.slug_exists(event_id, s),
+        )
+        payload: SessionData = {**data, "slug": slug}
+        return self._sessions.create(payload, facilitator_ids=facilitator_ids)
 
 
 class ProposalStatusService:

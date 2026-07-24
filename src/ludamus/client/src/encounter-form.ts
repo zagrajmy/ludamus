@@ -61,9 +61,10 @@ const initDropzone = (label: HTMLLabelElement): void => {
     for (const el of sizeEls) {
       el.textContent = formatBytes(file.size);
     }
-    // Mirror the accepted upload formats (COVER_IMAGE_ACCEPT) so an
+    // Read the accepted formats off the input rather than restating them, so an
     // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.
-    const isImage = /^image\/(png|jpe?g|webp|avif)$/.test(file.type);
+    const accepted = new Set(input.accept.split(",").map((t) => t.trim()));
+    const isImage = accepted.has(file.type) || accepted.has("image/*");
     if (preview && isImage) {
       revokePreview();
       const objectUrl = URL.createObjectURL(file);

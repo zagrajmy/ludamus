@@ -185,7 +185,6 @@ TEMPLATES = [
                 "avatar_tags": "ludamus.gates.web.django.templatetags.avatar_tags"
             },
             "debug": DEBUG or env("IN_TESTS"),
-            "string_if_invalid": "" if IS_PRODUCTION else "ERROR: Missing variable %s",
         },
     }
 ]

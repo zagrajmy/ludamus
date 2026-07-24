@@ -5,7 +5,12 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0134_facilitator_columns")]
+    dependencies = [
+        (
+            "db_main",
+            "0135_alter_encounter_header_image_alter_event_cover_image_and_more",
+        )
+    ]
 
     operations = [
         migrations.AddField(

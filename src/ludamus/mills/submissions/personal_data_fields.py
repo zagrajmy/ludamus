@@ -1,8 +1,8 @@
 """Backoffice management of an event's personal-data fields."""
 
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 
+from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import (
     FacilitatorData,
     FacilitatorUpdateData,
@@ -240,12 +240,11 @@ class PersonalDataFieldValueService:
         self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
     ) -> FacilitatorDTO:
         with self._transaction.atomic():
-            base = data.base_slug or "facilitator"
-            slug = base
-            for _attempt in range(4):
-                if not self._facilitators.slug_exists(event_id, slug):
-                    break
-                slug = f"{base}-{token_urlsafe(3)}"
+            slug = unique_slug(
+                base=data.base_slug,
+                default="facilitator",
+                exists=lambda s: self._facilitators.slug_exists(event_id, s),
+            )
             facilitator = self._facilitators.create(
                 FacilitatorData(
                     accreditation_type=data.accreditation_type,
