@@ -27,6 +27,7 @@ from ludamus.pacts import (
     ProposalCategoryDTO,
     ProposeSessionResult,
     RequestContext,
+    ReusableSessionDTO,
     SessionData,
     SessionFieldRequirementDTO,
     SessionFieldValueData,
@@ -305,6 +306,49 @@ class ProposeSessionService:
         return self._uow.personal_data_field_values.read_for_facilitator_event(
             facilitator.pk, event_id
         )
+
+    def list_reusable_sessions(self, event_id: int) -> list[ReusableSessionDTO]:
+        if (user_id := self._context.current_user_id) is None:
+            return []
+        return self._uow.sessions.list_reusable_for_user(
+            user_id=user_id, exclude_event_id=event_id
+        )
+
+    def get_session_prefill(
+        self, source_session_id: int, category: ProposalCategoryDTO
+    ) -> dict[str, object] | None:
+        # Prefill the details step from a session the current user proposed
+        # before. Only content that survives a move to a different event is
+        # carried: the free-text/limits, plus dynamic answers whose field slug
+        # the target category actually asks for. Duration is kept only if this
+        # category offers it as a choice.
+        if (user_id := self._context.current_user_id) is None:
+            return None
+        try:
+            session = self._uow.sessions.read(source_session_id)
+        except NotFoundError:
+            return None
+        if session.presenter_id != user_id:
+            return None
+        data: dict[str, object] = {
+            "title": session.title,
+            "description": session.description,
+            "display_name": session.display_name,
+            "participants_limit": session.participants_limit,
+            "min_age": session.min_age,
+        }
+        if session.duration and session.duration in category.durations:
+            data["duration"] = session.duration
+        requirement_slugs = {
+            req.field.slug
+            for req in self._uow.proposal_categories.list_session_field_requirements(
+                category.pk
+            )
+        }
+        for value in self._uow.sessions.read_field_values(source_session_id):
+            if value.field_slug in requirement_slugs:
+                data[f"session_{value.field_slug}"] = value.value
+        return data
 
     def _find_or_create_facilitator(
         self, event: EventDTO, display_name: str

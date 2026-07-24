@@ -25,6 +25,7 @@ from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
+    REUSABLE_SESSION_LIMIT,
     UNSCHEDULED_LIST_LIMIT,
     AgendaItemDTO,
     EventDTO,
@@ -32,6 +33,7 @@ from ludamus.pacts import (
     NotFoundError,
     PendingSessionDTO,
     PendingSessionTimeSlotDTO,
+    ReusableSessionDTO,
     SessionData,
     SessionDTO,
     SessionFieldValueData,
@@ -328,6 +330,26 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
+            )
+            for s in qs
+        ]
+
+    @staticmethod
+    def list_reusable_for_user(
+        *, user_id: int, exclude_event_id: int
+    ) -> list[ReusableSessionDTO]:
+        qs = (
+            Session.objects.filter(presenter_id=user_id)
+            .exclude(event_id=exclude_event_id)
+            .select_related("event", "category")
+            .order_by("-creation_time")[:REUSABLE_SESSION_LIMIT]
+        )
+        return [
+            ReusableSessionDTO(
+                pk=s.pk,
+                title=s.title,
+                event_name=s.event.name if s.event else "",
+                category_name=s.category.name if s.category else "",
             )
             for s in qs
         ]

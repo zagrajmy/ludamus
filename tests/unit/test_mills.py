@@ -44,6 +44,11 @@ from ludamus.pacts import (
     PersonalDataFieldDTO,
     ProposalCategoryDTO,
     RequestContext,
+    ReusableSessionDTO,
+    SessionDTO,
+    SessionFieldDTO,
+    SessionFieldRequirementDTO,
+    SessionFieldValueDTO,
     SessionStatus,
 )
 from ludamus.pacts.multiverse import ConnectionDTO
@@ -712,6 +717,131 @@ class TestProposeSessionService:
         assert result == {}
         mock_uow.personal_data_field_values.read_for_facilitator_event.assert_not_called()
         mock_uow.facilitators.read_by_user_and_event.assert_not_called()
+
+    @staticmethod
+    def _source_session(presenter_id=1, duration="PT2H"):
+        now = datetime.now(tz=UTC)
+        return SessionDTO(
+            category_id=7,
+            contact_email="host@example.com",
+            creation_time=now,
+            description="A heist in Waterdeep",
+            duration=duration,
+            min_age=16,
+            modification_time=now,
+            participants_limit=5,
+            pk=42,
+            presenter_id=presenter_id,
+            display_name="Test User",
+            slug="dragon-heist",
+            status=SessionStatus.ACCEPTED,
+            title="Dragon Heist",
+        )
+
+    @staticmethod
+    def _requirement(slug):
+        return SessionFieldRequirementDTO(
+            field=SessionFieldDTO(
+                field_type="text", name=slug, order=0, pk=1, question="?", slug=slug
+            ),
+            is_required=False,
+        )
+
+    @staticmethod
+    def _field_value(slug, value):
+        return SessionFieldValueDTO(
+            field_name=slug, field_question="?", field_slug=slug, value=value
+        )
+
+    def test_get_session_prefill_maps_core_fields(self, service, mock_uow):
+        mock_uow.sessions.read.return_value = self._source_session()
+        mock_uow.proposal_categories.list_session_field_requirements.return_value = []
+        mock_uow.sessions.read_field_values.return_value = []
+
+        result = service.get_session_prefill(42, _category(pk=7))
+
+        assert result == {
+            "title": "Dragon Heist",
+            "description": "A heist in Waterdeep",
+            "display_name": "Test User",
+            "participants_limit": 5,
+            "min_age": 16,
+        }
+
+    def test_get_session_prefill_keeps_duration_only_when_offered(
+        self, service, mock_uow
+    ):
+        mock_uow.sessions.read.return_value = self._source_session(duration="PT2H")
+        mock_uow.proposal_categories.list_session_field_requirements.return_value = []
+        mock_uow.sessions.read_field_values.return_value = []
+
+        offered = service.get_session_prefill(42, _category(pk=7, name="x"))
+        category = _category(pk=7)
+        category.durations = ["PT2H", "PT3H"]
+        with_duration = service.get_session_prefill(42, category)
+
+        assert "duration" not in offered
+        assert with_duration["duration"] == "PT2H"
+
+    def test_get_session_prefill_carries_only_requested_field_values(
+        self, service, mock_uow
+    ):
+        mock_uow.sessions.read.return_value = self._source_session()
+        mock_uow.proposal_categories.list_session_field_requirements.return_value = [
+            self._requirement("system")
+        ]
+        mock_uow.sessions.read_field_values.return_value = [
+            self._field_value("system", "D&D 5e"),
+            self._field_value("safety_tools", "lines and veils"),
+        ]
+
+        result = service.get_session_prefill(42, _category(pk=7))
+
+        assert result["session_system"] == "D&D 5e"
+        assert "session_safety_tools" not in result
+
+    def test_get_session_prefill_rejects_other_users_session(self, service, mock_uow):
+        mock_uow.sessions.read.return_value = self._source_session(presenter_id=999)
+
+        assert service.get_session_prefill(42, _category(pk=7)) is None
+
+    def test_get_session_prefill_returns_none_when_missing(self, service, mock_uow):
+        mock_uow.sessions.read.side_effect = NotFoundError
+
+        assert service.get_session_prefill(42, _category(pk=7)) is None
+
+    def test_get_session_prefill_returns_none_for_anonymous(self, mock_uow):
+        anon_context = RequestContext(
+            current_site_id=1, current_sphere_id=1, root_site_id=1, root_sphere_id=1
+        )
+        service = ProposeSessionService(mock_uow, anon_context)
+
+        assert service.get_session_prefill(42, _category(pk=7)) is None
+        mock_uow.sessions.read.assert_not_called()
+
+    def test_list_reusable_sessions_delegates_to_repo(self, service, mock_uow):
+        expected = [
+            ReusableSessionDTO(
+                pk=42, title="Dragon Heist", event_name="Con", category_name="RPG"
+            )
+        ]
+        mock_uow.sessions.list_reusable_for_user.return_value = expected
+
+        result = service.list_reusable_sessions(event_id=3)
+
+        assert result == expected
+        mock_uow.sessions.list_reusable_for_user.assert_called_once_with(
+            user_id=1, exclude_event_id=3
+        )
+
+    def test_list_reusable_sessions_empty_for_anonymous(self, mock_uow):
+        anon_context = RequestContext(
+            current_site_id=1, current_sphere_id=1, root_site_id=1, root_sphere_id=1
+        )
+        service = ProposeSessionService(mock_uow, anon_context)
+
+        assert service.list_reusable_sessions(event_id=3) == []
+        mock_uow.sessions.list_reusable_for_user.assert_not_called()
 
 
 class TestCheckProposalRateLimit:

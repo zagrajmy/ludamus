@@ -25,7 +25,9 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
 from tests.integration.conftest import (
     PNG_BYTES,
+    EventFactory,
     ProposalCategoryFactory,
+    SessionFactory,
     TimeSlotFactory,
 )
 from tests.integration.utils import assert_response
@@ -1566,6 +1568,7 @@ class TestProposeSessionPageView:
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
+                "reusable_sessions": [],
                 "wizard_steps": [
                     {"key": "personal"},
                     {"key": "details"},
@@ -1613,6 +1616,7 @@ class TestProposeSessionPageView:
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
+                "reusable_sessions": [],
                 "wizard_steps": [
                     {"key": "personal"},
                     {"key": "details"},
@@ -2475,3 +2479,171 @@ class TestAnonymousProposalSubmission:
         assert facilitators.count() == expected_facilitator_count
         slugs = list(facilitators.values_list("slug", flat=True))
         assert len(set(slugs)) == expected_facilitator_count
+
+
+class TestProposeSessionPrefill:
+    def _details_url(self, event_slug: str) -> str:
+        return reverse(
+            "web:chronology:session-propose-details", kwargs={"event_slug": event_slug}
+        )
+
+    def _prefill_url(self, event_slug: str) -> str:
+        return reverse(
+            "web:chronology:session-propose-prefill", kwargs={"event_slug": event_slug}
+        )
+
+    def _activate_proposals(self, event, faker, time_zone):
+        event.proposal_start_time = faker.date_time_between(
+            "-10d", "-1d", tzinfo=time_zone
+        )
+        event.proposal_end_time = faker.date_time_between(
+            "+1d", "+10d", tzinfo=time_zone
+        )
+        event.save()
+
+    def _set_wizard_category(self, client, event, category):
+        session = client.session
+        session[f"propose_{event.slug}"] = {"category_id": category.pk}
+        session.save()
+
+    def _prior_session(self, active_user, sphere, **kwargs):
+        prior_event = EventFactory(sphere=sphere, name="Last Month's Con")
+        category = ProposalCategoryFactory(event=prior_event, durations=["PT2H"])
+        return SessionFactory(
+            category=category,
+            event=prior_event,
+            presenter=active_user,
+            **kwargs,
+        )
+
+    def test_details_offers_previous_sessions(
+        self, authenticated_client, active_user, event, sphere, faker, time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        prior = self._prior_session(active_user, sphere, title="Dragon Heist")
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._details_url(event.slug), {"back": "1"}
+        )
+
+        reusable = response.context["reusable_sessions"]
+        assert [r.pk for r in reusable] == [prior.pk]
+        assert reusable[0].title == "Dragon Heist"
+        assert reusable[0].event_name == "Last Month's Con"
+        # Panel renders the session as a selectable prefill source.
+        assert "Dragon Heist" in response.content.decode()
+
+    def test_details_excludes_sessions_from_current_event(
+        self, authenticated_client, active_user, event, faker, time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        SessionFactory(
+            category=proposal_category, event=event, presenter=active_user,
+            title="Already Here",
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._details_url(event.slug), {"back": "1"}
+        )
+
+        assert response.context["reusable_sessions"] == []
+
+    def test_prefill_populates_details_form(
+        self, authenticated_client, active_user, event, sphere, faker, time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        limit = 5
+        min_age = 16
+        prior = self._prior_session(
+            active_user, sphere, title="Dragon Heist",
+            description="A heist in Waterdeep", participants_limit=limit,
+            min_age=min_age,
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._prefill_url(event.slug), {"source_session_id": str(prior.pk)}
+        )
+
+        form = response.context["form"]
+        assert form["title"].value() == "Dragon Heist"
+        assert form["description"].value() == "A heist in Waterdeep"
+        assert form["participants_limit"].value() == limit
+        assert form["min_age"].value() == min_age
+        session = authenticated_client.session[f"propose_{event.slug}"]
+        assert session["session_data"]["title"] == "Dragon Heist"
+
+    def test_prefill_carries_matching_session_field_values(
+        self, authenticated_client, active_user, event, sphere, faker, time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        prior = self._prior_session(active_user, sphere, title="Dragon Heist")
+        source_field = SessionField.objects.create(
+            event=prior.event, name="System", question="System?", slug="system"
+        )
+        SessionFieldValue.objects.create(
+            session=prior, field=source_field, value="D&D 5e"
+        )
+        target_field = SessionField.objects.create(
+            event=event, name="System", question="System?", slug="system"
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=target_field, is_required=False
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._prefill_url(event.slug), {"source_session_id": str(prior.pk)}
+        )
+
+        session = authenticated_client.session[f"propose_{event.slug}"]
+        assert session["session_data"]["session_system"] == "D&D 5e"
+        assert response.context["form"]["session_system"].value() == "D&D 5e"
+
+    def test_prefill_ignores_field_not_asked_by_target_category(
+        self, authenticated_client, active_user, event, sphere, faker, time_zone,
+        proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        prior = self._prior_session(active_user, sphere, title="Dragon Heist")
+        source_field = SessionField.objects.create(
+            event=prior.event, name="System", question="System?", slug="system"
+        )
+        SessionFieldValue.objects.create(
+            session=prior, field=source_field, value="D&D 5e"
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        authenticated_client.post(
+            self._prefill_url(event.slug), {"source_session_id": str(prior.pk)}
+        )
+
+        session = authenticated_client.session[f"propose_{event.slug}"]
+        assert "session_system" not in session["session_data"]
+
+    def test_prefill_rejects_another_users_session(
+        self, authenticated_client, event, sphere, faker, time_zone, proposal_category,
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        other_event = EventFactory(sphere=sphere)
+        other_category = ProposalCategoryFactory(event=other_event)
+        stranger_session = SessionFactory(
+            category=other_category, event=other_event, title="Not Mine"
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._prefill_url(event.slug),
+            {"source_session_id": str(stranger_session.pk)},
+        )
+
+        assert "session_data" not in authenticated_client.session[
+            f"propose_{event.slug}"
+        ]
+        assert response.context["form"]["title"].value() in {None, ""}

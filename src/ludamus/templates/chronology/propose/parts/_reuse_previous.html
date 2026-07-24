@@ -1,0 +1,24 @@
+{% load i18n %}
+{% if reusable_sessions %}
+    <div class="rounded-lg border border-border bg-bg-secondary p-4 mb-6">
+        <h3 class="text-sm font-semibold text-foreground mb-1">{% translate "Run one of yours again?" %}</h3>
+        <p class="text-xs text-foreground-muted mb-3">
+            {% translate "Prefill the fields below from a session you proposed before. You can still change anything." %}
+        </p>
+        <form hx-post="{% url 'web:chronology:session-propose-prefill' event_slug=event.slug %}"
+              hx-target="#wizard-content"
+              hx-swap="outerHTML show:#wizard-content:top"
+              class="flex flex-col gap-3 sm:flex-row">
+            {% csrf_token %}
+            <label for="id_source_session_id" class="sr-only">{% translate "Previous session" %}</label>
+            <select name="source_session_id"
+                    id="id_source_session_id"
+                    class="w-full px-4 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary sm:flex-1">
+                {% for s in reusable_sessions %}
+                    <option value="{{ s.pk }}">{{ s.title }} — {{ s.event_name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary whitespace-nowrap">{% translate "Prefill" %}</button>
+        </form>
+    </div>
+{% endif %}

@@ -400,6 +400,7 @@ def _render_details(
             "field_descriptors": field_descriptors("session", requirements, form),
             "public_tracks": public_tracks,
             "selected_track_pks": selected_track_pks,
+            "reusable_sessions": service.list_reusable_sessions(event.pk),
             "current_step": "details",
             "wizard_steps": _wizard_steps(
                 service, category, has_category=_event_has_category_step(service, event)
@@ -796,6 +797,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                     "public_tracks": public_tracks,
                     "selected_track_pks": selected_track_pks,
                     "track_error": track_error,
+                    "reusable_sessions": service.list_reusable_sessions(event.pk),
                 },
             )
 
@@ -813,6 +815,23 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         request.session[_session_key(event_slug)] = wizard
 
         return _render_review(request, service, event, category)
+
+
+class ProposeSessionPrefillComponentView(ProposeWizardMixin, View):
+    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
+        service = _service(request)
+        event = self._get_event(service, event_slug)
+        category = self._get_wizard_category(request, service, event, event_slug)
+
+        raw_id = request.POST.get("source_session_id", "")
+        if raw_id.isdigit() and (
+            prefill := service.get_session_prefill(int(raw_id), category)
+        ):
+            wizard = request.session.get(_session_key(event_slug), {})
+            wizard["session_data"] = {**wizard.get("session_data", {}), **prefill}
+            request.session[_session_key(event_slug)] = wizard
+
+        return _render_details(request, service, event, category)
 
 
 class ProposeSessionReviewComponentView(ProposeWizardMixin, View):

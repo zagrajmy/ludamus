@@ -174,6 +174,20 @@ class SessionListItemDTO(BaseModel):
     title: str
 
 
+REUSABLE_SESSION_LIMIT = 30
+
+
+class ReusableSessionDTO(BaseModel):
+    """A session the current user already proposed, offered as a prefill source."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    title: str
+    event_name: str
+    category_name: str
+
+
 class AgendaItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -845,6 +859,10 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
     @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
+    @staticmethod
+    def list_reusable_for_user(
+        *, user_id: int, exclude_event_id: int
+    ) -> list[ReusableSessionDTO]: ...
     @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod

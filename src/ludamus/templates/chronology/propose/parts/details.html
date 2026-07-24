@@ -5,6 +5,7 @@
     {% include "chronology/propose/parts/_proposal_description.html" %}
     {% include "chronology/propose/parts/_stepper.html" %}
     {% if form|default:"" %}
+        {% include "chronology/propose/parts/_reuse_previous.html" %}
         <h2 class="text-lg font-semibold mb-1">{% translate "Session Details" %}</h2>
         <p class="text-sm text-foreground-muted mb-5">
             {% blocktranslate %}Session info — public by default. A 🔒 marks what only organizers see.{% endblocktranslate %}

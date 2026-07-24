@@ -1,6 +1,7 @@
 from ludamus.pacts.legacy import (
     DEFAULT_FIELD_MAX_LENGTH,
     OCCUPYING_PARTICIPATION_STATUSES,
+    REUSABLE_SESSION_LIMIT,
     UNSCHEDULED_LIST_LIMIT,
     AgendaItemData,
     AgendaItemDTO,
@@ -68,6 +69,7 @@ from ludamus.pacts.legacy import (
     ProposeSessionResult,
     RedirectError,
     RequestContext,
+    ReusableSessionDTO,
     RootRequestProtocol,
     ScheduleChangeAction,
     ScheduleChangeLogData,
@@ -121,6 +123,7 @@ from ludamus.pacts.legacy import (
 __all__ = [
     "DEFAULT_FIELD_MAX_LENGTH",
     "OCCUPYING_PARTICIPATION_STATUSES",
+    "REUSABLE_SESSION_LIMIT",
     "UNSCHEDULED_LIST_LIMIT",
     "AgendaItemDTO",
     "AgendaItemData",
@@ -188,6 +191,7 @@ __all__ = [
     "ProposeSessionResult",
     "RedirectError",
     "RequestContext",
+    "ReusableSessionDTO",
     "RootRequestProtocol",
     "ScheduleChangeAction",
     "ScheduleChangeLogDTO",

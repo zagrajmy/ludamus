@@ -64,6 +64,11 @@ urlpatterns: list[URLPattern] = [
         name="session-propose-details",
     ),
     path(
+        "event/<str:event_slug>/session/propose/parts/prefill",
+        views.ProposeSessionPrefillComponentView.as_view(),
+        name="session-propose-prefill",
+    ),
+    path(
         "event/<str:event_slug>/session/propose/parts/review",
         views.ProposeSessionReviewComponentView.as_view(),
         name="session-propose-review",

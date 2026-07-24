@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 06:44+0200\n"
+"POT-Creation-Date: 2026-07-24 14:17+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4220,6 +4220,26 @@ msgstr ""
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Log in"
 msgstr "Zaloguj się"
+
+#: src/ludamus/templates/chronology/propose/parts/_reuse_previous.html
+msgid "Run one of yours again?"
+msgstr "Powtórzyć swój punkt programu?"
+
+#: src/ludamus/templates/chronology/propose/parts/_reuse_previous.html
+msgid ""
+"Prefill the fields below from a session you proposed before. You can still "
+"change anything."
+msgstr ""
+"Wypełnij poniższe pola danymi z punktu programu zgłoszonego wcześniej. "
+"Wszystko możesz jeszcze zmienić."
+
+#: src/ludamus/templates/chronology/propose/parts/_reuse_previous.html
+msgid "Previous session"
+msgstr "Poprzedni punkt programu"
+
+#: src/ludamus/templates/chronology/propose/parts/_reuse_previous.html
+msgid "Prefill"
+msgstr "Wypełnij"
 
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
 msgid "Proposal progress"
