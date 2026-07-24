@@ -425,24 +425,29 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
             "session", session_field_requirements(self.request, category), form
         )
         slug = context["current_event"].slug
-        if session is None:
-            # A session being created has no stored answers, so it can never
-            # have any outside its category.
-            context["orphan_values"] = []
-            context["fields_url"] = reverse(
-                "panel:proposal-create-fields", kwargs={"slug": slug}
-            )
-        else:
-            context["orphan_values"] = self._orphan_values(event_pk, session.pk)
-            context["fields_url"] = reverse(
+        context["orphan_values"] = self._orphan_values(
+            event_pk, category=category, session=session
+        )
+        context["fields_url"] = (
+            reverse("panel:proposal-create-fields", kwargs={"slug": slug})
+            if session is None
+            else reverse(
                 "panel:proposal-edit-fields",
                 kwargs={"slug": slug, "proposal_id": session.pk},
             )
-
-    def _orphan_values(self, event_pk: int, proposal_id: int) -> list[OrphanFieldValue]:
-        category = self._resolve_category(
-            event_pk, self._session_for_orphans(proposal_id)
         )
+
+    def _orphan_values(
+        self,
+        event_pk: int,
+        *,
+        category: ProposalCategoryDTO | None,
+        session: SessionDTO | None,
+    ) -> list[OrphanFieldValue]:
+        # A session being created has no stored answers, so it can never have
+        # any outside its category.
+        if session is None:
+            return []
         asked_pks = {
             req.field.pk for req in session_field_requirements(self.request, category)
         }
@@ -457,12 +462,9 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
                     fields_by_pk.get(value.field_id), value
                 ),
             )
-            for value in self.request.di.uow.sessions.read_field_values(proposal_id)
+            for value in self.request.di.uow.sessions.read_field_values(session.pk)
             if value.field_id not in asked_pks
         ]
-
-    def _session_for_orphans(self, proposal_id: int) -> SessionDTO:
-        return self.request.di.uow.sessions.read(proposal_id)
 
     @staticmethod
     def _selected_pks(
@@ -574,13 +576,22 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
             result[facilitator_id] = entries
         return result
 
-    def _collect_remove_field_ids(self, event_pk: int, proposal_id: int) -> list[int]:
+    def _collect_remove_field_ids(
+        self,
+        event_pk: int,
+        *,
+        category: ProposalCategoryDTO | None,
+        session: SessionDTO,
+    ) -> list[int]:
         raw_ids = self.request.POST.getlist("remove_field_ids")
         submitted = {int(fid) for fid in raw_ids if fid.isdigit()}
         # Only answers the category no longer asks for may be removed here; the
         # rest are edited through their own inputs.
         orphan_pks = {
-            orphan.field_id for orphan in self._orphan_values(event_pk, proposal_id)
+            orphan.field_id
+            for orphan in self._orphan_values(
+                event_pk, category=category, session=session
+            )
         }
         return list(submitted & orphan_pks)
 
@@ -832,7 +843,9 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
         if cover is not None:
             update_data["cover_image"] = cover
         requirements = session_field_requirements(self.request, category)
-        remove_field_ids = self._collect_remove_field_ids(current_event.pk, session.pk)
+        remove_field_ids = self._collect_remove_field_ids(
+            current_event.pk, category=category, session=session
+        )
         with self.request.di.uow.savepoint():
             self.request.services.session_content_edit.apply(
                 session_id=session.pk,
