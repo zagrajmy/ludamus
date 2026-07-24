@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from ludamus.pacts.images import IMAGE_SUFFIXES
+
 if TYPE_CHECKING:
     from django.db import models
-
-IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp", ".avif"})
 
 
 def unique_upload_to(instance: models.Model, filename: str) -> str:
