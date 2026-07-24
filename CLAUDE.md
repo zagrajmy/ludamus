@@ -44,8 +44,8 @@ fine; say so in the PR. Don't game a counter to keep a number flat.
 ## Changelog
 
 Changed a page or a deploy? Prepend to `CHANGELOG.md`, copying the format of
-the top entry. One feature-level line. Invisible work (refactors, tests, docs,
-deps) gets nothing.
+the template (bottom entry). One feature-level line. Invisible work (refactors,
+tests, docs, deps) gets nothing.
 
 ## Papercuts
 

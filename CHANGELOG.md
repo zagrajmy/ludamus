@@ -8,3 +8,17 @@ no implementation details. Not tied to releases or versions.
 ### Added
 
 - Changelog file, updated with every user-visible or deployment change.
+
+## [feature-slug] date
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
