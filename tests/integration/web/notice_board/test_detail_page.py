@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.entities import UserInfo
@@ -15,6 +16,12 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, assert_response_404
 
 RSVP_COUNT = 2
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _creator_info(creator):
@@ -72,6 +79,26 @@ class TestEncounterDetailPageView:
             context_data=_detail_context(encounter),
             template_name="notice_board/detail.html",
         )
+
+    def test_ok_with_header_image(self, client, encounter):
+        encounter.header_image = SimpleUploadedFile(
+            "header.png", PNG_BYTES, content_type="image/png"
+        )
+        encounter.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(encounter),
+            template_name="notice_board/detail.html",
+        )
+        assert encounter.header_image_url.encode() in response.content
 
     def test_shows_creator_discord_handle(self, client, encounter):
         encounter.creator.discord_username = "coolgm"
