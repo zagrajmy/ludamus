@@ -2,7 +2,7 @@
 
 from django.db import migrations, models
 
-import ludamus.links.db.django.models
+import ludamus.links.db.django.uploads
 
 
 class Migration(migrations.Migration):
@@ -14,35 +14,35 @@ class Migration(migrations.Migration):
             model_name="encounter",
             name="header_image",
             field=models.ImageField(
-                blank=True, upload_to=ludamus.links.db.django.models.hashed_upload_to
+                blank=True, upload_to=ludamus.links.db.django.uploads.unique_upload_to
             ),
         ),
         migrations.AlterField(
             model_name="event",
             name="cover_image",
             field=models.ImageField(
-                blank=True, upload_to=ludamus.links.db.django.models.hashed_upload_to
+                blank=True, upload_to=ludamus.links.db.django.uploads.unique_upload_to
             ),
         ),
         migrations.AlterField(
             model_name="event",
             name="logo",
             field=models.ImageField(
-                blank=True, upload_to=ludamus.links.db.django.models.hashed_upload_to
+                blank=True, upload_to=ludamus.links.db.django.uploads.unique_upload_to
             ),
         ),
         migrations.AlterField(
             model_name="session",
             name="cover_image",
             field=models.ImageField(
-                blank=True, upload_to=ludamus.links.db.django.models.hashed_upload_to
+                blank=True, upload_to=ludamus.links.db.django.uploads.unique_upload_to
             ),
         ),
         migrations.AlterField(
             model_name="sphere",
             name="logo",
             field=models.ImageField(
-                blank=True, upload_to=ludamus.links.db.django.models.hashed_upload_to
+                blank=True, upload_to=ludamus.links.db.django.uploads.unique_upload_to
             ),
         ),
     ]
