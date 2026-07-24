@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, auto
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -25,9 +25,9 @@ class _RequestWithServices(Protocol):
 
 
 class PanelAccess(Enum):
-    NONE = "none"
-    MANAGER = "manager"
-    SUPERUSER = "superuser"
+    NONE = auto()
+    MANAGER = auto()
+    SUPERUSER = auto()
 
 
 def panel_access(request: _RequestWithServices) -> PanelAccess:

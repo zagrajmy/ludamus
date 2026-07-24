@@ -18,26 +18,12 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import EventDTO, SessionDTO, SessionFieldValueDTO, TimeSlotDTO
 from ludamus.pacts.crowd import UserDTO
-from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
 
 def _has_option(content: str, value: int, label: str) -> bool:
     pattern = rf'<option value="{value}"[^>]*>\s*{re.escape(label)}\s*</option>'
     return re.search(pattern, content) is not None
-
-
-@pytest.fixture(name="manager_user")
-def manager_user_fixture(sphere):
-    user = UserFactory(username="manageruser", name="Manager User")
-    sphere.managers.add(user)
-    return user
-
-
-@pytest.fixture(name="manager_client")
-def manager_client_fixture(client, manager_user):
-    client.force_login(manager_user)
-    return client
 
 
 class TestProposalAcceptPageView:
