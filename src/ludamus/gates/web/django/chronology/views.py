@@ -24,6 +24,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.forms import SessionEditForm, field_descriptors
 from ludamus.gates.web.django.helpers import (
@@ -1038,15 +1039,9 @@ class SessionModalComponentView(View):
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        if not is_event_published(event) and not self._is_manager():
+        if not is_event_published(event) and not has_panel_access(self.request):
             raise Http404
         return event
-
-    def _is_manager(self) -> bool:
-        slug = self.request.context.current_user_slug
-        return slug is not None and self.request.services.sites.is_manager(
-            self.request.context.current_sphere_id, slug
-        )
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[int], set[int], bool]:
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -1116,6 +1111,8 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 session_id=context.session.pk,
                 space_id=form.cleaned_data["space"],
                 time_slot_id=form.cleaned_data["time_slot"],
+                user_slug=request.context.current_user_slug,
+                sphere_id=request.context.current_sphere_id,
             )
         except SpaceTimeConflictError:
             form.add_error(

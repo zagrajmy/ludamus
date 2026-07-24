@@ -76,13 +76,16 @@ def authenticate_organizer(request: RootRequest) -> ActorContext | None:
     if not isinstance(user_id, int) or not isinstance(sphere_id, int):
         return None
     user_model = get_user_model()
-    slug = (
+    row = (
         user_model.objects.filter(pk=user_id, is_active=True)
-        .values_list("slug", flat=True)
+        .values_list("slug", "is_superuser")
         .first()
     )
-    if slug is None:
+    if row is None:
         return None
-    if not request.services.sphere_panel.is_manager(sphere_id, slug):
+    slug, is_superuser = row
+    if not is_superuser and not request.services.sphere_panel.is_manager(
+        sphere_id, slug
+    ):
         return None
     return ActorContext(user_id=user_id, scope=ToolScope.ORGANIZER, sphere_id=sphere_id)
