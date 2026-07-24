@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 06:44+0200\n"
+"POT-Creation-Date: 2026-07-24 12:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5278,8 +5278,8 @@ msgid "Discussion panel"
 msgstr "Panel dyskusyjny"
 
 #: src/ludamus/templates/landing/demos/proposals.html
+#: src/ludamus/templates/panel/parts/time-slot-picker.html
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
 msgid "Preferred time slots"
 msgstr "Preferowane przedziały czasowe"
 
@@ -7371,11 +7371,6 @@ msgstr ""
 #, python-format
 msgid "Remove %(name)s"
 msgstr "Usuń %(name)s"
-
-#: src/ludamus/templates/panel/parts/time-slot-picker.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Preferred time slots"
-msgstr "Preferowane przedziały czasowe"
 
 #: src/ludamus/templates/panel/parts/time-slot-picker.html
 msgid ""
