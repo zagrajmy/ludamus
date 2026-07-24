@@ -24,12 +24,7 @@ def purge_blank_field_values(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        (
-            "db_main",
-            "0135_alter_encounter_header_image_alter_event_cover_image_and_more",
-        )
-    ]
+    dependencies = [("db_main", "0136_alter_event_logo_alter_sphere_logo")]
 
     operations = [
         migrations.RunPython(purge_blank_field_values, migrations.RunPython.noop)
