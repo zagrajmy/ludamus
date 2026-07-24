@@ -74,7 +74,7 @@ def _attributed(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
 def name_reconcile(
     facilitators: Sequence[FacilitatorDTO],
 ) -> tuple[list[tuple[str, bool]], str | None]:
-    names = list(dict.fromkeys(f.display_name for f in facilitators))
+    names = _unique([f.display_name for f in facilitators])
     if len(names) == 1:
         return [], names[0]
     return [(name, name == facilitators[0].display_name) for name in names], None
