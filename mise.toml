@@ -4,6 +4,10 @@ experimental = true
 # use run = [...] to enforce synchronous run
 # user depends = [...] to allow asynchronous execution
 jobs = 8
+# Mid-bootstrap (fresh runners, sandboxes) the auto-detected aube shim can't
+# resolve yet and its self-install can leave a broken .aube store (bit the
+# macOS CI runner on aube 1.32.0), so mise's npm backend uses plain npm.
+npm.package_manager = "npm"
 
 [hooks]
 enter = "poetry install"
@@ -20,7 +24,10 @@ node = "25.6.1"
 "pipx:poetry" = "2.4.1"
 "npm:@ast-grep/cli" = { version = "0.44.1", npm_args = "--ignore-scripts=false" }
 markdownlint-cli2 = "0.23.1"
-"npm:@endevco/aube" = { version = "latest", npm_args = "--ignore-scripts=false" }
+# Pinned (not "latest"): fresh macOS runners resolve the dist-tag directly,
+# which skips .npmrc's min-release-age cooldown and picked up the broken
+# 1.32.0 the day it shipped.
+"npm:@endevco/aube" = { version = "1.31.0", npm_args = "--ignore-scripts=false" }
 hk = "1.51.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
@@ -57,6 +64,10 @@ run = "djlint src --lint --reformat --format-css --format-js --profile=django"
 description = "Lint Python with Ruff and auto-fix violations"
 run = "ruff check --fix scripts src tests"
 
+[tasks."format:oxfmt"]
+description = "Format frontend code with Oxfmt"
+run = 'aube exec oxfmt --write "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,css}"'
+
 [tasks."format:taplo"]
 description = "Format TOML files"
 run = "taplo format --config=.taplo.toml"
@@ -68,6 +79,7 @@ run = [
     { task = "format:black" },
     { task = "format:djlint" },
     { task = "format:ruff" },
+    { task = "format:oxfmt" },
 ]
 
 ## Lint
@@ -210,10 +222,8 @@ env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 
 [tasks."test:e2e"]
 description = "Run end-to-end Playwright tests"
-run = [
-    "npx playwright test",
-    "coverage report --rcfile={{ config_root }}/pyproject.toml",
-]
+run = "./scripts/run_e2e.sh"
+raw_args = true
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 dir = "tests/e2e"
 

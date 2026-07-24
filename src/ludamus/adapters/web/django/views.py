@@ -13,7 +13,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Count, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -21,6 +20,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
+from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -64,6 +64,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.sessions import (
+    annotate_session_participation_counts,
     field_value_dto,
     with_session_card_relations,
 )
@@ -193,7 +194,7 @@ def _is_manager(request: RootRequest) -> bool:
     )
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="get")
+@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
@@ -263,7 +264,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="get")
+@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -288,26 +289,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             raise Http404
 
         # Get all sessions for this event that are published
-        event_sessions = (
+        event_sessions = annotate_session_participation_counts(
             with_session_card_relations(
                 Session.objects.filter(event=self.object, agenda_item__isnull=False)
             )
-            .annotate(
-                enrolled_count_cached=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status=SessionParticipationStatus.CONFIRMED
-                    ),
-                ),
-                waiting_count_cached=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status=SessionParticipationStatus.WAITING
-                    ),
-                ),
-            )
-            .order_by("agenda_item__start_time")
-        )
+        ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
         banned_by: set[int] = set()
