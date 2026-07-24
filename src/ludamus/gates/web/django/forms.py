@@ -108,14 +108,16 @@ def _svg_element_is_safe(element: Element) -> bool:
 def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
     uploaded.seek(0)
     try:
-        root = etree.parse(uploaded, _SVG_PARSER).getroot()
+        # fromstring, not parse: parse() takes a filename too, so passing an
+        # upload there reads as a path expression to taint analysis. Size is
+        # already capped by validate_uploaded_image_size.
+        root = etree.fromstring(uploaded.read(), _SVG_PARSER)
     except etree.XMLSyntaxError as error:
         raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
     finally:
         uploaded.seek(0)
     if (
-        root is None
-        or _xml_local_name(str(root.tag)) != "svg"
+        _xml_local_name(str(root.tag)) != "svg"
         # iter(Element) skips entity/comment/PI nodes, whose tag is not a string
         or not all(
             _svg_element_is_safe(element) for element in root.iter(etree.Element)
