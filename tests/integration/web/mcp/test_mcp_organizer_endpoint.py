@@ -106,6 +106,22 @@ class TestOrganizerAuthentication:
 
         assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
 
+    def test_non_manager_superuser_can_ping(self, client, sphere):
+        superuser = UserFactory(username="orgroot", is_superuser=True)
+        token = mint_organizer_token(user_id=superuser.pk, sphere_id=sphere.pk)
+
+        response = post_org(client, PING, token=token)
+
+        assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+
+    def test_deactivated_superuser(self, client, sphere):
+        superuser = UserFactory(username="orgroot", is_superuser=True, is_active=False)
+        token = mint_organizer_token(user_id=superuser.pk, sphere_id=sphere.pk)
+
+        response = post_org(client, PING, token=token)
+
+        assert_response(response, HTTPStatus.UNAUTHORIZED)
+
 
 class TestOrganizerTools:
     def test_tools_list(self, client, org_token):

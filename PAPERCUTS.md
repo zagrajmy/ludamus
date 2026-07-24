@@ -104,6 +104,8 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-23: mypy INTERNAL ERROR in django-stubs request.pyi during mise run
+  check; deleting .mypy_cache fixed it
 - 2026-07-23: Running mise tasks in the managed sandbox failed with Operation
   not permitted, so task discovery required a retry outside the sandbox.
 - 2026-07-23: Running mise run test:int with focused files still prepended
@@ -167,3 +169,5 @@ If you fix a papercut, remove it.
   flaked once under parallel run with 'UNIQUE constraint failed: sphere.site_id'
   — passed on re-run, looks like a test-isolation collision between sphere/site
   fixtures
+- 2026-07-24: playwriter 'session new' printed a fresh id but the relay 404'd it
+  (Session 14 not found); had to reuse an old session id from session list
