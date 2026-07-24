@@ -1,7 +1,7 @@
 import json
 from typing import Literal, cast
 
-from django.db.models import Count, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.db.models import Count, F, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
@@ -70,6 +70,7 @@ _FACILITATOR_SORT_FIELDS = {
     "accreditation": "accreditation_type",
     "sessions": "session_count",
     "linked": "user_id",
+    "organizer": "organizer__name",
 }
 
 
@@ -933,7 +934,8 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
         qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions", distinct=True)
+            session_count=Count("sessions", distinct=True),
+            organizer_name=F("organizer__name"),
         )
 
         if search := filters.get("search"):

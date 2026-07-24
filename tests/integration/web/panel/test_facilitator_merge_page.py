@@ -16,7 +16,7 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _DEFAULT_COLUMNS = [
     FacilitatorColumnDTO(key=key)
-    for key in ("name", "linked", "sessions", "accreditation")
+    for key in ("name", "linked", "sessions", "accreditation", "organizer")
 ]
 
 
@@ -37,6 +37,7 @@ def _column_values(facilitators):
                     AccreditationType(facilitator.accreditation_type)
                 ]
             ),
+            "organizer": facilitator.organizer_name or "—",
         }
         for facilitator in facilitators
     }

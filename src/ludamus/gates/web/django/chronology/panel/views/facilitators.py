@@ -89,6 +89,8 @@ def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
         return _("Linked") if facilitator.user_id else _("None")
     if key == "sessions":
         return str(facilitator.session_count)
+    if key == "organizer":
+        return facilitator.organizer_name or "—"
     return str(
         ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
     )

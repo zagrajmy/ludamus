@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     )
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
-_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
+_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation", "organizer")
 # What an event shows until an organizer chooses otherwise — the columns the
 # list hardcoded before they became configurable.
 _DEFAULT_COLUMN_KEYS = _BUILTIN_COLUMN_KEYS

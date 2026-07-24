@@ -68,7 +68,7 @@ def _field_dto(field):
     )
 
 
-_DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation"]
+_DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation", "organizer"]
 _DEFAULT_COLUMNS = [FacilitatorColumnDTO(key=key) for key in _DEFAULT_KEYS]
 
 
@@ -86,6 +86,7 @@ def _column_values(facilitators, extra=None):
                     AccreditationType(facilitator.accreditation_type)
                 ]
             ),
+            "organizer": facilitator.organizer_name or "—",
             **extra.get(facilitator.pk, {}),
         }
         for facilitator in facilitators
@@ -183,6 +184,44 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+            },
+        )
+
+    def test_organizer_column_shows_the_organizer_name(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            organizer=active_user,
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                organizer_id=active_user.pk,
+                organizer_name=active_user.name,
                 pk=response.context["facilitators"][0].pk,
                 slug="alice",
                 user_id=None,
