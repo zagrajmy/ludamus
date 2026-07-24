@@ -39,6 +39,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
     ProposalAcceptContextDTO,
+    ProposalAcceptDeniedError,
     SessionPlacement,
     SourceQuestion,
     SpaceTimeConflictError,
@@ -1430,15 +1431,19 @@ class TestProposalAcceptanceService:
         spheres.is_manager.assert_called_once_with(3, "member")
 
     def test_accept_session_updates_status_and_creates_agenda_item(
-        self, service, sessions, agenda_items, transaction
+        self, service, sessions, agenda_items, transaction, active_users, spheres
     ):
         sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
         sessions.read_time_slot.return_value = SimpleNamespace(
             start_time=_NOW, end_time=_NOW
         )
         agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto()
+        spheres.is_manager.return_value = True
 
-        service.accept_session(session_id=5, space_id=7, time_slot_id=2)
+        service.accept_session(
+            session_id=5, space_id=7, time_slot_id=2, user_slug="manager", sphere_id=3
+        )
 
         sessions.read_time_slot.assert_called_once_with(5, 2)
         agenda_items.list_overlapping_in_space.assert_called_once_with(
@@ -1459,7 +1464,7 @@ class TestProposalAcceptanceService:
         transaction.atomic.assert_called_once_with()
 
     def test_accept_session_raises_on_space_time_conflict(
-        self, service, sessions, agenda_items
+        self, service, sessions, agenda_items, active_users, spheres
     ):
         sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
         sessions.read_time_slot.return_value = SimpleNamespace(
@@ -1468,9 +1473,54 @@ class TestProposalAcceptanceService:
         agenda_items.list_overlapping_in_space.return_value = [
             _make_item(pk=9, space_id=7)
         ]
+        active_users.read.return_value = _user_dto()
+        spheres.is_manager.return_value = True
 
         with pytest.raises(SpaceTimeConflictError):
-            service.accept_session(session_id=5, space_id=7, time_slot_id=2)
+            service.accept_session(
+                session_id=5,
+                space_id=7,
+                time_slot_id=2,
+                user_slug="manager",
+                sphere_id=3,
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()
+
+    def test_accept_session_allowed_for_superuser(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = []
+        active_users.read.return_value = _user_dto(is_superuser=True)
+
+        service.accept_session(
+            session_id=5, space_id=7, time_slot_id=2, user_slug="root", sphere_id=3
+        )
+
+        sessions.update.assert_called_once_with(
+            5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
+        )
+        spheres.is_manager.assert_not_called()
+
+    def test_accept_session_denied_for_non_manager(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        active_users.read.return_value = _user_dto()
+        spheres.is_manager.return_value = False
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            service.accept_session(
+                session_id=5,
+                space_id=7,
+                time_slot_id=2,
+                user_slug="member",
+                sphere_id=3,
+            )
 
         sessions.update.assert_not_called()
         agenda_items.create.assert_not_called()

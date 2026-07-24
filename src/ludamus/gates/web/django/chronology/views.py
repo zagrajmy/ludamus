@@ -1111,6 +1111,8 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 session_id=context.session.pk,
                 space_id=form.cleaned_data["space"],
                 time_slot_id=form.cleaned_data["time_slot"],
+                user_slug=request.context.current_user_slug,
+                sphere_id=request.context.current_sphere_id,
             )
         except SpaceTimeConflictError:
             form.add_error(

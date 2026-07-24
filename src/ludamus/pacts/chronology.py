@@ -252,6 +252,10 @@ class SpaceTimeConflictError(Exception):
     """Another session already occupies that space during the chosen slot."""
 
 
+class ProposalAcceptDeniedError(Exception):
+    """Only sphere managers and superusers may accept proposals."""
+
+
 class ProposalAcceptContextDTO(BaseModel):
     session: SessionDTO
     event: EventDTO
@@ -268,7 +272,13 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         self, *, session_id: int, user_slug: str, sphere_id: int
     ) -> ProposalAcceptContextDTO | None: ...
     def accept_session(
-        self, *, session_id: int, space_id: int, time_slot_id: int
+        self,
+        *,
+        session_id: int,
+        space_id: int,
+        time_slot_id: int,
+        user_slug: str,
+        sphere_id: int,
     ) -> None: ...
 
 

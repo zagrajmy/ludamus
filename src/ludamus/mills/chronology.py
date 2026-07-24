@@ -50,6 +50,7 @@ from ludamus.pacts.chronology import (
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     ProposalAcceptContextDTO,
+    ProposalAcceptDeniedError,
     ProposalScheduledError,
     SessionPlacement,
     SourceQuestion,
@@ -297,8 +298,16 @@ class ProposalAcceptanceService:
         return self._spheres.is_manager(sphere_id, user_slug)
 
     def accept_session(
-        self, *, session_id: int, space_id: int, time_slot_id: int
+        self,
+        *,
+        session_id: int,
+        space_id: int,
+        time_slot_id: int,
+        user_slug: str,
+        sphere_id: int,
     ) -> None:
+        if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
+            raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
         time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
         with self._transaction.atomic():
