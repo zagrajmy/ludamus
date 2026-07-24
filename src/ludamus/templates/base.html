@@ -111,6 +111,7 @@
                     {% if messages %}
                         <div class="flash-region"
                              role="region"
+                             aria-live="polite"
                              aria-label="{% translate "Notifications" %}">
                             {% include "components/flash-messages.html" %}
                         </div>

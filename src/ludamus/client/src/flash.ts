@@ -195,6 +195,7 @@ export const pushErrorFlash = (message: string): void => {
     region = document.createElement("div");
     region.className = "flash-region";
     region.setAttribute("role", "region");
+    region.setAttribute("aria-live", "polite");
     region.setAttribute("aria-label", document.body.dataset.flashRegionLabel ?? "");
     document.body.append(region);
   }
