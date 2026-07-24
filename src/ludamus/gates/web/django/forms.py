@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -33,8 +34,8 @@ MAX_IMAGE_SIZE = 8 * 1024 * 1024
 # A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
 # bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
 MAX_IMAGE_PIXELS = 24_000_000
-ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
-COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
+# Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
+# and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
 
 
@@ -74,7 +75,7 @@ def cover_image_field() -> forms.ImageField:
         label=_("Cover image"),
         required=False,
         help_text=COVER_IMAGE_HELP_TEXT,
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
     )
 
 
@@ -87,7 +88,7 @@ def _logo_field() -> forms.ImageField:
         help_text=_(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
     )
 
 
