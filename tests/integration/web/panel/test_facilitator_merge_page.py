@@ -86,8 +86,13 @@ def _search_context(
     }
 
 
-def _accreditation_choice(value, sources):
-    return (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)], sources)
+def _accreditation_choice(value, sources, checked):
+    return (
+        value,
+        ACCREDITATION_TYPE_LABELS[AccreditationType(value)],
+        sources,
+        checked,
+    )
 
 
 def _field_dto(field):
@@ -104,17 +109,29 @@ def _field_dto(field):
 
 
 def _confirm_context(
-    event, *, facilitators, name_choices, accreditation_choices, field_choices, error
+    event,
+    *,
+    facilitators,
+    name_choices,
+    accreditation_choices,
+    field_choices,
+    error,
+    unanimous_display_name=None,
+    unanimous_accreditation=None,
+    unanimous_field_values=(),
 ):
     return {
         **_event_context(event),
         "confirm": True,
         "facilitators": [FacilitatorDTO.model_validate(f) for f in facilitators],
         "name_choices": name_choices,
+        "unanimous_display_name": unanimous_display_name,
         "accreditation_choices": list(
             starmap(_accreditation_choice, accreditation_choices)
         ),
+        "unanimous_accreditation": unanimous_accreditation,
         "field_choices": field_choices,
+        "unanimous_field_values": list(unanimous_field_values),
         "error": error,
     }
 
@@ -298,23 +315,113 @@ class TestFacilitatorMergeConfirm:
             context_data=_confirm_context(
                 event,
                 facilitators=[adam, jan],
-                name_choices=["Adam Kowalski", "Jan Wysocki"],
+                name_choices=[("Adam Kowalski", True), ("Jan Wysocki", False)],
                 accreditation_choices=[
-                    ("guest", "Adam Kowalski"),
-                    ("none", "Jan Wysocki"),
+                    ("guest", "Adam Kowalski", True),
+                    ("none", "Jan Wysocki", False),
                 ],
                 field_choices=[
                     (
                         _field_dto(field),
                         [
-                            (adam.pk, "Vegan", "Adam Kowalski"),
-                            (jan.pk, "Vegetarian", "Jan Wysocki"),
+                            (adam.pk, "Vegan", "Adam Kowalski", True),
+                            (jan.pk, "Vegetarian", "Jan Wysocki", False),
                         ],
                     )
                 ],
                 error=None,
             ),
         )
+
+    def test_confirm_hides_unanimous_values_behind_hidden_inputs(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        adam = _make_facilitator(event, display_name="Adam Kowalski", slug="adam-1")
+        twin = _make_facilitator(event, display_name="Adam Kowalski", slug="adam-2")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Diet?",
+            slug="diet",
+            field_type="text",
+            order=0,
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=twin, event=event, field=field, value="Vegan"
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event),
+            {"facilitator_slugs": ["adam-1", "adam-2"], "confirm": "1"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_confirm_context(
+                event,
+                facilitators=[adam, twin],
+                name_choices=[],
+                unanimous_display_name="Adam Kowalski",
+                accreditation_choices=[],
+                unanimous_accreditation="none",
+                field_choices=[],
+                unanimous_field_values=[(field.pk, twin.pk)],
+                error=None,
+            ),
+            contains=[
+                'name="display_name"',
+                'value="Adam Kowalski"',
+                'name="accreditation_type"',
+                'value="none"',
+                f'name="personal_{field.pk}" value="{twin.pk}"',
+            ],
+            not_contains=["Reconcile values"],
+        )
+
+    def test_post_merge_keeps_unanimous_field_value_on_target(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Diet?",
+            slug="diet",
+            field_type="text",
+            order=0,
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=jan, event=event, field=field, value="Vegan"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
+                "target_slug": "adam-kowalski",
+                "display_name": "Adam Kowalski",
+                "accreditation_type": "none",
+                f"personal_{field.pk}": str(jan.pk),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        adam.refresh_from_db()
+        assert not Facilitator.objects.filter(slug="jan-wysocki").exists()
+        value = PersonalDataFieldValue.objects.get(facilitator=adam, field=field)
+        assert value.value == "Vegan"
 
     def test_confirm_with_too_small_basket_falls_back_to_search(
         self, authenticated_client, active_user, sphere, event
@@ -442,8 +549,9 @@ class TestFacilitatorMergeConfirm:
             context_data=_confirm_context(
                 event,
                 facilitators=[adam, jan],
-                name_choices=["Adam Kowalski", "Jan Wysocki"],
-                accreditation_choices=[("none", "Adam Kowalski, Jan Wysocki")],
+                name_choices=[("Adam Kowalski", True), ("Jan Wysocki", False)],
+                accreditation_choices=[],
+                unanimous_accreditation="none",
                 field_choices=[],
                 error=MERGE_ERROR,
             ),

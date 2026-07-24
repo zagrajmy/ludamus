@@ -27,6 +27,19 @@
                     {% for facilitator in facilitators %}
                         <input type="hidden" name="facilitator_slugs" value="{{ facilitator.slug }}">
                     {% endfor %}
+                    {% if unanimous_display_name %}
+                        <input type="hidden"
+                               name="display_name"
+                               value="{{ unanimous_display_name }}">
+                    {% endif %}
+                    {% if unanimous_accreditation %}
+                        <input type="hidden"
+                               name="accreditation_type"
+                               value="{{ unanimous_accreditation }}">
+                    {% endif %}
+                    {% for field_pk, holder_pk in unanimous_field_values %}
+                        <input type="hidden" name="personal_{{ field_pk }}" value="{{ holder_pk }}">
+                    {% endfor %}
                     {% if error %}
                         <div class="card p-4 text-sm text-danger" role="alert">{{ error }}</div>
                     {% endif %}
@@ -49,46 +62,52 @@
                             </fieldset>
                         </div>
                     </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Reconcile values" %}</h3>
-                            <p class="text-sm text-foreground-muted mb-4">
-                                {% translate "Where the selected facilitators disagree, choose what the merged facilitator keeps." %}
-                            </p>
-                            <div class="divide-y divide-border">
-                                <fieldset class="py-4 first:pt-0 last:pb-0">
-                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</legend>
-                                    {% for name in name_choices %}
-                                        {% radio name="display_name" value=name checked=forloop.first %}
-                                            {{ name }}
-                                        {% end_radio %}
-                                    {% endfor %}
-                                </fieldset>
-                                <fieldset class="py-4 first:pt-0 last:pb-0">
-                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</legend>
-                                    {% for value, label, sources in accreditation_choices %}
-                                        {% radio name="accreditation_type" value=value checked=forloop.first %}
-                                            {{ label }}
-                                            <span class="text-foreground-muted">· {{ sources }}</span>
-                                        {% end_radio %}
-                                    {% endfor %}
-                                </fieldset>
-                                {% for field, choices in field_choices %}
-                                    <fieldset class="py-4 first:pt-0 last:pb-0">
-                                        <legend class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</legend>
-                                        {% with pk_str=field.pk|stringformat:"s" %}
-                                            {% for holder_pk, label, sources in choices %}
-                                                {% radio name="personal_"|add:pk_str value=holder_pk checked=forloop.first %}
+                    {% if name_choices or accreditation_choices or field_choices %}
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Reconcile values" %}</h3>
+                                <p class="text-sm text-foreground-muted mb-4">
+                                    {% translate "Where the selected facilitators disagree, choose what the merged facilitator keeps." %}
+                                </p>
+                                <div class="divide-y divide-border">
+                                    {% if name_choices %}
+                                        <fieldset class="py-4 first:pt-0 last:pb-0">
+                                            <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</legend>
+                                            {% for name, checked in name_choices %}
+                                                {% radio name="display_name" value=name checked=checked %}
+                                                    {{ name }}
+                                                {% end_radio %}
+                                            {% endfor %}
+                                        </fieldset>
+                                    {% endif %}
+                                    {% if accreditation_choices %}
+                                        <fieldset class="py-4 first:pt-0 last:pb-0">
+                                            <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</legend>
+                                            {% for value, label, sources, checked in accreditation_choices %}
+                                                {% radio name="accreditation_type" value=value checked=checked %}
                                                     {{ label }}
                                                     <span class="text-foreground-muted">· {{ sources }}</span>
                                                 {% end_radio %}
                                             {% endfor %}
-                                        {% endwith %}
-                                    </fieldset>
-                                {% endfor %}
+                                        </fieldset>
+                                    {% endif %}
+                                    {% for field, choices in field_choices %}
+                                        <fieldset class="py-4 first:pt-0 last:pb-0">
+                                            <legend class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</legend>
+                                            {% with pk_str=field.pk|stringformat:"s" %}
+                                                {% for holder_pk, label, sources, checked in choices %}
+                                                    {% radio name="personal_"|add:pk_str value=holder_pk checked=checked %}
+                                                        {{ label }}
+                                                        <span class="text-foreground-muted">· {{ sources }}</span>
+                                                    {% end_radio %}
+                                                {% endfor %}
+                                            {% endwith %}
+                                        </fieldset>
+                                    {% endfor %}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    {% endif %}
                     <div class="flex items-center gap-3">
                         {% translate "Merge" as t_merge %}
                         {% tessera_button t_merge variant="danger" %}
