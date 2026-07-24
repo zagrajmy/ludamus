@@ -30,7 +30,12 @@ from ludamus.gates.web.django.forms import (
     FacilitatorForm,
 )
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
-from ludamus.mills.panel_facilitators import MIN_MERGE_FACILITATORS
+from ludamus.mills.panel_facilitators import (
+    MIN_MERGE_FACILITATORS,
+    accreditation_reconcile,
+    field_reconcile,
+    name_reconcile,
+)
 from ludamus.pacts import (
     FacilitatorMergeError,
     FacilitatorUpdateData,
@@ -45,21 +50,13 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import (
-        FacilitatorDTO,
-        FacilitatorListItemDTO,
-        PersonalDataFieldDTO,
-    )
-    from ludamus.pacts.panel import (
-        FacilitatorMergeContextDTO,
-        FacilitatorPanelServiceProtocol,
-        PanelColumnDTO,
-    )
+    from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
+    from ludamus.pacts.panel import FacilitatorPanelServiceProtocol, PanelColumnDTO
 
 
 def _personal_entries_from_post(
@@ -80,9 +77,6 @@ def _personal_entries_from_post(
         )
         for field in fields
     ]
-
-
-type _FieldValue = str | list[str] | bool
 
 
 def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
@@ -392,98 +386,6 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
 
-def _attributed(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
-    # Distinct values in facilitator order, each carrying the facilitators
-    # that hold it — the reconcile screen says whose value you are keeping.
-    groups: dict[str, list[str]] = {}
-    for name, value in pairs:
-        groups.setdefault(value, []).append(name)
-    return [(value, ", ".join(names)) for value, names in groups.items()]
-
-
-def name_reconcile(
-    facilitators: Sequence[FacilitatorDTO],
-) -> tuple[list[tuple[str, bool]], str | None]:
-    names = list(dict.fromkeys(f.display_name for f in facilitators))
-    if len(names) == 1:
-        return [], names[0]
-    return [(name, name == facilitators[0].display_name) for name in names], None
-
-
-def accreditation_reconcile(
-    facilitators: Sequence[FacilitatorDTO],
-) -> tuple[list[tuple[str, _StrPromise, str, bool]], str | None]:
-    attributed = _attributed(
-        (f.display_name, f.accreditation_type) for f in facilitators
-    )
-    if len(attributed) == 1:
-        return [], attributed[0][0]
-    return [
-        (
-            value,
-            ACCREDITATION_TYPE_LABELS[AccreditationType(value)],
-            sources,
-            value == facilitators[0].accreditation_type,
-        )
-        for value, sources in attributed
-    ], None
-
-
-def field_reconcile(
-    merge_context: FacilitatorMergeContextDTO,
-) -> tuple[
-    list[tuple[PersonalDataFieldDTO, list[tuple[int, str, str, bool]]]],
-    list[tuple[int, int]],
-]:
-    target_pk = merge_context.facilitators[0].pk
-    conflicts: list[tuple[PersonalDataFieldDTO, list[tuple[int, str, str, bool]]]] = []
-    unanimous: list[tuple[int, int]] = []
-    for field in merge_context.fields:
-        groups: list[tuple[int, _FieldValue, list[str], list[int]]] = []
-        for facilitator in merge_context.facilitators:
-            value = merge_context.values.get(facilitator.pk, {}).get(field.slug)
-            if not value:
-                continue
-            for _pk, existing, names, holder_pks in groups:
-                if existing == value:
-                    names.append(facilitator.display_name)
-                    holder_pks.append(facilitator.pk)
-                    break
-            else:
-                groups.append(
-                    (
-                        facilitator.pk,
-                        value,
-                        [facilitator.display_name],
-                        [facilitator.pk],
-                    )
-                )
-        if not groups:
-            continue
-        if len(groups) == 1:
-            unanimous.append((field.pk, groups[0][0]))
-            continue
-        checked_pk = next(
-            (pk for pk, _v, _n, holder_pks in groups if target_pk in holder_pks),
-            groups[0][0],
-        )
-        conflicts.append(
-            (
-                field,
-                [
-                    (
-                        pk,
-                        format_field_value(value=value),
-                        ", ".join(names),
-                        pk == checked_pk,
-                    )
-                    for pk, value, names, _holder_pks in groups
-                ],
-            )
-        )
-    return conflicts, unanimous
-
-
 class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
     """Search-and-collect merge flow with a reconcile-then-confirm screen."""
 
@@ -556,17 +458,34 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
 
         self._base_context(context, slug)
         name_choices, unanimous_name = name_reconcile(merge_context.facilitators)
-        accreditation_choices, unanimous_accreditation = accreditation_reconcile(
+        accreditation_values, unanimous_accreditation = accreditation_reconcile(
             merge_context.facilitators
         )
-        field_choices, unanimous_field_values = field_reconcile(merge_context)
+        field_conflicts, unanimous_field_values = field_reconcile(merge_context)
         context["confirm"] = True
         context["facilitators"] = merge_context.facilitators
         context["name_choices"] = name_choices
         context["unanimous_display_name"] = unanimous_name
-        context["accreditation_choices"] = accreditation_choices
+        context["accreditation_choices"] = [
+            (
+                value,
+                ACCREDITATION_TYPE_LABELS[AccreditationType(value)],
+                sources,
+                checked,
+            )
+            for value, sources, checked in accreditation_values
+        ]
         context["unanimous_accreditation"] = unanimous_accreditation
-        context["field_choices"] = field_choices
+        context["field_choices"] = [
+            (
+                field,
+                [
+                    (pk, format_field_value(value=value), sources, checked)
+                    for pk, value, sources, checked in choices
+                ],
+            )
+            for field, choices in field_conflicts
+        ]
         context["unanimous_field_values"] = unanimous_field_values
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)

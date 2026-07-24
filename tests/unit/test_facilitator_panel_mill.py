@@ -4,12 +4,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.panel_facilitators import FacilitatorPanelService
-from ludamus.pacts import FacilitatorMergeError, PersonalDataFieldDTO
+from ludamus.mills.panel_facilitators import (
+    FacilitatorPanelService,
+    accreditation_reconcile,
+    field_reconcile,
+    name_reconcile,
+)
+from ludamus.pacts import FacilitatorDTO, FacilitatorMergeError, PersonalDataFieldDTO
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     FacilitatorCreateData,
     FacilitatorListQuery,
+    FacilitatorMergeContextDTO,
     FacilitatorMergeData,
     FacilitatorPanelRepos,
 )
@@ -362,3 +368,147 @@ class TestCreateFacilitator:
 
         repos.personal_data_field_values.save.assert_not_called()
         repos.facilitator_change_logs.create.assert_not_called()
+
+
+def _merge_facilitator(*, pk, display_name, accreditation="none"):
+    return FacilitatorDTO.model_construct(
+        pk=pk, display_name=display_name, accreditation_type=accreditation
+    )
+
+
+class TestNameReconcile:
+    def test_unanimous_name_yields_no_choices(self):
+        facilitators = [
+            _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+            _merge_facilitator(pk=2, display_name="Adam Kowalski"),
+        ]
+
+        choices, unanimous = name_reconcile(facilitators)
+
+        assert not choices
+        assert unanimous == "Adam Kowalski"
+
+    def test_disagreement_preselects_target_name(self):
+        facilitators = [
+            _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+            _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+            _merge_facilitator(pk=3, display_name="Adam Kowalski"),
+        ]
+
+        choices, unanimous = name_reconcile(facilitators)
+
+        assert choices == [("Adam Kowalski", True), ("Jan Wysocki", False)]
+        assert unanimous is None
+
+
+class TestAccreditationReconcile:
+    def test_unanimous_accreditation_yields_no_choices(self):
+        facilitators = [
+            _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+            _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+        ]
+
+        choices, unanimous = accreditation_reconcile(facilitators)
+
+        assert not choices
+        assert unanimous == "none"
+
+    def test_disagreement_preselects_target_accreditation(self):
+        facilitators = [
+            _merge_facilitator(
+                pk=1, display_name="Adam Kowalski", accreditation="guest"
+            ),
+            _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+            _merge_facilitator(pk=3, display_name="Ewa Nowak", accreditation="guest"),
+        ]
+
+        choices, unanimous = accreditation_reconcile(facilitators)
+
+        assert choices == [
+            ("guest", "Adam Kowalski, Ewa Nowak", True),
+            ("none", "Jan Wysocki", False),
+        ]
+        assert unanimous is None
+
+
+class TestFieldReconcile:
+    def test_field_without_values_is_omitted(self):
+        merge_context = FacilitatorMergeContextDTO(
+            facilitators=[
+                _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+                _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+            ],
+            fields=[_field(1, field_type="text")],
+            values={},
+        )
+
+        conflicts, unanimous = field_reconcile(merge_context)
+
+        assert not conflicts
+        assert not unanimous
+
+    def test_unanimous_value_moves_to_hidden_entries(self):
+        field = _field(1, field_type="text")
+        merge_context = FacilitatorMergeContextDTO(
+            facilitators=[
+                _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+                _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+                _merge_facilitator(pk=3, display_name="Ewa Nowak"),
+            ],
+            fields=[field],
+            values={2: {field.slug: "Vegan"}, 3: {field.slug: "Vegan"}},
+        )
+
+        conflicts, unanimous = field_reconcile(merge_context)
+
+        assert not conflicts
+        assert unanimous == [(field.pk, 2)]
+
+    def test_disagreement_preselects_the_target_holder(self):
+        field = _field(1, field_type="text")
+        merge_context = FacilitatorMergeContextDTO(
+            facilitators=[
+                _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+                _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+            ],
+            fields=[field],
+            values={1: {field.slug: "Vegan"}, 2: {field.slug: "Vegetarian"}},
+        )
+
+        conflicts, unanimous = field_reconcile(merge_context)
+
+        assert conflicts == [
+            (
+                field,
+                [
+                    (1, "Vegan", "Adam Kowalski", True),
+                    (2, "Vegetarian", "Jan Wysocki", False),
+                ],
+            )
+        ]
+        assert not unanimous
+
+    def test_disagreement_without_target_value_falls_back_to_first(self):
+        field = _field(1, field_type="text")
+        merge_context = FacilitatorMergeContextDTO(
+            facilitators=[
+                _merge_facilitator(pk=1, display_name="Adam Kowalski"),
+                _merge_facilitator(pk=2, display_name="Jan Wysocki"),
+                _merge_facilitator(pk=3, display_name="Ewa Nowak"),
+            ],
+            fields=[field],
+            values={2: {field.slug: "Vegan"}, 3: {field.slug: "Vegetarian"}},
+        )
+
+        conflicts, unanimous = field_reconcile(merge_context)
+
+        assert conflicts == [
+            (
+                field,
+                [
+                    (2, "Vegan", "Jan Wysocki", True),
+                    (3, "Vegetarian", "Ewa Nowak", False),
+                ],
+            )
+        ]
+        assert not unanimous
