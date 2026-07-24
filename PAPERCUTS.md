@@ -163,3 +163,7 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: test_event_page.py::test_query_count_constant_in_session_count
+  flaked once under parallel run with 'UNIQUE constraint failed: sphere.site_id'
+  — passed on re-run, looks like a test-isolation collision between sphere/site
+  fixtures
