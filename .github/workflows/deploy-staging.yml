@@ -150,10 +150,11 @@ jobs:
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
             if [ -n "$v" ]; then
-              # varlock's env-spec single-quote syntax escapes an embedded
-              # quote by doubling it (' -> ''), not POSIX shell's '\''.
-              escaped_v="$(printf '%s' "$v" | sed "s/'/''/g")"
-              printf "%s='%s'\n" "$k" "$escaped_v" >> .env.local
+              # @json double-quotes and backslash-escapes the value, unlike a
+              # naive single-quoted printf, which breaks the moment a secret
+              # contains a quote of its own.
+              printf '%s=%s\n' "$k" "$(jq -nr --arg v "$v" '$v | @json')" \
+                >> .env.local
               jq --arg k "$k" --arg v "$v" \
                 '. + [{key: $k, value: $v, is_preview: false}]' \
                 envs.json > envs.json.tmp && mv envs.json.tmp envs.json
@@ -244,11 +245,14 @@ jobs:
           # real outcome; 60 x 10s ≈ the old 13m ssh ceiling.
           for i in $(seq 1 60); do
             sleep 10
+            # A transient network hiccup (dropped connection, truncated
+            # response) must not crash the watch under `set -eu`; fall back
+            # to a status that matches neither case arm so the loop retries.
             status="$(curl -fsS \
               --connect-timeout 10 --max-time 30 \
               -H "Authorization: Bearer $COOLIFY_TOKEN" \
               "$COOLIFY_URL/api/v1/deployments/$deployment_uuid" \
-              | jq -r '.status')"
+              | jq -r '.status' || echo 'transient_error')"
             echo "[$i] status: $status"
             case "$status" in
               finished) exit 0 ;;
