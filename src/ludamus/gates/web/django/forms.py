@@ -7,12 +7,11 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from defusedxml import DefusedXmlException
-from defusedxml import ElementTree as SafeElementTree
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
+from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
@@ -22,9 +21,9 @@ from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from xml.etree.ElementTree import Element
 
     from django.core.files.uploadedfile import UploadedFile
+    from lxml.etree import _Element as Element
 
     from ludamus.pacts import (
         PersonalFieldRequirementDTO,
@@ -81,19 +80,27 @@ def validate_uploaded_image(image: object) -> None:
 
 
 _SVG_FORBIDDEN_TAGS = frozenset({"script", "foreignobject"})
+# libxml2 caps entity amplification (no billion laughs); unresolved entities
+# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
+_SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 
 def _xml_local_name(name: str) -> str:
     return name.rsplit("}", 1)[-1].lower()
 
 
+# lxml types attribute names/values as str | bytes; parsed documents yield str.
+def _xml_text(value: str | bytes) -> str:
+    return value if isinstance(value, str) else value.decode(errors="replace")
+
+
 def _svg_element_is_safe(element: Element) -> bool:
-    if _xml_local_name(element.tag) in _SVG_FORBIDDEN_TAGS:
+    if _xml_local_name(str(element.tag)) in _SVG_FORBIDDEN_TAGS:
         return False
     for name, value in element.attrib.items():
-        if _xml_local_name(name).startswith("on"):
+        if _xml_local_name(_xml_text(name)).startswith("on"):
             return False
-        if "javascript:" in "".join(value.split()).lower():
+        if "javascript:" in "".join(_xml_text(value).split()).lower():
             return False
     return True
 
@@ -101,15 +108,18 @@ def _svg_element_is_safe(element: Element) -> bool:
 def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
     uploaded.seek(0)
     try:
-        root = SafeElementTree.parse(uploaded, forbid_dtd=True).getroot()
-    except (SafeElementTree.ParseError, DefusedXmlException) as error:
+        root = etree.parse(uploaded, _SVG_PARSER).getroot()
+    except etree.XMLSyntaxError as error:
         raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
     finally:
         uploaded.seek(0)
     if (
         root is None
-        or _xml_local_name(root.tag) != "svg"
-        or not all(_svg_element_is_safe(element) for element in root.iter())
+        or _xml_local_name(str(root.tag)) != "svg"
+        # iter(Element) skips entity/comment/PI nodes, whose tag is not a string
+        or not all(
+            _svg_element_is_safe(element) for element in root.iter(etree.Element)
+        )
     ):
         raise ValidationError(_gettext("Invalid or unsafe SVG file."))
 
