@@ -51,19 +51,25 @@ def validate_uploaded_image_size(image: object) -> None:
         raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
 
 
+def _validate_raster(
+    *, image_format: str | None, pixels: int, format_error: str
+) -> None:
+    if image_format not in ALLOWED_IMAGE_FORMATS:
+        raise ValidationError(format_error)
+    if pixels > MAX_IMAGE_PIXELS:
+        raise ValidationError(_gettext("Image dimensions are too large."))
+
+
 def validate_uploaded_image_format(image: object) -> None:
     # Django's ImageField populates `image.image` (a PIL Image with `.format`)
     # during clean. We trust the detected format over user-supplied
     # content_type or filename extension.
     pil_image = getattr(image, "image", None)
-    if getattr(pil_image, "format", None) not in ALLOWED_IMAGE_FORMATS:
-        raise ValidationError(
-            _gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
-        )
-    width = getattr(pil_image, "width", 0)
-    height = getattr(pil_image, "height", 0)
-    if width * height > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
+    _validate_raster(
+        image_format=getattr(pil_image, "format", None),
+        pixels=getattr(pil_image, "width", 0) * getattr(pil_image, "height", 0),
+        format_error=_gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
+    )
 
 
 def validate_uploaded_image(image: object) -> None:
@@ -114,18 +120,17 @@ def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
         with Image.open(uploaded) as pil_image:
             image_format = pil_image.format
             pixels = pil_image.width * pil_image.height
-    except UnidentifiedImageError as error:
-        raise ValidationError(
-            _gettext("Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG.")
-        ) from error
+    except UnidentifiedImageError:
+        image_format, pixels = None, 0
     finally:
         uploaded.seek(0)
-    if image_format not in ALLOWED_IMAGE_FORMATS:
-        raise ValidationError(
-            _gettext("Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG.")
-        )
-    if pixels > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
+    _validate_raster(
+        image_format=image_format,
+        pixels=pixels,
+        format_error=_gettext(
+            "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
+        ),
+    )
 
 
 def _looks_like_svg(uploaded: UploadedFile) -> bool:
