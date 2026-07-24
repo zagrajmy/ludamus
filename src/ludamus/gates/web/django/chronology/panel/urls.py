@@ -12,6 +12,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     index,
     integrations,
     personal_data_fields,
+    proposal_edit,
     proposals,
     session_fields,
     time_slots,
@@ -191,12 +192,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/create/",
-        proposals.ProposalCreatePageView.as_view(),
+        proposal_edit.ProposalCreatePageView.as_view(),
         name="proposal-create",
     ),
     path(
         "event/<slug:slug>/proposals/create/fields/",
-        proposals.ProposalCreateFieldsComponentView.as_view(),
+        proposal_edit.ProposalCreateFieldsComponentView.as_view(),
         name="proposal-create-fields",
     ),
     path(
@@ -226,12 +227,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
-        proposals.ProposalEditPageView.as_view(),
+        proposal_edit.ProposalEditPageView.as_view(),
         name="proposal-edit",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
-        proposals.ProposalEditFieldsComponentView.as_view(),
+        proposal_edit.ProposalEditFieldsComponentView.as_view(),
         name="proposal-edit-fields",
     ),
     path(

@@ -35,6 +35,13 @@ def paginate[T](request: HttpRequest, items: Sequence[T]) -> Page[T]:
     return Paginator(items, size).get_page(request.GET.get("page"))
 
 
+def pagination_context[T](request: HttpRequest, items: Sequence[T]) -> dict[str, Any]:
+    # The sizes travel with the page so the picker can't drift from the
+    # sizes `paginate` actually honours.
+    page_obj = paginate(request, items)
+    return {"page_obj": page_obj, "page_sizes": list(PAGE_SIZES)}
+
+
 def safe_next_url(request: HttpRequest, fallback: str) -> str:
     next_url = request.POST.get("next", "")
     if next_url and url_has_allowed_host_and_scheme(

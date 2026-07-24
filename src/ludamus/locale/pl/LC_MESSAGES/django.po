@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 20:51+0200\n"
+"POT-Creation-Date: 2026-07-24 21:10+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -989,14 +989,14 @@ msgid "Ban removed."
 msgstr "Ban został usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Yes"
 msgstr "Tak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "No"
 msgstr "Nie"
@@ -1530,6 +1530,30 @@ msgstr "Pole danych osobowych zostało usunięte."
 msgid "Space not found."
 msgstr "Przestrzeń nie została znaleziona."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Proposal not found."
+msgstr "Nie znaleziono zgłoszenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
+msgid "Couldn't save your changes. Please check your input and try again."
+msgstr ""
+"Nie udało się zapisać zmian. Sprawdź wprowadzone dane i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
+msgid "Proposal updated successfully."
+msgstr "Zgłoszenie zostało zaktualizowane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
+msgid "Couldn't save the session. Please check your input and try again."
+msgstr ""
+"Nie udało się zapisać punktu programu. Sprawdź wprowadzone dane i spróbuj "
+"ponownie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
+msgid "Proposal created successfully."
+msgstr "Zgłoszenie zostało utworzone."
+
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
@@ -1561,10 +1585,6 @@ msgid "Scheduled"
 msgstr "Zaplanowane"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Proposal not found."
-msgstr "Nie znaleziono zgłoszenia."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-columns.html
@@ -1574,25 +1594,6 @@ msgstr "Nie znaleziono zgłoszenia."
 #: src/ludamus/templates/panel/proposals.html
 msgid "Proposals"
 msgstr "Zgłoszenia"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Couldn't save your changes. Please check your input and try again."
-msgstr ""
-"Nie udało się zapisać zmian. Sprawdź wprowadzone dane i spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Proposal updated successfully."
-msgstr "Zgłoszenie zostało zaktualizowane."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Couldn't save the session. Please check your input and try again."
-msgstr ""
-"Nie udało się zapisać punktu programu. Sprawdź wprowadzone dane i spróbuj "
-"ponownie."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Proposal created successfully."
-msgstr "Zgłoszenie zostało utworzone."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/proposal-detail.html

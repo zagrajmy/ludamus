@@ -21,7 +21,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     facilitator_detail_tab_urls,
     facilitator_tab_urls,
     format_field_value,
-    paginate,
+    pagination_context,
     safe_next_url,
 )
 from ludamus.gates.web.django.forms import (
@@ -88,9 +88,13 @@ def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
         return _("Linked") if facilitator.user_id else _("None")
     if key == "sessions":
         return str(facilitator.session_count)
-    return str(
-        ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
-    )
+    if key == "accreditation":
+        return str(
+            ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
+        )
+    # A built-in key with no cell here would otherwise render as somebody
+    # else's value; an empty cell is wrong but at least it isn't a lie.
+    return ""
 
 
 def _build_column_values(
@@ -169,7 +173,8 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         list_context = self.request.services.facilitator_panel.list_context(
             event_id=current_event.pk, query=query
         )
-        page_obj = paginate(self.request, list_context.facilitators)
+        pagination = pagination_context(self.request, list_context.facilitators)
+        page_obj = pagination["page_obj"]
 
         column_values = _build_column_values(
             panel=self.request.services.facilitator_panel,
@@ -181,7 +186,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_tab"] = "list"
         context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = list(page_obj.object_list)
-        context["page_obj"] = page_obj
+        context.update(pagination)
         context["columns"] = list_context.columns
         context["column_values"] = column_values
         context["filterable_fields"] = list_context.filterable_fields

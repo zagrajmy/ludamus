@@ -21,6 +21,8 @@ from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
+_PAGE_SIZES = [10, 20, 50, 100]
+
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _DEFAULT_KEYS = ["title", "host", "category", "status", "created"]
@@ -70,6 +72,7 @@ def _list_page_context(event, *, category, session, columns, column_values):
         "filter_track_multi": False,
         "filter_track_value": "",
         "page_obj": PageMatcher(number=1, num_pages=1),
+        "page_sizes": _PAGE_SIZES,
         "filter_category_pk": None,
         "filter_status": None,
         "filter_sort": "",

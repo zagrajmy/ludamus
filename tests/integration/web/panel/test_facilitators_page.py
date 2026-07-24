@@ -20,6 +20,8 @@ from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
+_PAGE_SIZES = [10, 20, 50, 100]
+
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _PAGE_SIZE = 20
@@ -168,6 +170,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": [],
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -200,6 +203,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -235,6 +239,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_search": "Alic",
                 "filters_active": True,
             },
@@ -285,6 +290,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_search": "alice@example",
                 "filters_active": True,
             },
@@ -319,6 +325,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": [],
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_search": "Reds",
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
@@ -364,6 +371,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_accreditation": "guest",
                 "filters_active": True,
             },
@@ -401,6 +409,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_sort": "-name",
             },
         )
@@ -440,6 +449,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_flagged": True,
                 "filters_active": True,
             },
@@ -487,6 +497,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "columns": [
                     *_DEFAULT_COLUMNS,
                     PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
@@ -571,6 +582,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "columns": [
                     *_DEFAULT_COLUMNS,
                     PanelColumnDTO(
@@ -646,6 +658,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
                 "filter_fields": {field.pk: "true"},
@@ -700,6 +713,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
                 "filter_fields": {field.pk: "Reds"},
@@ -751,6 +765,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -811,6 +826,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_sort": f"field_{field.pk}",
             },
         )
@@ -845,6 +861,7 @@ class TestFacilitatorsPageView:
                 "facilitators": [],
                 "columns": [PanelColumnDTO(key="name")],
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 

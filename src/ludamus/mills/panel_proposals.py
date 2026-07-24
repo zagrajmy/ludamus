@@ -90,11 +90,18 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         if category_pk not in {c.pk for c in categories}:
             category_pk = None
 
+        # Default (no status param) shows every proposal: an event whose
+        # sessions weren't created via proposals should not look empty on first
+        # load. Explicit picks (a real status or the "scheduled" pseudo-filter)
+        # still narrow the list.
         status = (
             query.status
             if query.status == SCHEDULED_FILTER or query.status in set(SessionStatus)
             else None
         )
+        # Scheduled is a placement fact, not a status: the "scheduled" option
+        # filters on agenda-item existence, and picking a real status excludes
+        # scheduled sessions so the backlog views stay clean.
         if status == SCHEDULED_FILTER:
             status_filter, scheduled_filter = None, True
         elif status is not None:

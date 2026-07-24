@@ -31,6 +31,8 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import PageMatcher, assert_response
 
+_PAGE_SIZES = [10, 20, 50, 100]
+
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _STATUSES = [
@@ -48,6 +50,7 @@ _TRACK_FILTER_CONTEXT = {
     "filter_track_multi": False,
     "filter_track_value": "",
     "page_obj": PageMatcher(number=1, num_pages=1),
+    "page_sizes": _PAGE_SIZES,
     "filter_category_pk": None,
     "filter_status": None,
     "filter_sort": "",
@@ -505,6 +508,7 @@ class TestProposalsPageView:
                     "total_sessions": _SEED_COUNT,
                 },
                 "page_obj": PageMatcher(number=1, num_pages=num_pages),
+                "page_sizes": _PAGE_SIZES,
                 "session_fields": [],
                 "filter_fields": {},
                 "filter_search": "",
@@ -1069,6 +1073,7 @@ class TestProposalsPageView:
                 "filter_track_multi": False,
                 "filter_track_value": str(track.pk),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": None,
@@ -1108,6 +1113,7 @@ class TestProposalsPageView:
                 "filter_track_multi": False,
                 "filter_track_value": "",
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": "accepted",
@@ -1155,6 +1161,7 @@ class TestProposalsPageView:
                 "filter_track_multi": False,
                 "filter_track_value": "",
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "filter_category_pk": category.pk,
                 "filter_status": None,
@@ -1195,6 +1202,7 @@ class TestProposalsPageView:
                 "filter_track_multi": False,
                 "filter_track_value": str(track.pk),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": None,
