@@ -32,6 +32,123 @@ test.describe("Timetable", () => {
     });
   });
 
+  test("header spans the overflowing timetable on narrow screens", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    const dimensions = await page
+      .locator(".timetable-calendar")
+      .first()
+      .evaluate((calendar) => ({
+        headerWidth: calendar.firstElementChild?.getBoundingClientRect().width,
+        timetableWidth: calendar.scrollWidth,
+      }));
+
+    expect(Math.abs(dimensions.headerWidth - dimensions.timetableWidth)).toBeLessThanOrEqual(1);
+  });
+
+  test("single-day timetable omits its date tier and fills the calendar", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    const daySelect = page.getByLabel("Day:");
+    const firstDate = await daySelect.locator("option").nth(1).getAttribute("value");
+    expect(firstDate).not.toBeNull();
+    await Promise.all([
+      page.waitForURL((url) => url.searchParams.get("date") === firstDate),
+      daySelect.selectOption(firstDate!),
+    ]);
+
+    const calendar = page.locator(".timetable-calendar");
+    const dayHeader = calendar.locator(".timetable-day-header");
+    await expect(dayHeader.locator("h2")).toHaveCount(0);
+
+    const rightEdges = await calendar.evaluate((element) => {
+      const calendarRight = element.getBoundingClientRect().right;
+      const headerRight =
+        element.querySelector(".timetable-day-header")?.getBoundingClientRect().right ?? Number.NaN;
+      const gridRight =
+        element.querySelector(".timetable-day-grid")?.getBoundingClientRect().right ?? Number.NaN;
+      return { calendarRight, headerRight, gridRight };
+    });
+    expect(Math.abs(rightEdges.headerRight - rightEdges.calendarRight)).toBeLessThanOrEqual(2);
+    expect(Math.abs(rightEdges.gridRight - rightEdges.calendarRight)).toBeLessThanOrEqual(2);
+  });
+
+  test("all days stay side-by-side and assign into the selected day", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const timetable = page.locator(".timetable-calendar");
+    const days = page.locator(".timetable-day-grid");
+    await expect(timetable).toHaveCount(1);
+    await expect(days).toHaveCount(2);
+    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(1);
+    await expect(timetable.getByText("Time", { exact: true })).toHaveCount(1);
+    await expect(page.getByLabel("Day:")).toHaveValue("all");
+    await expect(timetable.locator(".timetable-day-header h2")).toHaveCount(2);
+
+    const timeAxisPosition = await timetable
+      .locator(".timetable-time-axis")
+      .evaluate((axis) => getComputedStyle(axis).position);
+    expect(timeAxisPosition).toBe("sticky");
+
+    const dates = await days.evaluateAll((items) =>
+      items.map((item) => item.getAttribute("data-date") ?? ""),
+    );
+    expect(dates).toEqual([...dates].sort());
+
+    const boxes = await days.evaluateAll((items) =>
+      items.map((item) => {
+        const box = item.getBoundingClientRect();
+        return { left: box.left, right: box.right };
+      }),
+    );
+    expect(boxes[1].left).toBeGreaterThanOrEqual(boxes[0].right);
+
+    await page.screenshot({
+      path: "test-results/timetable-all-days-wide.png",
+      fullPage: true,
+    });
+
+    const sessionList = page.getByRole("region", { name: "Sessions to assign" });
+    await expect(sessionList.getByText("All Days Workshop")).toBeVisible({
+      timeout: 10000,
+    });
+    await sessionList.getByText("All Days Workshop", { exact: true }).click();
+
+    await expect(page.getByText("Session details")).toBeVisible();
+    await page.getByRole("button", { name: "Assign" }).click();
+    await expect(days.nth(0).locator(".timetable-preferred-slot")).toHaveCount(2);
+    await expect(days.nth(1).locator(".timetable-preferred-slot")).toHaveCount(2);
+    await days
+      .nth(1)
+      .locator(".timetable-column.assign-mode-active")
+      .first()
+      .click({ position: { x: 50, y: 30 } });
+
+    await expect(days.nth(1).getByText("All Days Workshop")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(days.nth(0).getByText("All Days Workshop")).toHaveCount(0);
+
+    await days.nth(1).getByText("All Days Workshop").click();
+    await expect(page.getByRole("button", { name: "Unassign" })).toBeVisible();
+    await page.getByRole("button", { name: "Unassign" }).click();
+    await expect(sessionList.getByText("All Days Workshop")).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.setViewportSize({ width: 480, height: 800 });
+    const overflow = await timetable.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(overflow.scrollWidth).toBeGreaterThan(overflow.clientWidth);
+
+    await timetable.screenshot({
+      path: "test-results/timetable-all-days-compact.png",
+    });
+  });
+
   test("session list loads via HTMX and shows unscheduled sessions", async ({ page }) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
@@ -490,6 +607,12 @@ test.describe("Timetable", () => {
 
     // Tab navigation
     await expect(page.getByRole("tab", { name: "Organizer Overview" })).toBeVisible();
+
+    const trackProgress = page.getByRole("heading", { name: "Track progress" }).locator("..");
+    const firstTrack = trackProgress.getByRole("row").nth(1);
+    await page.locator("html").evaluate((html) => html.classList.add("dark"));
+    await firstTrack.hover();
+    await expect(firstTrack).toHaveCSS("background-color", "rgb(38, 38, 38)");
 
     await page.screenshot({
       path: "test-results/timetable-overview.png",

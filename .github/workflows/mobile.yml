@@ -93,7 +93,10 @@ jobs:
           IOS_DEVICE_NAME: iPhone 16
           SESSION: ios-regressions
         run: |
-          for attempt in 1 2; do
+          # Three attempts: agent-device runner startup flakes on slow macOS
+          # runners (IOS_RUNNER_CONNECT_TIMEOUT / mid-gesture hangs) and two
+          # attempts have been observed landing in the bad window together.
+          for attempt in 1 2 3; do
             if bun test scripts/ios-regressions/; then
               exit 0
             fi
