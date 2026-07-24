@@ -437,23 +437,14 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         basket_slugs: list[str],
     ) -> HttpResponse:
         panel = self.request.services.facilitator_panel
-        everyone = panel.list_context(
-            event_id=event_id, query=FacilitatorListQuery()
-        ).facilitators
-        by_slug = {f.slug: f for f in everyone}
-        # Stale basket entries (renamed or already merged away) drop silently.
-        basket = [by_slug[s] for s in basket_slugs if s in by_slug]
+        basket = panel.merge_basket(event_id=event_id, slugs=basket_slugs)
+        in_basket = {f.slug for f in basket}
         search = self.request.GET.get("q", "").strip()
-        results: list[FacilitatorListItemDTO] = []
-        if search:
-            in_basket = {f.slug for f in basket}
-            results = [
-                f
-                for f in panel.list_context(
-                    event_id=event_id, query=FacilitatorListQuery(search=search)
-                ).facilitators
-                if f.slug not in in_basket
-            ]
+        results = [
+            f
+            for f in panel.search_candidates(event_id=event_id, search=search)
+            if f.slug not in in_basket
+        ]
         self._base_context(context, slug)
         context["confirm"] = False
         context["basket"] = basket

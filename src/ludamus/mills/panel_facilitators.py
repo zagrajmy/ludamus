@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         FacilitatorChangeLogData,
         FacilitatorChangeLogDTO,
         FacilitatorDTO,
+        FacilitatorListItemDTO,
         FacilitatorUpdateData,
         PersonalDataFieldDTO,
     )
@@ -223,6 +224,21 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 fields=fields,
             ),
         )
+
+    def merge_basket(
+        self, *, event_id: int, slugs: list[str]
+    ) -> list[FacilitatorListItemDTO]:
+        # The basket is a handful of slugs from the query string; resolving it
+        # is a lookup, not a reason to read the event's whole facilitator list.
+        # Slugs this event doesn't have (renamed, already merged away) drop.
+        return self._repos.facilitators.list_by_slugs(event_id, _unique(slugs))
+
+    def search_candidates(
+        self, *, event_id: int, search: str
+    ) -> list[FacilitatorListItemDTO]:
+        if not search:
+            return []
+        return self._repos.facilitators.list_by_event(event_id, {"search": search})
 
     def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]:
         return self._repos.personal_data_fields.list_by_event(event_id)

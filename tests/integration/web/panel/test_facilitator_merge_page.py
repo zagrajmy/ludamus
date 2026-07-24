@@ -239,6 +239,31 @@ class TestFacilitatorMergeSearch:
             context_data=_search_context(event, basket=[adam]),
         )
 
+    def test_basket_keeps_its_order_and_drops_another_events_slug(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
+        # Another event entirely — its facilitator must not enter this basket.
+        foreign = _make_facilitator(
+            EventFactory(), display_name="Ola Nowak", slug="ola-nowak"
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event),
+            {"facilitator_slugs": ["jan-wysocki", foreign.slug, "adam-kowalski"]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(event, basket=[jan, adam], can_merge=True),
+        )
+
     def test_linked_badge_renders_in_basket_and_search(
         self, authenticated_client, active_user, sphere, event
     ):
