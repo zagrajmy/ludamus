@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -6,7 +7,15 @@ import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.pacts import SessionStatus
-from ludamus.pacts.panel import ProposalListQuery
+from ludamus.pacts.panel import ProposalDraft, ProposalListQuery
+
+_NEW_PROPOSAL_ID = 42
+
+
+class _FakeTransaction:
+    @contextmanager
+    def savepoint(self):
+        yield
 
 
 class TestProposalPanelService:
@@ -38,6 +47,7 @@ class TestProposalPanelService:
     @pytest.fixture
     def service(self, sessions, session_fields, proposal_categories, panel_settings):
         return ProposalPanelService(
+            transaction=_FakeTransaction(),
             sessions=sessions,
             session_fields=session_fields,
             proposal_categories=proposal_categories,
@@ -184,3 +194,41 @@ class TestProposalPanelService:
         assert [p.title for p in descending.proposals] == ["Banana", "Apple"]
         assert not invalid.sort
         assert [p.title for p in invalid.proposals] == ["Banana", "Apple"]
+
+    def test_create_writes_session_field_values_and_slots_together(
+        self, service, sessions
+    ):
+        sessions.slug_exists.return_value = False
+        sessions.create.return_value = _NEW_PROPOSAL_ID
+
+        proposal_id = service.create_proposal(
+            event_id=1,
+            draft=ProposalDraft(
+                data={"title": "Dragon Heist"},
+                base_slug="dragon-heist",
+                facilitator_ids=[7],
+                field_values={3: "D&D 5e"},
+                time_slot_ids=[9],
+            ),
+        )
+
+        assert proposal_id == _NEW_PROPOSAL_ID
+        sessions.create.assert_called_once_with(
+            {"title": "Dragon Heist", "slug": "dragon-heist"}, facilitator_ids=[7]
+        )
+        sessions.save_field_values.assert_called_once_with(
+            _NEW_PROPOSAL_ID,
+            [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
+        )
+        sessions.set_time_slots.assert_called_once_with(_NEW_PROPOSAL_ID, [9])
+
+    def test_create_skips_empty_field_values_and_slots(self, service, sessions):
+        sessions.slug_exists.return_value = False
+        sessions.create.return_value = _NEW_PROPOSAL_ID
+
+        service.create_proposal(
+            event_id=1, draft=ProposalDraft(data={"title": "Bare"}, base_slug="bare")
+        )
+
+        sessions.save_field_values.assert_not_called()
+        sessions.set_time_slots.assert_not_called()

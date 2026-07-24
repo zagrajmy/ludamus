@@ -45,6 +45,7 @@ from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
+    ProposalDraft,
     ProposalListQuery,
 )
 from ludamus.pacts.services import DatabaseConstraintError
@@ -148,26 +149,33 @@ def build_create_form(
     return form_class(initial={"category_id": category.pk} if category else None)
 
 
+def collect_session_field_inputs(
+    *, requirements: Sequence[SessionFieldRequirementDTO], form: forms.Form
+) -> dict[int, str | list[str] | bool]:
+    # Only the category's own fields are read back; a value the category no
+    # longer asks for is left untouched rather than blanked.
+    inputs: dict[int, str | list[str] | bool] = {}
+    for req in requirements:
+        key = f"session_{req.field.slug}"
+        value = form.cleaned_data.get(key)
+        if req.field.allow_custom and not value:
+            value = form.cleaned_data.get(f"{key}_custom", "")
+        inputs[req.field.pk] = value if value is not None else ""
+    return inputs
+
+
 def collect_session_field_values(
     *,
     session_id: int,
     requirements: Sequence[SessionFieldRequirementDTO],
     form: forms.Form,
 ) -> list[SessionFieldValueData]:
-    # Only the category's own fields are read back; a value the category no
-    # longer asks for is left untouched rather than blanked.
     values: list[SessionFieldValueData] = []
-    for req in requirements:
-        key = f"session_{req.field.slug}"
-        value = form.cleaned_data.get(key)
-        if req.field.allow_custom and not value:
-            value = form.cleaned_data.get(f"{key}_custom", "")
+    for field_id, value in collect_session_field_inputs(
+        requirements=requirements, form=form
+    ).items():
         values.append(
-            SessionFieldValueData(
-                session_id=session_id,
-                field_id=req.field.pk,
-                value=value if value is not None else "",
-            )
+            SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
         )
     return values
 
@@ -997,9 +1005,9 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
             ts.pk
             for ts in self.request.di.uow.time_slots.list_by_event(current_event.pk)
         }
-        with self.request.di.uow.savepoint():
-            proposal_id = self.request.services.proposal_panel.create_proposal(
-                event_id=current_event.pk,
+        return self.request.services.proposal_panel.create_proposal(
+            event_id=current_event.pk,
+            draft=ProposalDraft(
                 data=SessionData(
                     category_id=int(form.cleaned_data["category_id"]),
                     event_id=current_event.pk,
@@ -1015,17 +1023,14 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 ),
                 base_slug=slugify(title),
                 facilitator_ids=facilitator_ids,
-            )
-            if requirements:
-                self.request.di.uow.sessions.save_field_values(
-                    proposal_id,
-                    collect_session_field_values(
-                        session_id=proposal_id, requirements=requirements, form=form
-                    ),
-                )
-            if time_slot_ids := list(submitted_slot_ids & valid_slot_pks):
-                self.request.di.uow.sessions.set_time_slots(proposal_id, time_slot_ids)
-        return proposal_id
+                field_values=(
+                    collect_session_field_inputs(requirements=requirements, form=form)
+                    if requirements
+                    else {}
+                ),
+                time_slot_ids=list(submitted_slot_ids & valid_slot_pks),
+            ),
+        )
 
 
 class ProposalCreateFieldsComponentView(PanelAccessMixin, EventContextMixin, View):

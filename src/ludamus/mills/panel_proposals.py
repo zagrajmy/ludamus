@@ -8,7 +8,7 @@ from ludamus.mills.panel_columns import (
     sanitize_column_keys,
 )
 from ludamus.mills.slugs import unique_slug
-from ludamus.pacts import SessionStatus
+from ludamus.pacts import SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
@@ -29,8 +29,10 @@ if TYPE_CHECKING:
     from ludamus.pacts.panel import (
         EventPanelSettingsRepositoryProtocol,
         PanelColumnsContextDTO,
+        ProposalDraft,
         ProposalListQuery,
     )
+    from ludamus.pacts.services import TransactionProtocol
 
 _SORT_KEYS = ("title", "host", "category", "status", "created")
 _BUILTIN_COLUMN_KEYS = ("title", "host", "category", "status", "created")
@@ -49,7 +51,7 @@ def _sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
-    """Read path for the panel's proposals list.
+    """Read and write path for the panel's proposals list.
 
     Validates every query value against the event's own data: a tampered
     category, status, sort key, or `field_<pk>` filter is dropped instead of
@@ -59,11 +61,13 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     def __init__(
         self,
         *,
+        transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         session_fields: SessionFieldRepositoryProtocol,
         proposal_categories: ProposalCategoryRepositoryProtocol,
         panel_settings: EventPanelSettingsRepositoryProtocol,
     ) -> None:
+        self._transaction = transaction
         self._sessions = sessions
         self._session_fields = session_fields
         self._proposal_categories = proposal_categories
@@ -167,18 +171,30 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             raise EmptyColumnSelectionError
         self._panel_settings.update_proposal_columns(event_id, keys)
 
-    def create_proposal(
-        self,
-        *,
-        event_id: int,
-        data: SessionData,
-        base_slug: str,
-        facilitator_ids: list[int],
-    ) -> int:
-        slug = unique_slug(
-            base=base_slug,
-            default="session",
-            exists=lambda s: self._sessions.slug_exists(event_id, s),
-        )
-        payload: SessionData = {**data, "slug": slug}
-        return self._sessions.create(payload, facilitator_ids=facilitator_ids)
+    def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int:
+        # One savepoint around every write: a constraint/data error rolls the
+        # whole create back and re-raises as DatabaseConstraintError, which the
+        # caller surfaces as an inline form error with the input preserved.
+        with self._transaction.savepoint():
+            slug = unique_slug(
+                base=draft.base_slug,
+                default="session",
+                exists=lambda s: self._sessions.slug_exists(event_id, s),
+            )
+            payload: SessionData = {**draft.data, "slug": slug}
+            session_id = self._sessions.create(
+                payload, facilitator_ids=draft.facilitator_ids
+            )
+            if draft.field_values:
+                self._sessions.save_field_values(
+                    session_id,
+                    [
+                        SessionFieldValueData(
+                            session_id=session_id, field_id=field_id, value=value
+                        )
+                        for field_id, value in draft.field_values.items()
+                    ],
+                )
+            if draft.time_slot_ids:
+                self._sessions.set_time_slots(session_id, draft.time_slot_ids)
+            return session_id

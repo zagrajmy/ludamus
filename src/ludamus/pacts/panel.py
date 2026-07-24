@@ -113,6 +113,22 @@ class ProposalListQuery:
 
 
 @dataclass
+class ProposalDraft:
+    """A new proposal as the create form spelled it.
+
+    `base_slug` is the slugified title — the service uniquifies it.
+    `field_values` holds parsed session-field answers keyed by field pk; the
+    service attaches the session id once the row exists.
+    """
+
+    data: SessionData
+    base_slug: str
+    facilitator_ids: list[int] = field(default_factory=list)
+    field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
+    time_slot_ids: list[int] = field(default_factory=list)
+
+
+@dataclass
 class ProposalListContextDTO:
     """Read aggregate for the panel's proposals list.
 
@@ -139,14 +155,7 @@ class ProposalPanelServiceProtocol(Protocol):
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def columns_context(self, event_id: int) -> PanelColumnsContextDTO: ...
     def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
-    def create_proposal(
-        self,
-        *,
-        event_id: int,
-        data: SessionData,
-        base_slug: str,
-        facilitator_ids: list[int],
-    ) -> int: ...
+    def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int: ...
 
 
 @dataclass

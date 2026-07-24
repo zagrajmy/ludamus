@@ -237,6 +237,7 @@ class Services:
     @cached_property
     def proposal_panel(self) -> ProposalPanelService:
         return ProposalPanelService(
+            transaction=self._transaction,
             sessions=self._repos.sessions,
             session_fields=self._repos.session_fields,
             proposal_categories=self._repos.proposal_categories,
