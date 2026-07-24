@@ -100,8 +100,10 @@ def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
         raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
     finally:
         uploaded.seek(0)
-    if _xml_local_name(root.tag) != "svg" or not all(
-        _svg_element_is_safe(element) for element in root.iter()
+    if (
+        root is None
+        or _xml_local_name(root.tag) != "svg"
+        or not all(_svg_element_is_safe(element) for element in root.iter())
     ):
         raise ValidationError(_gettext("Invalid or unsafe SVG file."))
 
@@ -128,7 +130,7 @@ def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
 
 def _looks_like_svg(uploaded: UploadedFile) -> bool:
     uploaded.seek(0)
-    head = uploaded.read(64)
+    head: bytes = uploaded.read(64)
     uploaded.seek(0)
     return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
 

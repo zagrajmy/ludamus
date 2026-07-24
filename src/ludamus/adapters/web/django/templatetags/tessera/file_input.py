@@ -33,14 +33,12 @@ def render_file_input(field: BoundField) -> str:
         HTML string of the dropzone element.
     """
     attrs = field.field.widget.attrs
-    accept = attrs.get("accept") or (
-        "image/*" if isinstance(field.field, ImageField) else ""
-    )
+    is_image = isinstance(field.field, ImageField)
+    accept = attrs.get("accept") or ("image/*" if is_image else "")
     initial_url, initial_name = _initial_url_and_name(field.value())
-    is_image_field = isinstance(field.field, ImageField) or (
-        bool(accept) and all(t.strip().startswith("image/") for t in accept.split(","))
-    )
-    dropzone_state = ("image" if is_image_field else "file") if initial_url else "empty"
+    if accept and not is_image:
+        is_image = all(t.strip().startswith("image/") for t in accept.split(","))
+    dropzone_state = ("image" if is_image else "file") if initial_url else "empty"
     return render_to_string(
         "components/file-dropzone.html",
         {
