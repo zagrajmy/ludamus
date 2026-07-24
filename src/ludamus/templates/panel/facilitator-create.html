@@ -60,6 +60,10 @@
                                 <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
                             {% endif %}
                         </div>
+                        <div>
+                            {% include "components/checkbox-field.html" with name="assign_me" id="id_assign_me" label=form.assign_me.label checked=form.assign_me.value %}
+                            <p class="mt-1 text-xs text-foreground-muted">{{ form.assign_me.help_text }}</p>
+                        </div>
                     </div>
                 </div>
             </div>

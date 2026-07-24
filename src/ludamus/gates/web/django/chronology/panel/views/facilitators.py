@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.submissions import (
         FacilitatorColumnDTO,
         FacilitatorListContextDTO,
@@ -72,6 +73,15 @@ def _personal_entries_from_post(
         )
         for field in fields
     ]
+
+
+def _read_user(request: PanelRequest, user_id: int | None) -> UserDTO | None:
+    if user_id is None:
+        return None
+    try:
+        return request.di.uow.active_users.read_by_id(user_id)
+    except NotFoundError:
+        return None
 
 
 def _format_field_value(*, value: str | list[str] | bool | None) -> str:
@@ -224,18 +234,10 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
         has_personal_data = any(v for _, v in personal_data_items)
 
-        linked_user = None
-        if facilitator.user_id is not None:
-            try:
-                linked_user = self.request.di.uow.active_users.read_by_id(
-                    facilitator.user_id
-                )
-            except NotFoundError:
-                linked_user = None
-
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
-        context["linked_user"] = linked_user
+        context["linked_user"] = _read_user(self.request, facilitator.user_id)
+        context["organizer"] = _read_user(self.request, facilitator.organizer_id)
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
             AccreditationType(facilitator.accreditation_type)
         ]
@@ -295,6 +297,11 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 display_name=display_name,
                 event_id=current_event.pk,
+                organizer_id=(
+                    self.request.context.current_user_id
+                    if form.cleaned_data["assign_me"]
+                    else None
+                ),
                 slug=facilitator_slug,
                 user_id=None,
             )
@@ -350,6 +357,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         personal_fields = self._get_personal_fields(current_event.pk, facilitator.pk)
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
+        context["organizer"] = _read_user(self.request, facilitator.organizer_id)
         context["form"] = FacilitatorEditForm(
             initial={
                 "accreditation_type": facilitator.accreditation_type,
@@ -381,6 +389,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             )
             context["active_nav"] = "facilitators"
             context["facilitator"] = facilitator
+            context["organizer"] = _read_user(self.request, facilitator.organizer_id)
             context["form"] = form
             context["personal_fields"] = personal_fields
             return TemplateResponse(
