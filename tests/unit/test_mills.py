@@ -22,6 +22,7 @@ from ludamus.mills.submissions.importing import ProposalImportService
 from ludamus.mills.submissions.mapping import (
     RowSkippedError,
     SlugCollisionError,
+    build_personal_data_field_values,
     cell,
     chosen_entities,
     decode_response,
@@ -31,6 +32,7 @@ from ludamus.mills.submissions.mapping import (
     generate_unique_slug,
     locate_row,
     resolve_builtins,
+    session_field_values,
     slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
@@ -42,8 +44,10 @@ from ludamus.pacts import (
     NotFoundError,
     PanelStatsDTO,
     PersonalDataFieldDTO,
+    PersonalDataFieldValueData,
     ProposalCategoryDTO,
     RequestContext,
+    SessionFieldValueData,
     SessionStatus,
 )
 from ludamus.pacts.multiverse import ConnectionDTO
@@ -930,6 +934,11 @@ class TestImportRow:
 
         assert exc_info.value.header == "Imię"
         assert exc_info.value.values == ["Anna", "Bartek"]
+
+    def test_get_value_ignores_a_blank_side_of_a_deduped_column_pair(self):
+        row = ImportRow({"Imię": "Anna", "Imię (2)": "   "})
+
+        assert row.get_value("Imię") == "Anna"
 
     def test_data_returns_a_copy_so_external_writes_do_not_leak(self):
         row = ImportRow({"Title": "Talk"})
@@ -2843,6 +2852,59 @@ class TestMappingHelpers:
         )
 
         assert (title, display_name) == ("", "Bob")
+
+    def test_session_field_values_keeps_the_answered_field_and_drops_the_blank(self):
+        settings = ImportSettings(
+            questions={
+                "System": QuestionTarget(to="field.system"),
+                "Notes": QuestionTarget(to="field.notes"),
+            }
+        )
+
+        values = session_field_values(
+            field_ids={"System": 55, "Notes": 56},
+            settings=settings,
+            row=ImportRow({"System": "D&D", "Notes": "   "}),
+            session_id=7,
+        )
+
+        assert values == [SessionFieldValueData(session_id=7, field_id=55, value="D&D")]
+
+    def test_session_field_values_stores_a_padded_answer_stripped(self):
+        settings = ImportSettings(
+            questions={"System": QuestionTarget(to="field.system")}
+        )
+
+        values = session_field_values(
+            field_ids={"System": 55},
+            settings=settings,
+            row=ImportRow({"System": "  D&D  "}),
+            session_id=7,
+        )
+
+        assert values == [SessionFieldValueData(session_id=7, field_id=55, value="D&D")]
+
+    def test_personal_field_values_keep_the_answered_field_and_drop_the_blank(self):
+        settings = ImportSettings(
+            questions={
+                "Phone": QuestionTarget(to="personal.phone"),
+                "Diet": QuestionTarget(to="personal.diet"),
+            }
+        )
+
+        entries = build_personal_data_field_values(
+            field_ids={"Phone": 11, "Diet": 12},
+            settings=settings,
+            row=ImportRow({"Phone": "  555-1234 ", "Diet": " "}),
+            facilitator_id=3,
+            event_id=2,
+        )
+
+        assert entries == [
+            PersonalDataFieldValueData(
+                facilitator_id=3, event_id=2, field_id=11, value="555-1234"
+            )
+        ]
 
     def test_chosen_entities_skips_empty_parts(self):
         target = QuestionTarget(

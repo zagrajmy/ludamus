@@ -69,10 +69,13 @@ class ImportRow:
         return dict(self._data)
 
     def get_value(self, header: str, default: str = "") -> str:
+        # Whitespace-only cells count as absent, so a deduped column pair
+        # where one side is blank resolves to the filled one instead of
+        # reading as a conflict and skipping the whole row.
         candidates = {
             value
             for key, value in self._data.items()
-            if value and _row_header_matches(key, header)
+            if value.strip() and _row_header_matches(key, header)
         }
         if len(candidates) > 1:
             raise DuplicateValueError(header, sorted(candidates))
