@@ -1400,17 +1400,20 @@ class TestProposalAcceptanceService:
         assert context.can_accept is True
         spheres.is_manager.assert_not_called()
 
-    def test_can_accept_true_for_staff(self, service, sessions, active_users, spheres):
+    def test_can_accept_false_for_non_manager_staff(
+        self, service, sessions, active_users, spheres
+    ):
         self._arrange_reads(sessions, active_users)
         active_users.read.return_value = _user_dto(is_staff=True)
+        spheres.is_manager.return_value = False
 
         context = service.get_accept_context(
             session_id=5, user_slug="staff", sphere_id=3
         )
 
         assert context is not None
-        assert context.can_accept is True
-        spheres.is_manager.assert_not_called()
+        assert context.can_accept is False
+        spheres.is_manager.assert_called_once_with(3, "staff")
 
     def test_can_accept_falls_back_to_sphere_manager(
         self, service, sessions, active_users, spheres

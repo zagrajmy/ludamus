@@ -292,7 +292,7 @@ class ProposalAcceptanceService:
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
         user = self._active_users.read(user_slug)
-        if user.is_superuser or user.is_staff:
+        if user.is_superuser:
             return True
         return self._spheres.is_manager(sphere_id, user_slug)
 
