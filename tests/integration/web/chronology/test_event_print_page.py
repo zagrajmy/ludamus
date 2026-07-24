@@ -241,7 +241,7 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(
             response,
-            logo="events/logo.png",
+            logo="/media/events/logo.png",
             selected_scope=str(parent.pk),
             print_scopes=[
                 _scope(parent, "Hall"),
@@ -264,7 +264,7 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(
-            response, logo="spheres/brand.png", print_scopes=[_scope(space)]
+            response, logo="/media/spheres/brand.png", print_scopes=[_scope(space)]
         )
         assert "spheres/brand.png" in response.content.decode()
 

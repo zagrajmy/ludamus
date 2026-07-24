@@ -217,7 +217,7 @@ class PublicEventPrintView(View):
             self.template_name,
             {
                 "event": event,
-                "logo": event.logo or sphere.logo,
+                "logo": event.logo_url or sphere.logo_url,
                 "timetable": timetable,
                 "area_schedule": area_schedule,
                 "session_list": session_list,
