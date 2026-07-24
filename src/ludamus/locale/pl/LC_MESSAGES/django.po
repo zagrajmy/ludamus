@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 15:09+0200\n"
+"POT-Creation-Date: 2026-07-24 19:54+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1205,6 +1205,11 @@ msgstr[0] "Nie znaleziono %(count)d twórcy programu."
 msgstr[1] "Nie znaleziono %(count)d twórców programu."
 msgstr[2] "Nie znaleziono %(count)d twórców programu."
 msgstr[3] "Nie znaleziono %(count)d twórców programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Pick at least one column to show."
+msgstr "Wybierz przynajmniej jedną kolumnę do wyświetlenia."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
