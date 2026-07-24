@@ -39,6 +39,7 @@ if TYPE_CHECKING:
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.event import EventPanelServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -106,6 +107,8 @@ class ServicesProtocol(Protocol):
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
     def events(self) -> EventsServiceProtocol: ...
+    @property
+    def event_panel(self) -> EventPanelServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property

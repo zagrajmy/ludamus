@@ -245,7 +245,7 @@ can't name one, the file isn't too big yet. Gates mirror the sitemap
 (a page or page group plus its action views); mills mirror the domain.
 
 The old **subdomain** / **bounded context** vocabulary is banned.
-Directory, URL, template, and test paths still carry the legacy subdomain
+Some directory, URL, template, and test paths still carry the legacy subdomain
 names; they are renamed opportunistically, tracked by the
 `old-subdomain-loc` tingle metric. New code slices by noun.
 
@@ -325,15 +325,16 @@ The organiser backoffice: event configuration, scheduling, venues,
 enrollment administration, intake configuration, and curation — one page
 group, no ownership split.
 
-- **URLs:** `/panel/event/<slug>/…` (namespace `panel`)
-- **Views:** `gates/web/django/chronology/panel/views/` — one module per
-  page (`proposals.py`, `facilitators.py`, `timetable.py`, `cfp.py`,
-  `personal_data_fields.py`, `session_fields.py`, `venues.py`,
-  `time_slots.py`, `tracks.py`, `event_settings.py`, `discounts.py`,
-  `print.py`, `integrations.py`, `google_docs_import.py`, …)
+- **URLs:** `/panel/event/<slug>/…` (namespace `panel`), configured in
+  `gates/web/django/event/panel/urls.py`
+- **Views:** new pages live in `gates/web/django/event/panel/views/`; remaining
+  pages under `gates/web/django/chronology/panel/views/` move there
+  opportunistically. Each module owns one page or closely related page group.
 - **Templates:** `templates/panel/`
-- **Service:** `PanelService` — event stats aggregation, cascade-safe
-  entity deletion, time slot overlap validation
+- **Services:** `EventPanelService` loads the shared event-scoped navigation
+  context through repository protocols; focused page services own page reads and
+  writes. Legacy pages still use `PanelService` for cascade-safe deletion and
+  time-slot validation until they migrate.
 
 <!-- markdownlint-disable MD013 -->
 
@@ -344,7 +345,8 @@ group, no ownership split.
 | Personal data fields | `panel/views/personal_data_fields.py` | `personal-data-field-*.html` |
 | Session fields | `panel/views/session_fields.py` | `session-field-*.html` |
 | Facilitators | `panel/views/facilitators.py` | `facilitator-*.html` |
-| Event settings | `panel/views/event_settings.py` | `settings.html` |
+| Event settings | `chronology/panel/views/event_settings.py` | `settings.html` |
+| Enrollment settings | `event/panel/views/enrollment_settings.py` | `enrollment-*.html` |
 | Time slots | `panel/views/time_slots.py` | `time-slot*.html` |
 | Tracks | `panel/views/tracks.py` | `track-*.html` |
 | Venues (Space tree) | `panel/views/venues.py` | `spaces.html`, `_space_tree_node.html`, `space-*.html` |

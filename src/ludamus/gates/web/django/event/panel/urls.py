@@ -1,4 +1,4 @@
-"""URL patterns for the chronology panel bounded context."""
+"""URL patterns for the event-scoped Panel."""
 
 from django.urls import include, path
 
@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     venues,
 )
 from ludamus.gates.web.django.chronology.panel.views import print as print_views
+from ludamus.gates.web.django.event.panel.views import enrollment_settings
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -114,22 +115,22 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/settings/enrollment/",
-        event_settings.EventEnrollmentSettingsPageView.as_view(),
+        enrollment_settings.EventEnrollmentSettingsPageView.as_view(),
         name="event-enrollment-settings",
     ),
     path(
         "event/<slug:slug>/settings/enrollment/create/",
-        event_settings.EnrollmentWindowCreatePageView.as_view(),
+        enrollment_settings.EnrollmentWindowCreatePageView.as_view(),
         name="enrollment-window-create",
     ),
     path(
         "event/<slug:slug>/settings/enrollment/<int:pk>/edit/",
-        event_settings.EnrollmentWindowEditPageView.as_view(),
+        enrollment_settings.EnrollmentWindowEditPageView.as_view(),
         name="enrollment-window-edit",
     ),
     path(
         "event/<slug:slug>/settings/enrollment/<int:pk>/do/delete",
-        event_settings.EnrollmentWindowDeleteActionView.as_view(),
+        enrollment_settings.EnrollmentWindowDeleteActionView.as_view(),
         name="enrollment-window-delete",
     ),
     path(

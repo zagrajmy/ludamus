@@ -40,6 +40,7 @@ from ludamus.mills.enrollment import (
     NotificationsService,
     WaitlistPromotionService,
 )
+from ludamus.mills.event import EventPanelService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -171,6 +172,10 @@ class Services:
     @cached_property
     def events(self) -> EventsService:
         return EventsService(self._repos.events)
+
+    @cached_property
+    def event_panel(self) -> EventPanelService:
+        return EventPanelService(self._repos.events)
 
     @cached_property
     def print_materials(self) -> PrintMaterialsService:

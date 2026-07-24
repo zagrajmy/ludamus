@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 14:11+0200\n"
+"POT-Creation-Date: 2026-07-24 17:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -719,6 +719,7 @@ msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/chronology/views.py
+#: src/ludamus/gates/web/django/event/panel/views/base.py
 msgid "Event not found."
 msgstr "Festiwal nie został znaleziony."
 
@@ -988,10 +989,6 @@ msgstr "Nie znaleziono użytkownika o tej nazwie lub adresie e-mail."
 msgid "Ban removed."
 msgstr "Ban został usunięty."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/base.py
-msgid "You don't have permission to access the backoffice panel."
-msgstr "Nie masz uprawnień do panelu organizatora."
-
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
 msgid "Category created successfully."
 msgstr "Kategoria została utworzona."
@@ -1121,22 +1118,6 @@ msgstr "Ustawienia wyświetlania zostały zapisane."
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-msgid "Enrollment window created."
-msgstr "Utworzono okno zapisów."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-msgid "Enrollment window not found."
-msgstr "Nie znaleziono okna zapisów."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-msgid "Enrollment window saved."
-msgstr "Zapisano okno zapisów."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-msgid "Enrollment window deleted."
-msgstr "Usunięto okno zapisów."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
@@ -2079,6 +2060,78 @@ msgstr "Opuszczasz drużynę."
 msgid "Could not leave this party."
 msgstr "Nie udało się opuścić tej drużyny."
 
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Enrollment opens"
+msgstr "Otwarcie zapisów"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Enrollment closes"
+msgstr "Zamknięcie zapisów"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Seats available during this window"
+msgstr "Miejsca dostępne w tym oknie"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Percentage of each session's capacity available for enrollment."
+msgstr "Procent miejsc w każdym punkcie programu dostępnych do zapisów."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Waiting-list limit per person"
+msgstr "Limit list oczekujących na osobę"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Use 0 to disable waiting lists during this window."
+msgstr "Wpisz 0, aby wyłączyć listy oczekujących w tym oknie."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Enrollment notice"
+msgstr "Komunikat o zapisach"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Shown to participants while this enrollment window is active."
+msgstr "Wyświetlany uczestnikom, gdy to okno zapisów jest aktywne."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Apply only to sessions starting before enrollment closes"
+msgstr ""
+"Stosuj tylko do punktów programu rozpoczynających się przed zamknięciem "
+"zapisów"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Require explicit enrollment access"
+msgstr "Wymagaj jawnego dostępu do zapisów"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Only people allowed by user, domain, or membership settings can enroll."
+msgstr ""
+"Zapisać mogą się tylko osoby dopuszczone w ustawieniach użytkownika, domeny "
+"lub członkostwa."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Allow enrollment without an account"
+msgstr "Zezwalaj na zapisy bez konta"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Enrollment must close after it opens."
+msgstr "Zapisy muszą zamknąć się po ich otwarciu."
+
+#: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
+msgid "Enrollment window created."
+msgstr "Utworzono okno zapisów."
+
+#: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
+msgid "Enrollment window not found."
+msgstr "Nie znaleziono okna zapisów."
+
+#: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
+msgid "Enrollment window saved."
+msgstr "Zapisano okno zapisów."
+
+#: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
+msgid "Enrollment window deleted."
+msgstr "Usunięto okno zapisów."
+
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
 msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
@@ -2166,62 +2219,6 @@ msgstr "Pozwól twórcom programu edytować własne punkty programu"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enrollment opens"
-msgstr "Otwarcie zapisów"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enrollment closes"
-msgstr "Zamknięcie zapisów"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Seats available during this window"
-msgstr "Miejsca dostępne w tym oknie"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Percentage of each session's capacity available for enrollment."
-msgstr "Procent miejsc w każdym punkcie programu dostępnych do zapisów."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Waiting-list limit per person"
-msgstr "Limit list oczekujących na osobę"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Use 0 to disable waiting lists during this window."
-msgstr "Wpisz 0, aby wyłączyć listy oczekujących w tym oknie."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enrollment notice"
-msgstr "Komunikat o zapisach"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Shown to participants while this enrollment window is active."
-msgstr "Wyświetlany uczestnikom, gdy to okno zapisów jest aktywne."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Apply only to sessions starting before enrollment closes"
-msgstr ""
-"Stosuj tylko do punktów programu rozpoczynających się przed zamknięciem "
-"zapisów"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Require explicit enrollment access"
-msgstr "Wymagaj jawnego dostępu do zapisów"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Only people allowed by user, domain, or membership settings can enroll."
-msgstr ""
-"Zapisać mogą się tylko osoby dopuszczone w ustawieniach użytkownika, domeny "
-"lub członkostwa."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Allow enrollment without an account"
-msgstr "Zezwalaj na zapisy bez konta"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Enrollment must close after it opens."
-msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
@@ -2730,6 +2727,10 @@ msgstr "Zapisano!"
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "You have been removed from this encounter."
 msgstr "Zostałeś/aś wypisany/a z tego spotkania."
+
+#: src/ludamus/gates/web/django/panel.py
+msgid "You don't have permission to access the backoffice panel."
+msgstr "Nie masz uprawnień do panelu organizatora."
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"

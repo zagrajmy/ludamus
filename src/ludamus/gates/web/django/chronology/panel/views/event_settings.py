@@ -8,7 +8,7 @@ from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
-from django.utils.timezone import localtime, now
+from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -16,15 +16,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-    settings_tab_urls,
 )
-from ludamus.gates.web.django.forms import (
-    EnrollmentWindowForm,
-    EventSettingsForm,
-    ProposalSettingsForm,
-)
+from ludamus.gates.web.django.event.panel.views.base import settings_tab_urls
+from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.pacts import EventUpdateData, NotFoundError
-from ludamus.pacts.enrollment import EnrollmentWindowData, EnrollmentWindowDTO
 from ludamus.pacts.legacy import resolve_cover_image
 
 if TYPE_CHECKING:
@@ -312,156 +307,6 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Proposal settings saved successfully."))
         return redirect("panel:event-proposal-settings", slug=slug)
-
-
-def _window_data(form: EnrollmentWindowForm) -> EnrollmentWindowData:
-    cleaned = form.cleaned_data
-    return EnrollmentWindowData(
-        start_time=cleaned["start_time"],
-        end_time=cleaned["end_time"],
-        percentage_slots=cleaned["percentage_slots"],
-        limit_to_end_time=bool(cleaned.get("limit_to_end_time")),
-        banner_text=cleaned.get("banner_text") or "",
-        max_waitlist_sessions=cleaned["max_waitlist_sessions"],
-        restrict_to_configured_users=bool(cleaned.get("restrict_to_configured_users")),
-        allow_anonymous_enrollment=bool(cleaned.get("allow_anonymous_enrollment")),
-    )
-
-
-def _window_initial(window: EnrollmentWindowDTO) -> dict[str, object]:
-    return {
-        **window.model_dump(),
-        "start_time": localtime(window.start_time),
-        "end_time": localtime(window.end_time),
-    }
-
-
-class EventEnrollmentSettingsPageView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
-
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        context["active_nav"] = "settings"
-        context["active_tab"] = "enrollment"
-        context["tab_urls"] = settings_tab_urls(slug)
-        context["windows"] = self.request.services.enrollment_settings.list_windows(
-            current_event.pk
-        )
-        context["now"] = now()
-        return TemplateResponse(self.request, "panel/enrollment-settings.html", context)
-
-
-class EnrollmentWindowCreatePageView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
-
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        return self._render(slug, EnrollmentWindowForm())
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        form = EnrollmentWindowForm(self.request.POST)
-        if not form.is_valid():
-            return self._render(slug, form)
-
-        if (current_event := self.get_current_event(slug)) is None:
-            return redirect("panel:index")
-        self.request.services.enrollment_settings.create_window(
-            current_event.pk, _window_data(form)
-        )
-        messages.success(self.request, _("Enrollment window created."))
-        return redirect("panel:event-enrollment-settings", slug=slug)
-
-    def _render(self, slug: str, form: EnrollmentWindowForm) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        context.update(
-            active_nav="settings",
-            active_tab="enrollment",
-            tab_urls=settings_tab_urls(slug),
-            form=form,
-            window=None,
-        )
-        return TemplateResponse(
-            self.request, "panel/enrollment-window-form.html", context
-        )
-
-
-class EnrollmentWindowEditPageView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
-
-    def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        if (current_event := self.get_current_event(slug)) is None:
-            return redirect("panel:index")
-        window = self.request.services.enrollment_settings.read_window(
-            current_event.pk, pk
-        )
-        if window is None:
-            messages.error(self.request, _("Enrollment window not found."))
-            return redirect("panel:event-enrollment-settings", slug=slug)
-        return self._render(
-            slug=slug,
-            window=window,
-            form=EnrollmentWindowForm(initial=_window_initial(window)),
-        )
-
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        if (current_event := self.get_current_event(slug)) is None:
-            return redirect("panel:index")
-        window = self.request.services.enrollment_settings.read_window(
-            current_event.pk, pk
-        )
-        if window is None:
-            messages.error(self.request, _("Enrollment window not found."))
-            return redirect("panel:event-enrollment-settings", slug=slug)
-
-        form = EnrollmentWindowForm(self.request.POST)
-        if not form.is_valid():
-            return self._render(slug=slug, window=window, form=form)
-        updated = self.request.services.enrollment_settings.update_window(
-            event_id=current_event.pk, pk=pk, data=_window_data(form)
-        )
-        if updated is None:
-            messages.error(self.request, _("Enrollment window not found."))
-        else:
-            messages.success(self.request, _("Enrollment window saved."))
-        return redirect("panel:event-enrollment-settings", slug=slug)
-
-    def _render(
-        self, *, slug: str, window: EnrollmentWindowDTO, form: EnrollmentWindowForm
-    ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        context.update(
-            active_nav="settings",
-            active_tab="enrollment",
-            tab_urls=settings_tab_urls(slug),
-            form=form,
-            window=window,
-        )
-        return TemplateResponse(
-            self.request, "panel/enrollment-window-form.html", context
-        )
-
-
-class EnrollmentWindowDeleteActionView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
-    http_method_names = ("post",)
-
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        if (current_event := self.get_current_event(slug)) is None:
-            return redirect("panel:index")
-        deleted = self.request.services.enrollment_settings.delete_window(
-            current_event.pk, pk
-        )
-        if deleted:
-            messages.success(self.request, _("Enrollment window deleted."))
-        else:
-            messages.error(self.request, _("Enrollment window not found."))
-        return redirect("panel:event-enrollment-settings", slug=slug)
 
 
 class EventIntegrationSettingsPageView(PanelAccessMixin, EventContextMixin, View):

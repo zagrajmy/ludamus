@@ -185,3 +185,6 @@ If you fix a papercut, remove it.
   embedded worktrees/prod-email-testing prefixes in every PO source reference,
   creating thousands of noisy changes and making messages-check fail when run
   from the worktree root.
+- 2026-07-24: While carving enrollment views out of event_settings.py, removing
+  a shared timezone import also broke pre-existing settings code; Ruff caught
+  the cross-section import coupling before commit.

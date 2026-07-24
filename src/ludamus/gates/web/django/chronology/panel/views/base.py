@@ -6,13 +6,13 @@ from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import HttpRequest, HttpResponseRedirect
-from django.shortcuts import redirect
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
 from ludamus.mills import PanelService, is_proposal_active
 from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
 
@@ -32,7 +32,7 @@ class PanelRequest(HttpRequest):
     services: ServicesProtocol
 
 
-class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
+class PanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
     """Mixin to require panel access (sphere manager only)."""
 
     request: PanelRequest
@@ -47,21 +47,6 @@ class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
         current_sphere_id = self.request.context.current_sphere_id
         user_slug = self.request.context.current_user_slug
         return self.request.di.uow.spheres.is_manager(current_sphere_id, user_slug)
-
-    def handle_no_permission(self) -> HttpResponseRedirect:
-        """Handle no permission based on authentication status.
-
-        Returns:
-            Redirect response to login page for anonymous users,
-            or to web:index with error message for authenticated users.
-        """
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-
-        messages.error(
-            self.request, _("You don't have permission to access the backoffice panel.")
-        )
-        return redirect("web:index")
 
 
 class EventContextMixin:
@@ -131,18 +116,6 @@ class EventContextMixin:
     def get_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]:
         # Non-leaf tree nodes selectable as print scopes.
         return self.request.services.venues.list_print_scopes(event_pk)
-
-
-def settings_tab_urls(slug: str) -> dict[str, str]:
-    return {
-        "general": reverse("panel:event-settings", kwargs={"slug": slug}),
-        "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
-        "enrollment": reverse("panel:event-enrollment-settings", kwargs={"slug": slug}),
-        "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
-        "integrations": reverse(
-            "panel:event-integration-settings", kwargs={"slug": slug}
-        ),
-    }
 
 
 def cfp_tab_urls(slug: str) -> dict[str, str]:
