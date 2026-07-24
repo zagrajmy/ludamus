@@ -170,11 +170,7 @@ class TestFacilitatorDetailPageView:
                     )
                 ],
             },
-            contains=[
-                '<div class="p-4">',
-                f'href="{proposal_url}"',
-                "Attached Session",
-            ],
+            contains=[f'href="{proposal_url}"', "Attached Session"],
         )
 
     def test_get_shows_linked_user_name_and_email(
