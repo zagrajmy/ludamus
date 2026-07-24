@@ -2291,7 +2291,19 @@ class TestImportLogService(_ImportServiceMocks):
         assert created.session_id == existing_session_pk
         assert not created.reason
 
-    def test_reimport_entry_updates_existing_session_and_writes_success_entry(
+    @staticmethod
+    def _empty_session():
+        return MagicMock(
+            title="",
+            description="",
+            display_name="",
+            duration="",
+            contact_email="",
+            participants_limit=0,
+            category_id=None,
+        )
+
+    def test_reimport_entry_fills_an_empty_builtin_on_the_existing_session(
         self, service, event_integrations, sessions, log_entries
     ):
         existing_session_pk = 42
@@ -2309,6 +2321,7 @@ class TestImportLogService(_ImportServiceMocks):
             attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
+        sessions.read.return_value = self._empty_session()
 
         succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
 
@@ -2317,12 +2330,71 @@ class TestImportLogService(_ImportServiceMocks):
         sessions.create.assert_not_called()
         sessions.update.assert_called_once()
         assert sessions.update.call_args.args[0] == existing_session_pk
+        assert sessions.update.call_args.args[1] == {"title": "Talk"}
         # The existing entry is upserted with the latest attempted_at, but
         # the session FK is preserved.
         log_entries.upsert.assert_called_once()
         created: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
         assert created.status == ImportLogStatus.SUCCESS
         assert created.session_id == existing_session_pk
+
+    def test_reimport_entry_keeps_a_title_the_organiser_already_set(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(
+            pk=3, settings_json='{"questions": {"Title": {"to": "session.title"}}}'
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk"}',
+            title="Talk",
+            session_id=42,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows([{"Title": "Talk"}])
+        session = self._empty_session()
+        session.title = "Hand-edited"
+        sessions.read.return_value = session
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        sessions.update.assert_not_called()
+
+    def test_reimport_entry_keeps_a_session_field_answer_already_stored(
+        self, service, event_integrations, sessions, session_fields, log_entries
+    ):
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "RPG system": {"to": "field.system"}}}'
+            ),
+        )
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json='{"Title": "Talk", "RPG system": "D&D"}',
+            title="Talk",
+            session_id=42,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "RPG system": "D&D"}]
+        )
+        session_fields.read_by_slug.return_value = MagicMock(pk=55)
+        sessions.read.return_value = self._empty_session()
+        sessions.read_field_values.return_value = [MagicMock(field_id=55)]
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        sessions.save_field_values.assert_not_called()
 
     def test_reimport_entry_falls_through_to_retry_when_session_deleted(
         self, service, event_integrations, sessions, log_entries

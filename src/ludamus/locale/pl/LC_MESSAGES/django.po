@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-23 17:38+0200\n"
+"POT-Creation-Date: 2026-07-24 09:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6558,14 +6558,6 @@ msgid "View proposal"
 msgstr "Zobacz zgłoszenie"
 
 #: src/ludamus/templates/panel/import-log.html
-msgid ""
-"Reimport will overwrite any manual edits to the imported fields on this "
-"proposal. Continue?"
-msgstr ""
-"Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w tym "
-"zgłoszeniu. Kontynuować?"
-
-#: src/ludamus/templates/panel/import-log.html
 msgid "Reimport"
 msgstr "Ponów import"
 
@@ -8049,6 +8041,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Reimport will overwrite any manual edits to the imported fields on this "
+#~ "proposal. Continue?"
+#~ msgstr ""
+#~ "Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w "
+#~ "tym zgłoszeniu. Kontynuować?"
 
 #, python-format
 #~ msgid "Remove %(name)s from your party?"
