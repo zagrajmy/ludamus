@@ -46,6 +46,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
     ProposalCategoryFactory,
@@ -70,14 +71,6 @@ def _schedule_context(url: str) -> dict[str, object]:
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
     }
-
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 class TestEventPageView:

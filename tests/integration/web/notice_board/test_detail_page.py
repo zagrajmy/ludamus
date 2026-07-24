@@ -9,6 +9,7 @@ from ludamus.links.gravatar import gravatar_url
 from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
 from ludamus.pacts import EncounterDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     EncounterFactory,
     EncounterRSVPFactory,
     UserFactory,
@@ -16,12 +17,6 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, assert_response_404
 
 RSVP_COUNT = 2
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 def _creator_info(creator):
