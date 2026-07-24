@@ -7,6 +7,7 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DataError
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -26,6 +27,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
+from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
@@ -372,6 +374,64 @@ class TestProposalEditPageView:
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
         assert session.duration == "2h"
+
+    def test_post_surfaces_db_error_as_form_error(
+        self, authenticated_client, active_user, sphere, event, monkeypatch
+    ):
+        # An unexpected DB constraint/data error must re-render the form with an
+        # error and leave the session untouched, not throw a bare 500 or look
+        # like a silent success.
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+
+        def _raise(*_args, **_kwargs):
+            raise DataError("value too long for type character varying(50)")
+
+        monkeypatch.setattr(SessionRepository, "update", _raise)
+        error = "Couldn't save your changes. Please check your input and try again."
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "participants_limit": 5,
+                "min_age": 0,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
+            messages=[(messages.ERROR, error)],
+        )
+        session.refresh_from_db()
+        assert session.title == "Test Session"
 
     def test_post_reassigns_category(
         self, authenticated_client, active_user, sphere, event

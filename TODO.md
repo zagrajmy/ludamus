@@ -192,4 +192,7 @@ kanban
       assigned: 'frontend'
       ticket: 281
     }
+    [Theme toggle doesn't sync browser chrome (color-scheme)]@{
+      assigned: 'frontend'
+    }
 ```

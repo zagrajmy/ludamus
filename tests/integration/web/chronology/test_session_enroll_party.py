@@ -5,7 +5,6 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.inits.services import Services
-from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.models import (
     Notification,
@@ -14,6 +13,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import UserFactory, sponsor_user

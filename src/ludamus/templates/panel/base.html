@@ -363,6 +363,7 @@
             {% if messages %}
                 <div class="flash-region"
                      role="region"
+                     aria-live="polite"
                      aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
             {% endif %}
             <div class="relative z-0 flex min-h-0 flex-1 flex-col">
