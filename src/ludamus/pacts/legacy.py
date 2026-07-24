@@ -98,6 +98,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    organizer_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -1289,6 +1290,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None: ...
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool: ...
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

@@ -513,7 +513,12 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
     http_method_names = ("post",)
     success_message: str | _StrPromise = ""
 
-    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+    def _apply(self, event_id: int, facilitator_slug: str) -> str | _StrPromise | None:
+        """Apply the action.
+
+        Returns:
+            An error message when the action did not apply, else ``None``.
+        """
         raise NotImplementedError
 
     def post(
@@ -524,12 +529,15 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            self._apply(current_event.pk, facilitator_slug)
+            error = self._apply(current_event.pk, facilitator_slug)
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
-        messages.success(self.request, self.success_message)
+        if error:
+            messages.error(self.request, error)
+        else:
+            messages.success(self.request, self.success_message)
         return redirect(self._safe_next(slug))
 
     def _safe_next(self, slug: str) -> str:
@@ -577,6 +585,39 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
             accreditation_type=AccreditationType.GUEST.value,
             user_id=self.request.context.current_user_id,
         )
+
+
+class FacilitatorAssignOrganizerActionView(_FacilitatorActionView):
+    """Take an unassigned facilitator on as its organizer (POST only)."""
+
+    success_message = gettext_lazy("You are now this facilitator's organizer.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> str | _StrPromise | None:
+        assigned = self.request.services.facilitator_panel.assign_organizer(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            organizer_id=self.request.context.current_user_id,
+        )
+        if assigned:
+            return None
+        return _("Another organizer already took this facilitator.")
+
+
+class FacilitatorUnassignOrganizerActionView(_FacilitatorActionView):
+    """Release a facilitator you organize, so someone else can take it."""
+
+    success_message = gettext_lazy("Facilitator released.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> str | _StrPromise | None:
+        released = self.request.services.facilitator_panel.unassign_organizer(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            organizer_id=self.request.context.current_user_id,
+            force=self.request.user.is_superuser,
+        )
+        if released:
+            return None
+        return _("Only this facilitator's organizer can release it.")
 
 
 class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):

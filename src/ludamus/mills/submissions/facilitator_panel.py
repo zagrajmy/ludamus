@@ -165,6 +165,26 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 chosen.append(key)
         self._panel_settings.update_facilitator_columns(event_id, chosen)
 
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> bool:
+        facilitator = self._facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        return self._facilitators.claim(facilitator.pk, organizer_id)
+
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
+    ) -> bool:
+        # Only the organizer holding it can let go — `force` is the superuser
+        # escape, so a departed organizer never locks a facilitator forever.
+        facilitator = self._facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        return self._facilitators.release(
+            facilitator.pk, organizer_id=None if force else organizer_id
+        )
+
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._facilitators.read_by_event_and_slug(
             event_id, facilitator_slug

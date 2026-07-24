@@ -17,7 +17,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
 from ludamus.pacts.submissions import FacilitatorColumnDTO
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -924,6 +924,8 @@ class TestFacilitatorActions:
         "panel:facilitator-flag",
         "panel:facilitator-unflag",
         "panel:facilitator-mark-guest",
+        "panel:facilitator-assign-organizer",
+        "panel:facilitator-unassign-organizer",
     )
 
     @pytest.mark.parametrize("name", _ACTION_NAMES)
@@ -1035,6 +1037,105 @@ class TestFacilitatorActions:
         )
 
         assert not FacilitatorChangeLog.objects.filter(facilitator=facilitator).exists()
+
+    def test_assign_organizer(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-assign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "You are now this facilitator's organizer.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == active_user.pk
+
+    def test_assign_organizer_refuses_a_taken_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other = UserFactory(username="other", name="Other Organizer")
+        facilitator = self._facilitator(event, organizer=other)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-assign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "Another organizer already took this facilitator.")
+            ],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == other.pk
+
+    def test_unassign_organizer(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event, organizer=active_user)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator released.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id is None
+
+    def test_unassign_organizer_refuses_someone_elses(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other = UserFactory(username="other", name="Other Organizer")
+        facilitator = self._facilitator(event, organizer=other)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "Only this facilitator's organizer can release it.")
+            ],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == other.pk
+
+    def test_superuser_releases_someone_elses(
+        self, authenticated_client, active_user, event
+    ):
+        active_user.is_superuser = True
+        active_user.save()
+        other = UserFactory(username="other", name="Other Organizer")
+        facilitator = self._facilitator(event, organizer=other)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator released.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id is None
 
     def test_flag_preserves_next(
         self, authenticated_client, active_user, sphere, event

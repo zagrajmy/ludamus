@@ -970,6 +970,25 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
 
     @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool:
+        # Conditional update, so two organizers clicking at the same moment
+        # cannot both win: the loser's UPDATE matches no row.
+        return bool(
+            Facilitator.objects.filter(pk=pk, organizer__isnull=True).update(
+                organizer_id=organizer_id
+            )
+        )
+
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool:
+        # `organizer_id=None` releases whoever holds it — the superuser escape
+        # for an organizer who has left.
+        qs = Facilitator.objects.filter(pk=pk, organizer__isnull=False)
+        if organizer_id is not None:
+            qs = qs.filter(organizer_id=organizer_id)
+        return bool(qs.update(organizer=None))
+
+    @staticmethod
     def delete(pk: int) -> None:
         Facilitator.objects.filter(pk=pk).delete()
 

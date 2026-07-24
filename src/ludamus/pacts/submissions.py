@@ -422,6 +422,12 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
     ) -> None: ...
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> bool: ...
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
+    ) -> bool: ...
     def set_accreditation(
         self,
         *,
