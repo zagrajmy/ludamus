@@ -7,18 +7,24 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+from defusedxml import DefusedXmlException
+from defusedxml import ElementTree as SafeElementTree
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
+from PIL import Image, UnidentifiedImageError
 
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
-from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT
+from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from xml.etree.ElementTree import Element
+
+    from django.core.files.uploadedfile import UploadedFile
 
     from ludamus.pacts import (
         PersonalFieldRequirementDTO,
@@ -45,19 +51,25 @@ def validate_uploaded_image_size(image: object) -> None:
         raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
 
 
+def _validate_raster(
+    *, image_format: str | None, pixels: int, format_error: str
+) -> None:
+    if image_format not in ALLOWED_IMAGE_FORMATS:
+        raise ValidationError(format_error)
+    if pixels > MAX_IMAGE_PIXELS:
+        raise ValidationError(_gettext("Image dimensions are too large."))
+
+
 def validate_uploaded_image_format(image: object) -> None:
     # Django's ImageField populates `image.image` (a PIL Image with `.format`)
     # during clean. We trust the detected format over user-supplied
     # content_type or filename extension.
     pil_image = getattr(image, "image", None)
-    if getattr(pil_image, "format", None) not in ALLOWED_IMAGE_FORMATS:
-        raise ValidationError(
-            _gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
-        )
-    width = getattr(pil_image, "width", 0)
-    height = getattr(pil_image, "height", 0)
-    if width * height > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
+    _validate_raster(
+        image_format=getattr(pil_image, "format", None),
+        pixels=getattr(pil_image, "width", 0) * getattr(pil_image, "height", 0),
+        format_error=_gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
+    )
 
 
 def validate_uploaded_image(image: object) -> None:
@@ -66,6 +78,76 @@ def validate_uploaded_image(image: object) -> None:
     if image:
         validate_uploaded_image_size(image)
         validate_uploaded_image_format(image)
+
+
+_SVG_FORBIDDEN_TAGS = frozenset({"script", "foreignobject"})
+
+
+def _xml_local_name(name: str) -> str:
+    return name.rsplit("}", 1)[-1].lower()
+
+
+def _svg_element_is_safe(element: Element) -> bool:
+    if _xml_local_name(element.tag) in _SVG_FORBIDDEN_TAGS:
+        return False
+    for name, value in element.attrib.items():
+        if _xml_local_name(name).startswith("on"):
+            return False
+        if "javascript:" in "".join(value.split()).lower():
+            return False
+    return True
+
+
+def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
+    uploaded.seek(0)
+    try:
+        root = SafeElementTree.parse(uploaded, forbid_dtd=True).getroot()
+    except (SafeElementTree.ParseError, DefusedXmlException) as error:
+        raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
+    finally:
+        uploaded.seek(0)
+    if (
+        root is None
+        or _xml_local_name(root.tag) != "svg"
+        or not all(_svg_element_is_safe(element) for element in root.iter())
+    ):
+        raise ValidationError(_gettext("Invalid or unsafe SVG file."))
+
+
+def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
+    uploaded.seek(0)
+    try:
+        with Image.open(uploaded) as pil_image:
+            image_format = pil_image.format
+            pixels = pil_image.width * pil_image.height
+    except UnidentifiedImageError:
+        image_format, pixels = None, 0
+    finally:
+        uploaded.seek(0)
+    _validate_raster(
+        image_format=image_format,
+        pixels=pixels,
+        format_error=_gettext(
+            "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
+        ),
+    )
+
+
+def _looks_like_svg(uploaded: UploadedFile) -> bool:
+    uploaded.seek(0)
+    head: bytes = uploaded.read(64)
+    uploaded.seek(0)
+    return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
+
+
+def validate_uploaded_logo(uploaded: UploadedFile | None) -> None:
+    if not uploaded:
+        return
+    validate_uploaded_image_size(uploaded)
+    if _looks_like_svg(uploaded):
+        _validate_uploaded_svg(uploaded)
+    else:
+        _validate_uploaded_raster_logo(uploaded)
 
 
 def cover_image_field() -> forms.ImageField:
@@ -79,16 +161,14 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
-def _logo_field() -> forms.ImageField:
-    # Reuses the shared image validators (format + decompression-bomb guard);
-    # the printable-schedule logo only differs in label and accepted types.
-    return forms.ImageField(
+def _logo_field() -> forms.FileField:
+    return forms.FileField(
         required=False,
         label=_("Logo"),
         help_text=_(
-            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
+            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(attrs={"accept": LOGO_ACCEPT}),
     )
 
 
@@ -178,9 +258,9 @@ class EventSettingsForm(forms.Form):
         return image
 
     def clean_logo(self) -> object:
-        image = self.cleaned_data.get("logo")
-        validate_uploaded_image(image)
-        return image
+        logo = self.cleaned_data.get("logo")
+        validate_uploaded_logo(logo)
+        return logo
 
 
 class SphereSettingsForm(forms.Form):
@@ -194,9 +274,9 @@ class SphereSettingsForm(forms.Form):
     logo = _logo_field()
 
     def clean_logo(self) -> object:
-        image = self.cleaned_data.get("logo")
-        validate_uploaded_image(image)
-        return image
+        logo = self.cleaned_data.get("logo")
+        validate_uploaded_logo(logo)
+        return logo
 
 
 class ProposalSettingsForm(forms.Form):

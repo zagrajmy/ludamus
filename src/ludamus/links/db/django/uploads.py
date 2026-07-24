@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from ludamus.pacts.images import IMAGE_SUFFIXES
+from ludamus.pacts.images import UPLOAD_SUFFIXES
 
 if TYPE_CHECKING:
     from django.db import models
@@ -21,4 +21,4 @@ def unique_upload_to(instance: models.Model, filename: str) -> str:
     # image be served as .html.
     model_name = type(instance).__name__.lower()
     suffix = Path(filename).suffix.lower()
-    return f"{model_name}s/{uuid4().hex}{suffix if suffix in IMAGE_SUFFIXES else ''}"
+    return f"{model_name}s/{uuid4().hex}{suffix if suffix in UPLOAD_SUFFIXES else ''}"

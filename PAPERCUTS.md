@@ -165,3 +165,5 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: playwriter 'session new' printed a fresh id but the relay 404'd it
+  (Session 14 not found); had to reuse an old session id from session list
