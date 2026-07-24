@@ -188,3 +188,5 @@ If you fix a papercut, remove it.
 - 2026-07-24: While carving enrollment views out of event_settings.py, removing
   a shared timezone import also broke pre-existing settings code; Ruff caught
   the cross-section import coupling before commit.
+- 2026-07-24: Uploading required PR screenshots to Catbox returned HTTP 412 for
+  every PNG, so the documented image-upload path could not publish the evidence.
