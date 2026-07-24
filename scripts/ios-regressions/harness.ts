@@ -1,6 +1,7 @@
 import type {
   AgentDeviceClient,
   AgentDeviceSelectionOptions,
+  AgentDeviceSession,
   CaptureSnapshotResult,
   SnapshotNode,
 } from "agent-device";
@@ -57,7 +58,7 @@ export type IosHarness = {
 };
 
 export const createIosHarness = async (session: string): Promise<IosHarness> => {
-  const { createAgentDeviceClient } = await importAgentDevice();
+  const { createAgentDeviceClient, isAgentDeviceError } = await importAgentDevice();
   const client: AgentDeviceClient = createAgentDeviceClient({ session });
 
   const deviceOptions: IosDeviceOptions = providedUdid
@@ -96,6 +97,7 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
     try {
       await client.apps.open({ ...deviceOptions, app: "Safari", url });
     } catch (error) {
+      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
       console.warn(
         "Safari reported a URL open failure; continuing because iOS Simulator can time out after Safari has already loaded the page.",
         error,
@@ -131,19 +133,32 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
     }
   };
 
+  const findConflictingSession = (sessions: AgentDeviceSession[]): AgentDeviceSession | null => {
+    const holder = sessions.find((candidate) => {
+      if (providedUdid) return candidate.device.ios?.udid === providedUdid;
+      return candidate.device.name === deviceName && candidate.device.platform === "ios";
+    });
+    return holder && holder.name !== session ? holder : null;
+  };
+
   const closeDeviceSessionIfPresent = async (): Promise<void> => {
     try {
-      const sessions = await client.sessions.list();
-      const activeSession = sessions.find((candidate) => {
-        if (providedUdid) return candidate.device.ios?.udid === providedUdid;
-        return candidate.device.name === deviceName && candidate.device.platform === "ios";
-      });
-      if (!activeSession || activeSession.name === session) return;
+      const activeSession = findConflictingSession(await client.sessions.list());
+      if (!activeSession) return;
 
       console.log(
         `Taking over iOS device from existing agent-device session: ${activeSession.name}`,
       );
       await client.sessions.close({ session: activeSession.name });
+
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline) {
+        if (!findConflictingSession(await client.sessions.list())) return;
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      console.warn(
+        `Session ${activeSession.name} still holds the device 15s after close; proceeding anyway.`,
+      );
     } catch (error) {
       console.warn("Could not check or close existing device session:", error);
     }
