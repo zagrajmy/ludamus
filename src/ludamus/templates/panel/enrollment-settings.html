@@ -1,0 +1,121 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera %}
+{% block title_prefix %}
+    {% translate "Enrollment Settings" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Event Settings" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event and windows %}
+        {% translate "Add enrollment window" as add_window_label %}
+        {% url 'panel:enrollment-window-create' slug=current_event.slug as add_window_url %}
+        {% tessera_button add_window_label href=add_window_url icon="plus" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        {% tab_shell "panel/_event_settings_tabs.html" %}
+        {% tab_shell_body %}
+        <div class="max-w-5xl space-y-6">
+            <div class="max-w-2xl">
+                <h2 class="text-lg font-semibold text-foreground">{% translate "Enrollment windows" %}</h2>
+                <p class="mt-1 text-sm text-foreground-muted">
+                    {% translate "Set when enrollment opens and which rules apply. Overlapping windows combine, and participants receive the most permissive available access." %}
+                </p>
+            </div>
+            {% if windows %}
+                {% tessera_table %}
+                <thead class="bg-bg-secondary">
+                    <tr>
+                        <th scope="col"
+                            class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                            {% translate "Period" %}
+                        </th>
+                        <th scope="col"
+                            class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                            {% translate "Seats" %}
+                        </th>
+                        <th scope="col"
+                            class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                            {% translate "Access" %}
+                        </th>
+                        <th scope="col"
+                            class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                            {% translate "Status" %}
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-right">
+                            <span class="sr-only">{% translate "Actions" %}</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border bg-bg-primary">
+                    {% for window in windows %}
+                        <tr>
+                            <td class="px-4 py-4 text-sm text-foreground whitespace-nowrap">
+                                <div>{{ window.start_time|date:"DATETIME_FORMAT" }}</div>
+                                <div class="text-foreground-muted">{{ window.end_time|date:"DATETIME_FORMAT" }}</div>
+                            </td>
+                            <td class="px-4 py-4 text-sm text-foreground tabular-nums whitespace-nowrap">
+                                {% blocktranslate with percentage=window.percentage_slots %}{{ percentage }}% of capacity{% endblocktranslate %}
+                            </td>
+                            <td class="px-4 py-4 text-sm text-foreground-secondary">
+                                {% if window.restrict_to_configured_users %}
+                                    {% translate "Configured people only" %}
+                                {% else %}
+                                    {% translate "Everyone with an account" %}
+                                {% endif %}
+                                {% if window.allow_anonymous_enrollment %}
+                                    <div class="text-foreground-muted">{% translate "Anonymous enrollment allowed" %}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4 text-sm whitespace-nowrap">
+                                {% if window.end_time <= now %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">{% translate "Ended" %}</span>
+                                {% elif window.start_time > now %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">{% translate "Upcoming" %}</span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Active" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-4">
+                                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
+                                    {% translate "Edit window" as edit_label %}
+                                    {% url 'panel:enrollment-window-edit' slug=current_event.slug pk=window.pk as edit_url %}
+                                    {% tessera_button edit_label href=edit_url variant="secondary" size="sm" %}
+                                    <form method="post"
+                                          action="{% url 'panel:enrollment-window-delete' slug=current_event.slug pk=window.pk %}"
+                                          data-confirm="{% translate 'Delete this enrollment window? Its user and domain access rules will also be deleted.' %}"
+                                          data-confirm-action="{% translate 'Delete window' %}">
+                                        {% csrf_token %}
+                                        {% tessera_button "Delete window" variant="danger" size="sm" %}
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            {% end_tessera_table %}
+        {% else %}
+            <div class="card">
+                <div class="card-body max-w-2xl">
+                    <h2 class="text-lg font-semibold text-foreground">{% translate "Enrollment is closed" %}</h2>
+                    <p class="mt-2 text-sm text-foreground-muted">
+                        {% translate "Add an enrollment window to let participants join scheduled program items." %}
+                    </p>
+                    <div class="mt-5">
+                        {% translate "Add enrollment window" as empty_add_label %}
+                        {% url 'panel:enrollment-window-create' slug=current_event.slug as empty_add_url %}
+                        {% tessera_button empty_add_label href=empty_add_url icon="plus" %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
+{% endif %}
+{% endblock content %}

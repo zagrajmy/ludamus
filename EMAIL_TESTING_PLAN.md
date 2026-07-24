@@ -10,8 +10,8 @@ declining, token replay, and automatic expiry.
 | Phase | Status | Evidence |
 | --- | --- | --- |
 | Source and public-route reconnaissance | Complete | Invalid claim token redirects to `/events/` with the expected error |
-| Production preflight | Not started | |
-| Isolated fixture setup | Not started | |
+| Production preflight | In progress | Kobold login, email, and sphere-manager access verified |
+| Isolated fixture setup | In progress | Event available; `[PROD TEST] Offer and claim` category created with a one-hour duration |
 | Successful claim | Not started | |
 | Decline | Not started | |
 | Automatic expiry | Not started | |
@@ -32,9 +32,10 @@ Use these status values: `Not started`, `In progress`, `Passed`, `Failed`, or
    delivery; the message must reach Gmail.
 3. Existing browser coverage tests automatic wait-list promotion, not the
    `OFFER_CLAIM` path.
-4. The organizer's category form does not expose `promotion_mode` or
-   `offer_claim_window`. Configure both through Django admin or a production
-   shell.
+4. The backoffice panel cannot create the sphere's first event. Create the event
+   through Django admin or a production shell. The organizer's category form
+   also omits `promotion_mode` and `offer_claim_window`; configure both through
+   Django admin or the shell.
 
 ## Safety rules
 
@@ -53,17 +54,19 @@ Use these status values: `Not started`, `In progress`, `Passed`, `Failed`, or
 
 ### Account
 
-- [ ] Log in to the Skytower sphere as `kobold.zagrajmy@gmail.com`.
-- [ ] Confirm the Ludamus user stores that exact email address.
-- [ ] Confirm the user can enroll and temporarily manage the sphere.
+- [x] Log in to the Skytower sphere as `kobold.zagrajmy@gmail.com`.
+- [x] Confirm the Ludamus user stores that exact email address.
+- [x] Confirm the user can enroll and manage the sphere. Kobold can open the
+      Wrocław Megagames Weekend dashboard at `/panel/event/wroclaw-megagames-weekend/`.
 - [ ] Grant only the access needed for this test; avoid global staff access when
       sphere-manager access is sufficient.
 
 ### Deployment and scheduler
 
-- [ ] Record the deployed commit SHA.
-- [ ] Confirm migrations containing `offered_at`, `offer_expires_at`,
-      `claim_token`, and `claimed_at` are applied.
+- [x] Record the deployed commit SHA: `577b0230f40018f0c2792dbd879f59d64bfebee4`.
+- [x] Confirm migrations containing `offered_at`, `offer_expires_at`,
+      `claim_token`, and `claimed_at` are applied. The invalid-token endpoint
+      executes the offer lookup successfully instead of raising a schema error.
 - [ ] Confirm the web container uses `SCHEDULER_MODE=dbos`.
 - [ ] Confirm startup logs contain `DBOS launched` and no DBOS initialization
       exception.
@@ -83,13 +86,15 @@ Use these status values: `Not started`, `In progress`, `Passed`, `Failed`, or
 
 ## 2. Build an isolated fixture
 
-Create one short-lived event in the Skytower sphere:
+Use the otherwise-empty Wrocław Megagames Weekend event created for this test:
 
-- Name: `[PROD TEST] Seat claim — YYYY-MM-DD`
-- Slug: a date-stamped `prod-test-seat-claim-...` value
-- Date: future, with no real event overlap
-- Enrollment: open and unrestricted
-- Publication: visible only during the test window
+- URL: `https://skytower.zagrajmy.net/event/wroclaw-megagames-weekend/`
+- Date: 28–29 August 2026
+- Enrollment: open and unrestricted during the test
+- Existing publication and proposal settings: preserve them
+
+The Panel cannot create the sphere's first event; this event was created through
+Django admin. Restrict all generated fixture data to `[PROD TEST]` names.
 
 Create one category:
 
@@ -236,7 +241,8 @@ cleaning the offered row.
 
 ## 10. Cleanup
 
-- [ ] Unpublish and delete the test event and sessions.
+- [ ] Delete the `[PROD TEST]` sessions and category; preserve the Wrocław
+      Megagames Weekend event and its settings.
 - [ ] Remove the synthetic blocker and all test participations.
 - [ ] Delete test notifications; event deletion may not remove them.
 - [ ] Remove temporary sphere-manager access.
@@ -249,3 +255,18 @@ Append dated entries here. Include commands only when they contain no secrets.
 
 - Public reconnaissance: the production claim route is deployed. A request with
   an invalid token redirected to `/events/` and displayed the expected error.
+- Deployment reconnaissance: GitHub Actions reports production deploy
+  `577b0230f40018f0c2792dbd879f59d64bfebee4` as successful at
+  2026-07-23 22:15 UTC. This commit contains the claim flow, party-held-seat
+  flow, and DBOS scheduler commits. The deployment log shows successful
+  migration and web-container startup. Runtime DBOS and SMTP checks remain.
+- Transport reconnaissance: the Skytower site returns HTTP 200 over HTTPS with
+  HSTS enabled.
+- Account reconnaissance: the user's existing Playwriter browser session is
+  authenticated as Kobold, and the account menu confirms
+  `kobold.zagrajmy@gmail.com`. Kobold can now access the Wrocław Megagames
+  Weekend backoffice. The Django admin still identifies Kobold as authenticated
+  but unauthorized; admin-only configuration requires the assisting staff user.
+- Fixture setup: created `[PROD TEST] Offer and claim` through the Panel with
+  slug `prod-test-offer-and-claim` and a one-hour allowed duration. The category
+  still needs its admin-only promotion mode and claim window.

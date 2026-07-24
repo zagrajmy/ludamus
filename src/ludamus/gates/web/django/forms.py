@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT
+from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -219,6 +220,60 @@ class ProposalSettingsForm(forms.Form):
     allow_anonymous_proposals = forms.BooleanField(required=False, initial=False)
 
 
+class EnrollmentWindowForm(forms.Form):
+    start_time = forms.DateTimeField(
+        label=_("Enrollment opens"),
+        widget=_datetime_local_widget(),
+        input_formats=_DATETIME_LOCAL_FORMATS,
+    )
+    end_time = forms.DateTimeField(
+        label=_("Enrollment closes"),
+        widget=_datetime_local_widget(),
+        input_formats=_DATETIME_LOCAL_FORMATS,
+    )
+    percentage_slots = forms.IntegerField(
+        label=_("Seats available during this window"),
+        min_value=1,
+        max_value=100,
+        initial=100,
+        help_text=_("Percentage of each session's capacity available for enrollment."),
+    )
+    max_waitlist_sessions = forms.IntegerField(
+        label=_("Waiting-list limit per person"),
+        min_value=0,
+        initial=10,
+        help_text=_("Use 0 to disable waiting lists during this window."),
+    )
+    banner_text = forms.CharField(
+        label=_("Enrollment notice"),
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Shown to participants while this enrollment window is active."),
+    )
+    limit_to_end_time = forms.BooleanField(
+        required=False,
+        label=_("Apply only to sessions starting before enrollment closes"),
+    )
+    restrict_to_configured_users = forms.BooleanField(
+        required=False,
+        label=_("Require explicit enrollment access"),
+        help_text=_(
+            "Only people allowed by user, domain, or membership settings can enroll."
+        ),
+    )
+    allow_anonymous_enrollment = forms.BooleanField(
+        required=False, label=_("Allow enrollment without an account")
+    )
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean() or {}
+        start_time = cleaned.get("start_time")
+        end_time = cleaned.get("end_time")
+        if start_time and end_time and start_time >= end_time:
+            raise forms.ValidationError(_("Enrollment must close after it opens."))
+        return cleaned
+
+
 class ProposalCategoryForm(forms.Form):
     """Form for creating/editing proposal categories."""
 
@@ -237,6 +292,27 @@ class ProposalCategoryForm(forms.Form):
     end_time = forms.DateTimeField(required=False)
     min_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
     max_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
+    promotion_mode = forms.ChoiceField(
+        required=False,
+        initial=PromotionMode.AUTO.value,
+        label=_("When a seat becomes available"),
+        choices=(
+            (PromotionMode.AUTO.value, _("Confirm the next person automatically")),
+            (
+                PromotionMode.OFFER_CLAIM.value,
+                _("Hold the seat until the next person confirms"),
+            ),
+        ),
+        widget=forms.RadioSelect,
+    )
+    offer_claim_window_minutes = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=10_080,
+        initial=1_440,
+        label=_("Time to confirm the seat"),
+        help_text=_("Minutes before an unconfirmed seat goes to the next person."),
+    )
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean() or {}

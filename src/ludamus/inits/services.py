@@ -36,6 +36,7 @@ from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
+    EnrollmentSettingsService,
     NotificationsService,
     WaitlistPromotionService,
 )
@@ -282,6 +283,12 @@ class Services:
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def enrollment_settings(self) -> EnrollmentSettingsService:
+        return EnrollmentSettingsService(
+            self._transaction, self._repos.enrollment_windows
+        )
 
     @cached_property
     def enrollment(self) -> EnrollmentService:

@@ -198,6 +198,33 @@ class TestCFPEditPageView:
         assert category.name == "Workshops"
         assert category.slug == "workshops"
 
+    def test_post_updates_waiting_list_offer_settings(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, category),
+            data={
+                "name": "RPG Sessions",
+                "promotion_mode": "offer_claim",
+                "offer_claim_window_minutes": "15",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        category.refresh_from_db()
+        assert category.promotion_mode == "offer_claim"
+        assert category.offer_claim_window == timedelta(minutes=15)
+
     def test_post_generates_unique_slug_on_collision(
         self, authenticated_client, active_user, sphere, event
     ):

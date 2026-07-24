@@ -96,6 +96,9 @@ class EventContextMixin:
 
         return context, current_event
 
+    def get_current_event(self, slug: str) -> EventDTO | None:
+        return self.get_event_context(slug)[1]
+
     def get_track_filter_context(
         self, event_pk: int
     ) -> tuple[list[Any], set[int], int | None]:
@@ -134,6 +137,7 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
     return {
         "general": reverse("panel:event-settings", kwargs={"slug": slug}),
         "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
+        "enrollment": reverse("panel:event-enrollment-settings", kwargs={"slug": slug}),
         "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}

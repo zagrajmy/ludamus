@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
+        EnrollmentSettingsServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
@@ -131,6 +132,8 @@ class ServicesProtocol(Protocol):
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
+    @property
+    def enrollment_settings(self) -> EnrollmentSettingsServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property

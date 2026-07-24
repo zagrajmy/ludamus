@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
@@ -139,6 +140,10 @@ class CFPEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "end_time": category.end_time,
                 "min_participants_limit": category.min_participants_limit,
                 "max_participants_limit": category.max_participants_limit,
+                "promotion_mode": category.promotion_mode,
+                "offer_claim_window_minutes": int(
+                    category.offer_claim_window.total_seconds() // 60
+                ),
             }
         )
 
@@ -301,6 +306,10 @@ class CFPEditPageView(PanelAccessMixin, EventContextMixin, View):
                 ),
                 "max_participants_limit": (
                     form.cleaned_data["max_participants_limit"] or 0
+                ),
+                "promotion_mode": form.cleaned_data["promotion_mode"] or "auto",
+                "offer_claim_window": timedelta(
+                    minutes=form.cleaned_data["offer_claim_window_minutes"] or 1_440
                 ),
             },
         )

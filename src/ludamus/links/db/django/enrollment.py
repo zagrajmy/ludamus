@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
 from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
+    EnrollmentConfig,
     Event,
     Session,
     SessionParticipation,
@@ -33,6 +34,8 @@ from ludamus.pacts.enrollment import (
     AnonymousSeatingDTO,
     AnonymousSessionContextDTO,
     EnrollmentParticipationRepositoryProtocol,
+    EnrollmentWindowDTO,
+    EnrollmentWindowRepositoryProtocol,
     OfferDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
@@ -46,9 +49,46 @@ from ludamus.pacts.legacy import (
 
 if TYPE_CHECKING:
 
-    from ludamus.pacts.enrollment import GuestSeatData, HeldSeatData
+    from ludamus.pacts.enrollment import (
+        EnrollmentWindowData,
+        GuestSeatData,
+        HeldSeatData,
+    )
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
+
+
+class EnrollmentWindowRepository(EnrollmentWindowRepositoryProtocol):
+    def __init__(self) -> None:
+        self._windows = EnrollmentConfig.objects
+
+    def list_for_event(self, event_id: int) -> list[EnrollmentWindowDTO]:
+        windows = self._windows.filter(event_id=event_id).order_by("start_time", "pk")
+        return [EnrollmentWindowDTO.model_validate(window) for window in windows]
+
+    def read(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None:
+        window = self._windows.filter(event_id=event_id, pk=pk).first()
+        return EnrollmentWindowDTO.model_validate(window) if window else None
+
+    def create(self, event_id: int, data: EnrollmentWindowData) -> EnrollmentWindowDTO:
+        window = self._windows.create(event_id=event_id, **data.model_dump())
+        return EnrollmentWindowDTO.model_validate(window)
+
+    def update(
+        self, *, event_id: int, pk: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO | None:
+        updated = self._windows.filter(event_id=event_id, pk=pk).update(
+            **data.model_dump()
+        )
+        if not updated:
+            return None
+        return EnrollmentWindowDTO.model_validate(
+            self._windows.get(event_id=event_id, pk=pk)
+        )
+
+    def delete(self, event_id: int, pk: int) -> bool:
+        deleted, _details = self._windows.filter(event_id=event_id, pk=pk).delete()
+        return deleted > 0
 
 
 class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtocol):

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 06:44+0200\n"
+"POT-Creation-Date: 2026-07-24 14:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1122,6 +1122,22 @@ msgstr "Ustawienia wyświetlania zostały zapisane."
 msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Enrollment window created."
+msgstr "Utworzono okno zapisów."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Enrollment window not found."
+msgstr "Nie znaleziono okna zapisów."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Enrollment window saved."
+msgstr "Zapisano okno zapisów."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Enrollment window deleted."
+msgstr "Usunięto okno zapisów."
+
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -2152,12 +2168,90 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Enrollment opens"
+msgstr "Otwarcie zapisów"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enrollment closes"
+msgstr "Zamknięcie zapisów"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Seats available during this window"
+msgstr "Miejsca dostępne w tym oknie"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Percentage of each session's capacity available for enrollment."
+msgstr "Procent miejsc w każdym punkcie programu dostępnych do zapisów."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Waiting-list limit per person"
+msgstr "Limit list oczekujących na osobę"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Use 0 to disable waiting lists during this window."
+msgstr "Wpisz 0, aby wyłączyć listy oczekujących w tym oknie."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enrollment notice"
+msgstr "Komunikat o zapisach"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Shown to participants while this enrollment window is active."
+msgstr "Wyświetlany uczestnikom, gdy to okno zapisów jest aktywne."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Apply only to sessions starting before enrollment closes"
+msgstr ""
+"Stosuj tylko do punktów programu rozpoczynających się przed zamknięciem "
+"zapisów"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Require explicit enrollment access"
+msgstr "Wymagaj jawnego dostępu do zapisów"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Only people allowed by user, domain, or membership settings can enroll."
+msgstr ""
+"Zapisać mogą się tylko osoby dopuszczone w ustawieniach użytkownika, domeny "
+"lub członkostwa."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Allow enrollment without an account"
+msgstr "Zezwalaj na zapisy bez konta"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enrollment must close after it opens."
+msgstr "Zapisy muszą zamknąć się po ich otwarciu."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
 msgstr "Nazwa kategorii jest za długa (max 255 znaków)."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Category name is required."
 msgstr "Nazwa kategorii jest wymagana."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "When a seat becomes available"
+msgstr "Gdy zwolni się miejsce"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Confirm the next person automatically"
+msgstr "Automatycznie potwierdź udział następnej osoby"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Hold the seat until the next person confirms"
+msgstr "Zarezerwuj miejsce do czasu potwierdzenia przez następną osobę"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Time to confirm the seat"
+msgstr "Czas na potwierdzenie miejsca"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Minutes before an unconfirmed seat goes to the next person."
+msgstr ""
+"Liczba minut, po których niepotwierdzone miejsce przechodzi na następną "
+"osobę."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Minimum participants limit cannot exceed maximum."
@@ -2648,10 +2742,12 @@ msgstr "Zamknięte"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/index.html
+#: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Upcoming"
 msgstr "Nadchodzące"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Active"
 msgstr "Aktywne"
 
@@ -3234,6 +3330,7 @@ msgstr "Sale"
 #: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Ended"
 msgstr "Zakończona"
 
@@ -3427,6 +3524,8 @@ msgid "Enroll Now"
 msgstr "Zapisz się teraz"
 
 #: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
 msgid "Enrollment"
 msgstr "Zapisy"
 
@@ -3695,6 +3794,7 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
@@ -3731,6 +3831,7 @@ msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
@@ -5252,6 +5353,7 @@ msgstr "Ogłoszenia organizacji dla tej sfery"
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
@@ -5855,6 +5957,7 @@ msgstr "Ustawienia"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/proposal-settings.html
 #: src/ludamus/templates/panel/settings.html
@@ -5947,6 +6050,18 @@ msgstr "0 = bez minimum"
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Maximum participants"
 msgstr "Maks. uczestników"
+
+#: src/ludamus/templates/panel/cfp-edit.html
+msgid "Waiting-list seats"
+msgstr "Miejsca z listy oczekujących"
+
+#: src/ludamus/templates/panel/cfp-edit.html
+msgid ""
+"Choose what happens when a seat becomes available for someone on the waiting "
+"list."
+msgstr ""
+"Wybierz, co się stanie, gdy zwolni się miejsce dla osoby z listy "
+"oczekujących."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Allowed Durations"
@@ -6233,6 +6348,130 @@ msgid ""
 "No session fields defined. Create session fields in the CFP section first."
 msgstr ""
 "Nie zdefiniowano pól punktu programu. Najpierw utwórz pola w sekcji zgłoszeń."
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Enrollment Settings"
+msgstr "Ustawienia zapisów"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Add enrollment window"
+msgstr "Dodaj okno zapisów"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Enrollment windows"
+msgstr "Okna zapisów"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid ""
+"Set when enrollment opens and which rules apply. Overlapping windows "
+"combine, and participants receive the most permissive available access."
+msgstr ""
+"Ustal terminy zapisów i obowiązujące zasady. Nakładające się okna łączą się, "
+"a uczestnicy otrzymują najszerszy dostęp."
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Period"
+msgstr "Okres"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Seats"
+msgstr "Miejsca"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Access"
+msgstr "Dostęp"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+#, python-format
+msgid "%(percentage)s%% of capacity"
+msgstr "%(percentage)s%% pojemności"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Configured people only"
+msgstr "Tylko skonfigurowane osoby"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Everyone with an account"
+msgstr "Każda osoba z kontem"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Anonymous enrollment allowed"
+msgstr "Zapisy anonimowe dozwolone"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Edit window"
+msgstr "Edytuj okno"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid ""
+"Delete this enrollment window? Its user and domain access rules will also be "
+"deleted."
+msgstr ""
+"Usunąć to okno zapisów? Zostaną również usunięte powiązane reguły dostępu "
+"użytkowników i domen."
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Delete window"
+msgstr "Usuń okno"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Enrollment is closed"
+msgstr "Zapisy są zamknięte"
+
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid ""
+"Add an enrollment window to let participants join scheduled program items."
+msgstr ""
+"Dodaj okno zapisów, aby uczestnicy mogli zapisywać się na zaplanowane punkty "
+"programu."
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Edit Enrollment Window"
+msgstr "Edytuj okno zapisów"
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Add Enrollment Window"
+msgstr "Dodaj okno zapisów"
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Save window"
+msgstr "Zapisz okno"
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Enrollment period"
+msgstr "Okres zapisów"
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Participants can enroll while this window is active."
+msgstr "Uczestnicy mogą się zapisywać, gdy to okno jest aktywne."
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Capacity and waiting list"
+msgstr "Miejsca i lista oczekujących"
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid ""
+"Control how many seats open and how many waiting lists one person may join."
+msgstr ""
+"Określ liczbę dostępnych miejsc i list oczekujących, do których może "
+"dołączyć jedna osoba."
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Choose who may enroll while this window is active."
+msgstr "Wybierz, kto może się zapisywać, gdy to okno jest aktywne."
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Participant notice"
+msgstr "Komunikat dla uczestników"
+
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid ""
+"Add a short message when participants need context about this enrollment "
+"stage."
+msgstr ""
+"Dodaj krótką wiadomość, jeśli uczestnicy potrzebują wyjaśnienia tego etapu "
+"zapisów."
 
 #: src/ludamus/templates/panel/facilitator-columns.html
 msgid "Facilitator columns"

@@ -174,6 +174,48 @@ class OfferNotification(BaseModel):
     offer_expires_at: datetime
 
 
+class EnrollmentWindowData(BaseModel):
+    start_time: datetime
+    end_time: datetime
+    percentage_slots: int
+    limit_to_end_time: bool
+    banner_text: str
+    max_waitlist_sessions: int
+    restrict_to_configured_users: bool
+    allow_anonymous_enrollment: bool
+
+
+class EnrollmentWindowDTO(EnrollmentWindowData):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+
+
+class EnrollmentWindowRepositoryProtocol(Protocol):
+    def list_for_event(self, event_id: int) -> list[EnrollmentWindowDTO]: ...
+    def read(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None: ...
+    def create(
+        self, event_id: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO: ...
+    def update(
+        self, *, event_id: int, pk: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO | None: ...
+    def delete(self, event_id: int, pk: int) -> bool: ...
+
+
+class EnrollmentSettingsServiceProtocol(Protocol):
+    def list_windows(self, event_id: int) -> list[EnrollmentWindowDTO]: ...
+    def read_window(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None: ...
+    def create_window(
+        self, event_id: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO: ...
+    def update_window(
+        self, *, event_id: int, pk: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO | None: ...
+    def delete_window(self, event_id: int, pk: int) -> bool: ...
+
+
 class NotificationDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

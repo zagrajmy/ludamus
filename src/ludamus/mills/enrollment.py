@@ -63,6 +63,9 @@ if TYPE_CHECKING:
         AnonymousSessionContextDTO,
         EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
+        EnrollmentWindowData,
+        EnrollmentWindowDTO,
+        EnrollmentWindowRepositoryProtocol,
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
@@ -89,6 +92,38 @@ def _token() -> str:
 
 def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
     return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
+
+
+class EnrollmentSettingsService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        windows: EnrollmentWindowRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._windows = windows
+
+    def list_windows(self, event_id: int) -> list[EnrollmentWindowDTO]:
+        return self._windows.list_for_event(event_id)
+
+    def read_window(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None:
+        return self._windows.read(event_id, pk)
+
+    def create_window(
+        self, event_id: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO:
+        with self._transaction.atomic():
+            return self._windows.create(event_id, data)
+
+    def update_window(
+        self, *, event_id: int, pk: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO | None:
+        with self._transaction.atomic():
+            return self._windows.update(event_id=event_id, pk=pk, data=data)
+
+    def delete_window(self, event_id: int, pk: int) -> bool:
+        with self._transaction.atomic():
+            return self._windows.delete(event_id, pk)
 
 
 class WaitlistPromotionService:

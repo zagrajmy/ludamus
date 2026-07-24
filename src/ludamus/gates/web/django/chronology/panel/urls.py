@@ -113,6 +113,26 @@ urlpatterns = [
         name="event-proposal-settings",
     ),
     path(
+        "event/<slug:slug>/settings/enrollment/",
+        event_settings.EventEnrollmentSettingsPageView.as_view(),
+        name="event-enrollment-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/create/",
+        event_settings.EnrollmentWindowCreatePageView.as_view(),
+        name="enrollment-window-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/<int:pk>/edit/",
+        event_settings.EnrollmentWindowEditPageView.as_view(),
+        name="enrollment-window-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/<int:pk>/do/delete",
+        event_settings.EnrollmentWindowDeleteActionView.as_view(),
+        name="enrollment-window-delete",
+    ),
+    path(
         "event/<slug:slug>/settings/display/",
         event_settings.EventDisplaySettingsPageView.as_view(),
         name="event-display-settings",

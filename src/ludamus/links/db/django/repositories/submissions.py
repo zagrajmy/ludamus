@@ -159,6 +159,8 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
         "durations",
         "min_participants_limit",
         "max_participants_limit",
+        "promotion_mode",
+        "offer_claim_window",
     )
 
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO:

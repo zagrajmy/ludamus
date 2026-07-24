@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -119,7 +119,9 @@ class ProposalCategoryDTO(BaseModel):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta = timedelta(hours=24)
     pk: int
+    promotion_mode: str = "auto"
     slug: str
     start_time: datetime | None
 
@@ -581,6 +583,8 @@ class ProposalCategoryData(TypedDict, total=False):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta
+    promotion_mode: str
     start_time: datetime | None
 
 

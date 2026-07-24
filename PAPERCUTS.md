@@ -165,3 +165,23 @@ If you fix a papercut, remove it.
   Playwright still transpiles and executes the changed spec successfully.
 - 2026-07-24: Committed from a new git worktree → hook startup failed because
   the copied mise.toml was untrusted; trust was required before hooks could run.
+- 2026-07-24: Used agent-browser find role link with an exact Log in name → it
+  reported no element despite the snapshot listing matching links; clicking the
+  snapshot ref worked.
+- 2026-07-24: Created a fresh Playwriter session → the CLI returned an ID but
+  immediately reported that session as missing; reused the user-authorized
+  existing session and created a dedicated page there.
+- 2026-07-24: Ran format:djlint on newly added templates → it reformatted them
+  cleanly but still exited nonzero, requiring a second identical run.
+- 2026-07-24: Passed focused test paths to mise run test:unit after -- → the
+  task still ran the entire tests/unit suite instead of only those paths.
+- 2026-07-24: Ran the documented messages task in a fresh worktree → varlock
+  rejected missing development secrets instead of loading the repository test
+  environment.
+- 2026-07-24: Ran focused pytest directly without loading .env.test, so Django
+  settings rejected the missing ENV variable; focused-test invocation depends on
+  an easy-to-miss environment-loading step.
+- 2026-07-24: Translation extraction previously run from the parent checkout
+  embedded worktrees/prod-email-testing prefixes in every PO source reference,
+  creating thousands of noisy changes and making messages-check fail when run
+  from the worktree root.
