@@ -56,7 +56,7 @@ resolvable from the script (`npm i playwright-core` in this `scripts/`
 directory or any ancestor). If unavailable, render what you can with PIL and
 say which cells are missing.
 
-Dependency policy: Python deps for these scripts (`defusedxml`) live in the
+Dependency policy: Python deps for these scripts (`lxml`) live in the
 project's Poetry dev group; Node deps stay install-on-demand because the
 project has no root Node runtime the scripts could share.
 
