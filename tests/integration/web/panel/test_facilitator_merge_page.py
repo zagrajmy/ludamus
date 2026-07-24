@@ -16,7 +16,7 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _DEFAULT_COLUMNS = [
     FacilitatorColumnDTO(key=key)
-    for key in ("name", "linked", "sessions", "accreditation")
+    for key in ("name", "linked", "sessions", "accreditation", "organizer")
 ]
 
 
@@ -37,6 +37,7 @@ def _column_values(facilitators):
                     AccreditationType(facilitator.accreditation_type)
                 ]
             ),
+            "organizer": facilitator.organizer_name or "—",
         }
         for facilitator in facilitators
     }
@@ -218,6 +219,61 @@ class TestFacilitatorMergePageView:
         assert not Facilitator.objects.filter(pk=source.pk).exists()
         assert Facilitator.objects.filter(pk=target.pk).exists()
         assert list(session.facilitators.values_list("pk", flat=True)) == [target.pk]
+
+    def test_post_keeps_the_only_organizer_among_merged(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(username="organizer", email="organizer@example.com")
+        target = _make_facilitator(event, "Alice", "alice")
+        source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
+        Facilitator.objects.filter(pk=source.pk).update(organizer=organizer)
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
+        )
+
+        target.refresh_from_db()
+        assert target.organizer_id == organizer.pk
+
+    def test_post_clears_disagreeing_organizers(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        one = UserFactory(username="organizer-one", email="organizer1@example.com")
+        two = UserFactory(username="organizer-two", email="organizer2@example.com")
+        target = _make_facilitator(event, "Alice", "alice")
+        source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
+        Facilitator.objects.filter(pk=target.pk).update(organizer=one)
+        Facilitator.objects.filter(pk=source.pk).update(organizer=two)
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
+        )
+
+        target.refresh_from_db()
+        assert target.organizer_id is None
+
+    def test_post_keeps_a_shared_organizer(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(username="organizer", email="organizer@example.com")
+        target = _make_facilitator(event, "Alice", "alice")
+        source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
+        Facilitator.objects.filter(pk__in=[target.pk, source.pk]).update(
+            organizer=organizer
+        )
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
+        )
+
+        target.refresh_from_db()
+        assert target.organizer_id == organizer.pk
 
     def test_post_rejects_merge_when_multiple_linked_users(
         self, authenticated_client, active_user, sphere, event

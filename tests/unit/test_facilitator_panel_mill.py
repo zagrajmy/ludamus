@@ -1,5 +1,5 @@
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
-from ludamus.pacts import PersonalDataFieldDTO
+from ludamus.pacts import FacilitatorDTO, PersonalDataFieldDTO
 from ludamus.pacts.submissions import (
     EventPanelSettingsDTO,
     FacilitatorListQuery,
@@ -71,3 +71,99 @@ class TestListContextFieldFilters:
         )
 
         assert not context.field_filters
+
+
+_MINE = 42
+_THEIRS = 7
+
+
+class FakeOrganizerRepo:
+    # In-memory stand-in for the conditional updates `claim` / `release` run.
+    def __init__(self, organizer_id=None):
+        self.organizer_id = organizer_id
+
+    @staticmethod
+    def read_by_event_and_slug(_event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=7)
+
+    def claim(self, _pk, organizer_id):
+        if self.organizer_id is not None:
+            return False
+        self.organizer_id = organizer_id
+        return True
+
+    def release(self, _pk, *, organizer_id):
+        if self.organizer_id is None:
+            return False
+        if organizer_id is not None and organizer_id != self.organizer_id:
+            return False
+        self.organizer_id = None
+        return True
+
+
+def _organizer_service(facilitators):
+    repos = FacilitatorPanelRepos(
+        facilitators=facilitators,
+        personal_data_fields=FakeFieldsRepo([]),
+        personal_data_field_values=object(),
+        facilitator_change_logs=object(),
+        panel_settings=FakeSettingsRepo(),
+    )
+    return FacilitatorPanelService(object(), repos)
+
+
+class TestOrganizerAssignment:
+    def test_free_facilitator_is_claimed(self):
+        facilitators = FakeOrganizerRepo()
+        service = _organizer_service(facilitators)
+
+        assigned = service.assign_organizer(
+            event_id=1, facilitator_slug="alice", organizer_id=_MINE
+        )
+
+        assert assigned
+        assert facilitators.organizer_id == _MINE
+
+    def test_taken_facilitator_is_refused(self):
+        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
+        service = _organizer_service(facilitators)
+
+        assigned = service.assign_organizer(
+            event_id=1, facilitator_slug="alice", organizer_id=_THEIRS
+        )
+
+        assert not assigned
+        assert facilitators.organizer_id == _MINE
+
+    def test_organizer_releases_their_own(self):
+        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
+        service = _organizer_service(facilitators)
+
+        released = service.unassign_organizer(
+            event_id=1, facilitator_slug="alice", organizer_id=_MINE, force=False
+        )
+
+        assert released
+        assert facilitators.organizer_id is None
+
+    def test_someone_else_cannot_release(self):
+        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
+        service = _organizer_service(facilitators)
+
+        released = service.unassign_organizer(
+            event_id=1, facilitator_slug="alice", organizer_id=_THEIRS, force=False
+        )
+
+        assert not released
+        assert facilitators.organizer_id == _MINE
+
+    def test_force_releases_someone_elses(self):
+        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
+        service = _organizer_service(facilitators)
+
+        released = service.unassign_organizer(
+            event_id=1, facilitator_slug="alice", organizer_id=_THEIRS, force=True
+        )
+
+        assert released
+        assert facilitators.organizer_id is None

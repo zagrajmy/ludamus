@@ -387,6 +387,16 @@ urlpatterns = [
         name="facilitator-mark-guest",
     ),
     path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/assign-organizer",
+        facilitators.FacilitatorAssignOrganizerActionView.as_view(),
+        name="facilitator-assign-organizer",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unassign-organizer",
+        facilitators.FacilitatorUnassignOrganizerActionView.as_view(),
+        name="facilitator-unassign-organizer",
+    ),
+    path(
         "event/<slug:slug>/discounts/",
         discounts.DiscountsPageView.as_view(),
         name="discounts",

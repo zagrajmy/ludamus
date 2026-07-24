@@ -332,6 +332,8 @@ class FacilitatorListFilters(TypedDict, total=False):
     accreditation: str | None
     flagged: bool | None
     field_filters: dict[int, str | bool] | None
+    organizer_id: int | None
+    organizer_unassigned: bool | None
     sort: str | None
 
 
@@ -374,6 +376,10 @@ class FacilitatorListQuery:
     search: str = ""
     accreditation: str = ""
     flagged: bool = False
+    # The gate resolves "mine" to an id, so the mill needs no notion of who is
+    # asking.
+    organizer_id: int | None = None
+    organizer_unassigned: bool = False
     sort: str = ""
     raw_field_filters: dict[int, str] = field(default_factory=dict)
 
@@ -422,6 +428,12 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
     ) -> None: ...
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> bool: ...
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
+    ) -> bool: ...
     def set_accreditation(
         self,
         *,

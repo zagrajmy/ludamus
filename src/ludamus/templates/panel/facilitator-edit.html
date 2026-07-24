@@ -36,6 +36,19 @@
                             {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
                         </p>
                     </div>
+                    <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Organizer" %}</dt>
+                        <dd class="text-foreground">
+                            {% if organizer %}
+                                {{ organizer.name }}
+                            {% else %}
+                                <span class="text-foreground-muted">—</span>
+                            {% endif %}
+                        </dd>
+                        <p class="mt-1 text-xs text-foreground-muted">
+                            {% translate "Default contact person. Assign yourself from the facilitator list." %}
+                        </p>
+                    </div>
                     {% tessera_field form.accreditation_type %}
                     {% tessera_field form.internal_comment %}
                 </div>

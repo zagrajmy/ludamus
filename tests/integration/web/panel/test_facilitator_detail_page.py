@@ -90,6 +90,7 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
+                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -137,6 +138,7 @@ class TestFacilitatorDetailPageView:
                 },
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
+                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -176,12 +178,39 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": UserDTO.model_validate(linked),
+                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
                 "sessions": [],
             },
             contains=["Bob Builder", "bob@example.com"],
+        )
+
+    def test_get_shows_the_organizer(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
+        facilitator = _make_facilitator(event, organizer=organizer)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **_base_context(event),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "organizer": UserDTO.model_validate(organizer),
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+            contains="Olga Organizer",
         )
 
     def test_get_shows_no_linked_user_when_user_is_not_active(
@@ -201,6 +230,7 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
+                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -275,6 +305,7 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
+                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -321,6 +352,7 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
+                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [(field_dto, None)],
                 "has_personal_data": False,

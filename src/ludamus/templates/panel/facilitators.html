@@ -48,6 +48,18 @@
                                 {% endfor %}
                             {% end_select %}
                         </div>
+                        <div class="w-full sm:w-48 min-w-0">
+                            {% translate "Organizer" as t_organizer %}
+                            {% include "components/label.html" with for_id="filter-organizer" text=t_organizer only %}
+                            {% select id="filter-organizer" name="organizer" class="truncate" %}
+                                <option value="">{% translate "All organizers" %}</option>
+                                <option value="mine" {% if filter_organizer == "mine" %}selected{% endif %}>{% translate "Mine" %}</option>
+                                <option value="unassigned"
+                                        {% if filter_organizer == "unassigned" %}selected{% endif %}>
+                                    {% translate "Unassigned" %}
+                                </option>
+                            {% end_select %}
+                        </div>
                         {% for field in filterable_fields %}
                             {% with pk_str=field.pk|stringformat:"s" %}
                                 {% with field_id="filter-field-"|add:pk_str field_name="field_"|add:pk_str %}
@@ -124,6 +136,35 @@
                             {% endfor %}
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="inline-flex items-center gap-3 justify-end">
+                                    {% if not facilitator.organizer_id %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-assign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Become the organizer of {{ name }}? You stay their contact person until you release them.{% endblocktranslate %}"
+                                              data-confirm-action="{% translate "Assign to me" %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Assign to me" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Become the organizer of {{ name }}{% endblocktranslate %}"
+                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                {% icon "hand-raised" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% elif facilitator.organizer_id == current_user.pk or user.is_superuser %}
+                                        <form method="post"
+                                              action="{% url 'panel:facilitator-unassign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Release {{ name }}? Anyone can take them on afterwards.{% endblocktranslate %}"
+                                              data-confirm-action="{% translate "Release" %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <button type="submit"
+                                                    title="{% translate "Release" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Release {{ name }}{% endblocktranslate %}"
+                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                {% icon "user-minus" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                     {% if facilitator.accreditation_type != "guest" %}
                                         <form method="post"
                                               action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">

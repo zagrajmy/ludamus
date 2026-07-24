@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 15:09+0200\n"
+"POT-Creation-Date: 2026-07-24 16:05+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1179,6 +1179,22 @@ msgstr "Usunięto oznaczenie do usunięcia."
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator marked as guest."
 msgstr "Twórca programu oznaczony jako gość."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "You are now this facilitator's organizer."
+msgstr "Jesteś teraz opiekunem tego twórcy programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Another organizer already took this facilitator."
+msgstr "Inny organizator już przejął tego twórcę programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Facilitator released."
+msgstr "Twórca programu zwolniony."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Only this facilitator's organizer can release it."
+msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Columns updated."
@@ -2366,6 +2382,14 @@ msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Assign me as organizer"
+msgstr "Przypisz mnie jako opiekuna"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "You become this facilitator's contact person."
+msgstr "Zostaniesz osobą kontaktową dla tego twórcy programu."
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Internal comment"
@@ -2715,6 +2739,13 @@ msgstr "Punkty programu"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Accreditation"
 msgstr "Akredytacja"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Organizer"
+msgstr "Opiekun"
 
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
@@ -6277,6 +6308,11 @@ msgstr ""
 "wyświetlana zgłoszenia."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid "Default contact person. Assign yourself from the facilitator list."
+msgstr "Domyślna osoba kontaktowa. Przypisz siebie z listy twórców programu."
+
+#: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Slug"
@@ -6361,6 +6397,19 @@ msgid "All accreditations"
 msgstr "Wszystkie akredytacje"
 
 #: src/ludamus/templates/panel/facilitators.html
+msgid "All organizers"
+msgstr "Wszyscy opiekunowie"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Mine"
+msgstr "Moi"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Unassigned"
+msgstr "Nieprzypisany"
+
+#: src/ludamus/templates/panel/facilitators.html
 msgid "Flagged for deletion only"
 msgstr "Tylko oznaczeni do usunięcia"
 
@@ -6378,6 +6427,38 @@ msgstr "Wyczyść"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Flagged"
 msgstr "Oznaczony"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid ""
+"Become the organizer of %(name)s? You stay their contact person until you "
+"release them."
+msgstr ""
+"Zostać opiekunem twórcy %(name)s? Pozostaniesz osobą kontaktową, dopóki go "
+"nie zwolnisz."
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Assign to me"
+msgstr "Przypisz do mnie"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Become the organizer of %(name)s"
+msgstr "Zostań opiekunem twórcy %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Release %(name)s? Anyone can take them on afterwards."
+msgstr "Zwolnić twórcę %(name)s? Potem każdy może go przejąć."
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Release"
+msgstr "Zwolnij"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Release %(name)s"
+msgstr "Zwolnij twórcę %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Mark as guest"
@@ -7889,10 +7970,6 @@ msgstr "Zarządza"
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Progress"
 msgstr "Postęp"
-
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Unassigned"
-msgstr "Nieprzypisany"
 
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "No tracks for this event."

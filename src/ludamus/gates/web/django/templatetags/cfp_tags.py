@@ -97,6 +97,7 @@ def facilitator_column_label(column: FacilitatorColumnDTO) -> str:
         "linked": _("Linked User"),
         "sessions": _("Sessions"),
         "accreditation": _("Accreditation"),
+        "organizer": _("Organizer"),
     }
     return labels.get(column.key, column.key)
 

@@ -79,6 +79,7 @@ class FacilitatorDTO(BaseModel):
     display_name: str
     event_id: int
     internal_comment: str = ""
+    organizer_id: int | None = None
     pk: int
     slug: str
     user_id: int | None
@@ -88,6 +89,7 @@ class FacilitatorData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     event_id: int
+    organizer_id: int | None
     slug: str
     user_id: int | None
 
@@ -96,6 +98,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    organizer_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -104,6 +107,9 @@ class FacilitatorListItemDTO(BaseModel):
     accreditation_type: str
     display_name: str
     flagged_for_deletion: bool = False
+    # Annotated by `list_by_event`; absent on rows validated elsewhere.
+    organizer_id: int | None = None
+    organizer_name: str | None = None
     pk: int
     session_count: int
     slug: str
@@ -1284,6 +1290,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None: ...
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool: ...
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

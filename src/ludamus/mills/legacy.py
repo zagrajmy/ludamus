@@ -20,6 +20,7 @@ from ludamus.pacts import (
     FacilitatorData,
     FacilitatorDTO,
     FacilitatorMergeError,
+    FacilitatorUpdateData,
     NotFoundError,
     PanelStatsDTO,
     PersonalDataFieldValueData,
@@ -560,16 +561,23 @@ class FacilitatorMergeService:
             msg = "Target cannot be among source facilitators"
             raise FacilitatorMergeError(msg)
 
-        all_ids = [target_id, *source_ids]
-        linked_count = sum(
-            1 for fid in all_ids if self._uow.facilitators.read(fid).user_id is not None
-        )
-        if linked_count > 1:
+        merged = [self._uow.facilitators.read(fid) for fid in [target_id, *source_ids]]
+        if sum(1 for f in merged if f.user_id is not None) > 1:
             msg = "Cannot merge facilitators that each have a linked user account."
             raise FacilitatorMergeError(msg)
+
+        # A unanimous organizer survives the merge, even when only a source held
+        # it. Organizers that disagree cancel out, so the merged row goes back
+        # on the unassigned pile for someone to claim deliberately.
+        organizer_ids = {f.organizer_id for f in merged if f.organizer_id is not None}
+        organizer_id = organizer_ids.pop() if len(organizer_ids) == 1 else None
 
         with self._uow.atomic():
             self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
             self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._uow.facilitators.delete(source_id)
+            if organizer_id != merged[0].organizer_id:
+                self._uow.facilitators.update(
+                    target_id, FacilitatorUpdateData(organizer_id=organizer_id)
+                )

@@ -1,7 +1,7 @@
 import json
 from typing import Literal, cast
 
-from django.db.models import Count, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.db.models import Count, F, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
@@ -70,6 +70,7 @@ _FACILITATOR_SORT_FIELDS = {
     "accreditation": "accreditation_type",
     "sessions": "session_count",
     "linked": "user_id",
+    "organizer": "organizer__name",
 }
 
 
@@ -933,7 +934,8 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
         qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions", distinct=True)
+            session_count=Count("sessions", distinct=True),
+            organizer_name=F("organizer__name"),
         )
 
         if search := filters.get("search"):
@@ -956,6 +958,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if filters.get("flagged"):
             qs = qs.filter(flagged_for_deletion=True)
 
+        if filters.get("organizer_unassigned"):
+            qs = qs.filter(organizer__isnull=True)
+        elif organizer_id := filters.get("organizer_id"):
+            qs = qs.filter(organizer_id=organizer_id)
+
         for field_id, value in (filters.get("field_filters") or {}).items():
             # Each condition is its own join, so different fields AND together.
             qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
@@ -966,6 +973,25 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None:
         Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
+
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool:
+        # Conditional update, so two organizers clicking at the same moment
+        # cannot both win: the loser's UPDATE matches no row.
+        return bool(
+            Facilitator.objects.filter(pk=pk, organizer__isnull=True).update(
+                organizer_id=organizer_id
+            )
+        )
+
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool:
+        # `organizer_id=None` releases whoever holds it — the superuser escape
+        # for an organizer who has left.
+        qs = Facilitator.objects.filter(pk=pk, organizer__isnull=False)
+        if organizer_id is not None:
+            qs = qs.filter(organizer_id=organizer_id)
+        return bool(qs.update(organizer=None))
 
     @staticmethod
     def delete(pk: int) -> None:
