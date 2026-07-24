@@ -22,7 +22,7 @@
                     {% translate "Proposals open" %}
                 </span>
             {% endif %}
-            {% if is_sphere_manager and not event.is_published %}
+            {% if has_panel_access and not event.is_published %}
                 <span class="inline-flex items-center gap-1 rounded-full bg-black/50 text-white pl-2 pr-2.5 py-1 text-xs font-medium">
                     {% icon "eye-slash" class="h-3.5 w-3.5" variant="mini" %}
                     {% translate "Unpublished" %}
