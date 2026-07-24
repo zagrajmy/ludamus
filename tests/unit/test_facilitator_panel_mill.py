@@ -10,14 +10,16 @@ from ludamus.mills.panel_facilitators import (
     field_reconcile,
     name_reconcile,
 )
-from ludamus.pacts import FacilitatorDTO, FacilitatorMergeError, PersonalDataFieldDTO
+from ludamus.pacts import FacilitatorDTO, PersonalDataFieldDTO
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeContextDTO,
     FacilitatorMergeData,
+    FacilitatorMergeError,
     FacilitatorPanelRepos,
+    MergeErrorReason,
 )
 
 
@@ -106,20 +108,30 @@ _USER_ID = 7
 
 
 def _facilitator(pk, slug, user_id=None):
-    return SimpleNamespace(pk=pk, slug=slug, user_id=user_id)
+    return SimpleNamespace(
+        pk=pk,
+        slug=slug,
+        user_id=user_id,
+        display_name=slug.title(),
+        accreditation_type="none",
+    )
 
 
-def _merge_service(facilitators, fields=()):
+def _merge_service(facilitators, fields=(), values=None):
     by_slug = {f.slug: f for f in facilitators}
     facilitators_repo = MagicMock()
     facilitators_repo.read_by_event_and_slug.side_effect = (
         lambda _event_id, slug: by_slug[slug]
     )
+    values_repo = MagicMock()
+    values_repo.read_for_facilitator_event.side_effect = (
+        lambda facilitator_pk, _event_id: (values or {}).get(facilitator_pk, {})
+    )
     repos = FacilitatorPanelRepos(
         facilitators=facilitators_repo,
         personal_data_fields=FakeFieldsRepo(list(fields)),
-        personal_data_field_values=MagicMock(),
-        facilitator_change_logs=object(),
+        personal_data_field_values=values_repo,
+        facilitator_change_logs=MagicMock(),
         panel_settings=FakeSettingsRepo(),
         sessions=MagicMock(),
         users=object(),
@@ -141,7 +153,7 @@ class TestFacilitatorMerge:
     def test_rejects_fewer_than_two_facilitators(self):
         service, _ = _merge_service([_facilitator(1, "alice")])
 
-        with pytest.raises(FacilitatorMergeError, match="at least two"):
+        with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
                 target_slug="alice",
@@ -149,10 +161,12 @@ class TestFacilitatorMerge:
                 data=_merge_data(),
             )
 
+        assert exc_info.value.reason == MergeErrorReason.TOO_FEW
+
     def test_rejects_target_outside_selection(self):
         service, _ = _merge_service([_facilitator(1, "alice"), _facilitator(2, "bob")])
 
-        with pytest.raises(FacilitatorMergeError, match="merge target"):
+        with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
                 target_slug="carol",
@@ -160,10 +174,12 @@ class TestFacilitatorMerge:
                 data=_merge_data(),
             )
 
+        assert exc_info.value.reason == MergeErrorReason.NO_TARGET
+
     def test_rejects_empty_display_name(self):
         service, _ = _merge_service([_facilitator(1, "alice"), _facilitator(2, "bob")])
 
-        with pytest.raises(FacilitatorMergeError, match="display name"):
+        with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
                 target_slug="alice",
@@ -171,10 +187,12 @@ class TestFacilitatorMerge:
                 data=_merge_data(display_name=""),
             )
 
+        assert exc_info.value.reason == MergeErrorReason.NO_DISPLAY_NAME
+
     def test_rejects_unknown_accreditation(self):
         service, _ = _merge_service([_facilitator(1, "alice"), _facilitator(2, "bob")])
 
-        with pytest.raises(FacilitatorMergeError, match="accreditation"):
+        with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
                 target_slug="alice",
@@ -182,18 +200,22 @@ class TestFacilitatorMerge:
                 data=_merge_data(accreditation_type="vip"),
             )
 
+        assert exc_info.value.reason == MergeErrorReason.BAD_ACCREDITATION
+
     def test_rejects_two_linked_users(self):
         service, _ = _merge_service(
             [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob", user_id=11)]
         )
 
-        with pytest.raises(FacilitatorMergeError, match="linked user"):
+        with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
                 target_slug="alice",
                 facilitator_slugs=["alice", "bob"],
                 data=_merge_data(),
             )
+
+        assert exc_info.value.reason == MergeErrorReason.MULTIPLE_LINKED
 
     def test_merges_sources_into_target_with_reconciled_values(self):
         field = _field(5)

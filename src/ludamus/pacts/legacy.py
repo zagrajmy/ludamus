@@ -29,10 +29,6 @@ class NotFoundError(Exception):
     pass
 
 
-class FacilitatorMergeError(Exception):
-    """Raised when a facilitator merge violates a domain invariant."""
-
-
 class RedirectError(Exception):
     def __init__(
         self, url: str, *, error: str | None = None, warning: str | None = None

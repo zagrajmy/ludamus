@@ -1,5 +1,6 @@
 """The organizer's facilitator list: filters, columns, and triage actions."""
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
@@ -12,18 +13,15 @@ from ludamus.mills.submissions.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
 )
-from ludamus.pacts import (
-    FacilitatorData,
-    FacilitatorMergeError,
-    NotFoundError,
-    PersonalDataFieldValueData,
-)
+from ludamus.pacts import FacilitatorData, NotFoundError, PersonalDataFieldValueData
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
     FacilitatorDetailContextDTO,
     FacilitatorListContextDTO,
     FacilitatorMergeContextDTO,
+    FacilitatorMergeError,
     FacilitatorPanelServiceProtocol,
+    MergeErrorReason,
 )
 from ludamus.pacts.submissions import AccreditationType
 
@@ -148,6 +146,16 @@ def field_reconcile(
 
 
 MIN_MERGE_FACILITATORS = 2
+
+
+@dataclass(frozen=True)
+class _MergeRecord:
+    """What one merge did, as the log needs to describe it."""
+
+    target: FacilitatorDTO
+    sources: list[FacilitatorDTO]
+    old_values: dict[str, _FieldValue]
+    entries: list[PersonalDataFieldValueData]
 
 
 def _resolve_field_filters(
@@ -345,17 +353,17 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         target_slug: str,
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
+        user_id: int | None = None,
     ) -> None:
         slugs = _unique(facilitator_slugs)
-        if len(slugs) < MIN_MERGE_FACILITATORS or target_slug not in slugs:
-            msg = "Select at least two facilitators and choose a merge target."
-            raise FacilitatorMergeError(msg)
+        if len(slugs) < MIN_MERGE_FACILITATORS:
+            raise FacilitatorMergeError(MergeErrorReason.TOO_FEW)
+        if target_slug not in slugs:
+            raise FacilitatorMergeError(MergeErrorReason.NO_TARGET)
         if not data.display_name:
-            msg = "A display name for the merged facilitator is required."
-            raise FacilitatorMergeError(msg)
+            raise FacilitatorMergeError(MergeErrorReason.NO_DISPLAY_NAME)
         if data.accreditation_type not in AccreditationType:
-            msg = "Unknown accreditation type."
-            raise FacilitatorMergeError(msg)
+            raise FacilitatorMergeError(MergeErrorReason.BAD_ACCREDITATION)
 
         with self._transaction.atomic():
             # Read inside the transaction so validation and mutation see the
@@ -366,16 +374,23 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             ]
             linked = [f for f in facilitators if f.user_id is not None]
             if len(linked) > 1:
-                msg = "Cannot merge facilitators that each have a linked user account."
-                raise FacilitatorMergeError(msg)
+                raise FacilitatorMergeError(MergeErrorReason.MULTIPLE_LINKED)
 
             target = next(f for f in facilitators if f.slug == target_slug)
-            source_ids = [f.pk for f in facilitators if f.pk != target.pk]
+            sources = [f for f in facilitators if f.pk != target.pk]
+            source_ids = [f.pk for f in sources]
             entries = self._resolve_kept_values(
                 event_id=event_id,
                 target_pk=target.pk,
                 facilitators=facilitators,
                 keep_values_from=data.keep_values_from,
+            )
+            # Read the target's answers before the writes land, so the log
+            # diffs against what the merge actually replaced.
+            old_values = (
+                self._repos.personal_data_field_values.read_for_facilitator_event(
+                    target.pk, event_id
+                )
             )
 
             update: FacilitatorUpdateData = {
@@ -393,6 +408,73 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             self._repos.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._repos.facilitators.delete(source_id)
+
+            self._log_merge(
+                event_id=event_id,
+                record=_MergeRecord(
+                    target=target,
+                    sources=sources,
+                    old_values=old_values,
+                    entries=entries,
+                ),
+                data=data,
+                user_id=user_id,
+            )
+
+    def _log_merge(
+        self,
+        *,
+        event_id: int,
+        record: _MergeRecord,
+        data: FacilitatorMergeData,
+        user_id: int | None,
+    ) -> None:
+        # A merge deletes facilitators and rewrites the survivor's answers, so
+        # it leaves the same trail an edit does — plus who it absorbed.
+        target = record.target
+        changes: list[ContentFieldChange] = [
+            {
+                "field": "merged_from",
+                "field_id": None,
+                "old": ", ".join(f.display_name for f in record.sources),
+                "new": "",
+            }
+        ]
+        if target.display_name != data.display_name:
+            changes.append(
+                {
+                    "field": "display_name",
+                    "field_id": None,
+                    "old": target.display_name,
+                    "new": data.display_name,
+                }
+            )
+        if target.accreditation_type != data.accreditation_type:
+            changes.append(
+                {
+                    "field": "accreditation_type",
+                    "field_id": None,
+                    "old": target.accreditation_type,
+                    "new": data.accreditation_type,
+                }
+            )
+        changes.extend(
+            diff_personal_data(
+                old_by_slug=record.old_values,
+                fields_by_id={
+                    f.pk: f
+                    for f in self._repos.personal_data_fields.list_by_event(event_id)
+                },
+                entries=record.entries,
+            )
+        )
+        log_facilitator_changes(
+            repo=self._repos.facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=target.pk,
+            user_id=user_id,
+            changes=changes,
+        )
 
     def _resolve_kept_values(
         self,

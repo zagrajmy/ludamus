@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 19:54+0200\n"
+"POT-Creation-Date: 2026-07-24 20:12+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1148,20 +1148,37 @@ msgid "None"
 msgstr "Brak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Select at least two facilitators to merge."
+msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Choose which of the selected facilitators the others merge into."
+msgstr ""
+"Wybierz, w którego z zaznaczonych twórców programu scalają się pozostali."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Choose the display name the merged facilitator keeps."
+msgstr "Wybierz nazwę, którą zachowa scalony twórca programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Choose the accreditation the merged facilitator keeps."
+msgstr "Wybierz akredytację, którą zachowa scalony twórca programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid ""
+"These facilitators each have a linked user account. Unlink all but one "
+"before merging."
+msgstr ""
+"Każdy z tych twórców programu ma powiązane konto użytkownika. Przed scaleniem "
+"odłącz wszystkie oprócz jednego."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
 msgstr "Twórca programu został utworzony."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator updated successfully."
 msgstr "Twórca programu został zaktualizowany."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid ""
-"These facilitators cannot be merged. Check the selection, the target, and "
-"linked accounts."
-msgstr ""
-"Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
-"powiązane konta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
@@ -2714,6 +2731,10 @@ msgstr "Twórcy programu"
 #: src/ludamus/templates/panel/tracks.html
 msgid "Tracks"
 msgstr "Bloki programowe"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Merged from"
+msgstr "Scalono z"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
@@ -8188,6 +8209,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "These facilitators cannot be merged. Check the selection, the target, and "
+#~ "linked accounts."
+#~ msgstr ""
+#~ "Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
+#~ "powiązane konta."
 
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"

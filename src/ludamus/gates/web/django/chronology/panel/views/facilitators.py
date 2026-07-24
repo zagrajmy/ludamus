@@ -37,7 +37,6 @@ from ludamus.mills.panel_facilitators import (
     name_reconcile,
 )
 from ludamus.pacts import (
-    FacilitatorMergeError,
     FacilitatorUpdateData,
     NotFoundError,
     PersonalDataFieldValueData,
@@ -47,6 +46,8 @@ from ludamus.pacts.panel import (
     FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeData,
+    FacilitatorMergeError,
+    MergeErrorReason,
 )
 from ludamus.pacts.submissions import AccreditationType
 
@@ -117,6 +118,27 @@ def _build_column_values(
         }
         for facilitator in facilitators
     }
+
+
+def _merge_error_message(reason: MergeErrorReason) -> str:
+    # Built per call so gettext resolves in the active request language.
+    messages_by_reason = {
+        MergeErrorReason.TOO_FEW: _("Select at least two facilitators to merge."),
+        MergeErrorReason.NO_TARGET: _(
+            "Choose which of the selected facilitators the others merge into."
+        ),
+        MergeErrorReason.NO_DISPLAY_NAME: _(
+            "Choose the display name the merged facilitator keeps."
+        ),
+        MergeErrorReason.BAD_ACCREDITATION: _(
+            "Choose the accreditation the merged facilitator keeps."
+        ),
+        MergeErrorReason.MULTIPLE_LINKED: _(
+            "These facilitators each have a linked user account. Unlink all but "
+            "one before merging."
+        ),
+    }
+    return str(messages_by_reason[reason])
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -540,20 +562,18 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                     accreditation_type=self.request.POST.get("accreditation_type", ""),
                     keep_values_from=keep_values_from,
                 ),
+                user_id=self.request.context.current_user_id,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitator-merge", slug=slug)
-        except FacilitatorMergeError:
+        except FacilitatorMergeError as exc:
             return self._render_confirm(
                 context=context,
                 slug=slug,
                 event_id=current_event.pk,
                 basket_slugs=basket_slugs,
-                error=_(
-                    "These facilitators cannot be merged. Check the selection, "
-                    "the target, and linked accounts."
-                ),
+                error=_merge_error_message(exc.reason),
             )
 
         messages.success(self.request, _("Facilitators merged successfully."))

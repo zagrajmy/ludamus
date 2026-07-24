@@ -10,6 +10,7 @@ from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AccreditationType,
     Facilitator,
+    FacilitatorChangeLog,
     PersonalDataField,
     PersonalDataFieldValue,
     ProposalCategory,
@@ -25,9 +26,9 @@ from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-MERGE_ERROR = (
-    "These facilitators cannot be merged. Check the selection, the target, "
-    "and linked accounts."
+MULTIPLE_LINKED_ERROR = (
+    "These facilitators each have a linked user account. Unlink all but one "
+    "before merging."
 )
 
 
@@ -519,6 +520,82 @@ class TestFacilitatorMergeConfirm:
         value = PersonalDataFieldValue.objects.get(facilitator=adam, field=field)
         assert value.value == "Vegetarian"
 
+    def test_merge_records_what_it_absorbed_and_changed(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # A merge deletes facilitators and rewrites the survivor's answers; the
+        # change log is the only place that stays true about it afterwards.
+        sphere.managers.add(active_user)
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
+
+        authenticated_client.post(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
+                "target_slug": "adam-kowalski",
+                "display_name": "Jan Wysocki",
+                "accreditation_type": "guest",
+            },
+        )
+
+        log = FacilitatorChangeLog.objects.get(facilitator=adam)
+        assert log.user == active_user
+        assert log.changes == [
+            {"field": "merged_from", "field_id": None, "old": "Jan Wysocki", "new": ""},
+            {
+                "field": "display_name",
+                "field_id": None,
+                "old": "Adam Kowalski",
+                "new": "Jan Wysocki",
+            },
+            {
+                "field": "accreditation_type",
+                "field_id": None,
+                "old": "none",
+                "new": "guest",
+            },
+        ]
+
+    def test_post_rejects_a_target_outside_the_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        adam = _make_facilitator(
+            event, display_name="Adam Kowalski", slug="adam-kowalski"
+        )
+        jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
+                "target_slug": "somebody-else",
+                "display_name": "Adam Kowalski",
+                "accreditation_type": "none",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_confirm_context(
+                event,
+                facilitators=[adam, jan],
+                name_choices=[("Adam Kowalski", True), ("Jan Wysocki", False)],
+                accreditation_choices=[],
+                unanimous_accreditation="none",
+                field_choices=[],
+                error=(
+                    "Choose which of the selected facilitators the others merge into."
+                ),
+            ),
+        )
+        assert Facilitator.objects.filter(slug="jan-wysocki").exists()
+
     def test_post_rejects_two_linked_users(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -553,7 +630,7 @@ class TestFacilitatorMergeConfirm:
                 accreditation_choices=[],
                 unanimous_accreditation="none",
                 field_choices=[],
-                error=MERGE_ERROR,
+                error=MULTIPLE_LINKED_ERROR,
             ),
         )
         assert Facilitator.objects.filter(slug="jan-wysocki").exists()

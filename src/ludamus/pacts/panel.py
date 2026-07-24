@@ -1,6 +1,7 @@
 """Organizer panel DTOs and protocols for the proposals and facilitators lists."""
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -26,6 +27,24 @@ if TYPE_CHECKING:
 
 class EmptyColumnSelectionError(Exception):
     """A columns chooser submitted nothing this event recognises as a column."""
+
+
+class MergeErrorReason(StrEnum):
+    """Why a facilitator merge was refused — each maps to its own user copy."""
+
+    TOO_FEW = "too_few"
+    NO_TARGET = "no_target"
+    NO_DISPLAY_NAME = "no_display_name"
+    BAD_ACCREDITATION = "bad_accreditation"
+    MULTIPLE_LINKED = "multiple_linked"
+
+
+class FacilitatorMergeError(Exception):
+    """Raised when a facilitator merge violates a domain invariant."""
+
+    def __init__(self, reason: MergeErrorReason) -> None:
+        super().__init__(reason.value)
+        self.reason = reason
 
 
 class PanelFieldProtocol(Protocol):
@@ -246,6 +265,7 @@ class FacilitatorPanelServiceProtocol(Protocol):
         target_slug: str,
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
+        user_id: int | None = None,
     ) -> None: ...
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
