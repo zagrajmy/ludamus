@@ -387,6 +387,38 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
+    def test_landing_sections_shown_on_root_domain(self, client):
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+            contains=["landing-hero-heading", "walkthrough-heading"],
+        )
+
+    def test_landing_sections_hidden_on_sphere_domain(self, client, non_root_sphere):
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+            not_contains=["landing-hero-heading", "walkthrough-heading"],
+        )
+
     def test_unpublished_event_hidden_for_anonymous(self, client, sphere):
         EventFactory(sphere=sphere, publication_time=None)
 

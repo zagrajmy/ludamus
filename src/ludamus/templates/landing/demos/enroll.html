@@ -1,0 +1,35 @@
+{% load i18n %}
+{% load tessera %}
+{# Live demo: joining the waiting list is a checkbox hack that swaps the row state. #}
+<div class="group/demo max-w-xl mx-auto space-y-3">
+    <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h4 class="font-semibold text-foreground leading-tight">{% translate "Painting miniatures for beginners" %}</h4>
+            <p class="text-sm text-foreground-secondary">{% translate "Sat 15:00 · Room A" %}</p>
+        </div>
+        <span class="text-sm font-semibold text-teal-700 dark:text-teal-400">
+            {% blocktranslate count counter=3 %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
+        </span>
+    </div>
+    <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h4 class="font-semibold text-foreground leading-tight">{% translate "Board game prototyping workshop" %}</h4>
+            <p class="text-sm text-foreground-secondary">{% translate "Sat 12:00 · Workshop room" %}</p>
+        </div>
+        <div class="group-has-[#demo-enroll-waiting:checked]/demo:hidden flex items-center gap-3">
+            <span class="text-sm font-medium text-foreground-muted">{% translate "Full · 12/12" %}</span>
+            <label class="inline-flex cursor-pointer">
+                <input type="checkbox" id="demo-enroll-waiting" class="sr-only peer">
+                <span class="btn btn-secondary text-sm peer-focus-visible:ring-2 peer-focus-visible:ring-primary/50">{% translate "Join the waiting list" %}</span>
+            </label>
+        </div>
+        <div class="hidden group-has-[#demo-enroll-waiting:checked]/demo:flex items-center gap-3">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">{% translate "3rd on the waiting list" %}</span>
+            <label for="demo-enroll-waiting"
+                   class="cursor-pointer text-sm font-medium text-primary hover:underline">{% translate "Leave" context "landing waiting-list demo" %}</label>
+        </div>
+    </div>
+    <p class="text-center text-xs text-foreground-muted">
+        {% translate "When a spot frees up, the first person in line moves up automatically. Friends who enroll together move up together." %}
+    </p>
+</div>

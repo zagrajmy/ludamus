@@ -2,11 +2,41 @@
 {% load i18n %}
 {% load tessera %}
 {% block title %}
-    {% translate "Events" %}
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        {% translate "Zagrajmy - conference and meetup programme planning" %}
+    {% else %}
+        {% translate "Events" %}
+    {% endif %}
 {% endblock title %}
+{% block meta_description %}
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        {% translate "We help organizers collect proposals, build the programme, publish event pages, and run enrollment in one place." %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock meta_description %}
+{% block og_description %}
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        {% translate "We help organizers collect proposals, build the programme, publish event pages, and run enrollment in one place." %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock og_description %}
+{% block twitter_description %}
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        {% translate "We help organizers collect proposals, build the programme, publish event pages, and run enrollment in one place." %}
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock twitter_description %}
 {% block header %}
 {% endblock header %}
 {% block body %}
+    {# The organizer pitch belongs to the root domain only; sphere pages keep the plain event list. #}
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        {% include "landing/hero.html" %}
+        {% include "landing/walkthrough.html" %}
+    {% endif %}
     {% if announcements %}
         <section id="announcements"
                  class="mb-12"
@@ -51,4 +81,7 @@
             </div>
         {% endif %}
     </div>
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        <div class="mt-16">{% include "landing/pitch.html" %}</div>
+    {% endif %}
 {% endblock body %}

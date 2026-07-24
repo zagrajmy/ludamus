@@ -1,0 +1,52 @@
+{% load i18n %}
+{% load tessera %}
+<div class="max-w-2xl mx-auto">
+    {% tessera_table %}
+    <thead class="bg-bg-tertiary">
+        <tr>
+            <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                {% translate "Title" %}
+            </th>
+            <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                {% translate "Programme creator" %}
+            </th>
+            <th scope="col"
+                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                {% translate "Status" %}
+            </th>
+        </tr>
+    </thead>
+    <tbody class="divide-y divide-border">
+        <tr>
+            <td class="px-6 py-4 text-sm font-medium text-foreground">{% translate "Board game prototyping workshop" %}</td>
+            <td class="px-6 py-4 text-sm text-foreground-secondary">Radowit</td>
+            <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Accepted" %}</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="px-6 py-4 text-sm font-medium text-foreground">{% translate "Self-publishing: a survival guide" %}</td>
+            <td class="px-6 py-4 text-sm text-foreground-secondary">Piotrek</td>
+            <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Accepted" %}</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="px-6 py-4 text-sm font-medium text-foreground">{% translate "Two decades of convention mishaps" %}</td>
+            <td class="px-6 py-4 text-sm text-foreground-secondary">Radowit</td>
+            <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">{% translate "On hold" %}</span>
+            </td>
+        </tr>
+        <tr>
+            <td class="px-6 py-4 text-sm font-medium text-foreground">{% translate "Painting miniatures for beginners" %}</td>
+            <td class="px-6 py-4 text-sm text-foreground-secondary">Piotrek</td>
+            <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-info-bg text-info-text">{% translate "New" %}</span>
+            </td>
+        </tr>
+    </tbody>
+{% end_tessera_table %}
+</div>

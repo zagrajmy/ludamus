@@ -1,0 +1,88 @@
+{% load i18n %}
+{# CSS-only tabs: each pill is a radio, panels toggle via group-has on the section. #}
+<section class="group/wt mb-16" aria-labelledby="walkthrough-heading">
+    <h2 id="walkthrough-heading"
+        class="text-2xl font-bold mb-2 text-foreground text-center">
+        {% translate "See how an event moves through Zagrajmy" %}
+    </h2>
+    <p class="text-foreground-secondary text-center max-w-2xl mx-auto mb-6">
+        {% translate "Click through the steps. Everything below is live Zagrajmy UI." %}
+    </p>
+    {% translate "Event type" as t_event_kind %}
+    <div class="flex justify-center mb-4"
+         role="radiogroup"
+         aria-label="{{ t_event_kind }}">
+        <div class="inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-bg-tertiary">
+            <label class="cursor-pointer">
+                <input type="radio"
+                       name="walkthrough-kind"
+                       id="wt-kind-conference"
+                       class="sr-only peer"
+                       checked>
+                <span class="flex items-center justify-center px-3 h-8 rounded-md text-sm font-medium text-foreground-muted transition-colors peer-hover:text-foreground peer-checked:bg-bg-secondary peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">{% translate "Conference" %}</span>
+            </label>
+            <label class="cursor-pointer">
+                <input type="radio"
+                       name="walkthrough-kind"
+                       id="wt-kind-meetup"
+                       class="sr-only peer">
+                <span class="flex items-center justify-center px-3 h-8 rounded-md text-sm font-medium text-foreground-muted transition-colors peer-hover:text-foreground peer-checked:bg-bg-secondary peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">{% translate "Meetup" %}</span>
+            </label>
+        </div>
+    </div>
+    {% translate "Walkthrough steps" as t_walkthrough_steps %}
+    <div class="flex gap-2 overflow-x-auto pb-2 mb-4 justify-start sm:justify-center"
+         role="radiogroup"
+         aria-label="{{ t_walkthrough_steps }}">
+        {% translate "Proposals" as t_proposals %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-proposals" label=t_proposals number="1" checked=True %}
+        {% translate "Review" context "landing walkthrough step" as t_review %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-review" label=t_review number="2" conference_only=True %}
+        {% translate "Schedule" as t_schedule %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-schedule" label=t_schedule number="3" conference_only=True %}
+        {% translate "Publish" as t_publish %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-publish" label=t_publish number="4" %}
+        {% translate "Enrollment" as t_enroll %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-enroll" label=t_enroll number="5" %}
+        {% translate "Print" context "landing walkthrough step" as t_print %}
+        {% include "landing/_walkthrough_tab.html" with tab_id="wt-print" label=t_print number="6" conference_only=True %}
+    </div>
+    <div class="rounded-2xl border border-border bg-bg-tertiary/50 p-4 sm:p-8">
+        <div class="hidden group-has-[#wt-proposals:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Programme creators fill in a form you shape yourself: your questions, your required fields." %}
+            </p>
+            {% include "landing/demos/proposals.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-review:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Every proposal lands on one list. You see statuses, categories, and gaps before the programme goes public." %}
+            </p>
+            {% include "landing/demos/review.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-schedule:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "You place sessions on a grid of rooms and time slots. When two overlap, you see it immediately." %}
+            </p>
+            {% include "landing/demos/schedule.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-publish:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Attendees get one page with the current programme. Change a room and everyone sees the update." %}
+            </p>
+            {% include "landing/demos/publish.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-enroll:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "You set the capacity; Zagrajmy runs enrollment and the waiting list." %}
+            </p>
+            {% include "landing/demos/enroll.html" %}
+        </div>
+        <div class="hidden group-has-[#wt-print:checked]/wt:block">
+            <p class="text-sm text-foreground-secondary text-center mb-5">
+                {% translate "Print schedules and door cards straight from Zagrajmy. The night before the event is for sleeping." %}
+            </p>
+            {% include "landing/demos/print.html" %}
+        </div>
+    </div>
+</section>

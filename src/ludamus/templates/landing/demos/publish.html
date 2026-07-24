@@ -1,0 +1,50 @@
+{% load i18n %}
+{% load static %}
+{% load tessera %}
+{# A public event page in miniature — same look as chronology/event.html, hardcoded demo data. #}
+<div class="max-w-2xl mx-auto card overflow-hidden">
+    <img src="{% static "placeholder-images/05.webp" %}"
+         alt=""
+         width="800"
+         height="400"
+         class="mx-1 mt-1 h-28 w-[calc(100%-0.5rem)] rounded-xl object-cover">
+    <div class="p-5">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+            <h3 class="text-xl font-bold text-foreground">{% translate "Tabletop Days 2026" %}</h3>
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white bg-black/40">
+                <span class="rounded-full bg-white size-2"></span>
+                {% translate "LIVE" %}
+            </span>
+        </div>
+        <p class="flex items-center gap-1.5 text-sm text-foreground-secondary mb-4">
+            {% icon "calendar" class="size-4" %}
+            {% translate "Sat–Sun, 14–15 March" %}
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3">
+            <div class="rounded-2xl border border-border bg-neutral-50 dark:bg-neutral-800 p-4">
+                <h4 class="font-semibold text-foreground leading-tight">{% translate "Board game prototyping workshop" %}</h4>
+                <p class="text-sm text-foreground-secondary mt-1 mb-3">Radowit</p>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="flex items-center gap-1.5 text-foreground-secondary">
+                        {% icon "map-pin" class="size-4" variant="mini" %}
+                        {% translate "Workshop room" %}
+                    </span>
+                    <span class="font-semibold text-teal-700 dark:text-teal-400">
+                        {% blocktranslate count counter=3 %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
+                    </span>
+                </div>
+            </div>
+            <div class="rounded-2xl border border-border bg-neutral-50 dark:bg-neutral-800 p-4">
+                <h4 class="font-semibold text-foreground leading-tight">{% translate "Self-publishing: a survival guide" %}</h4>
+                <p class="text-sm text-foreground-secondary mt-1 mb-3">Piotrek</p>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="flex items-center gap-1.5 text-foreground-secondary">
+                        {% icon "map-pin" class="size-4" variant="mini" %}
+                        {% translate "Room B" %}
+                    </span>
+                    <span class="font-semibold text-teal-700 dark:text-teal-400">{% translate "Open" %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
