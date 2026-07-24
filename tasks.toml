@@ -93,3 +93,7 @@ aubr varlock python tests/e2e/scripts/bootstrap_data.py
 aubr varlock python tests/e2e/scripts/bootstrap_facilitators.py
 aubr varlock python tests/e2e/scripts/bootstrap_timetable.py
 """
+
+[env-show]
+description = "Print resolved env with secrets redacted (agent-safe JSON)"
+run = "aube exec varlock load --agent"

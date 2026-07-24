@@ -7,18 +7,16 @@
   "scripts": {
     "varlock": "varlock run --"
   },
-  "dependencies": {
-    "varlock": "1.1.0"
+  "pnpm": {
+    "overrides": {
+      "synckit": "0.11.13"
+    }
   },
   "devDependencies": {
     "dclint": "3.1.0",
     "fallow": "2.73.0",
     "oxfmt": "0.56.0",
-    "portless": "0.13.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "synckit": "0.11.13"
-    }
+    "portless": "0.13.0",
+    "varlock": "1.12.0"
   }
 }
