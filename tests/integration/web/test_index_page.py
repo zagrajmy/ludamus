@@ -314,17 +314,24 @@ class TestEventsPageView:
     def test_panel_link_shown_for_manager_and_superuser(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert "has_panel_access" in response.context
-        assert response.context["has_panel_access"] is True
-        assert b"Panel" in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["index.html"],
+            contains='href="/panel/"',
+        )
 
     def test_panel_link_hidden_for_non_manager(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["has_panel_access"] is False
-        assert b'href="/panel/"' not in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["index.html"],
+            not_contains='href="/panel/"',
+        )
 
     def test_published_announcement_shown(self, client, sphere):
         announcement = Announcement.objects.create(

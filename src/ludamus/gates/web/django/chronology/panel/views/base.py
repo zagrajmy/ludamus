@@ -34,8 +34,6 @@ class PanelRequest(HttpRequest):
 
 
 class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """Mixin to require panel access (sphere manager only)."""
-
     request: PanelRequest
 
     def test_func(self) -> bool:

@@ -1,7 +1,6 @@
-"""Shared panel-access policy: sphere managers and superusers."""
-
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -25,11 +24,26 @@ class _RequestWithServices(Protocol):
     def services(self) -> ServicesProtocol: ...
 
 
-def has_panel_access(request: _RequestWithServices) -> bool:
+class PanelAccess(Enum):
+    NONE = "none"
+    MANAGER = "manager"
+    SUPERUSER = "superuser"
+
+
+def panel_access(request: _RequestWithServices) -> PanelAccess:
+    user_slug = request.context.current_user_slug
+    if (
+        request.user.is_authenticated
+        and user_slug
+        and request.services.sphere_panel.is_manager(
+            request.context.current_sphere_id, user_slug
+        )
+    ):
+        return PanelAccess.MANAGER
     if request.user.is_superuser:
-        return True
-    if not request.user.is_authenticated or not request.context.current_user_slug:
-        return False
-    return request.services.sphere_panel.is_manager(
-        request.context.current_sphere_id, request.context.current_user_slug
-    )
+        return PanelAccess.SUPERUSER
+    return PanelAccess.NONE
+
+
+def has_panel_access(request: _RequestWithServices) -> bool:
+    return panel_access(request) is not PanelAccess.NONE
