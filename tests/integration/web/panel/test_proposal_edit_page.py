@@ -400,7 +400,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
