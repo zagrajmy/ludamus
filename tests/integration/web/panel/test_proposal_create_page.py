@@ -6,6 +6,7 @@ from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
@@ -25,6 +26,12 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _fields_context(event):
@@ -53,6 +60,7 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "proposals",
+        "cancel_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
         "proposal": None,
         "all_facilitators": [],
         "assigned_facilitator_pks": set(),
@@ -352,6 +360,46 @@ class TestProposalCreatePageView:
         assert list(new_session.facilitators.values_list("pk", flat=True)) == [
             facilitator.pk
         ]
+
+    def test_post_creates_session_with_cover_image(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Session With Cover",
+                "display_name": "Test Host",
+                "description": "",
+                "contact_email": "",
+                "participants_limit": "",
+                "min_age": "",
+                "duration": "",
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                ),
+            },
+        )
+
+        new_session = Session.objects.get(title="Session With Cover")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert new_session.cover_image
 
     def test_get_renders_time_slot_checkboxes(
         self, authenticated_client, active_user, sphere, event

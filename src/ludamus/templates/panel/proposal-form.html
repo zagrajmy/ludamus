@@ -24,21 +24,16 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            {% if proposal %}
-                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
-                   class="btn btn-secondary">{% translate "Cancel" %}</a>
-                <button type="submit" form="proposal-form" class="btn btn-primary">
+            <a href="{{ cancel_url }}" class="btn btn-secondary">{% translate "Cancel" %}</a>
+            <button type="submit" form="proposal-form" class="btn btn-primary">
+                {% if proposal %}
                     {% icon "check" class="w-4 h-4 mr-2" %}
                     {% translate "Save" %}
-                </button>
-            {% else %}
-                <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-                   class="btn btn-secondary">{% translate "Cancel" %}</a>
-                <button type="submit" form="proposal-form" class="btn btn-primary">
+                {% else %}
                     {% icon "plus" class="w-4 h-4 mr-2" %}
                     {% translate "Create" %}
-                </button>
-            {% endif %}
+                {% endif %}
+            </button>
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -93,9 +88,7 @@
                                 </select>
                                 {% if form.category_id.errors %}<p class="mt-1 text-sm text-danger">{{ form.category_id.errors.0 }}</p>{% endif %}
                             </div>
-                            {% if proposal %}
-                                <div>{% tessera_field form.cover_image %}</div>
-                            {% endif %}
+                            <div>{% tessera_field form.cover_image %}</div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -249,8 +242,6 @@
                 {% endif %}
             </div>
         </form>
-        {% if proposal %}
-            {% vite_asset 'src/encounter-form.ts' %}
-        {% endif %}
+        {% vite_asset 'src/encounter-form.ts' %}
     {% endif %}
 {% endblock content %}

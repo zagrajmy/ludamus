@@ -81,6 +81,12 @@ def _fields_url(event, proposal_id):
     )
 
 
+def _cancel_url(event, proposal_id):
+    return reverse(
+        "panel:proposal-detail", kwargs={"slug": event.slug, "proposal_id": proposal_id}
+    )
+
+
 def _base_context(event):
     return {
         "current_event": EventDTO.model_validate(event),
@@ -209,6 +215,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -246,6 +253,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -410,6 +418,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
+                "cancel_url": _cancel_url(event, session.pk),
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [],
@@ -507,6 +516,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -932,6 +942,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1140,6 +1151,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1512,6 +1524,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],

@@ -39,7 +39,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.legacy import parse_uploaded_file, resolve_cover_image
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
@@ -643,9 +643,15 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
         event_pk = context["current_event"].pk
         session = prepared.session
         proposal_id = session.pk if session else None
+        slug = context["current_event"].slug
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["form"] = prepared.form
+        context["cancel_url"] = (
+            reverse("panel:proposal-detail", args=[slug, proposal_id])
+            if proposal_id is not None
+            else reverse("panel:proposals", args=[slug])
+        )
 
         sessions = self.request.di.uow.sessions
         self._picker_context(
@@ -772,25 +778,29 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
                 current_event.pk, s
             ),
         )
+        session_data = SessionData(
+            category_id=int(form.cleaned_data["category_id"]),
+            event_id=current_event.pk,
+            contact_email=form.cleaned_data.get("contact_email") or "",
+            description=form.cleaned_data.get("description") or "",
+            display_name=form.cleaned_data["display_name"],
+            duration=form.cleaned_data.get("duration") or "",
+            min_age=form.cleaned_data.get("min_age") or 0,
+            participants_limit=form.cleaned_data.get("participants_limit") or 0,
+            presenter_id=None,
+            slug=session_slug,
+            status=SessionStatus.PENDING,
+            title=title,
+        )
+        # A brand-new proposal has no stored cover to clear, so only an actual
+        # upload is meaningful here.
+        if cover := parse_uploaded_file(form.cleaned_data.get("cover_image")):
+            session_data["cover_image"] = cover
         track_ids = self._collect_track_ids(current_event.pk)
         time_slot_ids = self._collect_time_slot_ids(current_event.pk)
         with self.request.di.uow.savepoint():
             proposal_id = self.request.di.uow.sessions.create(
-                SessionData(
-                    category_id=int(form.cleaned_data["category_id"]),
-                    event_id=current_event.pk,
-                    contact_email=form.cleaned_data.get("contact_email") or "",
-                    description=form.cleaned_data.get("description") or "",
-                    display_name=form.cleaned_data["display_name"],
-                    duration=form.cleaned_data.get("duration") or "",
-                    min_age=form.cleaned_data.get("min_age") or 0,
-                    participants_limit=form.cleaned_data.get("participants_limit") or 0,
-                    presenter_id=None,
-                    slug=session_slug,
-                    status=SessionStatus.PENDING,
-                    title=title,
-                ),
-                facilitator_ids=facilitator_ids,
+                session_data, facilitator_ids=facilitator_ids
             )
             if requirements:
                 self.request.di.uow.sessions.save_field_values(
