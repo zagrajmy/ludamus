@@ -79,7 +79,7 @@ jobs:
           # against the schema; exits non-zero if a @required var (incl.
           # forEnv(production) ones) is missing or malformed. Output is
           # discarded so resolved values never reach the run log.
-          npx -y varlock@1.1.0 load > /dev/null
+          npx -y varlock@1.12.0 load > /dev/null
 
       - name: Upload .env.local to host
         uses: appleboy/scp-action@v0.1.7
