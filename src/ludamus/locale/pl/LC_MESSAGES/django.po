@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 14:01+0200\n"
+"POT-Creation-Date: 2026-07-24 15:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2098,8 +2098,11 @@ msgid "Logo"
 msgstr "Logo"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Wyświetlone w harmonogramie do druku. Maks. 8 MB. JPG, PNG lub WebP."
+msgid ""
+"Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
+msgstr ""
+"Wyświetlone w harmonogramie do druku. Maks. 8 MB. JPG, PNG, WebP, AVIF lub "
+"SVG."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Event name is too long (max 255 characters)."

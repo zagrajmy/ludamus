@@ -786,7 +786,7 @@ version = "0.7.1"
 description = "XML bomb protection for Python stdlib modules"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61"},
     {file = "defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69"},
@@ -4084,6 +4084,18 @@ files = [
 cryptography = "*"
 
 [[package]]
+name = "types-defusedxml"
+version = "0.7.0.20260504"
+description = "Typing stubs for defusedxml"
+optional = false
+python-versions = ">=3.10"
+groups = ["dev"]
+files = [
+    {file = "types_defusedxml-0.7.0.20260504-py3-none-any.whl", hash = "sha256:a959e3a0a43b93e464bd625d91ec9193a2703ddc10443bdd627792485fae0b10"},
+    {file = "types_defusedxml-0.7.0.20260504.tar.gz", hash = "sha256:2ab2828a3f97111ba1c16cee273ad4124a831fc9198c41bf8368ff6ea48ad300"},
+]
+
+[[package]]
 name = "types-python-dateutil"
 version = "2.9.0.20260716"
 description = "Typing stubs for python-dateutil"
@@ -4387,4 +4399,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "bf544d71326e1835835febf23d3119b15f7620f1040967a942833162cf39b95e"
+content-hash = "6a542d0ab0268fdaf5d20f5c1869256072dc1b077ea221e51e29a74f71929aa3"
