@@ -41,6 +41,12 @@ grow on net — paying debt in one offsets taking it on in another. Read the
 added occurrences it prints and remove what you can. A justified addition is
 fine; say so in the PR. Don't game a counter to keep a number flat.
 
+## Changelog
+
+Changed a page or a deploy? Prepend to `CHANGELOG.md`, copying the format of
+the top entry. One feature-level line. Invisible work (refactors, tests, docs,
+deps) gets nothing.
+
 ## Papercuts
 
 Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
