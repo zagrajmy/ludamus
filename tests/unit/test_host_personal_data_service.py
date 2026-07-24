@@ -38,15 +38,19 @@ class FakeFacilitators:
 
 
 class FakePersonalDataFieldValue:
-    def __init__(self, existing=None):
+    def __init__(self, existing=None, existing_field_ids=()):
         self.saved = []
         self._existing = existing or {}
+        self._existing_field_ids = list(existing_field_ids)
 
     def save(self, entries):
         self.saved.append(entries)
 
     def read_for_facilitator_event(self, _facilitator_id, _event_id):
         return dict(self._existing)
+
+    def list_field_ids_for_facilitator_event(self, _facilitator_id, _event_id):
+        return list(self._existing_field_ids)
 
 
 class FakePersonalDataFields:
@@ -203,6 +207,51 @@ def test_blank_old_and_blank_new_logs_nothing():
     )
 
     assert not logs.created
+
+
+def test_blank_answer_for_an_unanswered_field_stores_nothing():
+    repo = FakePersonalDataFieldValue()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=repo,
+        fields=[_field()],
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value="   ")]
+    )
+
+    assert not repo.saved
+
+
+def test_blank_answer_clears_a_field_that_has_one():
+    repo = FakePersonalDataFieldValue(existing={"vegan": "yes"}, existing_field_ids=[5])
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=repo,
+        fields=[_field()],
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value="")]
+    )
+
+    assert repo.saved == [[_entry(value="")]]
+
+
+def test_unchecked_checkbox_is_stored_as_an_answer():
+    repo = FakePersonalDataFieldValue()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=repo,
+        fields=[_field()],
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value=False)]
+    )
+
+    assert repo.saved == [[_entry(value=False)]]
 
 
 def test_update_facilitator_rejects_facilitator_from_other_event():

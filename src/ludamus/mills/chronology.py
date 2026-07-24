@@ -57,7 +57,12 @@ from ludamus.pacts.chronology import (
     TrackProgressDTO,
 )
 from ludamus.pacts.legacy import resolve_cover_image
-from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
+from ludamus.pacts.submissions import (
+    ImportRow,
+    ImportSettings,
+    QuestionTarget,
+    is_empty_answer,
+)
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
@@ -872,6 +877,20 @@ def diff_session_content(
     return changes
 
 
+def _answers_worth_storing(
+    values: list[SessionFieldValueData], *, stored: set[int]
+) -> list[SessionFieldValueData]:
+    # A blank input over a field that has no answer yet creates nothing: the
+    # absence of a row means "never answered", and an empty row would claim
+    # otherwise. Blanking a field that does have an answer is a real edit and
+    # is saved as the empty value, so re-import cannot refill it.
+    return [
+        value
+        for value in values
+        if value["field_id"] in stored or not is_empty_answer(value=value["value"])
+    ]
+
+
 class SessionContentEditService:
     # Shared by the facilitator self-edit and organizer panel edit so both
     # paths write the same ContentChangeLog; owns the transactional boundary.
@@ -903,11 +922,18 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
-            if data.field_values is not None:
-                self._sessions.save_field_values(session_id, data.field_values)
+            field_values = (
+                None
+                if data.field_values is None
+                else _answers_worth_storing(
+                    data.field_values, stored={fv.field_id for fv in old_values}
+                )
+            )
+            if field_values is not None:
+                self._sessions.save_field_values(session_id, field_values)
             values_for_diff = (
-                data.field_values
-                if data.field_values is not None
+                field_values
+                if field_values is not None
                 else [
                     SessionFieldValueData(
                         session_id=session_id, field_id=fv.field_id, value=fv.value

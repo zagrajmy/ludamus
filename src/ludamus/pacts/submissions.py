@@ -185,6 +185,17 @@ class ImportSettings(BaseModel):
     sheet_headers: list[str] = []
 
 
+def is_empty_answer(*, value: str | list[str] | bool | None) -> bool:
+    # No answer was given: a blank (or whitespace-only) text cell, or a
+    # multi-select with nothing picked. `False` and `0` are answers — an
+    # unchecked checkbox means "No" — and stay.
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, list):
+        return not value
+    return value is None
+
+
 class AccreditationType(StrEnum):
     NONE = "none"
     STANDARD = "standard"
