@@ -16,16 +16,16 @@ include = ["src/ludamus/gates/**/*.py"]
 
 [ranges.old-subdomain-modules]
 include = [
-  "src/ludamus/**/chronology.py",
-  "src/ludamus/**/chronology/**/*.py",
-  "src/ludamus/**/submissions.py",
-  "src/ludamus/**/submissions/**/*.py",
-  "src/ludamus/**/multiverse.py",
-  "src/ludamus/**/multiverse/**/*.py",
-  "src/ludamus/**/crowd.py",
-  "src/ludamus/**/crowd/**/*.py",
-  "src/ludamus/**/notice_board.py",
-  "src/ludamus/**/notice_board/**/*.py",
+    "src/ludamus/**/chronology.py",
+    "src/ludamus/**/chronology/**/*.py",
+    "src/ludamus/**/submissions.py",
+    "src/ludamus/**/submissions/**/*.py",
+    "src/ludamus/**/multiverse.py",
+    "src/ludamus/**/multiverse/**/*.py",
+    "src/ludamus/**/crowd.py",
+    "src/ludamus/**/crowd/**/*.py",
+    "src/ludamus/**/notice_board.py",
+    "src/ludamus/**/notice_board/**/*.py",
 ]
 
 [ranges.python-tests]

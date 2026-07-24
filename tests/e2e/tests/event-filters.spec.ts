@@ -10,7 +10,7 @@ test.describe("Event filter panel", () => {
     const page = await context.newPage();
 
     await page.goto("/event/autumn-open/");
-    await page.locator("#filter-toggle").click();
+    await page.getByRole("button", { name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
     const box = await page.locator("#filter-panel").boundingBox();
@@ -21,13 +21,23 @@ test.describe("Event filter panel", () => {
     await context.close();
   });
 
+  test("filter panel respects reduced motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/event/autumn-open/");
+
+    const filterPanel = page.locator("#filter-panel");
+    await expect(filterPanel).toHaveCSS("transform", "none");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await expect(filterPanel).toHaveCSS("transform", "none");
+  });
+
   test("filters sessions by day and hour on a multi-day event", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 
     const card = (title: string) => page.locator(".session", { hasText: title });
     await expect(page.locator(".session")).toHaveCount(3);
 
-    await page.locator("#filter-toggle").click();
+    await page.getByRole("button", { name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
     // Day and hour filters only surface for multi-day events.

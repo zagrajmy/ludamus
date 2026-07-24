@@ -160,7 +160,7 @@
                     <div class="flex items-center gap-2">
                         <button type="submit" class="sr-only">{% translate "Filter" %}</button>
                         <span id="filter-spinner"
-                              class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary animate-spin"
+                              class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
                               role="status"
                               aria-label="{% translate "Filtering" %}"></span>
                         <a href="{% url 'panel:proposals' slug=current_event.slug %}"

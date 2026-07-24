@@ -7,7 +7,6 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from ludamus.inits.services import Services
-from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.enrollment import ParticipationPromotionRepository
 from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
@@ -17,6 +16,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
     UserEnrollmentConfig,
 )
+from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.enrollment import OfferDTO, OfferRecipientDTO
 from ludamus.pacts.legacy import NotificationKind, PromotionMode

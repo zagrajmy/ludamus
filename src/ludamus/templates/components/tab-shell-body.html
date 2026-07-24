@@ -1,4 +1,4 @@
-<div class="bg-bg-secondary px-3 sm:px-4 lg:px-8 py-6 shadow-[0_-1px_16px_0_rgba(0,0,0,0.06)]{% if extra_class|default:"" %} {{ extra_class }}{% endif %}">
+<div class="flex-1 bg-bg-secondary px-3 py-6 shadow-[0_-1px_16px_0_rgba(0,0,0,0.06)] sm:px-4 lg:px-6 {% if extra_class|default:"" %}{{ extra_class }}{% endif %}">
     {% if body_partial %}
         {% include body_partial %}
     {% else %}
