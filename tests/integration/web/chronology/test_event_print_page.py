@@ -249,7 +249,7 @@ class TestPublicEventPrintView:
             ],
         )
         content = response.content.decode()
-        assert "events/logo.png" in content
+        assert 'src="/media/events/logo.png"' in content
         assert "Hall" in content
         assert "Full schedule" in content
         assert "30" in content
@@ -266,7 +266,7 @@ class TestPublicEventPrintView:
         _assert_print_ok(
             response, logo="/media/spheres/brand.png", print_scopes=[_scope(space)]
         )
-        assert "spheres/brand.png" in response.content.decode()
+        assert 'src="/media/spheres/brand.png"' in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
         self, client, event, session, space
