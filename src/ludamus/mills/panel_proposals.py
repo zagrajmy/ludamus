@@ -140,7 +140,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
 
     def column_values(
         self, *, session_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str]]:
+    ) -> dict[int, dict[str, str | list[str] | bool]]:
         if not session_ids or not field_ids:
             return {}
         return self._sessions.list_field_values_for_sessions(session_ids, field_ids)

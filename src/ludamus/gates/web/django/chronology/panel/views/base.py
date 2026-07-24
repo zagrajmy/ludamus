@@ -10,6 +10,7 @@ from django.core.paginator import Page, Paginator
 from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 
 from ludamus.mills import PanelService, is_proposal_active
@@ -31,6 +32,23 @@ def paginate[T](request: HttpRequest, items: Sequence[T]) -> Page[T]:
     raw = request.GET.get("page_size", "")
     size = int(raw) if raw.isdigit() and int(raw) in PAGE_SIZES else DEFAULT_PAGE_SIZE
     return Paginator(items, size).get_page(request.GET.get("page"))
+
+
+def safe_next_url(request: HttpRequest, fallback: str) -> str:
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return fallback
+
+
+def format_field_value(*, value: str | list[str] | bool | None) -> str:
+    if isinstance(value, bool):
+        return _("Yes") if value else _("No")
+    if isinstance(value, list):
+        return ", ".join(value)
+    return value or ""
 
 
 class PanelRequest(HttpRequest):

@@ -47,8 +47,6 @@ if TYPE_CHECKING:
 
 
 def _unique(values: list[str]) -> list[str]:
-    # Order-preserving dedupe; mypy's Any-expression ban in mills rules out
-    # dict.fromkeys here.
     seen: set[str] = set()
     ordered: list[str] = []
     for value in values:
@@ -59,9 +57,8 @@ def _unique(values: list[str]) -> list[str]:
 
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
-# What an event shows until an organizer chooses otherwise — the columns the
-# list hardcoded before they became configurable.
 _BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
+MIN_MERGE_FACILITATORS = 2
 
 
 def _resolve_field_filters(
@@ -261,8 +258,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         data: FacilitatorMergeData,
     ) -> None:
         slugs = _unique(facilitator_slugs)
-        min_required = 2
-        if len(slugs) < min_required or target_slug not in slugs:
+        if len(slugs) < MIN_MERGE_FACILITATORS or target_slug not in slugs:
             msg = "Select at least two facilitators and choose a merge target."
             raise FacilitatorMergeError(msg)
         if not data.display_name:

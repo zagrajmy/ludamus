@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme, urlencode
+from django.utils.http import urlencode
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
@@ -20,7 +20,9 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     facilitator_detail_tab_urls,
     facilitator_tab_urls,
+    format_field_value,
     paginate,
+    safe_next_url,
 )
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
@@ -28,6 +30,7 @@ from ludamus.gates.web.django.forms import (
     FacilitatorForm,
 )
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
+from ludamus.mills.panel_facilitators import MIN_MERGE_FACILITATORS
 from ludamus.pacts import (
     FacilitatorMergeError,
     FacilitatorUpdateData,
@@ -78,14 +81,6 @@ def _personal_entries_from_post(
 type _FieldValue = str | list[str] | bool
 
 
-def _format_field_value(*, value: _FieldValue | None) -> str:
-    if isinstance(value, bool):
-        return _("Yes") if value else _("No")
-    if isinstance(value, list):
-        return ", ".join(value)
-    return value or ""
-
-
 def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
     if key == "name":
         return facilitator.display_name
@@ -113,7 +108,7 @@ def _build_column_values(
     return {
         facilitator.pk: {
             column.key: (
-                _format_field_value(
+                format_field_value(
                     value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
                 )
                 if column.field is not None
@@ -393,9 +388,6 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
 
-_MIN_MERGE = 2
-
-
 def _attributed(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
     # Distinct values in facilitator order, each carrying the facilitators
     # that hold it — the reconcile screen says whose value you are keeping.
@@ -408,7 +400,6 @@ def _attributed(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
 def _field_choices(
     merge_context: FacilitatorMergeContextDTO,
 ) -> list[tuple[PersonalDataFieldDTO, list[tuple[int, str, str]]]]:
-    # One entry per field somebody answered, with the distinct answers in
     choices: list[tuple[PersonalDataFieldDTO, list[tuple[int, str, str]]]] = []
     for field in merge_context.fields:
         groups: list[tuple[int, _FieldValue, list[str]]] = []
@@ -427,7 +418,7 @@ def _field_choices(
                 (
                     field,
                     [
-                        (pk, _format_field_value(value=value), ", ".join(names))
+                        (pk, format_field_value(value=value), ", ".join(names))
                         for pk, value, names in groups
                     ],
                 )
@@ -485,7 +476,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         context["basket"] = basket
         context["search_query"] = search
         context["search_results"] = results
-        context["can_merge"] = len(basket) >= _MIN_MERGE
+        context["can_merge"] = len(basket) >= MIN_MERGE_FACILITATORS
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
     def _render_confirm(
@@ -528,7 +519,10 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         basket_slugs = self._basket_slugs()
-        if self.request.GET.get("confirm") and len(basket_slugs) >= _MIN_MERGE:
+        if (
+            self.request.GET.get("confirm")
+            and len(basket_slugs) >= MIN_MERGE_FACILITATORS
+        ):
             return self._render_confirm(
                 context=context,
                 slug=slug,
@@ -612,17 +606,11 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:facilitators", slug=slug)
 
         messages.success(self.request, self.success_message)
-        return redirect(self._safe_next(slug))
-
-    def _safe_next(self, slug: str) -> str:
-        next_url = self.request.POST.get("next", "")
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url,
-            allowed_hosts={self.request.get_host()},
-            require_https=self.request.is_secure(),
-        ):
-            return next_url
-        return reverse("panel:facilitators", kwargs={"slug": slug})
+        return redirect(
+            safe_next_url(
+                self.request, reverse("panel:facilitators", kwargs={"slug": slug})
+            )
+        )
 
 
 class FacilitatorFlagActionView(_FacilitatorActionView):
@@ -675,7 +663,9 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        back = self._redirect_target(slug)
+        back = safe_next_url(
+            self.request, reverse("panel:facilitators", kwargs={"slug": slug})
+        )
         action = self.request.POST.get("action", "")
         if action not in _BULK_FACILITATOR_ACTIONS:
             messages.error(self.request, _("Unknown bulk action."))
@@ -719,14 +709,6 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
                 facilitator_slug=facilitator_slug,
                 flagged=action == "flag",
             )
-
-    def _redirect_target(self, slug: str) -> str:
-        next_url = self.request.POST.get("next", "")
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url, allowed_hosts={self.request.get_host()}
-        ):
-            return next_url
-        return reverse("panel:facilitators", kwargs={"slug": slug})
 
     def _report(self, *, applied: int, missing: int) -> None:
         if applied:

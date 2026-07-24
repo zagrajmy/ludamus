@@ -307,6 +307,6 @@ class TestProposalColumnsPageView:
                         key=f"field_{checkbox.pk}", field=_field_dto(checkbox)
                     ),
                 ],
-                column_values={session.pk: {f"field_{checkbox.pk}": "✓"}},
+                column_values={session.pk: {f"field_{checkbox.pk}": "Yes"}},
             ),
         )

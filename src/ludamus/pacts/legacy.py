@@ -885,7 +885,7 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def list_field_values_for_sessions(
         session_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str]]: ...
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def delete_field_values_for_fields(
         session_id: int, field_ids: list[int]

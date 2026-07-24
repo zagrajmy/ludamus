@@ -11,7 +11,6 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
@@ -21,9 +20,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    format_field_value,
     paginate,
     proposal_detail_tab_urls,
     proposal_tab_urls,
+    safe_next_url,
 )
 from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
 from ludamus.pacts import (
@@ -181,7 +182,9 @@ def _field_column_values(
     )
     return {
         proposal.pk: {
-            column.key: raw_values.get(proposal.pk, {}).get(column.field.slug, "")
+            column.key: format_field_value(
+                value=raw_values.get(proposal.pk, {}).get(column.field.slug)
+            )
             for column in field_columns
             if column.field is not None
         }
@@ -1145,7 +1148,9 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        back = self._redirect_target(slug)
+        back = safe_next_url(
+            self.request, reverse("panel:proposals", kwargs={"slug": slug})
+        )
         method_name = _BULK_STATUS_METHODS.get(self.request.POST.get("action", ""))
         if method_name is None:
             messages.error(self.request, _("Unknown bulk action."))
@@ -1178,14 +1183,6 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             except ValueError:
                 continue
         return pks
-
-    def _redirect_target(self, slug: str) -> str:
-        next_url = self.request.POST.get("next", "")
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url, allowed_hosts={self.request.get_host()}
-        ):
-            return next_url
-        return reverse("panel:proposals", kwargs={"slug": slug})
 
     def _report(self, *, applied: int, scheduled: int, missing: int) -> None:
         if applied:
