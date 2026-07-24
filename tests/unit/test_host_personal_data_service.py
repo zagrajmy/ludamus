@@ -9,6 +9,7 @@ from ludamus.pacts import (
     PersonalDataFieldDTO,
     PersonalDataFieldValueData,
 )
+from ludamus.pacts.submissions import FacilitatorCreateData
 
 _USER_ID = 7
 
@@ -24,9 +25,11 @@ class FakeTransaction:
 
 
 class FakeFacilitators:
-    def __init__(self, facilitator):
+    def __init__(self, facilitator, *, taken_slugs=()):
         self._facilitator = facilitator
         self.updated = []
+        self.created = []
+        self._taken = list(taken_slugs)
 
     def read(self, pk):
         if self._facilitator is None or self._facilitator.pk != pk:
@@ -35,6 +38,20 @@ class FakeFacilitators:
 
     def update(self, pk, data):
         self.updated.append((pk, data))
+
+    def slug_exists(self, _event_id, slug):
+        return slug in self._taken
+
+    def create(self, data):
+        self.created.append(data)
+        return FacilitatorDTO(
+            accreditation_type=data["accreditation_type"],
+            display_name=data["display_name"],
+            event_id=data["event_id"],
+            pk=99,
+            slug=data["slug"],
+            user_id=data.get("user_id"),
+        )
 
 
 class FakePersonalDataFieldValue:
@@ -122,6 +139,25 @@ def test_rejects_facilitator_from_other_event():
         service.update_personal_data(event_id=10, facilitator_id=1, entries=[_entry()])
 
     assert not repo.saved
+
+
+def test_create_facilitator_uniquifies_a_colliding_slug():
+    facilitators = FakeFacilitators(_facilitator(), taken_slugs=["alice"])
+    service = _service(
+        facilitators=facilitators,
+        personal_data_field_values=FakePersonalDataFieldValue(),
+    )
+
+    result = service.create_facilitator(
+        event_id=10,
+        data=FacilitatorCreateData(
+            display_name="Alice", base_slug="alice", accreditation_type="none"
+        ),
+    )
+
+    assert result.slug != "alice"
+    assert result.slug.startswith("alice-")
+    assert facilitators.created[0]["slug"] == result.slug
 
 
 def test_empty_entries_skips_save():

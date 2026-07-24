@@ -147,6 +147,22 @@ class TestProposalColumnsPageView:
             url="/",
         )
 
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere, method
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:proposal-columns", kwargs={"slug": "nonexistent"})
+
+        response = getattr(authenticated_client, method)(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
     def test_get_offers_builtin_and_field_columns(
         self, authenticated_client, active_user, sphere, event
     ):

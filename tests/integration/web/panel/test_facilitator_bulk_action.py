@@ -43,6 +43,21 @@ class TestFacilitatorBulkActionView:
             url="/",
         )
 
+    def test_post_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse("panel:facilitator-bulk-action", kwargs={"slug": "nonexistent"})
+
+        response = authenticated_client.post(url, {"action": "flag"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
     def test_post_flags_multiple_and_redirects_to_list(
         self, authenticated_client, active_user, sphere, event
     ):

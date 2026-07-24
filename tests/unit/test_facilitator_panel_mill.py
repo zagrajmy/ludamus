@@ -139,6 +139,17 @@ class TestFacilitatorMerge:
                 data=_merge_data(),
             )
 
+    def test_rejects_empty_display_name(self):
+        service, _ = _merge_service([_facilitator(1, "alice"), _facilitator(2, "bob")])
+
+        with pytest.raises(FacilitatorMergeError, match="display name"):
+            service.merge(
+                event_id=1,
+                target_slug="alice",
+                facilitator_slugs=["alice", "bob"],
+                data=_merge_data(display_name=""),
+            )
+
     def test_rejects_unknown_accreditation(self):
         service, _ = _merge_service([_facilitator(1, "alice"), _facilitator(2, "bob")])
 

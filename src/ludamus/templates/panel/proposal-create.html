@@ -30,12 +30,6 @@
               method="post"
               class="p-4 lg:p-6 columns-1 lg:columns-2 xl:columns-3 gap-6">
             {% csrf_token %}
-            {% if form.non_field_errors %}
-                <div class="card break-inside-avoid mb-6 p-4 text-sm text-danger"
-                     role="alert">
-                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
-                </div>
-            {% endif %}
             <div class="card break-inside-avoid mb-6">
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Proposal Details" %}</h3>

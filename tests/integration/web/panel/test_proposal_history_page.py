@@ -76,6 +76,23 @@ class TestProposalHistoryPageView:
             url="/",
         )
 
+    def test_redirects_when_event_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        url = reverse(
+            "panel:proposal-history", kwargs={"slug": "nonexistent", "proposal_id": 1}
+        )
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Event not found.")],
+            url=reverse("panel:index"),
+        )
+
     def test_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
     ):

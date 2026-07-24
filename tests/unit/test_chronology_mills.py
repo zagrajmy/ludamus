@@ -476,6 +476,12 @@ class TestContentEditRevert:
             ),
         )
 
+    def test_session_history_rejects_cross_event_session(self, service, repos):
+        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+
+        with pytest.raises(NotFoundError):
+            service.session_history(event_id=1, session_id=5)
+
     def test_revert_raises_when_nothing_is_revertible(self, service, repos):
         changes = [
             {"field": "cover_image", "field_id": None, "old": "old.png", "new": ""}
@@ -1575,6 +1581,51 @@ class TestProposalPanelService:
 
         filters = sessions.list_sessions_by_event.call_args[0][1]
         assert filters["field_filters"] == {1: "D&D"}
+
+    def test_sorts_by_each_secondary_key(self, service, sessions):
+        first = SimpleNamespace(
+            title="B",
+            display_name="Zoe",
+            category_name="Alpha",
+            status="accepted",
+            creation_time=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        second = SimpleNamespace(
+            title="A",
+            display_name="Amy",
+            category_name="Beta",
+            status="pending",
+            creation_time=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        sessions.list_sessions_by_event.return_value = [first, second]
+
+        by_host = service.list_context(event_id=1, query=ProposalListQuery(sort="host"))
+        by_category = service.list_context(
+            event_id=1, query=ProposalListQuery(sort="category")
+        )
+        by_status = service.list_context(
+            event_id=1, query=ProposalListQuery(sort="status")
+        )
+        by_created = service.list_context(
+            event_id=1, query=ProposalListQuery(sort="created")
+        )
+
+        assert [p.display_name for p in by_host.proposals] == ["Amy", "Zoe"]
+        assert [p.category_name for p in by_category.proposals] == ["Alpha", "Beta"]
+        assert [p.status for p in by_status.proposals] == ["accepted", "pending"]
+        assert [p.creation_time for p in by_created.proposals] == [
+            datetime(2026, 1, 1, tzinfo=UTC),
+            datetime(2026, 1, 2, tzinfo=UTC),
+        ]
+
+    @pytest.mark.parametrize(("session_ids", "field_ids"), (([], [1]), ([1], [])))
+    def test_column_values_short_circuits_on_empty_ids(
+        self, service, sessions, session_ids, field_ids
+    ):
+        result = service.column_values(session_ids=session_ids, field_ids=field_ids)
+
+        assert result == {}
+        sessions.list_field_values_for_sessions.assert_not_called()
 
     def test_sorts_by_valid_key_and_drops_invalid(self, service, sessions):
         banana = SimpleNamespace(

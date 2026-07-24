@@ -221,6 +221,37 @@ class TestFacilitatorMergeSearch:
             context_data=_search_context(event, basket=[adam]),
         )
 
+    def test_linked_badge_renders_in_basket_and_search(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        adam = Facilitator.objects.create(
+            event=event,
+            display_name="Adam Kowalski",
+            slug="adam-kowalski",
+            user=UserFactory(name="Adam User"),
+        )
+        jan = Facilitator.objects.create(
+            event=event,
+            display_name="Jan Wysocki",
+            slug="jan-wysocki",
+            user=UserFactory(name="Jan User"),
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"facilitator_slugs": ["adam-kowalski"], "q": "Jan"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-merge.html",
+            context_data=_search_context(
+                event, basket=[adam], search_query="Jan", search_results=[jan]
+            ),
+            contains=["Linked"],
+        )
+
 
 class TestFacilitatorMergeConfirm:
     """The reconcile-then-confirm state of /facilitators/merge/."""
@@ -303,6 +334,26 @@ class TestFacilitatorMergeConfirm:
             HTTPStatus.OK,
             template_name="panel/facilitator-merge.html",
             context_data=_search_context(event, basket=[adam]),
+        )
+
+    def test_confirm_with_foreign_facilitator_is_not_found(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, display_name="Adam Kowalski", slug="adam-kowalski")
+        other_event = EventFactory(sphere=sphere)
+        _make_facilitator(other_event, display_name="Foreign", slug="foreign")
+
+        response = authenticated_client.get(
+            self.get_url(event),
+            {"facilitator_slugs": ["adam-kowalski", "foreign"], "confirm": "1"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         )
 
     def test_post_merges_with_reconciled_values(
