@@ -37,6 +37,7 @@ from ludamus.pacts import (
     UploadedFileProtocol,
     WizardData,
 )
+from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
@@ -408,6 +409,10 @@ class ProposeSessionService:
                 field_dto = self._uow.session_fields.read_by_slug(event_id, slug)
             except NotFoundError:
                 continue
+            # A question the submitter left blank stores no row: the proposal
+            # is new, so absence can only mean "never answered".
+            if is_empty_answer(value=value):
+                continue
             values.append(
                 SessionFieldValueData(
                     session_id=session_id, field_id=field_dto.pk, value=value
@@ -429,6 +434,8 @@ class ProposeSessionService:
             try:
                 field_dto = self._uow.personal_data_fields.read_by_slug(event_id, slug)
             except NotFoundError:
+                continue
+            if is_empty_answer(value=value):
                 continue
             entries.append(
                 PersonalDataFieldValueData(

@@ -69,10 +69,13 @@ class ImportRow:
         return dict(self._data)
 
     def get_value(self, header: str, default: str = "") -> str:
+        # Whitespace-only cells count as absent, so a deduped column pair
+        # where one side is blank resolves to the filled one instead of
+        # reading as a conflict and skipping the whole row.
         candidates = {
             value
             for key, value in self._data.items()
-            if value and _row_header_matches(key, header)
+            if value.strip() and _row_header_matches(key, header)
         }
         if len(candidates) > 1:
             raise DuplicateValueError(header, sorted(candidates))
@@ -183,6 +186,17 @@ class ImportSettings(BaseModel):
     header_row: int = 1
     unique_key_columns: list[str] = []
     sheet_headers: list[str] = []
+
+
+def is_empty_answer(*, value: str | list[str] | bool | None) -> bool:
+    # No answer was given: a blank (or whitespace-only) text cell, or a
+    # multi-select with nothing picked. `False` and `0` are answers — an
+    # unchecked checkbox means "No" — and stay.
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, list):
+        return not value
+    return value is None
 
 
 class AccreditationType(StrEnum):

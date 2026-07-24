@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -564,6 +565,85 @@ class TestContentEditRevert:
         ]
 
         assert service.revertible_log_pks(1) == {3}
+
+
+class TestContentEditStoresAnswers:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+        )
+        repos.transaction.atomic.side_effect = nullcontext
+        repos.sessions.read_field_values.return_value = []
+        repos.session_fields.list_by_event.return_value = []
+        return repos
+
+    @pytest.fixture
+    def service(self, repos):
+        return SessionContentEditService(
+            repos.transaction,
+            repos.sessions,
+            repos.session_fields,
+            repos.content_change_logs,
+        )
+
+    def test_blank_answer_for_an_unanswered_field_stores_nothing(self, service, repos):
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="  "),
+                    SessionFieldValueData(session_id=5, field_id=8, value=[]),
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(5, [])
+
+    def test_blank_answer_clears_a_field_that_has_one(self, service, repos):
+        repos.sessions.read_field_values.return_value = [
+            MagicMock(field_id=7, value="Pathfinder")
+        ]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value=""),
+                    SessionFieldValueData(session_id=5, field_id=8, value=""),
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value="")]
+        )
+
+    def test_an_unchecked_checkbox_is_stored_as_an_answer(self, service, repos):
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value=False)
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value=False)]
+        )
 
 
 class TestAssignUnassignScope:

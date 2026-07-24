@@ -1750,8 +1750,8 @@ class TestEventImportRunActionView:
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
             )
             authenticated_client.post(_run_url(event, integration))
-            # Re-run: PersonalDataFieldValue upserts on (facilitator, event, field) —
-            # the row's value overwrites rather than duplicating.
+            # Re-run: the facilitator already has an answer for this field, so
+            # the second run neither duplicates it nor overwrites it.
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-9999"]]
             )
@@ -1760,7 +1760,7 @@ class TestEventImportRunActionView:
         field = PersonalDataField.objects.get(event=event, slug="telefon")
         rows = list(PersonalDataFieldValue.objects.filter(field=field))
         assert len(rows) == 1
-        assert rows[0].value == "555-9999"
+        assert rows[0].value == "555-1234"
         assert rows[0].facilitator.display_name == "GM Bob"
 
     def test_post_provisions_and_attaches_time_slots(
@@ -2718,7 +2718,7 @@ class TestEventImportLogReimport:
         entry = ImportLogEntry.objects.get(integration=integration, status="success")
         return integration, entry
 
-    def test_post_overwrites_session_with_source_row_and_writes_log_entry(
+    def test_post_keeps_the_hand_edited_session_and_writes_log_entry(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         integration, entry = self._setup(
@@ -2742,9 +2742,8 @@ class TestEventImportLogReimport:
 
         assert response.status_code == HTTPStatus.FOUND
         assert response.url == _log_url(event, integration)
-        # Title is back to the source value; session pk is unchanged.
-        Session.objects.get(pk=session_pk).refresh_from_db()
-        assert Session.objects.get(pk=session_pk).title == "Original"
+        # The hand edit survives; session pk is unchanged.
+        assert Session.objects.get(pk=session_pk).title == "Hand-edited"
         # The same log entry is updated in place — same pk, same session FK.
         entries = list(ImportLogEntry.objects.filter(integration=integration))
         assert len(entries) == 1
@@ -2752,7 +2751,7 @@ class TestEventImportLogReimport:
         assert entries[0].status == "success"
         assert entries[0].session_id == session_pk
 
-    def test_template_renders_reimport_confirm_dialog(
+    def test_template_renders_reimport_without_a_confirm_dialog(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         integration, _entry = self._setup(
@@ -2764,14 +2763,13 @@ class TestEventImportLogReimport:
         )
 
         body = response.content.decode()
-        reimport_confirm = (
-            "Reimport will overwrite any manual edits to the imported fields"
-            " on this proposal. Continue?"
-        )
-        assert f'data-confirm="{reimport_confirm}"' in body
-        assert _log_reimport_url(event, integration) in body
+        # Reimport only fills gaps, so its form carries no are-you-sure step.
+        action = _log_reimport_url(event, integration)
+        assert action in body
+        form_tag = body[body.rindex("<form", 0, body.index(action)) :]
+        assert "data-confirm" not in form_tag[: form_tag.index(">")]
 
-    def test_post_clears_contact_email_when_source_row_blanks_it(
+    def test_post_keeps_contact_email_when_source_row_blanks_it(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
@@ -2816,7 +2814,7 @@ class TestEventImportLogReimport:
             )
 
         reimported = Session.objects.get(pk=entry.session_id)
-        assert not reimported.contact_email
+        assert reimported.contact_email == "host@example.com"
 
 
 def _apply_field_layout_url(event, integration) -> str:

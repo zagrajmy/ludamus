@@ -240,6 +240,12 @@ def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     return target.overrides.get(raw, raw)
 
 
+def _answer(*, settings: ImportSettings, row: ImportRow, header: str) -> str:
+    # Stripped: surrounding whitespace is never part of an answer, so a
+    # whitespace-only cell reads as unanswered and stored values carry no padding.
+    return cell(target=settings.questions.get(header), row=row, header=header).strip()
+
+
 def session_field_values(
     *,
     field_ids: dict[str, int],
@@ -247,13 +253,12 @@ def session_field_values(
     row: ImportRow,
     session_id: int,
 ) -> list[SessionFieldValueData]:
+    # A blank cell writes no row: an unanswered question is absence, not an
+    # empty-string answer. Re-import fills gaps, it never blanks a filled one.
     return [
-        SessionFieldValueData(
-            session_id=session_id,
-            field_id=field_id,
-            value=cell(target=settings.questions.get(header), row=row, header=header),
-        )
+        SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
         for header, field_id in field_ids.items()
+        if (value := _answer(settings=settings, row=row, header=header))
     ]
 
 
@@ -265,14 +270,16 @@ def build_personal_data_field_values(
     facilitator_id: int,
     event_id: int,
 ) -> list[PersonalDataFieldValueData]:
+    # A blank cell writes no row — see session_field_values for the rationale.
     return [
         PersonalDataFieldValueData(
             facilitator_id=facilitator_id,
             event_id=event_id,
             field_id=field_id,
-            value=cell(target=settings.questions.get(header), row=row, header=header),
+            value=value,
         )
         for header, field_id in field_ids.items()
+        if (value := _answer(settings=settings, row=row, header=header))
     ]
 
 

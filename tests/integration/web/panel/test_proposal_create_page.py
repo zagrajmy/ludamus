@@ -804,6 +804,33 @@ class TestProposalCreateCategoryFields:
         value = SessionFieldValue.objects.get(session=session, field=field)
         assert value.value == "Pathfinder"
 
+    def test_post_stores_no_row_for_a_field_left_blank(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category, field = self._category_with_field(
+            event, name="RPG", slug="rpg", field_slug="system"
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Blank Field",
+                "display_name": "Test Host",
+                "session_system": "   ",
+            },
+        )
+
+        session = Session.objects.get(title="Blank Field")
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=field
+        ).exists()
+
     def test_post_rejects_missing_required_field(
         self, authenticated_client, active_user, sphere, event
     ):

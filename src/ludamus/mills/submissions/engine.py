@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
     MissingUniqueKeyColumnsError,
+    ResolvedBuiltins,
     RowSkippedError,
     build_personal_data_field_values,
     cell,
@@ -348,39 +349,43 @@ class ImportEngine:
         row: ImportRow,
         field_ids: FieldIdsByHeader,
     ) -> None:
-        # Mirrors `_create_proposal` but targets the existing session: keeps
-        # slug/sphere/status, overwrites mapped session.<col> fields, and
-        # fully replaces time-slot / track / facilitator links plus the
-        # session field values.
+        # Mirrors `_create_proposal` but targets the existing session, and only
+        # fills what is still empty: the source sheet is append-only, so a
+        # stored value that differs from the row is a hand edit and re-import
+        # must leave it alone. Retry converges by filling gaps, never by
+        # overwriting.
         builtins = resolve_builtins(settings, row)
-        update_data: SessionUpdateData = {
-            "title": builtins.title,
-            "description": builtins.description,
-            "display_name": builtins.display_name,
-            "participants_limit": builtins.participants_limit,
-            "duration": builtins.duration,
-            "category_id": self.category_id(
-                event_id=event_id, settings=settings, row=row
-            ),
-            # Always overwrite (even with a blank) so a now-empty source row
-            # clears stale personal data — reimport is a faithful overwrite.
-            "contact_email": builtins.contact_email,
-        }
-        self._repos.sessions.update(session_id, update_data)
-        self._repos.sessions.set_time_slots(
-            session_id,
-            self.time_slot_ids(event_id=event_id, settings=settings, row=row),
+        self._fill_empty_builtins(
+            event_id=event_id,
+            session_id=session_id,
+            builtins=builtins,
+            settings=settings,
+            row=row,
         )
-        self._repos.sessions.set_session_tracks(
-            session_id, self.track_ids(event_id=event_id, settings=settings, row=row)
-        )
+        if not self._repos.sessions.read_preferred_time_slot_ids(session_id):
+            self._repos.sessions.set_time_slots(
+                session_id,
+                self.time_slot_ids(event_id=event_id, settings=settings, row=row),
+            )
+        if not self._repos.sessions.read_track_ids(session_id):
+            self._repos.sessions.set_session_tracks(
+                session_id,
+                self.track_ids(event_id=event_id, settings=settings, row=row),
+            )
         facilitator_id = self.facilitator_id(event_id, builtins.display_name)
-        self._repos.sessions.set_facilitators(
-            session_id, [facilitator_id] if facilitator_id is not None else []
-        )
-        self._repos.sessions.clear_field_values(session_id)
+        if facilitator_id is not None and not self._repos.sessions.read_facilitators(
+            session_id
+        ):
+            self._repos.sessions.set_facilitators(session_id, [facilitator_id])
+        answered = {
+            fv.field_id for fv in self._repos.sessions.read_field_values(session_id)
+        }
         values = session_field_values(
-            field_ids=field_ids.session,
+            field_ids={
+                header: field_id
+                for header, field_id in field_ids.session.items()
+                if field_id not in answered
+            },
             settings=settings,
             row=row,
             session_id=session_id,
@@ -394,6 +399,42 @@ class ImportEngine:
             row=row,
             personal_field_ids=field_ids.personal,
         )
+
+    def _fill_empty_builtins(
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        builtins: ResolvedBuiltins,
+        settings: ImportSettings,
+        row: ImportRow,
+    ) -> None:
+        # An unset `participants_limit` reads as 0 and an unset category as
+        # None, so both are "empty" the same way a blank string is. The
+        # category is only resolved when there is a gap to fill — resolving it
+        # provisions the category as a side effect.
+        session = self._repos.sessions.read(session_id)
+        update_data: SessionUpdateData = {}
+        if builtins.title and not session.title:
+            update_data["title"] = builtins.title
+        if builtins.description and not session.description:
+            update_data["description"] = builtins.description
+        if builtins.display_name and not session.display_name:
+            update_data["display_name"] = builtins.display_name
+        if builtins.duration and not session.duration:
+            update_data["duration"] = builtins.duration
+        if builtins.contact_email and not session.contact_email:
+            update_data["contact_email"] = builtins.contact_email
+        if builtins.participants_limit and not session.participants_limit:
+            update_data["participants_limit"] = builtins.participants_limit
+        if session.category_id is None:
+            category_id = self.category_id(
+                event_id=event_id, settings=settings, row=row
+            )
+            if category_id is not None:
+                update_data["category_id"] = category_id
+        if update_data:
+            self._repos.sessions.update(session_id, update_data)
 
     @staticmethod
     def _guard_unique_key_columns(
@@ -480,14 +521,24 @@ class ImportEngine:
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
-        # gets stamped onto PersonalDataFieldValue (upserted by the repo, so re-runs
-        # of the same row overwrite rather than duplicate). Without a
+        # gets stamped onto PersonalDataFieldValue. Only fields the facilitator
+        # has no answer for yet are written: the repo upserts, so re-running a
+        # row would otherwise overwrite an answer edited by hand. Without a
         # facilitator nothing is saved — personal data is per-facilitator,
         # there's no orphan bucket to land it in.
         if facilitator_id is None:
             return
+        answered = set(
+            self._repos.personal_data_field_values.list_field_ids_for_facilitator_event(
+                facilitator_id, event_id
+            )
+        )
         entries = build_personal_data_field_values(
-            field_ids=personal_field_ids,
+            field_ids={
+                header: field_id
+                for header, field_id in personal_field_ids.items()
+                if field_id not in answered
+            },
             settings=settings,
             row=row,
             facilitator_id=facilitator_id,

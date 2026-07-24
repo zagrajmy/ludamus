@@ -1179,6 +1179,75 @@ class TestProposalEditPageView:
         sfv = SessionFieldValue.objects.get(session=session, field=field)
         assert sfv.value is True
 
+    def test_post_stores_no_row_for_a_field_left_blank(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, field)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "   ",
+            },
+        )
+
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=field
+        ).exists()
+
+    def test_post_blanking_an_answered_field_keeps_the_row_empty(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, field)
+        SessionFieldValue.objects.create(
+            session=session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "",
+            },
+        )
+
+        # The row survives as an explicit empty answer, so a later import
+        # treats the field as answered and will not refill it.
+        assert list(
+            SessionFieldValue.objects.filter(session=session, field=field).values_list(
+                "value", flat=True
+            )
+        ) == [""]
+
     def test_post_saves_multiple_session_field(
         self, authenticated_client, active_user, sphere, event
     ):

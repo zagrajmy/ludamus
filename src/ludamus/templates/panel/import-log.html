@@ -132,10 +132,9 @@
                                                href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=entry.session_id %}">
                                                 {% translate "View proposal" %}
                                             </a>
-                                            {% translate "Reimport will overwrite any manual edits to the imported fields on this proposal. Continue?" as reimport_confirm %}
+                                            {# Reimport only fills gaps — it never overwrites a value the organiser already set, so there is nothing to confirm. #}
                                             <form method="post"
-                                                  action="{% url 'panel:import-log-reimport' slug=current_event.slug pk=active_integration.pk %}"
-                                                  data-confirm="{{ reimport_confirm }}">
+                                                  action="{% url 'panel:import-log-reimport' slug=current_event.slug pk=active_integration.pk %}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="entry_id" value="{{ entry.pk }}">
                                                 <button type="submit" class="btn btn-secondary inline-flex items-center">

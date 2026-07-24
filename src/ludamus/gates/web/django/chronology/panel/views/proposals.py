@@ -40,6 +40,7 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.submissions import is_empty_answer
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -145,7 +146,9 @@ def collect_session_field_values(
     form: forms.Form,
 ) -> list[SessionFieldValueData]:
     # Only the category's own fields are read back; a value the category no
-    # longer asks for is left untouched rather than blanked.
+    # longer asks for is left untouched rather than blanked. Blanks are kept
+    # in the list — on an edit they blank an answer that exists, and the write
+    # path is what drops the ones that would create an empty row.
     values: list[SessionFieldValueData] = []
     for req in requirements:
         key = f"session_{req.field.slug}"
@@ -936,12 +939,19 @@ class ProposalCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 facilitator_ids=facilitator_ids,
             )
             if requirements:
-                self.request.di.uow.sessions.save_field_values(
-                    proposal_id,
-                    collect_session_field_values(
+                # A brand-new proposal has no answers yet, so a blank input is
+                # "never answered" and stores no row.
+                answered = [
+                    value
+                    for value in collect_session_field_values(
                         session_id=proposal_id, requirements=requirements, form=form
-                    ),
-                )
+                    )
+                    if not is_empty_answer(value=value["value"])
+                ]
+                if answered:
+                    self.request.di.uow.sessions.save_field_values(
+                        proposal_id, answered
+                    )
             if time_slot_ids := list(submitted_slot_ids & valid_slot_pks):
                 self.request.di.uow.sessions.set_time_slots(proposal_id, time_slot_ids)
         return proposal_id
