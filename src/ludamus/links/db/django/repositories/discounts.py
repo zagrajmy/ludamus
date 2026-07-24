@@ -1,4 +1,4 @@
-from ludamus.adapters.db.django.models import Discount
+from ludamus.links.db.django.models import Discount
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,

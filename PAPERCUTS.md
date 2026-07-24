@@ -104,3 +104,62 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-23: Running mise tasks in the managed sandbox failed with Operation
+  not permitted, so task discovery required a retry outside the sandbox.
+- 2026-07-23: Running mise run test:int with focused files still prepended
+  tests/integration, so a focused logout check unexpectedly ran the full
+  2,298-test integration suite.
+- 2026-07-23: Checking the seeded manager via user.spheres failed because
+  Sphere.managers keeps Django's default reverse name; use user.sphere_set or
+  query Sphere.managers directly.
+- 2026-07-23: Ran a mixed JS/Python lint batch from src/ludamus/client while
+  passing repository-root-relative paths; every path-based check failed. Run
+  mixed checks from repo root or use paths relative to the chosen workdir.
+- 2026-07-23: Formatting the Playwright test with aube exec -C tests/e2e failed
+  because oxfmt is only available from the repository toolchain; running it from
+  the repository root worked. format:djlint also exits nonzero after
+  successfully reformatting a file, requiring a second pass.
+- 2026-07-23: Running format:djlint for one navbar change reformatted an
+  unrelated dirty template, then exited nonzero. A scoped formatter/check target
+  would avoid disturbing concurrent work.
+- 2026-07-23: Rebuilding frontend assets while the no-reload E2E server was
+  running left Django's cached Vite manifest pointing at a deleted CSS file;
+  browser tests rendered unstyled until the server was restarted.
+- 2026-07-23: Ran mise tasks in the sandbox; mise failed with 'Operation not
+  permitted' until retried with escalated permissions.
+- 2026-07-23: Ran 'mise run test:int' with a path expecting a focused test; task
+  appended the path after its hardcoded tests/integration target and launched
+  the full suite instead.
+- 2026-07-23: Concurrent UI work deleted a template while the E2E wrapper's
+  post-test formatter scanned it, so a passing focused browser test reported
+  task failure; rerun after agents settle.
+- 2026-07-23: mise run format returns failure when djlint successfully reformats
+  a file, requiring an identical second run to prove cleanliness.
+- 2026-07-23: Focused Playwright runs silently found no tests when an auth spec
+  was paired with the chromium project; use chromium-auth for *.auth.spec.ts.
+- 2026-07-17: `mise run test:py -- some/path.py` silently runs the WHOLE suite:
+  the task is 'pytest tests/integration tests/unit' so an appended path is an
+  extra target, not a filter. Wasted two 5-minute full runs before noticing.
+  Use -k instead, or make the task use a default arg.
+- 2026-07-18: mise run test:py failed once with VariableDoesNotExist for
+  danger_ring in TestEventImportLogPageView (navbar avatar include); full rerun
+  passed - flaky, possibly test-order or faker-data dependent
+- 2026-07-20: Ran mise run test:py with specific test paths after -- but the
+  full suite ran anyway (paths are appended to the fixed targets, so they're an
+  extra target rather than a filter); also test_import_views
+  test_get_groups_errors_and_successes flaked once in a full run, passed on
+  rerun
+- 2026-07-22: mise run/exec in the web sandbox re-attempts installing missing
+  tools (pipx:shellcheck-py, hadolint) and dies on pypi resolution before
+  running the requested task, even with MISE_ENV=sandbox - this also blocks mise
+  run papercut itself; worked around with scratchpad playwright-core + /opt/pw-
+  browsers/chromium for screenshots and hand-appending this entry
+- 2026-07-23: Wrapped validation commands used zsh reserved variable status, so
+  result capture failed after the tasks completed; use a task-specific exit
+  variable.
+- 2026-07-24: Running a focused E2E via mise run test:e2e with an anchored
+  suite/title grep matched zero tests; Playwright output did not reveal the
+  actual full title. Retried with the unique test-name substring.
+- 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
+  unrelated existing errors, so it cannot provide a clean focused-test signal.
+  Playwright still transpiles and executes the changed spec successfully.

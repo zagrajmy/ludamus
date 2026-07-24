@@ -3,13 +3,14 @@ from datetime import UTC, datetime
 from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     AgendaItem,
     DomainEnrollmentConfig,
     EnrollmentConfig,
     Event,
     EventIntegration,
+    EventPanelSettings,
     EventSettings,
     Session,
     SessionParticipation,
@@ -47,8 +48,13 @@ from ludamus.pacts.chronology import (
     PartySessionHistoryDTO,
     PartySessionHistoryRepositoryProtocol,
     PartySessionSeatDTO,
+    SessionCardStatsDTO,
 )
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
+from ludamus.pacts.submissions import (
+    EventPanelSettingsDTO,
+    EventPanelSettingsRepositoryProtocol,
+)
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -116,10 +122,29 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
         )
 
 
+def location_data(space: Space) -> LocationData:
+    return LocationData(
+        space_name=space.name,
+        parent_slug=space.parent.slug if space.parent else "",
+        parent_name=space.parent.name if space.parent else "",
+        path=str(space),
+    )
+
+
+def session_card_stats(session: Session) -> SessionCardStatsDTO:
+    return SessionCardStatsDTO(
+        enrolled_count=session.enrolled_count,
+        waiting_count=session.waiting_count,
+        is_full=session.is_full,
+        is_enrollment_available=session.is_enrollment_available,
+        effective_participants_limit=session.effective_participants_limit,
+        full_participant_info=session.full_participant_info,
+    )
+
+
 def _party_session_history(
     session: Session, *, viewer_pk: int
 ) -> PartySessionHistoryDTO:
-    space = session.agenda_item.space
     participations = list(session.session_participations.all())
     return PartySessionHistoryDTO(
         session=SessionDTO.model_validate(session),
@@ -135,18 +160,8 @@ def _party_session_history(
             )
             for participation in participations
         ],
-        location=LocationData(
-            space_name=space.name,
-            parent_slug=space.parent.slug if space.parent else "",
-            parent_name=space.parent.name if space.parent else "",
-            path=str(space),
-        ),
-        enrolled_count=session.enrolled_count,
-        waiting_count=session.waiting_count,
-        is_full=session.is_full,
-        is_enrollment_available=session.is_enrollment_available,
-        effective_participants_limit=session.effective_participants_limit,
-        full_participant_info=session.full_participant_info,
+        location=location_data(session.agenda_item.space),
+        **session_card_stats(session).model_dump(),
         viewer_enrolled=any(
             participation.user_id == viewer_pk
             and participation.status == SessionParticipationStatus.CONFIRMED
@@ -282,6 +297,19 @@ class EventSettingsRepository(EventSettingsRepositoryProtocol):
     def update_displayed_fields(event_id: int, field_ids: list[int]) -> None:
         settings, _ = EventSettings.objects.get_or_create(event_id=event_id)
         settings.displayed_session_fields.set(field_ids)
+
+
+class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
+    @staticmethod
+    def read_or_create(event_id: int) -> EventPanelSettingsDTO:
+        settings, _ = EventPanelSettings.objects.get_or_create(event_id=event_id)
+        return EventPanelSettingsDTO.model_validate(settings)
+
+    @staticmethod
+    def update_facilitator_columns(event_id: int, columns: list[str]) -> None:
+        EventPanelSettings.objects.update_or_create(
+            event_id=event_id, defaults={"facilitator_columns": columns}
+        )
 
 
 class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):

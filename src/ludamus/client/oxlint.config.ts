@@ -3,7 +3,7 @@ import baseConfig from "@hasparus/oxlint-config";
 
 export default defineConfig({
   extends: [baseConfig],
-  ignorePatterns: ["dist", "node_modules", "../static"],
+  ignorePatterns: ["dist", "node_modules", "../static", "*.cjs"],
   overrides: [
     {
       files: ["src/**/*.ts"],

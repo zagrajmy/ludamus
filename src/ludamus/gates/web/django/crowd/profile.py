@@ -18,7 +18,6 @@ from django.views.generic.base import ContextMixin, View
 from django.views.generic.detail import SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
 
-from ludamus.adapters.db.django.models import MAX_COMPANIONS
 from ludamus.gates.web.django.crowd.forms import CompanionForm, UserForm
 from ludamus.gates.web.django.crowd.helpers import (
     COMPANION_CREATE_AUTO_ID,
@@ -26,6 +25,7 @@ from ludamus.gates.web.django.crowd.helpers import (
     companion_edit_auto_id,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.party import MAX_COMPANIONS
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -211,7 +211,9 @@ class ProfileCompanionDeleteActionView(
     success_url = reverse_lazy("web:crowd:profile-parties")
     template_name_suffix = "_confirm_delete"
 
-    def form_valid(self, form: forms.Form) -> HttpResponseRedirect:  # noqa: ARG002
+    def form_valid(
+        self, form: forms.Form  # ruff: ignore[unused-method-argument]
+    ) -> HttpResponseRedirect:
         success_url = self.get_success_url()
         self.request.services.companions.delete(
             manager_slug=self.request.context.current_user_slug,

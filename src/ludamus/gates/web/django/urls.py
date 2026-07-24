@@ -28,7 +28,9 @@ _healthz_cache: dict[str, object] = {"time": 0.0, "ok": True}
 
 
 @never_cache
-def healthz(request: HttpRequest) -> JsonResponse:  # noqa: ARG001
+def healthz(
+    request: HttpRequest,  # ruff: ignore[unused-function-argument]
+) -> JsonResponse:
     now = time.monotonic()
     if now - _healthz_cache["time"] < _HEALTHZ_INTERVAL:  # type: ignore[operator]
         if _healthz_cache["ok"]:
@@ -39,7 +41,9 @@ def healthz(request: HttpRequest) -> JsonResponse:  # noqa: ARG001
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         _healthz_cache.update(time=now, ok=True)
-    except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+    except (
+        Exception  # ruff:ignore[blind-except]  # pylint: disable=broad-exception-caught
+    ):
         _healthz_cache.update(time=now, ok=False)
         return JsonResponse({"status": "error"}, status=503)
     return JsonResponse({"status": "ok"})

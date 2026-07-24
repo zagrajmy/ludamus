@@ -3,7 +3,7 @@ from http import HTTPStatus
 import pytest
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import SessionParticipation
+from ludamus.links.db.django.models import SessionParticipation
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 
@@ -49,7 +49,7 @@ class TestShadowbanPretendFull:
             HTTPStatus.OK,
             context_data=response.context_data,
             template_name=["chronology/event.html"],
-            contains=["Deniable Game", "Session full"],
+            contains=["Deniable Game"],
         )
         (card,) = response.context["sessions"]
         assert card.pretend_full
@@ -59,6 +59,21 @@ class TestShadowbanPretendFull:
         assert all(p.user.pk < 0 for p in card.session_participations)
         (hour_card,) = response.context["hour_data"][agenda_item.start_time]
         assert hour_card.pretend_full
+        # The "Session full" affordance renders in the lazy-loaded modal, which
+        # applies the same shadowban masking for the banned viewer.
+        modal = authenticated_client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": session.pk},
+            )
+        )
+        assert_response(
+            modal,
+            HTTPStatus.OK,
+            context_data=modal.context_data,
+            template_name="chronology/parts/session-modal.html",
+            contains="Session full",
+        )
 
     def test_event_page_untouched_for_other_users(
         self, authenticated_client, agenda_item, event

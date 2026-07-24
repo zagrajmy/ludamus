@@ -8,9 +8,9 @@ from django.conf import settings
 from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
-from ludamus.inits.transaction import DjangoTransaction
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
+from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.gravatar import gravatar_url
@@ -19,6 +19,7 @@ from ludamus.links.ticket_api import MembershipApiClient
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
+    ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
@@ -49,6 +50,8 @@ from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
+from ludamus.mills.session_modal import SessionModalService
+from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -59,7 +62,7 @@ from ludamus.mills.submissions.personal_data_fields import (
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.submissions import ImportRepos
+from ludamus.pacts.submissions import FacilitatorPanelRepos, ImportRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -92,6 +95,19 @@ class Services:
             personal_data_field_values=self._repos.personal_data_field_values,
             personal_data_fields=self._repos.personal_data_fields,
             facilitator_change_logs=self._repos.facilitator_change_logs,
+        )
+
+    @cached_property
+    def facilitator_panel(self) -> FacilitatorPanelService:
+        return FacilitatorPanelService(
+            self._transaction,
+            FacilitatorPanelRepos(
+                facilitators=self._repos.facilitators,
+                personal_data_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
+                facilitator_change_logs=self._repos.facilitator_change_logs,
+                panel_settings=self._repos.event_panel_settings,
+            ),
         )
 
     @cached_property
@@ -139,6 +155,12 @@ class Services:
             transaction=self._transaction,
             parties=self._repos.parties,
             history=self._repos.party_session_history,
+        )
+
+    @cached_property
+    def session_modal(self) -> SessionModalService:
+        return SessionModalService(
+            transaction=self._transaction, sessions=self._repos.sessions
         )
 
     @cached_property
@@ -214,6 +236,16 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+        )
+
+    @cached_property
+    def proposal_acceptance(self) -> ProposalAcceptanceService:
+        return ProposalAcceptanceService(
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+            active_users=self._repos.active_users,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

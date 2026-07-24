@@ -13,6 +13,10 @@ if TYPE_CHECKING:
 
 
 class DjangoTransaction:
+    # atomic()/savepoint() over Django's transaction API. Shared by the unit of
+    # work (request.di.uow) and the services layer's TransactionProtocol impl so
+    # both open savepoints the same way.
+
     @staticmethod
     def atomic() -> AbstractContextManager[None]:
         return transaction.atomic()
@@ -20,9 +24,9 @@ class DjangoTransaction:
     @staticmethod
     @contextmanager
     def savepoint() -> Iterator[None]:
-        # A nested savepoint: a constraint violation rolls back only this block
-        # and is re-raised as DatabaseConstraintError, leaving the surrounding
-        # transaction usable so the caller can record the failure and move on.
+        # A nested savepoint: a constraint/data violation rolls back only this
+        # block and is re-raised as DatabaseConstraintError, leaving the
+        # surrounding transaction usable so the caller can record the failure.
         try:
             with transaction.atomic():
                 yield

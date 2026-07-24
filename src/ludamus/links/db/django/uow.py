@@ -1,23 +1,16 @@
 from functools import cached_property
-from typing import TYPE_CHECKING
-
-from django.db import transaction
 
 from ludamus.links.db.django import crowd, repositories
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
+from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.pacts import UnitOfWorkProtocol
 from ludamus.pacts.crowd import UserType
 
-if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
 
-
-class UnitOfWork(UnitOfWorkProtocol):  # noqa: PLR0904
-    @staticmethod
-    def atomic() -> AbstractContextManager[None]:
-        return transaction.atomic()
-
+class UnitOfWork(  # ruff:ignore[too-many-public-methods]
+    DjangoTransaction, UnitOfWorkProtocol
+):
     @cached_property
     def active_users(self) -> crowd.UserRepository:
         return crowd.UserRepository(user_type=UserType.ACTIVE)

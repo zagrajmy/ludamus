@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -9,16 +9,19 @@ from ludamus.mills.chronology import (
     ConflictDetectionService,
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
+    ProposalAcceptanceService,
     SessionConfirmationService,
     SessionContentEditService,
     TimetableOverviewService,
-    TimetableService,
 )
+from ludamus.mills.timetable import TimetableService
 from ludamus.pacts import (
     AgendaItemDTO,
+    EventDTO,
     NotFoundError,
     ScheduleChangeAction,
     SessionContentEditData,
+    SessionDTO,
     SessionFieldValueData,
     SessionStatus,
     SpaceDTO,
@@ -35,9 +38,12 @@ from ludamus.pacts.chronology import (
     IntegrationCheckRequest,
     IntegrationImplementationId,
     IntegrationKind,
+    ProposalAcceptContextDTO,
     SessionPlacement,
     SourceQuestion,
+    SpaceTimeConflictError,
 )
+from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.submissions import ImportSettings
 
 
@@ -95,19 +101,122 @@ class TestBuildGridOverlappingSessions:
             start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
         )
-        uow.agenda_items.list_by_event.return_value = [item_a, item_b]
+        item_c = _make_item(
+            pk=3,
+            space_id=1,
+            start_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [item_a, item_b, item_c]
 
         svc = TimetableService(uow)
         grid = svc.build_grid(event_pk=1, tz=UTC)
 
-        sessions = grid.columns[0].sessions
-        expected_count = 2
+        sessions = grid.days[0].columns[0].sessions
+        expected_count = 3
         expected_half_width = 50.0
         assert len(sessions) == expected_count
         assert sessions[0].lane_width_pct == pytest.approx(expected_half_width)
         assert sessions[1].lane_width_pct == pytest.approx(expected_half_width)
         assert sessions[0].lane_start_pct == pytest.approx(0.0)
         assert sessions[1].lane_start_pct == pytest.approx(expected_half_width)
+
+    def test_all_days_share_rooms_and_load_agenda_once(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=2,
+                start_time=datetime(2026, 1, 2, 11, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 13, 0, tzinfo=UTC),
+            ),
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            ),
+        ]
+        uow.agenda_items.list_by_event.return_value = [
+            _make_item(
+                pk=1,
+                session_title="Day one",
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            ),
+            _make_item(
+                pk=2,
+                session_id=2,
+                session_title="Day two",
+                start_time=datetime(2026, 1, 2, 11, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 12, 0, tzinfo=UTC),
+            ),
+        ]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, date_selection="all"
+        )
+
+        expected_total_minutes = 180
+        assert [day.date.isoformat() for day in grid.days] == [
+            "2026-01-01",
+            "2026-01-02",
+        ]
+        assert [day.columns[0].space.pk for day in grid.days] == [space.pk, space.pk]
+        assert [
+            day.columns[0].sessions[0].agenda_item.session_title for day in grid.days
+        ] == ["Day one", "Day two"]
+        assert grid.total_minutes == expected_total_minutes
+        assert [label.time.strftime("%H:%M") for label in grid.time_labels] == [
+            "10:00",
+            "11:00",
+            "12:00",
+            "13:00",
+        ]
+        assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [
+            0,
+            60,
+        ]
+        assert grid.date_selection == "all"
+        uow.agenda_items.list_by_event.assert_called_once_with(1)
+
+    def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
+            )
+        ]
+        uow.agenda_items.list_by_event.return_value = []
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
+        )
+
+        assert grid.date_selection == date(2026, 1, 1)
+        assert grid.total_minutes == 2 * 60
 
 
 class TestRevertChange:
@@ -199,6 +308,41 @@ class TestRevertChange:
 
         with pytest.raises(ValueError, match="is not in ACCEPTED status"):
             service.revert_change(log_pk=1, event_pk=1)
+
+    def test_revert_unassign_restores_the_original_placement(self, service, mock_uow):
+        log = MagicMock()
+        log.event_id = 1
+        log.action = ScheduleChangeAction.UNASSIGN
+        log.session_id = 1
+        log.old_space_id = 5
+        log.old_start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        log.old_end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.schedule_change_logs.read.return_value = log
+        mock_uow.sessions.read.return_value.status = SessionStatus.ACCEPTED
+        mock_uow.sessions.read_event.return_value.pk = 1
+
+        service.revert_change(log_pk=1, event_pk=1, user_pk=9)
+
+        mock_uow.agenda_items.create.assert_called_once_with(
+            {
+                "session_id": 1,
+                "space_id": 5,
+                "start_time": log.old_start_time,
+                "end_time": log.old_end_time,
+                "session_confirmed": False,
+            }
+        )
+        mock_uow.schedule_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 1,
+                "session_id": 1,
+                "user_id": 9,
+                "action": ScheduleChangeAction.REVERT,
+                "new_space_id": 5,
+                "new_start_time": log.old_start_time,
+                "new_end_time": log.old_end_time,
+            }
+        )
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
         """Lines 240-241: unknown action type."""
@@ -893,7 +1037,7 @@ class _ImportStubImpl:
     kind = IntegrationKind.IMPORT
     config_model = _StrictConfig
 
-    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+    def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 
@@ -904,7 +1048,7 @@ class _HeaderStubImpl:
     def __init__(self, headers):
         self._headers = headers
 
-    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+    def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
     def fetch_questions(self, **_kwargs):
@@ -918,7 +1062,7 @@ class _TicketingStubImpl:
     kind = IntegrationKind.TICKETING
     config_model = BaseModel
 
-    def check(self, secret, config):  # noqa: ARG002 - protocol shape
+    def check(self, secret, config):
         return CheckResult(outcome=CheckOutcome.OK, hint="")
 
 
@@ -1110,3 +1254,220 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         )
 
         assert env.svc.get_cached_questions(2, 3) == []
+
+
+_NOW = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
+_SESSION_PK = 5
+
+
+def _session_dto(**overrides):
+    defaults = {
+        "category_id": None,
+        "contact_email": "",
+        "creation_time": _NOW,
+        "description": "",
+        "min_age": 0,
+        "modification_time": _NOW,
+        "participants_limit": 0,
+        "pk": _SESSION_PK,
+        "presenter_id": None,
+        "display_name": "Alice",
+        "slug": "s",
+        "status": SessionStatus.PENDING,
+        "title": "My Session",
+    }
+    return SessionDTO(**(defaults | overrides))
+
+
+def _event_dto(**overrides):
+    defaults = {
+        "description": "",
+        "end_time": _NOW,
+        "name": "Con",
+        "pk": 9,
+        "proposal_end_time": None,
+        "proposal_start_time": None,
+        "publication_time": None,
+        "slug": "con",
+        "sphere_id": 3,
+        "start_time": _NOW,
+    }
+    return EventDTO(**(defaults | overrides))
+
+
+def _user_dto(**overrides):
+    defaults = {
+        "avatar_url": "",
+        "date_joined": _NOW,
+        "discord_username": "",
+        "email": "",
+        "full_name": "",
+        "is_active": True,
+        "is_authenticated": True,
+        "is_staff": False,
+        "is_superuser": False,
+        "name": "",
+        "pk": 1,
+        "slug": "manager",
+        "use_gravatar": False,
+        "user_type": UserType.ACTIVE,
+        "username": "auth0|sub",
+    }
+    return UserDTO(**(defaults | overrides))
+
+
+class TestProposalAcceptanceService:
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def active_users(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def spheres(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, sessions, agenda_items, active_users, spheres):
+        return ProposalAcceptanceService(
+            transaction=transaction,
+            sessions=sessions,
+            agenda_items=agenda_items,
+            active_users=active_users,
+            spheres=spheres,
+        )
+
+    @staticmethod
+    def _arrange_reads(sessions, active_users):
+        sessions.read.return_value = _session_dto()
+        sessions.read_event.return_value = _event_dto()
+        sessions.read_presenter.return_value = None
+        sessions.read_space_options.return_value = []
+        sessions.read_time_slots.return_value = []
+        sessions.read_preferred_time_slot_ids.return_value = []
+        sessions.read_field_values.return_value = []
+        active_users.read.return_value = _user_dto()
+
+    def test_get_accept_context_returns_none_when_session_missing(
+        self, service, sessions
+    ):
+        sessions.read.side_effect = NotFoundError
+
+        assert (
+            service.get_accept_context(session_id=5, user_slug="u", sphere_id=3) is None
+        )
+
+    def test_get_accept_context_assembles_dto(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.is_manager.return_value = True
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="manager", sphere_id=3
+        )
+
+        assert isinstance(context, ProposalAcceptContextDTO)
+        assert context.session.pk == _SESSION_PK
+        assert context.event.slug == "con"
+        assert context.presenter is None
+        assert context.space_options == []
+        assert context.can_accept is True
+
+    def test_can_accept_true_for_superuser_without_manager_check(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        active_users.read.return_value = _user_dto(is_superuser=True)
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="root", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is True
+        spheres.is_manager.assert_not_called()
+
+    def test_can_accept_true_for_staff(self, service, sessions, active_users, spheres):
+        self._arrange_reads(sessions, active_users)
+        active_users.read.return_value = _user_dto(is_staff=True)
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="staff", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is True
+        spheres.is_manager.assert_not_called()
+
+    def test_can_accept_falls_back_to_sphere_manager(
+        self, service, sessions, active_users, spheres
+    ):
+        self._arrange_reads(sessions, active_users)
+        spheres.is_manager.return_value = False
+
+        context = service.get_accept_context(
+            session_id=5, user_slug="member", sphere_id=3
+        )
+
+        assert context is not None
+        assert context.can_accept is False
+        spheres.is_manager.assert_called_once_with(3, "member")
+
+    def test_accept_session_updates_status_and_creates_agenda_item(
+        self, service, sessions, agenda_items, transaction
+    ):
+        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = []
+
+        service.accept_session(session_id=5, space_id=7, time_slot_id=2)
+
+        sessions.read_time_slot.assert_called_once_with(5, 2)
+        agenda_items.list_overlapping_in_space.assert_called_once_with(
+            7, _NOW, _NOW, exclude_session_pk=5
+        )
+        sessions.update.assert_called_once_with(
+            5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
+        )
+        agenda_items.create.assert_called_once_with(
+            {
+                "space_id": 7,
+                "session_id": 5,
+                "session_confirmed": True,
+                "start_time": _NOW,
+                "end_time": _NOW,
+            }
+        )
+        transaction.atomic.assert_called_once_with()
+
+    def test_accept_session_raises_on_space_time_conflict(
+        self, service, sessions, agenda_items
+    ):
+        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        sessions.read_time_slot.return_value = SimpleNamespace(
+            start_time=_NOW, end_time=_NOW
+        )
+        agenda_items.list_overlapping_in_space.return_value = [
+            _make_item(pk=9, space_id=7)
+        ]
+
+        with pytest.raises(SpaceTimeConflictError):
+            service.accept_session(session_id=5, space_id=7, time_slot_id=2)
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()

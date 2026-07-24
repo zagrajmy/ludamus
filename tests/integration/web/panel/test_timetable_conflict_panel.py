@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Facilitator, Track
+from ludamus.links.db.django.models import Facilitator, Track
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,

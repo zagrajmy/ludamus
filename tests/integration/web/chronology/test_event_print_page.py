@@ -5,8 +5,8 @@ from unittest.mock import ANY
 from django.urls import reverse
 from django.utils import timezone
 
-from ludamus.adapters.db.django.models import Space, Track
 from ludamus.adapters.web.django.print_views import MATERIAL_SPECS
+from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.printing import (
     PrintOptionDTO,
@@ -241,7 +241,7 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(
             response,
-            logo="events/logo.png",
+            logo="/media/events/logo.png",
             selected_scope=str(parent.pk),
             print_scopes=[
                 _scope(parent, "Hall"),
@@ -249,7 +249,7 @@ class TestPublicEventPrintView:
             ],
         )
         content = response.content.decode()
-        assert "events/logo.png" in content
+        assert 'src="/media/events/logo.png"' in content
         assert "Hall" in content
         assert "Full schedule" in content
         assert "30" in content
@@ -264,9 +264,9 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(
-            response, logo="spheres/brand.png", print_scopes=[_scope(space)]
+            response, logo="/media/spheres/brand.png", print_scopes=[_scope(space)]
         )
-        assert "spheres/brand.png" in response.content.decode()
+        assert 'src="/media/spheres/brand.png"' in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
         self, client, event, session, space

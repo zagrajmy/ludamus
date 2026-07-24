@@ -1,5 +1,8 @@
 """Django forms for panel views."""
 
+from __future__ import annotations
+
+import operator
 import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -9,12 +12,19 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.adapters.db.django.models import AccreditationType
+from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
+    from ludamus.pacts import (
+        PersonalFieldRequirementDTO,
+        ProposalCategoryDTO,
+        SessionFieldRequirementDTO,
+    )
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -24,8 +34,8 @@ MAX_IMAGE_SIZE = 8 * 1024 * 1024
 # A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
 # bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
 MAX_IMAGE_PIXELS = 24_000_000
-ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
-COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
+# Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
+# and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
 
 
@@ -65,7 +75,7 @@ def cover_image_field() -> forms.ImageField:
         label=_("Cover image"),
         required=False,
         help_text=COVER_IMAGE_HELP_TEXT,
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
     )
 
 
@@ -78,7 +88,7 @@ def _logo_field() -> forms.ImageField:
         help_text=_(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
     )
 
 
@@ -368,28 +378,32 @@ class TimeSlotForm(forms.Form):
     """Form for creating/editing time slots."""
 
     date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         error_messages={
             "required": _("Date is required."),
             "invalid": _("Enter a valid date."),
-        }
+        },
     )
     end_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         error_messages={
             "required": _("End date is required."),
             "invalid": _("Enter a valid date."),
-        }
+        },
     )
     start_time = forms.TimeField(
+        widget=forms.TimeInput(attrs={"type": "time"}),
         error_messages={
             "required": _("Start time is required."),
             "invalid": _("Enter a valid time."),
-        }
+        },
     )
     end_time = forms.TimeField(
+        widget=forms.TimeInput(attrs={"type": "time"}),
         error_messages={
             "required": _("End time is required."),
             "invalid": _("Enter a valid time."),
-        }
+        },
     )
 
 
@@ -411,6 +425,12 @@ class SpaceForm(forms.Form):
             " Leave empty for a space that only groups other spaces."
         ),
         error_messages={"min_value": _("Capacity must be at least 1.")},
+    )
+    location = forms.CharField(
+        required=False,
+        max_length=255,
+        label=_("Location"),
+        help_text=_("Building address, room number, floor — structural details."),
     )
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
@@ -465,6 +485,98 @@ class TrackForm(forms.Form):
     )
 
 
+def build_field_from_requirement(
+    fields: dict[str, forms.Field],
+    field_key: str,
+    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
+) -> None:
+    # Shared by the proposal wizard and the organizer panel so a category's
+    # configured fields render identically in both. The label is the field's
+    # question — the wording the proposer is actually asked — since the panel
+    # renders these through tessera_field rather than hand-rolled labels.
+    field_def = req.field
+    label = field_def.question
+    help_text = field_def.help_text
+
+    if field_def.field_type == "select":
+        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
+        raw_options.sort(key=operator.itemgetter(2, 1))
+        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
+
+        if field_def.is_multiple:
+            fields[field_key] = forms.MultipleChoiceField(
+                label=label,
+                help_text=help_text,
+                choices=choices[1:],  # no blank for multi
+                required=req.is_required,
+                widget=forms.CheckboxSelectMultiple,
+            )
+        else:
+            fields[field_key] = forms.ChoiceField(
+                label=label,
+                help_text=help_text,
+                choices=choices,
+                required=req.is_required,
+            )
+
+    elif field_def.field_type == "checkbox":
+        # We can't make checkboxes required because it ENFORCES TRUE.
+        fields[field_key] = forms.BooleanField(
+            label=label, help_text=help_text, required=False
+        )
+    else:
+        max_len = field_def.max_length if field_def.max_length > 0 else None
+        fields[field_key] = forms.CharField(
+            label=label,
+            help_text=help_text,
+            required=req.is_required,
+            max_length=max_len,
+        )
+
+    # A checkbox has nothing to customise; every other type with allow_custom
+    # gets the companion input the descriptors expect.
+    if field_def.allow_custom and field_def.field_type != "checkbox":
+        max_len = field_def.max_length if field_def.max_length > 0 else None
+        fields[f"{field_key}_custom"] = forms.CharField(
+            label=_("Or type a custom value"), required=False, max_length=max_len
+        )
+
+
+def field_descriptors(
+    prefix: str,
+    requirements: (
+        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
+    ),
+    form: forms.Form,
+) -> list[dict[str, object]]:
+    # Template-facing view of a category's fields: pairs each requirement with
+    # its bound field so the wizard and the panel render them the same way.
+    descriptors = []
+    for req in requirements:
+        field_key = f"{prefix}_{req.field.slug}"
+        desc: dict[str, object] = {
+            "key": field_key,
+            "bound_field": form[field_key],
+            "name": req.field.question,
+            "slug": req.field.slug,
+            "field_type": req.field.field_type,
+            "help_text": req.field.help_text,
+            "is_required": req.is_required,
+            "is_multiple": req.field.is_multiple,
+            "allow_custom": req.field.allow_custom,
+            "max_length": req.field.max_length,
+            "is_public": req.field.is_public,
+            "icon": getattr(req.field, "icon", ""),
+        }
+        # Checkboxes get no companion input even when allow_custom is set.
+        custom_key = f"{field_key}_custom"
+        desc["custom_bound_field"] = (
+            form[custom_key] if custom_key in form.fields else None
+        )
+        descriptors.append(desc)
+    return descriptors
+
+
 class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
@@ -491,8 +603,21 @@ class SessionEditForm(forms.Form):
         return image
 
 
+def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
+    # Stays optional (blank = no limit, as organizers expect) but honours the
+    # category's configured bounds when one is set.
+    kwargs: dict[str, Any] = {"required": False, "min_value": min_limit or 0}
+    if max_limit:
+        kwargs["max_value"] = max_limit
+    return forms.IntegerField(**kwargs)
+
+
 def create_proposal_form(
-    categories: list[tuple[int, str]], facilitators: list[tuple[int, str]] | None = None
+    categories: list[tuple[int, str]],
+    *,
+    facilitators: list[tuple[int, str]] | None = None,
+    requirements: Sequence[SessionFieldRequirementDTO] = (),
+    category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
     attrs: dict[str, forms.Field] = {
         "category_id": forms.ChoiceField(
@@ -514,7 +639,41 @@ def create_proposal_form(
                 "invalid_choice": _("Invalid facilitator selection."),
             },
         )
+
+    if category and (
+        category.min_participants_limit or category.max_participants_limit
+    ):
+        attrs["participants_limit"] = _participants_limit_field(
+            min_limit=category.min_participants_limit,
+            max_limit=category.max_participants_limit,
+        )
+
+    # A category with no configured durations keeps the inherited free-text
+    # field, so organizers can still record one.
+    if category and category.durations:
+        attrs["duration"] = forms.ChoiceField(
+            required=False,
+            choices=[
+                ("", "---"),
+                *((d, format_duration(d)) for d in category.durations),
+            ],
+        )
+
+    for req in requirements:
+        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+
     return type("ProposalCreateForm", (SessionEditForm,), attrs)
+
+
+ACCREDITATION_TYPE_LABELS = {
+    AccreditationType.NONE: _("None"),
+    AccreditationType.STANDARD: _("Standard"),
+    AccreditationType.GUEST: _("Guest"),
+    AccreditationType.HONORARY: _("Honorary"),
+}
+ACCREDITATION_TYPE_CHOICES = [
+    (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
+]
 
 
 class FacilitatorForm(forms.Form):
@@ -529,7 +688,7 @@ class FacilitatorForm(forms.Form):
         },
     )
     accreditation_type = forms.ChoiceField(
-        choices=AccreditationType.choices,
+        choices=ACCREDITATION_TYPE_CHOICES,
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
@@ -543,10 +702,17 @@ class FacilitatorEditForm(forms.Form):
     # No display_name: it is a read-only cache (the canonical byline lives on
     # the session), so the panel edit form only touches accreditation_type.
     accreditation_type = forms.ChoiceField(
-        choices=AccreditationType.choices,
+        choices=ACCREDITATION_TYPE_CHOICES,
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
+    )
+    internal_comment = forms.CharField(
+        required=False,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label=_("Internal comment"),
+        help_text=_("Visible to organizers only."),
     )
 
     def clean_accreditation_type(self) -> str:

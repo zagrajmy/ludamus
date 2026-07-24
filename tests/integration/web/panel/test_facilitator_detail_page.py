@@ -1,13 +1,15 @@
 """Integration tests for the facilitator detail page."""
 
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Facilitator,
     PersonalDataField,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
 )
@@ -70,6 +72,32 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
         )
 
+    def test_get_exposes_internal_comment(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(
+            event, internal_comment="Possible duplicate of Bob"
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **_base_context(event),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+            contains="Possible duplicate of Bob",
+        )
+
     def test_get_renders_sessions_linking_to_proposal_detail(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -124,7 +152,11 @@ class TestFacilitatorDetailPageView:
                     )
                 ],
             },
-            contains=[f'href="{proposal_url}"', "Attached Session"],
+            contains=[
+                '<div class="p-4">',
+                f'href="{proposal_url}"',
+                "Attached Session",
+            ],
         )
 
     def test_get_shows_linked_user_name_and_email(
@@ -294,4 +326,38 @@ class TestFacilitatorDetailPageView:
                 "has_personal_data": False,
                 "sessions": [],
             },
+        )
+
+    def test_get_renders_personal_data_values(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        values = [
+            ("Consent", "consent", "checkbox", True),
+            ("Declined", "declined", "checkbox", False),
+            ("Nickname", "nickname", "text", "Bob"),
+            ("Empty", "empty", "text", ""),
+        ]
+        for order, (name, slug, field_type, value) in enumerate(values):
+            field = _make_personal_data_field(
+                event,
+                name=name,
+                question=name,
+                slug=slug,
+                field_type=field_type,
+                order=order,
+            )
+            PersonalDataFieldValue.objects.create(
+                facilitator=facilitator, event=event, field=field, value=value
+            )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data=ANY,
+            contains=["Consent", "Yes", "Declined", "Nickname", "Bob", "Empty"],
         )

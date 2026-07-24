@@ -107,7 +107,8 @@ jobs:
             cd ludamus/
             chmod 600 .env.local
             git fetch
-            git checkout $GITHUB_COMMIT_SHA
+            # -f: discard local drift in tracked files; .env.local is untracked
+            git checkout -f $GITHUB_COMMIT_SHA
             export GIT_COMMIT_SHA=$(git rev-parse --short HEAD)
             # .env.local was validated by varlock on the CI runner. Here the
             # compose CLI reads it: --env-file feeds ${VAR} interpolation,

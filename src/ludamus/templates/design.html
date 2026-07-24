@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load date_tags %}
 {% load django_vite %}
+{% load static %}
 {% load tessera %}
 {% block title %}
     Tessera
@@ -296,6 +297,35 @@
         <button type="button"
                 data-sound-play="success"
                 class="btn btn-secondary px-3 py-1.5 text-xs">Success</button>
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center [--brand-knockout:var(--color-background)]">
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">brand/logo-mark.html</code>
+        <code class="text-xs text-foreground-muted">data-brand-hover</code>
+    </div>
+    {# Component demo only; the motion vocabulary lives on /brand/. #}
+    <div class="flex flex-col items-center gap-2 text-foreground"
+         data-brand-hover="tuck-in">
+        {% include "components/brand/logo-mark.html" with extra_class="size-24" %}
+        <code class="text-xs text-foreground-muted">data-brand-hover="tuck-in" · navbar</code>
+    </div>
+</div>
+<div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-6 lg:col-span-2 [--brand-knockout:var(--color-background)]"
+     data-logo-builder>
+    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+        <code class="text-xs text-foreground-muted">Logo Builder</code>
+        <code class="text-xs text-foreground-muted">brand/logo-lockup.html</code>
+    </div>
+    <div class="w-full max-w-md text-foreground" data-brand-hover="tuck-in">
+        {% include "components/brand/logo-lockup.html" with extra_class="w-full" %}
+    </div>
+    <div class="flex flex-wrap items-center gap-6">
+        {% translate "Coral table" as coral_label %}
+        {% include "components/checkbox-field.html" with id="lb-coral" name="lb-coral" label=coral_label checked=True only %}
+        {% static "brand/zagrajmy-logo-pack.zip" as logo_pack_url %}
+        {% translate "Download" as download_label %}
+        {% tessera_button text=download_label href=logo_pack_url variant="secondary" size="sm" icon="arrow-down-tray" %}
     </div>
 </div>
 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">

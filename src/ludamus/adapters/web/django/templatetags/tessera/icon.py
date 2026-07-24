@@ -55,4 +55,4 @@ def icon(name: str, *, variant: str = "outline", **kwargs: object) -> str:
             raise
         logger.warning("Icon %r (variant=%s) not found, rendering empty", name, variant)
         return ""
-    return mark_safe(result)  # noqa: S308
+    return mark_safe(result)  # ruff:ignore[suspicious-mark-safe-usage]

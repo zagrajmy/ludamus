@@ -150,6 +150,14 @@ def cfp_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
+def facilitator_tab_urls(slug: str) -> dict[str, str]:
+    return {
+        "list": reverse("panel:facilitators", kwargs={"slug": slug}),
+        "merge": reverse("panel:facilitator-merge", kwargs={"slug": slug}),
+        "columns": reverse("panel:facilitator-columns", kwargs={"slug": slug}),
+    }
+
+
 def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
     return {
         "proposal": reverse(
@@ -162,10 +170,17 @@ def import_tab_urls(slug: str, pk: int) -> dict[str, str]:
     }
 
 
+# Cap the base at 45 so neither it nor a "-XXXX" retry suffix overflows the
+# SlugField() varchar(50) column — Postgres raises DataError on overflow, SQLite
+# ignores the limit, so an over-long title 500s only in production.
+_SLUG_BASE_MAX_LENGTH = 45
+
+
 def make_unique_slug(
-    name: str, default: str, check_exists: Callable[[str], bool]
+    *, name: str, default: str, check_exists: Callable[[str], bool]
 ) -> str:
-    base_slug = slugify(name) or default
+    # Cap after the fallback so an over-long default can't overflow either.
+    base_slug = (slugify(name) or default)[:_SLUG_BASE_MAX_LENGTH]
     slug = base_slug
     for _attempt in range(4):
         if not check_exists(slug):

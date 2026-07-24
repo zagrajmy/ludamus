@@ -26,7 +26,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      # Removing the staging label from a PR needs issues=write AND
+      # pull_requests=write; read here 403s.
+      pull-requests: write
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
       should_deploy: ${{ steps.resolve.outputs.should_deploy }}
@@ -98,6 +100,7 @@ jobs:
         env:
           # Not configured in the GitHub Environment — hardcoded here.
           ENV: production
+          IS_STAGING: 'true'
           DJANGO_SETTINGS_MODULE: ludamus.edges.settings
           DEBUG: 'false'
           # Non-sensitive config — GitHub Environment variables.
@@ -132,7 +135,7 @@ jobs:
         run: |
           set -eu
           : > .env.local
-          for k in ENV DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
+          for k in ENV IS_STAGING DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
                    ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
                    DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
                    SECRET_KEY CREDENTIALS_ENCRYPTION_KEY \
@@ -184,7 +187,8 @@ jobs:
             cd ludamus/
             chmod 600 .env.local
             git fetch
-            git checkout $GITHUB_COMMIT_SHA
+            # -f: discard local drift in tracked files; .env.local is untracked
+            git checkout -f $GITHUB_COMMIT_SHA
             export GIT_COMMIT_SHA=$(git rev-parse --short HEAD)
             # .env.local was validated by varlock on the CI runner. Here the
             # compose CLI reads it: --env-file feeds ${VAR} interpolation,
