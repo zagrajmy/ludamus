@@ -591,16 +591,12 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
         session: SessionDTO | None,
         category: ProposalCategoryDTO | None,
         form: forms.Form,
-        facilitator_error: bool = False,
     ) -> HttpResponse:
         event_pk = context["current_event"].pk
         proposal_id = session.pk if session else None
         context["active_nav"] = "proposals"
         context["proposal"] = session
         context["form"] = form
-        # Only ever true on the create flow when no facilitator was picked; the
-        # edit page always renders it false.
-        context["facilitator_error"] = facilitator_error
 
         all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
         context["all_facilitators"] = all_facilitators
@@ -707,15 +703,13 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
         form: forms.Form,
     ) -> HttpResponse:
         # Invariant: a hand-added proposal always has at least one facilitator.
+        # The picker is not a form field, so the rule is enforced here and
+        # reported through the form's own error channel.
         facilitator_ids = self._collect_facilitator_ids(current_event.pk) or []
         if not form.is_valid() or not facilitator_ids:
-            return self._render(
-                context,
-                session=None,
-                category=category,
-                form=form,
-                facilitator_error=not facilitator_ids,
-            )
+            if not facilitator_ids:
+                form.add_error(None, _("Please select at least one facilitator."))
+            return self._render(context, session=None, category=category, form=form)
 
         try:
             proposal_id = self._write_new_session(

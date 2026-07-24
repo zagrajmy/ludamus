@@ -170,11 +170,11 @@
                             <h3 class="text-lg font-semibold text-foreground mb-2">
                                 {% translate "Facilitators" %}{% if not proposal %}<span class="text-danger ml-0.5">*</span>{% endif %}
                             </h3>
-                            <div class="{% if facilitator_error %}border border-danger rounded-lg p-2{% endif %}">
+                            <div class="{% if form.non_field_errors %}border border-danger rounded-lg p-2{% endif %}">
                                 {% include "panel/parts/facilitator-picker.html" %}
                             </div>
-                            {% if facilitator_error %}
-                                <p class="mt-1 text-sm text-danger">{% translate "Please select at least one facilitator." %}</p>
+                            {% if form.non_field_errors %}
+                                <p class="mt-1 text-sm text-danger">{{ form.non_field_errors.0 }}</p>
                             {% endif %}
                         </div>
                     </div>

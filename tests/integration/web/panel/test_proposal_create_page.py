@@ -54,7 +54,6 @@ def _base_context(event):
         },
         "active_nav": "proposals",
         "proposal": None,
-        "facilitator_error": False,
         "all_facilitators": [],
         "assigned_facilitator_pks": set(),
         "all_tracks": [],
@@ -472,7 +471,6 @@ class TestProposalCreatePageView:
                 "form": ANY,
                 "all_time_slots": [TimeSlotDTO.model_validate(slot)],
                 "assigned_time_slot_pks": {slot.pk},
-                "facilitator_error": True,
             },
         )
         content = response.content.decode()
@@ -587,7 +585,6 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "facilitator_error": True,
             },
         )
         assert not Session.objects.filter(title="No Facilitator").exists()
@@ -627,7 +624,6 @@ class TestProposalCreatePageView:
                     EventDTO.model_validate(event),
                 ],
                 "form": ANY,
-                "facilitator_error": True,
             },
         )
         assert not Session.objects.filter(title="Foreign Facilitator").exists()
@@ -653,7 +649,6 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "facilitator_error": True,
             },
         )
         assert response.context["form"].errors

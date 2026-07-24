@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 14:10+0200\n"
+"POT-Creation-Date: 2026-07-24 15:04+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1497,6 +1497,10 @@ msgstr "Zaplanowane"
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal not found."
 msgstr "Nie znaleziono zgłoszenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Please select at least one facilitator."
+msgstr "Wybierz przynajmniej jednego twórcę programu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Couldn't save the session. Please check your input and try again."
@@ -7454,10 +7458,6 @@ msgstr "Utwórz punkt programu"
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "Loading"
 msgstr "Ładowanie…"
-
-#: src/ludamus/templates/panel/proposal-form.html
-msgid "Please select at least one facilitator."
-msgstr "Wybierz przynajmniej jednego twórcę programu."
 
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "This event has no facilitators yet."

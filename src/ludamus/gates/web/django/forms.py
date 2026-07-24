@@ -627,8 +627,6 @@ def create_proposal_form(
             },
         )
     }
-    # Facilitators are managed through the view's inline picker (both create and
-    # edit), not a form field; create enforces "at least one" in the view.
 
     if category and (
         category.min_participants_limit or category.max_participants_limit
