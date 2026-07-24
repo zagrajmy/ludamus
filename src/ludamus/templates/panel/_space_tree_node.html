@@ -9,17 +9,26 @@
                 {% icon "bars-3" class="w-4 h-4" %}
             </button>
             {% if node.is_leaf %}
-                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-green-500" %}
+                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
                 <span class="sr-only">{% translate "Room" %}</span>
             {% else %}
-                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-blue-500" %}
+                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-info" %}
                 <span class="sr-only">{% translate "Group" %}</span>
             {% endif %}
-            <span class="truncate font-medium text-foreground">{{ node.name }}</span>
+            <span class="truncate font-medium text-foreground" title="{{ node.name }}">{{ node.name }}</span>
+            {% if node.location %}
+                <span class="shrink-0 truncate text-xs text-foreground-muted"
+                      title="{{ node.location }}">
+                    {% icon "map-pin" class="mr-0.5 inline w-3 h-3" variant="mini" %}{{ node.location }}
+                </span>
+            {% endif %}
             {% if node.is_leaf and node.capacity %}
                 <span class="ml-1 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs text-foreground-muted">
                     {% blocktranslate count counter=node.capacity %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
                 </span>
+            {% endif %}
+            {% if node.track_names %}
+                {% include "components/pill_list.html" with items=node.track_names icon="rectangle-group" %}
             {% endif %}
         </div>
         <div class="flex shrink-0 items-center gap-1">
@@ -42,34 +51,34 @@
                         aria-label="{% blocktranslate with name=node.name %}More actions for {{ name }}{% endblocktranslate %}">
                     {% icon "ellipsis-horizontal" class="w-4 h-4" %}
                 </button>
-                <div data-menu-panel
-                     hidden
-                     class="absolute right-0 z-10 mt-2 w-44 rounded-lg border border-border bg-bg-secondary shadow-lg">
-                    <form method="post"
-                          action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
-                        {% csrf_token %}
-                        <button type="submit"
-                                class="flex w-full items-center rounded-t-lg px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                            {% icon "document-duplicate" class="mr-2 w-4 h-4" %}
-                            {% translate "Duplicate" %}
-                        </button>
-                    </form>
-                    <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.pk %}"
-                       class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                        {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
-                        {% translate "Copy to event" %}
-                    </a>
-                    <hr class="my-1">
-                    <form method="post"
-                          action="{% url 'panel:space-delete' slug=current_event.slug pk=node.pk %}"
-                          data-confirm="{% translate "Delete this space and everything inside it?" %}">
-                        {% csrf_token %}
-                        <button type="submit"
-                                class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
-                            {% icon "trash" class="mr-2 w-4 h-4" %}
-                            {% translate "Delete" %}
-                        </button>
-                    </form>
+                <div data-menu-panel hidden class="absolute right-0 z-10 mt-2">
+                    <div {% include "components/menu_surface.html" with extra_class="w-44 rounded-lg border border-border bg-bg-secondary shadow-lg" %}>
+                        <form method="post"
+                              action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center rounded-t-lg px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                {% icon "document-duplicate" class="mr-2 w-4 h-4" %}
+                                {% translate "Duplicate" %}
+                            </button>
+                        </form>
+                        <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.pk %}"
+                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                            {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
+                            {% translate "Copy to event" %}
+                        </a>
+                        <hr class="my-1">
+                        <form method="post"
+                              action="{% url 'panel:space-delete' slug=current_event.slug pk=node.pk %}"
+                              data-confirm="{% translate "Delete this space and everything inside it?" %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
+                                {% icon "trash" class="mr-2 w-4 h-4" %}
+                                {% translate "Delete" %}
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

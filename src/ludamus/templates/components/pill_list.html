@@ -1,0 +1,19 @@
+{% load i18n %}
+{% comment %}
+Renders string values as pills; folds everything past the first three into a
+"+N" pill whose tooltip lists the rest on hover.
+Variables: items (list[str]), icon (heroicon name, optional).
+{% endcomment %}
+{% if items %}
+    <div class="flex flex-wrap items-center gap-1">
+        {% for value in items|slice:":3" %}
+            {% include "components/_field_pill.html" with value=value icon=icon title=value size="sm" %}
+        {% endfor %}
+        {% if items|length > 3 %}
+            <span class="inline-flex items-center rounded-2xl bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300 text-xs px-2 py-0.5 font-medium"
+                  title="{{ items|slice:'3:'|join:', ' }}">+{{ items|length|add:'-3' }}<span class="sr-only">: {{ items|slice:'3:'|join:', ' }}</span></span>
+        {% endif %}
+    </div>
+{% else %}
+    <span class="text-foreground-muted"><span aria-hidden="true">—</span><span class="sr-only">{% translate "None" %}</span></span>
+{% endif %}

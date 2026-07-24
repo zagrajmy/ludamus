@@ -11,9 +11,15 @@ const EVENT = "frostfire-con";
 const FACILITATORS_URL = `/panel/event/${EVENT}/facilitators/`;
 const PROPOSALS_URL = `/panel/event/${EVENT}/proposals/`;
 
-const FACILITATOR = "Wanda Frost";
 const PROPOSAL_TITLE = "Midnight Heist One-Shot";
 const PROPOSAL_TITLE_EDITED = "Midnight Heist One-Shot (revised)";
+
+// Serial retries re-run the whole group from the top (Playwright semantics),
+// so a hardcoded name here would leave a duplicate row behind whenever the
+// first attempt died after the facilitator was already created — every later
+// name-based lookup would then match 2+ elements and fail strict mode. Keep
+// the name unique per attempt instead.
+let facilitator: string = "Wanda Frost";
 
 test.describe("Panel facilitator + proposal CRUD", () => {
   test.beforeEach(async ({ page }) => {
@@ -25,26 +31,28 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
-  test("creates a facilitator", async ({ page }) => {
+  test("creates a facilitator", async ({ page }, testInfo) => {
+    facilitator = testInfo.retry === 0 ? "Wanda Frost" : `Wanda Frost (retry ${testInfo.retry})`;
+
     await page.goto(FACILITATORS_URL);
     await page.getByRole("link", { name: "New Facilitator" }).click();
 
-    await page.getByLabel("Display Name").fill(FACILITATOR);
+    await page.getByLabel("Display Name").fill(facilitator);
     await page.getByLabel("Accreditation type").selectOption({ label: "Standard" });
     await page.getByRole("button", { name: "Create Facilitator" }).click();
 
     // Redirects back to the list with the new facilitator present.
     await page.waitForURL(/\/facilitators\/$/);
-    await page.getByRole("link", { name: FACILITATOR }).click();
+    await page.getByRole("link", { name: facilitator, exact: true }).click();
 
     // Detail page shows the cached name and the accreditation we picked.
-    await expect(page.getByRole("heading", { name: FACILITATOR })).toBeVisible();
+    await expect(page.getByRole("heading", { name: facilitator, exact: true })).toBeVisible();
     await expect(page.getByText("Standard")).toBeVisible();
   });
 
   test("edits the facilitator accreditation", async ({ page }) => {
     await page.goto(FACILITATORS_URL);
-    await page.getByRole("link", { name: FACILITATOR }).click();
+    await page.getByRole("link", { name: facilitator, exact: true }).click();
     // The detail page carries two "Edit" links (header button + the empty
     // personal-data hint); the header one comes first in the DOM.
     await page.getByRole("link", { name: "Edit" }).first().click();
@@ -64,10 +72,12 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     // header one.
     await page.getByRole("link", { name: "Create Session" }).first().click();
 
-    await page.getByRole("checkbox", { name: FACILITATOR }).check();
+    // The picker is search-first: rows stay hidden until the search matches.
+    await page.getByPlaceholder("Search by name…").fill(facilitator);
+    await page.getByRole("checkbox", { name: facilitator, exact: true }).check();
     await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
     await page.getByLabel("Title").fill(PROPOSAL_TITLE);
-    await page.getByLabel("Display Name").fill(FACILITATOR);
+    await page.getByLabel("Display Name").fill(facilitator);
     await page.getByRole("button", { name: "Create" }).click();
 
     // Lands on the new proposal's detail page: pending, with our title.

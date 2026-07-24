@@ -4,10 +4,18 @@ from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.timezone import localdate
 
 from ludamus.links.db.django.models import Space
 from ludamus.pacts import EventDTO
-from tests.integration.conftest import AgendaItemFactory, SpaceFactory
+from ludamus.pacts.printing import (
+    DoorCardDayDTO,
+    DoorCardDTO,
+    DoorCardEntryDTO,
+    DoorCardsDocumentDTO,
+    PrintSessionDTO,
+)
+from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -102,9 +110,77 @@ class TestTimetablePrintView:
         )
         content = response.content.decode()
         assert space.name in content
-        # the empty room's card shows the slot as a free gap
-        assert empty_space.name in content
-        assert "Free slot" in content
+        # participant-facing cards: no card for an empty room, no gap rows
+        assert empty_space.name not in content
+        assert "Free slot" not in content
+
+    def test_door_cards_limited_to_time_window(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=time_slot.start_time,
+            end_time=time_slot.start_time + timedelta(hours=1),
+        )
+        later_session = SessionFactory(event=event, category=None, title="Late Larp")
+        AgendaItemFactory(
+            session=later_session,
+            space=space,
+            start_time=time_slot.start_time + timedelta(hours=6),
+            end_time=time_slot.start_time + timedelta(hours=7),
+        )
+
+        response = authenticated_client.get(
+            self.door_cards_url(event),
+            {"start": time_slot.start_time.isoformat(), "hours": "2"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/print/door-cards.html",
+            context_data={
+                "document": DoorCardsDocumentDTO(
+                    event_name=event.name,
+                    event_description=event.description,
+                    event_start=event.start_time,
+                    event_end=event.end_time,
+                    scope_name=None,
+                    cards=[
+                        DoorCardDTO(
+                            space_name=space.name,
+                            capacity=space.capacity,
+                            days=[
+                                DoorCardDayDTO(
+                                    day=localdate(time_slot.start_time),
+                                    entries=[
+                                        DoorCardEntryDTO(
+                                            start_time=time_slot.start_time,
+                                            end_time=time_slot.start_time
+                                            + timedelta(hours=1),
+                                            session=PrintSessionDTO(
+                                                title=session.title,
+                                                presenter_name=session.display_name,
+                                            ),
+                                        )
+                                    ],
+                                )
+                            ],
+                        )
+                    ],
+                )
+            },
+        )
+        assert later_session.title not in response.content.decode()
 
     def test_opening_print_page_marks_event_printed(
         self, authenticated_client, active_user, sphere, event

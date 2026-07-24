@@ -79,7 +79,7 @@
                                         <td class="pr-2 text-neutral-400 whitespace-nowrap">{{ row.time|date:"H:i" }}</td>
                                         {% for cell in row.cells %}
                                             <td class="px-0.5 py-0.5">
-                                                <div class="w-4 h-3 rounded-sm {% if cell.status == 'scheduled' %}bg-info{% elif cell.status == 'conflict' %}bg-danger{% else %}bg-neutral-200{% endif %}">
+                                                <div class="w-4 h-3 rounded-sm {% if cell.status == 'scheduled' %}bg-info{% elif cell.status == 'conflict' %}bg-danger{% else %}bg-neutral-200 dark:bg-neutral-700{% endif %}">
                                                 </div>
                                             </td>
                                         {% endfor %}
@@ -91,7 +91,7 @@
                 {% endfor %}
             </div>
             <div class="mt-2 flex gap-4 text-xs text-foreground-muted">
-                <span><span class="inline-block w-3 h-3 rounded-sm bg-neutral-200 mr-1"></span>{% translate "Empty" %}</span>
+                <span><span class="inline-block w-3 h-3 rounded-sm bg-neutral-200 dark:bg-neutral-700 mr-1"></span>{% translate "Empty" %}</span>
                 <span><span class="inline-block w-3 h-3 rounded-sm bg-info mr-1"></span>{% translate "Scheduled" %}</span>
                 <span><span class="inline-block w-3 h-3 rounded-sm bg-danger mr-1"></span>{% translate "Conflict" %}</span>
             </div>
@@ -112,7 +112,7 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for tp in track_progress %}
-                        <tr class="hover:bg-neutral-50">
+                        <tr class="hover:bg-bg-tertiary">
                             <td class="py-2 pr-4 font-medium">{{ tp.track_name }}</td>
                             <td class="py-2 pr-4 text-foreground-muted">
                                 {% if tp.manager_names %}
@@ -122,10 +122,25 @@
                                 {% endif %}
                             </td>
                             <td class="py-2 pr-4">
-                                {{ tp.scheduled_count }}/{{ tp.accepted_count }}
-                                {% if tp.accepted_count > 0 and tp.scheduled_count < tp.accepted_count %}
-                                    <span class="text-warning text-xs ml-1">({{ tp.unassigned_count }} {% translate "unassigned" %})</span>
-                                {% endif %}
+                                <span class="tabular-nums">{{ tp.scheduled_count }}/{{ tp.active_count }}</span>
+                                <span class="inline-flex items-center gap-1 ml-1 align-middle">
+                                    {% if tp.unassigned_count > 0 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text"
+                                              title="{% translate "Accepted" %}">{{ tp.unassigned_count }}</span>
+                                    {% endif %}
+                                    {% if tp.pending_count > 0 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text"
+                                              title="{% translate "Pending" %}">{{ tp.pending_count }}</span>
+                                    {% endif %}
+                                    {% if tp.rejected_count > 0 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text"
+                                              title="{% translate "Rejected" %}">{{ tp.rejected_count }}</span>
+                                    {% endif %}
+                                    {% if tp.on_hold_count > 0 %}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-neutral-200 text-foreground-muted"
+                                              title="{% translate "On hold" %}">{{ tp.on_hold_count }}</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             <td class="py-2">
                                 <div class="flex items-center gap-2">

@@ -16,21 +16,31 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # noqa: E402
+import django  # ruff:ignore[module-import-not-at-top-of-file]
 
 django.setup()
 
-from urllib.parse import urlparse  # noqa: E402
+from urllib.parse import urlparse  # ruff:ignore[module-import-not-at-top-of-file]
 
-from django.conf import settings  # noqa: E402
-from django.contrib.flatpages.models import FlatPage  # noqa: E402
-from django.contrib.sessions.backends.db import SessionStore  # noqa: E402
-from django.contrib.sites.models import Site  # noqa: E402
-from django.core.management import call_command  # noqa: E402
-from django.utils import timezone  # noqa: E402
-from django.utils.timezone import get_current_timezone  # noqa: E402
+from django.conf import settings  # ruff:ignore[module-import-not-at-top-of-file]
+from django.contrib.flatpages.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+    FlatPage,
+)
+from django.contrib.sessions.backends.db import (  # ruff:ignore[module-import-not-at-top-of-file]
+    SessionStore,
+)
+from django.contrib.sites.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+    Site,
+)
+from django.core.management import (  # ruff:ignore[module-import-not-at-top-of-file]
+    call_command,
+)
+from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
+from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
+    get_current_timezone,
+)
 
-from ludamus.links.db.django.models import (  # noqa: E402
+from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
     AgendaItem,
     Encounter,
     EnrollmentConfig,
@@ -45,8 +55,8 @@ from ludamus.links.db.django.models import (  # noqa: E402
     TimeSlot,
     User,
 )
-from ludamus.pacts import SessionStatus  # noqa: E402
-from ludamus.pacts.legacy import (  # noqa: E402
+from ludamus.pacts import SessionStatus  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.pacts.legacy import (  # ruff:ignore[module-import-not-at-top-of-file]
     NotificationKind,
     SessionParticipationStatus,
 )
@@ -476,6 +486,15 @@ def main() -> None:
         is_staff=True,
     )
     sphere.managers.add(manager)
+
+    local_manager = User.objects.create_user(
+        username="auth0|local-manager",
+        email="default@example.com",
+        password=None,
+        name="Local Manager",
+        slug="auth0local-manager",
+    )
+    sphere.managers.add(local_manager)
 
     # Second sphere with NO events — used to test panel redirect
     _, empty_sphere = _create_site("another.localhost:8000", name="Empty Sphere")

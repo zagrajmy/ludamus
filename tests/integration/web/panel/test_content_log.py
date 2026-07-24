@@ -9,6 +9,7 @@ from ludamus.links.db.django.models import (
     FacilitatorChangeLog,
     PersonalDataField,
     SessionField,
+    SessionFieldRequirement,
 )
 from tests.integration.conftest import SessionFactory
 from tests.integration.utils import assert_response
@@ -297,6 +298,9 @@ class TestContentLogRecordsEdits:
             field_type="text",
             order=0,
         )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False, order=0
+        )
 
         authenticated_client.post(
             reverse(
@@ -309,8 +313,7 @@ class TestContentLogRecordsEdits:
                 "display_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
-                "session_fields_submitted": "1",
-                "session_field_system": "Pathfinder",
+                "session_system": "Pathfinder",
             },
         )
 

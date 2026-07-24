@@ -9,20 +9,14 @@ import pytest
 from django.urls import resolve
 
 from ludamus.gates.web.django import urls as urls_module
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
+from tests.integration.conftest import PNG_BYTES
 
 
 @pytest.fixture
 def _reset_healthz_cache():
-    urls_module._healthz_cache.update(time=0.0, ok=True)  # noqa: SLF001
+    urls_module._healthz_cache.update(time=0.0, ok=True)
     yield
-    urls_module._healthz_cache.update(time=0.0, ok=True)  # noqa: SLF001
+    urls_module._healthz_cache.update(time=0.0, ok=True)
 
 
 class TestHealthz:
@@ -45,7 +39,7 @@ class TestHealthz:
         cursor_mock.assert_not_called()
 
     def test_returns_cached_error_within_window(self, client):
-        urls_module._healthz_cache.update(time=math.inf, ok=False)  # noqa: SLF001
+        urls_module._healthz_cache.update(time=math.inf, ok=False)
 
         response = client.get("/healthz/")
 

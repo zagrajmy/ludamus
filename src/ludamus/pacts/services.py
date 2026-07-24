@@ -14,10 +14,12 @@ if TYPE_CHECKING:
     from ludamus.pacts.chronology import (
         EventIntegrationsServiceProtocol,
         PartySessionHistoryServiceProtocol,
+        ProposalAcceptanceServiceProtocol,
         ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
+        SessionModalServiceProtocol,
         SessionSelfEditServiceProtocol,
     )
     from ludamus.pacts.crowd import (
@@ -51,6 +53,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
@@ -81,6 +84,8 @@ class ServicesProtocol(Protocol):
     @property
     def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
     @property
+    def facilitator_panel(self) -> FacilitatorPanelServiceProtocol: ...
+    @property
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
     def claims(self) -> ClaimServiceProtocol: ...
@@ -94,6 +99,8 @@ class ServicesProtocol(Protocol):
     def parties(self) -> PartyServiceProtocol: ...
     @property
     def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
+    @property
+    def session_modal(self) -> SessionModalServiceProtocol: ...
     @property
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
@@ -114,6 +121,8 @@ class ServicesProtocol(Protocol):
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
     @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
+    @property
+    def proposal_acceptance(self) -> ProposalAcceptanceServiceProtocol: ...
     @property
     def waitlist_promotion(self) -> WaitlistPromotionServiceProtocol: ...
     @property

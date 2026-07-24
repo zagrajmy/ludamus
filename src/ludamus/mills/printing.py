@@ -4,7 +4,8 @@ Assembles printable materials (per-room door cards, a printed timetable, and
 description-rich per-area time-range pages) from scheduled agenda items. The
 organizer-facing materials include every scheduled session; passing
 ``confirmed_only=True`` (the public ``/print`` page) keeps only confirmed ones.
-Empty time slots render as explicit gaps.
+Empty timetable cells render as explicit gaps; door cards are participant-facing
+and list only rooms and hours that actually hold a session.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
+    DoorCardsQueryDTO,
     PrintablesReadyNotification,
     PrintablesReminderServiceProtocol,
     PrintOptionDTO,
@@ -141,31 +143,26 @@ class PrintMaterialsService:
             for track in self._tracks.list_public_by_event(event_pk)
         ]
 
-    def build_door_cards(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        scope_space_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
-    ) -> DoorCardsDocumentDTO:
-        event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, scope_space_pks, None)
+    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO:
+        event = self._events.read(query.event_pk)
+        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
+        items = self._agenda_items.list_by_event(query.event_pk)
+        if query.time_range is not None:
+            items = [item for item in items if _overlaps(item, *query.time_range)]
         items_by_space = self._group_by_space(
-            self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
-        )
-        windows_by_date = slot_windows_by_local_date(
-            self._time_slots.list_by_event(event_pk), tz
+            items, confirmed_only=query.confirmed_only
         )
 
         cards: list[DoorCardDTO] = []
         for space in spaces:
-            space_items = items_by_space.get(space.pk, [])
+            # Cards hang on doors for participants: a room with nothing
+            # scheduled gets no card, and empty hours are simply not listed.
+            if not (space_items := items_by_space.get(space.pk)):
+                continue
             entries_by_day: dict[date, list[DoorCardEntryDTO]] = defaultdict(list)
 
             for item in space_items:
-                day = item.start_time.astimezone(tz).date()
+                day = item.start_time.astimezone(query.tz).date()
                 entries_by_day[day].append(
                     DoorCardEntryDTO(
                         start_time=item.start_time,
@@ -173,20 +170,6 @@ class PrintMaterialsService:
                         session=_to_session(item),
                     )
                 )
-
-            for day, windows in windows_by_date.items():
-                for window_start, window_end in windows:
-                    if not any(
-                        _overlaps(item, window_start, window_end)
-                        for item in space_items
-                    ):
-                        entries_by_day[day].append(
-                            DoorCardEntryDTO(
-                                start_time=window_start,
-                                end_time=window_end,
-                                session=None,
-                            )
-                        )
 
             days = [
                 DoorCardDayDTO(
@@ -203,7 +186,7 @@ class PrintMaterialsService:
             event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
-            scope_name=scope_name,
+            scope_name=query.scope_name,
             cards=cards,
         )
 
