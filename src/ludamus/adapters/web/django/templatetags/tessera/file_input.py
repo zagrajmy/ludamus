@@ -37,7 +37,9 @@ def render_file_input(field: BoundField) -> str:
         "image/*" if isinstance(field.field, ImageField) else ""
     )
     initial_url, initial_name = _initial_url_and_name(field.value())
-    is_image_field = isinstance(field.field, ImageField)
+    is_image_field = isinstance(field.field, ImageField) or (
+        bool(accept) and all(t.strip().startswith("image/") for t in accept.split(","))
+    )
     dropzone_state = ("image" if is_image_field else "file") if initial_url else "empty"
     return render_to_string(
         "components/file-dropzone.html",
