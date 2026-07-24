@@ -97,7 +97,7 @@ jobs:
               environmentUrl: process.env.STAGING_URL,
             });
 
-      - name: Materialize .env.local from environment variables and secrets
+      - name: Build Coolify env payload and validate with varlock
         env:
           # Not configured in the GitHub Environment — hardcoded here.
           ENV: production
@@ -135,9 +135,8 @@ jobs:
           # Previously injected by compose `environment:` on the host.
           GIT_COMMIT_SHA="$(printf '%.7s' "$TARGET_SHA")"
           export GIT_COMMIT_SHA
-          : > .env.local
-          # envs.json mirrors .env.local in Coolify's bulk-env API shape,
-          # built in the same loop so the two can never drift.
+          # envs.json carries the runtime config to Coolify's bulk-env API.
+          # jq --arg passes each value through byte-for-byte.
           echo '[]' > envs.json
           for k in ENV IS_STAGING DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
                    ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
@@ -150,25 +149,17 @@ jobs:
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
             if [ -n "$v" ]; then
-              # @json double-quotes and backslash-escapes the value, unlike a
-              # naive single-quoted printf, which breaks the moment a secret
-              # contains a quote of its own.
-              printf '%s=%s\n' "$k" "$(jq -nr --arg v "$v" '$v | @json')" \
-                >> .env.local
               jq --arg k "$k" --arg v "$v" \
                 '. + [{key: $k, value: $v, is_preview: false}]' \
                 envs.json > envs.json.tmp && mv envs.json.tmp envs.json
             fi
           done
-
-      - name: Validate .env.local with varlock
-        env:
-          ENV: production
-        run: |
-          # varlock loads .env.schema + .env + .env.local and validates
-          # against the schema; exits non-zero if a @required var (incl.
-          # forEnv(production) ones) is missing or malformed. Output is
-          # discarded so resolved values never reach the run log.
+          # varlock loads .env.schema and resolves overrides straight from
+          # the process env — the exact bytes synced to Coolify above, with
+          # no env-file quoting round-trip in between. Exits non-zero if a
+          # @required var (incl. forEnv(production) ones) is missing or
+          # malformed. Output is discarded so resolved values never reach
+          # the run log.
           npx -y varlock@1.1.0 load > /dev/null
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -201,7 +192,7 @@ jobs:
           APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
         run: |
           set -euo pipefail
-          # envs.json was varlock-validated (as .env.local) above. Output is
+          # envs.json values were varlock-validated above. Output is
           # discarded so values never reach the run log.
           jq '{data: .}' envs.json | curl -fsS -X PATCH \
             --connect-timeout 10 --max-time 30 \
@@ -235,19 +226,37 @@ jobs:
           APP_UUID: ${{ vars.COOLIFY_APP_UUID }}
         run: |
           set -eu
-          deployment_uuid="$(curl -fsS \
-            --connect-timeout 10 --max-time 30 \
-            -H "Authorization: Bearer $COOLIFY_TOKEN" \
-            "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID" \
-            | jq -re '.deployments[0].deployment_uuid')"
+          # Retried because under `set -eu` one dropped response here would
+          # kill the job after the image push, env sync, and tag pin. A
+          # duplicate trigger just redeploys the same pinned image.
+          deployment_uuid=''
+          for attempt in 1 2 3; do
+            deployment_uuid="$(curl -fsS \
+              --connect-timeout 10 --max-time 30 \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID" \
+              | jq -re '.deployments[0].deployment_uuid' || true)"
+            if [ -n "$deployment_uuid" ]; then
+              break
+            fi
+            echo "Deploy trigger attempt $attempt failed" >&2
+            sleep 5
+          done
+          if [ -z "$deployment_uuid" ]; then
+            echo "Could not trigger Coolify deployment" >&2
+            exit 1
+          fi
           echo "Coolify deployment: $deployment_uuid"
           # Poll so the run (and the GitHub deployment status) reflects the
-          # real outcome; 60 x 10s ≈ the old 13m ssh ceiling.
+          # real outcome: 60 polls, 10s apart — ~10 min when the API is
+          # healthy, up to ~40 min if every request drags to its 30s
+          # --max-time.
           for i in $(seq 1 60); do
             sleep 10
-            # A transient network hiccup (dropped connection, truncated
-            # response) must not crash the watch under `set -eu`; fall back
-            # to a status that matches neither case arm so the loop retries.
+            # One bad poll must not crash the watch under `set -eu`: a
+            # garbled body falls back to transient_error via jq's exit
+            # code, and a dead curl (no pipefail) yields an empty status;
+            # either way the loop just retries.
             status="$(curl -fsS \
               --connect-timeout 10 --max-time 30 \
               -H "Authorization: Bearer $COOLIFY_TOKEN" \
@@ -259,7 +268,7 @@ jobs:
               failed | cancelled*) echo "Deployment $status" >&2; exit 1 ;;
             esac
           done
-          echo "Timed out waiting for Coolify deployment" >&2
+          echo "Gave up waiting for Coolify deployment after 60 polls" >&2
           exit 1
 
       - name: Mark GitHub deployment complete
