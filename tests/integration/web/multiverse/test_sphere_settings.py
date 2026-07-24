@@ -17,6 +17,15 @@ SVG_BYTES = (
     b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
     b'<rect width="10" height="10" fill="#123"/></svg>'
 )
+XML_BOMB_BYTES = (
+    b'<?xml version="1.0"?><!DOCTYPE svg ['
+    b'<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">'
+    b'<!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">'
+    b'<!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;">'
+    b'<!ENTITY e "&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;">'
+    b'<!ENTITY f "&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;">]>'
+    b'<svg xmlns="http://www.w3.org/2000/svg"><text>&f;</text></svg>'
+)
 GIF_BYTES = (
     b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!"
     b"\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00"
@@ -200,8 +209,9 @@ class TestSphereSettingsPageView:
             ),
             SVG_BYTES[:-10],
             b'<not-svg xmlns="http://www.w3.org/2000/svg"/>',
+            XML_BOMB_BYTES,
         ),
-        ids=["javascript-url", "malformed-xml", "non-svg-root"],
+        ids=["javascript-url", "malformed-xml", "non-svg-root", "xml-bomb"],
     )
     def test_post_bad_svg_logo_is_rejected(
         self, authenticated_client, active_user, sphere, malicious
