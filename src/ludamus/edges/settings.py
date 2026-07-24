@@ -11,8 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 import environ
+from django.utils.csp import CSP
 from google.oauth2 import service_account
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -54,13 +56,18 @@ env = environ.Env(
     # smtp://user:pass@host:587/?tls=True in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
-    # Waiting-list offer-expiry trigger: "cron" (default; the expire_offers
-    # sweep) or "dbos" (durable in-process workflow timer).
-    OFFER_EXPIRY_SCHEDULER=(str, "cron"),
-    # DBOS system database (separate from the app DB). SQLite in dev, set to a
-    # Postgres URL in production.
-    DBOS_SYSTEM_DATABASE_URL=(str, "sqlite:///dbos_sys.sqlite"),
+    # Scheduler mode: "dbos" (default; durable offer timers plus the
+    # DBOS-scheduled cron workflows, all in the web process) or "cron"
+    # (external cron invokes the management commands instead).
+    SCHEDULER_MODE=(str, "dbos"),
+    # DBOS system database. Empty (default) derives it from the app database:
+    # the app Postgres (system tables live under the "dbos" schema) or a local
+    # SQLite file when the app DB is SQLite.
+    DBOS_SYSTEM_DATABASE_URL=(str, ""),
     ENV=str,
+    # Staging runs with ENV=production; this flag is the only way the app
+    # can tell the two apart (currently: the favicon variant).
+    IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
@@ -70,6 +77,7 @@ env = environ.Env(
 # Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
+IS_STAGING = env("IS_STAGING")
 IN_TESTS = env("IN_TESTS")
 
 # Quick-start development settings - unsuitable for production
@@ -111,13 +119,14 @@ INSTALLED_APPS = [
     "heroicons",
     # First Party
     "ludamus.adapters.web.django.apps.WebMainConfig",
-    "ludamus.adapters.db.django.apps.DBMainConfig",
+    "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -165,6 +174,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.template.context_processors.media",
                 "ludamus.gates.web.django.context_processors.sites",
+                "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -175,7 +185,6 @@ TEMPLATES = [
                 "avatar_tags": "ludamus.gates.web.django.templatetags.avatar_tags"
             },
             "debug": DEBUG or env("IN_TESTS"),
-            "string_if_invalid": "" if IS_PRODUCTION else "ERROR: Missing variable %s",
         },
     }
 ]
@@ -299,6 +308,24 @@ INTERNAL_IPS = [
     # ...
 ]
 
+# Content-Security-Policy, report-only for now. 'unsafe-inline' in
+# script-src/style-src covers the inline theme-init/panel scripts and
+# inline style attributes; 'unsafe-eval' covers htmx hx-on:
+# attributes; img-src is broad because avatars come from arbitrary
+# Auth0/gravatar HTTPS hosts and media from GCS.
+CSP_REPORT_ONLY_POLICY: dict[str, list[str]] = {
+    "default-src": [CSP.SELF],
+    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, CSP.UNSAFE_EVAL],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "img-src": [CSP.SELF, "data:", "https:"],
+    "font-src": [CSP.SELF],
+    "connect-src": [CSP.SELF],
+    "object-src": [CSP.NONE],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+}
+
 # Security Settings for Production
 if IS_PRODUCTION:
     # HTTPS/SSL Settings
@@ -337,6 +364,8 @@ if IS_PRODUCTION:
 
     # Additional Security Settings
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+    SECURE_CSP_REPORT_ONLY = CSP_REPORT_ONLY_POLICY
 
     SECURE_REDIRECT_EXEMPT = [r"^healthz/"]
 
@@ -413,9 +442,20 @@ EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
-# Waiting-list offer-expiry scheduler (see inits/services.py).
-OFFER_EXPIRY_SCHEDULER = env("OFFER_EXPIRY_SCHEDULER")
-DBOS_SYSTEM_DATABASE_URL = env("DBOS_SYSTEM_DATABASE_URL")
+# In-system scheduler (see inits/dbos_scheduler.py and inits/services.py).
+SCHEDULER_MODE = env("SCHEDULER_MODE")
+if not (DBOS_SYSTEM_DATABASE_URL := env("DBOS_SYSTEM_DATABASE_URL")):
+    if env("USE_POSTGRES"):
+        _dbos_host = env.str("DB_HOST")
+        if _dbos_port := env.str("DB_PORT"):
+            _dbos_host = f"{_dbos_host}:{_dbos_port}"
+        DBOS_SYSTEM_DATABASE_URL = (
+            f"postgresql://{quote(env.str('DB_USER'), safe='')}"
+            f":{quote(env.str('DB_PASSWORD'), safe='')}"
+            f"@{_dbos_host}/{env('DB_NAME')}"
+        )
+    else:
+        DBOS_SYSTEM_DATABASE_URL = "sqlite:///dbos_sys.sqlite"
 
 # Cache configuration
 CACHES = (
@@ -448,6 +488,10 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "INFO" if IS_PRODUCTION else "DEBUG"},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # The markdown lib logs every extension load at DEBUG on each call;
+        # render_markdown runs once per session, so on big event pages this
+        # floods the dev console and dominates render time. Quiet it.
+        "MARKDOWN": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",

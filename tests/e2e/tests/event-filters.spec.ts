@@ -9,8 +9,8 @@ test.describe("Event filter panel", () => {
     });
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
-    await page.locator("#filter-toggle").click();
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
     const box = await page.locator("#filter-panel").boundingBox();
@@ -21,13 +21,23 @@ test.describe("Event filter panel", () => {
     await context.close();
   });
 
+  test("filter panel respects reduced motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/event/autumn-open/");
+
+    const filterPanel = page.locator("#filter-panel");
+    await expect(filterPanel).toHaveCSS("transform", "none");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await expect(filterPanel).toHaveCSS("transform", "none");
+  });
+
   test("filters sessions by day and hour on a multi-day event", async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
-    const card = (title: string) => page.locator(".session-card", { hasText: title });
-    await expect(page.locator(".session-card")).toHaveCount(3);
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await expect(page.locator(".session")).toHaveCount(3);
 
-    await page.locator("#filter-toggle").click();
+    await page.getByRole("button", { name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
     // Day and hour filters only surface for multi-day events.
@@ -52,9 +62,9 @@ test.describe("Event filter panel", () => {
   });
 
   test("filters by host name case-insensitively", async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
-    const card = (title: string) => page.locator(".session-card", { hasText: title });
+    const card = (title: string) => page.locator(".session", { hasText: title });
 
     // "Alex Morgan" hosts Mega Strategy Lab; a lowercase query must still match.
     await page.locator("#session-filter").fill("alex");
@@ -76,7 +86,7 @@ test.describe("Event fuzzy search", () => {
   const NEON = "Przygoda w Mieście Neonów";
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     await expect(card(page, NEON)).toBeVisible();
     await expect(card(page, MEGA)).toBeVisible();
   });

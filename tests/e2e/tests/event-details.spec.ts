@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+
 import { expect, test } from "@playwright/test";
 
 import { createIosModalContext } from "./helpers/ios-modal";
@@ -17,7 +18,7 @@ const settleViewTransitions = (page: Page): Promise<void> =>
 
 test.describe("Event detail page", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
   });
 
   test("shows event information and enrollment status pill", async ({ page }) => {
@@ -68,21 +69,22 @@ test.describe("Event detail page", () => {
   });
 
   test("session card shows a slot while its modal is open", async ({ page }) => {
-    const card = page.locator('.session-card[data-session-id="2"]');
+    const card = page.getByRole("article").filter({ hasText: "Mega Strategy Lab" });
+    const sessionSurface = card.locator(":scope > div").first();
     const title = card.getByRole("heading", { name: "Mega Strategy Lab" });
 
     await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
 
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
     await settleViewTransitions(page);
-    await expect(card).toHaveClass(/session-card-suppressed/);
+    await expect(sessionSurface).toHaveClass(/session-suppressed/);
     await expect(card).toBeVisible();
     await expect(title).toBeHidden();
 
     await page.getByRole("button", { name: "Close" }).click();
     await settleViewTransitions(page);
     await expect(title).toBeVisible();
-    await expect(card).not.toHaveClass(/session-card-suppressed/);
+    await expect(card).not.toHaveClass(/session-suppressed/);
   });
 
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
@@ -93,7 +95,7 @@ test.describe("Event detail page", () => {
     const context = await createIosModalContext(browser, browserName);
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
 
     const detailDialog = page.getByRole("dialog", {
@@ -137,7 +139,7 @@ test.describe("Event detail page", () => {
     const context = await createIosModalContext(browser, browserName);
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
 
     const scrolledTop = await page.evaluate(() => {
       const root = document.getElementById("app-scroll");
@@ -223,13 +225,21 @@ test.describe("Event detail page", () => {
     });
     const page = await context.newPage();
 
-    await page.goto("/chronology/event/autumn-open/");
+    await page.goto("/event/autumn-open/");
     const controls = await page
       .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
       .getAttribute("aria-controls");
     const sessionId = controls?.replace("session-", "");
     expect(sessionId).toBeTruthy();
 
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    const detailDialog = page.getByRole("dialog", {
+      name: "Cozy Storytellers Circle",
+    });
+    await expect(detailDialog).toBeVisible();
+
+    // The modal is fetched on open (lazy-loaded), so it only exists in the DOM
+    // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
       const description = document.querySelector(
         `#session-${id} [id^="info-"] [data-morph="desc"]`,
@@ -240,12 +250,6 @@ test.describe("Event detail page", () => {
         (_, index) => `<p>Long mobile session description paragraph ${index + 1}.</p>`,
       ).join("");
     }, sessionId);
-
-    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
-    const detailDialog = page.getByRole("dialog", {
-      name: "Cozy Storytellers Circle",
-    });
-    await expect(detailDialog).toBeVisible();
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
@@ -302,7 +306,7 @@ test.describe("Event detail page", () => {
 
 test.describe("Anonymous code modal", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chronology/event/autumn-open/anonymous/do/activate");
+    await page.goto("/event/autumn-open/anonymous/do/activate");
     await expect(page.getByRole("heading", { name: "Anonymous Mode Active" })).toBeVisible();
   });
 
@@ -341,7 +345,41 @@ test.describe("Anonymous code modal", () => {
     await dialog.getByLabel("Anonymous Code").fill("zzzz99");
     await dialog.getByRole("button", { name: "Switch to This Code" }).click();
 
-    await expect(page).toHaveURL(/\/chronology\/event\/autumn-open/);
-    await expect(page.getByText(/Invalid code/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/event\/autumn-open/);
+    const flash = page.getByRole("alert").filter({ hasText: /Invalid code/i });
+    await expect(flash).toBeVisible();
+    await expect(dialog).toBeVisible();
+
+    const initialMainTop = await page
+      .locator("main")
+      .evaluate((main) => main.getBoundingClientRect().top);
+    expect(
+      await page
+        .getByRole("region", { name: "Notifications" })
+        .evaluate((region) => getComputedStyle(region).position),
+    ).toBe("fixed");
+    await page.waitForTimeout(300);
+    const finalMainTop = await page
+      .locator("main")
+      .evaluate((main) => main.getBoundingClientRect().top);
+    expect(finalMainTop).toBe(initialMainTop);
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await flash.getByRole("button", { name: "Dismiss" }).click();
+    await expect(flash).toHaveAttribute("data-flash-closing", "true");
+    // The exit fades opacity over 260ms and hard-removes the flash ~360ms after
+    // the click. Sample densely across that whole window so a delayed transition
+    // start (under CI/parallel load) is still caught before the element is gone.
+    await expect
+      .poll(
+        () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
+        {
+          timeout: 2000,
+          intervals: [50],
+        },
+      )
+      .toBeLessThan(1);
+    await expect(flash).toHaveCount(0);
   });
 });

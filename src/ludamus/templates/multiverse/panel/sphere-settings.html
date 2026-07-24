@@ -13,57 +13,58 @@
 {% block header_actions %}
 {% endblock header_actions %}
 {% block content %}
-    {% include "multiverse/panel/_tabs.html" %}
-    <div class="px-3 sm:px-4 py-6">
-        <div class="card overflow-hidden max-w-2xl">
-            <dl class="divide-y divide-border">
-                <div class="px-6 py-4 grid grid-cols-3 gap-4">
-                    <dt class="text-sm font-medium text-foreground-muted">{% translate "Name" %}</dt>
-                    <dd class="text-sm text-foreground col-span-2">
-                        {{ current_sphere.name }}
-                    </dd>
-                </div>
-                <div class="px-6 py-4 grid grid-cols-3 gap-4">
-                    <dt class="text-sm font-medium text-foreground-muted">{% translate "Default page" %}</dt>
-                    <dd class="text-sm text-foreground col-span-2">
-                        {{ current_sphere.default_page.value }}
-                    </dd>
-                </div>
-                <div class="px-6 py-4 grid grid-cols-3 gap-4">
-                    <dt class="text-sm font-medium text-foreground-muted">{% translate "Enabled pages" %}</dt>
-                    <dd class="text-sm text-foreground col-span-2">
-                        {% for page in current_sphere.enabled_pages %}
-                            <span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-bg-tertiary text-foreground-secondary rounded text-xs">{{ page.value }}</span>
-                        {% endfor %}
-                    </dd>
-                </div>
-            </dl>
-        </div>
-        <form method="post"
-              enctype="multipart/form-data"
-              action="{% url 'multiverse:panel:sphere-settings' %}"
-              class="card overflow-hidden max-w-2xl mt-6">
-            {% csrf_token %}
-            <div class="card-body">
-                <label class="flex items-start gap-3 text-sm">
-                    <input type="checkbox"
-                           name="allow_facilitator_session_edit"
-                           value="on"
-                           {% if form.allow_facilitator_session_edit.value %}checked{% endif %}
-                           class="mt-0.5 rounded border-border">
-                    <span>
-                        <span class="font-medium text-foreground">{{ form.allow_facilitator_session_edit.label }}</span>
-                        <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
-                    </span>
-                </label>
-                <div class="mt-6">{% tessera_field form.logo %}</div>
-                <div class="mt-6">
-                    <button type="submit" class="btn btn-primary">
-                        {% icon "check" class="w-4 h-4 mr-2" %}
-                        {% translate "Save Settings" %}
-                    </button>
-                </div>
+    {% tab_shell "multiverse/panel/_sphere_tabs_nav.html" %}
+    {% tab_shell_body %}
+    <div class="card overflow-hidden max-w-2xl">
+        <dl class="divide-y divide-border">
+            <div class="px-6 py-4 grid grid-cols-3 gap-4">
+                <dt class="text-sm font-medium text-foreground-muted">{% translate "Name" %}</dt>
+                <dd class="text-sm text-foreground col-span-2">
+                    {{ current_sphere.name }}
+                </dd>
             </div>
-        </form>
+            <div class="px-6 py-4 grid grid-cols-3 gap-4">
+                <dt class="text-sm font-medium text-foreground-muted">{% translate "Default page" %}</dt>
+                <dd class="text-sm text-foreground col-span-2">
+                    {{ current_sphere.default_page.value }}
+                </dd>
+            </div>
+            <div class="px-6 py-4 grid grid-cols-3 gap-4">
+                <dt class="text-sm font-medium text-foreground-muted">{% translate "Enabled pages" %}</dt>
+                <dd class="text-sm text-foreground col-span-2">
+                    {% for page in current_sphere.enabled_pages %}
+                        <span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-bg-tertiary text-foreground-secondary rounded text-xs">{{ page.value }}</span>
+                    {% endfor %}
+                </dd>
+            </div>
+        </dl>
     </div>
+    <form method="post"
+          enctype="multipart/form-data"
+          action="{% url 'multiverse:panel:sphere-settings' %}"
+          class="card overflow-hidden max-w-2xl mt-6">
+        {% csrf_token %}
+        <div class="card-body">
+            <label class="flex items-start gap-3 text-sm">
+                <input type="checkbox"
+                       name="allow_facilitator_session_edit"
+                       value="on"
+                       {% if form.allow_facilitator_session_edit.value %}checked{% endif %}
+                       class="mt-0.5 rounded border-border">
+                <span>
+                    <span class="font-medium text-foreground">{{ form.allow_facilitator_session_edit.label }}</span>
+                    <span class="block text-foreground-muted">{{ form.allow_facilitator_session_edit.help_text }}</span>
+                </span>
+            </label>
+            <div class="mt-6">{% tessera_field form.logo %}</div>
+            <div class="mt-6">
+                <button type="submit" class="btn btn-primary">
+                    {% icon "check" class="w-4 h-4 mr-2" %}
+                    {% translate "Save Settings" %}
+                </button>
+            </div>
+        </div>
+    </form>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% endblock content %}

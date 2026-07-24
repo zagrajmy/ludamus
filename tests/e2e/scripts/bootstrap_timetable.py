@@ -14,7 +14,7 @@ which is what makes the suite safe to run with parallel workers.
 Run after ``bootstrap_data.py`` and ``bootstrap_facilitators.py``.
 
 Usage:
-    mise run _e2e -- python tests/e2e/scripts/bootstrap_timetable.py
+    mise run test:e2e:boot tests/e2e/scripts/bootstrap_timetable.py
 """
 
 from __future__ import annotations
@@ -29,16 +29,17 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # noqa: E402
+import django  # ruff:ignore[module-import-not-at-top-of-file]
 
 django.setup()
 
-from django.utils import timezone  # noqa: E402
-from django.utils.timezone import get_current_timezone  # noqa: E402
+from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
+from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
+    get_current_timezone,
+)
 
-from ludamus.adapters.db.django.models import (  # noqa: E402
+from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
     AgendaItem,
-    Area,
     Event,
     Facilitator,
     ProposalCategory,
@@ -47,7 +48,6 @@ from ludamus.adapters.db.django.models import (  # noqa: E402
     TimeSlot,
     TimeSlotRequirement,
     Track,
-    Venue,
 )
 
 
@@ -76,32 +76,44 @@ def main() -> None:
     )
 
     # Venue hierarchy — two spaces so the grid renders two assignable columns.
-    venue, _ = Venue.objects.get_or_create(
+    venue, _ = Space.objects.get_or_create(
         event=event,
+        parent=None,
         slug="meadowbrook-pavilion",
         defaults={"name": "Meadowbrook Pavilion"},
     )
-    area, _ = Area.objects.get_or_create(
-        venue=venue, slug="festival-hall", defaults={"name": "Festival Hall"}
+    area, _ = Space.objects.get_or_create(
+        event=event,
+        parent=venue,
+        slug="festival-hall",
+        defaults={"name": "Festival Hall"},
     )
     space_a, _ = Space.objects.get_or_create(
-        area=area,
+        event=event,
+        parent=area,
         slug="garden-table",
-        defaults={"name": "Garden Table", "capacity": 8, "event": event},
+        defaults={"name": "Garden Table", "capacity": 8},
     )
     space_b, _ = Space.objects.get_or_create(
-        area=area,
+        event=event,
+        parent=area,
         slug="willow-table",
-        defaults={"name": "Willow Table", "capacity": 8, "event": event},
+        defaults={"name": "Willow Table", "capacity": 8},
     )
 
-    # Time slot — morning block; gives the overview "capacity hours" a value.
-    slot, _ = TimeSlot.objects.get_or_create(
+    # Morning blocks on consecutive days exercise the all-days schedule.
+    slot_day_one, _ = TimeSlot.objects.get_or_create(
         event=event,
         start_time=datetime.combine(event_day, time(10, 0), tzinfo=local_tz),
         end_time=datetime.combine(event_day, time(12, 0), tzinfo=local_tz),
     )
-    slots: list[TimeSlot] = [slot]
+    second_day = event_day + timedelta(days=1)
+    slot_day_two, _ = TimeSlot.objects.get_or_create(
+        event=event,
+        start_time=datetime.combine(second_day, time(10, 0), tzinfo=local_tz),
+        end_time=datetime.combine(second_day, time(12, 0), tzinfo=local_tz),
+    )
+    slots: list[TimeSlot] = [slot_day_one, slot_day_two]
 
     # Category
     cat, _ = ProposalCategory.objects.get_or_create(
@@ -139,8 +151,8 @@ def main() -> None:
         session=overflow,
         defaults={
             "session_confirmed": True,
-            "start_time": slot.start_time,
-            "end_time": slot.end_time,
+            "start_time": slot_day_one.start_time,
+            "end_time": slot_day_one.end_time,
         },
     )
 
@@ -178,7 +190,7 @@ def main() -> None:
             "duration": "PT1H",
             "participants_limit": 6,
             "min_age": 0,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -197,7 +209,7 @@ def main() -> None:
             "duration": "PT2H",
             "participants_limit": 4,
             "min_age": 12,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -216,7 +228,7 @@ def main() -> None:
             "duration": "PT1H30M",
             "participants_limit": 8,
             "min_age": 0,
-            "status": "pending",
+            "status": "accepted",
             "category": cat,
         },
     )
@@ -224,6 +236,25 @@ def main() -> None:
         s3.tracks.add(track)
         s3.facilitators.add(bob)
         # no preferred time slot for s3
+
+    all_days_session, created = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-all-days",
+        defaults={
+            "title": "All Days Workshop",
+            "display_name": "Bob Chen",
+            "description": "A movable session for the multi-day schedule test.",
+            "duration": "PT1H",
+            "participants_limit": 8,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    if created:
+        all_days_session.tracks.add(track)
+        all_days_session.facilitators.add(bob)
+        all_days_session.time_slots.set(slots)
 
 
 if __name__ == "__main__":

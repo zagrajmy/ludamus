@@ -85,7 +85,7 @@ kanban
     [Split check_proposal_rate_limit into query + command]@{
       assigned: 'GLIMPSE'
     }
-    [Drop HostPersonalData.user FK after 0061 deploys, unify read path]@{
+    [✅ Drop PersonalDataFieldValue.user FK after 0061 deploys, unify read path]@{
       assigned: 'GLIMPSE'
     }
     [Feature flag system]@{ assigned: 'agent-readiness' }
@@ -179,5 +179,20 @@ kanban
   bugs
     [Agenda: switch day during assign shows wrong red space]@{
       assigned: 'panel'
+    }
+    [Panel: sphere managers cannot create events]@{
+      assigned: 'panel'
+      ticket: 339
+    }
+    [Opening session edit modal is unpleasant]@{
+      assigned: 'panel'
+      ticket: 342
+    }
+    [Space reordering has no keyboard alternative to drag-and-drop]@{
+      assigned: 'frontend'
+      ticket: 281
+    }
+    [Theme toggle doesn't sync browser chrome (color-scheme)]@{
+      assigned: 'frontend'
     }
 ```

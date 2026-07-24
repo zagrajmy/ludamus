@@ -1,7 +1,6 @@
 import string
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from secrets import choice as _secret_choice
-from secrets import token_urlsafe
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
@@ -10,47 +9,32 @@ import nh3
 
 from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts import (
-    AgendaItemData,
-    AuthenticatedRequestContext,
     CacheProtocol,
     DateTimeRangeProtocol,
     EncounterDetailResult,
     EncounterDTO,
     EncounterIndexItem,
     EncounterIndexResult,
-    EnrollmentConfigDTO,
-    EnrollmentConfigRepositoryProtocol,
     EventDTO,
     EventStatsData,
     FacilitatorData,
     FacilitatorDTO,
     FacilitatorMergeError,
-    HostPersonalDataEntry,
-    MembershipAPIError,
     NotFoundError,
     PanelStatsDTO,
+    PersonalDataFieldValueData,
     PersonalFieldRequirementDTO,
     ProposalCategoryDTO,
     ProposeSessionResult,
     RequestContext,
     SessionData,
-    SessionDTO,
     SessionFieldRequirementDTO,
     SessionFieldValueData,
     SessionStatus,
-    SessionUpdateData,
-    TicketAPIProtocol,
     TimeSlotRequirementDTO,
     TrackDTO,
     UnitOfWorkProtocol,
     UploadedFileProtocol,
-    UserData,
-    UserDTO,
-    UserEnrollmentConfigData,
-    UserEnrollmentConfigDTO,
-    UserRepositoryProtocol,
-    UserType,
-    VirtualEnrollmentConfig,
     WizardData,
 )
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
@@ -267,17 +251,6 @@ def is_proposal_active(event: EventDTO) -> bool:
     return event.proposal_start_time <= now <= event.proposal_end_time
 
 
-def get_days_to_event(event: EventDTO) -> int:
-    """Calculate days remaining until the event starts.
-
-    Returns:
-        Number of days until event start, minimum 0.
-    """
-    now = datetime.now(tz=UTC)
-    delta = event.start_time - now
-    return max(0, delta.days)
-
-
 class ProposeSessionService:
     def __init__(self, uow: UnitOfWorkProtocol, context: RequestContext) -> None:
         self._uow = uow
@@ -329,7 +302,7 @@ class ProposeSessionService:
             )
         except NotFoundError:
             return {}
-        return self._uow.host_personal_data.read_for_facilitator_event(
+        return self._uow.personal_data_field_values.read_for_facilitator_event(
             facilitator.pk, event_id
         )
 
@@ -395,8 +368,6 @@ class ProposeSessionService:
                 title=title,
                 slug=slug,
                 description=description,
-                requirements="",
-                needs="",
                 duration=str(session_data.get("duration") or ""),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
@@ -408,7 +379,6 @@ class ProposeSessionService:
 
             session_id = self._uow.sessions.create(
                 create_data,
-                tag_ids=[],
                 time_slot_ids=time_slot_ids,
                 facilitator_ids=[facilitator.pk],
             )
@@ -449,7 +419,7 @@ class ProposeSessionService:
     def _save_personal_data(
         self, event_id: int, personal_data: dict[str, str], facilitator: FacilitatorDTO
     ) -> None:
-        entries: list[HostPersonalDataEntry] = []
+        entries: list[PersonalDataFieldValueData] = []
         for key, value in personal_data.items():
             if not key.startswith("personal_"):
                 continue
@@ -461,7 +431,7 @@ class ProposeSessionService:
             except NotFoundError:
                 continue
             entries.append(
-                HostPersonalDataEntry(
+                PersonalDataFieldValueData(
                     facilitator_id=facilitator.pk,
                     event_id=event_id,
                     field_id=field_dto.pk,
@@ -469,7 +439,7 @@ class ProposeSessionService:
                 )
             )
         if entries:
-            self._uow.host_personal_data.save(entries)
+            self._uow.personal_data_field_values.save(entries)
 
 
 def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> bool:
@@ -483,73 +453,6 @@ def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> b
         return False
     cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
     return True
-
-
-class AnonymousEnrollmentService:
-    SLUG_TEMPLATE = "code_{code}"
-
-    def __init__(self, user_repository: UserRepositoryProtocol) -> None:
-        self._user_repository = user_repository
-
-    def get_user_by_code(self, code: str) -> UserDTO:
-        slug = self.SLUG_TEMPLATE.format(code=code)
-        user = self._user_repository.read(slug)
-        return UserDTO.model_validate(user)
-
-    def build_user(self, code: str) -> UserData:
-        return UserData(
-            username=f"anon_{token_urlsafe(8).lower()}",
-            slug=self.SLUG_TEMPLATE.format(code=code),
-            user_type=UserType.ANONYMOUS,
-            is_active=False,
-        )
-
-
-class AcceptProposalService:
-    def __init__(
-        self, uow: UnitOfWorkProtocol, context: AuthenticatedRequestContext
-    ) -> None:
-        self._uow = uow
-        self._context = context
-
-    def can_accept_proposals(self) -> bool:
-        user = self._uow.active_users.read(self._context.current_user_slug)
-        if user.is_superuser or user.is_staff:
-            return True
-
-        return self._uow.spheres.is_manager(
-            self._context.current_sphere_id, self._context.current_user_slug
-        )
-
-    def accept_session(
-        self,
-        *,
-        session: SessionDTO,
-        slugifier: Callable[[str], str],
-        space_id: int,
-        time_slot_id: int,
-    ) -> None:
-        time_slot = self._uow.sessions.read_time_slot(session.pk, time_slot_id)
-
-        with self._uow.atomic():
-            self._uow.sessions.update(
-                session.pk,
-                SessionUpdateData(
-                    status=SessionStatus.SCHEDULED,
-                    display_name=session.display_name,
-                    slug=slugifier(session.title),
-                ),
-            )
-
-            self._uow.agenda_items.create(
-                AgendaItemData(
-                    space_id=space_id,
-                    session_id=session.pk,
-                    session_confirmed=True,
-                    start_time=time_slot.start_time,
-                    end_time=time_slot.end_time,
-                )
-            )
 
 
 class PanelService:
@@ -586,34 +489,6 @@ class PanelService:
         self._uow.session_fields.delete(field_pk)
         return True
 
-    def delete_venue(self, venue_pk: int) -> bool:
-        """Delete a venue if it has no scheduled sessions.
-
-        Args:
-            venue_pk: The venue primary key.
-
-        Returns:
-            True if deleted, False if venue has sessions.
-        """
-        if self._uow.venues.has_sessions(venue_pk):
-            return False
-        self._uow.venues.delete(venue_pk)
-        return True
-
-    def delete_area(self, area_pk: int) -> bool:
-        """Delete an area if it has no scheduled sessions in any space.
-
-        Args:
-            area_pk: The area primary key.
-
-        Returns:
-            True if deleted, False if area has sessions.
-        """
-        if self._uow.areas.has_sessions(area_pk):
-            return False
-        self._uow.areas.delete(area_pk)
-        return True
-
     def delete_time_slot(self, time_slot_pk: int) -> bool:
         """Delete a time slot if not used in any proposals.
 
@@ -626,20 +501,6 @@ class PanelService:
         if self._uow.time_slots.has_proposals(time_slot_pk):
             return False
         self._uow.time_slots.delete(time_slot_pk)
-        return True
-
-    def delete_space(self, space_pk: int) -> bool:
-        """Delete a space if it has no scheduled sessions.
-
-        Args:
-            space_pk: The space primary key.
-
-        Returns:
-            True if deleted, False if space has sessions.
-        """
-        if self._uow.spaces.has_sessions(space_pk):
-            return False
-        self._uow.spaces.delete(space_pk)
         return True
 
     def get_event_stats(self, event_id: int) -> PanelStatsDTO:
@@ -687,142 +548,6 @@ class PanelService:
         return errors
 
 
-def _refresh_user_config_from_api(
-    *,
-    user_config: UserEnrollmentConfigDTO,
-    ticket_api: TicketAPIProtocol,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-) -> UserEnrollmentConfigDTO | None:
-    try:
-        membership_count = ticket_api.fetch_membership_count(user_config.user_email)
-    except MembershipAPIError:
-        return user_config
-
-    current_time = datetime.now(tz=UTC)
-
-    if membership_count == 0:
-        user_config.allowed_slots = 0
-        user_config.last_check = current_time
-        enrollment_config_repo.update_user_config(user_config)
-        return None
-
-    user_config.allowed_slots = membership_count
-    user_config.last_check = current_time
-    enrollment_config_repo.update_user_config(user_config)
-    return user_config
-
-
-def _create_user_config_from_api(
-    *,
-    enrollment_config: EnrollmentConfigDTO,
-    user_email: str,
-    ticket_api: TicketAPIProtocol,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-) -> UserEnrollmentConfigDTO | None:
-
-    try:
-        membership_count = ticket_api.fetch_membership_count(user_email)
-    except MembershipAPIError:
-        return None
-
-    current_time = datetime.now(tz=UTC)
-    return enrollment_config_repo.create_user_config(
-        UserEnrollmentConfigData(
-            enrollment_config_id=enrollment_config.pk,
-            user_email=user_email,
-            allowed_slots=membership_count,
-            fetched_from_api=True,
-            last_check=current_time,
-        )
-    )
-
-
-def get_or_create_user_enrollment_config(  # noqa: PLR0913
-    *,
-    enrollment_config: EnrollmentConfigDTO,
-    user_email: str,
-    ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
-    existing_user_config: UserEnrollmentConfigDTO | None,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-) -> UserEnrollmentConfigDTO | None:
-    if existing_user_config:
-        if existing_user_config.allowed_slots > 0:
-            return existing_user_config
-
-        time_threshold = datetime.now(tz=UTC) - timedelta(
-            minutes=check_interval_minutes
-        )
-
-        if (
-            not existing_user_config.last_check
-            or existing_user_config.last_check < time_threshold
-        ):
-            return _refresh_user_config_from_api(
-                user_config=existing_user_config,
-                ticket_api=ticket_api,
-                enrollment_config_repo=enrollment_config_repo,
-            )
-
-        return None
-
-    return _create_user_config_from_api(
-        enrollment_config=enrollment_config,
-        user_email=user_email,
-        ticket_api=ticket_api,
-        enrollment_config_repo=enrollment_config_repo,
-    )
-
-
-def get_user_enrollment_config(
-    *,
-    event: EventDTO,
-    user_email: str,
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-    ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
-) -> VirtualEnrollmentConfig | None:
-    virtual_config = VirtualEnrollmentConfig()
-
-    now = datetime.now(tz=UTC)
-    for config in enrollment_config_repo.read_list(
-        event.pk, max_start_time=now, min_end_time=now
-    ):
-        existing_user_config = enrollment_config_repo.read_user_config(
-            config, user_email
-        )
-        if api_user_config := get_or_create_user_enrollment_config(
-            enrollment_config=config,
-            user_email=user_email,
-            ticket_api=ticket_api,
-            check_interval_minutes=check_interval_minutes,
-            existing_user_config=existing_user_config,
-            enrollment_config_repo=enrollment_config_repo,
-        ):
-            virtual_config.allowed_slots += api_user_config.allowed_slots
-            virtual_config.has_user_config = True
-        elif existing_user_config:
-            virtual_config.allowed_slots += existing_user_config.allowed_slots
-            virtual_config.has_user_config = True
-
-        email_domain = (
-            user_email.split("@")[1] if (user_email and "@" in user_email) else ""
-        )
-        if email_domain and (
-            domain_config := enrollment_config_repo.read_domain_config(
-                config, email_domain
-            )
-        ):
-            virtual_config.allowed_slots += domain_config.allowed_slots_per_user
-            virtual_config.has_domain_config = True
-
-    return (
-        virtual_config
-        if (virtual_config.has_user_config or virtual_config.has_domain_config)
-        else None
-    )
-
-
 class FacilitatorMergeService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -845,6 +570,6 @@ class FacilitatorMergeService:
 
         with self._uow.atomic():
             self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
-            self._uow.host_personal_data.delete_by_facilitators(source_ids)
+            self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._uow.facilitators.delete(source_id)

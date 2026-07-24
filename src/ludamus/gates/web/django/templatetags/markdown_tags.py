@@ -10,4 +10,4 @@ register = template.Library()
 def render_markdown(text: str) -> str:
     if not text:
         return ""
-    return mark_safe(_render_markdown(text))  # noqa: S308
+    return mark_safe(_render_markdown(text))  # ruff:ignore[suspicious-mark-safe-usage]

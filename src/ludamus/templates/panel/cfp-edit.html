@@ -3,10 +3,10 @@
 {% load tessera %}
 {% load cfp_tags %}
 {% block title_prefix %}
-    {% translate "Configure Session Type" %} -
+    {% translate "Configure Category" %} -
 {% endblock title_prefix %}
 {% block page_title %}
-    {% translate "Configure Session Type" %}
+    {% translate "Configure Category" %}
 {% endblock page_title %}
 {% block page_subtitle %}
     {% if current_event %}
@@ -31,7 +31,7 @@
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Type Details" %}</h3>
+                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Category Details" %}</h3>
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -51,7 +51,7 @@
                                       id="id_description"
                                       rows="3"
                                       class="w-full border {% if form.description.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                                      placeholder="{% translate "Describe this session type for proposers." %}">{{ form.description.value|default:'' }}</textarea>
+                                      placeholder="{% translate "Describe this category for proposers." %}">{{ form.description.value|default:'' }}</textarea>
                             {% if form.description.errors %}
                                 <p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>
                             {% endif %}
@@ -85,7 +85,7 @@
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Participant Limits" %}</h3>
                     <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Set minimum and maximum participant limits for sessions of this type." %}
+                        {% translate "Set minimum and maximum participant limits for this category." %}
                     </p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -123,7 +123,7 @@
             <div class="card mt-6">
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Allowed Durations" %}</h3>
-                    <p class="text-sm text-foreground-muted mb-6">{% translate "Define how long sessions of this type can be." %}</p>
+                    <p class="text-sm text-foreground-muted mb-6">{% translate "Define how long sessions of this category can be." %}</p>
                     <div class="flex items-center gap-2 mb-4">
                         <input type="number"
                                id="duration-hours"
@@ -236,12 +236,12 @@
                 })();
             </script>
             {% if proposal_count > 0 and available_fields or proposal_count > 0 and available_session_fields %}
-                <div class="alert alert-warning mt-6">
+                <div class="alert backdrop-blur-lg alert-warning mt-6">
                     <div class="flex items-start gap-3">
                         <span class="flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
                         <div>
                             <p class="text-sm font-medium">
-                                {% blocktranslate count count=proposal_count %}There is {{ count }} existing proposal for this session type.{% plural %}There are {{ count }} existing proposals for this session type.{% endblocktranslate %}
+                                {% blocktranslate count count=proposal_count %}There is {{ count }} existing proposal for this category.{% plural %}There are {{ count }} existing proposals for this category.{% endblocktranslate %}
                             </p>
                             <p class="text-sm opacity-80 mt-1">
                                 {% translate "Changes to field requirements will not affect existing proposals. New fields will not be added to them, and removed fields will keep their data." %}
@@ -279,11 +279,7 @@
                                                 {% translate "Required" %}
                                             </option>
                                         {% endif %}
-                                        <option value="optional"
-                                                {% if field.field_type == "checkbox" %}{% if field.pk in field_requirements %}selected{% endif %}
-                                                {% else %}
-                                                {% if field_requirements|get_item:field.pk is False %}selected{% endif %}
-                                                {% endif %}>{% translate "Optional" %}</option>
+                                        <option value="optional" {% if field.field_type == "checkbox" %}{% if field.pk in field_requirements %}selected{% endif %} {% else %} {% if field_requirements|get_item:field.pk is False %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
                                     </select>
                                 </div>
                             {% endfor %}
@@ -324,11 +320,7 @@
                                                 {% translate "Required" %}
                                             </option>
                                         {% endif %}
-                                        <option value="optional"
-                                                {% if field.field_type == "checkbox" %}{% if field.pk in session_field_requirements %}selected{% endif %}
-                                                {% else %}
-                                                {% if session_field_requirements|get_item:field.pk is False %}selected{% endif %}
-                                                {% endif %}>{% translate "Optional" %}</option>
+                                        <option value="optional" {% if field.field_type == "checkbox" %}{% if field.pk in session_field_requirements %}selected{% endif %} {% else %} {% if session_field_requirements|get_item:field.pk is False %}selected{% endif %} {% endif %}>{% translate "Optional" %}</option>
                                     </select>
                                 </div>
                             {% endfor %}
@@ -347,7 +339,7 @@
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Time Slots" %}</h3>
                         <p class="text-sm text-foreground-muted mb-6">
-                            {% translate "Select which time slots are available for this session type." %}
+                            {% translate "Select which time slots are available for this category." %}
                         </p>
                         <input type="hidden"
                                name="time_slot_order"

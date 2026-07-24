@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SiteDTO, SphereDTO
+    from ludamus.pacts.legacy import EventDTO, EventListItemDTO, SphereDTO
 
 
 class DuplicateConnectionDisplayNameError(Exception):
@@ -116,6 +116,17 @@ class ConnectionsServiceProtocol(Protocol):
     def delete(self, sphere_id: int, pk: int) -> None: ...
 
 
+class SphereListItemDTO(BaseModel):
+    pk: int
+    name: str
+    domain: str
+
+
+class SphereDirectoryRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_all() -> list[SphereListItemDTO]: ...
+
+
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
@@ -137,4 +148,6 @@ class SpherePanelServiceProtocol(Protocol):
 
 
 class SitesServiceProtocol(Protocol):
-    def read_site(self, sphere_id: int) -> SiteDTO: ...
+    def read(self, sphere_id: int) -> SphereDTO: ...
+    def is_manager(self, sphere_id: int, user_slug: str) -> bool: ...
+    def list_spheres(self) -> list[SphereListItemDTO]: ...

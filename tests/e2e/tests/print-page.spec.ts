@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const densePrintUrl = "/chronology/event/kapitularz-2025-anonymized/print/";
+const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
 
 const countPdfPages = (pdf: Buffer) => {
   const text = pdf.toString("latin1");
@@ -12,7 +12,7 @@ test.describe("Public print page", () => {
     browserName,
     page,
   }) => {
-    await page.goto(`${densePrintUrl}?material=event-timetable`);
+    await page.goto(`${densePrintUrl}?material=timetable`);
 
     await expect(page.getByRole("heading", { name: "Timetable" }).first()).toBeVisible();
     await expect(page.getByText("Kapitularz 2025 Anonymized").first()).toBeVisible();
@@ -45,19 +45,16 @@ test.describe("Public print page", () => {
 
   test("offers dense-fixture printable materials", async ({ page }) => {
     const materials = [
-      ["area-descriptions", "Area with descriptions"],
-      ["area-timetable", "Area timetable"],
-      ["space-timetable", "Space timetable"],
-      ["venue-timetable", "Venue timetable"],
+      ["timetable", "Timetable"],
+      ["timetable-descriptions", "Timetable with descriptions"],
       ["track-timetable", "Track timetable"],
-      ["event-timetable", "Event timetable"],
     ] as const;
 
     await page.goto(densePrintUrl);
     const select = page.getByLabel("Printable");
 
     for (const [, label] of materials) {
-      await expect(select.getByRole("option", { name: label })).toHaveCount(1);
+      await expect(select.getByRole("option", { name: label, exact: true })).toHaveCount(1);
     }
     await expect(select.getByRole("option", { name: "Session list" })).toHaveCount(0);
   });

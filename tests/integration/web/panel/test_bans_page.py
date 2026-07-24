@@ -4,8 +4,8 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EventBan
-from tests.integration.conftest import UserFactory
+from ludamus.links.db.django.models import EventBan
+from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -177,3 +177,25 @@ class TestBansPageView:
             url=self._url(event),
         )
         assert not EventBan.objects.filter(pk=ban.pk).exists()
+
+    def test_manager_cannot_remove_ban_from_other_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        troublemaker = UserFactory(username="tm3", email="tm3@example.com", name="TM3")
+        foreign_ban = EventBan.objects.create(event=other_event, user=troublemaker)
+
+        response = authenticated_client.post(
+            reverse(
+                "panel:ban-delete", kwargs={"slug": event.slug, "pk": foreign_ban.pk}
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Ban removed.")],
+            url=self._url(event),
+        )
+        assert EventBan.objects.filter(pk=foreign_ban.pk).exists()

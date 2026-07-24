@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.adapters.db.django.models import User
+from ludamus.links.db.django.models import User
 from tests.integration.utils import assert_response
 
 
@@ -22,12 +22,11 @@ class TestAuth0LoginCallbackActionView:
         state_data = {
             "redirect_to": redirect_to,
             "created_at": datetime.now(UTC).isoformat(),
-            "csrf_token": "test_csrf_token",
         }
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
         return state_token
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok(self, authorize_access_token_mock, client, faker):
         sub = faker.uuid4()
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
@@ -38,13 +37,13 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
         assert cache.get(f"oauth_state:{state_token}") is None
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_clear_anonymous_session(
         self, authorize_access_token_mock, client, faker
     ):
@@ -62,7 +61,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -71,7 +70,7 @@ class TestAuth0LoginCallbackActionView:
         assert client.session.get("anonymous_enrollment_active") is None
         assert client.session.get("anonymous_event_id") is None
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_redirect_to(self, authorize_access_token_mock, client, faker):
         sub = faker.uuid4()
         authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
@@ -83,7 +82,7 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="https://www.testserver/crowd/profile/",
+            url="https://www.testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
@@ -119,7 +118,7 @@ class TestAuth0LoginCallbackActionView:
 
         assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_external_redirect_to_dropped_on_login(
         self, authorize_access_token_mock, client, faker
     ):
@@ -131,11 +130,11 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_complete_user(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -152,7 +151,7 @@ class TestAuth0LoginCallbackActionView:
             response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
         )
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_error_bad_token(self, authorize_access_token_mock, client):
         authorize_access_token_mock.return_value = {}
         state_token = self._setup_valid_state()
@@ -192,7 +191,7 @@ class TestAuth0LoginCallbackActionView:
             ],
         )
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_error_expired_state(self, authorize_access_token_mock, client, faker):
 
         authorize_access_token_mock.return_value = {"userinfo": {"sub": faker.uuid4()}}
@@ -201,7 +200,6 @@ class TestAuth0LoginCallbackActionView:
         state_data = {
             "redirect_to": None,
             "created_at": (datetime.now(UTC) - timedelta(minutes=15)).isoformat(),
-            "csrf_token": "test_csrf_token",
         }
         cache.set(f"oauth_state:{state_token}", json.dumps(state_data), timeout=600)
 
@@ -216,7 +214,7 @@ class TestAuth0LoginCallbackActionView:
             ],
         )
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_error_replay_attack(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -272,7 +270,7 @@ class TestAuth0LoginCallbackActionView:
             messages=[(messages.ERROR, "Invalid authentication state")],
         )
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_updates_existing_user_fields(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -305,7 +303,7 @@ class TestAuth0LoginCallbackActionView:
         assert user.avatar_url == "https://example.com/new.png"
         assert user.name == "New Name"
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_updates_email_without_name(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -331,8 +329,8 @@ class TestAuth0LoginCallbackActionView:
         assert user.email == "new@example.com"
         assert user.name == "Existing Name"
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.userinfo")
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.userinfo")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_token_not_dict(
         self, authorize_access_token_mock, userinfo_mock, client, faker
     ):
@@ -346,13 +344,13 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         assert User.objects.get().username == f"auth0|{sub}"
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.userinfo")
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.userinfo")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_error_userinfo_returns_non_dict(
         self, authorize_access_token_mock, userinfo_mock, client
     ):
@@ -369,7 +367,7 @@ class TestAuth0LoginCallbackActionView:
             messages=[(messages.ERROR, "Authentication failed")],
         )
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_create_strips_duplicate_email(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
@@ -386,13 +384,13 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/",
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         new_user = User.objects.get(username=f"auth0|{sub}")
         assert not new_user.email
 
-    @patch("ludamus.adapters.web.django.views.oauth.auth0.authorize_access_token")
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_update_strips_duplicate_email(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):

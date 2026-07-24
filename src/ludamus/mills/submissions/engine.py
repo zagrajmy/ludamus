@@ -4,20 +4,23 @@ Not a service: never exposed on `request.services`, owns no transactions —
 callers open the atomic block and invoke engine methods inside it.
 """
 
+import contextlib
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
+    MissingUniqueKeyColumnsError,
     RowSkippedError,
+    build_personal_data_field_values,
     cell,
     chosen_entities,
+    dedup_ident,
     extract_identity,
     field_name,
     field_setup,
     generate_unique_slug,
-    host_personal_data_entries,
     resolve_builtins,
     session_field_values,
     slugify,
@@ -51,7 +54,7 @@ if TYPE_CHECKING:
 class FieldIdsByHeader:
     # Header->pk maps the provisioning step builds once per import and the
     # per-row create/update steps consume. Two flavours: session fields drive
-    # SessionFieldValue writes; personal fields drive HostPersonalData writes
+    # SessionFieldValue writes; personal fields drive PersonalDataFieldValue writes
     # against the row's facilitator.
     session: dict[str, int]
     personal: dict[str, int]
@@ -80,6 +83,7 @@ class ImportEngine:
         settings: ImportSettings,
         indexed_rows: list[tuple[int, ImportRow]],
     ) -> ProposalImportResult:
+        self._guard_unique_key_columns(settings, indexed_rows)
         created = 0
         skipped = 0
         duplicates = 0
@@ -98,6 +102,18 @@ class ImportEngine:
                 # The row's unique key matches an existing session — link
                 # the log entry to it so the operator can navigate and so
                 # a stale skip reason from a prior attempt is cleared.
+                if exc.adopt_ident:
+                    # Pre-ident session matched by title+email: backfill the
+                    # ident so future runs match it directly. A concurrent
+                    # import may have claimed the ident since the lookup —
+                    # skip the backfill then; the next run re-adopts.
+                    with (
+                        contextlib.suppress(DatabaseConstraintError),
+                        self._transaction.savepoint(),
+                    ):
+                        self._repos.sessions.set_ident(
+                            exc.existing_session_id, exc.adopt_ident
+                        )
                 self._repos.log_entries.upsert(
                     ImportLogEntryCreateData(
                         integration_id=integration_pk,
@@ -170,7 +186,7 @@ class ImportEngine:
         # Match by slug-of-name so re-runs reuse the same field instead of
         # spawning suffixed duplicates. Both session and personal fields keep a
         # header->pk map so per-row value filling can fan out to SessionField
-        # values and HostPersonalData entries respectively.
+        # values and PersonalDataFieldValue entries respectively.
         session_ids: dict[str, int] = {}
         personal_ids: dict[str, int] = {}
         created = 0
@@ -265,8 +281,12 @@ class ImportEngine:
         field_ids: FieldIdsByHeader,
     ) -> int:
         builtins = resolve_builtins(settings, row)
-        slug = self._resolve_slug(
-            event_id=event_id, settings=settings, row=row, title=builtins.title
+        ident = self._resolve_ident(
+            event_id=event_id,
+            settings=settings,
+            row=row,
+            title=builtins.title,
+            contact_email=builtins.contact_email,
         )
         session_data: SessionData = {
             "event_id": event_id,
@@ -275,8 +295,14 @@ class ImportEngine:
             "description": builtins.description,
             "display_name": builtins.display_name,
             "participants_limit": builtins.participants_limit,
-            "slug": slug,
+            "slug": generate_unique_slug(
+                builtins.title,
+                lambda s: self._repos.sessions.slug_exists(event_id, s),
+                fallback="proposal",
+            ),
         }
+        if ident:
+            session_data["ident"] = ident
         if builtins.duration:
             session_data["duration"] = builtins.duration
         if builtins.contact_email:
@@ -290,7 +316,6 @@ class ImportEngine:
         facilitator_id = self.facilitator_id(event_id, builtins.display_name)
         session_id = self._repos.sessions.create(
             session_data,
-            tag_ids=[],
             time_slot_ids=self.time_slot_ids(
                 event_id=event_id, settings=settings, row=row
             ),
@@ -370,30 +395,58 @@ class ImportEngine:
             personal_field_ids=field_ids.personal,
         )
 
-    def _resolve_slug(
-        self, *, event_id: int, settings: ImportSettings, row: ImportRow, title: str
+    @staticmethod
+    def _guard_unique_key_columns(
+        settings: ImportSettings, indexed_rows: list[tuple[int, ImportRow]]
+    ) -> None:
+        # Headers are the same across a fetch, so one row settles it. Bail before
+        # any writes (field provisioning included) when a configured unique-key
+        # column isn't in the sheet — otherwise the identity silently collapses
+        # and distinct rows merge onto one slug.
+        if not (settings.unique_key_columns and indexed_rows):
+            return
+        _, sample = indexed_rows[0]
+        missing = [
+            col for col in settings.unique_key_columns if not sample.has_column(col)
+        ]
+        if missing:
+            raise MissingUniqueKeyColumnsError(missing)
+
+    def _resolve_ident(
+        self,
+        *,
+        event_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
+        title: str,
+        contact_email: str,
     ) -> str:
         # Idempotent re-runs: when the operator has named unique-key columns
-        # (e.g. Timestamp + Email Address), build the slug from those values
-        # plus an event prefix. An existing slug means this row is already in;
-        # raise DuplicateRowError so the row counts as a duplicate, not a
-        # skip-with-failure. With no unique-key columns the importer falls
-        # back to the original title-derived slug with a random suffix.
+        # (e.g. Timestamp + Email Address), hash those values into an ident.
+        # An existing ident means this row is already in; raise
+        # DuplicateRowError so the row counts as a duplicate, not a
+        # skip-with-failure. Sessions imported before the ident field existed
+        # carry ident="" (no backfill was possible), so on an ident miss fall
+        # back to matching by title + contact email — a single alive match
+        # adopts the ident and counts as the duplicate; zero or several
+        # matches mean "create". With no unique-key columns every row creates.
         if not settings.unique_key_columns:
-            return generate_unique_slug(
-                title,
-                lambda s: self._repos.sessions.slug_exists(event_id, s),
-                fallback="proposal",
-            )
+            return ""
         identity = "-".join(
             row.get_value(col, "") for col in settings.unique_key_columns
         )
-        slug = slugify(f"e{event_id}-{identity}") or f"e{event_id}-row"
+        ident = dedup_ident(event_id=event_id, identity=identity)
         if (
-            existing_id := self._repos.sessions.find_id_by_slug(event_id, slug)
+            existing_id := self._repos.sessions.find_id_by_ident(event_id, ident)
         ) is not None:
             raise DuplicateRowError(existing_id)
-        return slug
+        if title and contact_email:
+            legacy_ids = self._repos.sessions.find_ids_by_title_and_email(
+                event_id=event_id, title=title, contact_email=contact_email
+            )
+            if len(legacy_ids) == 1:
+                raise DuplicateRowError(legacy_ids[0], adopt_ident=ident)
+        return ident
 
     def facilitator_id(self, event_id: int, display_name: str) -> int | None:
         # Per-row provisioning: a non-empty `facilitator.display_name` answer
@@ -427,13 +480,13 @@ class ImportEngine:
         personal_field_ids: dict[str, int],
     ) -> None:
         # Each provisioned personal field's header maps to a cell value that
-        # gets stamped onto HostPersonalData (upserted by the repo, so re-runs
+        # gets stamped onto PersonalDataFieldValue (upserted by the repo, so re-runs
         # of the same row overwrite rather than duplicate). Without a
         # facilitator nothing is saved — personal data is per-facilitator,
         # there's no orphan bucket to land it in.
         if facilitator_id is None:
             return
-        entries = host_personal_data_entries(
+        entries = build_personal_data_field_values(
             field_ids=personal_field_ids,
             settings=settings,
             row=row,
@@ -441,7 +494,7 @@ class ImportEngine:
             event_id=event_id,
         )
         if entries:
-            self._repos.host_personal_data.save(entries)
+            self._repos.personal_data_field_values.save(entries)
 
     def time_slot_ids(
         self, *, event_id: int, settings: ImportSettings, row: ImportRow

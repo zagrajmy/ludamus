@@ -23,7 +23,8 @@ from ludamus.pacts import NotFoundError, TrackCreateData, TrackUpdateData
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts import SpaceDTO, UserDTO
+    from ludamus.pacts import SpaceDTO
+    from ludamus.pacts.crowd import UserDTO
 
 
 def _track_get_choices(
@@ -56,7 +57,9 @@ class TracksPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         context["active_nav"] = "tracks"
-        context["tracks"] = self.request.di.uow.tracks.list_by_event(current_event.pk)
+        context["tracks"] = self.request.di.uow.tracks.list_by_event_with_assignments(
+            current_event.pk
+        )
         return TemplateResponse(self.request, "panel/tracks.html", context)
 
 

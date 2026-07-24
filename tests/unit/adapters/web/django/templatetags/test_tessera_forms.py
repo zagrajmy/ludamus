@@ -169,16 +169,14 @@ class TestTesseraErrors:
     def test_renders_non_field_errors(self) -> None:
         form = SimpleForm(data={})
         form.is_valid()  # Initialize errors
-        form._errors["__all__"] = form.error_class(["Form-level error"])  # noqa: SLF001
+        form._errors["__all__"] = form.error_class(["Form-level error"])
         html = tessera_errors(form)
         assert "Form-level error" in html
 
     def test_escapes_xss_in_error_messages(self) -> None:
         form = SimpleForm(data={})
         form.is_valid()  # Initialize errors
-        form._errors["__all__"] = form.error_class(  # noqa: SLF001
-            ['<script>alert("xss")</script>']
-        )
+        form._errors["__all__"] = form.error_class(['<script>alert("xss")</script>'])
         html = tessera_errors(form)
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
@@ -199,6 +197,21 @@ class TestTesseraButton:
         html = tessera_button('<script>alert("xss")</script>')
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
+
+    def test_spreads_html_attributes(self) -> None:
+        html = tessera_button(
+            "Assign",
+            href="?assign=1",
+            aria_controls="discount-assign-modal-1",
+            aria_haspopup="dialog",
+            data_modal_close="discount-assign-modal-1",
+            title="Assign discount",
+        )
+        assert 'href="?assign=1"' in html
+        assert 'aria-controls="discount-assign-modal-1"' in html
+        assert 'aria-haspopup="dialog"' in html
+        assert 'data-modal-close="discount-assign-modal-1"' in html
+        assert 'title="Assign discount"' in html
 
 
 class TestRenderLabel:
@@ -371,6 +384,12 @@ class TestRenderInput:
         form.fields["name"].widget.attrs["placeholder"] = "Enter name"
         html = render_input(form["name"])
         assert 'placeholder="Enter name"' in html
+
+    def test_respects_explicit_input_type(self) -> None:
+        form = SimpleForm()
+        form.fields["name"].widget.attrs["type"] = "date"
+        html = render_input(form["name"])
+        assert 'type="date"' in html
 
     def test_error_styling(self) -> None:
         form = SimpleForm(data={"name": ""})

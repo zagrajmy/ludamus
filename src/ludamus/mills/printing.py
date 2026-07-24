@@ -4,12 +4,14 @@ Assembles printable materials (per-room door cards, a printed timetable, and
 description-rich per-area time-range pages) from scheduled agenda items. The
 organizer-facing materials include every scheduled session; passing
 ``confirmed_only=True`` (the public ``/print`` page) keeps only confirmed ones.
-Empty time slots render as explicit gaps.
+Empty timetable cells render as explicit gaps; door cards are participant-facing
+and list only rooms and hours that actually hold a session.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from ludamus.mills.timeslots import slot_windows_by_local_date
@@ -22,11 +24,13 @@ from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
+    DoorCardsQueryDTO,
+    PrintablesReadyNotification,
+    PrintablesReminderServiceProtocol,
     PrintOptionDTO,
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
-    PrintSpaceOptionDTO,
     PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
@@ -46,6 +50,11 @@ if TYPE_CHECKING:
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
+    from ludamus.pacts.printing import (
+        PrintablesNotifierProtocol,
+        PrintablesReminderRepositoryProtocol,
+    )
+    from ludamus.pacts.services import TransactionProtocol
 
 
 MAX_TIMETABLE_SPACES_PER_PAGE = 4
@@ -128,45 +137,32 @@ class PrintMaterialsService:
         self._time_slots = time_slots
         self._tracks = tracks
 
-    def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]:
-        return [
-            PrintSpaceOptionDTO(
-                pk=space.pk, name=space.name, slug=space.slug, area_id=space.area_id
-            )
-            for space in self._scoped_spaces(event_pk, None, None, None)
-        ]
-
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]:
         return [
             PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
             for track in self._tracks.list_public_by_event(event_pk)
         ]
 
-    def build_door_cards(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        area_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
-    ) -> DoorCardsDocumentDTO:
-        event = self._events.read(event_pk)
-        spaces = self._scoped_spaces(event_pk, area_pks, None, None)
+    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO:
+        event = self._events.read(query.event_pk)
+        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
+        items = self._agenda_items.list_by_event(query.event_pk)
+        if query.time_range is not None:
+            items = [item for item in items if _overlaps(item, *query.time_range)]
         items_by_space = self._group_by_space(
-            self._agenda_items.list_by_event(event_pk), confirmed_only=confirmed_only
-        )
-        windows_by_date = slot_windows_by_local_date(
-            self._time_slots.list_by_event(event_pk), tz
+            items, confirmed_only=query.confirmed_only
         )
 
         cards: list[DoorCardDTO] = []
         for space in spaces:
-            space_items = items_by_space.get(space.pk, [])
+            # Cards hang on doors for participants: a room with nothing
+            # scheduled gets no card, and empty hours are simply not listed.
+            if not (space_items := items_by_space.get(space.pk)):
+                continue
             entries_by_day: dict[date, list[DoorCardEntryDTO]] = defaultdict(list)
 
             for item in space_items:
-                day = item.start_time.astimezone(tz).date()
+                day = item.start_time.astimezone(query.tz).date()
                 entries_by_day[day].append(
                     DoorCardEntryDTO(
                         start_time=item.start_time,
@@ -174,20 +170,6 @@ class PrintMaterialsService:
                         session=_to_session(item),
                     )
                 )
-
-            for day, windows in windows_by_date.items():
-                for window_start, window_end in windows:
-                    if not any(
-                        _overlaps(item, window_start, window_end)
-                        for item in space_items
-                    ):
-                        entries_by_day[day].append(
-                            DoorCardEntryDTO(
-                                start_time=window_start,
-                                end_time=window_end,
-                                session=None,
-                            )
-                        )
 
             days = [
                 DoorCardDayDTO(
@@ -204,7 +186,7 @@ class PrintMaterialsService:
             event_description=event.description,
             event_start=event.start_time,
             event_end=event.end_time,
-            scope_name=scope_name,
+            scope_name=query.scope_name,
             cards=cards,
         )
 
@@ -213,7 +195,7 @@ class PrintMaterialsService:
     ) -> PrintTimetableDocumentDTO:
         event = self._events.read(query.event_pk)
         spaces = self._scoped_spaces(
-            query.event_pk, query.area_pks, query.space_pks, query.track_pk
+            query.event_pk, query.scope_space_pks, query.track_pk
         )
         all_items = (
             self._agenda_items.list_by_track(query.track_pk)
@@ -262,11 +244,10 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (one venue/area) is a subset by construction, so it
-            # is never "the whole program"; completeness only applies unscoped.
+            # A scoped print (one space subtree) is a subset by construction, so
+            # it is never "the whole program"; completeness only applies unscoped.
             is_complete=(
-                query.area_pks is None
-                and query.space_pks is None
+                query.scope_space_pks is None
                 and query.track_pk is None
                 and _is_complete(all_items)
             ),
@@ -278,9 +259,7 @@ class PrintMaterialsService:
     ) -> AreaScheduleDocumentDTO:
         range_start, range_end = query.time_range
         event = self._events.read(query.event_pk)
-        spaces = self._scoped_spaces(
-            query.event_pk, query.area_pks, query.space_pks, None
-        )
+        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
         grouped = self._group_by_space(
             self._agenda_items.list_by_event(query.event_pk),
             confirmed_only=query.confirmed_only,
@@ -355,21 +334,21 @@ class PrintMaterialsService:
     def _scoped_spaces(
         self,
         event_pk: int,
-        area_pks: frozenset[int] | None,
-        space_pks: frozenset[int] | None,
+        scope_space_pks: frozenset[int] | None,
         track_pk: int | None,
     ) -> list[SpaceDTO]:
-        spaces = sorted(self._spaces.list_by_event(event_pk), key=_space_order)
-        if track_pk is not None and (
-            track_space_pks := frozenset(self._tracks.list_space_pks(track_pk))
-        ):
-            spaces = [s for s in spaces if s.pk in track_space_pks]
-        scoped = (
-            spaces if area_pks is None else [s for s in spaces if s.area_id in area_pks]
+        all_nodes = self._spaces.list_by_event(event_pk)
+        # Only leaves (childless nodes) are bookable rooms worth printing.
+        parent_pks = {n.parent_id for n in all_nodes if n.parent_id is not None}
+        spaces = sorted(
+            (s for s in all_nodes if s.pk not in parent_pks), key=_space_order
         )
-        if space_pks is None:
-            return scoped
-        return [s for s in scoped if s.pk in space_pks]
+        if track_pk is not None:
+            track_space_pks = frozenset(self._tracks.list_space_pks(track_pk))
+            spaces = [s for s in spaces if s.pk in track_space_pks]
+        if scope_space_pks is None:
+            return spaces
+        return [s for s in spaces if s.pk in scope_space_pks]
 
     @staticmethod
     def _group_by_space(
@@ -383,3 +362,51 @@ class PrintMaterialsService:
         for grouped in items_by_space.values():
             grouped.sort(key=lambda x: x.start_time)
         return items_by_space
+
+
+PRINTABLES_REMINDER_LEAD_TIME = timedelta(days=2)
+
+
+class PrintablesReminderService(PrintablesReminderServiceProtocol):
+    """Reminds organizers to print their materials before the event.
+
+    `mark_printed` records that an organizer opened a print-ready page;
+    `send_due_reminders` (run periodically) emails organizers of events starting
+    within the lead time who have not printed yet, once per event.
+    """
+
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        reminders: PrintablesReminderRepositoryProtocol,
+        notifier: PrintablesNotifierProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._reminders = reminders
+        self._notifier = notifier
+
+    def mark_printed(self, event_pk: int) -> None:
+        self._reminders.mark_printed(event_pk)
+
+    def send_due_reminders(self, *, now: datetime) -> int:
+        due = self._reminders.list_pending_reminders(
+            now=now, lead_time=PRINTABLES_REMINDER_LEAD_TIME
+        )
+        for reminder in due:
+            # Mark sent inside the same transaction as the notifications so a
+            # crash mid-batch never leaves an event marked-but-unnotified; the
+            # emails themselves are deferred to after-commit by the notifier.
+            with self._transaction.atomic():
+                self._reminders.mark_reminder_sent(reminder.event_pk, at=now)
+                for recipient in reminder.recipients:
+                    self._notifier.notify_printables_ready(
+                        PrintablesReadyNotification(
+                            recipient_user_id=recipient.user_id,
+                            recipient_email=recipient.email,
+                            event_name=reminder.event_name,
+                            event_slug=reminder.event_slug,
+                            sphere_domain=reminder.sphere_domain,
+                        )
+                    )
+        return len(due)

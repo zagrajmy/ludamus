@@ -7,9 +7,8 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.utils.timezone import get_current_timezone
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
-    Area,
     EnrollmentConfig,
     Event,
     Facilitator,
@@ -20,7 +19,6 @@ from ludamus.adapters.db.django.models import (
     TimeSlot,
     Track,
     User,
-    Venue,
 )
 from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 
@@ -186,14 +184,16 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
         allow_anonymous_enrollment=True,
     )
 
-    venue = Venue.objects.create(
+    venue = Space.objects.create(
         event=event,
+        parent=None,
         name="Default Venue",
         slug="default-venue",
-        address="Anonymized convention venue",
+        description="Anonymized convention venue",
     )
-    area = Area.objects.create(
-        venue=venue,
+    area = Space.objects.create(
+        event=event,
+        parent=venue,
         name="Default Area",
         slug="default-area",
         description=(
@@ -215,15 +215,15 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
     assert len(participants) == EXPECTED_PARTICIPANT_COUNT
 
 
-def _create_spaces(area: Area) -> list[Space]:
+def _create_spaces(area: Space) -> list[Space]:
     return [
         Space.objects.create(
-            area=area,
+            parent=area,
             name=name,
             slug=slugify(name),
             capacity=capacity,
             order=order,
-            event=area.venue.event,
+            event=area.event,
         )
         for order, (name, capacity) in enumerate(SPACE_SPECS)
     ]
@@ -314,12 +314,10 @@ def _create_sessions(
             display_name=facilitator.display_name,
             contact_email=f"host-{index:03}@example.test",
             description=_description(index, spec.track_slug),
-            requirements="No personal data in this synthetic fixture.",
-            needs="Standard table setup.",
             duration=f"PT{duration_hours}H",
             participants_limit=_participants_limit(spec.track_slug, index),
             min_age=(0, 10, 12, 14, 16)[index % 5],
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         )
         session.facilitators.add(facilitator)
         session.tracks.add(track)

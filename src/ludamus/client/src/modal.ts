@@ -1,3 +1,22 @@
+/**
+ * Addressable modals. A trigger link's first query param is the source of truth
+ * for open state, so every modal is shareable, bookmarkable, and closes on Back.
+ *
+ * Prefer this over an imperative open handler: `syncModalsFromUrl` opens whichever
+ * modal matches the URL on load / popstate, `openModal` writes the param, and
+ * `closeModal` clears it. Nothing else needs to know a modal exists.
+ *
+ * @usage
+ *   <a href="?invite=5" aria-controls="invite-modal-5" aria-haspopup="dialog">Invite</a>
+ *   <dialog id="invite-modal-5" class="modal">…</dialog>
+ *
+ * To reopen a modal after a failed POST, render the response at that same
+ * `?param=value` — point the form's action at it (`action="…?add-companion=1"`)
+ * and `syncModalsFromUrl` reopens it on load, errors and all. No server-set flag.
+ *
+ * Triggers must be same-path query links (`?x=y`), not buttons: the Navigation API
+ * interception below only fires for anchor navigations to the current pathname.
+ */
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
@@ -97,12 +116,16 @@ const ignoreSkippedTransition = (error: unknown): void => {
 };
 
 const MORPH_NAME = "session-morph";
-const CARD_SUPPRESSED = "session-card-suppressed";
+const CARD_SUPPRESSED = "session-suppressed";
+// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
+// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
+const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
+const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
   const card = document.querySelector(
-    `.session-card[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
+    `.session[data-session-id="${CSS.escape(id.slice("session-".length))}"]`,
   );
   return card instanceof HTMLElement ? card : null;
 };
@@ -117,6 +140,7 @@ const releaseSessionCard = (id: string): void => {
 
 const canMorph = (card: HTMLElement | null): card is HTMLElement =>
   card !== null &&
+  card.dataset.noMorph === undefined &&
   !prefersReducedMotion() &&
   typeof (document as Document & ViewTransitionDocument).startViewTransition === "function";
 
@@ -133,6 +157,10 @@ const setContainerMorph = (root: HTMLElement, active: boolean): void => {
 const setMorph = (root: HTMLElement, active: boolean): void => {
   setContainerMorph(root, active);
   setSubMorph(root, active);
+};
+
+const setRootMorph = (className: string, active: boolean): void => {
+  document.documentElement.classList.toggle(className, active);
 };
 
 const morphTransition = (steps: {
@@ -177,8 +205,12 @@ const openModal = async (
     if (animate && canMorph(card)) {
       openingModals.add(id);
       morphPromise = morphTransition({
-        before: () => setMorph(card, true),
+        before: () => {
+          setRootMorph(ROOT_MORPH_OPEN, true);
+          setMorph(card, true);
+        },
         settle: () => {
+          setRootMorph(ROOT_MORPH_OPEN, false);
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -218,8 +250,12 @@ const closeModal = (
     const card = sessionCardForModal(id);
     if (animate && canMorph(card)) {
       morphTransition({
-        before: () => setContainerMorph(dialog, true),
+        before: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, true);
+          setContainerMorph(dialog, true);
+        },
         settle: () => {
+          setRootMorph(ROOT_MORPH_CLOSE, false);
           setContainerMorph(card, false);
         },
         swap: () => {
@@ -246,6 +282,92 @@ const closeModal = (
   }
 };
 
+// Session detail modals are fetched on first open instead of pre-rendered
+// (a big event has hundreds; rendering them all bloats the page and chokes the
+// debug toolbar). The container carries a reverse()d URL with a `0` id
+// placeholder; injected dialogs are cached in the DOM so reopen + morph-close
+// stay instant.
+declare const htmx: { process(el: Element): void };
+
+const SESSION_MODAL_PREFIX = "session-";
+const inflightModals = new Map<string, Promise<boolean>>();
+
+const modalContainer = (): HTMLElement | null =>
+  document.querySelector<HTMLElement>("[data-session-modal-url]");
+
+const sessionModalUrl = (pk: string): string | null => {
+  const template = modalContainer()?.dataset.sessionModalUrl;
+  return template ? template.replace(/\/session\/0\//, `/session/${pk}/`) : null;
+};
+
+const numberWaitingPositions = (root: ParentNode): void => {
+  for (const pane of root.querySelectorAll<HTMLElement>(".tab-panel")) {
+    let position = 1;
+    for (const badge of pane.querySelectorAll<HTMLElement>(".waiting-list-row .waiting-position")) {
+      const n = position++;
+      badge.textContent = String(n);
+      const label = badge.dataset.positionLabel;
+      if (label) badge.setAttribute("aria-label", `${label} ${n}`);
+    }
+  }
+};
+
+// Tabs, click-outside and Escape are delegated on document, so injected modals
+// get those free. The close (×) button, waiting-list numbering and HTMX binding
+// are per-element and must be wired on the fetched fragment.
+const wireCloseButtons = (root: ParentNode): void => {
+  for (const trigger of root.querySelectorAll("[data-modal-close]")) {
+    trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
+    trigger.addEventListener("click", closeFromTrigger, { capture: true });
+  }
+};
+
+const wireInjectedModal = (dialog: HTMLElement): void => {
+  wireCloseButtons(dialog);
+  numberWaitingPositions(dialog);
+  htmx.process(dialog);
+};
+
+const fetchModal = async (id: string, url: string): Promise<boolean> => {
+  const response = await fetch(url, {
+    headers: { "X-Requested-With": "fetch" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`modal ${id}: HTTP ${response.status}`);
+  const html = await response.text();
+  const template = document.createElement("template");
+  template.innerHTML = html.trim();
+  const dialog = template.content.firstElementChild;
+  if (!(dialog instanceof HTMLElement) || dialog.id !== id) {
+    throw new Error(`modal ${id}: unexpected fragment`);
+  }
+  modalContainer()?.append(dialog);
+  wireInjectedModal(dialog);
+  return true;
+};
+
+/** Ensure the dialog for `id` is in the DOM, fetching it on first use. */
+const ensureModalLoaded = async (id: string): Promise<boolean> => {
+  if (document.getElementById(id)) return true;
+  if (!id.startsWith(SESSION_MODAL_PREFIX)) return false;
+  const url = sessionModalUrl(id.slice(SESSION_MODAL_PREFIX.length));
+  if (!url) return false;
+
+  let pending = inflightModals.get(id);
+  if (!pending) {
+    pending = fetchModal(id, url).catch((error: unknown) => {
+      console.error(error);
+      return false;
+    });
+    inflightModals.set(id, pending);
+    void pending.finally(() => inflightModals.delete(id));
+  }
+  return pending;
+};
+
+const isLazySessionModal = (id: string): boolean =>
+  id.startsWith(SESSION_MODAL_PREFIX) && modalContainer() !== null;
+
 const syncModalsFromUrl = (): void => {
   if (openingModals.size > 0) return;
 
@@ -261,12 +383,18 @@ const syncModalsFromUrl = (): void => {
     if (!href || !modalId) continue;
 
     const target = document.getElementById(modalId);
-    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
+    if (
+      !isLazySessionModal(modalId) &&
+      !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
+    )
+      continue;
 
     const hrefUrl = new URL(href, globalThis.location.href);
     for (const [paramName, paramValue] of hrefUrl.searchParams) {
       if (searchParams.get(paramName) === paramValue) {
-        void openModal(modalId, { animate: false, updateUrl: false });
+        void ensureModalLoaded(modalId).then((ok) => {
+          if (ok) void openModal(modalId, { animate: false, updateUrl: false });
+        });
         return;
       }
     }
@@ -291,8 +419,13 @@ if (navigation) {
     if (!e.canIntercept || e.hashChange) return;
     const url = new URL(e.destination.url);
     if (url.origin !== location.origin || url.pathname !== location.pathname) return;
+    const reloadLink = [
+      ...document.querySelectorAll<HTMLAnchorElement>("a[data-modal-reload]"),
+    ].some((link) => new URL(link.href, location.href).href === url.href);
+    if (reloadLink) return;
 
-    for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+    for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
+      if (Object.hasOwn(link.dataset, "modalReload")) continue;
       const href = link.getAttribute("href");
       const modalId = link.getAttribute("aria-controls");
       if (!href || !modalId) continue;
@@ -306,12 +439,23 @@ if (navigation) {
       if (!matches) continue;
 
       const target = document.getElementById(modalId);
-      if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
+      if (
+        !isLazySessionModal(modalId) &&
+        !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
+      )
+        continue;
 
       e.intercept({
         focusReset: "manual",
         async handler() {
-          await openModal(modalId, { updateUrl: false });
+          if (await ensureModalLoaded(modalId)) {
+            await openModal(modalId, { updateUrl: false });
+          } else {
+            // Lazy fetch failed: fall back to a real navigation to the trigger
+            // href. That page's deep-link path retries without re-intercepting,
+            // so there is no loop.
+            globalThis.location.assign(href);
+          }
         },
         scroll: "manual",
       });
@@ -343,10 +487,7 @@ const closeFromTrigger = (event: Event): void => {
 };
 
 const setupModalCloseTriggers = (): void => {
-  for (const trigger of document.querySelectorAll("[data-modal-close]")) {
-    trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
-    trigger.addEventListener("click", closeFromTrigger, { capture: true });
-  }
+  wireCloseButtons(document);
 };
 
 document.addEventListener("click", (event) => {
@@ -372,16 +513,25 @@ syncModalsFromUrl();
 setupModalCloseTriggers();
 
 const setupFallbackLinkHandlers = (): void => {
-  for (const link of document.querySelectorAll("a[href][aria-controls]")) {
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
+    if (Object.hasOwn(link.dataset, "modalReload")) continue;
     const modalId = link.getAttribute("aria-controls");
-    if (!modalId) continue;
+    const href = link.getAttribute("href");
+    if (!modalId || !href) continue;
 
     const target = document.getElementById(modalId);
-    if (!(target instanceof HTMLDialogElement) || !target.classList.contains("modal")) continue;
+    if (
+      !isLazySessionModal(modalId) &&
+      !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
+    )
+      continue;
 
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      void openModal(modalId);
+      void ensureModalLoaded(modalId).then((ok) => {
+        if (ok) void openModal(modalId);
+        else globalThis.location.assign(href);
+      });
     });
   }
 };

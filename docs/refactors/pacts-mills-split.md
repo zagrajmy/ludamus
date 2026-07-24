@@ -1,4 +1,4 @@
-# 3. Legacy module split (`*/legacy.py` → per-subdomain)
+# 3. Legacy module split (`*/legacy.py` → per-noun)
 
 **Status:** 🟡 in progress
 **Tracked in TODO:** "Split mills/pacts/inits into packages per GLIMPSE layer
@@ -7,32 +7,35 @@ rules" (GLIMPSE)
 ## Goal
 
 Break the catch-all `legacy.py` modules in `pacts/` and `mills/` into
-per-subdomain files (`submissions`, `chronology`, `multiverse`, `crowd`,
-`notice_board`),
+per-noun files (`event`, `user`, `sphere`, `encounter`, `party`),
 mirrored across the two layers, and fill in `specs/` with the business
 invariants those mills currently inline. Retire the wildcard facades.
+New carves use noun names; modules already carved under legacy subdomain
+names (`chronology`, `multiverse`, `submissions`, `crowd`) keep them until
+an opportunistic rename — the `old-subdomain-loc` tingle metric tracks
+that debt.
 
 ## Why
 
 `pacts/__init__.py` and `mills/__init__.py` are `from ...legacy import *`
 facades — the pre-existing legacy exception in CLAUDE.md. They keep the whole
-domain in one undifferentiated namespace, which works against the
-subdomain/bounded-context map and against the ~12-members-per-level rule. The
-target is `pacts/{subdomain}.py ↔ mills/{subdomain}.py`, split into
-`{subdomain}/{context}.py` only when a subdomain grows fat.
+domain in one undifferentiated namespace, which works against the noun map
+and against the ~12-members-per-level rule. The target is
+`pacts/{noun}.py ↔ mills/{noun}.py`, cut into `{noun}/{verb}.py` only when
+a noun grows fat.
 
 ## Current state
 
 **Still in the catch-all `legacy.py` modules:**
 
 - `pacts/legacy.py` — the bulk of the DTOs, write `TypedDict`s, enums and
-  errors for every subdomain (`EncounterDTO`, `SessionDTO`, `EventDTO`,
+  errors for every noun (`EncounterDTO`, `SessionDTO`, `EventDTO`,
   `UserDTO`, `SpaceDTO`, `TrackDTO`, `NotFoundError`, …).
 - `mills/legacy.py` — `EncounterService`, `ProposeSessionService`,
   `PanelService`, `AcceptProposalService`, `AnonymousEnrollmentService`,
   `check_proposal_rate_limit`, and the calendar/ICS/share-code helpers.
 
-**Already carved into per-subdomain modules:**
+**Already carved (still under legacy subdomain names):**
 
 - `pacts/chronology.py` — timetable + CFP DTOs and the
   `CFPPersonalDataFieldServiceProtocol` (`TimetableGridDTO`, `ConflictDTO`,
@@ -58,34 +61,33 @@ symbol still physically lives in `legacy.py`.
 
 ## Next step
 
-Carve the **Notice Board / Encounters** slice out of `legacy.py`, since
-Encounters is already fully migrated in `gates`/`links` and is self-contained:
+Carve the **encounter** noun out of `legacy.py`, since it is already fully
+migrated in `gates`/`links` and is self-contained:
 
-1. Create `pacts/notice_board.py`; move `EncounterDTO`, `EncounterRSVPDTO`,
+1. Create `pacts/encounter.py`; move `EncounterDTO`, `EncounterRSVPDTO`,
    `EncounterData`, `EncounterDetailResult`, `EncounterIndexItem`,
    `EncounterIndexResult` and related types out of `pacts/legacy.py`.
-2. Create `mills/notice_board.py`; move `EncounterService` and the calendar /
+2. Create `mills/encounter.py`; move `EncounterService` and the calendar /
    ICS / share-code helpers (`generate_ics_content`, `google_calendar_url`,
    `outlook_calendar_url`, `generate_share_code`, `render_markdown`).
 3. Update imports at the use sites (`gates/web/django/notice_board/`,
    `inits/`). Prefer importing from the new module path directly rather than
    leaning on the `__init__` facade for the moved symbols.
-4. Run `mise run check` (importlinter) + `mise run test`.
+4. Run `mise run check` (importlinter) + `mise run test:py`.
 
-Encounters is the cleanest first cut because nothing else depends on its DTOs.
-Submissions and Chronology are the fat ones. Submissions is now its own
-subdomain (it owns the `Session` lifecycle): carve `pacts/submissions.py ↔
-mills/submissions.py` for proposals, sessions, categories, fields, requirements
-and facilitators — its contracts currently live in `pacts/chronology.py` /
-`mills/chronology.py` and move out when carved. Split what remains of Chronology
-per bounded context (Enrollment / Panel / Public). Both only after the smaller
-subdomains are out.
+Encounter is the cleanest first cut because nothing else depends on its DTOs.
+The **event** noun (legacy `chronology` + `submissions`) is the fat one:
+carve it out of `legacy.py` by verb — `propose` (proposals, categories,
+fields, requirements, facilitators), `enroll`, `schedule`, `present` — rather
+than into one giant `pacts/event.py`. Contracts currently parked in
+`pacts/chronology.py` / `mills/chronology.py` move into the verb cuts as they
+are carved. Event goes last, after the smaller nouns are out.
 
 ## Definition of done
 
 - `pacts/legacy.py` and `mills/legacy.py` are gone; `__init__.py` files are
   empty (no wildcard re-exports), per the CLAUDE.md default.
-- Each subdomain has matching `pacts/` and `mills/` modules, split by context
+- Each noun has matching `pacts/` and `mills/` modules, cut by verb
   where the ~12-members rule demands it.
 - `specs/` holds the invariants currently hard-coded inside mills (e.g. rate
   limits, session caps) and is imported only by `mills`.

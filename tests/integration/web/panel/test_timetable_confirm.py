@@ -7,12 +7,10 @@ from django.urls import reverse
 
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -25,11 +23,11 @@ class TestTimetableConfirmView:
         return reverse("panel:timetable-confirm", kwargs={"slug": event.slug})
 
     @staticmethod
-    def _scheduled_agenda_item(event, area):
-        space = SpaceFactory(area=area)
+    def _scheduled_agenda_item(event):
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
-            status="scheduled",
+            status="accepted",
             participants_limit=5,
             min_age=0,
         )
@@ -81,11 +79,9 @@ class TestTimetableConfirmView:
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
-    def test_confirm_persists(
-        self, authenticated_client, active_user, sphere, event, area
-    ):
+    def test_confirm_persists(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
-        agenda_item = self._scheduled_agenda_item(event, area)
+        agenda_item = self._scheduled_agenda_item(event)
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -97,11 +93,9 @@ class TestTimetableConfirmView:
         agenda_item.refresh_from_db()
         assert agenda_item.session_confirmed is True
 
-    def test_unconfirm_persists(
-        self, authenticated_client, active_user, sphere, event, area
-    ):
+    def test_unconfirm_persists(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
-        agenda_item = self._scheduled_agenda_item(event, area)
+        agenda_item = self._scheduled_agenda_item(event)
         agenda_item.session_confirmed = True
         agenda_item.save()
 
@@ -120,8 +114,7 @@ class TestTimetableConfirmView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        other_area = AreaFactory(venue=VenueFactory(event=other_event))
-        other_item = self._scheduled_agenda_item(other_event, other_area)
+        other_item = self._scheduled_agenda_item(other_event)
 
         response = authenticated_client.post(
             self.get_url(event),
@@ -133,10 +126,10 @@ class TestTimetableConfirmView:
         assert other_item.session_confirmed is False
 
     def test_invalid_confirmed_value_returns_422(
-        self, authenticated_client, active_user, sphere, event, area
+        self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        agenda_item = self._scheduled_agenda_item(event, area)
+        agenda_item = self._scheduled_agenda_item(event)
 
         response = authenticated_client.post(
             self.get_url(event),

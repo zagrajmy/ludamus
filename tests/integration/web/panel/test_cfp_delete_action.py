@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ProposalCategory, Session
+from ludamus.links.db.django.models import ProposalCategory, Session
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -59,7 +59,7 @@ class TestCFPDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type deleted successfully.")],
+            messages=[(messages.SUCCESS, "Category deleted successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert not ProposalCategory.objects.filter(pk=category_pk).exists()
@@ -88,7 +88,7 @@ class TestCFPDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete session type with existing proposals.")
+                (messages.ERROR, "Cannot delete category with existing proposals.")
             ],
             url=f"/panel/event/{event.slug}/cfp/",
         )
@@ -126,7 +126,7 @@ class TestCFPDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Session type not found.")],
+            messages=[(messages.ERROR, "Category not found.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
 

@@ -1,3 +1,4 @@
+from datetime import date
 from http import HTTPStatus
 
 from django.contrib import messages
@@ -59,7 +60,12 @@ class TestTimetableBrowsePanePartView:
 
         response = authenticated_client.get(
             self.get_url(event),
-            {"category": "7", "max_duration": "30", "search": "abc"},
+            {
+                "category": "7",
+                "max_duration": "30",
+                "search": "abc",
+                "date": "2026-09-04",
+            },
         )
 
         assert_response(
@@ -71,6 +77,7 @@ class TestTimetableBrowsePanePartView:
                 "category_pk": 7,
                 "max_duration_minutes": 30,
                 "search": "abc",
+                "date_selection": date(2026, 9, 4),
                 "slug": event.slug,
                 "current_event": EventDTO.model_validate(event),
             },

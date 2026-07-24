@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
@@ -90,17 +90,13 @@ class TestAnonymousLoadActionView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert client.session["anonymous_user_code"] == user.slug.split("_")[1]
         assert client.session["anonymous_enrollment_active"]
-        assert (
-            client.session["anonymous_event_id"]
-            == agenda_item.space.area.venue.event.id
-        )
+        assert client.session["anonymous_event_id"] == agenda_item.space.event.id
         assert (
             client.session["anonymous_site_id"]
-            == agenda_item.space.area.venue.event.sphere.site_id
+            == agenda_item.space.event.sphere.site_id
         )

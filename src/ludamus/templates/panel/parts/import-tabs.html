@@ -1,31 +1,3 @@
-{% load i18n %}
-{% load tessera %}
-<div class="sticky top-28 z-10 bg-bg-tertiary border-b border-border px-3 sm:px-4 lg:px-8 pt-3">
-    {% tabs %}
-    {% if active_tab == "proposal" %}
-        {% tab "proposal" active=True href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
-    {% else %}
-        {% tab "proposal" href=tab_urls.proposal %}{% translate "Summary" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "review" %}
-        {% tab "review" active=True href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
-    {% else %}
-        {% tab "review" href=tab_urls.review %}{% translate "Review" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "json" %}
-        {% tab "json" active=True href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
-    {% else %}
-        {% tab "json" href=tab_urls.json %}{% translate "JSON" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "run" %}
-        {% tab "run" active=True href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
-    {% else %}
-        {% tab "run" href=tab_urls.run %}{% translate "Import run" %}{% end_tab %}
-    {% endif %}
-    {% if active_tab == "log" %}
-        {% tab "log" active=True href=tab_urls.log %}{% translate "Log" %}{% end_tab %}
-    {% else %}
-        {% tab "log" href=tab_urls.log %}{% translate "Log" %}{% end_tab %}
-    {% endif %}
-{% end_tabs %}
+<div class="sticky top-14 z-10 overflow-hidden">
+    {% include "components/tab-shell-bar.html" with tabs_partial="panel/_import_tabs.html" %}
 </div>

@@ -1,18 +1,36 @@
 from datetime import datetime
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import UserDTO
+from ludamus.pacts.crowd import UserDTO
+
+
+class ShadowbanMeetSessionDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: int
+    title: str
+    event_slug: str
+    event_name: str
+    sphere_name: str
+    sphere_domain: str
 
 
 class ShadowbanCandidateDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     pk: int
-    name: str
+    full_name: str
+    username: str
     slug: str
+    avatar_url: str
     is_shadowbanned: bool
+    met_sessions: list[ShadowbanMeetSessionDTO] = Field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        return self.full_name
 
 
 class SessionShadowbanWarningDTO(BaseModel):
@@ -35,9 +53,10 @@ class EventBanDTO(BaseModel):
 class ShadowbanHitDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    presenter_id: int
-    presenter_email: str
+    recipient_id: int
+    recipient_email: str
     banned_user_id: int
+    in_session: bool
 
 
 class ShadowbanEventSignupDTO(BaseModel):
@@ -45,6 +64,7 @@ class ShadowbanEventSignupDTO(BaseModel):
 
     event_slug: str
     event_name: str
+    session_title: str
     hits: list[ShadowbanHitDTO]
 
 
@@ -53,7 +73,9 @@ class ShadowbanSignupNotification(BaseModel):
     recipient_email: str
     event_slug: str
     event_name: str
+    session_title: str
     player_names: list[str]
+    session_player_names: list[str]
 
 
 class ShadowbanRepositoryProtocol(Protocol):
@@ -83,6 +105,8 @@ class EventBanRepositoryProtocol(Protocol):
     @staticmethod
     def is_banned(*, event_id: int, user_id: int) -> bool: ...
     @staticmethod
+    def banned_event_ids(*, event_ids: set[int], user_id: int) -> set[int]: ...
+    @staticmethod
     def ban(*, event_id: int, identifier: str, reason: str) -> bool: ...
     @staticmethod
     def unban(*, event_id: int, ban_id: int) -> None: ...
@@ -91,6 +115,7 @@ class EventBanRepositoryProtocol(Protocol):
 class EventBanServiceProtocol(Protocol):
     def list_for_event(self, event_id: int) -> list[EventBanDTO]: ...
     def is_banned(self, *, event_id: int, user_id: int) -> bool: ...
+    def banned_event_ids(self, *, event_ids: set[int], user_id: int) -> set[int]: ...
     def ban(self, *, event_id: int, identifier: str, reason: str) -> bool: ...
     def unban(self, *, event_id: int, ban_id: int) -> None: ...
 

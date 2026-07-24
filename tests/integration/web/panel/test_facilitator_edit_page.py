@@ -6,14 +6,15 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Facilitator,
-    HostPersonalData,
+    FacilitatorChangeLog,
     PersonalDataField,
     PersonalDataFieldOption,
+    PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
-from tests.integration.utils import assert_response
+from tests.integration.utils import FormErrorsMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -156,14 +157,43 @@ class TestFacilitatorEditPageView:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
 
-    def test_post_updates_facilitator_and_redirects(
+    def test_post_invalid_accreditation_rerenders_form_with_error(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
 
         response = authenticated_client.post(
-            self.get_url(event), data={"display_name": "Updated Name"}
+            self.get_url(event), data={"accreditation_type": "bogus"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **_base_context(event),
+                "form": FormErrorsMatcher(
+                    accreditation_type=[
+                        (
+                            "Select a valid choice. bogus is not one of the"
+                            " available choices."
+                        )
+                    ]
+                ),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "personal_fields": [],
+            },
+        )
+
+    def test_post_redirects_and_keeps_cached_display_name(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"accreditation_type": "none"}
         )
 
         assert_response(
@@ -176,7 +206,21 @@ class TestFacilitatorEditPageView:
             ),
         )
         facilitator.refresh_from_db()
-        assert facilitator.display_name == "Updated Name"
+        # display_name is a read-only cache: a posted value must not change it.
+        assert facilitator.display_name == "Alice"
+
+    def test_post_ignores_submitted_display_name(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        authenticated_client.post(
+            self.get_url(event), data={"display_name": "Hacked Name"}
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.display_name == "Alice"
 
     def test_post_updates_accreditation_type(
         self, authenticated_client, active_user, sphere, event
@@ -192,6 +236,33 @@ class TestFacilitatorEditPageView:
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == "honorary"
 
+    def test_post_saves_internal_comment(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "accreditation_type": "none",
+                "internal_comment": "Possible duplicate of Bob",
+            },
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.internal_comment == "Possible duplicate of Bob"
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert log.changes == [
+            {
+                "field": "internal_comment",
+                "field_id": None,
+                "old": "",
+                "new": "Possible duplicate of Bob",
+            }
+        ]
+
     def test_get_preselects_current_accreditation_type(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -202,15 +273,13 @@ class TestFacilitatorEditPageView:
 
         assert response.context["form"].initial["accreditation_type"] == "guest"
 
-    def test_post_shows_errors_on_invalid_data(
+    def test_get_does_not_render_display_name_input(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
-            self.get_url(event), data={"display_name": ""}
-        )
+        response = authenticated_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -222,8 +291,8 @@ class TestFacilitatorEditPageView:
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "personal_fields": [],
             },
+            not_contains='name="display_name"',
         )
-        assert response.context["form"].errors
 
     def test_post_saves_checkbox_personal_data_field(
         self, authenticated_client, active_user, sphere, event
@@ -244,7 +313,7 @@ class TestFacilitatorEditPageView:
             data={"display_name": "Alice", "personal_vegan": "true"},
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
     def test_post_saves_multiple_personal_data_field(
@@ -267,7 +336,7 @@ class TestFacilitatorEditPageView:
             data={"display_name": "Alice", "personal_languages": ["en", "pl"]},
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == ["en", "pl"]
 
     def test_post_saves_allow_custom_personal_data_field_from_custom_input(
@@ -294,7 +363,7 @@ class TestFacilitatorEditPageView:
             },
         )
 
-        hpd = HostPersonalData.objects.get(facilitator=facilitator, field=field)
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
 
     def test_get_renders_all_personal_field_types(
@@ -354,16 +423,16 @@ class TestFacilitatorEditPageView:
             order=3,
         )
 
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=languages, value=["en"]
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=system, value="dnd"
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=vegan, value=True
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=nickname, value="Bob"
         )
 

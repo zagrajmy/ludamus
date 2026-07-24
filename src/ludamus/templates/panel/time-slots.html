@@ -15,8 +15,10 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:time-slot-create' slug=current_event.slug %}"
-           class="btn btn-primary">
+        <a href="?create=1"
+           class="btn btn-primary"
+           aria-controls="time-slot-create-modal"
+           aria-haspopup="dialog">
             {% icon "plus" class="w-4 h-4 mr-2" %}
             {% translate "Add Time Slot" %}
         </a>
@@ -24,16 +26,9 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-            {% tabs %}
-            {% tab "types" href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
-            {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
-            {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
-            {% tab "time_slots" active=True href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        <div class="alert alert-info mb-6">
+        {% tab_shell "panel/_cfp_tabs.html" %}
+        {% tab_shell_body %}
+        <div class="alert backdrop-blur-lg alert-info mb-6">
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
                 <div>
@@ -126,8 +121,11 @@
                             {% endif %}
                         </div>
                         <div class="px-4 pb-4">
-                            <a href="{% url 'panel:time-slot-create' slug=current_event.slug %}?date={{ day|date:'Y-m-d' }}"
-                               class="w-full px-3 py-2 text-sm border border-dashed border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center justify-center">
+                            <a href="?create=1&date={{ day|date:'Y-m-d' }}"
+                               class="w-full px-3 py-2 text-sm border border-dashed border-border text-foreground-secondary rounded-lg hover:bg-bg-tertiary transition flex items-center justify-center"
+                               aria-controls="time-slot-create-modal"
+                               aria-haspopup="dialog"
+                               data-modal-reload>
                                 {% icon "plus" class="w-4 h-4 mr-1" %}
                                 {% translate "Add" %}
                             </a>
@@ -176,15 +174,21 @@
                 <p class="text-foreground-muted mb-4">
                     {% translate "No time slots defined. Add time slots to configure the event schedule." %}
                 </p>
-                {% url 'panel:time-slot-create' slug=current_event.slug as create_url %}
-                {% translate "Add Time Slot" as t_create %}
-                {% tessera_button t_create href=create_url icon="plus" %}
+                <a href="?create=1"
+                   class="btn btn-primary"
+                   aria-controls="time-slot-create-modal"
+                   aria-haspopup="dialog">
+                    {% icon "plus" class="w-4 h-4" %}
+                    {% translate "Add Time Slot" %}
+                </a>
             </div>
         {% endif %}
-    </div>
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
+{% include "panel/_time-slot-create-modal.html" with modal_id="time-slot-create-modal" form=create_form current_event=current_event csrf_token=csrf_token only %}
 {% else %}
-    <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-    </div>
+<div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
 {% endif %}
 {% endblock content %}

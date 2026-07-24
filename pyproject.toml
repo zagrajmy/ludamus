@@ -22,6 +22,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 package-mode = false
+requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
@@ -30,7 +31,7 @@ django = "~6.0.6"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
-google-auth = "^2.54.0"
+google-auth = "^2.56.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
@@ -41,27 +42,27 @@ pydantic = "^2.11.7"
 requests = "^2.32.5"
 segno = "^1.6.6"
 whitenoise = "^6.12.0"
-django-storages = {extras = ["google"], version = "^1.14.6"}
-dbos = ">=2.23.0"
+django-storages = { extras = ["google"], version = "^1.14.6" }
+dbos = ">=2.23.0,<3"
 unidecode = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
-codespell = "^2.4.1"
+codespell = "^2.4.3"
 deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^7.0.0"
 django-stubs = "^6.0.5"
 djlint = "^1.39.2"
 factory-boy = "^3.3.3"
-faker = "^40.21.0"
+faker = "^40.28.1"
 freezegun = "^1.5.2"
 honcho = "^2.0.0"
 ipython = "^9.14.1"
-mypy = "^2.0.0"
+mypy = "^2.2.0"
 pip-audit = "^2.10.1"
 pylint = "^4.0.3"
-pytest = "^9.0.1"
+pytest = "^9.0.3"
 pytest-cov = "^7.0.0"
 pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
@@ -77,8 +78,11 @@ import-linter = "^2.11"
 vulture = "^2.16"
 pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
-gitlint-core = "0.19.1"
 yamllint = "1.38.0"
+taplo = "^0.9.3"
+tingle = "^0.4.0"
+pytest-xdist = "^3.8.0"
+defusedxml = "^0.7.1"
 
 [tool.black]
 line-length = 88
@@ -89,9 +93,10 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
-# 'fallow' is the frontend analysis tool, not a misspelling of 'follow'
-ignore-words-list = 'fallow'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
+# 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
+# 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
+ignore-words-list = 'fallow,adres'
 
 # COVERAGE
 
@@ -100,7 +105,7 @@ branch = true
 source = ["src"]
 omit = [
     "src/ludamus/edges/*",
-    "src/ludamus/adapters/db/django/migrations/*",
+    "src/ludamus/links/db/django/migrations/*",
     "src/ludamus/client/*",
     "tests/template_checks.py",
 ]
@@ -112,6 +117,7 @@ core = "ctrace"
 show_missing = true
 skip_covered = true
 precision = 2
+exclude_also = ["raise NotImplementedError"]
 
 [tool.coverage.django_coverage_plugin]
 template_extensions = 'html'
@@ -137,7 +143,7 @@ DEP002 = [
     "psycopg",
     "pillow",
     "whitenoise",
-    "django-storages"
+    "django-storages",
 ]
 DEP004 = ["debug_toolbar"]
 
@@ -190,7 +196,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "ludamus.adapters.db.django.*",
+    "ludamus.links.db.django.*",
     "ludamus.adapters.web.django.*",
     "ludamus.edges.settings",
     "ludamus.gates.cli.django.management.commands.expire_offers",
@@ -209,7 +215,13 @@ disallow_any_explicit = false
 # relaxed only for the thin scheduler adapter that wraps them, the same way
 # links.db.django.* is relaxed for the ORM.
 [[tool.mypy.overrides]]
-module = ["ludamus.inits.dbos_offer_scheduler"]
+module = ["ludamus.inits.dbos_scheduler"]
+disallow_any_expr = false
+
+# pydantic's model_json_schema() returns dict[str, Any]; relaxed only for the
+# registry module that embeds tool schemas into MCP responses.
+[[tool.mypy.overrides]]
+module = ["ludamus.gates.mcp.registry"]
 disallow_any_expr = false
 
 [tool.pydantic-mypy]
@@ -241,7 +253,6 @@ ignore = [
     "PLR1702", # Too many nested blocks
     "EM101",   # Exception must not use a string literal, assign to variable first
     "TRY003",  # Avoid specifying long messages outside the exception class
-    "RUF076",  # Avoid using `autouse=True` in `pytest.fixture` decorators
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -252,13 +263,15 @@ ignore = [
     "RUF012", # ClassVar
 ]
 "tests/**.py" = [
-    "ANN",     # flake8-annotations
-    "INP001",  # implicit namespace package
-    "PLR0913", # too-many-arguments
-    "PLR0917", # too-many-positional-arguments
-    "S",       # bandit
-    "PLR0904", # Too many public methods
-    "PLR6301", # Method could be a function
+    "ANN",                   # flake8-annotations
+    "ARG002",                # unused-method-argument
+    "INP001",                # implicit namespace package
+    "PLR0913",               # too-many-arguments
+    "PLR0917",               # too-many-positional-arguments
+    "S",                     # bandit
+    "PLR0904",               # Too many public methods
+    "PLR6301",               # Method could be a function
+    "private-member-access",
 ]
 # DI registries are intentionally wide: their whole job is to expose one leaf
 # per repository/service. Bucketing them (see the class docstrings) is a
@@ -267,7 +280,10 @@ ignore = [
 "*/inits/repositories.py" = ["PLR0904"]
 "*/inits/services.py" = ["PLR0904"]
 "*/pacts/services.py" = ["PLR0904"]
-"**/conftest.py" = ["RUF076"]
+"scripts/*.py" = ["T201", "S404", "S603", "S607"]
+# Standalone Django seed script: imports must follow django.setup(), and it
+# prints a summary line when run directly.
+"tests/e2e/scripts/bootstrap_large_event.py" = ["E402", "T201"]
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
@@ -307,9 +323,10 @@ type = "forbidden"
 source_modules = ["ludamus.gates"]
 forbidden_modules = ["ludamus.links", "ludamus.inits", "ludamus.edges"]
 # Management commands are composition entrypoints (like manage.py/wsgi): the
-# expire_offers cron job must build the service via the inits root.
+# cron jobs must build their service via the inits root.
 ignore_imports = [
     "ludamus.gates.cli.django.management.commands.expire_offers -> ludamus.inits.services",
+    "ludamus.gates.cli.django.management.commands.send_printables_reminders -> ludamus.inits.services",
 ]
 
 
@@ -317,12 +334,7 @@ ignore_imports = [
 name = "links"
 type = "forbidden"
 source_modules = ["ludamus.links"]
-forbidden_modules = [
-    "ludamus.gates",
-    "ludamus.inits",
-    "ludamus.specs",
-    "ludamus.edges",
-]
+forbidden_modules = ["ludamus.gates", "ludamus.inits", "ludamus.specs", "ludamus.edges"]
 
 
 [[tool.importlinter.contracts]]
@@ -391,5 +403,66 @@ forbidden_modules = [
 # VULTURE
 
 [tool.vulture]
-exclude = ["*/migrations/*.py"]
-min_confidence = 61
+exclude = [
+    "*/migrations/*.py",
+    "*/ludamus/edges/settings.py",
+    "*/context_processors.py",
+]
+ignore_names = [
+    # Used in templates
+    "bookmark_count",
+    "filter_categories",
+    "has_guests",
+    "has_secret",
+    "is_live",
+    "is_pending_proposal",
+    "is_read",
+    "is_unlimited",
+    "location_label",
+    "overflow_count",
+    "public_tag_categories",
+    "public_tags",
+    "should_show_as_inactive",
+    "span",
+    "spots_scarce",
+    "unassigned_count",
+    "unread_count",
+    "user_bookmarked",
+    "user_waiting",
+    # Django
+    "*Config",
+    "add_arguments",
+    "clean_*",
+    "Command",
+    "constraints",
+    "db_table",
+    "get_initial",
+    "get_object",
+    "get_template_names",
+    "http_method_names",
+    "list_display",
+    "list_filter",
+    "Meta",
+    "ordering",
+    # Used in settings
+    "__call__",
+    "*Middleware",
+    "process_exception",
+    "ViteAwareCompressedManifestStaticFilesStorage",
+    # False positives
+    "get_navbar",
+    # Pydantic
+    "model_config",
+    # Unused but stays
+    "deleted_at",
+    "modification_time",
+    "test_func",
+]
+
+ignore_decorators = [
+    "@register.filter",
+    "@register.simple_tag",
+    "@admin.register",
+    "@field_validator",
+]
+sort_by_size = true

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as staging from "./github-staging.mts";
 import type { ActionArgs, PullRequestLike } from "./github-staging.mts";
+
+import * as staging from "./github-staging.mts";
 
 type Call = readonly unknown[];
 
@@ -121,7 +122,7 @@ test("dispatches the labeled PR without mutating other labels", async () => {
       {
         owner: "owner",
         repo: "repo",
-        workflow_id: "deploy-staging.yml",
+        workflow_id: "deploy-staging-coolify.yml",
         ref: "main",
         inputs: {
           pr_number: "2",
@@ -129,7 +130,7 @@ test("dispatches the labeled PR without mutating other labels", async () => {
         },
       },
     ],
-    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
+    ["info", "Dispatched deploy-staging-coolify.yml for PR #2 at head-sha"],
   ]);
 });
 
@@ -148,7 +149,7 @@ test("redeploys a labeled PR on synchronize", async () => {
       {
         owner: "owner",
         repo: "repo",
-        workflow_id: "deploy-staging.yml",
+        workflow_id: "deploy-staging-coolify.yml",
         ref: "main",
         inputs: {
           pr_number: "2",
@@ -156,7 +157,7 @@ test("redeploys a labeled PR on synchronize", async () => {
         },
       },
     ],
-    ["info", "Dispatched deploy-staging.yml for PR #2 at head-sha"],
+    ["info", "Dispatched deploy-staging-coolify.yml for PR #2 at head-sha"],
   ]);
 });
 

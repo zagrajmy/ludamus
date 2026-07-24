@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Facilitator, Track
+from ludamus.links.db.django.models import Facilitator, Track
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
@@ -86,10 +86,10 @@ class TestTimetableConflictsPartView:
         assert response.context["conflicts"] == []
 
     def test_detects_space_overlap_conflict(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session_a = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -118,10 +118,10 @@ class TestTimetableConflictsPartView:
         assert "space_overlap" in conflict_types
 
     def test_slot_violation_does_not_appear_in_conflicts(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -144,7 +144,7 @@ class TestTimetableConflictsPartView:
         assert response.context["conflicts"] == []
 
     def test_cross_track_facilitator_conflict_has_attribution(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
 
@@ -161,8 +161,8 @@ class TestTimetableConflictsPartView:
         )
         track_b.managers.add(manager_b)
 
-        space_a = SpaceFactory(area=area)
-        space_b = SpaceFactory(area=area)
+        space_a = SpaceFactory(event=event)
+        space_b = SpaceFactory(event=event)
 
         session_a = SessionFactory(
             category=proposal_category,

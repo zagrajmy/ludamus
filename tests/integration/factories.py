@@ -2,15 +2,15 @@ import factory
 from django.contrib.auth.hashers import make_password
 from factory.django import DjangoModelFactory
 
-from ludamus.adapters.db.django.models import User
-from ludamus.pacts import UserType
+from ludamus.links.db.django.models import User
+from ludamus.pacts.crowd import UserType
 
 
 class CompleteUserFactory(DjangoModelFactory):
     class Meta:
         model = User
 
-    email = factory.Faker("email")
+    email = factory.Sequence(lambda n: f"user{n}@example.com")
     name = factory.Faker("name")
     password = factory.LazyFunction(lambda: make_password(None))
     user_type = UserType.ACTIVE

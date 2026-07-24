@@ -4,7 +4,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Connection, EventIntegration
+from ludamus.links.db.django.models import Connection, EventIntegration
 from ludamus.pacts.multiverse import ConnectionDTO
 from tests.integration.utils import assert_response
 
@@ -14,15 +14,14 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
     "announcements": "/multiverse/panel/announcements/",
+    "mcp": "/multiverse/panel/mcp/",
 }
 CONNECTIONS_PANEL_CONTEXT = {
     "events": [],
     "current_event": None,
     "is_proposal_active": False,
     "active_nav": "sphere-settings",
-    "is_general_tab": False,
-    "is_connections_tab": True,
-    "is_announcements_tab": False,
+    "active_tab": "connections",
     "tab_urls": TAB_URLS,
 }
 
@@ -397,7 +396,6 @@ class TestConnectionEditPageView:
         )
         connection.refresh_from_db()
         assert connection.display_name == "Renamed"
-        # Stored blob is left untouched when the toggle is off.
         assert bytes(connection.secret) == b"old-blob"
 
     def test_post_replace_secret_on_encrypts_and_persists(
@@ -423,7 +421,6 @@ class TestConnectionEditPageView:
         )
         connection.refresh_from_db()
         stored = bytes(connection.secret)
-        # Persisted blob must be non-empty and not contain the plaintext.
         assert stored
         assert b"abc" not in stored
 

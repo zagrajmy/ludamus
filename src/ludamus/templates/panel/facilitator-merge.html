@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load cfp_tags %}
 {% block title_prefix %}
     {% translate "Merge Facilitators" %} -
 {% endblock title_prefix %}
@@ -12,16 +13,12 @@
         {{ current_event.name }} · {% translate "Facilitators" %}
     {% endif %}
 {% endblock page_subtitle %}
-{% block header_actions %}
-    {% if current_event %}
-        <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-           class="btn btn-secondary">{% translate "Cancel" %}</a>
-    {% endif %}
-{% endblock header_actions %}
 {% block content %}
     {% if current_event %}
+        {% tab_shell "panel/_facilitator_tabs.html" %}
+        {% tab_shell_body %}
         {% if error %}
-            <div class="alert alert-danger mb-6">
+            <div class="alert backdrop-blur-lg alert-danger mb-6">
                 <p class="text-sm">{{ error }}</p>
             </div>
         {% endif %}
@@ -35,7 +32,7 @@
                     </p>
                     <input type="text"
                            id="facilitator-search"
-                           placeholder="{% translate "Search by name…" %}"
+                           placeholder="{% translate "Search by facilitator or field values" %}"
                            autocomplete="off"
                            class="w-full border border-border rounded-lg px-4 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                     {% if facilitators %}
@@ -48,14 +45,12 @@
                                            class="w-4 h-4"
                                            title="{% translate "Select all" %}">
                                 </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Name" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Sessions" %}
-                                </th>
+                                {% for column in columns %}
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {{ column|facilitator_column_label }}
+                                    </th>
+                                {% endfor %}
                                 <th scope="col"
                                     class="px-6 py-3 text-center text-xs font-medium text-foreground-muted uppercase tracking-wider"
                                     title="{% translate "The kept facilitator receives all sessions from the others." %}">
@@ -66,7 +61,7 @@
                         <tbody id="merge-list" class="divide-y divide-border">
                             {% for f in facilitators %}
                                 <tr class="facilitator-row hover:bg-bg-tertiary"
-                                    data-name="{{ f.display_name|lower }}">
+                                    data-search="{% for column in columns %}{{ column_values|get_item:f.pk|get_item:column.key|lower }} {% endfor %}">
                                     <td class="px-4 py-3">
                                         <input type="checkbox"
                                                name="facilitator_ids"
@@ -75,10 +70,18 @@
                                                class="facilitator-checkbox w-4 h-4"
                                                {% if f.pk in preselected_ids %}checked{% endif %}>
                                     </td>
-                                    <td class="px-6 py-3 text-sm text-foreground">
-                                        <label for="check-{{ f.pk }}" class="cursor-pointer">{{ f.display_name }}</label>
-                                    </td>
-                                    <td class="px-6 py-3 text-sm text-foreground-muted">{{ f.session_count }}</td>
+                                    {% for column in columns %}
+                                        {% with value=column_values|get_item:f.pk|get_item:column.key %}
+                                            <td class="px-6 py-3 text-sm {% if forloop.first %}text-foreground{% else %}text-foreground-muted{% endif %}"
+                                                title="{{ value }}">
+                                                {% if forloop.first %}
+                                                    <label for="check-{{ f.pk }}" class="cursor-pointer">{{ value|truncatechars:50 }}</label>
+                                                {% else %}
+                                                    {{ value|truncatechars:40 }}
+                                                {% endif %}
+                                            </td>
+                                        {% endwith %}
+                                    {% endfor %}
                                     <td class="px-6 py-3 text-center">
                                         <input type="radio"
                                                name="target_id"
@@ -168,8 +171,8 @@
                     const query = this.value.toLowerCase().trim();
                     let visible = 0;
                     rows.forEach(function(row) {
-                        const name = row.dataset.name || '';
-                        const show = !query || name.includes(query);
+                        const haystack = row.dataset.search || '';
+                        const show = !query || haystack.includes(query);
                         row.classList.toggle('hidden', !show);
                         if (show) visible++;
                     });
@@ -178,5 +181,7 @@
             }
         })();
     </script>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% endif %}
 {% endblock content %}

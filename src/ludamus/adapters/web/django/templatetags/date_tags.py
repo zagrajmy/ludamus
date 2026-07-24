@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001
+# ruff:file-ignore[ambiguous-unicode-character-string]
 from typing import TYPE_CHECKING
 
 from django import template
@@ -27,13 +27,13 @@ def _format_date_range(start: datetime, end: datetime) -> str:
     if start_date.year == end_date.year:
         if start_date.month == end_date.month:
             return (
-                f"{date_format(start, 'F j', use_l10n=True)}–"
+                f"{date_format(start, 'M j', use_l10n=True)}–"
                 f"{date_format(end, 'j, Y', use_l10n=False)}, "
                 f"{time_format(start, 'TIME_FORMAT')} – "
                 f"{time_format(end, 'TIME_FORMAT')}"
             )
-        start_month = date_format(start, format="F", use_l10n=True)
-        end_month = date_format(end, format="F", use_l10n=True)
+        start_month = date_format(start, format="M", use_l10n=True)
+        end_month = date_format(end, format="M", use_l10n=True)
         start_day = date_format(start, format="j", use_l10n=False)
         end_day = date_format(end, format="j", use_l10n=False)
         year = date_format(start, format="Y", use_l10n=False)

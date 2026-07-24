@@ -21,25 +21,18 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-            {% tabs %}
-            {% tab "types" href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
-            {% tab "host" active=True href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
-            {% tab "session" href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
-            {% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        <div class="alert alert-info mb-6">
+        {% tab_shell "panel/_cfp_tabs.html" %}
+        {% tab_shell_body %}
+        <div class="alert backdrop-blur-lg alert-info mb-6">
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
                 <div>
                     <p class="text-sm font-medium">{% translate "What are Host Data Fields?" %}</p>
                     <p class="text-sm mt-1">
-                        {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. This data is shared across all session types for the event - each host fills it once." %}
+                        {% translate "Host data fields collect contact and personal information from session hosts when they submit proposals. Examples: email address, phone number, Discord username. This data is shared across all categories for the event - each host fills it once." %}
                     </p>
                     <p class="text-sm mt-2">
-                        {% translate "After creating fields here, configure which ones are required or optional in each session type's settings." %}
+                        {% translate "After creating fields here, configure which ones are required or optional in each category's settings." %}
                     </p>
                 </div>
             </div>
@@ -128,7 +121,8 @@
             </p>
         </div>
     {% endif %}
-</div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% else %}
 <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

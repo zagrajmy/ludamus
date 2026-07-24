@@ -6,21 +6,14 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.adapters.web.django.entities import (
+from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
     ParticipationInfo,
     SessionData,
     build_display_field_row,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.pacts import (
-    AgendaItemDTO,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SessionStatus,
-    SpaceDTO,
-    VenueDTO,
-)
+from ludamus.pacts import AgendaItemDTO, SessionDTO, SessionFieldValueDTO, SessionStatus
 from tests.integration.utils import assert_response
 
 FROZEN_TIME = "2026-01-15 12:00:00"
@@ -85,27 +78,13 @@ def _make_field_values() -> list[SessionFieldValueDTO]:
     ]
 
 
-def _make_loc(creation: datetime) -> dict:
-    venue = VenueDTO(
-        address="",
-        creation_time=creation,
-        modification_time=creation,
-        name="Main Hall",
-        order=0,
-        pk=1,
-        slug="main-hall",
-    )
-    space = SpaceDTO(
-        area_id=None,
-        capacity=None,
-        creation_time=creation,
-        modification_time=creation,
-        name="Table 1",
-        order=0,
-        pk=1,
-        slug="table-1",
-    )
-    return {"venue": venue, "area": None, "space": space}
+def _make_loc() -> dict:
+    return {
+        "space_name": "Table 1",
+        "parent_slug": "main-hall",
+        "parent_name": "Main Hall",
+        "path": "Main Hall > Table 1",
+    }
 
 
 def _expected_session_data() -> SessionData:
@@ -156,20 +135,18 @@ def _expected_session_data() -> SessionData:
             participants_limit=6,
             pk=1,
             display_name="Alex Designer",
-            requirements="",
             slug="design-session",
             title="Design System Session Card",
             category_id=17,
-            needs="Lots of space",
             presenter_id=18,
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         ),
         is_full=False,
         full_participant_info="4/6",
         effective_participants_limit=6,
         enrolled_count=2,
         session_participations=session_participations,
-        loc=_make_loc(creation),
+        loc=_make_loc(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
     )
@@ -230,22 +207,22 @@ def _expected_session_data_ended() -> SessionData:
             participants_limit=6,
             pk=2,
             display_name="Alex Designer",
-            requirements="",
             slug="design-session-ended",
             title="Ended Session (Design Preview)",
             category_id=17,
-            needs="Lots of space",
             presenter_id=18,
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         ),
         is_full=True,
         full_participant_info="6/6",
         effective_participants_limit=6,
         enrolled_count=6,
         session_participations=ended_participations,
-        loc=_make_loc(creation),
+        loc=_make_loc(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+        is_ongoing=True,
+        is_ended=True,
     )
 
 
@@ -272,4 +249,6 @@ class TestDesignPageView:
                 ],
             },
             template_name=["design.html"],
+            contains=["py-1.5", "py-2", "py-3", "text-xs", "text-sm", "text-base"],
+            cache_control={"public", "max-age=300"},
         )

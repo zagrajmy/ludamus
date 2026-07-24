@@ -24,15 +24,8 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-            {% tabs %}
-            {% tab "general" active=True href=tab_urls.general %}{% translate "General" %}{% end_tab %}
-            {% tab "proposals" href=tab_urls.proposals %}{% translate "Proposals" %}{% end_tab %}
-            {% tab "display" href=tab_urls.display %}{% translate "Display" %}{% end_tab %}
-            {% tab "integrations" href=tab_urls.integrations %}{% translate "Integrations" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
+        {% tab_shell "panel/_event_settings_tabs.html" %}
+        {% tab_shell_body %}
         <form id="settings-form"
               method="post"
               enctype="multipart/form-data"
@@ -143,13 +136,21 @@
                         {% tessera_field form.use_session_cover_placeholders %}
                     </div>
                 </div>
+                <!-- Attendee label -->
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Attendee label" %}</h3>
+                        {% tessera_field form.use_participants_label %}
+                    </div>
+                </div>
             </div>
         </form>
-    </div>
+    {% end_tab_shell_body %}
+{% end_tab_shell %}
 {% else %}
-    <div class="card p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-    </div>
+<div class="card p-8 text-center">
+    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+</div>
 {% endif %}
 {% endblock content %}
 {% block extra_scripts %}

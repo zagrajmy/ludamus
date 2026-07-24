@@ -33,6 +33,7 @@ over patching a template.
   work; allow pasting one-time codes.
 - **Enter submits** a single-input form; in a textarea, Enter is a newline and
   Cmd/Ctrl+Enter submits.
+- **Form errors preserve user input**: re-render the bound form, don't PRG to an empty one.
 
 ## Interactions & state
 
@@ -51,6 +52,7 @@ over patching a template.
   URL so Back/Forward and refresh work (see `session-filters.ts`, `tabs.ts`).
 - **Use `<a>`/`{% url %}` for navigation** so Cmd/middle/right-click work; buttons
   for actions.
+- **Make modals addressable.** Use `a href="?key=val"` or `tessera_button href="?key=val"`.
 
 ## Motion
 

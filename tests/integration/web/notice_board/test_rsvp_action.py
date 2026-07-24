@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib.messages import constants
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import EncounterRSVP
+from ludamus.links.db.django.models import EncounterRSVP
 from tests.integration.conftest import EncounterFactory, EncounterRSVPFactory
 from tests.integration.utils import assert_response, assert_response_404
 
@@ -98,6 +98,32 @@ class TestEncounterRSVPActionView:
 
         response = authenticated_client.post(
             self._url(encounter.share_code), REMOTE_ADDR="10.0.0.1"
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=(
+                (constants.ERROR, "Please wait a moment before signing up again."),
+            ),
+            url=reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+
+    def test_ip_throttle_uses_rightmost_x_forwarded_for(
+        self, authenticated_client, encounter
+    ):
+        authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.50",
+            follow=True,
+        )
+
+        response = authenticated_client.post(
+            self._url(encounter.share_code),
+            HTTP_X_FORWARDED_FOR="5.6.7.8, 203.0.113.50",
         )
 
         assert_response(

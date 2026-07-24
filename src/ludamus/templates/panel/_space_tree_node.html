@@ -1,0 +1,95 @@
+{% load i18n %}
+{% load tessera %}
+<li class="space-node" draggable="true" data-space-id="{{ node.pk }}">
+    <div class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-bg-tertiary">
+        <div class="flex min-w-0 items-center gap-2">
+            <button type="button"
+                    class="drag-handle icon-btn cursor-move text-foreground-muted"
+                    aria-label="{% blocktranslate with name=node.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
+                {% icon "bars-3" class="w-4 h-4" %}
+            </button>
+            {% if node.is_leaf %}
+                {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
+                <span class="sr-only">{% translate "Room" %}</span>
+            {% else %}
+                {% icon "rectangle-group" class="w-4 h-4 shrink-0 text-info" %}
+                <span class="sr-only">{% translate "Group" %}</span>
+            {% endif %}
+            <span class="truncate font-medium text-foreground" title="{{ node.name }}">{{ node.name }}</span>
+            {% if node.location %}
+                <span class="shrink-0 truncate text-xs text-foreground-muted"
+                      title="{{ node.location }}">
+                    {% icon "map-pin" class="mr-0.5 inline w-3 h-3" variant="mini" %}{{ node.location }}
+                </span>
+            {% endif %}
+            {% if node.is_leaf and node.capacity %}
+                <span class="ml-1 rounded-full bg-bg-tertiary px-2 py-0.5 text-xs text-foreground-muted">
+                    {% blocktranslate count counter=node.capacity %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
+                </span>
+            {% endif %}
+            {% if node.track_names %}
+                {% include "components/pill_list.html" with items=node.track_names icon="rectangle-group" %}
+            {% endif %}
+        </div>
+        <div class="flex shrink-0 items-center gap-1">
+            <a href="{% url 'panel:space-create-child' slug=current_event.slug parent_pk=node.pk %}"
+               class="icon-btn"
+               aria-label="{% blocktranslate with name=node.name %}Add a space inside {{ name }}{% endblocktranslate %}">
+                {% icon "plus" class="w-4 h-4" %}
+            </a>
+            <a href="{% url 'panel:space-edit' slug=current_event.slug pk=node.pk %}"
+               class="icon-btn"
+               aria-label="{% blocktranslate with name=node.name %}Edit {{ name }}{% endblocktranslate %}">
+                {% icon "pencil-square" class="w-4 h-4" %}
+            </a>
+            <div class="relative inline-block" data-menu>
+                <button type="button"
+                        data-menu-button
+                        class="icon-btn"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-label="{% blocktranslate with name=node.name %}More actions for {{ name }}{% endblocktranslate %}">
+                    {% icon "ellipsis-horizontal" class="w-4 h-4" %}
+                </button>
+                <div data-menu-panel hidden class="absolute right-0 z-10 mt-2">
+                    <div {% include "components/menu_surface.html" with extra_class="w-44 rounded-lg border border-border bg-bg-secondary shadow-lg" %}>
+                        <form method="post"
+                              action="{% url 'panel:space-duplicate' slug=current_event.slug pk=node.pk %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center rounded-t-lg px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                {% icon "document-duplicate" class="mr-2 w-4 h-4" %}
+                                {% translate "Duplicate" %}
+                            </button>
+                        </form>
+                        <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.pk %}"
+                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                            {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
+                            {% translate "Copy to event" %}
+                        </a>
+                        <hr class="my-1">
+                        <form method="post"
+                              action="{% url 'panel:space-delete' slug=current_event.slug pk=node.pk %}"
+                              data-confirm="{% translate "Delete this space and everything inside it?" %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
+                                {% icon "trash" class="mr-2 w-4 h-4" %}
+                                {% translate "Delete" %}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if node.children %}
+        <ul class="space-list ml-5 border-l border-border pl-1"
+            data-parent-pk="{{ node.pk }}">
+            {% for child in node.children %}
+                {% include "panel/_space_tree_node.html" with node=child %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</li>
+{# ponytail: drag-reorder works within a sibling list only; reparenting is an edit, not a drag. #}

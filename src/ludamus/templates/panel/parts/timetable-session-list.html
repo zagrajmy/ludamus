@@ -1,43 +1,47 @@
 {% load i18n %}
-<!-- Session count -->
-<div class="text-xs text-foreground-muted mb-2">
-    {% if has_more %}
-        {% blocktranslate with limit=limit %}Showing first {{ limit }} — narrow with search or filters{% endblocktranslate %}
-    {% else %}
-        {% blocktranslate count count=sessions|length %}{{ count }} session{% plural %}{{ count }} sessions{% endblocktranslate %}
-    {% endif %}
-</div>
-<!-- Session cards -->
-{% if sessions %}
-    <div class="space-y-2">
-        {% for session in sessions %}
-            <div class="card p-3 cursor-pointer transition"
-                 data-session-pk="{{ session.pk }}"
-                 hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}"
-                 hx-target="#left-pane"
-                 hx-swap="outerHTML">
-                <div class="text-sm font-medium text-foreground truncate">{{ session.title }}</div>
-                <div class="text-xs text-foreground-secondary truncate">{{ session.display_name }}</div>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="text-xs text-foreground-muted">{{ session.duration_minutes }} min</span>
-                    {% if session.participants_limit %}
-                        <span class="text-xs text-neutral-400">·</span>
-                        <span class="text-xs text-foreground-muted">{{ session.participants_limit }} os.</span>
-                    {% endif %}
-                    {% if session.category_name %}
-                        <span class="text-xs text-neutral-400">·</span>
-                        <span class="text-xs text-foreground-muted">{{ session.category_name }}</span>
-                    {% endif %}
+{% with date_value=date_selection|date:"Y-m-d"|default:date_selection %}
+    <!-- Session count -->
+    <div class="text-xs text-foreground-muted mb-2">
+        {% if has_more %}
+            {% blocktranslate with limit=limit %}Showing first {{ limit }} — narrow with search or filters{% endblocktranslate %}
+        {% else %}
+            {% blocktranslate count count=sessions|length %}{{ count }} session{% plural %}{{ count }} sessions{% endblocktranslate %}
+        {% endif %}
+    </div>
+    <!-- Session cards -->
+    {% if sessions %}
+        <div class="space-y-2">
+            {% for session in sessions %}
+                <div class="card p-3 cursor-pointer transition"
+                     draggable="true"
+                     data-session-pk="{{ session.pk }}"
+                     data-duration="{{ session.duration_minutes }}"
+                     hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk %}?track={{ filter_track_pk|default:'' }}&category={{ category_pk|default:'' }}&max_duration={{ max_duration_minutes|default:'' }}&search={{ search|urlencode }}&date={{ date_value }}"
+                     hx-target="#left-pane"
+                     hx-swap="outerHTML">
+                    <div class="text-sm font-medium text-foreground truncate">{{ session.title }}</div>
+                    <div class="text-xs text-foreground-secondary truncate">{{ session.display_name }}</div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs text-foreground-muted">{{ session.duration_minutes }} min</span>
+                        {% if session.participants_limit %}
+                            <span class="text-xs text-neutral-400">·</span>
+                            <span class="text-xs text-foreground-muted">{{ session.participants_limit }} os.</span>
+                        {% endif %}
+                        {% if session.category_name %}
+                            <span class="text-xs text-neutral-400">·</span>
+                            <span class="text-xs text-foreground-muted">{{ session.category_name }}</span>
+                        {% endif %}
+                    </div>
                 </div>
-            </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <div class="text-center py-8 text-neutral-400">
-        <p class="text-sm">{% translate "No unassigned sessions." %}</p>
-    </div>
-{% endif %}
-<!-- OOB swap: keep top filter chip bar's active classes in sync after a chip click. -->
-<div id="filter-chips"
-     hx-swap-oob="true"
-     class="flex items-center gap-4 flex-wrap">{% include "panel/parts/timetable-filter-chips.html" %}</div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-8 text-neutral-400">
+            <p class="text-sm">{% translate "No unassigned sessions." %}</p>
+        </div>
+    {% endif %}
+    <!-- OOB swap: keep top filter chip bar's active classes in sync after a chip click. -->
+    <div id="filter-chips"
+         hx-swap-oob="true"
+         class="flex items-center gap-4 flex-wrap">{% include "panel/parts/timetable-filter-chips.html" %}</div>
+{% endwith %}

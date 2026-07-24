@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from .icon import icon as render_icon
 
 _SIZE_CLASSES = {
-    "sm": "px-3 py-1.5 text-xs",
+    "sm": "px-3 py-1.5 text-xs gap-1.5 rounded-xl",
     "md": "px-4 py-2 text-sm",
     "lg": "px-6 py-3 text-base",
 }
@@ -20,7 +20,7 @@ _VARIANT_CLASSES = {
 }
 
 
-def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a distinct visual axis
+def render_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; each param is a distinct visual axis
     text: str,
     *,
     href: str | None = None,
@@ -30,7 +30,7 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
-    onclick: str | None = None,
+    **attrs: str | int | bool | None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
 
@@ -41,6 +41,9 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
     form-submit buttons that should stretch on mobile but rarely desired for
     link buttons in toolbars. Defaults to ``href is None``: form-submit
     buttons stretch, link buttons don't.
+
+    Extra keyword arguments render as escaped HTML attributes; underscores
+    become hyphens.
 
     Returns:
         HTML string of the rendered button.
@@ -64,32 +67,43 @@ def render_button(  # noqa: PLR0913 — template-tag adapter; each param is a di
         if icon
         else ""
     )
-    body = format_html("{}{}", mark_safe(icon_html), text)  # noqa: S308
+    body = format_html(
+        "{}{}", mark_safe(icon_html), text  # ruff: ignore[suspicious-mark-safe-usage]
+    )
+    rendered_attrs = format_html_join(
+        "",
+        ' {}="{}"',
+        (
+            (name.replace("_", "-"), value)
+            for name, value in attrs.items()
+            if value is not None and value is not False
+        ),
+    )
 
     if href is not None:
         if disabled:
             return format_html(
-                '<a class="{}" aria-disabled="true" tabindex="-1">{}</a>',
+                '<a class="{}" aria-disabled="true" tabindex="-1"{}>{}</a>',
                 class_str,
+                rendered_attrs,
                 body,
             )
-        return format_html('<a href="{}" class="{}">{}</a>', href, class_str, body)
+        return format_html(
+            '<a href="{}" class="{}"{}>{}</a>', href, class_str, rendered_attrs, body
+        )
 
     if disabled:
         return format_html(
-            '<button type="{}" class="{}" disabled>{}</button>',
+            '<button type="{}" class="{}" disabled{}>{}</button>',
             button_type,
             class_str,
-            body,
-        )
-    if onclick is not None:
-        return format_html(
-            '<button type="{}" class="{}" onclick="{}">{}</button>',
-            button_type,
-            class_str,
-            onclick,
+            rendered_attrs,
             body,
         )
     return format_html(
-        '<button type="{}" class="{}">{}</button>', button_type, class_str, body
+        '<button type="{}" class="{}"{}>{}</button>',
+        button_type,
+        class_str,
+        rendered_attrs,
+        body,
     )

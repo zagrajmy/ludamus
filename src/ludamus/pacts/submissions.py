@@ -8,19 +8,24 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
+        FacilitatorChangeLogDTO,
+        FacilitatorChangeLogRepositoryProtocol,
+        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
+        FacilitatorUpdateData,
         FieldUsageSummary,
-        HostPersonalDataRepositoryProtocol,
         PersonalDataFieldCreateData,
         PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
+        PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
@@ -168,15 +173,23 @@ class ImportSettings(BaseModel):
     # `unique_key_columns` names the column headers whose values together
     # identify a row across re-fetches; retry uses them to locate the row
     # again even after the operator deletes or rearranges rows in the source.
-    # `email_column` is the 1-indexed sheet column where Google Forms drops
-    # the auto-collected responder email (only present when the form has
-    # email collection on). With it set, the importer synthesizes a question
-    # the recipe can map to session.contact_email.
+    # `sheet_headers` caches the source sheet's header row, refreshed whenever
+    # the questions snapshot is. Both the recipe and `unique_key_columns` are
+    # chosen from it: the form schema alone can't offer the metadata columns
+    # (timestamp, auto-collected email), whose wording follows the form's
+    # locale, so those are mapped like any other column.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
-    email_column: int | None = None
+    sheet_headers: list[str] = []
+
+
+class AccreditationType(StrEnum):
+    NONE = "none"
+    STANDARD = "standard"
+    GUEST = "guest"
+    HONORARY = "honorary"
 
 
 class ImportLogStatus(StrEnum):
@@ -255,7 +268,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     sessions: SessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
-    host_personal_data: HostPersonalDataRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
@@ -314,6 +327,111 @@ class PersonalDataFieldEditContextDTO:
     optional_category_pks: set[int]
 
 
+class FacilitatorListFilters(TypedDict, total=False):
+    search: str | None
+    accreditation: str | None
+    flagged: bool | None
+    field_filters: dict[int, str | bool] | None
+    sort: str | None
+
+
+class EventPanelSettingsDTO(BaseModel):
+    """Organizer-only backoffice settings for an event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    facilitator_columns: list[str] = []
+    pk: int
+
+
+class EventPanelSettingsRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
+    @staticmethod
+    def update_facilitator_columns(event_id: int, columns: list[str]) -> None: ...
+
+
+@dataclass
+class FacilitatorPanelRepos:
+    """The repos the panel's facilitator list reads and writes through."""
+
+    facilitators: FacilitatorRepositoryProtocol
+    personal_data_fields: PersonalDataFieldRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
+    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
+    panel_settings: EventPanelSettingsRepositoryProtocol
+
+
+@dataclass
+class FacilitatorListQuery:
+    """The list's requested view: filters as the request spelled them.
+
+    `raw_field_filters` is keyed by personal-data field pk with the value
+    untouched from the query string; the service resolves it against the
+    event's own fields.
+    """
+
+    search: str = ""
+    accreditation: str = ""
+    flagged: bool = False
+    sort: str = ""
+    raw_field_filters: dict[int, str] = field(default_factory=dict)
+
+
+@dataclass
+class FacilitatorColumnDTO:
+    """One column of the panel's facilitator list.
+
+    `key` is both the column's identity and its sort key — a built-in
+    ("name", "linked", "sessions", "accreditation") or "field_<pk>". `field`
+    is set only for personal-data columns; built-ins label themselves in the
+    template, where the rest of the list's wording lives.
+    """
+
+    key: str
+    field: PersonalDataFieldDTO | None = None
+
+
+@dataclass
+class FacilitatorListContextDTO:
+    """Read aggregate for the panel's facilitator list."""
+
+    facilitators: list[FacilitatorListItemDTO]
+    filterable_fields: list[PersonalDataFieldDTO]
+    field_filters: dict[int, str | bool]
+    columns: list[FacilitatorColumnDTO]
+
+
+@dataclass
+class FacilitatorColumnsContextDTO:
+    """Read aggregate for the facilitator-columns chooser."""
+
+    chosen: list[FacilitatorColumnDTO]
+    available: list[FacilitatorColumnDTO]
+
+
+class FacilitatorPanelServiceProtocol(Protocol):
+    def list_context(
+        self, *, event_id: int, query: FacilitatorListQuery
+    ) -> FacilitatorListContextDTO: ...
+    def column_values(
+        self, *, facilitator_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
+    def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
+    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
+    def set_flag(
+        self, *, event_id: int, facilitator_slug: str, flagged: bool
+    ) -> None: ...
+    def set_accreditation(
+        self,
+        *,
+        event_id: int,
+        facilitator_slug: str,
+        accreditation_type: str,
+        user_id: int | None = None,
+    ) -> None: ...
+
+
 class CFPPersonalDataFieldServiceProtocol(Protocol):
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
     def get_create_form_context(
@@ -338,3 +456,25 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         category_requirements: dict[int, bool],
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
+
+
+class PersonalDataFieldValueServiceProtocol(Protocol):
+    def update_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+        user_id: int | None = None,
+    ) -> None: ...
+    def update_facilitator(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        data: FacilitatorUpdateData,
+        entries: list[PersonalDataFieldValueData],
+        user_id: int | None = None,
+    ) -> None: ...
+    def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]: ...
+    def list_field_names(self, event_id: int) -> dict[int, str]: ...

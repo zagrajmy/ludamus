@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 from freezegun import freeze_time
 
-from ludamus.adapters.db.django.models import ProposalCategory, Session
+from ludamus.links.db.django.models import ProposalCategory, Session
 from ludamus.pacts import EventDTO, ProposalCategoryDTO
 from tests.integration.utils import assert_response
 
@@ -397,7 +397,7 @@ class TestCFPPageView:
             title="Accepted",
             slug="accepted",
             participants_limit=5,
-            status="scheduled",
+            status="accepted",
         )
 
         response = authenticated_client.get(self.get_url(event))
@@ -479,7 +479,7 @@ class TestCFPPageView:
             title="RPG Accepted",
             slug="rpg-accepted",
             participants_limit=5,
-            status="scheduled",
+            status="accepted",
         )
         # Category2: 1 session, 0 accepted
         Session.objects.create(

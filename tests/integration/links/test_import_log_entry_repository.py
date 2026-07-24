@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ludamus.adapters.db.django.models import Connection, EventIntegration, Session
+from ludamus.links.db.django.models import Connection, EventIntegration, Session
 from ludamus.links.db.django.repositories import ImportLogEntryRepository
 from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind

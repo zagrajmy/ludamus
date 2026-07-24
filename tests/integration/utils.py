@@ -1,3 +1,4 @@
+import re
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
@@ -10,12 +11,57 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
 
+class PageMatcher:
+    def __init__(self, *, number: int, num_pages: int) -> None:
+        self.number = number
+        self.num_pages = num_pages
+
+    def __eq__(self, other: object) -> bool:
+        paginator = getattr(other, "paginator", None)
+        return (
+            getattr(other, "number", None) == self.number
+            and getattr(paginator, "num_pages", None) == self.num_pages
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.number, self.num_pages))
+
+    def __repr__(self) -> str:
+        return f"PageMatcher(number={self.number}, num_pages={self.num_pages})"
+
+
+class FormErrorsMatcher:
+    def __init__(self, **errors: list[str]) -> None:
+        self.errors = errors
+
+    def __eq__(self, other: object) -> bool:
+        return {
+            field: list(messages)
+            for field, messages in getattr(other, "errors", {}).items()
+        } == self.errors
+
+    def __hash__(self) -> int:
+        return hash(
+            frozenset(
+                (field, tuple(messages)) for field, messages in self.errors.items()
+            )
+        )
+
+    def __repr__(self) -> str:
+        return f"FormErrorsMatcher({self.errors})"
+
+
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)
     for i, (level, message) in enumerate(expected_messages):
         assert msgs[i].level == level, msgs[i].level
         assert msgs[i].message == message, msgs[i].message
+
+
+def assert_cache_control(response: HttpResponse, expected: set[str]) -> None:
+    directives = set(response["Cache-Control"].split(", "))
+    assert directives == expected, directives
 
 
 def assert_response(
@@ -25,10 +71,14 @@ def assert_response(
     messages: Iterable[tuple[int, str]] = (),
     contains: str | Iterable[str] = (),
     not_contains: str | Iterable[str] = (),
+    cache_control: set[str] | None = None,
     **response_fields: Any,
 ) -> None:
     assert response.status_code == status_code, response.status_code
     _assert_messages(response, messages)
+
+    if cache_control is not None:
+        assert_cache_control(response, cache_control)
 
     default_fields = {"context_data": None, "template_name": None, "url": None}
     for key, value in (default_fields | response_fields).items():
@@ -61,8 +111,28 @@ def assert_response_404(
             "message": ANY,
             "subtitle": ANY,
             "icon": ANY,
+            "guidance": ANY,
         },
         template_name="404_dynamic.html",
         messages=messages,
         **response_fields,
     )
+
+
+def checkbox_tag(content: str, name: str, pk: int) -> str:
+    # The single <input> tag for a multi-value checkbox (name repeats per row,
+    # value carries the pk), so a test can check its checked state without
+    # depending on attribute order. Scoping by name matters: pks restart at 1
+    # per table, so a bare value="1" search can match an unrelated element.
+    match = re.search(rf'<input[^>]*name="{name}"[^>]*value="{pk}"[^>]*>', content)
+    assert match, f"no checkbox {name}={pk}"
+    return match.group(0)
+
+
+def input_tag(content: str, pk: int) -> str:
+    # The single <input> tag for a person's Include checkbox on the enroll
+    # page, so a test can check its checked / disabled attributes without
+    # depending on attribute order.
+    match = re.search(rf'<input[^>]*name="user_{pk}"[^>]*>', content)
+    assert match, f"no checkbox for user_{pk}"
+    return match.group(0)

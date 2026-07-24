@@ -59,6 +59,10 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+dbos_sys.sqlite*
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
 
 # Flask stuff:
 instance/
@@ -229,3 +233,6 @@ src/ludamus/media/
 test-results/
 PLAN.md
 CLAUDE.local.md
+
+# skill-creator eval workspaces (transient test artifacts)
+.claude/skills/*-workspace/

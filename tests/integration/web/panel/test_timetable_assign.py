@@ -5,23 +5,26 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
     Notification,
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.pacts.chronology import TIMETABLE_SLOT_MINUTES, TimetableGridDTO
+from ludamus.pacts.chronology import (
+    TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
+    TimetableGridDTO,
+)
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    TimeSlotFactory,
     UserFactory,
-    VenueFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -31,17 +34,16 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 def _empty_grid():
     return TimetableGridDTO(
         spaces=[],
-        columns=[],
-        venue_groups=[],
+        groups=[],
+        days=[],
         time_labels=[],
         total_minutes=0,
-        event_start_iso="",
         slot_minutes=TIMETABLE_SLOT_MINUTES,
+        snap_minutes=TIMETABLE_SNAP_MINUTES,
         page=1,
         total_pages=1,
         total_spaces=0,
         available_dates=[],
-        selected_date=None,
     )
 
 
@@ -103,9 +105,40 @@ class TestTimetableGridPartView:
                 "filter_track_pk": None,
                 "conflict_session_pks": set(),
                 "slot_violation_session_pks": set(),
+                "date_selection": "all",
                 "slug": event.slug,
             },
         )
+
+    def test_all_days_returns_each_day_grid(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        sphere.managers.add(active_user)
+        second_slot = TimeSlotFactory(
+            event=event,
+            start_time=time_slot.start_time + timedelta(days=1),
+            end_time=time_slot.end_time + timedelta(days=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-grid.html",
+            context_data=response.context_data,
+        )
+        context = response.context
+        assert context["date_selection"] == "all"
+        assert [day.date for day in context["grid"].days] == [
+            time_slot.start_time.date(),
+            second_slot.start_time.date(),
+        ]
+        content = response.content.decode()
+        expected_day_count = 2
+        assert content.count('class="timetable-calendar ') == 1
+        assert content.count('class="timetable-day-grid ') == expected_day_count
+        assert context["grid"].spaces[0].pk == space.pk
 
 
 class TestTimetableAssignView:
@@ -159,13 +192,13 @@ class TestTimetableAssignView:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_assigns_session_and_returns_204(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -185,7 +218,7 @@ class TestTimetableAssignView:
         assert response.status_code == HTTPStatus.NO_CONTENT
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
-        assert session.status == "scheduled"
+        assert session.status == "accepted"
         assert session.agenda_item.session_confirmed is True
 
     def test_assign_leaves_unconfirmed_when_auto_confirm_off(
@@ -193,10 +226,10 @@ class TestTimetableAssignView:
     ):
         sphere.managers.add(active_user)
         event = EventFactory(sphere=sphere, auto_confirm_sessions=False)
-        space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -219,13 +252,13 @@ class TestTimetableAssignView:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_assign_promotes_waiter(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -252,10 +285,10 @@ class TestTimetableAssignView:
         ).exists()
 
     def test_returns_422_for_rejected_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
             status="rejected",
@@ -278,14 +311,14 @@ class TestTimetableAssignView:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_reassigns_already_scheduled_session_to_new_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        old_space = SpaceFactory(area=area)
-        new_space = SpaceFactory(area=area)
+        old_space = SpaceFactory(event=event)
+        new_space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -294,8 +327,6 @@ class TestTimetableAssignView:
         AgendaItemFactory(
             session=session, space=old_space, start_time=old_start, end_time=old_end
         )
-        session.status = "scheduled"
-        session.save()
         new_start = old_start + timedelta(hours=2)
         new_end = new_start + timedelta(hours=1)
 
@@ -311,17 +342,17 @@ class TestTimetableAssignView:
 
         assert response.status_code == HTTPStatus.NO_CONTENT
         session.refresh_from_db()
-        assert session.status == "scheduled"
+        assert session.status == "accepted"
         agenda_item = session.agenda_item
         assert agenda_item.space_id == new_space.pk
         assert agenda_item.start_time == new_start
         assert agenda_item.end_time == new_end
 
     def test_returns_422_for_session_from_another_event(
-        self, authenticated_client, active_user, sphere, event, area
+        self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         other_event = EventFactory(sphere=sphere)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
@@ -351,9 +382,7 @@ class TestTimetableAssignView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        foreign_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=EventFactory(sphere=sphere)))
-        )
+        foreign_space = SpaceFactory(event=EventFactory(sphere=sphere))
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -420,13 +449,13 @@ class TestTimetableUnassignView:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
     def test_unassigns_session_and_returns_204(
-        self, authenticated_client, active_user, sphere, event, proposal_category, area
+        self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(area=area)
+        space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,
-            status="scheduled",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -443,7 +472,8 @@ class TestTimetableUnassignView:
         assert response.status_code == HTTPStatus.NO_CONTENT
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
-        assert session.status == "pending"
+        assert session.status == "accepted"
+        assert not AgendaItem.objects.filter(session=session).exists()
 
     def test_returns_422_for_unscheduled_session(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -451,7 +481,7 @@ class TestTimetableUnassignView:
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
-            status="pending",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -467,12 +497,10 @@ class TestTimetableUnassignView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        other_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=other_event))
-        )
+        other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
-            status="scheduled",
+            status="accepted",
             participants_limit=10,
             min_age=0,
         )
@@ -491,5 +519,5 @@ class TestTimetableUnassignView:
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         other_session.refresh_from_db()
-        assert other_session.status == "scheduled"
+        assert other_session.status == "accepted"
         assert AgendaItem.objects.filter(session=other_session).exists()

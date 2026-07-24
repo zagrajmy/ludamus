@@ -5,7 +5,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Session,
     SessionField,
     SessionFieldOption,
@@ -14,6 +14,7 @@ from ludamus.adapters.db.django.models import (
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
 from ludamus.pacts import SessionDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
@@ -22,12 +23,6 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, assert_response_404
 
 FRAGMENT = "chronology/parts/session-edit-form.html"
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 def _expected_session(session):
@@ -44,7 +39,7 @@ def owned_session_fixture(event, active_user):
         display_name=active_user.name,
         participants_limit=10,
         min_age=0,
-        status="scheduled",
+        status="accepted",
     )
 
 
@@ -86,7 +81,7 @@ class TestSessionEditViewGet:
     def test_non_owner_404(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
-        session = SessionFactory(category=category, presenter=other, status="scheduled")
+        session = SessionFactory(category=category, presenter=other, status="accepted")
 
         response = authenticated_client.get(_url(event, session))
 
@@ -253,7 +248,7 @@ class TestSessionEditViewPost:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"/chronology/event/{event.slug}/?session={owned_session.pk}",
+            url=f"/event/{event.slug}/?session={owned_session.pk}",
         )
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
@@ -334,7 +329,7 @@ class TestSessionEditViewPost:
         category = ProposalCategoryFactory(event=event)
         other = UserFactory(username="other", email="other@example.com")
         session = SessionFactory(
-            category=category, presenter=other, title="Original", status="scheduled"
+            category=category, presenter=other, title="Original", status="accepted"
         )
 
         response = authenticated_client.post(

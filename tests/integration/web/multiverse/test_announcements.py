@@ -4,7 +4,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Announcement
+from ludamus.links.db.django.models import Announcement
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.utils import assert_response
 
@@ -14,15 +14,14 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
     "announcements": "/multiverse/panel/announcements/",
+    "mcp": "/multiverse/panel/mcp/",
 }
 ANNOUNCEMENTS_PANEL_CONTEXT = {
     "events": [],
     "current_event": None,
     "is_proposal_active": False,
     "active_nav": "sphere-settings",
-    "is_general_tab": False,
-    "is_connections_tab": False,
-    "is_announcements_tab": True,
+    "active_tab": "announcements",
     "tab_urls": TAB_URLS,
 }
 

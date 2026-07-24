@@ -16,9 +16,6 @@ _.python.venv = { path = ".venv", create = true }
 # Host wraps `dj`/`start` with `aubr varlock` to load .env. In the
 # container, compose passes env directly and varlock isn't present.
 
-[tasks.p]
-run = "poetry"
-
 [tasks.dj]
 run = "django-admin"
 
@@ -30,6 +27,18 @@ run = "aube install --filter ./src/ludamus/client --frozen-lockfile --no-optiona
 
 [tasks.build-frontend]
 run = "aubr -C src/ludamus/client build"
+
+# Coolify runs a single web container: migrations/collectstatic happen at
+# start instead of one-shot compose services. ponytail: single instance;
+# move migrate to a pre-deploy command if replicas ever appear.
+[tasks.prod-start]
+run = [
+    "django-admin migrate --noinput",
+    "django-admin createcachetable",
+    "django-admin downloadvendor",
+    "django-admin collectstatic --noinput --clear",
+    "mise run gunicorn",
+]
 
 [tasks.gunicorn]
 run = """

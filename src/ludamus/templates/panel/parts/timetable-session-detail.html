@@ -18,6 +18,11 @@
             <div class="text-sm text-foreground-muted">{% translate "No facilitator" %}</div>
         {% endfor %}
     </div>
+    <div class="mb-3">
+        {% url 'panel:proposal-detail' slug=slug proposal_id=session.pk as proposal_url %}
+        {% translate "View proposal" as t_view_proposal %}
+        {% tessera_button t_view_proposal href=proposal_url button_type="button" variant="secondary" size="sm" icon="document-text" %}
+    </div>
     <!-- Meta: duration, capacity, age -->
     <div class="flex flex-wrap gap-3 text-xs text-foreground-muted mb-3">
         {% if duration_minutes %}
@@ -33,13 +38,6 @@
     <!-- Description -->
     {% if session.description %}
         <div class="text-sm text-foreground-secondary mb-3 line-clamp-4">{{ session.description }}</div>
-    {% endif %}
-    <!-- Needs -->
-    {% if session.needs %}
-        <div class="mb-3">
-            <div class="text-xs font-medium text-foreground-muted uppercase tracking-wide mb-1">{% translate "Needs" %}</div>
-            <div class="text-sm text-foreground-secondary">{{ session.needs }}</div>
-        </div>
     {% endif %}
     <!-- Current assignment -->
     <div class="mb-3">
@@ -57,6 +55,7 @@
                         data-assign-session-pk="{{ session.pk }}"
                         data-assign-duration="{{ duration_minutes }}"
                         data-assign-back-url="{{ back_url }}"
+                        data-assign-confirmed="{{ agenda_item.session_confirmed|yesno:'true,false' }}"
                         data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Reassign" %}</button>
                 <form class="flex-1"
                       hx-post="{% url 'panel:timetable-unassign' slug=slug %}"
@@ -93,6 +92,7 @@
                     data-assign-session-pk="{{ session.pk }}"
                     data-assign-duration="{{ duration_minutes }}"
                     data-assign-back-url="{{ back_url }}"
+                    data-assign-confirmed="false"
                     data-assign-preferred-slots="{{ time_slots_json }}">{% translate "Assign" %}</button>
         {% endif %}
     </div>

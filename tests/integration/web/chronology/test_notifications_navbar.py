@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import Notification
+from ludamus.links.db.django.models import Notification
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response

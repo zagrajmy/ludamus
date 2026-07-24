@@ -1,0 +1,38 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "MCP access" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "MCP access" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+{% endblock header_actions %}
+{% block content %}
+    {% tab_shell "multiverse/panel/_sphere_tabs_nav.html" %}
+    {% tab_shell_body %}
+    <div class="max-w-2xl">
+        <h2 class="text-xl font-semibold mb-3 text-foreground">{% translate "MCP access token" %}</h2>
+        {% if token %}
+            {% include "mcp/_token_reveal.html" %}
+            <p class="text-foreground-muted mb-6">
+                {% blocktranslate %}The token expires after {{ token_max_age_days }} days and works only while you stay a manager of this sphere. Anyone holding it can act with your permissions — keep it secret.{% endblocktranslate %}
+            </p>
+        {% else %}
+            <p class="text-foreground-muted mb-6">
+                {% blocktranslate %}Generate a personal token to connect an MCP client (such as Claude Code or Executor) to this sphere's organizer API. The token is valid for {{ token_max_age_days }} days.{% endblocktranslate %}
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                {% translate "Generate token" as generate_label %}
+                {% tessera_button generate_label variant="primary" %}
+            </form>
+        {% endif %}
+    </div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
+{% endblock content %}

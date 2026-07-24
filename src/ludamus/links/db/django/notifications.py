@@ -17,12 +17,18 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
-from ludamus.adapters.db.django.models import Notification
+from ludamus.links.db.django.models import Notification
 from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.party import (
+        HeldSeatNotification,
+        PartyEnrolledNotification,
+        PartyInviteNotification,
+    )
+    from ludamus.pacts.printing import PrintablesReadyNotification
     from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
@@ -83,13 +89,14 @@ class DjangoUserNotifier:
         )
 
     def notify_offer_expired(self, notification: PromotionNotification) -> None:
+        # Flow-neutral: an expired row may be a waitlist offer or a seat a
+        # leader held — nothing on it records which, so the copy fits both.
         title = _("Your offer for %(session)s expired") % {
             "session": notification.session_title
         }
         body = _(
-            "Your offered spot was not claimed in time and has gone to the next "
-            "person. You can join the waiting list again if you are still "
-            "interested."
+            "The seat was not claimed in time and has been released. You can "
+            "sign up again if you are still interested."
         )
         self._deliver(
             Notification(
@@ -109,17 +116,147 @@ class DjangoUserNotifier:
             notification.recipient_email,
         )
 
-    def notify_shadowbanned_signup(
-        self, notification: ShadowbanSignupNotification
+    def notify_party_invited(self, notification: PartyInviteNotification) -> None:
+        party = notification.party_name or _("their party")
+        title = _("%(member)s invited you to %(party)s") % {
+            "member": notification.actor_name,
+            "party": party,
+        }
+        body = _(
+            "Join the party to enroll in events together — you move up "
+            "waiting lists as one group. You decide about every enrollment "
+            "unless you say otherwise."
+        )
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PARTY_INVITE.value,
+                title=title,
+                body=body,
+                url=reverse("web:crowd:profile-parties"),
+                payload={},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_party_enrolled(self, notification: PartyEnrolledNotification) -> None:
+        url = reverse(
+            "web:chronology:session-enrollment",
+            kwargs={
+                "event_slug": notification.event_slug,
+                "session_id": notification.session_id,
+            },
+        )
+        title = _("%(leader)s enrolled you in %(session)s") % {
+            "leader": notification.actor_name,
+            "session": notification.session_title,
+        }
+        body = _(
+            "You have a confirmed spot. If it does not fit your plans, you "
+            "can cancel on the session page."
+        )
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PARTY_ENROLLED.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={"session_id": notification.session_id},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_seat_held(self, notification: HeldSeatNotification) -> None:
+        url = reverse(
+            "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
+        )
+        deadline = date_format(
+            localtime(notification.offer_expires_at), "DATETIME_FORMAT"
+        )
+        title = _("%(leader)s saved you a seat in %(session)s") % {
+            "leader": notification.actor_name,
+            "session": notification.session_title,
+        }
+        body = _(
+            "The seat is yours once you claim it — do so before %(deadline)s "
+            "or it will be released."
+        ) % {"deadline": deadline}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PARTY_SEAT_HELD.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={
+                    "session_id": notification.session_id,
+                    "claim_token": notification.claim_token,
+                    "offer_expires_at": notification.offer_expires_at.isoformat(),
+                },
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_printables_ready(
+        self, notification: PrintablesReadyNotification
     ) -> None:
-        players = ", ".join(notification.player_names)
-        title = _("A shadowbanned player joined %(event)s") % {
+        path = reverse(
+            "panel:print-materials", kwargs={"slug": notification.event_slug}
+        )
+        title = _("Print your materials for %(event)s") % {
             "event": notification.event_name
         }
         body = _(
-            "Someone you shadowbanned signed up to %(event)s: %(players)s. "
-            "They have not been notified. Review the event if you need to."
-        ) % {"event": notification.event_name, "players": players}
+            "%(event)s starts in two days. Print the timetable and door cards "
+            "for your event using the link below before it begins."
+        ) % {"event": notification.event_name}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.PRINTABLES_READY.value,
+                title=title,
+                body=body,
+                # Absolute, unlike sibling notifications: reminders go out by
+                # email and each sphere's site lives on its own domain.
+                url=f"https://{notification.sphere_domain}{path}",
+                payload={"event_slug": notification.event_slug},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_shadowbanned_signup(
+        self, notification: ShadowbanSignupNotification
+    ) -> None:
+        title = (
+            _("A shadowbanned player joined %(session)s with you")
+            % {"session": notification.session_title}
+            if notification.session_player_names
+            else _("A shadowbanned player joined %(event)s")
+            % {"event": notification.event_name}
+        )
+        parts = []
+        if notification.session_player_names:
+            parts.append(
+                _(
+                    "Someone you shadowbanned signed up to %(session)s, "
+                    "where you are playing: %(players)s."
+                )
+                % {
+                    "session": notification.session_title,
+                    "players": ", ".join(notification.session_player_names),
+                }
+            )
+        if notification.player_names:
+            parts.append(
+                _("Someone you shadowbanned signed up to %(event)s: %(players)s.")
+                % {
+                    "event": notification.event_name,
+                    "players": ", ".join(notification.player_names),
+                }
+            )
+        parts.append(_("They have not been notified. Review the event if you need to."))
+        body = " ".join(parts)
         self._deliver(
             Notification(
                 recipient_id=notification.recipient_user_id,

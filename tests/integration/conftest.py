@@ -9,24 +9,23 @@ from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     AgendaItem,
-    Area,
     Encounter,
     EncounterRSVP,
     EnrollmentConfig,
     Event,
+    Party,
+    PartyMembership,
     ProposalCategory,
     Session,
     SessionParticipation,
     SessionParticipationStatus,
     Space,
     Sphere,
-    Tag,
-    TagCategory,
     TimeSlot,
-    Venue,
 )
+from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
 User = get_user_model()
@@ -34,13 +33,43 @@ User = get_user_model()
 
 pytest.register_assert_rewrite("tests.integration.utils")
 
+# Smallest valid 1x1 PNG. Real bytes, because ImageField runs Pillow on upload.
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 register(CompleteUserFactory)
 register(AnonymousUserFactory)
 
 
 @pytest.fixture(autouse=True)
-def _django_db(transactional_db):
+def _django_db(db):
     pass
+
+
+def sponsor_user(*, leader, member):
+    # Mirror the 0110 backfill shape: the leader's own party (created with
+    # their own ACCEPT_BY_DEFAULT membership) sponsors the companion.
+    if (party := Party.objects.filter(leader=leader).order_by("pk").first()) is None:
+        party = Party.objects.create(leader=leader, name="")
+        PartyMembership.objects.create(
+            party=party,
+            member=leader,
+            consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+            status=PartyMembershipStatus.ACTIVE,
+        )
+    PartyMembership.objects.get_or_create(
+        party=party,
+        member=member,
+        defaults={
+            "consent_mode": PartyConsentMode.ACCEPT_BY_DEFAULT,
+            "status": PartyMembershipStatus.ACTIVE,
+        },
+    )
+    return party
 
 
 class UserFactory(DjangoModelFactory):
@@ -49,7 +78,7 @@ class UserFactory(DjangoModelFactory):
         django_get_or_create = ("username",)
 
     username = Faker("user_name")
-    email = Faker("email")
+    email = Sequence(lambda n: f"user{n}@example.com")
     name = Faker("name")
     slug = LazyAttribute(lambda o: o.username)
     user_type = "active"  # Use the actual choice value
@@ -100,34 +129,13 @@ class EnrollmentConfigFactory(DjangoModelFactory):
     percentage_slots = 100
 
 
-class VenueFactory(DjangoModelFactory):
-    class Meta:
-        model = Venue
-
-    name = Faker("company")
-    slug = Sequence(lambda n: f"venue-{n}")
-    event = SubFactory(EventFactory)
-    order = 0
-
-
-class AreaFactory(DjangoModelFactory):
-    class Meta:
-        model = Area
-
-    name = Faker("word")
-    slug = Sequence(lambda n: f"area-{n}")
-    venue = SubFactory(VenueFactory)
-    order = 0
-
-
 class SpaceFactory(DjangoModelFactory):
     class Meta:
         model = Space
 
     name = Faker("word")
     slug = Sequence(lambda n: f"space-{n}")
-    area = SubFactory(AreaFactory)
-    event = LazyAttribute(lambda o: o.area.venue.event)
+    event = SubFactory(EventFactory)
 
 
 class TimeSlotFactory(DjangoModelFactory):
@@ -137,26 +145,6 @@ class TimeSlotFactory(DjangoModelFactory):
     event = SubFactory(EventFactory)
     start_time = LazyAttribute(lambda o: o.event.start_time)
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
-
-
-class TagCategoryFactory(DjangoModelFactory):
-    class Meta:
-        model = TagCategory
-
-    name = Faker("word")
-    slug = Sequence(lambda n: f"tag-category-{n}")
-    event = SubFactory(EventFactory)
-    category_type = "SELECT"
-    icon = "dice"
-
-
-class TagFactory(DjangoModelFactory):
-    class Meta:
-        model = Tag
-
-    name = Faker("word")
-    slug = Sequence(lambda n: f"tag-{n}")
-    category = SubFactory(TagCategoryFactory)
 
 
 class SessionFactory(DjangoModelFactory):
@@ -253,15 +241,21 @@ def active_user_fixture():
     )
 
 
-@pytest.fixture
-def connected_user(active_user):
+@pytest.fixture(name="companion")
+def companion_fixture(active_user):
     return UserFactory(
-        username="connecteduser",
-        email="connected@example.com",
+        username="companionuser",
+        email="companion@example.com",
         user_type="connected",
         manager=active_user,
         password=make_password(None),
     )
+
+
+@pytest.fixture
+def party_companion(active_user, companion):
+    sponsor_user(leader=active_user, member=companion)
+    return companion
 
 
 @pytest.fixture(name="staff_user")
@@ -314,19 +308,9 @@ def enrollment_config_fixture(event):
     )
 
 
-@pytest.fixture(name="venue")
-def venue_fixture(event):
-    return VenueFactory(event=event, name="Main Venue")
-
-
-@pytest.fixture(name="area")
-def area_fixture(venue):
-    return AreaFactory(venue=venue, name="Main Area")
-
-
 @pytest.fixture(name="space")
-def space_fixture(area):
-    return SpaceFactory(area=area)
+def space_fixture(event):
+    return SpaceFactory(event=event)
 
 
 @pytest.fixture
@@ -373,7 +357,7 @@ def agenda_item(session, space):
 
 
 @pytest.fixture(autouse=True, name="sphere")
-def sphere_fixture(settings, transactional_db):  # noqa: ARG001
+def sphere_fixture(settings, db):  # ruff:ignore[unused-function-argument]
     site, __ = Site.objects.update_or_create(
         domain=settings.ROOT_DOMAIN, defaults={"name": settings.ROOT_DOMAIN}
     )
@@ -389,7 +373,7 @@ def sphere_fixture(settings, transactional_db):  # noqa: ARG001
 
 @pytest.fixture(name="faker")
 def faker_fixture():
-    from faker import Faker as FakerLib  # noqa: PLC0415
+    from faker import Faker as FakerLib  # ruff:ignore[import-outside-top-level]
 
     fake = FakerLib()
     # Wrap date_time methods to always include UTC timezone

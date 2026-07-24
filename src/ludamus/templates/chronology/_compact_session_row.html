@@ -1,0 +1,46 @@
+{% load i18n %}
+{% load cfp_tags %}
+{% load tessera %}
+{# Ledger row: one line per session — time range, bold title with the author #}
+{# right after it, then a right-aligned bullet-separated cluster of room · #}
+{# duration · age · availability, and the bookmark. Carries the same data-* #}
+{# contract as _session_card.html so session-filters and the detail modal #}
+{# work unchanged. #}
+<article class="session-wrapper min-w-0">
+    <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary dark:has-[a:hover]:bg-bg-tertiary/50 [text-box:trim-start_cap_alphabetic] max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 has-[a:hover]:opacity-100{% endif %}"
+         data-no-morph
+         {% include "chronology/_session_data_attrs.html" %}>
+        <a href="?session={{ data.session.pk }}"
+           class="session-link absolute inset-0 z-10 rounded-lg"
+           aria-haspopup="dialog"
+           aria-controls="session-{{ data.session.pk }}">
+            <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
+        </a>
+        {# Absolute on mobile so the stacked time centers against the whole #}
+        {# two-line row instead of only the title line it shares a flex line with. #}
+        <span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] pt-1.5 tabular-nums text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:w-28">{{ data.agenda_item.start_time|time:"H:i" }}<span class="hidden sm:inline">–</span><span class="block sm:inline">{{ data.agenda_item.end_time|time:"H:i" }}</span></span>
+        <span class="min-w-0 flex-1 truncate">
+            <span class="text-sm font-semibold text-foreground [text-box:trim-start_cap_alphabetic]">{{ data.session.title }}</span>
+            <span class="ml-1.5 text-xs text-foreground-muted [text-box:trim-start_cap_alphabetic]">{{ data.session.display_name }}</span>
+        </span>
+        <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
+              title="{{ data.location_label }}">
+            {{ data.loc.space_name }}
+            {% if data.session.duration %}
+                · {{ data.session.duration|format_duration }}
+            {% endif %}
+            {% if data.session.min_age > 0 %}
+                · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
+            {% endif %}
+            {% if data.is_ended or data.should_show_as_inactive or data.is_enrollment_available %}
+                ·
+                {% include "chronology/_session_availability.html" %}
+            {% endif %}
+        </span>
+        {# On mobile the toggle leaves the flex flow and pins to the row's #}
+        {# right edge (the row is `relative`) instead of wrapping to a #}
+        {# third line after the basis-full meta span. #}
+        {% include "chronology/_bookmark_toggle.html" with wrapper_class="z-20 shrink-0 self-center pointer-events-auto max-sm:absolute max-sm:right-1 max-sm:top-1/2 max-sm:-translate-y-1/2" %}
+        <span class="sr-only" data-session-description>{{ data.session.description }}</span>
+    </div>
+</article>

@@ -4,13 +4,12 @@
         <p class="text-lg">{% translate "No rooms for this track." %}</p>
         <p class="text-sm mt-2">{% translate "Add rooms or select a different track." %}</p>
     </div>
-{% elif not grid.time_labels %}
+{% elif not grid.days %}
     <div class="text-center py-16 text-foreground-muted">
         <p class="text-lg">{% translate "No time slots for this event." %}</p>
         <p class="text-sm mt-2">{% translate "Add time slots to see the schedule grid." %}</p>
     </div>
 {% else %}
-    <!-- Room pagination -->
     {% if grid.total_pages > 1 %}
         <div class="mb-4 flex items-center gap-2">
             <span class="text-sm text-foreground-muted">
@@ -19,70 +18,57 @@
             </span>
             {% if grid.page > 1 %}
                 <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'-1' }}"
+                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'-1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
-                        class="btn btn-secondary text-sm">← {% translate "Previous" %}</button>
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'-1' }}"
+                        class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">← {% translate "Previous" %}</button>
             {% endif %}
             {% if grid.page < grid.total_pages %}
                 <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}{% if grid.selected_date %}&date={{ grid.selected_date|date:'Y-m-d' }}{% endif %}&room_page={{ grid.page|add:'1' }}"
+                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'1' }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
-                        class="btn btn-secondary text-sm">{% translate "Next" %} →</button>
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'1' }}"
+                        class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Next" %} →</button>
             {% endif %}
         </div>
     {% endif %}
-    <!-- Timetable calendar layout -->
-    <div class="overflow-auto border border-border rounded-lg select-none"
-         id="timetable-calendar"
-         data-event-start="{{ grid.event_start_iso }}"
-         data-slot-minutes="{{ grid.slot_minutes }}"
-         data-total-minutes="{{ grid.total_minutes }}"
+    <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
+         data-timetable-days
          style="--grid-extent: {{ grid.total_minutes }}">
-        <!-- Space headers (sticky, three rows: venue / area / space) -->
-        <div class="sticky top-0 z-20 border-b border-neutral-700">
-            <!-- Venue row -->
-            <div class="flex bg-neutral-900 border-b border-neutral-700">
-                <div class="w-16 flex-none shrink-0 bg-neutral-900"></div>
-                {% for venue in grid.venue_groups %}
-                    <div class="timetable-header-cell px-3 py-1 border-l border-neutral-700 text-center bg-neutral-900"
-                         style="--columns: {{ venue.span }}">
-                        <div class="text-xs font-semibold text-white uppercase tracking-wide">{{ venue.venue_name }}</div>
+        <div class="timetable-day-strip sticky top-0 z-20 flex min-w-full w-max items-stretch border-b border-neutral-700 pr-px">
+            <div class="sticky left-0 z-40 flex w-16 flex-none items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
+            {% for day in grid.days %}
+                <div class="timetable-day-header flex flex-col border-l border-neutral-700"
+                     style="--column-count: {{ day.columns|length }}">
+                    {% if grid.days|length > 1 %}
+                        <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
+                            class="flex h-9 items-center border-b border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
+                    {% endif %}
+                    <div class="flex border-b border-neutral-700 bg-neutral-900">
+                        {% for group in grid.groups %}
+                            <div class="timetable-header-cell border-l border-neutral-700 bg-neutral-900 px-3 py-1 text-center first:border-l-0"
+                                 style="--columns: {{ group.span }}">
+                                <div class="text-xs font-semibold text-white uppercase tracking-wide">{{ group.parent_name|default:"—" }}</div>
+                            </div>
+                        {% endfor %}
                     </div>
-                {% endfor %}
-            </div>
-            <!-- Area row -->
-            <div class="flex bg-neutral-800 border-b border-neutral-700">
-                <div class="w-16 flex-none shrink-0 bg-neutral-800"></div>
-                {% for venue in grid.venue_groups %}
-                    {% for area in venue.areas %}
-                        <div class="timetable-header-cell px-3 py-1 border-l border-neutral-700 text-center bg-neutral-800"
-                             style="--columns: {{ area.span }}">
-                            <div class="text-xs font-medium text-white">{{ area.area_name }}</div>
-                        </div>
-                    {% endfor %}
-                {% endfor %}
-            </div>
-            <!-- Space row -->
-            <div class="flex bg-neutral-800">
-                <div class="w-16 flex-none px-2 py-2 text-xs text-neutral-300 shrink-0 text-right">{% translate "Time" %}</div>
-                {% for col in grid.columns %}
-                    <div class="flex-1 min-w-36 px-3 py-2 border-l border-neutral-700 text-center">
-                        <div class="text-sm font-medium text-white">{{ col.space.name }}</div>
-                        {% if col.space.capacity %}
-                            <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
-                        {% endif %}
+                    <div class="flex flex-1 bg-neutral-800">
+                        {% for col in day.columns %}
+                            <div class="flex min-w-36 flex-1 flex-col justify-center border-l border-neutral-700 px-3 py-2 text-center first:border-l-0">
+                                <div class="text-sm font-medium text-white wrap-anywhere">{{ col.space.name }}</div>
+                                {% if col.space.capacity %}
+                                    <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
                     </div>
-                {% endfor %}
-            </div>
+                </div>
+            {% endfor %}
         </div>
-        <!-- Grid body -->
-        <div class="flex bg-bg-secondary">
-            <!-- Time labels -->
-            <div class="timetable-time-axis w-16 flex-none relative shrink-0 border-r border-border">
+        <div class="timetable-day-strip flex min-w-full w-max items-start">
+            <div class="timetable-time-axis sticky left-0 z-10 w-16 flex-none border-r border-border bg-bg-secondary shadow-sm">
                 {% for label in grid.time_labels %}
                     <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
                          style="--offset: {{ label.offset_minutes }}">
@@ -90,46 +76,18 @@
                     </div>
                 {% endfor %}
             </div>
-            <!-- Space columns -->
-            {% for col in grid.columns %}
-                <div class="flex-1 min-w-36 relative border-l border-border timetable-column"
-                     data-space-pk="{{ col.space.pk }}">
-                    <!-- Slot grid lines -->
-                    {% for label in grid.time_labels %}
-                        <div class="timetable-slot-line absolute left-0 right-0 border-t border-border"
-                             style="--offset: {{ label.offset_minutes }}"></div>
-                    {% endfor %}
-                    <!-- Sessions -->
-                    {% for pos in col.sessions %}
-                        <div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {% if pos.agenda_item.session_id in conflict_session_pks %} bg-danger-bg border-danger hover:opacity-100 {% elif pos.agenda_item.session_id in slot_violation_session_pks %} bg-warning-bg border-warning hover:opacity-100 {% else %} bg-info-bg border-info hover:opacity-100 {% endif %}"
-                             tabindex="0"
-                             title="{{ pos.agenda_item.session_title }}"
-                             style="--offset: {{ pos.start_minutes }};
-                                    --duration: {{ pos.duration_minutes }};
-                                    --lane-start: {{ pos.lane_start_pct }}%;
-                                    --lane-width: {{ pos.lane_width_pct }}%"
-                             hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}"
-                             hx-target="#left-pane"
-                             hx-swap="outerHTML">
-                            <div class="timetable-session-body px-1 py-0.5 h-full overflow-hidden">
-                                <div class="timetable-session-title font-medium wrap-anywhere {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger-text{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning-text{% else %}text-info-text{% endif %}">
-                                    {% if pos.agenda_item.session_id in conflict_session_pks %}
-                                        ⚠
-                                    {% elif pos.agenda_item.session_id in slot_violation_session_pks %}
-                                        ⏰
-                                    {% endif %}
-                                    {{ pos.agenda_item.session_title|truncatechars:256 }}
-                                </div>
-                                <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 %}hidden{% endif %}">
-                                    {{ pos.agenda_item.presenter_name }}
-                                </div>
-                                <div class="timetable-session-meta timetable-session-duration {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 52 %}hidden{% endif %}">
-                                    {{ pos.agenda_item.session_duration_minutes }} min
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
+            {% for day in grid.days %}
+                <section class="timetable-day-grid {% if not forloop.first %}border-l border-border{% endif %}"
+                         style="--column-count: {{ day.columns|length }}"
+                         data-timetable-day="{{ day.date|date:'Y-m-d' }}"
+                         data-date="{{ day.date|date:'Y-m-d' }}"
+                         data-event-start="{{ day.event_start_iso }}"
+                         data-slot-minutes="{{ grid.slot_minutes }}"
+                         data-snap-minutes="{{ grid.snap_minutes }}"
+                         data-total-minutes="{{ grid.total_minutes }}"
+                         aria-label="{{ day.date|date:'l, M j' }}">
+                    {% include "panel/parts/timetable-day-grid.html" %}
+                </section>
             {% endfor %}
         </div>
     </div>

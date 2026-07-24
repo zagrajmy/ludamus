@@ -4,7 +4,7 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import ProposalCategory
+from ludamus.links.db.django.models import ProposalCategory
 from ludamus.pacts import EventDTO
 from tests.integration.utils import assert_response
 
@@ -117,7 +117,7 @@ class TestCFPCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type created successfully.")],
+            messages=[(messages.SUCCESS, "Category created successfully.")],
             url=f"/panel/event/{event.slug}/cfp/",
         )
         assert ProposalCategory.objects.filter(
@@ -138,7 +138,7 @@ class TestCFPCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session type created successfully.")],
+            messages=[(messages.SUCCESS, "Category created successfully.")],
             url=f"/panel/event/{event.slug}/cfp/{category.slug}/",
         )
 

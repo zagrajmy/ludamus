@@ -13,7 +13,9 @@ class TestEncounterQrView:
 
         response = client.get(url)
 
-        assert_response(response, HTTPStatus.OK)
+        assert_response(
+            response, HTTPStatus.OK, cache_control={"public", "max-age=86400"}
+        )
         assert response["Content-Type"] == "image/svg+xml"
         assert b"<svg" in response.content
 

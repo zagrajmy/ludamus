@@ -16,12 +16,16 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone, localtime
 
-from ludamus.adapters.db.django.models import (
+from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
+from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
+    SESSION_COLUMNS,
+)
+from ludamus.links.db.django.models import (
     EventIntegration,
     Facilitator,
-    HostPersonalData,
     ImportLogEntry,
     PersonalDataField,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
     SessionField,
@@ -29,10 +33,6 @@ from ludamus.adapters.db.django.models import (
     SessionFieldValue,
     TimeSlot,
     Track,
-)
-from ludamus.gates.web.django.chronology.panel.views.base import import_tab_urls
-from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
-    SESSION_COLUMNS,
 )
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
@@ -235,7 +235,6 @@ class TestEventImportProposalView:
                 "active_tab": "proposal",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "summary_rows": [],
-                "email_column_missing": True,
             },
             contains="No source questions found yet.",
         )
@@ -290,7 +289,6 @@ class TestEventImportProposalView:
                         "details": "",
                     },
                 ],
-                "email_column_missing": True,
             },
         )
         # The Edit action column links each row to the Review tab.
@@ -1712,7 +1710,7 @@ class TestEventImportRunActionView:
         fields = PersonalDataField.objects.filter(event=event, slug="telefon")
         assert fields.count() == 1
         assert fields.get().field_type == "text"
-        assert not HostPersonalData.objects.filter(field=fields.get()).exists()
+        assert not PersonalDataFieldValue.objects.filter(field=fields.get()).exists()
 
     def test_post_writes_personal_field_value_against_row_facilitator(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1752,7 +1750,7 @@ class TestEventImportRunActionView:
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
             )
             authenticated_client.post(_run_url(event, integration))
-            # Re-run: HostPersonalData upserts on (facilitator, event, field) —
+            # Re-run: PersonalDataFieldValue upserts on (facilitator, event, field) —
             # the row's value overwrites rather than duplicating.
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-9999"]]
@@ -1760,7 +1758,7 @@ class TestEventImportRunActionView:
             authenticated_client.post(_run_url(event, integration))
 
         field = PersonalDataField.objects.get(event=event, slug="telefon")
-        rows = list(HostPersonalData.objects.filter(field=field))
+        rows = list(PersonalDataFieldValue.objects.filter(field=field))
         assert len(rows) == 1
         assert rows[0].value == "555-9999"
         assert rows[0].facilitator.display_name == "GM Bob"
@@ -2183,9 +2181,8 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
-                "email_column": None,
                 "unique_key_columns": [],
-                "available_columns": ["Timestamp", "Email Address"],
+                "available_columns": [],
                 "fields_imported": False,
                 "fields_count": 0,
                 "mapping_total": 0,
@@ -2245,12 +2242,66 @@ class TestEventImportRunPageView:
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": header_row,
-                "email_column": None,
                 "unique_key_columns": ["Email Address"],
-                "available_columns": ["Timestamp", "Email Address", "Title", "System"],
+                "available_columns": ["Title", "System"],
                 "fields_imported": True,
                 "fields_count": len(["Title", "System"]),
                 "mapping_total": len(["Title", "System"]),
+                "mapping_confirmed": 1,
+                "no_unique_keys_label": "No columns selected.",
+            },
+        )
+
+    def test_get_offers_cached_sheet_headers_as_unique_key_columns(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # The header row carries the localized metadata columns (Timestamp,
+        # Email Address) that the form schema — and so the questions snapshot —
+        # never sees. Those are exactly the columns a unique key wants.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.questions_snapshot_json = json.dumps(
+            [
+                {
+                    "title": "Tytuł",
+                    "options": [],
+                    "field_type": "text",
+                    "is_multiple": False,
+                    "allow_custom": False,
+                }
+            ]
+        )
+        headers = ["Sygnatura czasowa", "Adres e-mail", "Tytuł"]
+        integration.settings_json = json.dumps(
+            {
+                "header_row": 1,
+                "unique_key_columns": ["Sygnatura czasowa"],
+                "sheet_headers": headers,
+                "questions": {"Tytuł": {"to": "session.title", "confirmed": True}},
+            }
+        )
+        integration.save(update_fields=("questions_snapshot_json", "settings_json"))
+
+        response = authenticated_client.get(_run_page_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/import-run.html",
+            context_data=_event_context(event)
+            | {
+                "active_nav": "import",
+                "active_integration": _dto(integration),
+                "active_tab": "run",
+                "tab_urls": import_tab_urls(event.slug, integration.pk),
+                "header_row": 1,
+                "unique_key_columns": ["Sygnatura czasowa"],
+                "available_columns": headers,
+                "fields_imported": True,
+                "fields_count": 1,
+                "mapping_total": 1,
                 "mapping_confirmed": 1,
                 "no_unique_keys_label": "No columns selected.",
             },
@@ -2322,70 +2373,6 @@ class TestEventImportSettingsSaveView:
             HTTPStatus.FOUND,
             url=_run_page_url(event, integration),
             messages=[(messages.ERROR, "Header row must be 1 or greater.")],
-        )
-
-    def test_post_saves_email_column_when_provided(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-        email_column = 2
-
-        response = authenticated_client.post(
-            self._save_url(event, integration),
-            data={"header_row": "1", "email_column": str(email_column)},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_run_page_url(event, integration),
-            messages=[(messages.SUCCESS, "Sheet settings saved.")],
-        )
-        integration.refresh_from_db()
-        settings = ImportSettings.model_validate_json(integration.settings_json)
-        assert settings.email_column == email_column
-
-    def test_post_clears_email_column_when_blank(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-        integration.settings_json = json.dumps({"email_column": 2})
-        integration.save(update_fields=["settings_json"])
-
-        response = authenticated_client.post(
-            self._save_url(event, integration),
-            data={"header_row": "1", "email_column": ""},
-        )
-
-        assert response.status_code == HTTPStatus.FOUND
-        integration.refresh_from_db()
-        settings = ImportSettings.model_validate_json(integration.settings_json)
-        assert settings.email_column is None
-
-    def test_post_rejects_non_positive_email_column(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
-        integration = _make_import_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-
-        response = authenticated_client.post(
-            self._save_url(event, integration),
-            data={"header_row": "1", "email_column": "0"},
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=_run_page_url(event, integration),
-            messages=[(messages.ERROR, "Email column must be 1 or greater.")],
         )
 
 
@@ -3664,6 +3651,57 @@ class TestImportActionResultMessages:
             ],
         )
 
+    def test_run_adopts_preident_session_matched_by_title_and_email(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        # A session imported before the ident column existed has ident="".
+        # The re-run matches it by title + contact email, marks the row as a
+        # duplicate, and backfills the ident so future runs match directly.
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = json.dumps(
+            {
+                "questions": {
+                    "Title": {"to": "session.title"},
+                    "Email": {"to": "session.contact_email"},
+                },
+                "unique_key_columns": ["Email"],
+            }
+        )
+        integration.save(update_fields=["settings_json"])
+        legacy = Session.objects.create(
+            event=event,
+            title="My Talk",
+            contact_email="a@x.z",
+            slug="my-talk",
+            status="pending",
+            participants_limit=0,
+        )
+
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [["Title", "Email"], ["My Talk", "a@x.z"]]
+            )
+            response = authenticated_client.post(_run_url(event, integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (messages.SUCCESS, "Created 0 proposals."),
+                (messages.INFO, "Skipped 1 responses already imported."),
+            ],
+        )
+        legacy.refresh_from_db()
+        assert legacy.ident
+        assert Session.objects.filter(event=event).count() == 1
+
     def test_test_row_reports_skip_for_invalid_answer(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
@@ -3833,3 +3871,122 @@ class TestImportViewsIntegrationNotFound:
         assert response.status_code == HTTPStatus.OK
         assert response.template_name == "panel/import-log.html"
         assert response.context_data["active_integration"] is None
+
+
+# Real Google Forms drop localized metadata headers; a Polish-language form's
+# first two columns are "Sygnatura czasowa" / "Adres e-mail", not the English
+# "Timestamp" / "Email Address" the UI used to offer as unique-key candidates.
+_LOCALIZED_HEADER = ["Sygnatura czasowa", "Adres e-mail", "Tytuł punktu programu"]
+_LOCALIZED_ROWS = [
+    ["2026-05-21 22:56:15", "first@email.com", "Czy androidy śnią o owcach?"],
+    ["2026-05-21 23:56:15", "second@email.com", "Czy androidy śnią o owcach?"],
+]
+
+
+@pytest.mark.django_db
+class TestImportDistinctSessionsSameName:
+    @staticmethod
+    def _settings(unique_key_columns: list[str]) -> str:
+        return json.dumps(
+            {
+                "questions": {
+                    "Tytuł punktu programu": {"to": "session.title"},
+                    "Adres e-mail": {"to": "session.contact_email"},
+                },
+                "unique_key_columns": unique_key_columns,
+                "header_row": 1,
+            }
+        )
+
+    def _run(self, client, event, integration, url=None):
+        with (
+            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+        ):
+            session_cls.return_value.get.side_effect = _sheets_get(
+                [_LOCALIZED_HEADER, *_LOCALIZED_ROWS]
+            )
+            return client.post(url or _run_url(event, integration))
+
+    def test_run_aborts_when_unique_key_column_missing_from_sheet(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        # English metadata names don't match the localized sheet headers, so
+        # keying on them used to collapse both rows onto the title-only slug.
+        integration.settings_json = self._settings(
+            ["Timestamp", "Email Address", "Tytuł punktu programu"]
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = self._run(authenticated_client, event, integration)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Import aborted: unique-key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "selection on the run tab, then try again."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(event=event).exists()
+
+    def test_test_row_aborts_when_unique_key_column_missing_from_sheet(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = self._settings(
+            ["Timestamp", "Email Address", "Tytuł punktu programu"]
+        )
+        integration.save(update_fields=["settings_json"])
+
+        response = self._run(
+            authenticated_client, event, integration, _test_url(event, integration)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Import aborted: unique-key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "selection on the run tab, then try again."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(event=event).exists()
+
+    def test_same_title_distinct_rows_are_not_merged(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        integration.settings_json = self._settings(_LOCALIZED_HEADER)
+        integration.save(update_fields=["settings_json"])
+
+        self._run(authenticated_client, event, integration)
+
+        emails = sorted(
+            Session.objects.filter(event=event).values_list("contact_email", flat=True)
+        )
+        assert emails == ["first@email.com", "second@email.com"]

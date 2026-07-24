@@ -21,16 +21,9 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <div class="bg-bg-tertiary px-3 pt-2 border-b border-border">
-            {% tabs %}
-            {% tab "types" href=tab_urls.types %}{% translate "Session Types" %}{% end_tab %}
-            {% tab "host" href=tab_urls.host %}{% translate "Host Data Fields" %}{% end_tab %}
-            {% tab "session" active=True href=tab_urls.session %}{% translate "Session Fields" %}{% end_tab %}
-            {% tab "time_slots" href=tab_urls.time_slots %}{% translate "Time Slots" %}{% end_tab %}
-        {% end_tabs %}
-    </div>
-    <div class="px-3 sm:px-4 py-6 bg-bg-secondary">
-        <div class="alert alert-info mb-6">
+        {% tab_shell "panel/_cfp_tabs.html" %}
+        {% tab_shell_body %}
+        <div class="alert backdrop-blur-lg alert-info mb-6">
             <div class="flex items-start gap-3">
                 <span class="flex-shrink-0 mt-0.5">{% icon "information-circle" class="w-5 h-5" %}</span>
                 <div>
@@ -39,7 +32,7 @@
                         {% translate "Session fields collect information about each session proposal. Examples: game system, genre, difficulty level, language. Unlike host data, session fields are filled separately for each proposal." %}
                     </p>
                     <p class="text-sm mt-2">
-                        {% translate "After creating fields here, configure which ones are required or optional in each session type's settings." %}
+                        {% translate "After creating fields here, configure which ones are required or optional in each category's settings." %}
                     </p>
                 </div>
             </div>
@@ -132,7 +125,8 @@
             {% tessera_button t_create href=create_url icon="plus" %}
         </div>
     {% endif %}
-</div>
+{% end_tab_shell_body %}
+{% end_tab_shell %}
 {% else %}
 <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

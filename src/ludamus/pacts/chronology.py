@@ -12,14 +12,23 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
+    EventDTO,
+    LocationData,
     SessionContentEditData,
+    SessionDTO,
     SessionFieldValueData,
+    SessionFieldValueDTO,
+    SessionParticipationStatus,
     SessionSelfEditContext,
     SpaceDTO,
+    SpaceOptionDTO,
+    TimeSlotDTO,
 )
+from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.submissions import ImportRow
@@ -65,13 +74,11 @@ class IntegrationImplementation(Protocol):
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
     def fetch_questions(
-        self,
-        *,
-        secret: bytes,
-        config: BaseModel,
-        header_row: int = 1,
-        email_column: int | None = None,
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
+    def fetch_headers(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[str]: ...
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
@@ -180,7 +187,6 @@ class EventIntegrationsServiceProtocol(Protocol):
 
 
 class SessionSelfEditServiceProtocol(Protocol):
-    def can_edit(self, session_id: int, user_id: int | None) -> bool: ...
     def get_edit_context(
         self, session_id: int, user_id: int | None
     ) -> SessionSelfEditContext: ...
@@ -193,6 +199,14 @@ class SessionSelfEditServiceProtocol(Protocol):
     ) -> None: ...
 
 
+class ContentChangeNotLatestError(Exception):
+    """Only the latest content change for a session may be reverted."""
+
+
+class ContentChangeNotRevertibleError(Exception):
+    """Every entry in the change is irreversible (cover image, assignments)."""
+
+
 class SessionContentEditServiceProtocol(Protocol):
     def apply(
         self,
@@ -202,8 +216,10 @@ class SessionContentEditServiceProtocol(Protocol):
         user_id: int | None,
         data: SessionContentEditData,
     ) -> None: ...
+    def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
+    def revertible_log_pks(self, event_id: int) -> set[int]: ...
 
 
 class SessionConfirmationServiceProtocol(Protocol):
@@ -221,8 +237,135 @@ class SessionDeletionServiceProtocol(Protocol):
     def restore(self, event_pk: int, session_pk: int) -> None: ...
 
 
+class ProposalScheduledError(Exception):
+    """Scheduled proposals may only be accepted, never demoted."""
+
+
+class ProposalStatusServiceProtocol(Protocol):
+    def mark_pending(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_accepted(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_on_hold(self, *, event_pk: int, session_pk: int) -> None: ...
+    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
+class SpaceTimeConflictError(Exception):
+    """Another session already occupies that space during the chosen slot."""
+
+
+class ProposalAcceptContextDTO(BaseModel):
+    session: SessionDTO
+    event: EventDTO
+    presenter: UserDTO | None
+    space_options: list[SpaceOptionDTO]
+    time_slots: list[TimeSlotDTO]
+    preferred_time_slot_ids: list[int]
+    field_values: list[SessionFieldValueDTO]
+    can_accept: bool
+
+
+class ProposalAcceptanceServiceProtocol(Protocol):
+    def get_accept_context(
+        self, *, session_id: int, user_slug: str, sphere_id: int
+    ) -> ProposalAcceptContextDTO | None: ...
+    def accept_session(
+        self, *, session_id: int, space_id: int, time_slot_id: int
+    ) -> None: ...
+
+
+class PartySessionSeatDTO(BaseModel):
+    user: UserDTO
+    status: SessionParticipationStatus
+    creation_time: datetime
+
+
+class SessionCardStatsDTO(BaseModel):
+    enrolled_count: int
+    waiting_count: int
+    is_full: bool
+    is_enrollment_available: bool
+    effective_participants_limit: int
+    full_participant_info: str
+
+
+class PartySessionHistoryDTO(SessionCardStatsDTO):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[PartySessionSeatDTO]
+    location: LocationData
+    viewer_enrolled: bool
+
+
+class PartyEventHistoryDTO(BaseModel):
+    event_pk: int
+    event_name: str
+    event_slug: str
+    sessions: list[PartySessionHistoryDTO]
+
+
+class PartyDetailDTO(BaseModel):
+    party: PartyDTO
+    history: list[PartyEventHistoryDTO]
+
+
+class PartySessionHistoryRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_for_party(
+        *, party_pk: int, viewer_pk: int
+    ) -> list[PartyEventHistoryDTO]: ...
+
+
+class PartySessionHistoryServiceProtocol(Protocol):
+    def read_detail(
+        self, *, party_pk: int, viewer_pk: int
+    ) -> PartyDetailDTO | None: ...
+
+
+class SessionModalSeatDTO(BaseModel):
+    user: UserDTO
+    status: SessionParticipationStatus
+    creation_time: datetime
+
+
+class SessionModalDTO(SessionCardStatsDTO):
+    session: SessionDTO
+    agenda_item: AgendaItemDTO
+    presenter: UserDTO | None
+    participations: list[SessionModalSeatDTO]
+    location: LocationData
+    field_values: list[SessionFieldValueDTO]
+    viewer_enrolled: bool
+    viewer_waiting: bool
+    can_edit: bool
+    is_ongoing: bool
+    is_ended: bool
+
+
+class SessionModalRepositoryProtocol(Protocol):
+    @staticmethod
+    def read_modal(
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
+    ) -> SessionModalDTO | None: ...
+
+
+class SessionModalServiceProtocol(Protocol):
+    def read(
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        viewer_user_ids: list[int],
+        editor_user_id: int | None,
+    ) -> SessionModalDTO | None: ...
+
+
 TIMETABLE_ROOM_PAGE_SIZE = 5
 TIMETABLE_SLOT_MINUTES = 60
+TIMETABLE_SNAP_MINUTES = 5
 
 
 class SessionPositionDTO(BaseModel):
@@ -243,32 +386,36 @@ class SpaceColumnDTO(BaseModel):
     sessions: list[SessionPositionDTO] = []
 
 
-class AreaGroupDTO(BaseModel):
-    area_pk: int
-    area_name: str
+class SpaceGroupDTO(BaseModel):
+    # One header cell spanning the leaf columns that share an immediate parent.
+    # parent_pk None / empty name means the leaves are top-level (no parent).
+    parent_pk: int | None
+    parent_name: str
     span: int
 
 
-class VenueGroupDTO(BaseModel):
-    venue_pk: int
-    venue_name: str
-    span: int
-    areas: list[AreaGroupDTO]
+class TimetableDayGridDTO(BaseModel):
+    date: date
+    columns: list[SpaceColumnDTO]
+    event_start_iso: str
+
+
+type DateSelection = date | Literal["all"]
 
 
 class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
-    columns: list[SpaceColumnDTO]
-    venue_groups: list[VenueGroupDTO]
+    groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
     time_labels: list[TimeLabelDTO]
     total_minutes: int
-    event_start_iso: str
     slot_minutes: int
+    snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
     available_dates: list[date] = []
-    selected_date: date | None = None
+    date_selection: DateSelection = "all"
 
 
 class ConflictType(StrEnum):
@@ -294,6 +441,10 @@ class SessionPlacement:
 class ConflictDTO(BaseModel):
     type: ConflictType
     severity: ConflictSeverity
+    # The session that has the problem (the one being placed / examined).
+    subject_session_title: str
+    subject_session_pk: int
+    # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
     facilitator_name: str | None = None
@@ -351,7 +502,16 @@ class TrackProgressDTO(BaseModel):
     manager_names: list[str]
     accepted_count: int
     scheduled_count: int
+    pending_count: int = 0
+    on_hold_count: int = 0
+    rejected_count: int = 0
     progress_pct: int
+
+    @property
+    def active_count(self) -> int:
+        # The scheduling target: proposals still in play (not rejected / on
+        # hold). Denominator of the scheduled/total ratio.
+        return self.pending_count + self.accepted_count
 
     @property
     def unassigned_count(self) -> int:

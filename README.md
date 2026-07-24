@@ -16,7 +16,7 @@ project tasks.
 
 ```bash
 mise install            # Python, Node, Poetry, ast-grep
-mise bootstrap      # .env, deps, migrations, demo data — idempotent
+mise run bootstrap      # .env, deps, migrations, demo data — idempotent
 mise dev                # Django :8000 + Vite :5173
 ```
 
@@ -28,15 +28,19 @@ deterministic data used by end-to-end tests.
 ### Day-to-day
 
 ```bash
-mise test               # all tests
+mise run test:py        # all Python tests (Playwright: test:e2e)
 mise check              # format + lint + autofix
-mise prcheck            # CI-style lint, no autofix
+mise run lint           # CI-style lint, no autofix
 mise tasks              # list every task with descriptions
 ```
 
 Frontend lives in `src/ludamus/client/` (Vite + Tailwind). Architecture and
 contributor conventions are documented in [CLAUDE.md](CLAUDE.md) (also available
 as `AGENTS.md` for Cursor/OpenAI agents).
+
+Local-dev details — simulator login, Playwright auth state, and a glossary of
+the task-file tools (aube, varlock, hk) — live in
+[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 
 ### Email in development
 

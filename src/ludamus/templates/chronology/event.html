@@ -118,7 +118,11 @@
                     <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
                         <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
                         <div class="text-sm text-coral-600 dark:text-coral-500">
-                            {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                            {% if event.use_participants_label %}
+                                {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
+                            {% else %}
+                                {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -127,7 +131,7 @@
     </div>
     <!-- Enrollment Passes Info (for authenticated users) -->
     {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
-        <div class="alert alert-success mb-4" role="alert">
+        <div class="alert backdrop-blur-lg alert-success mb-4" role="alert">
             <div class="flex">
                 <div class="shrink-0">{% icon "key" class="w-5 h-5" %}</div>
                 <div class="grow ml-3">
@@ -201,7 +205,7 @@
     {% endif %}
     <!-- Anonymous Mode Banner -->
     {% if request.session.anonymous_enrollment_active and not current_user %}
-        <div class="alert alert-warning mb-4" role="alert">
+        <div class="alert backdrop-blur-lg alert-warning mb-4" role="alert">
             <div class="flex">
                 <div class="shrink-0">{% icon "eye-slash" class="w-5 h-5" %}</div>
                 <div class="grow ml-3">
@@ -281,14 +285,14 @@
         {% if hour_data %}
             <!-- Filter Controls -->
             <div class="mb-6">
-                <div class="flex gap-2 items-stretch">
+                <div class="flex gap-1 sm:gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
                             {% icon "magnifying-glass" class="w-5 h-5" variant="mini" %}
                         </span>
                         {% translate "Search sessions..." as filter_placeholder %}
                         <input type="text"
-                               class="filter-input w-full pl-11 pr-4 py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
+                               class="filter-input w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
                                id="session-filter"
                                placeholder="{{ filter_placeholder }}"
                                aria-label="{{ filter_placeholder }}"
@@ -296,22 +300,25 @@
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
-                                aria-controls="filter-panel">
+                                aria-controls="filter-panel"
+                                aria-label="{% translate "Filters" %}">
                             <span class="hidden sm:inline">{% translate "Filters" %}</span>
                             {% icon "adjustments-horizontal" class="w-5 h-5" variant="mini" %}
                             <span id="active-filter-count"
                                   class="filter-badge hidden min-w-5 h-5 px-1.5 rounded-full text-[0.6875rem] font-bold leading-5 text-center bg-primary text-white"></span>
                         </button>
+                        {# The panel div stays the last child of the wrapper; the popover #}
+                        {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
                                 <div class="flex flex-col gap-1.5">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                            for="status-filter">{% translate "Status" %}</label>
                                     <select id="status-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All statuses" %}</option>
                                         <option value="available">{% translate "Available spots" %}</option>
                                         <option value="full">{% translate "Full" %}</option>
@@ -320,30 +327,33 @@
                                         <option value="ended">{% translate "Ended" %}</option>
                                         <option value="my-enrolled">{% translate "I am enrolled" %}</option>
                                         <option value="my-waiting">{% translate "I am waiting" %}</option>
+                                        {# Bookmark toggles exist only on the compact layouts, so the #}
+                                        {# filter option would always be empty on card-grid events. #}
+                                        {% if current_user and compact_schedule %}
+                                            <option value="my-bookmarked">{% translate "Bookmarked" %}</option>
+                                        {% endif %}
                                     </select>
                                 </div>
                                 <div id="venue-filter-group" class="flex flex-col gap-1.5 hidden">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                            for="venue-filter">{% translate "Venue" %}</label>
                                     <select id="venue-filter"
-                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All venues" %}</option>
                                     </select>
                                 </div>
                                 <div class="flex flex-col gap-1.5 grow">
-                                    <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted">
-                                        {% translate "Age range" %}
-                                    </label>
+                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Age range" %}</label>
                                     <div class="flex items-center gap-2">
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="min-age-filter"
                                                placeholder="{% translate "Min" %}"
                                                min="0"
                                                max="99">
                                         <span class="text-xs font-bold text-foreground-muted">–</span>
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
+                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="max-age-filter"
                                                placeholder="{% translate "Max" %}"
                                                min="0"
@@ -352,28 +362,50 @@
                                 </div>
                                 <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
                                     <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                                for="day-filter">{% translate "Day" %}</label>
                                         <select id="day-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                             <option value="">{% translate "All days" %}</option>
                                         </select>
                                     </div>
                                     <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-[0.625rem] font-bold uppercase tracking-widest text-foreground-muted"
+                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                                for="hour-filter">{% translate "Hour" %}</label>
                                         <select id="hour-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
+                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                             <option value="">{% translate "All hours" %}</option>
                                         </select>
                                     </div>
                                 </div>
+                                {% if has_track_filter %}
+                                    <div class="flex flex-col gap-1.5 grow">
+                                        <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
+                                               for="tag-filter-__track">{% translate "Track" %}</label>
+                                        <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
+                                                data-category="__track"
+                                                id="tag-filter-__track">
+                                            <option value="">{% translate "All tracks" %}</option>
+                                        </select>
+                                    </div>
+                                {% endif %}
+                                {% if has_category_filter %}
+                                    <div class="flex flex-col gap-1.5 grow">
+                                        <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
+                                               for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
+                                        <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
+                                                data-category="__category"
+                                                id="tag-filter-__category">
+                                            <option value="">{% translate "All categories" context "participant filter" %}</option>
+                                        </select>
+                                    </div>
+                                {% endif %}
                                 <div id="tag-filters" class="contents">
                                     {% for field in filterable_tag_categories %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="text-[0.625rem] font-bold uppercase tracking-widest grow text-foreground-muted"
+                                            <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
                                                    for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
-                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-[0.8125rem] font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
+                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
                                                     data-category="{{ field.slug }}"
                                                     id="tag-filter-{{ field.slug }}">
                                                 <option value="">{% translate "All" %} {{ field.name }}</option>
@@ -384,6 +416,9 @@
                             </div>
                         </div>
                     </div>
+                    {% if compact_schedule %}
+                        <div class="self-center">{% include "chronology/_schedule_view_tabs.html" %}</div>
+                    {% endif %}
                 </div>
                 <div id="active-filter-chips"
                      class="filter-chips-bar"
@@ -405,115 +440,33 @@
                         id="clear-filters-from-no-results"
                         class="text-sm mt-2 font-semibold text-primary">{% translate "Clear all filters" %}</button>
             </div>
-            <!-- All Sessions in Chronological Order -->
-            {% comment %} Process each time slot in chronological order {% endcomment %}
-            {% comment %} Ended Sessions {% endcomment %}
-            {% for hour, sessions in ended_hour_data.items %}
-                <div class="mb-8 time-slot-section"
-                     data-time-slot="ended-{{ forloop.counter }}">
-                    <!-- Time Slot Header -->
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-bg-tertiary text-foreground-muted">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %}
-                            {{ hour|date:"l, j F" }}, {{ hour|time:"H:i" }}
-                            <span class="text-xs font-normal">({% translate "Completed" %})</span>
-                        </div>
-                        <div class="h-px grow bg-border"></div>
-                        <span class="text-xs text-foreground-muted">{{ sessions|length }} session{{ sessions|length|pluralize }}</span>
-                    </div>
-                    <!-- Sessions in this time slot -->
-                    <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {% for data in sessions %}
-                            {% include "chronology/_session_card.html" with data=data ended=True %}
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endfor %}
-            {% comment %} Current & Upcoming Sessions {% endcomment %}
-            {% for hour, sessions in current_hour_data.items %}
-                <div class="mb-8 time-slot-section"
-                     data-time-slot="current-{{ forloop.counter }}">
-                    <!-- Time Slot Header -->
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %}
-                            {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
-                        </div>
-                        <hr />
-                        {% if event.is_live and forloop.first %}
-                            <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
-                                <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                                {% translate "Now" %}
-                            </span>
-                        {% endif %}
-                        <span class="text-xs text-foreground-muted">{{ sessions|length }} session{{ sessions|length|pluralize }}</span>
-                        {% if event.is_proposal_active %}
-                            <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
-                               class="text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
-                                {% icon "plus" class="w-4 h-4" variant="mini" %}
-                                <span class="sr-only">{% translate "Propose" %}</span>
-                            </a>
-                        {% endif %}
-                    </div>
-                    <!-- Sessions in this time slot -->
-                    {% if sessions %}
-                        <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {% for data in sessions %}
-                                {% include "chronology/_session_card.html" with data=data ended=False %}
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="text-center py-6">
-                            <p class="text-sm text-foreground-muted">
-                                {% translate "No sessions scheduled for this time slot" %}
-                                {% if event.is_proposal_active %}
-                                    – <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
-    class="text-primary">{% translate "be the first to propose!" %}</a>
-                                {% endif %}
-                            </p>
-                        </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-            {% comment %} Future Unavailable Sessions {% endcomment %}
-            {% for hour, sessions in future_unavailable_hour_data.items %}
-                <div class="mb-8 time-slot-section"
-                     data-time-slot="future-{{ forloop.counter }}">
-                    <!-- Time Slot Header -->
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warning-bg text-warning-text">
-                            {% icon "clock" class="w-4 h-4" variant="mini" %}
-                            {{ hour|date:"l, F j" }} – {{ hour|time:"H:i" }}
-                            <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
-                        </div>
-                        <div class="h-px grow bg-border"></div>
-                        <span class="text-xs text-foreground-muted">{{ sessions|length }} session{{ sessions|length|pluralize }}</span>
-                    </div>
-                    <!-- Sessions in this time slot -->
-                    <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {% for data in sessions %}
-                            {% include "chronology/_session_card.html" with data=data ended=False %}
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endfor %}
-            {% if not ended_hour_data and not current_hour_data and not future_unavailable_hour_data %}
-                <div class="text-center py-12">
-                    <div class="mb-3 text-foreground-muted">{% icon "calendar" class="w-10 h-10 mx-auto" %}</div>
-                    <h5 class="text-lg font-semibold mb-2 text-foreground-muted">
-                        {% translate "No sessions or time slots available yet" %}
-                    </h5>
-                    <p class="text-sm text-foreground-muted">
-                        {% if event.is_proposal_active %}
-                            {% translate "Be the first to propose a session!" %}
-                        {% else %}
-                            {% translate "Sessions will be announced soon." %}
-                        {% endif %}
-                    </p>
-                </div>
+            {% if compact_schedule %}
+                {% include "chronology/_compact_schedule.html" %}
+            {% else %}
+                {% include "chronology/_card_schedule.html" with session_link_base="" %}
             {% endif %}
         {% endif %}
     </div>
+    <!-- The viewer's own proposals, awaiting review -->
+    {% if own_pending_proposals %}
+        <div class="mt-12 time-slot-section" data-time-slot="own-proposals">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
+                    {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
+                    {% translate "Your pending proposals" %}
+                </div>
+                <div class="h-px grow bg-border"></div>
+                <span class="text-xs text-foreground-muted">
+                    {% blocktranslate count counter=own_pending_proposals|length %}{{ counter }} proposal{% plural %}{{ counter }} proposals{% endblocktranslate %}
+                </span>
+            </div>
+            <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                {% for data in own_pending_proposals %}
+                    {% include "chronology/_session_card.html" with session_link_base="" %}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
         <div class="mt-12 text-center">
@@ -534,372 +487,14 @@
             </div>
         </div>
     {% endif %}
-    <!-- Proposals Section (Superuser Only) -->
-    {% if user.is_superuser and event.is_proposal_active and pending_sessions %}
-        <div class="card mt-8">
-            <div class="px-6 py-4 flex items-center gap-3 bg-warning-bg border-b border-warning-light">
-                <h3 class="text-base font-semibold flex items-center gap-2 text-warning-text">
-                    {% icon "clipboard-document-check" class="w-5 h-5" variant="mini" %}
-                    {% translate "Pending Proposals" %}
-                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-800 text-warm-100">{{ pending_sessions|length }}</span>
-                </h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-border">
-                            <th class="text-left py-3 px-4 font-medium text-foreground-secondary">{% translate "Proposal" %}</th>
-                            <th class="text-left py-3 px-4 font-medium text-foreground-secondary">{% translate "Host" %}</th>
-                            <th class="text-left py-3 px-4 font-medium text-foreground-secondary">{% translate "Submitted" %}</th>
-                            <th class="text-left py-3 px-4 font-medium text-foreground-secondary">{% translate "Preferred Times" %}</th>
-                            <th class="text-left py-3 px-4 font-medium text-foreground-secondary">{% translate "Participants" %}</th>
-                            <th class="text-left py-3 px-4 font-medium text-foreground-secondary">{% translate "Action" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for pending in pending_sessions %}
-                            <tr class="hover:bg-warm-50 dark:hover:bg-neutral-800 border-b border-border">
-                                <td class="py-3 px-4">
-                                    <div>
-                                        <span class="font-medium text-foreground">{{ pending.title }}</span>
-                                        {% if pending.description %}
-                                            <br>
-                                            <span class="text-xs text-foreground-muted">{{ pending.description|truncatechars:100 }}</span>
-                                        {% endif %}
-                                        {# TODO: Replace pending.tags (old Tag M2M) with session field values #}
-                                        {% if pending.tags %}
-                                            <div class="flex flex-wrap gap-1 mt-1">
-                                                {% for tag in pending.tags %}
-                                                    {% include "components/_field_pill.html" with value=tag.name size="sm" %}
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
-                                        {% if pending.needs %}
-                                            <div class="mt-1 text-xs flex items-center gap-1 text-info">
-                                                {% icon "information-circle" class="w-3.5 h-3.5" variant="mini" %} {{ pending.needs|truncatechars:50 }}
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-foreground-muted">{% icon "user-circle" class="w-4 h-4" variant="mini" %}</span>
-                                        <span>{{ pending.display_name }}</span>
-                                    </div>
-                                </td>
-                                <td class="py-3 px-4 whitespace-nowrap">
-                                    <span class="text-xs text-foreground-muted">{{ pending.creation_time|date:"M j" }}</span>
-                                    <br>
-                                    {{ pending.creation_time|date:"G:i" }}
-                                </td>
-                                <td class="py-3 px-4">
-                                    {% if pending.time_slots %}
-                                        <div class="text-xs space-y-0.5">
-                                            {% for slot in pending.time_slots|slice:":2" %}
-                                                <div class="whitespace-nowrap">{{ slot.start_time|date:"M j, G:i" }} - {{ slot.end_time|date:"G:i" }}</div>
-                                            {% endfor %}
-                                            {% if pending.time_slots|length > 2 %}
-                                                <span class="text-foreground-muted">+{{ pending.time_slots|length|add:"-2" }} more</span>
-                                            {% endif %}
-                                        </div>
-                                    {% else %}
-                                        <span class="text-foreground-muted">{% translate "Flexible" %}</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-3 px-4">
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warm-200 dark:bg-neutral-700 text-foreground-secondary">{{ pending.participants_limit }}</span>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <a href="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=pending.pk %}"
-                                       class="btn btn-primary text-xs inline-flex items-center">
-                                        {% icon "check" class="w-3.5 h-3.5" variant="mini" %} {% translate "Review & accept" %}
-                                    </a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <!-- Proposals Section (superusers and sphere managers) -->
+    {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
+        {% include "chronology/_pending_proposals.html" %}
     {% endif %}
-    <!-- Session Detail Modals -->
-    {% for data in sessions %}
-        <dialog id="session-{{ data.session.pk }}"
-                class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[90dvh] overflow-hidden"
-                aria-labelledby="session-{{ data.session.pk }}-title"
-                data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
-            <!-- Header -->
-            <div class="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
-                <h3 id="session-{{ data.session.pk }}-title"
-                    class="text-lg font-semibold text-foreground"
-                    data-morph="title">{{ data.session.title }}</h3>
-                <button type="button"
-                        data-modal-close="session-{{ data.session.pk }}"
-                        aria-label="{% translate "Close" %}"
-                        class="p-1 rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
-                    {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                </button>
-            </div>
-            <!-- Tabbed body; swapped for the inline edit form by the Edit button -->
-            <div class="flex-auto min-h-0 flex flex-col overflow-hidden"
-                 data-session-tabs="{{ data.session.pk }}">
-                <!-- Tabs -->
-                <div class="tab-list shrink-0" role="tablist">
-                    <button role="tab"
-                            aria-selected="true"
-                            aria-controls="info-{{ data.session.pk }}"
-                            class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 [&[aria-selected=false]:hover]:text-foreground/80 active:scale-100!">
-                        {% icon "information-circle" class="w-4 h-4" variant="mini" %} {% translate "Information" %}
-                    </button>
-                    <button tabIndex="-1"
-                            role="tab"
-                            aria-selected="false"
-                            aria-controls="participants-{{ data.session.pk }}"
-                            class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
-                        {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
-                        <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">{{ data.enrolled_count }}</span>
-                        {% if data.waiting_count > 0 %}
-                            <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
-                        {% endif %}
-                    </button>
-                </div>
-                <!-- Tab Content -->
-                <div class="tab-content flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] text-foreground">
-                    <!-- Information Tab -->
-                    <div id="info-{{ data.session.pk }}"
-                         role="tabpanel"
-                         class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
-                         data-active>
-                        <!-- Host & location -->
-                        <div class="flex items-center gap-3 mb-6 flex-wrap">
-                            <span class="shrink-0" data-morph="avatar">
-                                {% include "components/avatar.html" with user=data.presenter size="size-10" %}
-                            </span>
-                            <div class="flex items-center gap-3 flex-wrap min-w-0">
-                                <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
-                                {% if data.location_label %}
-                                    <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
-                                        {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
-                                        <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
-                                    </span>
-                                {% endif %}
-                                {% if data.presenter.pk %}
-                                    {% with host=data.presenter %}
-                                        {% if host.discord_username %}
-                                            <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-                                            {% include "crowd/user/parts/discord_username.html" with discord_username=host.discord_username %}
-                                        {% endif %}
-                                    {% endwith %}
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% if data.session.description %}
-                            <!-- Description -->
-                            <div class="mb-6">
-                                <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                                <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground"
-                                     data-morph="desc">{{ data.session.description|render_markdown }}</div>
-                            </div>
-                        {% endif %}
-                        {% if data.field_values %}
-                            <!-- Session Fields -->
-                            <div class="space-y-4 mb-6">
-                                {% for fv in data.field_values %}
-                                    <div>
-                                        <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
-                                            {% if fv.field_icon %}
-                                                {% icon fv.field_icon class="w-4 h-4 inline mr-1" variant="mini" %}
-                                            {% endif %}
-                                            {{ fv.field_name }}
-                                        </h4>
-                                        {% if fv.field_type == "select" and not fv.allow_custom %}
-                                            <div class="flex flex-wrap gap-1.5">
-                                                {% for val in fv.value %}
-                                                    <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
-                                                {% endfor %}
-                                            </div>
-                                        {% else %}
-                                            <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
-                                        {% endif %}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <!-- Details grid -->
-                        <div class="grid grid-cols-2 gap-3 mb-6">
-                            <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                <div class="text-sm mb-1 text-foreground-muted">{% translate "Time" %}</div>
-                                <div class="font-medium text-foreground">
-                                    {{ data.agenda_item.start_time|date:"l, F j" }}
-                                    <br>
-                                    {{ data.agenda_item.start_time|time:"G:i" }} - {{ data.agenda_item.end_time|time:"G:i" }}
-                                </div>
-                            </div>
-                            {% if not data.is_unlimited %}
-                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
-                                    <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {% if data.is_full %}bg-coral-100 text-coral-700{% else %}bg-teal-100 text-teal-700{% endif %}">
-                                            {{ data.enrolled_count }}/{{ data.effective_participants_limit }}
-                                        </span>
-                                        {% if data.waiting_count > 0 %}
-                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endif %}
-                            {% if data.session.min_age > 0 %}
-                                <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
-                                    <div class="text-sm mb-1 text-foreground-muted">{% translate "Minimum Age" %}</div>
-                                    <div class="font-medium text-foreground">{{ data.session.min_age }}+ {% translate "years" %}</div>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <!-- Enrollment Status for Authenticated Users -->
-                        {% if current_user and data.user_enrolled %}
-                            <div class="pt-4 border-t border-border">
-                                <div class="alert alert-success inline-flex items-center gap-2 text-sm">
-                                    {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
-                                </div>
-                            </div>
-                        {% elif current_user and data.user_waiting %}
-                            <div class="pt-4 border-t border-border">
-                                <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
-                                    {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                    <!-- Participants Tab -->
-                    <div id="participants-{{ data.session.pk }}"
-                         role="tabpanel"
-                         class="tab-panel scrollview-fade scrollview-fade-y-16 px-6 py-4"
-                         inert>
-                        <!-- Enrolled Participants -->
-                        {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
-                            {% if confirmed_participants %}
-                                <h3 class="font-semibold mb-3 text-foreground-secondary">
-                                    {% if data.is_unlimited %}
-                                        {% translate "Enrolled" %} ({{ data.enrolled_count }})
-                                    {% else %}
-                                        {% translate "Enrolled" %} ({{ data.enrolled_count }}/{{ data.effective_participants_limit }})
-                                    {% endif %}
-                                </h3>
-                                <div class="space-y-2 mb-6">
-                                    {% for participation in confirmed_participants %}
-                                        {% if participation.status == 'confirmed' %}
-                                            <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
-                                                <div class="flex items-center gap-3">
-                                                    {% include "components/avatar.html" with user=participation.user size="size-8" danger_ring=participation.is_shadowbanned %}
-                                                    <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
-                                                </div>
-                                                <div class="flex items-center gap-2">
-                                                    {% if participation.user.discord_username %}
-                                                        {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
-                                                    {% endif %}
-                                                    {% if participation.user.pk == current_user.pk %}
-                                                        <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        {% endwith %}
-                        <!-- Waiting List -->
-                        {% if data.waiting_count > 0 %}
-                            <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
-                            <div class="space-y-2">
-                                {% for participation in data.session_participations|dictsort:"creation_time" %}
-                                    {% if participation.status == 'waiting' %}
-                                        <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl bg-warm-100 dark:bg-neutral-800">
-                                            <div class="flex items-center gap-3">
-                                                <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"></span>
-                                                <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
-                                            </div>
-                                            <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            {% if data.session_participations %}
-                                <div class="text-center py-4 text-foreground-muted">
-                                    <p class="text-sm">{% translate "No one on the waiting list." %}</p>
-                                </div>
-                            {% endif %}
-                        {% endif %}
-                        {% if not data.session_participations %}
-                            <div class="flex items-center justify-center p-4 border-2 border-dashed border-border rounded-xl">
-                                <span class="text-sm text-foreground-muted">{% translate "No participants enrolled yet." %}</span>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% if data.can_edit %}
-                <!-- Inline edit form target (lazy-loaded via HTMX on Edit) -->
-                <div id="session-{{ data.session.pk }}-editform"
-                     class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
-                     hidden></div>
-            {% endif %}
-            {% if data.is_enrollment_available or data.can_edit %}
-                <!-- Footer -->
-                <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0"
-                     data-session-footer="{{ data.session.pk }}">
-                    <div>
-                        {% if data.can_edit %}
-                            <button type="button"
-                                    class="btn btn-secondary text-sm"
-                                    data-edit-open="{{ data.session.pk }}"
-                                    hx-get="{% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk %}"
-                                    hx-target="#session-{{ data.session.pk }}-editform"
-                                    hx-swap="innerHTML">
-                                {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
-                            </button>
-                        {% endif %}
-                    </div>
-                    <div class="flex items-center gap-2">
-                        {% if data.is_enrollment_available and not event_banned %}
-                            {% if current_user %}
-                                {% if data.user_enrolled or data.user_waiting %}
-                                    <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
-                                       class="btn text-sm bg-warning text-white">
-                                        {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
-                                    </a>
-                                {% else %}
-                                    {% if current_user.user_type == 'connected' or current_user.user_type == 'active' %}
-                                        <a href="{% url 'web:chronology:session-enrollment' event_slug=event.slug session_id=data.session.pk %}"
-                                           class="btn btn-primary text-sm">
-                                            {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Now" %}
-                                        </a>
-                                    {% endif %}
-                                {% endif %}
-                            {% elif request.session.anonymous_enrollment_active %}
-                                {% if data.user_enrolled or data.user_waiting %}
-                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
-                                       class="btn text-sm bg-warning text-white">
-                                        {% icon "cog-6-tooth" class="w-4 h-4" variant="mini" %} {% translate "Manage Enrollment" %}
-                                    </a>
-                                {% else %}
-                                    <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"
-                                       class="btn btn-primary text-sm">
-                                        {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll Anonymously" %}
-                                    </a>
-                                {% endif %}
-                            {% else %}
-                                <a href="{% url 'web:crowd:auth0:login' %}?next={{ request.build_absolute_uri }}"
-                                   class="btn btn-primary text-sm">
-                                    {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
-                                </a>
-                            {% endif %}
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-        </dialog>
-    {% endfor %}
+    {# Session detail modals are fetched on first open (see modal.ts): the URL #}
+    {# template carries a `0` session-id placeholder, injected dialogs land here. #}
+    <div id="session-modals"
+         data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
     <div class="mt-8">
         <a href="{% url 'web:events' %}" class="btn btn-secondary">
@@ -935,6 +530,11 @@
     {% vite_asset 'src/session-card.ts' %}
     {% vite_asset 'src/session-edit.ts' %}
     {% vite_asset 'src/session-filters.ts' %}
+    {% vite_asset 'src/session-bookmarks.ts' %}
+    {% vite_asset 'src/event-timeline.ts' %}
+    {% if schedule_view_is_rooms %}
+        {% vite_asset 'src/room-lanes.ts' %}
+    {% endif %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}
@@ -1008,14 +608,14 @@
             width: 100%;
         }
 
-        .session-card :is(button, input, select, textarea, [role="button"]),
-        .session-card a:not(.session-card-link) {
+        .session :is(button, input, select, textarea, [role="button"]),
+        .session a:not(.session-link) {
             position: relative;
             z-index: 20;
         }
 
         /* Style ended sessions with reduced opacity */
-        .time-slot-section[data-time-slot*="ended"] .session-card:not(:hover) {
+        .time-slot-section[data-time-slot*="ended"] .session:not(:hover) {
             filter: grayscale(50%) brightness(0.95);
         }
 
@@ -1044,6 +644,7 @@
             pointer-events: none;
             filter: none;
             transform: scale(0.9) translateY(-16px);
+            transform-origin: top right;
             transition:
                 opacity 0.35s var(--ease-spring-a-bit),
                 transform 0.35s var(--ease-spring-a-bit);
@@ -1066,6 +667,15 @@
             opacity: 1;
             pointer-events: auto;
             transform: scale(1) translateY(0);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .filters-popover-wrapper .filter-panel,
+            .filters-popover-wrapper .filter-panel.is-open {
+                transform: none;
+                transition: opacity 0.15s linear;
+            }
         }
 
         /* On narrow screens the right-anchored popover would overflow the left

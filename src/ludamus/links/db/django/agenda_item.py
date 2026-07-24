@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.adapters.db.django.models import AgendaItem
+from ludamus.links.db.django.models import AgendaItem
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemDTO,
@@ -55,13 +55,6 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
     @staticmethod
     def list_by_event(event_pk: int) -> list[AgendaItemDTO]:
         items = AgendaItem.objects.filter(session__event_id=event_pk).select_related(
-            *_SELECT_RELATED
-        )
-        return [_to_dto(item) for item in items]
-
-    @staticmethod
-    def list_by_space(space_pk: int) -> list[AgendaItemDTO]:
-        items = AgendaItem.objects.filter(space_id=space_pk).select_related(
             *_SELECT_RELATED
         )
         return [_to_dto(item) for item in items]

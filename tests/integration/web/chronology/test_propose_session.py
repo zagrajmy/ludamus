@@ -1,19 +1,19 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
-    HostPersonalData,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     Session,
     SessionField,
     SessionFieldOption,
@@ -22,16 +22,14 @@ from ludamus.adapters.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import EventDTO, ProposalCategoryDTO
-from tests.integration.conftest import ProposalCategoryFactory, TimeSlotFactory
+from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
+from tests.integration.conftest import (
+    PNG_BYTES,
+    ProposalCategoryFactory,
+    TimeSlotFactory,
+)
 from tests.integration.utils import assert_response
 
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
     "010000080400010404003b"
@@ -129,6 +127,9 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
                 "categories": [
                     ProposalCategoryDTO.model_validate(cat1),
                     ProposalCategoryDTO.model_validate(cat2),
@@ -162,6 +163,9 @@ class TestProposeSessionPageView:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": form,
                 "field_descriptors": [],
@@ -507,7 +511,7 @@ class TestProposeSessionPageView:
         facilitator = Facilitator.objects.create(
             event=event, user=active_user, display_name=active_user.name, slug="active"
         )
-        HostPersonalData.objects.create(
+        PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=field, value="+48 999"
         )
         self._set_wizard_category(authenticated_client, event, proposal_category)
@@ -1165,7 +1169,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        hpd = HostPersonalData.objects.get(event=event, field=field)
+        hpd = PersonalDataFieldValue.objects.get(event=event, field=field)
         assert hpd.value == "+48 555"
 
     def test_submit_sets_time_slots(
@@ -1548,7 +1552,26 @@ class TestProposeSessionPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "current_step": "details",
+                "durations": [],
+                "event": EventDTO.model_validate(event),
+                "field_descriptors": [],
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "wizard_steps": [
+                    {"key": "personal"},
+                    {"key": "details"},
+                    {"key": "review"},
+                ],
+            },
             template_name="chronology/propose/parts/details.html",
         )
         assert "cover_image" in response.context["image_form"].errors
@@ -1576,7 +1599,26 @@ class TestProposeSessionPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "current_step": "details",
+                "durations": [],
+                "event": EventDTO.model_validate(event),
+                "field_descriptors": [],
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "wizard_steps": [
+                    {"key": "personal"},
+                    {"key": "details"},
+                    {"key": "review"},
+                ],
+            },
             template_name="chronology/propose/parts/details.html",
         )
         assert "cover_image" in response.context["image_form"].errors
@@ -1635,7 +1677,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert HostPersonalData.objects.count() == 0
+        assert PersonalDataFieldValue.objects.count() == 0
 
     def test_submit_with_nonexistent_personal_field_skipped(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1650,7 +1692,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert HostPersonalData.objects.count() == 0
+        assert PersonalDataFieldValue.objects.count() == 0
 
     def test_post_personal_multiple_select_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1727,7 +1769,7 @@ class TestProposeSessionPageView:
 
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert HostPersonalData.objects.count() == 0
+        assert PersonalDataFieldValue.objects.count() == 0
 
     def test_post_personal_data_checkbox_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2326,11 +2368,10 @@ class TestAnonymousProposalSubmission:
             facilitator.pk
         ]
 
-        hpd = HostPersonalData.objects.get(
+        hpd = PersonalDataFieldValue.objects.get(
             facilitator=facilitator, event=event, field=phone_field
         )
         assert hpd.value == "+48 555"
-        assert hpd.user_id is None
 
     def test_anonymous_single_category_shows_login_nudge(
         self, client, event, faker, time_zone, proposal_category
@@ -2346,6 +2387,9 @@ class TestAnonymousProposalSubmission:
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO.model_validate(
+                    EventProposalSettings.objects.get(event=event)
+                ),
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": form,
                 "field_descriptors": [],
@@ -2379,6 +2423,32 @@ class TestAnonymousProposalSubmission:
 
         assert response.status_code == HTTPStatus.FOUND
         assert Session.objects.count() == 0
+
+    def test_rate_limit_uses_rightmost_x_forwarded_for(
+        self, client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._enable_anonymous(event)
+
+        self._set_wizard_full(client, event, proposal_category)
+        first = client.post(
+            self._url(event.slug, "submit"),
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.50",
+            follow=True,
+        )
+        assert first.status_code == HTTPStatus.OK
+
+        self._set_wizard_full(client, event, proposal_category)
+        second = client.post(
+            self._url(event.slug, "submit"),
+            HTTP_X_FORWARDED_FOR="5.6.7.8, 203.0.113.50",
+        )
+
+        assert second.status_code == HTTPStatus.FOUND
+        assert Session.objects.count() == 1
+        msgs = list(messages.get_messages(second.wsgi_request))
+        assert len(msgs) == 1
+        assert "Please wait before submitting another proposal." in str(msgs[0])
 
     def test_two_anonymous_submissions_same_display_name_get_distinct_slugs(
         self, client, event, faker, time_zone, proposal_category

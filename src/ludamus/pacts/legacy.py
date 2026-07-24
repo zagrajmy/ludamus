@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
-    Any,
     Literal,
     NotRequired,
     Protocol,
@@ -11,13 +10,19 @@ from typing import (
     runtime_checkable,
 )
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
 
+    from ludamus.pacts.crowd import (
+        CompanionRepositoryProtocol,
+        UserDTO,
+        UserRepositoryProtocol,
+    )
     from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts.submissions import FacilitatorListFilters
 
 
 class NotFoundError(Exception):
@@ -73,6 +78,7 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    internal_comment: str = ""
     pk: int
     slug: str
     user_id: int | None
@@ -89,6 +95,7 @@ class FacilitatorData(TypedDict, total=False):
 class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
+    internal_comment: str
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -96,6 +103,7 @@ class FacilitatorListItemDTO(BaseModel):
 
     accreditation_type: str
     display_name: str
+    flagged_for_deletion: bool = False
     pk: int
     session_count: int
     slug: str
@@ -146,12 +154,21 @@ class UnscheduledSessionDTO(BaseModel):
     participants_limit: int
 
 
+class UnscheduledSessionFilter(BaseModel):
+    track_pk: int | None = None
+    search: str | None = None
+    max_duration_minutes: int | None = None
+    category_pk: int | None = None
+    available_on: date | None = None
+
+
 class SessionListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     category_name: str
     creation_time: datetime
     display_name: str
+    is_scheduled: bool
     pk: int
     status: "SessionStatus"
     title: str
@@ -186,22 +203,13 @@ class SessionDTO(BaseModel):
     duration: str = ""
     min_age: int
     modification_time: datetime
-    needs: str
     participants_limit: int
     pk: int
     presenter_id: int | None
     display_name: str
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
-
-
-class PendingSessionTagDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str
-    pk: int
 
 
 class PendingSessionTimeSlotDTO(BaseModel):
@@ -218,26 +226,38 @@ class PendingSessionDTO(BaseModel):
     contact_email: str
     creation_time: datetime
     description: str
-    needs: str
     participants_limit: int
     pk: int
     display_name: str
-    requirements: str
-    tags: list[PendingSessionTagDTO]
     time_slots: list[PendingSessionTimeSlotDTO]
     title: str
 
 
 class LocationData(TypedDict):
-    space: SpaceDTO
-    area: AreaDTO | None  # TODO(fancysnake): Fix after merging venues
-    venue: VenueDTO | None  # TODO(fancysnake): Fix after merging venues
+    # Tree location of a scheduled leaf: its name, its immediate parent (the
+    # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
+    # path used as a display label.
+    space_name: str
+    parent_slug: str
+    parent_name: str
+    path: str
 
 
 class SessionStatus(StrEnum):
     PENDING = auto()
+    ACCEPTED = auto()
+    ON_HOLD = auto()
     REJECTED = auto()
-    SCHEDULED = auto()
+
+
+class SessionListFilters(TypedDict, total=False):
+    field_filters: dict[int, str] | None
+    search: str | None
+    track_pk: int | None
+    multi_tracks: bool | None
+    category_pk: int | None
+    status: SessionStatus | None
+    scheduled: bool | None
 
 
 class SessionParticipationStatus(StrEnum):
@@ -271,6 +291,10 @@ class NotificationKind(StrEnum):
     WAITLIST_OFFER = auto()
     OFFER_EXPIRED = auto()
     SHADOWBANNED_SIGNUP = auto()
+    PARTY_INVITE = auto()
+    PARTY_ENROLLED = auto()
+    PARTY_SEAT_HELD = auto()
+    PRINTABLES_READY = auto()
 
 
 class SpherePage(StrEnum):
@@ -282,29 +306,10 @@ class SpherePage(StrEnum):
         return [p.value for p in cls]
 
 
-class SessionParticipationDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    session_id: int
-    user_id: int
-    creation_time: datetime
-    modification_time: datetime
-    status: SessionParticipationStatus
-
-
-class UserParticipation(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    user: UserDTO
-    creation_time: datetime
-    modification_time: datetime
-    status: SessionParticipationStatus
-
-
 class SpaceDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    area_id: int | None
+    parent_id: int | None = None
     capacity: int | None
     creation_time: datetime
     modification_time: datetime
@@ -312,6 +317,14 @@ class SpaceDTO(BaseModel):
     order: int
     pk: int
     slug: str
+
+
+class SpaceOptionDTO(BaseModel):
+    # A bookable leaf space as a form choice: its pk, display name, and the
+    # immediate-parent name it groups under (empty for a root-level leaf).
+    pk: int
+    name: str
+    group: str
 
 
 class TrackDTO(BaseModel):
@@ -324,6 +337,17 @@ class TrackDTO(BaseModel):
     name: str
     pk: int
     slug: str
+
+
+class TrackListItemDTO(BaseModel):
+    # Track enriched with the names of its assigned spaces and managers, for the
+    # panel list view. Names, not pks, so the template renders without extra IO.
+    pk: int
+    name: str
+    slug: str
+    is_public: bool
+    space_names: list[str]
+    manager_names: list[str]
 
 
 class TrackCreateData(TypedDict):
@@ -341,57 +365,12 @@ class TrackUpdateData(TypedDict):
     manager_pks: list[int]
 
 
-class VenueDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    address: str
-    areas_count: int = 0
-    creation_time: datetime
-    modification_time: datetime
-    name: str
-    order: int
-    pk: int
-    slug: str
-
-
-class AreaDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    creation_time: datetime
-    description: str
-    modification_time: datetime
-    name: str
-    order: int
-    pk: int
-    slug: str
-    spaces_count: int = 0
-    venue_id: int
-
-
 class TimeSlotDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     end_time: datetime
     pk: int
     start_time: datetime
-
-
-class TagCategoryDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    icon: str
-    input_type: str
-    name: str
-    pk: int
-
-
-class TagDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    category_id: int
-    confirmed: bool
-    name: str
-    pk: int
 
 
 class SessionData(TypedDict, total=False):
@@ -401,12 +380,11 @@ class SessionData(TypedDict, total=False):
     description: str
     duration: str
     event_id: int
+    ident: str
     min_age: int
-    needs: str
     participants_limit: int
     presenter_id: int | None
     display_name: str
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
@@ -420,9 +398,7 @@ class SessionUpdateData(TypedDict, total=False):
     display_name: str
     duration: str
     min_age: int
-    needs: str
     participants_limit: int
-    requirements: str
     slug: str
     status: SessionStatus
     title: str
@@ -443,33 +419,6 @@ class AgendaItemUpdateData(TypedDict, total=False):
     start_time: datetime
 
 
-class UserType(StrEnum):
-    ACTIVE = "active"
-    CONNECTED = "connected"
-    ANONYMOUS = "anonymous"
-
-
-class UserDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    avatar_url: str
-    date_joined: datetime
-    discord_username: str
-    email: str
-    full_name: str
-    is_active: bool
-    is_authenticated: bool
-    is_staff: bool
-    is_superuser: bool
-    manager_id: int | None = None
-    name: str
-    pk: int
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
-
-
 class SiteDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -484,16 +433,10 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
-    logo: str = ""
     logo_url: str = ""
     name: str
     pk: int
-    site_id: int
-
-    @field_validator("logo", mode="before")
-    @classmethod
-    def _coerce_logo(cls, v: object) -> str:
-        return str(v) if v else ""
+    site: SiteDTO
 
 
 class SphereUpdateData(TypedDict, total=False):
@@ -519,11 +462,9 @@ class EventDTO(BaseModel):
     cover_image_url: str = ""
     description: str
     end_time: datetime
-    logo: str = ""
     logo_url: str = ""
     name: str
     pk: int
-    proposal_description: str = ""
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
@@ -531,11 +472,7 @@ class EventDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     use_session_cover_placeholders: bool = False
-
-    @field_validator("logo", mode="before")
-    @classmethod
-    def _coerce_logo(cls, v: object) -> str:
-        return str(v) if v else ""
+    use_participants_label: bool = False
 
 
 class EventListItemDTO(BaseModel):
@@ -562,7 +499,6 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
     header_image_url: str = ""
     max_participants: int
     pk: int
@@ -571,11 +507,6 @@ class EncounterDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     title: str
-
-    @field_validator("header_image", mode="before")
-    @classmethod
-    def _coerce_header_image(cls, v: object) -> str:
-        return str(v) if v else ""
 
 
 class EncounterRSVPDTO(BaseModel):
@@ -641,19 +572,6 @@ class EnrollmentConfigDTO(BaseModel):
     pk: int
     restrict_to_configured_users: bool
     start_time: datetime
-
-
-class UserData(TypedDict, total=False):
-    avatar_url: str
-    discord_username: str
-    email: str
-    is_active: bool
-    name: str
-    password: str
-    slug: str
-    use_gravatar: bool
-    user_type: UserType
-    username: str
 
 
 class ProposalCategoryData(TypedDict, total=False):
@@ -769,6 +687,7 @@ class EventUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool | None
     auto_confirm_sessions: bool
     use_session_cover_placeholders: bool
+    use_participants_label: bool
 
 
 @dataclass
@@ -805,7 +724,7 @@ class SessionFieldValueData(TypedDict):
     value: str | list[str] | bool
 
 
-class HostPersonalDataEntry(TypedDict):
+class PersonalDataFieldValueData(TypedDict):
     facilitator_id: int
     event_id: int
     field_id: int
@@ -894,8 +813,6 @@ class SphereRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> SphereDTO: ...
     @staticmethod
-    def read_site(sphere_id: int) -> SiteDTO: ...
-    @staticmethod
     def is_manager(sphere_id: int, user_slug: str) -> bool: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
@@ -903,23 +820,11 @@ class SphereRepositoryProtocol(Protocol):
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
-class UserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(user_data: UserData) -> None: ...
-    def read(self, slug: str) -> UserDTO: ...
-    def read_by_id(self, pk: int) -> UserDTO: ...
-    def read_by_username(self, username: str) -> UserDTO: ...
-    @staticmethod
-    def update(user_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
-
-
-class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
+class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def create(
         session_data: SessionData,
-        tag_ids: Iterable[int],
+        *,
         time_slot_ids: Iterable[int] = (),
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
@@ -939,27 +844,19 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
     @staticmethod
+    def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
+    @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod
-    def read_spaces(session_id: int) -> list[SpaceDTO]: ...
+    def read_space_options(session_id: int) -> list[SpaceOptionDTO]: ...
     @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod
-    def read_tag_ids(session_id: int) -> list[int]: ...
-    @staticmethod
-    def read_tags(session_id: int) -> list[TagDTO]: ...
-    @staticmethod
-    def read_tag_categories(session_id: int) -> list[TagCategoryDTO]: ...
-    @staticmethod
     def count_by_category(category_id: int) -> int: ...
     @staticmethod
     def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]: ...
-    @staticmethod
-    def read_pending_by_event_for_user(
-        event_id: int, presenter_id: int
-    ) -> list[PendingSessionDTO]: ...
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
     @staticmethod
@@ -971,7 +868,13 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
     @staticmethod
-    def find_id_by_slug(event_id: int, slug: str) -> int | None: ...
+    def find_id_by_ident(event_id: int, ident: str) -> int | None: ...
+    @staticmethod
+    def find_ids_by_title_and_email(
+        *, event_id: int, title: str, contact_email: str
+    ) -> list[int]: ...
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def save_field_values(
         session_id: int, values: list[SessionFieldValueData]
@@ -984,14 +887,12 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> int: ...
     @staticmethod
     def list_sessions_by_event(
-        event_id: int,
-        *,
-        field_filters: dict[int, str] | None = None,
-        search: str | None = None,
-        track_pk: int | None = None,
+        event_id: int, filters: SessionListFilters | None = None
     ) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_track_ids(session_id: int) -> list[int]: ...
+    @staticmethod
+    def read_tracks(session_id: int) -> list[TrackDTO]: ...
     @staticmethod
     def set_session_tracks(session_pk: int, track_pks: list[int]) -> None: ...
     @staticmethod
@@ -1008,12 +909,7 @@ class SessionRepositoryProtocol(Protocol):  # noqa: PLR0904
     ) -> None: ...
     @staticmethod
     def list_unscheduled_by_event(
-        event_pk: int,
-        *,
-        track_pk: int | None = None,
-        search: str | None = None,
-        max_duration_minutes: int | None = None,
-        category_pk: int | None = None,
+        event_pk: int, filters: UnscheduledSessionFilter
     ) -> tuple[list[UnscheduledSessionDTO], bool]: ...
 
 
@@ -1030,6 +926,8 @@ class TrackRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def list_by_event(event_pk: int) -> list[TrackDTO]: ...
+    @staticmethod
+    def list_by_event_with_assignments(event_pk: int) -> list[TrackListItemDTO]: ...
     @staticmethod
     def list_public_by_event(event_pk: int) -> list[TrackDTO]: ...
     @staticmethod
@@ -1053,8 +951,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     def read(pk: int) -> AgendaItemDTO: ...
     @staticmethod
     def list_by_event(event_pk: int) -> list[AgendaItemDTO]: ...
-    @staticmethod
-    def list_by_space(space_pk: int) -> list[AgendaItemDTO]: ...
     @staticmethod
     def list_by_track(track_pk: int) -> list[AgendaItemDTO]: ...
     @staticmethod
@@ -1083,19 +979,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
 
 
-class ConnectedUserRepositoryProtocol(Protocol):
-    @staticmethod
-    def create(manager_slug: str, user_data: UserData) -> None: ...
-    @staticmethod
-    def read_all(manager_slug: str) -> list[UserDTO]: ...
-    @staticmethod
-    def read(manager_slug: str, user_slug: str) -> UserDTO: ...
-    @staticmethod
-    def delete(manager_slug: str, user_slug: str) -> None: ...
-    @staticmethod
-    def update(manager_slug: str, user_slug: str, user_data: UserData) -> None: ...
-
-
 class EventRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
@@ -1111,66 +994,22 @@ class EventRepositoryProtocol(Protocol):
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
-    @staticmethod
-    def update_proposal_description(event_id: int, description: str) -> None: ...
-
-
-class VenueRepositoryProtocol(Protocol):
-    def copy_to_event(self, pk: int, target_event_id: int) -> VenueDTO: ...
-    def create(self, event_id: int, name: str, address: str = "") -> VenueDTO: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    def duplicate(self, pk: int, new_name: str) -> VenueDTO: ...
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[VenueDTO]: ...
-    @staticmethod
-    def read_by_slug(event_pk: int, slug: str) -> VenueDTO: ...
-    @staticmethod
-    def reorder(event_id: int, venue_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, address: str = "") -> VenueDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
-
-
-class AreaRepositoryProtocol(Protocol):
-    def create(self, venue_id: int, name: str, description: str = "") -> AreaDTO: ...
-    @staticmethod
-    def delete(pk: int) -> None: ...
-    @staticmethod
-    def list_by_venue(venue_pk: int) -> list[AreaDTO]: ...
-    @staticmethod
-    def list_by_event(event_pk: int) -> list[AreaDTO]: ...
-    @staticmethod
-    def read_by_slug(venue_pk: int, slug: str) -> AreaDTO: ...
-    @staticmethod
-    def reorder(venue_id: int, area_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, description: str = "") -> AreaDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
 
 
 class SpaceRepositoryProtocol(Protocol):
-    def create(
-        self, area_id: int, name: str, capacity: int | None = None
-    ) -> SpaceDTO: ...
     @staticmethod
     def read(pk: int) -> SpaceDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
-    def list_by_area(area_pk: int) -> list[SpaceDTO]: ...
-    @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]: ...
     @staticmethod
-    def read_by_slug(area_pk: int, slug: str) -> SpaceDTO: ...
-    @staticmethod
-    def reorder(area_id: int, space_pks: list[int]) -> None: ...
-    def update(self, pk: int, name: str, capacity: int | None = None) -> SpaceDTO: ...
-    @staticmethod
-    def has_sessions(pk: int) -> bool: ...
+    def lock(pk: int) -> None: ...
 
 
-class ProposalCategoryRepositoryProtocol(Protocol):  # noqa: PLR0904 — split planned
+class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-methods]
+    Protocol
+):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
@@ -1353,7 +1192,13 @@ class EventProposalSettingsRepositoryProtocol(Protocol):
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO: ...
 
     @staticmethod
+    def read_by_event(event_id: int) -> EventProposalSettingsDTO: ...
+
+    @staticmethod
     def update_allow_anonymous_proposals(event_id: int, *, allow: bool) -> None: ...
+
+    @staticmethod
+    def update_description(event_id: int, description: str) -> None: ...
 
 
 class EventSettingsRepositoryProtocol(Protocol):
@@ -1391,8 +1236,6 @@ class EncounterRepositoryProtocol(Protocol):
     def read(pk: int) -> EncounterDTO: ...
     @staticmethod
     def read_by_share_code(share_code: str) -> EncounterDTO: ...
-    @staticmethod
-    def list_by_creator(sphere_id: int, creator_id: int) -> list[EncounterDTO]: ...
     @staticmethod
     def list_upcoming_by_creator(
         sphere_id: int, creator_id: int
@@ -1436,20 +1279,28 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod
-    def list_by_event(event_id: int) -> list[FacilitatorListItemDTO]: ...
+    def list_by_event(
+        event_id: int, filters: FacilitatorListFilters | None = None
+    ) -> list[FacilitatorListItemDTO]: ...
+    @staticmethod
+    def set_flag(pk: int, *, flagged: bool) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool: ...
 
 
-class HostPersonalDataRepositoryProtocol(Protocol):
+class PersonalDataFieldValueRepositoryProtocol(Protocol):
     @staticmethod
-    def save(entries: list[HostPersonalDataEntry]) -> None: ...
+    def save(entries: list[PersonalDataFieldValueData]) -> None: ...
     @staticmethod
     def read_for_facilitator_event(
         facilitator_id: int, event_id: int
     ) -> dict[str, str | list[str] | bool]: ...
+    @staticmethod
+    def list_values_for_facilitators(
+        facilitator_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def list_field_ids_for_facilitator_event(
         facilitator_id: int, event_id: int
@@ -1515,6 +1366,9 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     ) -> list[ScheduleChangeLogDTO]: ...
 
     @staticmethod
+    def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
     def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
 
     @staticmethod
@@ -1546,9 +1400,14 @@ class SessionContentEditData:
     # The write payload for a single session content edit. `facilitator_ids`
     # None leaves the assignment untouched; a list (possibly empty) replaces it.
     # `field_values` None leaves dynamic answers untouched (partial POST guard).
+    # `remove_field_ids` drops answers to fields the session's category no
+    # longer asks for — the only edit the panel allows on those.
     update: SessionUpdateData
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
+    track_ids: list[int] | None = None
+    time_slot_ids: list[int] | None = None
+    remove_field_ids: list[int] | None = None
 
 
 class ContentChangeLogDTO(BaseModel):
@@ -1569,16 +1428,51 @@ class ContentChangeLogRepositoryProtocol(Protocol):
     def create(data: ContentChangeLogData) -> None: ...
 
     @staticmethod
+    def read(pk: int) -> ContentChangeLogDTO: ...
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[ContentChangeLogDTO]: ...
 
+    @staticmethod
+    def latest_pks_by_session(event_pk: int) -> dict[int, int]: ...
 
-class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
+    @staticmethod
+    def latest_pk_for_session(event_pk: int, session_id: int) -> int | None: ...
+
+
+class FacilitatorChangeLogData(TypedDict):
+    event_id: int
+    facilitator_id: int
+    user_id: int | None
+    changes: list[ContentFieldChange]
+
+
+class FacilitatorChangeLogDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+    facilitator_id: int
+    facilitator_name: str
+    user_id: int | None
+    user_name: str
+    changes: list[ContentFieldChange]
+    creation_time: datetime
+
+
+class FacilitatorChangeLogRepositoryProtocol(Protocol):
+    @staticmethod
+    def create(data: FacilitatorChangeLogData) -> None: ...
+
+    @staticmethod
+    def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
+
+
+class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
     @staticmethod
-    def login_user(  # type: ignore [explicit-any]
-        request: Any, user_slug: str  # noqa: ANN401
-    ) -> None: ...
+    def savepoint() -> AbstractContextManager[None]: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property
@@ -1586,7 +1480,7 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def anonymous_users(self) -> UserRepositoryProtocol: ...
     @property
-    def connected_users(self) -> ConnectedUserRepositoryProtocol: ...
+    def companions(self) -> CompanionRepositoryProtocol: ...
     @property
     def event_proposal_settings(self) -> EventProposalSettingsRepositoryProtocol: ...
     @property
@@ -1606,11 +1500,7 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def spheres(self) -> SphereRepositoryProtocol: ...
     @property
-    def areas(self) -> AreaRepositoryProtocol: ...
-    @property
     def spaces(self) -> SpaceRepositoryProtocol: ...
-    @property
-    def venues(self) -> VenueRepositoryProtocol: ...
     @property
     def time_slots(self) -> TimeSlotRepositoryProtocol: ...
     @property
@@ -1622,7 +1512,9 @@ class UnitOfWorkProtocol(Protocol):  # noqa: PLR0904
     @property
     def enrollment_configs(self) -> EnrollmentConfigRepositoryProtocol: ...
     @property
-    def host_personal_data(self) -> HostPersonalDataRepositoryProtocol: ...
+    def personal_data_field_values(
+        self,
+    ) -> PersonalDataFieldValueRepositoryProtocol: ...
     @property
     def schedule_change_logs(self) -> ScheduleChangeLogRepositoryProtocol: ...
 

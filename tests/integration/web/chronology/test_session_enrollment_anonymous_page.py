@@ -8,13 +8,14 @@ from django.db import connection
 from django.test import Client
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     Notification,
     SessionParticipation,
     SessionParticipationStatus,
     User,
 )
-from ludamus.pacts import UserDTO
+from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.enrollment import AnonymousSessionContextDTO
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
@@ -36,6 +37,27 @@ def _activate_anonymous_client(client, *, sphere, event, user_code: str) -> None
 def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
     enrollment_config.allow_anonymous_enrollment = True
     enrollment_config.save()
+
+
+def _expected_session_dto(agenda_item) -> AnonymousSessionContextDTO:
+    session = agenda_item.session
+    return AnonymousSessionContextDTO(
+        session_id=session.id,
+        event_id=session.event.id,
+        event_slug=session.event.slug,
+        has_agenda_item=True,
+        allows_anonymous_enrollment=True,
+        title=session.title,
+        display_name=session.display_name,
+        description=session.description,
+        min_age=session.min_age,
+        enrolled_count=session.enrolled_count,
+        waiting_count=session.waiting_count,
+        effective_participants_limit=session.effective_participants_limit,
+        space_name=agenda_item.space.name,
+        start_time=agenda_item.start_time,
+        end_time=agenda_item.end_time,
+    )
 
 
 class TestSessionEnrollmentAnonymousPageView:
@@ -176,13 +198,49 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "session": agenda_item.session,
-                "event": agenda_item.space.area.venue.event,
-                "anonymous_user": UserDTO.model_validate(user),
+                "session": _expected_session_dto(agenda_item),
+                "event_slug": agenda_item.session.event.slug,
+                "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
                 "needs_user_data": True,
-                "existing_enrollment": None,
+                "enrollment_status": None,
                 "is_enrolled": False,
+            },
+            template_name="chronology/anonymous_enroll.html",
+        )
+
+    def test_get_shows_already_enrolled_waiting(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
+        user = anonymous_user_factory()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=user,
+            status=SessionParticipationStatus.WAITING,
+        )
+
+        response = client.get(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "session": _expected_session_dto(agenda_item),
+                "event_slug": agenda_item.session.event.slug,
+                "user_name": UserDTO.model_validate(user).full_name,
+                "anonymous_code": user.slug.removeprefix("code_"),
+                "needs_user_data": True,
+                "enrollment_status": SessionParticipationStatus.WAITING,
+                "is_enrolled": True,
             },
             template_name="chronology/anonymous_enroll.html",
         )
@@ -207,14 +265,10 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (
-                    messages.ERROR,
-                    "No enrollment configuration is available for this session.",
-                )
+                (messages.ERROR, "Anonymous enrollment for this session is closed.")
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
 
@@ -279,8 +333,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -317,8 +370,7 @@ class TestSessionEnrollmentAnonymousPageView:
             HTTPStatus.FOUND,
             messages=[(messages.WARNING, "No enrollment found to cancel.")],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -371,8 +423,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert not SessionParticipation.objects.filter(
@@ -471,12 +522,56 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
         assert user.name == name
+        assert not SessionParticipation.objects.all().exists()
+
+    def test_post_cancel_without_name_preserves_display_name(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
+        session = agenda_item.session
+        session.min_age = 12
+        session.save()
+        user = anonymous_user_factory(name="johny")
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=user,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = client.post(
+            self.get_url(agenda_item.session.id, agenda_item.session.event.slug),
+            data={"action": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Successfully cancelled enrollment in session: "
+                        f"{agenda_item.session.title}"
+                    ),
+                )
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
+            ),
+        )
+        user = User.objects.get(id=user.id)
+        assert user.name == "johny"
         assert not SessionParticipation.objects.all().exists()
 
     def test_post_cancel_waiting_does_not_free_seat(
@@ -510,8 +605,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert not SessionParticipation.objects.filter(
@@ -564,8 +658,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         assert not SessionParticipation.objects.filter(
@@ -591,7 +684,7 @@ class TestSessionEnrollmentAnonymousPageView:
             session=session2,
             start_time=agenda_item.start_time,
             end_time=agenda_item.end_time,
-            space__area__venue__event=agenda_item.space.area.venue.event,
+            space__event=agenda_item.space.event,
         )
         SessionParticipation.objects.create(
             session=session2, user=user, status=SessionParticipationStatus.CONFIRMED
@@ -667,8 +760,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -710,8 +802,7 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url=reverse(
-                "web:chronology:event",
-                kwargs={"slug": agenda_item.space.area.venue.event.slug},
+                "web:chronology:event", kwargs={"slug": agenda_item.space.event.slug}
             ),
         )
         user = User.objects.get(id=user.id)
@@ -825,10 +916,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (
-                    messages.ERROR,
-                    "No enrollment configuration is available for this session.",
-                )
+                (messages.ERROR, "Anonymous enrollment for this session is closed.")
             ],
             url=reverse(
                 "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}

@@ -4,13 +4,9 @@ Django event management. Python 3.14, Poetry, mise.
 
 ## Commands
 
-```bash
-mise run start      # dev server :8000
-mise run test       # all tests
-mise run check      # format + lint
-mise run dj <cmd>   # django-admin
-mise tasks          # list all tasks with descriptions
-```
+`mise tasks` is the source of truth for every runnable task and its
+description — run it rather than trusting a hardcoded list here. Most used:
+`mise run start`, `mise run test:py`, `mise run check`, `mise run dj <cmd>`.
 
 ## Workflow
 
@@ -25,10 +21,31 @@ mise tasks          # list all tasks with descriptions
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
+- Tailwind = component look. Partials in `templates/components/`;
+  `extra_class` for page layout only. No utility copy-paste into CSS.
 - For any user-facing UI work (pages, forms, tables, modals, empty/error states,
   copy), use the `product-design` skill (`.claude/skills/product-design/`)
-  *before* building — it routes to the component catalog, reachable-states
+  _before_ building — it routes to the component catalog, reachable-states
   checklist, Polish copy rules, and a verification checklist.
+- No single-line files.
+- Tailwind is here to lower CSS output size. Prefer Tailwind over CSS files.
+
+## Debt metrics (tingle)
+
+`tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
+legacy LOC, …). `tingle stat --diff` / `tingle report --diff` show what your
+branch adds vs `main`.
+
+`tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
+grow on net — paying debt in one offsets taking it on in another. Read the
+added occurrences it prints and remove what you can. A justified addition is
+fine; say so in the PR. Don't game a counter to keep a number flat.
+
+## Papercuts
+
+Hit friction? Retried command, flaky tool, stale cache, bad error, gotcha. Log
+it now: `mise run papercut -- <note>`. One or two sentences, what you did → what
+got in the way.
 
 ## Architecture
 
@@ -126,6 +143,9 @@ Strict rules:
 - **facilitator** → "twórca programu"
 - **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides
   with the "track" translation)
+- **proposal category** (prelekcja, sesja RPG, warsztaty, …) →
+  "rodzaj atrakcji" on participant-facing pages (do **not** use "kategoria" —
+  counterintuitive there); "kategoria" stays OK in the organizer panel
 
 ## Details
 
@@ -134,5 +154,9 @@ Strict rules:
   moving views from `request.di.uow` to `request.services`
 - [Testing assertions](docs/agents/testing-assertions.md) — patterns for
   integration tests
+- [Maintainer MCP server](docs/agents/mcp.md) — `/mcp/` endpoint, token auth,
+  adding tools
+- [Sandbox toolchain](docs/agents/sandbox.md) — fallbacks when the egress
+  proxy blocks mise's GitHub downloads (Claude Code on the web)
 - [URL conventions](docs/CODE_LAYOUT.md)
 - [Testing strategy](docs/TESTING_STRATEGY.md)

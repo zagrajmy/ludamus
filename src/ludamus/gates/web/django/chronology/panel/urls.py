@@ -128,91 +128,39 @@ urlpatterns = [
         bans.BanDeleteActionView.as_view(),
         name="ban-delete",
     ),
-    path("event/<slug:slug>/venues/", venues.VenuesPageView.as_view(), name="venues"),
-    path(
-        "event/<slug:slug>/venues/structure/",
-        venues.VenuesStructurePageView.as_view(),
-        name="venues-structure",
-    ),
+    path("event/<slug:slug>/venues/", venues.SpacesPageView.as_view(), name="venues"),
     path(
         "event/<slug:slug>/venues/create/",
-        venues.VenueCreatePageView.as_view(),
-        name="venue-create",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/edit/",
-        venues.VenueEditPageView.as_view(),
-        name="venue-edit",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/do/delete",
-        venues.VenueDeleteActionView.as_view(),
-        name="venue-delete",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/do/duplicate",
-        venues.VenueDuplicatePageView.as_view(),
-        name="venue-duplicate",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/do/copy",
-        venues.VenueCopyPageView.as_view(),
-        name="venue-copy",
-    ),
-    path(
-        "event/<slug:slug>/venues/do/reorder",
-        venues.VenueReorderActionView.as_view(),
-        name="venue-reorder",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/",
-        venues.VenueDetailPageView.as_view(),
-        name="venue-detail",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/create/",
-        venues.AreaCreatePageView.as_view(),
-        name="area-create",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/edit/",
-        venues.AreaEditPageView.as_view(),
-        name="area-edit",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/do/delete",
-        venues.AreaDeleteActionView.as_view(),
-        name="area-delete",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/do/reorder",
-        venues.AreaReorderActionView.as_view(),
-        name="area-reorder",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/",
-        venues.AreaDetailPageView.as_view(),
-        name="area-detail",
-    ),
-    path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/create/",
         venues.SpaceCreatePageView.as_view(),
         name="space-create",
     ),
     path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/"
-        "<str:space_slug>/edit/",
+        "event/<slug:slug>/venues/<int:parent_pk>/create/",
+        venues.SpaceCreatePageView.as_view(),
+        name="space-create-child",
+    ),
+    path(
+        "event/<slug:slug>/venues/<int:pk>/edit/",
         venues.SpaceEditPageView.as_view(),
         name="space-edit",
     ),
     path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/"
-        "<str:space_slug>/do/delete",
+        "event/<slug:slug>/venues/<int:pk>/do/delete",
         venues.SpaceDeleteActionView.as_view(),
         name="space-delete",
     ),
     path(
-        "event/<slug:slug>/venues/<str:venue_slug>/areas/<str:area_slug>/spaces/do/reorder",
+        "event/<slug:slug>/venues/<int:pk>/do/duplicate",
+        venues.SpaceDuplicateActionView.as_view(),
+        name="space-duplicate",
+    ),
+    path(
+        "event/<slug:slug>/venues/<int:pk>/do/copy",
+        venues.SpaceCopyPageView.as_view(),
+        name="space-copy",
+    ),
+    path(
+        "event/<slug:slug>/venues/do/reorder",
         venues.SpaceReorderActionView.as_view(),
         name="space-reorder",
     ),
@@ -247,9 +195,19 @@ urlpatterns = [
         name="proposal-create",
     ),
     path(
+        "event/<slug:slug>/proposals/create/fields/",
+        proposals.ProposalCreateFieldsComponentView.as_view(),
+        name="proposal-create-fields",
+    ),
+    path(
         "event/<slug:slug>/proposals/log/",
         proposals.ContentLogPageView.as_view(),
         name="content-log",
+    ),
+    path(
+        "event/<slug:slug>/proposals/log/<int:pk>/revert/",
+        proposals.ContentLogRevertActionView.as_view(),
+        name="content-log-revert",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/",
@@ -260,6 +218,31 @@ urlpatterns = [
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
         proposals.ProposalEditPageView.as_view(),
         name="proposal-edit",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
+        proposals.ProposalEditFieldsComponentView.as_view(),
+        name="proposal-edit-fields",
+    ),
+    path(
+        "event/<slug:slug>/proposals/do/bulk-status",
+        proposals.ProposalBulkStatusActionView.as_view(),
+        name="proposal-bulk-status",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/pending",
+        proposals.ProposalPendingActionView.as_view(),
+        name="proposal-pending",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/accept",
+        proposals.ProposalAcceptActionView.as_view(),
+        name="proposal-accept",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/do/hold",
+        proposals.ProposalHoldActionView.as_view(),
+        name="proposal-hold",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/do/reject",
@@ -369,6 +352,11 @@ urlpatterns = [
         name="facilitator-create",
     ),
     path(
+        "event/<slug:slug>/facilitators/columns/",
+        facilitators.FacilitatorColumnsPageView.as_view(),
+        name="facilitator-columns",
+    ),
+    path(
         "event/<slug:slug>/facilitators/merge/",
         facilitators.FacilitatorMergePageView.as_view(),
         name="facilitator-merge",
@@ -384,9 +372,29 @@ urlpatterns = [
         name="facilitator-edit",
     ),
     path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/flag",
+        facilitators.FacilitatorFlagActionView.as_view(),
+        name="facilitator-flag",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unflag",
+        facilitators.FacilitatorUnflagActionView.as_view(),
+        name="facilitator-unflag",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",
+        facilitators.FacilitatorMarkGuestActionView.as_view(),
+        name="facilitator-mark-guest",
+    ),
+    path(
         "event/<slug:slug>/discounts/",
         discounts.DiscountsPageView.as_view(),
         name="discounts",
+    ),
+    path(
+        "event/<slug:slug>/discounts/export/",
+        discounts.DiscountExportPageView.as_view(),
+        name="discount-export",
     ),
     path(
         "event/<slug:slug>/discounts/<int:facilitator_id>/assign/",

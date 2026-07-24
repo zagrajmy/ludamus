@@ -3,10 +3,9 @@ from datetime import datetime
 import pytest
 from django.core.exceptions import ValidationError
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     DEFAULT_NAME,
     AgendaItem,
-    Area,
     Connection,
     DomainEnrollmentConfig,
     Encounter,
@@ -18,10 +17,10 @@ from ludamus.adapters.db.django.models import (
     EventProposalSettings,
     EventSettings,
     Facilitator,
-    HostPersonalData,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
+    PersonalDataFieldValue,
     ProposalCategory,
     Session,
     SessionField,
@@ -33,14 +32,11 @@ from ludamus.adapters.db.django.models import (
     Shadowban,
     Space,
     Sphere,
-    Tag,
-    TagCategory,
     TimeSlot,
     TimeSlotRequirement,
     Track,
     User,
     UserEnrollmentConfig,
-    Venue,
 )
 
 
@@ -140,34 +136,22 @@ class TestFacilitator:
         assert str(Facilitator(display_name=display_name)) == display_name
 
 
-class TestVenue:
-    def test_str(self, faker):
+class TestSpace:
+    def test_str_root(self, faker):
         name = faker.word()
 
-        assert str(Venue(name=name)) == name
+        assert str(Space(name=name)) == name
 
+    def test_str_nested(self, faker):
+        root_name = faker.word()
+        mid_name = faker.word()
+        leaf_name = faker.word()
 
-class TestArea:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
+        root = Space(name=root_name)
+        mid = Space(name=mid_name, parent=root)
+        leaf = Space(name=leaf_name, parent=mid)
 
-        area = Area(name=area_name, venue=Venue(name=venue_name))
-
-        assert str(area) == f"{venue_name} > {area_name}"
-
-
-class TestSpace:
-    def test_str(self, faker):
-        venue_name = faker.word()
-        area_name = faker.word()
-        space_name = faker.word()
-
-        venue = Venue(name=venue_name)
-        area = Area(name=area_name, venue=venue)
-        space = Space(name=space_name, area=area)
-
-        assert str(space) == f"{venue_name} > {area_name} > {space_name}"
+        assert str(leaf) == f"{root_name} > {mid_name} > {leaf_name}"
 
 
 class TestTimeSlot:
@@ -198,20 +182,6 @@ class TestTimeSlot:
             )
             == f"2025-01-02 03:04 - 2025-05-06 07:08 ({pk})"
         )
-
-
-class TestTagCategory:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(TagCategory(name=name)) == name
-
-
-class TestTag:
-    def test_str(self, faker):
-        name = faker.word()
-
-        assert str(Tag(name=name)) == name
 
 
 class TestSession:
@@ -273,31 +243,6 @@ class TestUser:
 
         assert user.get_full_name() == user.name
 
-    def test_initials_from_name(self):
-        user = User(name="John Doe")
-
-        assert user.initials == "JD"
-
-    def test_initials_from_single_name(self):
-        user = User(name="John")
-
-        assert user.initials == "J"
-
-    def test_initials_from_three_names(self):
-        user = User(name="John Michael Doe")
-
-        assert user.initials == "JM"  # Only first two
-
-    def test_initials_fallback_to_username(self):
-        user = User(name="", username="johndoe")
-
-        assert user.initials == "J"
-
-    def test_initials_empty_returns_question_mark(self):
-        user = User(name="", username="")
-
-        assert user.initials == "?"
-
     def test_str(self):
         user = User(name="John Smith", email="johnny@example.com")
 
@@ -344,12 +289,14 @@ class TestPersonalDataFieldRequirement:
         assert str(requirement) == f"{field_name} (optional) for {category_name}"
 
 
-class TestHostPersonalData:
+class TestPersonalDataFieldValue:
     def test_str(self, faker):
         field_name = faker.word()
         value = faker.sentence()
 
-        data = HostPersonalData(field=PersonalDataField(name=field_name), value=value)
+        data = PersonalDataFieldValue(
+            field=PersonalDataField(name=field_name), value=value
+        )
 
         assert str(data) == f"{field_name}: {value[:50]}"
 
@@ -357,7 +304,9 @@ class TestHostPersonalData:
         field_name = faker.word()
         value = "x" * 100
 
-        data = HostPersonalData(field=PersonalDataField(name=field_name), value=value)
+        data = PersonalDataFieldValue(
+            field=PersonalDataField(name=field_name), value=value
+        )
 
         assert str(data) == f"{field_name}: {'x' * 50}"
 

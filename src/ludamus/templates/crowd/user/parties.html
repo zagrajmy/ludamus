@@ -1,0 +1,369 @@
+{% extends "crowd/user/profile_base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Parties" %}
+{% endblock title %}
+{% block profile_content %}
+    {# Section: parties #}
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div>
+            <h5 class="font-semibold">{% translate "Your parties" %}</h5>
+            <p class="text-sm text-foreground-muted">
+                {% translate "A party signs up for sessions together and moves up a waiting list together." %}
+            </p>
+        </div>
+        <a href="?new-party=1"
+           class="btn btn-primary shrink-0"
+           aria-controls="new-party-modal"
+           aria-haspopup="dialog">
+            {% icon "plus-circle" class="w-4 h-4" %}
+            {% translate "Create party" %}
+        </a>
+    </div>
+    <dialog id="new-party-modal"
+            class="modal w-[calc(100%-2rem)] max-w-md p-0"
+            aria-labelledby="new-party-modal-title">
+        <form action="{% url 'web:crowd:parties-create' %}" method="post">
+            {% csrf_token %}
+            <div class="px-6 pt-5 pb-4">
+                <h3 id="new-party-modal-title" class="font-semibold text-foreground">{% translate "Create party" %}</h3>
+                <p class="mt-1 text-sm text-foreground-muted">{% translate "Name your party — invite friends once it exists." %}</p>
+                <div class="mt-4">{% tessera_form party_form %}</div>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-modal-close="new-party-modal">{% translate "Cancel" %}</button>
+                <button type="submit" class="btn btn-primary">{% translate "Create party" %}</button>
+            </div>
+        </form>
+    </dialog>
+    {# Pending invitations #}
+    {% if invites %}
+        <div class="rounded-lg bg-bg-secondary p-4 mb-6">
+            <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
+                {% icon "envelope" class="w-4 h-4" %}
+                {% translate "Invitations" %}
+            </h6>
+            <div class="flex flex-col gap-3">
+                {% for invite in invites %}
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <p class="text-sm">
+                            {% if invite.party_name %}
+                                {% blocktranslate with leader=invite.leader_name party=invite.party_name %}{{ leader }} invited you to their party {{ party }}{% endblocktranslate %}
+                            {% else %}
+                                {% blocktranslate with leader=invite.leader_name %}{{ leader }} invited you to their party{% endblocktranslate %}
+                            {% endif %}
+                        </p>
+                        <div class="flex gap-2 shrink-0">
+                            <form method="post"
+                                  action="{% url 'web:crowd:party-invites-accept' pk=invite.membership_pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-primary ">{% translate "Join party" %}</button>
+                            </form>
+                            <form method="post"
+                                  action="{% url 'web:crowd:party-invites-decline' pk=invite.membership_pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary ">{% translate "Decline" %}</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+    {# Party rows #}
+    <div class="flex flex-col gap-3">
+        {% for entry in parties %}
+            <div class="card item-card">
+                <div class="card-body grid grid-cols-[minmax(0,1fr)_auto] gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                    <span class="order-3 col-span-2 flex -space-x-3 shrink-0 sm:order-1 sm:col-span-1"
+                          role="img"
+                          aria-label="{% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}">
+                        {% for member in entry.stack %}
+                            {% include "components/avatar.html" with user=member size="size-10" %}
+                        {% endfor %}
+                        {% if entry.stack_overflow %}
+                            <span class="size-10 rounded-full border border-white/80 dark:border-neutral-900 bg-bg-tertiary flex items-center justify-center text-xs font-semibold text-foreground-muted shrink-0 tabular-nums">
+                                +{{ entry.stack_overflow }}
+                            </span>
+                        {% endif %}
+                    </span>
+                    <div class="order-1 min-w-0 sm:order-2">
+                        <h6 class="text-lg font-semibold leading-tight truncate">
+                            <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
+                               class="hover:underline">
+                                {% if entry.party.name %}
+                                    {{ entry.party.name }}
+                                {% else %}
+                                    {% translate "Your party" %}
+                                {% endif %}
+                            </a>
+                        </h6>
+                        <p class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
+                            <span class="tabular-nums">
+                                {% blocktranslate count counter=entry.active_count %}{{ counter }} member{% plural %}{{ counter }} members{% endblocktranslate %}
+                            </span>
+                            <span>{% blocktranslate with leader=entry.party.leader_name %}led by {{ leader }}{% endblocktranslate %}</span>
+                            <span>{% blocktranslate with created=entry.party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}</span>
+                        </p>
+                    </div>
+                    <div class="order-2 flex items-start gap-1.5 justify-end sm:order-3 sm:items-center">
+                        {% if entry.party.is_leader %}
+                            <a href="?invite={{ entry.party.pk }}"
+                               class="btn btn-secondary px-3 py-2 text-sm rounded-xl"
+                               aria-controls="invite-modal-{{ entry.party.pk }}"
+                               aria-haspopup="dialog">
+                                {% icon "user-plus" class="w-4 h-4" %}
+                                {% translate "Invite" %}
+                            </a>
+                            <div class="relative" data-menu>
+                                <button type="button"
+                                        class="btn btn-secondary px-2 py-2 text-sm rounded-xl"
+                                        data-menu-button
+                                        aria-controls="party-menu-{{ entry.party.pk }}"
+                                        aria-expanded="false"
+                                        aria-label="{% translate "More actions" %}">
+                                    {% icon "ellipsis-horizontal" class="w-5 h-5" %}
+                                </button>
+                                <div id="party-menu-{{ entry.party.pk }}"
+                                     data-menu-panel
+                                     hidden
+                                     class="absolute right-0 top-full mt-1 z-50">
+                                    <div {% include "components/menu_surface.html" with extra_class="w-44 rounded-lg border border-border bg-bg-secondary overflow-hidden shadow-(--shadow-elevated)" %}>
+                                        <a href="?rename={{ entry.party.pk }}"
+                                           class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left text-foreground-secondary hover:bg-bg-tertiary"
+                                           aria-controls="rename-modal-{{ entry.party.pk }}"
+                                           aria-haspopup="dialog">
+                                            {% icon "pencil" class="w-4 h-4 opacity-60" %}
+                                            {% translate "Rename" %}
+                                        </a>
+                                        <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
+                                           class="flex items-center gap-2 px-3.5 py-2.5 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                            {% icon "clock" class="w-4 h-4 opacity-60" %}
+                                            {% translate "History" %}
+                                        </a>
+                                        <form method="post"
+                                              action="{% url 'web:crowd:parties-delete' pk=entry.party.pk %}"
+                                              data-confirm="{% translate "Delete this party? Members keep their own accounts." %}"
+                                              data-confirm-action="{% translate "Delete party" %}">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left border-t border-border text-danger hover:bg-danger-bg">
+                                                {% icon "trash" class="w-4 h-4" %}
+                                                {% translate "Remove" %}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
+                               class="btn btn-secondary px-3 py-2 text-sm rounded-xl">
+                                {% icon "clock" class="w-4 h-4" %}
+                                {% translate "History" %}
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if entry.party.is_leader %}
+                <dialog id="invite-modal-{{ entry.party.pk }}"
+                        class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                        aria-labelledby="invite-modal-{{ entry.party.pk }}-title">
+                    <form action="{% url 'web:crowd:parties-invite' pk=entry.party.pk %}"
+                          method="post">
+                        {% csrf_token %}
+                        <div class="px-6 pt-5 pb-4">
+                            <h3 id="invite-modal-{{ entry.party.pk }}-title"
+                                class="font-semibold text-foreground">{% translate "Invite a member" %}</h3>
+                            <label class="mt-4 block">
+                                <span class="block text-sm font-medium text-foreground mb-1.5">{% translate "Email or Discord username" %}</span>
+                                {% include "components/text-field.html" with name="identifier" required=True only %}
+                                <span class="block text-xs text-foreground-muted mt-1.5">{% translate "Their account email, or the Discord username they signed up with." %}</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                            <button type="button"
+                                    class="btn btn-secondary"
+                                    data-modal-close="invite-modal-{{ entry.party.pk }}">{% translate "Cancel" %}</button>
+                            <button type="submit" class="btn btn-primary">{% translate "Send invite" %}</button>
+                        </div>
+                    </form>
+                </dialog>
+                <dialog id="rename-modal-{{ entry.party.pk }}"
+                        class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                        aria-labelledby="rename-modal-{{ entry.party.pk }}-title">
+                    <form method="post"
+                          action="{% url 'web:crowd:parties-rename' pk=entry.party.pk %}">
+                        {% csrf_token %}
+                        <div class="px-6 pt-5 pb-4">
+                            <h3 id="rename-modal-{{ entry.party.pk }}-title"
+                                class="font-semibold text-foreground">{% translate "Rename party" %}</h3>
+                            <label class="mt-4 block">
+                                <span class="block text-sm font-medium text-foreground mb-1.5">{% translate "Party name" %}</span>
+                                {% include "components/text-field.html" with name="name" value=entry.party.name maxlength="255" required=True only %}
+                            </label>
+                        </div>
+                        <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                            <button type="button"
+                                    class="btn btn-secondary"
+                                    data-modal-close="rename-modal-{{ entry.party.pk }}">{% translate "Cancel" %}</button>
+                            <button type="submit" class="btn btn-primary">{% translate "Save name" %}</button>
+                        </div>
+                    </form>
+                </dialog>
+            {% endif %}
+        {% empty %}
+            <div class="text-center py-8">
+                {% icon "users" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                <h5 class="text-foreground-muted font-medium">{% translate "No party yet" %}</h5>
+                <p class="text-sm text-foreground-muted max-w-sm mx-auto">
+                    {% translate "Create a party and invite friends, or add a companion and sign them up yourself." %}
+                </p>
+            </div>
+        {% endfor %}
+    </div>
+    {# Section: companions #}
+    <div class="border-t border-border mt-6 pt-4">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div>
+                <h5 class="font-semibold">
+                    {% translate "Your companions" %}
+                    <span class="text-xs font-normal text-foreground-muted">({{ companions_count }}/{{ max_companions }})</span>
+                </h5>
+                <p class="text-sm text-foreground-muted text-balance">
+                    {% translate "Kids, partners, guests: anyone without their own account. You sign them up yourself. They can claim their profile later." %}
+                </p>
+            </div>
+            {% if can_add_companion %}
+                <a href="?add-companion=1"
+                   class="btn btn-secondary  shrink-0"
+                   aria-controls="add-companion-modal"
+                   aria-haspopup="dialog">
+                    {% icon "plus-circle" class="w-4 h-4" %}
+                    {% translate "Add companion" %}
+                </a>
+            {% endif %}
+        </div>
+        {% if not can_add_companion %}
+            <p class="text-xs text-foreground-muted mb-4">
+                {% blocktranslate %}You can have at most {{ max_companions }} companions.{% endblocktranslate %}
+            </p>
+        {% endif %}
+        {% if can_add_companion %}
+            <dialog id="add-companion-modal"
+                    class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                    aria-labelledby="add-companion-modal-title">
+                {# action carries ?add-companion=1 so a failed submit reopens the modal via syncModalsFromUrl #}
+                <form action="{% url 'web:crowd:profile-companions' %}?add-companion=1"
+                      method="post">
+                    {% csrf_token %}
+                    <div class="px-6 pt-5 pb-4">
+                        <h3 id="add-companion-modal-title" class="font-semibold text-foreground">{% translate "Add companion" %}</h3>
+                        <p class="mt-1 text-sm text-foreground-muted">
+                            {% translate "Someone without their own account. You sign them up; they can claim their profile later." %}
+                        </p>
+                        <div class="mt-4">{% tessera_form create_companion_form %}</div>
+                    </div>
+                    <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                data-modal-close="add-companion-modal">{% translate "Cancel" %}</button>
+                        <button type="submit" class="btn btn-primary">{% translate "Add companion" %}</button>
+                    </div>
+                </form>
+            </dialog>
+        {% endif %}
+        <div class="grid gap-2 sm:grid-cols-2">
+            {% for row in companions %}
+                <div class="rounded-lg bg-bg-tertiary/60 p-3">
+                    <div class="item-display"
+                         id="companion-display-{{ row.companion.slug }}"
+                         {% if row.editing %}style="display:none"{% endif %}>
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                {% include "components/avatar.html" with user=row.companion size="size-10" %}
+                                <p class="min-w-0 text-sm font-medium leading-tight">
+                                    <span class="block truncate">{{ row.companion.name }}</span>
+                                </p>
+                            </div>
+                            {# ludamus-disable:no-negative-margin -- keeps the icon controls aligned to the card edge without shrinking their tap targets #}
+                            <div class="flex gap-1 shrink-0 -mr-1 -mt-1">
+                                <button type="button"
+                                        class="icon-btn"
+                                        onclick="document.getElementById('companion-display-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='block'">
+                                    {% icon "pencil" class="w-3.5 h-3.5" %}
+                                    <span class="sr-only">{% translate "Edit" %}</span>
+                                </button>
+                                {% if row.companion.claim_token %}
+                                    {% url 'web:crowd:claim' token=row.companion.claim_token as claim_path %}
+                                    <button type="button"
+                                            class="icon-btn relative"
+                                            data-copy="{{ claim_path }}"
+                                            data-copy-origin
+                                            data-copied-label="{% translate "Copied!" %}"
+                                            title="{% translate "Copy claim link" %}">
+                                        {% icon "clipboard-document" class="w-3.5 h-3.5" %}
+                                        <span class="sr-only">{% translate "Copy claim link" %}</span>
+                                        {% tessera_copy_popover %}
+                                    </button>
+                                {% endif %}
+                                <form method="post"
+                                      action="{% url 'web:crowd:profile-companions-claim-link' slug=row.companion.slug %}"
+                                      {% if row.companion.claim_token %} data-confirm="{% translate "Generate a new claim link? The old one stops working." %}" data-confirm-action="{% translate "Generate new link" %}" {% endif %}>
+                                    {% csrf_token %}
+                                    {% if row.companion.claim_token %}
+                                        <button type="submit"
+                                                class="icon-btn"
+                                                title="{% translate "Generate a new claim link. The old one stops working." %}">
+                                            {% icon "arrow-path" class="w-3.5 h-3.5" %}
+                                            <span class="sr-only">{% translate "Generate a new claim link" %}</span>
+                                        </button>
+                                    {% else %}
+                                        <button type="submit"
+                                                class="icon-btn"
+                                                title="{% translate "Create a link so they can claim their profile" %}">
+                                            {% icon "link" class="w-3.5 h-3.5" %}
+                                            <span class="sr-only">{% translate "Create claim link" %}</span>
+                                        </button>
+                                    {% endif %}
+                                </form>
+                                <form method="post"
+                                      action="{% url 'web:crowd:profile-companions-delete' slug=row.companion.slug %}"
+                                      data-confirm="{% blocktranslate with name=row.companion.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
+                                      data-confirm-action="{% translate "Delete companion" %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="icon-btn">
+                                        {% icon "trash" class="w-3.5 h-3.5" %}
+                                        <span class="sr-only">{% translate "Delete companion" %}</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="item-edit"
+                         id="companion-edit-{{ row.companion.slug }}"
+                         {% if not row.editing %}style="display:none"{% endif %}>
+                        <form action="{% url 'web:crowd:profile-companions-update' slug=row.companion.slug %}"
+                              method="post">
+                            {% csrf_token %}
+                            {% tessera_form row.form %}
+                            <div class="flex flex-col gap-2 sm:flex-row">
+                                <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
+                                <button type="button"
+                                        class="btn btn-secondary"
+                                        onclick="document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-display-{{ row.companion.slug }}').style.display='block'">
+                                    {% icon "x-mark" class="w-4 h-4" %}
+                                    {% translate "Cancel" %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-sm text-foreground-muted sm:col-span-2">{% translate "No companions yet." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock profile_content %}

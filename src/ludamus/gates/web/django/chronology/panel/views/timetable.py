@@ -19,13 +19,14 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.mills.chronology import (
-    ConflictDetectionService,
-    TimetableOverviewService,
-    TimetableService,
+from ludamus.mills.chronology import ConflictDetectionService, TimetableOverviewService
+from ludamus.mills.timetable import TimetableService
+from ludamus.pacts import (
+    UNSCHEDULED_LIST_LIMIT,
+    NotFoundError,
+    UnscheduledSessionFilter,
 )
-from ludamus.pacts import UNSCHEDULED_LIST_LIMIT, NotFoundError
-from ludamus.pacts.chronology import SessionPlacement
+from ludamus.pacts.chronology import DateSelection, SessionPlacement
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -45,7 +46,7 @@ def _timetable_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
-_BACK_URL_KEYS = ("track", "category", "max_duration", "search")
+_BACK_URL_KEYS = ("track", "category", "max_duration", "search", "date")
 
 
 def _build_back_url(slug: str, query: QueryDict) -> str:
@@ -54,13 +55,15 @@ def _build_back_url(slug: str, query: QueryDict) -> str:
     return f"{base}?{urlencode(params)}" if params else base
 
 
-def _parse_date_param(raw: str | None) -> date | None:
+def _parse_date_selection(raw: str | None) -> DateSelection:
+    if raw == "all":
+        return "all"
     if not raw:
-        return None
+        return "all"
     try:
         return date.fromisoformat(raw)
     except ValueError:
-        return None
+        return "all"
 
 
 class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
@@ -84,7 +87,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         except ValueError:
             room_page = 1
 
-        selected_date = _parse_date_param(self.request.GET.get("date"))
+        date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         category_pk_raw = self.request.GET.get("category", "").strip()
         category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
@@ -97,7 +100,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
             tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
-            selected_date=selected_date,
+            date_selection=date_selection,
         )
         conflict_service = ConflictDetectionService(uow)
         conflicts = conflict_service.list_all_for_track(
@@ -120,9 +123,11 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
+        context["date_selection"] = grid.date_selection
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
-        context["print_venues"] = self.get_print_venues(current_event.pk)
+        context["active_tab"] = "timetable"
+        context["print_scopes"] = self.get_print_scopes(current_event.pk)
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 
@@ -143,14 +148,20 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
         category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         uow = self.request.di.uow
         sessions, has_more = uow.sessions.list_unscheduled_by_event(
             current_event.pk,
-            track_pk=filter_track_pk,
-            search=search,
-            max_duration_minutes=max_duration_minutes,
-            category_pk=category_pk,
+            UnscheduledSessionFilter(
+                track_pk=filter_track_pk,
+                search=search,
+                max_duration_minutes=max_duration_minutes,
+                category_pk=category_pk,
+                available_on=(
+                    date_selection if isinstance(date_selection, date) else None
+                ),
+            ),
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
 
@@ -166,6 +177,7 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
             "max_duration_minutes": max_duration_minutes,
             "duration_chips": duration_chips,
             "filter_track_pk": filter_track_pk,
+            "date_selection": date_selection,
             "slug": slug,
         }
         return TemplateResponse(
@@ -190,12 +202,14 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
         search = self.request.GET.get("search", "").strip()
+        date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         context = {
             "filter_track_pk": filter_track_pk,
             "category_pk": category_pk,
             "max_duration_minutes": max_duration_minutes,
             "search": search,
+            "date_selection": date_selection,
             "slug": slug,
             "current_event": current_event,
         }
@@ -272,7 +286,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
         except ValueError:
             room_page = 1
 
-        selected_date = _parse_date_param(self.request.GET.get("date"))
+        date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         uow = self.request.di.uow
         grid = TimetableService(uow).build_grid(
@@ -280,7 +294,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
             tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
-            selected_date=selected_date,
+            date_selection=date_selection,
         )
         slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
             event_pk=current_event.pk, track_pk=filter_track_pk
@@ -291,6 +305,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
             "filter_track_pk": filter_track_pk,
             "conflict_session_pks": set(),
             "slot_violation_session_pks": {v.session_pk for v in slot_violations},
+            "date_selection": grid.date_selection,
             "slug": slug,
         }
         return TemplateResponse(
@@ -329,12 +344,8 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
         except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
-        # T3: the new placement can clear time conflicts for waiters — promote
-        # against the session's current time.
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
-        # Conflicts are advisory: detection excludes the session itself, so it
-        # runs after assignment with the same result and only on valid input.
         conflicts = ConflictDetectionService(uow).detect_for_assignment(
             session_pk=session_pk, placement=placement
         )
@@ -367,7 +378,9 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
         uow = self.request.di.uow
         try:
             TimetableService(uow).unassign_session(
-                session_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
+                session_pk=session_pk,
+                event_pk=current_event.pk,
+                user_pk=self.request.user.pk,
             )
         except NotFoundError:
             return HttpResponse(status=422)
@@ -474,6 +487,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "overview"
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)
 
 
@@ -503,6 +517,7 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         context["slot_violations"] = slot_violations
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "problems"
         return TemplateResponse(self.request, "panel/timetable-problems.html", context)
 
 
@@ -536,6 +551,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["space_pk"] = space_pk
         context["slug"] = slug
         context["tab_urls"] = _timetable_tab_urls(slug)
+        context["active_tab"] = "log"
         return TemplateResponse(self.request, "panel/timetable-log.html", context)
 
 
@@ -557,7 +573,7 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
         uow = self.request.di.uow
         try:
             TimetableService(uow).revert_change(
-                log_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
+                log_pk=log_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
             )
         except ValueError, NotFoundError:
             return HttpResponse(status=422)

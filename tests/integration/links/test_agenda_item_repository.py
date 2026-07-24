@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ludamus.adapters.db.django.models import AgendaItem, Track
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
+from ludamus.links.db.django.models import AgendaItem, Track
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemUpdateData,
@@ -12,11 +12,9 @@ from ludamus.pacts import (
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
-    AreaFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
-    VenueFactory,
 )
 
 
@@ -91,9 +89,7 @@ class TestAgendaItemRepositoryListByEvent:
 
     def test_list_by_event_excludes_other_events(self, agenda_item, sphere):
         other_event = EventFactory(sphere=sphere)
-        other_venue = VenueFactory(event=other_event)
-        other_area = AreaFactory(venue=other_venue)
-        other_space = SpaceFactory(area=other_area)
+        other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(event=other_event)
         AgendaItemFactory(session=other_session, space=other_space)
 
@@ -105,31 +101,6 @@ class TestAgendaItemRepositoryListByEvent:
 
     def test_list_by_event_empty_when_no_items(self, event):
         result = AgendaItemRepository.list_by_event(event.pk)
-
-        assert result == []
-
-
-class TestAgendaItemRepositoryListBySpace:
-    def test_list_by_space_returns_items_for_space(self, agenda_item, space):
-        result = AgendaItemRepository.list_by_space(space.pk)
-
-        assert len(result) == 1
-        assert result[0].pk == agenda_item.pk
-        assert result[0].space_id == space.pk
-
-    def test_list_by_space_excludes_other_spaces(self, agenda_item, area):
-        other_space = SpaceFactory(area=area)
-        other_session = SessionFactory(event=area.venue.event)
-        other_item = AgendaItemFactory(session=other_session, space=other_space)
-
-        result = AgendaItemRepository.list_by_space(agenda_item.space_id)
-
-        result_pks = [dto.pk for dto in result]
-        assert agenda_item.pk in result_pks
-        assert other_item.pk not in result_pks
-
-    def test_list_by_space_empty_when_no_items(self, space):
-        result = AgendaItemRepository.list_by_space(space.pk)
 
         assert result == []
 
@@ -158,8 +129,8 @@ class TestAgendaItemRepositoryListByTrack:
 
 
 class TestAgendaItemRepositoryUpdate:
-    def test_update_changes_space(self, agenda_item, area):
-        new_space = SpaceFactory(area=area)
+    def test_update_changes_space(self, agenda_item):
+        new_space = SpaceFactory(event=agenda_item.space.event)
         data = AgendaItemUpdateData(space_id=new_space.pk)
 
         AgendaItemRepository.update(agenda_item.pk, data)
@@ -189,9 +160,7 @@ class TestAgendaItemRepositoryConfirmAllByEvent:
 
     def test_does_not_touch_other_events(self, agenda_item, sphere):
         other_event = EventFactory(sphere=sphere)
-        other_space = SpaceFactory(
-            area=AreaFactory(venue=VenueFactory(event=other_event))
-        )
+        other_space = SpaceFactory(event=other_event)
         other_item = AgendaItemFactory(
             session=SessionFactory(event=other_event), space=other_space
         )
@@ -210,7 +179,7 @@ class TestAgendaItemRepositoryConfirmAllByTrack:
             event=event, name="Track", slug="track", is_public=True
         )
         session.tracks.add(track)
-        out_space = SpaceFactory(area=AreaFactory(venue=VenueFactory(event=event)))
+        out_space = SpaceFactory(event=event)
         out_item = AgendaItemFactory(
             session=SessionFactory(event=event), space=out_space
         )

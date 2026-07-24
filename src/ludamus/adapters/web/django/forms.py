@@ -1,73 +1,31 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django import forms
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     EnrollmentConfig,
     Session,
     SessionParticipation,
     SessionParticipationStatus,
-    Space,
-    TimeSlot,
-    can_enroll_users,
-    get_used_slots,
-    get_vc_available_slots,
 )
-from ludamus.mills import get_user_enrollment_config
-from ludamus.pacts import (
-    EnrollmentConfigRepositoryProtocol,
-    EventDTO,
-    TicketAPIProtocol,
-    UserData,
-    UserDTO,
-    UserType,
-    VirtualEnrollmentConfig,
-)
+from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable
+
+    from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.enrollment import EnrollmentServiceProtocol
 
 
 TODAY = datetime.now(tz=UTC).date()
 logger = logging.getLogger(__name__)
-
-
-class BaseUserForm(forms.Form):
-    name = forms.CharField(
-        label=_("User name"),
-        help_text=_(
-            "Your public display name that others will see. This can be a nickname "
-            "and does not need to be your legal name."
-        ),
-    )
-
-    @property
-    def user_data(self) -> UserData:
-        return cast("UserData", self.cleaned_data)
-
-
-class UserForm(BaseUserForm):
-    user_type = forms.CharField(initial=UserType.ACTIVE, widget=forms.HiddenInput())
-    email = forms.EmailField(label=_("email address"), required=False)
-    discord_username = forms.CharField(
-        label=_("Discord username"),
-        required=False,
-        max_length=150,
-        help_text=_("Your Discord username for session coordination"),
-    )
-
-
-class ConnectedUserForm(BaseUserForm):
-    user_type = forms.CharField(
-        initial=UserType.CONNECTED.value, widget=forms.HiddenInput()
-    )
 
 
 def _can_join_waitlist(
@@ -170,6 +128,14 @@ def _build_fallback_choices(
     return [("", _("No change"))], _("No enrollment options available")
 
 
+# The desired-state checkbox on the full enroll page posts this token when a
+# person is included; the view diffs it against current participation and routes
+# to a confirmed seat or the waiting list. Legacy string values ("enroll",
+# "waitlist", "cancel") still flow through unchanged for the one-click inline
+# fragment on the event page.
+INCLUDE_VALUE = "include"
+
+
 class _UserEnrollmentChoiceField(forms.ChoiceField):
     def __init__(
         self,
@@ -188,7 +154,19 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
         self._current_user = current_user
         super().__init__(**kwargs)
 
+    def to_python(self, value: object) -> str:
+        # A checked "Include" box posts "include" (or a bare "on"); normalise both
+        # to the canonical include token before validation.
+        if value in {"on", INCLUDE_VALUE}:
+            return INCLUDE_VALUE
+        return str(super().to_python(value))
+
     def validate(self, value: str) -> None:
+        # "include" is the desired-state intent; eligibility is enforced by the
+        # per-person choices already baked into this field and re-checked by the
+        # view when it routes, so accept it here without the choice-membership test.
+        if value == INCLUDE_VALUE:
+            return
         if value and value not in [choice[0] for choice in self.choices]:  # type: ignore [index, union-attr]
             user_name = self.user_obj.name or _("User")
             self._validate_rejected_value(value, user_name)
@@ -225,13 +203,28 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
 
 def _make_enrollment_clean(
     *,
-    current_user: UserDTO,
-    connected_users: Iterable[UserDTO],
+    all_users: list[UserDTO],
     enrollment_config: EnrollmentConfig | None,
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
-    field_to_user_name: dict[str, str],
+    enrollment: EnrollmentServiceProtocol,
+    currently_seated_pks: set[int],
 ) -> Callable[..., dict[str, Any] | None]:
-    all_users = [current_user, *connected_users]
+    # Only user_* fields count against the membership slot cap: +N guests are
+    # walk-ins without memberships, so they intentionally bypass it — the
+    # session capacity check still gates them.
+    name_by_pk = {user.pk: user.full_name for user in all_users}
+
+    def _is_new_seat(field_name: str, value: object) -> bool:
+        if not field_name.startswith("user_"):
+            return False
+        # Explicit "enroll" (inline fragment / legacy) always counts; a checkbox
+        # "include" only counts when it newly seats someone not already in.
+        if value == "enroll":
+            return True
+        return (
+            value == INCLUDE_VALUE
+            and int(field_name.split("_")[1]) not in currently_seated_pks
+        )
 
     def clean(self: forms.Form) -> dict[str, Any] | None:
         if not (cleaned_data := forms.Form.clean(self)):
@@ -240,7 +233,7 @@ def _make_enrollment_clean(
         enroll_requests = [
             user
             for field_name, value in cleaned_data.items()
-            if field_name.startswith("user_") and value == "enroll"
+            if _is_new_seat(field_name, value)
             for user in all_users
             if user.pk == int(field_name.split("_")[1])
         ]
@@ -250,7 +243,7 @@ def _make_enrollment_clean(
             and enrollment_config
             and enrollment_config.restrict_to_configured_users
             and current_user_enrollment_config
-            and not can_enroll_users(
+            and not enrollment.can_enroll_users(
                 users=all_users,
                 event=EventDTO.model_validate(enrollment_config.event),
                 virtual_config=current_user_enrollment_config,
@@ -258,8 +251,8 @@ def _make_enrollment_clean(
             )
         ):
             event = EventDTO.model_validate(enrollment_config.event)
-            used_slots = get_used_slots(users=all_users, event=event)
-            available_slots = get_vc_available_slots(
+            used_slots = enrollment.get_used_slots(users=all_users, event=event)
+            available_slots = enrollment.get_vc_available_slots(
                 users=all_users,
                 event=event,
                 virtual_config=current_user_enrollment_config,
@@ -267,9 +260,9 @@ def _make_enrollment_clean(
             user_field = next(
                 field_name
                 for field_name, value in cleaned_data.items()
-                if field_name.startswith("user_") and value == "enroll"
+                if _is_new_seat(field_name, value)
             )
-            user_name = field_to_user_name.get(user_field, "User")
+            user_name = name_by_pk.get(int(user_field.split("_")[1]), "User")
             self.add_error(
                 user_field,
                 (
@@ -288,21 +281,102 @@ def _make_enrollment_clean(
     return clean
 
 
+def _member_no_access_choices() -> tuple[list[tuple[str, str]], str]:
+    return (
+        [("", _("No enrollment options (access required)"))],
+        _("Enrollment access permission required"),
+    )
+
+
+def _build_held_seat_choices(
+    *,
+    current_participation: SessionParticipation | None,
+    has_conflict: bool,
+    user_can_enroll: bool,
+    member_can_enroll: bool,
+) -> tuple[list[tuple[str, str]], str]:
+    # An ACCEPT_INVITES member is never seated directly: the leader may only
+    # hold a seat, which the member confirms via the claim link. A seat still
+    # held (OFFERED) can be withdrawn; any other participation of theirs is
+    # entirely their own business.
+    if current_participation is not None:
+        if current_participation.status == SessionParticipationStatus.OFFERED:
+            return (
+                [("", _("No change")), ("cancel", _("Withdraw held seat"))],
+                _("Withdrawing releases the seat before they claim it"),
+            )
+        return [("", _("No change"))], _("They manage their own enrollment")
+    if has_conflict:
+        return [("", _("No change (time conflict)"))], _("Time conflict detected")
+    if not user_can_enroll:
+        return [("", _("No change"))], ""
+    if not member_can_enroll:
+        return _member_no_access_choices()
+    return (
+        [("", _("No change")), ("enroll", _("Hold a seat — needs their approval"))],
+        _("The seat is released if they do not claim it in time"),
+    )
+
+
+MAX_GUESTS = 10
+
+
+def _build_member_choices(
+    *,
+    current_participation: SessionParticipation | None,
+    has_conflict: bool,
+    user_can_enroll: bool,
+    member_can_enroll: bool,
+    can_join_wl: bool,
+) -> tuple[list[tuple[str, str]], str]:
+    # Power of attorney (ACCEPT_BY_DEFAULT) covers seating a member who has
+    # nothing on this session yet; an existing participation is theirs alone —
+    # never cancel it, never change it.
+    if current_participation is not None:
+        return [("", _("No change"))], _("They manage their own enrollment")
+    if not member_can_enroll:
+        return _member_no_access_choices()
+    return _build_default_choices(
+        user_can_enroll=user_can_enroll,
+        can_join_wl=can_join_wl,
+        has_conflict=has_conflict,
+    )
+
+
+@dataclass(frozen=True)
+class RosterMember:
+    # One person the viewer can act for on the enroll screen.
+    user: UserDTO
+    # ACCEPT_INVITES member: "enroll" holds an OFFERED seat they must claim.
+    needs_accept: bool = False
+    # On a restricted event a member's seat spends that member's own
+    # allowance, so a member without slots gets no enroll/hold choice.
+    can_enroll: bool = True
+
+
+@dataclass(frozen=True)
+class EnrollmentRoster:
+    """Everyone the viewer can act for on the enroll screen."""
+
+    # Login-less companions of the selected party (the viewer leads it).
+    companions: tuple[UserDTO, ...] = ()
+    # Real co-members of the selected led party.
+    members: tuple[RosterMember, ...] = ()
+    # +N headcount guests (anonymous seats); None when the event's enrollment
+    # config does not allow anonymous enrollment for this session.
+    guest_count: int | None = None
+
+
 def create_enrollment_form(
     *,
     session: Session,
     current_user: UserDTO,
-    connected_users: Iterable[UserDTO],
-    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-    ticket_api: TicketAPIProtocol,
+    roster: EnrollmentRoster,
+    enrollment: EnrollmentServiceProtocol,
 ) -> type[forms.Form]:
     enrollment_config = session.event.get_most_liberal_config(session)
-    current_user_enrollment_config = get_user_enrollment_config(
-        event=EventDTO.model_validate(session.event),
-        user_email=current_user.email,
-        enrollment_config_repo=enrollment_config_repo,
-        ticket_api=ticket_api,
-        check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+    current_user_enrollment_config = enrollment.virtual_config(
+        event=EventDTO.model_validate(session.event), user_email=current_user.email
     )
     user_can_enroll = bool(
         enrollment_config
@@ -315,13 +389,24 @@ def create_enrollment_form(
         )
     )
 
-    form_fields: dict[str, _UserEnrollmentChoiceField] = {}
-    field_to_user_name: dict[str, str] = {}
+    form_fields: dict[str, forms.Field] = {}
 
-    for user in (current_user, *connected_users):
+    seated = [
+        RosterMember(user=current_user),
+        *(RosterMember(user=user) for user in roster.companions),
+        *roster.members,
+    ]
+    member_pks = {member.user.pk for member in roster.members}
+    # Anyone already holding any participation on this session: a checkbox
+    # "include" for them is a no-op, so it must not count against the slot cap.
+    currently_seated_pks: set[int] = set()
+    for seat in seated:
+        user = seat.user
         current_participation = SessionParticipation.objects.filter(
             session=session, user_id=user.pk
         ).first()
+        if current_participation is not None:
+            currently_seated_pks.add(user.pk)
         has_conflict = Session.objects.has_conflicts(session, user)
         can_join_wl = _can_join_waitlist(
             user=user,
@@ -330,21 +415,36 @@ def create_enrollment_form(
             current_user_enrollment_config=current_user_enrollment_config,
         )
 
-        choices, help_text = _build_user_choices(
-            current_participation=current_participation,
-            has_conflict=has_conflict,
-            user_can_enroll=user_can_enroll,
-            can_join_wl=can_join_wl,
-        )
-        if _has_no_actionable_choices(choices) and not has_conflict:
-            choices, help_text = _build_fallback_choices(
-                enrollment_config=enrollment_config,
-                current_user_enrollment_config=current_user_enrollment_config,
-                user=user,
+        if seat.needs_accept:
+            choices, help_text = _build_held_seat_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                member_can_enroll=seat.can_enroll,
             )
+        elif user.pk in member_pks:
+            choices, help_text = _build_member_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                member_can_enroll=seat.can_enroll,
+                can_join_wl=can_join_wl,
+            )
+        else:
+            choices, help_text = _build_user_choices(
+                current_participation=current_participation,
+                has_conflict=has_conflict,
+                user_can_enroll=user_can_enroll,
+                can_join_wl=can_join_wl,
+            )
+            if _has_no_actionable_choices(choices) and not has_conflict:
+                choices, help_text = _build_fallback_choices(
+                    enrollment_config=enrollment_config,
+                    current_user_enrollment_config=current_user_enrollment_config,
+                    user=user,
+                )
 
         field_name = f"user_{user.pk}"
-        field_to_user_name[field_name] = user.full_name
         form_fields[field_name] = _UserEnrollmentChoiceField(
             user_obj=user,
             enrollment_config=enrollment_config,
@@ -364,82 +464,29 @@ def create_enrollment_form(
             ),
         )
 
+    # The membership-slot cap guards the viewer's own allowance, so only the
+    # viewer and their sponsored companions count against it — a real member's
+    # seat spends that member's allowance, not the enroller's.
     clean = _make_enrollment_clean(
-        current_user=current_user,
-        connected_users=connected_users,
+        all_users=[current_user, *roster.companions],
         enrollment_config=enrollment_config,
         current_user_enrollment_config=current_user_enrollment_config,
-        field_to_user_name=field_to_user_name,
+        enrollment=enrollment,
+        currently_seated_pks=currently_seated_pks,
     )
+
+    if roster.guest_count is not None:
+        form_fields["guests"] = forms.IntegerField(
+            required=False,
+            min_value=0,
+            max_value=MAX_GUESTS,
+            initial=roster.guest_count,
+            label=_("Guests without an account"),
+        )
 
     form = type("EnrollmentForm", (forms.Form,), form_fields)
     form.clean = clean  # type: ignore [attr-defined]
+    # Template guard: the strict template checks treat a missing variable as an
+    # error, so the guests block keys off an always-present flag.
+    form.has_guests = roster.guest_count is not None  # type: ignore [attr-defined]
     return form
-
-
-def create_proposal_acceptance_form(event: EventDTO) -> type[forms.Form]:
-    # Query spaces with related area and venue for proper grouping
-    spaces = (
-        Space.objects.filter(event_id=event.pk)
-        .select_related("area__venue")
-        .order_by(*Space.HIERARCHICAL_ORDER)
-    )
-
-    # Build grouped choices: {(venue_name, area_name): [(space_id, space_name), ...]}
-    grouped_choices: dict[str, list[tuple[int, str]]] = {}
-    for space in spaces:
-        group_label = f"{space.area.venue.name} > {space.area.name}"
-        if group_label not in grouped_choices:
-            grouped_choices[group_label] = []
-        grouped_choices[group_label].append((space.id, space.name))
-
-    # Convert to choices format with optgroups
-    choices: list[tuple[str, str] | tuple[str, list[tuple[int, str]]]] = [
-        ("", _("Select a space..."))
-    ]
-    choices.extend(list(grouped_choices.items()))
-
-    space_field = forms.ChoiceField(
-        choices=choices,
-        label=_("Space"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-        help_text=_("Select the space where this session will take place"),
-        required=True,
-    )
-
-    time_slot_field = forms.ModelChoiceField(
-        queryset=TimeSlot.objects.filter(event_id=event.pk).order_by("start_time"),
-        label=_("Time slot"),
-        widget=forms.Select(attrs={"class": "form-select"}),
-        help_text=_("Select the time slot for this session"),
-        empty_label=_("Select a time slot..."),
-        required=True,
-    )
-
-    def clean_space(self: forms.Form) -> Space:
-        if not (space_id := self.cleaned_data.get("space")):  # pragma: no cover
-            raise ValidationError(_("This field is required."))
-        try:
-            return Space.objects.get(pk=int(space_id), event_id=event.pk)
-        except (Space.DoesNotExist, ValueError) as e:
-            raise ValidationError(_("Invalid space selection.")) from e
-
-    def clean(self: forms.Form) -> dict[str, Any] | None:
-        if (cleaned_data := super(forms.Form, self).clean()) and Session.objects.filter(
-            agenda_item__space=cleaned_data.get("space"),
-            agenda_item__start_time=cleaned_data["time_slot"].start_time,
-            agenda_item__end_time=cleaned_data["time_slot"].end_time,
-        ).exists():
-            raise ValidationError(
-                _("There is already a session scheduled at this space and time.")
-            )
-        return cleaned_data
-
-    form_attrs = {
-        "space": space_field,
-        "time_slot": time_slot_field,
-        "clean_space": clean_space,
-        "clean": clean,
-    }
-
-    return type("ProposalAcceptanceForm", (forms.Form,), form_attrs)

@@ -5,6 +5,12 @@ from datetime import UTC, datetime, timedelta
 from django import forms
 from django.contrib.staticfiles.storage import staticfiles_storage
 
+from ludamus.gates.web.django.chronology.event_presentation import (
+    EventInfo,
+    ParticipationInfo,
+    SessionData,
+    build_display_field_row,
+)
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -12,22 +18,11 @@ from ludamus.pacts import (
     SessionDTO,
     SessionFieldValueDTO,
     SessionStatus,
-    SpaceDTO,
-    VenueDTO,
 )
-
-from .entities import EventInfo, ParticipationInfo, SessionData, build_display_field_row
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
 
-for _dto in (
-    AgendaItemDTO,
-    EventInfo,
-    SessionDTO,
-    SessionFieldValueDTO,
-    SpaceDTO,
-    VenueDTO,
-):
+for _dto in (AgendaItemDTO, EventInfo, SessionDTO, SessionFieldValueDTO):
     _dto.model_rebuild()
 
 
@@ -43,27 +38,13 @@ def _mock_user(full_name: str, pk: int, slug: str, username: str) -> UserInfo:
     )
 
 
-def _mock_venue_and_space(creation: datetime) -> LocationData:
-    venue = VenueDTO(
-        address="",
-        creation_time=creation,
-        modification_time=creation,
-        name="Main Hall",
-        order=0,
-        pk=1,
-        slug="main-hall",
-    )
-    space = SpaceDTO(
-        area_id=None,
-        capacity=None,
-        creation_time=creation,
-        modification_time=creation,
-        name="Table 1",
-        order=0,
-        pk=1,
-        slug="table-1",
-    )
-    return {"venue": venue, "area": None, "space": space}
+def _mock_venue_and_space() -> LocationData:
+    return {
+        "space_name": "Table 1",
+        "parent_slug": "main-hall",
+        "parent_name": "Main Hall",
+        "path": "Main Hall > Table 1",
+    }
 
 
 def _mock_field_values() -> list[SessionFieldValueDTO]:
@@ -166,20 +147,18 @@ def mock_session_data() -> SessionData:
             participants_limit=6,
             pk=1,
             display_name="Alex Designer",
-            requirements="",
             slug="design-session",
             title="Design System Session Card",
             category_id=17,
-            needs="Lots of space",
             presenter_id=18,
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         ),
         is_full=False,
         full_participant_info="4/6",
         effective_participants_limit=6,
         enrolled_count=2,
         session_participations=session_participations,
-        loc=_mock_venue_and_space(creation),
+        loc=_mock_venue_and_space(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
     )
@@ -215,20 +194,20 @@ def mock_session_data_ended() -> SessionData:
             participants_limit=6,
             pk=2,
             display_name=data.presenter.full_name,
-            requirements="",
             slug="design-session-ended",
             title="Ended Session (Design Preview)",
             category_id=17,
-            needs="Lots of space",
             presenter_id=18,
-            status=SessionStatus.SCHEDULED,
+            status=SessionStatus.ACCEPTED,
         ),
         is_full=True,
         full_participant_info="6/6",
         effective_participants_limit=6,
         enrolled_count=6,
         session_participations=ended_participations,
-        loc=_mock_venue_and_space(creation),
+        loc=_mock_venue_and_space(),
         field_values=data.field_values[:1],
         displayed_field_rows=data.displayed_field_rows[:1],
+        is_ongoing=True,
+        is_ended=True,
     )

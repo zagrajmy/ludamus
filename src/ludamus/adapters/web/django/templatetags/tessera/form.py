@@ -42,7 +42,7 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
         {% tessera_form form layout="horizontal" %}
     """
     output = [tessera_field(field, layout=layout) for field in form]
-    return mark_safe("\n".join(output))  # noqa: S308
+    return mark_safe("\n".join(output))  # ruff:ignore[suspicious-mark-safe-usage]
 
 
 def _render_field_input(field: BoundField) -> str:
@@ -69,14 +69,14 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
     """
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
-        return mark_safe(str(field))  # noqa: S308
+        return mark_safe(str(field))  # ruff:ignore[suspicious-mark-safe-usage]
     is_checkbox = isinstance(widget, CheckboxInput)
     is_multi_checkbox = isinstance(widget, CheckboxSelectMultiple)
     is_radio = isinstance(widget, RadioSelect)
 
     parts = []
 
-    container_class = "flex not-last:mb-4"
+    container_class = "flex gap-y-0.5 not-last:mb-4"
     if layout == "vertical":
         container_class += " flex-col"
     else:
@@ -104,7 +104,7 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
 
     parts.append("</div>")
 
-    return mark_safe("\n".join(parts))  # noqa: S308
+    return mark_safe("\n".join(parts))  # ruff:ignore[suspicious-mark-safe-usage]
 
 
 @register.simple_tag
@@ -121,7 +121,7 @@ def tessera_errors(form: BaseForm) -> str:
 
 
 @register.simple_tag
-def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a distinct visual axis
+def tessera_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; each param is a distinct visual axis
     text: str,
     *,
     href: str | None = None,
@@ -131,7 +131,7 @@ def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a d
     disabled: bool = False,
     icon: str | None = None,
     full_width_mobile: bool | None = None,
-    onclick: str | None = None,
+    **attrs: str | int | bool | None,
 ) -> str:
     """Render a styled button (``<button>``) or link button (``<a>``).
 
@@ -143,6 +143,7 @@ def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a d
         {% tessera_button "Cancel" button_type="button" variant="secondary" %}
         {% tessera_button "New Venue" href=url icon="plus" %}
         {% tessera_button "Save" full_width_mobile=False %}
+        {% tessera_button "Reject" disabled=True title=why_disabled %}
     """
     return render_button(
         text,
@@ -153,5 +154,5 @@ def tessera_button(  # noqa: PLR0913 — template-tag adapter; each param is a d
         disabled=disabled,
         icon=icon,
         full_width_mobile=full_width_mobile,
-        onclick=onclick,
+        **attrs,
     )

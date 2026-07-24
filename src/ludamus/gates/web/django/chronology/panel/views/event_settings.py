@@ -55,6 +55,7 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "use_session_cover_placeholders": bool(
             cd.get("use_session_cover_placeholders")
         ),
+        "use_participants_label": bool(cd.get("use_participants_label")),
     }
     if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
@@ -113,6 +114,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "use_session_cover_placeholders": (
                     current_event.use_session_cover_placeholders
                 ),
+                "use_participants_label": current_event.use_participants_label,
             }
         )
         self._apply_facilitator_choices(form)
@@ -237,7 +239,7 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["form"] = ProposalSettingsForm(
             initial={
-                "proposal_description": current_event.proposal_description,
+                "proposal_description": proposal_settings.description,
                 "proposal_start_time": (
                     localtime(current_event.proposal_start_time)
                     if current_event.proposal_start_time
@@ -274,7 +276,7 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
         with self.request.di.uow.atomic():
             # Save proposal description
-            self.request.di.uow.events.update_proposal_description(
+            self.request.di.uow.event_proposal_settings.update_description(
                 current_event.pk, cd.get("proposal_description") or ""
             )
 

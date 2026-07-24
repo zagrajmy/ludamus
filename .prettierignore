@@ -1,0 +1,6 @@
+# Django templates: prettier's HTML parser reflows {% ... %} tags across
+# newlines, and Django's template lexer (tag_re, no DOTALL) cannot match a
+# tag that spans lines — the page 500s with "Invalid block tag". Editors
+# (VS Code prettier extension, Zed) and the CLI all respect this file.
+# Templates are formatted by djlint (hk pre-commit / mise run lint:djlint).
+src/ludamus/templates/**/*.html

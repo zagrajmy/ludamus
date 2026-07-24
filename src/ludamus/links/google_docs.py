@@ -1,4 +1,4 @@
-"""Google Docs proposal importer integration implementation."""
+"""Google Docs integrations: proposal importer and sheet writer."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     SourceQuestion,
 )
+from ludamus.pacts.discounts import SheetExportError, SheetWriterProtocol
 from ludamus.pacts.submissions import ImportRow
 
 if TYPE_CHECKING:
@@ -36,6 +37,10 @@ GOOGLE_SCOPES = (
     "https://www.googleapis.com/auth/spreadsheets.readonly",
     "https://www.googleapis.com/auth/forms.body.readonly",
 )
+# Service-account credentials mint a token per requested scope set, so the
+# write scope needs no re-authorization — only editor access on the target
+# spreadsheet for the service account.
+SHEETS_WRITE_SCOPES = ("https://www.googleapis.com/auth/spreadsheets",)
 SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/A1:Z1"
 SHEETS_META_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}"
@@ -43,6 +48,10 @@ SHEETS_META_URL = (
 )
 SHEETS_VALUES_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
+)
+SHEETS_UPDATE_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
+    "?valueInputOption=RAW"
 )
 FORMS_API_URL = "https://forms.googleapis.com/v1/forms/{form_id}"
 ERROR_HINT_LIMIT = 200
@@ -53,6 +62,32 @@ HTTP_NOT_FOUND = 404
 
 class _CredentialsError(Exception):
     """Raised internally when a service-account secret can't build a session."""
+
+
+def _build_session(secret: bytes, scopes: Sequence[str]) -> AuthorizedSession:
+    if not secret:
+        msg = "Connection has no service-account credentials."
+        raise _CredentialsError(msg)
+    try:
+        info = json.loads(secret)
+    except json.JSONDecodeError as exc:
+        msg = f"Connection secret is not valid JSON: {exc}"
+        raise _CredentialsError(msg) from exc
+    if not isinstance(info, dict):
+        msg = "Connection secret must be a JSON object (service-account key)."
+        raise _CredentialsError(msg)
+    # google-auth ships no type stubs, so its callables read as untyped.
+    # Bind them to typed locals (binding, unlike calling, doesn't trip
+    # no-untyped-call) so the call sites stay typed without inline ignores.
+    # Resolved per-call so test patches on these symbols still apply.
+    make_credentials: _CredentialsFactory = Credentials.from_service_account_info
+    authorized_session: Callable[[Credentials], AuthorizedSession] = AuthorizedSession
+    try:
+        credentials = make_credentials(info, scopes=list(scopes))
+    except (ValueError, GoogleAuthError) as exc:
+        msg = f"Invalid service-account credentials: {exc}"
+        raise _CredentialsError(msg) from exc
+    return authorized_session(credentials)
 
 
 def _disambiguate(titles: list[str]) -> list[str]:
@@ -120,23 +155,8 @@ class _FormItem(BaseModel):
     question_item: _QuestionItem | None = Field(default=None, alias="questionItem")
 
 
-class _FormSettings(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    email_collection_type: str = Field(default="", alias="emailCollectionType")
-
-
 class _FormSchema(BaseModel):
     items: list[_FormItem] = []
-    settings: _FormSettings = Field(default_factory=_FormSettings)
-
-
-# Forms with email collection enabled get an auto-added email column in the
-# linked sheet that doesn't appear in the Forms API items[]. The operator names
-# the column position (1-indexed) via ImportSettings.email_column; the importer
-# reads the sheet header at that position and synthesizes a SourceQuestion the
-# recipe can map to session.contact_email.
-_EMAIL_COLLECTION_VALUES = frozenset({"RESPONDER_INPUT", "VERIFIED"})
 
 
 def _source_question(item: _FormItem) -> SourceQuestion | None:
@@ -194,12 +214,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         )
 
     def fetch_questions(
-        self,
-        *,
-        secret: bytes,
-        config: BaseModel,
-        header_row: int = 1,
-        email_column: int | None = None,
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]:
         if not isinstance(config, GoogleDocsProposalConfig):
             return []
@@ -234,35 +249,53 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
                     existing_question.options = list(
                         dict.fromkeys([*existing_question.options, *question.options])
                     )
-        if (
-            schema.settings.email_collection_type in _EMAIL_COLLECTION_VALUES
-            and email_column is not None
-            and (
-                email_title := self._fetch_sheet_header(
-                    session=session,
-                    sheet_id=config.sheet_id,
-                    header_row=header_row,
-                    column=email_column,
-                )
-            )
-            and email_title not in dedup_questions
-        ):
-            dedup_questions[email_title] = SourceQuestion(title=email_title)
+        # The sheet is the source of truth for what a column *is*: it carries
+        # the metadata columns (timestamp, auto-collected email) the Forms API
+        # never reports, under whatever wording the form's locale gave them.
+        # The form only enriches the columns it recognizes, with the option
+        # list and field type a new target field would inherit. A column the
+        # form doesn't know is a plain text question the recipe can still map.
+        headers = self._fetch_sheet_headers(
+            session=session, sheet_id=config.sheet_id, header_row=header_row
+        )
+        if not headers:
+            # The sheet read failed (or the tab is empty); fall back to the form
+            # so a transient Sheets outage doesn't blank the whole recipe.
+            return list(dedup_questions.values())
+        return [
+            dedup_questions.get(header) or SourceQuestion(title=header)
+            for header in headers
+        ]
 
-        return list(dedup_questions.values())
+    def fetch_headers(
+        self, *, secret: bytes, config: BaseModel, header_row: int = 1
+    ) -> list[str]:
+        if not isinstance(config, GoogleDocsProposalConfig):
+            return []
+        try:
+            session = self._session(secret)
+        except _CredentialsError:
+            return []
+        return self._fetch_sheet_headers(
+            session=session, sheet_id=config.sheet_id, header_row=header_row
+        )
 
-    def _fetch_sheet_header(
-        self, *, session: AuthorizedSession, sheet_id: str, header_row: int, column: int
-    ) -> str:
-        # Read the cell at (header_row, column), both 1-indexed, from the
-        # responses tab so the email column's actual label drives the recipe.
-        # Fetches the whole header row via A1 range notation and picks the
-        # column out by index — Sheets API is picky about R1C1 mixed with a
-        # sheet prefix, but a plain row range is universally supported.
-        if column < 1 or header_row < 1:
-            return ""
+    def _fetch_sheet_headers(
+        self, *, session: AuthorizedSession, sheet_id: str, header_row: int
+    ) -> list[str]:
+        # The whole header row, 1-indexed, from the responses tab: the real
+        # column labels, including the metadata columns (timestamp, email) a
+        # Form schema never carries and whose wording follows the form's locale.
+        # Fetched via A1 range notation — Sheets is picky about R1C1 mixed with
+        # a sheet prefix, but a plain row range is universally supported.
+        # Repeated headers collapse to their first occurrence rather than
+        # getting the " (2)" suffix `fetch_responses` puts on row keys:
+        # `ImportRow` matches a bare header against every suffixed column, so
+        # one entry already addresses them all. Blank cells name no column.
+        if header_row < 1:
+            return []
         if not (title := self._responses_tab_title(session, sheet_id)):
-            return ""
+            return []
         row_range = f"{title}!{header_row}:{header_row}"
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
@@ -273,13 +306,11 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
                 timeout=10,
             )
         if response is None or not response.ok:
-            return ""
+            return []
         if not (values := response.json().get("values") or []):
-            return ""
-        row = values[0]
-        if column > len(row):
-            return ""
-        return str(row[column - 1])
+            return []
+        stripped = (str(cell).strip() for cell in values[0])
+        return list(dict.fromkeys(cell for cell in stripped if cell))
 
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
@@ -328,31 +359,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         return meta.sheets[0].properties.title if meta.sheets else ""
 
     def _session(self, secret: bytes) -> AuthorizedSession:
-        if not secret:
-            msg = "Connection has no service-account credentials."
-            raise _CredentialsError(msg)
-        try:
-            info = json.loads(secret)
-        except json.JSONDecodeError as exc:
-            msg = f"Connection secret is not valid JSON: {exc}"
-            raise _CredentialsError(msg) from exc
-        if not isinstance(info, dict):
-            msg = "Connection secret must be a JSON object (service-account key)."
-            raise _CredentialsError(msg)
-        # google-auth ships no type stubs, so its callables read as untyped.
-        # Bind them to typed locals (binding, unlike calling, doesn't trip
-        # no-untyped-call) so the call sites stay typed without inline ignores.
-        # Resolved per-call so test patches on these symbols still apply.
-        make_credentials: _CredentialsFactory = Credentials.from_service_account_info
-        authorized_session: Callable[[Credentials], AuthorizedSession] = (
-            AuthorizedSession
-        )
-        try:
-            credentials = make_credentials(info, scopes=list(self._scopes))
-        except (ValueError, GoogleAuthError) as exc:
-            msg = f"Invalid service-account credentials: {exc}"
-            raise _CredentialsError(msg) from exc
-        return authorized_session(credentials)
+        return _build_session(secret, self._scopes)
 
     @staticmethod
     def _probe(*, session: AuthorizedSession, url: str, what: str) -> CheckResult:
@@ -382,3 +389,94 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
             outcome=CheckOutcome.AUTH_FAILED,
             hint=f"Unexpected {response.status_code} from Google: {body}",
         )
+
+
+def _a1_quote(title: str) -> str:
+    return "'" + title.replace("'", "''") + "'"
+
+
+def _pad_to_extent(
+    *, rows: list[list[str]], height: int, width: int
+) -> list[list[str]]:
+    width = max([width, *(len(row) for row in rows)])
+    padded = [[*row, *[""] * (width - len(row))] for row in rows]
+    return padded + [[""] * width] * (height - len(padded))
+
+
+class GoogleSheetsWriter(SheetWriterProtocol):
+    """Replaces the first tab of a spreadsheet with the given rows."""
+
+    def __init__(self, scopes: Sequence[str] = SHEETS_WRITE_SCOPES) -> None:
+        self._scopes = tuple(scopes)
+
+    def write_rows(
+        self, *, secret: bytes, spreadsheet_id: str, rows: list[list[str]]
+    ) -> None:
+        try:
+            session = _build_session(secret, self._scopes)
+        except _CredentialsError as exc:
+            raise SheetExportError(str(exc)) from exc
+        # A1-quote the tab title: a bare title that parses as a cell reference
+        # (a tab named "A1") or contains an apostrophe would otherwise be read
+        # as a range, writing a single cell instead of the tab.
+        title = _a1_quote(self._first_tab_title(session, spreadsheet_id))
+        height, width = self._old_extent(
+            session=session, spreadsheet_id=spreadsheet_id, title=title
+        )
+        # A single atomic write: padding with "" out to the previous data's
+        # extent overwrites stale cells left by a longer or wider export, and
+        # a failed request leaves the old data fully intact.
+        self._call(
+            what="Spreadsheet write",
+            send=lambda: session.put(
+                SHEETS_UPDATE_URL.format(
+                    sheet_id=spreadsheet_id, range=quote(f"{title}!A1", safe="")
+                ),
+                json={"values": _pad_to_extent(rows=rows, height=height, width=width)},
+                timeout=30,
+            ),
+        )
+
+    def _old_extent(
+        self, *, session: AuthorizedSession, spreadsheet_id: str, title: str
+    ) -> tuple[int, int]:
+        # A bare tab name (no A1 column bounds) returns the tab's whole data
+        # region, so the extent is not capped at column Z or cut short by
+        # blank cells in column A.
+        response = self._call(
+            what="Spreadsheet read",
+            send=lambda: session.get(
+                SHEETS_VALUES_URL.format(
+                    sheet_id=spreadsheet_id, range=quote(title, safe="")
+                ),
+                timeout=10,
+            ),
+        )
+        values = response.json().get("values") or []
+        return len(values), max((len(row) for row in values), default=0)
+
+    def _first_tab_title(self, session: AuthorizedSession, spreadsheet_id: str) -> str:
+        response = self._call(
+            what="Spreadsheet metadata",
+            send=lambda: session.get(
+                SHEETS_META_URL.format(sheet_id=spreadsheet_id), timeout=10
+            ),
+        )
+        meta = _SpreadsheetMeta.model_validate(response.json())
+        if not meta.sheets or not (title := meta.sheets[0].properties.title):
+            msg = "Spreadsheet has no sheet tab to write into."
+            raise SheetExportError(msg)
+        return title
+
+    @staticmethod
+    def _call(*, what: str, send: Callable[[], requests.Response]) -> requests.Response:
+        try:
+            response = send()
+        except (requests.RequestException, GoogleAuthError) as exc:
+            msg = f"{what} request failed: {exc}"
+            raise SheetExportError(msg) from exc
+        if not response.ok:
+            body = (response.text or "")[:ERROR_HINT_LIMIT]
+            msg = f"{what} request failed with {response.status_code}: {body}"
+            raise SheetExportError(msg)
+        return response

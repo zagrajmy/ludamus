@@ -4,8 +4,8 @@ from unittest.mock import ANY
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import User
-from ludamus.pacts import UserDTO, UserType
+from ludamus.links.db.django.models import User
+from ludamus.pacts.crowd import UserDTO, UserType
 from tests.integration.utils import assert_response
 
 
@@ -24,6 +24,7 @@ class TestProfilePageView:
                 "form": ANY,
                 "view": ANY,
                 "confirmed_participations_count": 0,
+                "profile_active_tab": "profile",
             },
             template_name=["crowd/user/edit.html"],
         )
@@ -40,11 +41,43 @@ class TestProfilePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/",
+            url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.name == data["name"]
         assert user.email == data["email"]
+
+    def test_post_honors_safe_next(self, authenticated_client, faker):
+        data = {
+            "name": faker.name(),
+            "email": faker.email(),
+            "user_type": UserType.ACTIVE,
+        }
+        response = authenticated_client.post(f"{self.URL}?next=/events/", data=data)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Profile updated successfully!")],
+            url="/events/",
+        )
+
+    def test_post_ignores_external_next(self, authenticated_client, faker):
+        data = {
+            "name": faker.name(),
+            "email": faker.email(),
+            "user_type": UserType.ACTIVE,
+        }
+        response = authenticated_client.post(
+            f"{self.URL}?next=https://evil.example.com/", data=data
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Profile updated successfully!")],
+            url=self.URL,
+        )
 
     def test_post_updates_discord_username(
         self, authenticated_client, active_user, faker
@@ -61,7 +94,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/",
+            url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.discord_username == "testuser#1234"
@@ -79,6 +112,7 @@ class TestProfilePageView:
                 "form": ANY,
                 "view": ANY,
                 "confirmed_participations_count": 0,
+                "profile_active_tab": "profile",
             },
             template_name=["crowd/user/edit.html"],
         )
@@ -103,11 +137,11 @@ class TestProfilePageView:
                 "form": ANY,
                 "view": ANY,
                 "confirmed_participations_count": 0,
+                "profile_active_tab": "profile",
             },
             template_name=["crowd/user/edit.html"],
         )
 
-        # Verify the form has the email error
         assert "email" in response.context["form"].errors
         assert (
             "This email address is already in use"
@@ -115,14 +149,13 @@ class TestProfilePageView:
         )
 
     def test_post_ok_same_email(self, authenticated_client, active_user, faker):
-        # User should be able to keep their own email
         existing_email = faker.email()
         active_user.email = existing_email
         active_user.save()
 
         data = {
             "name": faker.name(),
-            "email": existing_email,  # Same email as user already has
+            "email": existing_email,
             "user_type": UserType.ACTIVE,
         }
         response = authenticated_client.post(self.URL, data=data)
@@ -131,7 +164,7 @@ class TestProfilePageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Profile updated successfully!")],
-            url="/",
+            url=self.URL,
         )
         user = User.objects.get(id=active_user.id)
         assert user.email == existing_email

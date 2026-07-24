@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.adapters.db.django.models import (
+from ludamus.links.db.django.models import (
     ProposalCategory,
     SessionField,
     SessionFieldRequirement,
@@ -126,7 +126,7 @@ class TestSessionFieldDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete field that is used in session types.")
+                (messages.ERROR, "Cannot delete field that is used in categories.")
             ],
             url=f"/panel/event/{event.slug}/cfp/session-fields/",
         )
@@ -156,7 +156,7 @@ class TestSessionFieldDeleteActionView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Cannot delete field that is used in session types.")
+                (messages.ERROR, "Cannot delete field that is used in categories.")
             ],
             url=f"/panel/event/{event.slug}/cfp/session-fields/",
         )

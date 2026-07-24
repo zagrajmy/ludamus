@@ -1,7 +1,3 @@
-[p]
-description = "Run any Poetry subcommand"
-run = "poetry"
-
 [dj]
 description = "Run any django-admin subcommand"
 run = "aubr varlock django-admin"

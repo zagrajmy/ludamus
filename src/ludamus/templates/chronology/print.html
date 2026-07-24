@@ -30,7 +30,7 @@
     </style>
 {% endblock extra_head %}
 {% block main_region %}
-    {% translate "Venue or area" as aria_scope %}
+    {% translate "Scope" as aria_scope %}
     <main class="grow w-full print:m-0 print:p-0">
         <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
             <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
@@ -48,50 +48,27 @@
                                 {% endfor %}
                             {% end_select %}
                         </div>
-                        {% if venues %}
+                        {% if print_scopes %}
                             {% if show_scope_control %}
                                 <div class="flex flex-col gap-1">
                                     <label class="text-sm font-semibold text-foreground-secondary"
-                                           for="scope-select">{% translate "Venue / area" %}</label>
+                                           for="scope-select">{% translate "Scope" %}</label>
                                     {% select id="scope-select" aria_label=aria_scope onchange="if(this.value!==null){window.location.search=this.value;}" %}
                                         <option value="?material={{ material|urlencode }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                {% if not selected_venue %}selected{% endif %}>
+                                                {% if not selected_scope %}selected{% endif %}>
                                             {% translate "Whole event" %}
                                         </option>
-                                        {% for v in venues %}
-                                            <optgroup label="{{ v.name }}">
-                                                <option value="?material={{ material|urlencode }}&venue={{ v.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                        {% if selected_venue == v.slug and not selected_area %}selected{% endif %}>
-                                                    {{ v.name }}
-                                                </option>
-                                                {% for a in v.areas %}
-                                                    <option value="?material={{ material|urlencode }}&venue={{ v.slug }}&area={{ a.slug }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                            {% if selected_venue == v.slug and selected_area == a.slug %}selected{% endif %}>
-                                                        - {{ a.name }}
-                                                    </option>
-                                                {% endfor %}
-                                            </optgroup>
+                                        {% for scope in print_scopes %}
+                                            <option value="?material={{ material|urlencode }}&scope={{ scope.pk }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
+                                                    {% if selected_scope == scope.pk|stringformat:'s' %}selected{% endif %}>
+                                                {{ scope.name }}
+                                            </option>
                                         {% endfor %}
                                     {% end_select %}
                                 </div>
                             {% endif %}
                         {% endif %}
-                        <input type="hidden" name="venue" value="{{ selected_venue }}">
-                        <input type="hidden" name="area" value="{{ selected_area }}">
-                        {% if spaces and show_space_control %}
-                            <div class="flex flex-col gap-1">
-                                <label class="text-sm font-semibold text-foreground-secondary"
-                                       for="id_space">{% translate "Space" %}</label>
-                                {% select id="id_space" name="space" %}
-                                    {% for space in spaces %}
-                                        <option value="{{ space.pk }}"
-                                                {% if selected_space == space.pk|stringformat:"s" %}selected{% endif %}>
-                                            {{ space.name }}
-                                        </option>
-                                    {% endfor %}
-                                {% end_select %}
-                            </div>
-                        {% endif %}
+                        <input type="hidden" name="scope" value="{{ selected_scope }}">
                         {% if tracks and show_track_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
@@ -109,7 +86,7 @@
                         {% if show_range_controls %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
-                                       for="id_start">{% translate "Area pages — start" %}</label>
+                                       for="id_start">{% translate "Start" %}</label>
                                 <input type="datetime-local"
                                        id="id_start"
                                        name="start"
@@ -150,8 +127,10 @@
                                 {% endfor %}
                             {% elif area_schedule %}
                                 {% for space in area_schedule.spaces %}
-                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
-                                       href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
+                                    {% if space.sessions %}
+                                        <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                           href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
+                                    {% endif %}
                                 {% endfor %}
                             {% elif session_list %}
                                 <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
@@ -226,33 +205,33 @@
                             {% endfor %}
                         {% elif area_schedule %}
                             {% for space in area_schedule.spaces %}
-                                <section class="{{ sheet_class }}" id="area-space-{{ forloop.counter }}">
-                                    {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
-                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
-                                    <p class="mb-[4mm] text-[9pt] text-neutral-500">
-                                        {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
-                                    </p>
-                                    <div>
-                                        <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
-                                            {{ space.space_name }}
-                                            {% if space.capacity %}
-                                                <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
-                                            {% endif %}
-                                        </h3>
-                                        {% for session in space.sessions %}
-                                            <div class="mb-[4mm] break-inside-avoid">
-                                                <div class="text-[9pt] tabular-nums text-neutral-500">
-                                                    {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                {% if space.sessions %}
+                                    <section class="{{ sheet_class }}" id="area-space-{{ forloop.counter }}">
+                                        {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
+                                        <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
+                                        <p class="mb-[4mm] text-[9pt] text-neutral-500">
+                                            {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                        </p>
+                                        <div>
+                                            <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
+                                                {{ space.space_name }}
+                                                {% if space.capacity %}
+                                                    <span class="text-[9pt] font-normal text-neutral-500">({% translate "capacity" %}: {{ space.capacity }})</span>
+                                                {% endif %}
+                                            </h3>
+                                            {% for session in space.sessions %}
+                                                <div class="mb-[4mm] break-inside-avoid">
+                                                    <div class="text-[9pt] tabular-nums text-neutral-500">
+                                                        {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                                    </div>
+                                                    <div class="text-[11pt] font-bold">{{ session.title }}</div>
+                                                    {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                                    {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
                                                 </div>
-                                                <div class="text-[11pt] font-bold">{{ session.title }}</div>
-                                                {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
-                                                {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
-                                            </div>
-                                        {% empty %}
-                                            <p class="italic text-neutral-500">{% translate "Nothing scheduled in this time range." %}</p>
-                                        {% endfor %}
-                                    </div>
-                                </section>
+                                            {% endfor %}
+                                        </div>
+                                    </section>
+                                {% endif %}
                             {% endfor %}
                         {% elif session_list %}
                             <section class="{{ sheet_class }}" id="session-list">

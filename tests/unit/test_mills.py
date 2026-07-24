@@ -10,7 +10,6 @@ from ludamus.mills import (
     ProposeSessionService,
     check_proposal_rate_limit,
     generate_ics_content,
-    get_days_to_event,
     google_calendar_url,
     is_proposal_active,
     outlook_calendar_url,
@@ -26,6 +25,7 @@ from ludamus.mills.submissions.mapping import (
     cell,
     chosen_entities,
     decode_response,
+    dedup_ident,
     extract_identity,
     field_setup,
     generate_unique_slug,
@@ -325,42 +325,6 @@ class TestPanelService:
     def panel_service(self, mock_uow):
         return PanelService(mock_uow)
 
-    def test_delete_venue_returns_false_when_venue_has_sessions(
-        self, panel_service, mock_uow
-    ):
-        venue_pk = 42
-        mock_uow.venues.has_sessions.return_value = True
-
-        result = panel_service.delete_venue(venue_pk)
-
-        assert result is False
-        mock_uow.venues.has_sessions.assert_called_once_with(venue_pk)
-        mock_uow.venues.delete.assert_not_called()
-
-    def test_delete_area_returns_false_when_area_has_sessions(
-        self, panel_service, mock_uow
-    ):
-        area_pk = 42
-        mock_uow.areas.has_sessions.return_value = True
-
-        result = panel_service.delete_area(area_pk)
-
-        assert result is False
-        mock_uow.areas.has_sessions.assert_called_once_with(area_pk)
-        mock_uow.areas.delete.assert_not_called()
-
-    def test_delete_space_returns_false_when_space_has_sessions(
-        self, panel_service, mock_uow
-    ):
-        space_pk = 42
-        mock_uow.spaces.has_sessions.return_value = True
-
-        result = panel_service.delete_space(space_pk)
-
-        assert result is False
-        mock_uow.spaces.has_sessions.assert_called_once_with(space_pk)
-        mock_uow.spaces.delete.assert_not_called()
-
     def test_get_event_stats_calculates_total_sessions(self, panel_service, mock_uow):
         total_proposals = 15
         mock_uow.events.get_stats_data.return_value = EventStatsData(
@@ -516,7 +480,6 @@ class TestGenerateIcsContent:
             "description": "A great session",
             "end_time": now + timedelta(hours=2),
             "game": "D&D",
-            "header_image": "",
             "max_participants": 6,
             "pk": 1,
             "place": "Room 42",
@@ -582,7 +545,6 @@ class TestGoogleCalendarUrl:
             "description": "A great session",
             "end_time": now + timedelta(hours=2),
             "game": "D&D",
-            "header_image": "",
             "max_participants": 6,
             "pk": 1,
             "place": "Room 42",
@@ -620,7 +582,6 @@ class TestOutlookCalendarUrl:
             "description": "A great session",
             "end_time": now + timedelta(hours=2),
             "game": "D&D",
-            "header_image": "",
             "max_participants": 6,
             "pk": 1,
             "place": "Room 42",
@@ -655,25 +616,6 @@ class TestGetDaysToEvent:
             "sphere_id": 1,
             "start_time": now + timedelta(days=5),
         }
-
-    def test_returns_positive_days_for_future_event(self, base_event_data):
-        days_ahead = 5
-        base_event_data["start_time"] = datetime.now(tz=UTC) + timedelta(
-            days=days_ahead
-        )
-        event = EventDTO(**base_event_data)
-
-        result = get_days_to_event(event)
-
-        assert result == days_ahead - 1  # timedelta.days truncates partial day
-
-    def test_returns_zero_for_past_event(self, base_event_data):
-        base_event_data["start_time"] = datetime.now(tz=UTC) - timedelta(days=2)
-        event = EventDTO(**base_event_data)
-
-        result = get_days_to_event(event)
-
-        assert result == 0
 
 
 class TestProposeSessionService:
@@ -768,7 +710,7 @@ class TestProposeSessionService:
         result = service.get_saved_personal_data(event_id=1)
 
         assert result == {}
-        mock_uow.host_personal_data.read_for_facilitator_event.assert_not_called()
+        mock_uow.personal_data_field_values.read_for_facilitator_event.assert_not_called()
         mock_uow.facilitators.read_by_user_and_event.assert_not_called()
 
 
@@ -1029,7 +971,8 @@ class _ImportServiceMocks:
     def sessions(self):
         mock = MagicMock()
         mock.slug_exists.return_value = False
-        mock.find_id_by_slug.return_value = None
+        mock.find_id_by_ident.return_value = None
+        mock.find_ids_by_title_and_email.return_value = []
         return mock
 
     @pytest.fixture
@@ -1046,7 +989,7 @@ class _ImportServiceMocks:
         return mock
 
     @pytest.fixture
-    def host_personal_data(self):
+    def personal_data_field_values(self):
         return MagicMock()
 
     @pytest.fixture
@@ -1080,7 +1023,7 @@ class _ImportServiceMocks:
         sessions,
         session_fields,
         personal_fields,
-        host_personal_data,
+        personal_data_field_values,
         time_slots,
         tracks,
         categories,
@@ -1091,7 +1034,7 @@ class _ImportServiceMocks:
             sessions,
             session_fields,
             personal_fields,
-            host_personal_data,
+            personal_data_field_values,
             time_slots,
             tracks,
             categories,
@@ -1135,7 +1078,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1167,7 +1109,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1199,7 +1140,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 0,
                 "slug": "my-talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[7],
@@ -1232,7 +1172,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "my-talk",
                 "contact_email": "anna@example.com",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1288,7 +1227,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H30M",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1326,7 +1264,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "talk",
                 "duration": "PT1H45M",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1352,9 +1289,9 @@ class TestProposalImportService(_ImportServiceMocks):
             ]
         )
         existing_session_pk = 42
-        # find_id_by_slug returns None for the first two rows' identity slugs,
+        # find_id_by_ident returns None for the first two rows' idents,
         # then the first row's session id for the third.
-        sessions.find_id_by_slug.side_effect = [None, None, existing_session_pk]
+        sessions.find_id_by_ident.side_effect = [None, None, existing_session_pk]
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
@@ -1371,6 +1308,113 @@ class TestProposalImportService(_ImportServiceMocks):
         )
         assert duplicate_upsert.args[0].status == ImportLogStatus.SUCCESS
         assert not duplicate_upsert.args[0].reason
+
+    def test_run_stores_readable_slug_and_hashed_ident_on_unique_key_import(
+        self, service, event_integrations, sessions
+    ):
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Timestamp", "Email"],'
+                ' "questions": {"Title": {"to": "session.title"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Timestamp": "2026-06-04T10:00", "Email": "a@x.z", "Title": "My Talk"}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        created_data = sessions.create.call_args.args[0]
+        # The slug stays the readable title-derived one; the ugly dedup key
+        # lives in ident.
+        assert created_data["slug"] == "my-talk"
+        assert created_data["ident"] == dedup_ident(
+            event_id=2, identity="2026-06-04T10:00-a@x.z"
+        )
+
+    def test_run_adopts_preident_session_matching_title_and_email(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # A session imported before the ident field existed (ident="") is
+        # found by title + contact email; the row counts as a duplicate and
+        # the legacy session adopts the ident so the fallback never fires
+        # again.
+        legacy_session_pk = 77
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "session.contact_email"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Email": "a@x.z"}]
+        )
+        sessions.find_ids_by_title_and_email.return_value = [legacy_session_pk]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.duplicates == 1
+        sessions.create.assert_not_called()
+        sessions.set_ident.assert_called_once_with(
+            legacy_session_pk, dedup_ident(event_id=2, identity="a@x.z")
+        )
+        entry: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert entry.status == ImportLogStatus.SUCCESS
+        assert entry.session_id == legacy_session_pk
+
+    def test_run_survives_ident_backfill_constraint_conflict(
+        self, service, event_integrations, sessions, log_entries
+    ):
+        # A concurrent import claimed the adopted ident between the lookup
+        # and the backfill — the savepointed set_ident fails, but the row
+        # still counts as a duplicate and the run continues.
+        legacy_session_pk = 77
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "session.contact_email"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Email": "a@x.z"}]
+        )
+        sessions.find_ids_by_title_and_email.return_value = [legacy_session_pk]
+        sessions.set_ident.side_effect = DatabaseConstraintError("duplicate ident")
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.duplicates == 1
+        entry: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert entry.status == ImportLogStatus.SUCCESS
+        assert entry.session_id == legacy_session_pk
+
+    def test_run_creates_when_title_and_email_match_is_ambiguous(
+        self, service, event_integrations, sessions
+    ):
+        # Two pre-ident sessions share the title+email pair (the very
+        # duplicates this change fixes) — refusing to guess, the row creates.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"},'
+                ' "Email": {"to": "session.contact_email"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "Talk", "Email": "a@x.z"}]
+        )
+        sessions.find_ids_by_title_and_email.return_value = [77, 78]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        assert result.duplicates == 0
+        sessions.set_ident.assert_not_called()
 
     def test_run_creates_row_with_empty_duration_when_respondent_left_it_blank(
         self, service, event_integrations
@@ -1422,7 +1466,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "slug": "other",
                 "duration": "PT30M",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -1531,7 +1574,6 @@ class TestProposalImportService(_ImportServiceMocks):
                 "participants_limit": 8,
                 "slug": "talk",
             },
-            tag_ids=[],
             time_slot_ids=[],
             track_ids=[],
             facilitator_ids=[],
@@ -2191,7 +2233,7 @@ class TestImportLogService(_ImportServiceMocks):
         assert created.status == ImportLogStatus.SKIPPED
         assert created.reason == "Cap: 'loads' is not an integer"
 
-    def test_retry_entry_resolves_to_existing_session_when_slug_already_taken(
+    def test_retry_entry_resolves_to_existing_session_when_ident_already_taken(
         self, service, event_integrations, sessions, log_entries
     ):
         # Operator fixed the override that originally skipped this row, but a
@@ -2220,7 +2262,7 @@ class TestImportLogService(_ImportServiceMocks):
         event_integrations.fetch_responses.return_value = _rows(
             [{"Title": "Talk", "Email": "a@x.z"}]
         )
-        sessions.find_id_by_slug.return_value = existing_session_pk
+        sessions.find_id_by_ident.return_value = existing_session_pk
 
         succeeded = service.retry_entry(sphere_id=1, event_id=2, entry_pk=10)
 
@@ -2469,15 +2511,17 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
 
     @pytest.fixture(autouse=True)
     def _layout_defaults(
-        self, sessions, session_fields, personal_fields, host_personal_data
+        self, sessions, session_fields, personal_fields, personal_data_field_values
     ):
         # Sane no-op returns for the reconciliation reads so each test only sets
         # the handful of repo answers that steer the branch under test.
         sessions.read_field_values.return_value = []
         sessions.delete_field_values_for_fields.return_value = 0
         sessions.read_facilitators.return_value = []
-        host_personal_data.list_field_ids_for_facilitator_event.return_value = []
-        host_personal_data.delete_for_facilitator_fields.return_value = 0
+        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = (
+            []
+        )
+        personal_data_field_values.delete_for_facilitator_fields.return_value = 0
         session_fields.delete_orphans_for_event.return_value = 0
         personal_fields.delete_orphans_for_event.return_value = 0
 
@@ -2574,7 +2618,12 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         sessions.set_session_tracks.assert_not_called()
 
     def test_apply_adds_missing_personal_entries_for_a_facilitator(
-        self, service, event_integrations, sessions, host_personal_data, log_entries
+        self,
+        service,
+        event_integrations,
+        sessions,
+        personal_data_field_values,
+        log_entries,
     ):
         event_integrations.get.return_value = MagicMock(
             settings_json=ImportSettings(
@@ -2595,7 +2644,7 @@ class TestImportFieldLayoutService(_ImportServiceMocks):
         result = service.apply_field_layout(2, 3)
 
         assert result.personal_entries.added == 1
-        host_personal_data.save.assert_called_once()
+        personal_data_field_values.save.assert_called_once()
 
 
 class TestMappingHelpers:
@@ -2738,3 +2787,35 @@ class TestSlugify:
     def test_truncation_drops_trailing_dash(self):
         # 49 chars then a space+word so the cut lands on a separator
         assert not slugify(f"{'a' * 49} bb").endswith("-")
+
+
+class TestDedupIdent:
+    IDENT_LENGTH = 32  # blake2b digest_size=16 as hex
+
+    def test_fits_the_ident_column(self):
+        ident = dedup_ident(event_id=7, identity=f"{'name ' * 20}a@x.z")
+
+        assert len(ident) == self.IDENT_LENGTH
+
+    def test_same_name_different_tail_do_not_collide(self):
+        # Regression: with slug-based dedup a long shared session name filled
+        # the 50-char slug, truncating the distinguishing email away so two
+        # distinct rows merged. The ident hashes the full identity.
+        name = "A Very Long Session Title That Fills The Whole Slug Column"
+
+        first = dedup_ident(event_id=7, identity=f"{name}-alice@example.com")
+        second = dedup_ident(event_id=7, identity=f"{name}-bob@example.com")
+
+        assert first != second
+
+    def test_different_events_do_not_collide(self):
+        assert dedup_ident(event_id=7, identity="a@x.z") != dedup_ident(
+            event_id=8, identity="a@x.z"
+        )
+
+    def test_identity_is_deterministic(self):
+        identity = f"{'name ' * 20}a@x.z"
+
+        assert dedup_ident(event_id=7, identity=identity) == dedup_ident(
+            event_id=7, identity=identity
+        )

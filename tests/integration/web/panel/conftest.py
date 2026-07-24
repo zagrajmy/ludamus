@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 from django.conf import settings
 
-from ludamus.adapters.db.django.models import AgendaItem, Connection
+from ludamus.links.db.django.models import AgendaItem, Connection
 from ludamus.links.encryption import FernetEncryptor
 from tests.integration.conftest import SessionFactory, SpaceFactory
 
@@ -30,8 +30,8 @@ def connection_with_secret_fixture(sphere):
 
 
 @pytest.fixture(name="timetable_scale_data")
-def timetable_scale_data_fixture(event, area, proposal_category):
-    spaces = [SpaceFactory(area=area, capacity=50) for _ in range(5)]
+def timetable_scale_data_fixture(event, proposal_category):
+    spaces = [SpaceFactory(event=event, capacity=50) for _ in range(5)]
     sessions = [
         SessionFactory(
             category=proposal_category,
@@ -55,7 +55,7 @@ def timetable_scale_data_fixture(event, area, proposal_category):
             end_time=slot_end,
             session_confirmed=False,
         )
-        session.status = "scheduled"
+        session.status = "accepted"
         session.save()
 
     return {"event": event, "spaces": spaces, "sessions": sessions}

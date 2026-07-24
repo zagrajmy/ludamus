@@ -8,7 +8,7 @@ pages in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timedelta, tzinfo
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -20,10 +20,6 @@ class PrintOptionDTO(BaseModel):
     slug: str
 
 
-class PrintSpaceOptionDTO(PrintOptionDTO):
-    area_id: int | None
-
-
 class PrintSessionDTO(BaseModel):
     title: str
     presenter_name: str
@@ -33,19 +29,27 @@ class PrintSessionDTO(BaseModel):
 class PrintTimetableQueryDTO:
     event_pk: int
     tz: tzinfo
-    area_pks: frozenset[int] | None = None
-    space_pks: frozenset[int] | None = None
+    scope_space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
 
 
 @dataclass(frozen=True)
+class DoorCardsQueryDTO:
+    event_pk: int
+    tz: tzinfo
+    scope_space_pks: frozenset[int] | None = None
+    scope_name: str | None = None
+    confirmed_only: bool = False
+    time_range: tuple[datetime, datetime] | None = None
+
+
+@dataclass(frozen=True)
 class AreaScheduleQueryDTO:
     event_pk: int
     time_range: tuple[datetime, datetime]
-    area_pks: frozenset[int] | None = None
-    space_pks: frozenset[int] | None = None
+    scope_space_pks: frozenset[int] | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
 
@@ -53,8 +57,7 @@ class AreaScheduleQueryDTO:
 class DoorCardEntryDTO(BaseModel):
     start_time: datetime
     end_time: datetime
-    # None marks an empty time slot, rendered as a visible gap on the card.
-    session: PrintSessionDTO | None
+    session: PrintSessionDTO
 
 
 class DoorCardDayDTO(BaseModel):
@@ -155,18 +158,54 @@ class PrintSessionListDocumentDTO(BaseModel):
     sessions: list[PrintSessionListItemDTO]
 
 
+class PrintablesReminderRecipientDTO(BaseModel):
+    user_id: int
+    email: str
+
+
+class PrintablesReminderDTO(BaseModel):
+    event_pk: int
+    event_name: str
+    event_slug: str
+    # Site domain of the owning sphere — the notifier composes the absolute
+    # print-materials link from it (sphere sites live on different domains).
+    sphere_domain: str
+    recipients: list[PrintablesReminderRecipientDTO]
+
+
+class PrintablesReadyNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str
+    event_name: str
+    event_slug: str
+    sphere_domain: str
+
+
+class PrintablesReminderRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_pending_reminders(
+        *, now: datetime, lead_time: timedelta
+    ) -> list[PrintablesReminderDTO]: ...
+    @staticmethod
+    def mark_printed(event_pk: int) -> None: ...
+    @staticmethod
+    def mark_reminder_sent(event_pk: int, *, at: datetime) -> None: ...
+
+
+class PrintablesNotifierProtocol(Protocol):
+    def notify_printables_ready(
+        self, notification: PrintablesReadyNotification
+    ) -> None: ...
+
+
+class PrintablesReminderServiceProtocol(Protocol):
+    def mark_printed(self, event_pk: int) -> None: ...
+    def send_due_reminders(self, *, now: datetime) -> int: ...
+
+
 class PrintMaterialsServiceProtocol(Protocol):
-    def list_spaces(self, event_pk: int) -> list[PrintSpaceOptionDTO]: ...
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]: ...
-    def build_door_cards(
-        self,
-        event_pk: int,
-        tz: tzinfo,
-        *,
-        area_pks: frozenset[int] | None = None,
-        scope_name: str | None = None,
-        confirmed_only: bool = False,
-    ) -> DoorCardsDocumentDTO: ...
+    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO: ...
     def build_timetable(
         self, query: PrintTimetableQueryDTO
     ) -> PrintTimetableDocumentDTO: ...
