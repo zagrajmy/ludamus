@@ -21,8 +21,8 @@ from ludamus.pacts import (
     SessionStatus,
     TrackDTO,
 )
-from ludamus.pacts.chronology import ProposalColumnDTO
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -55,7 +55,7 @@ _TRACK_FILTER_CONTEXT = {
 }
 
 _DEFAULT_COLUMNS = [
-    ProposalColumnDTO(key=key)
+    PanelColumnDTO(key=key)
     for key in ("title", "host", "category", "status", "created")
 ]
 

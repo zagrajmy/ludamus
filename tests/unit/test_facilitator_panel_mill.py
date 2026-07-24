@@ -4,10 +4,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
+from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.pacts import FacilitatorMergeError, PersonalDataFieldDTO
-from ludamus.pacts.submissions import (
+from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
+    FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeData,
     FacilitatorPanelRepos,
@@ -16,7 +17,12 @@ from ludamus.pacts.submissions import (
 
 def _field(pk, field_type="select"):
     return PersonalDataFieldDTO.model_construct(
-        pk=pk, field_type=field_type, name=f"Field {pk}", order=pk, question="", slug=""
+        pk=pk,
+        field_type=field_type,
+        name=f"Field {pk}",
+        order=pk,
+        question="",
+        slug=f"field-{pk}",
     )
 
 
@@ -88,6 +94,11 @@ class _FakeTransaction:
         yield
 
 
+_BOB_PK = 2
+_CREATED_PK = 99
+_USER_ID = 7
+
+
 def _facilitator(pk, slug, user_id=None):
     return SimpleNamespace(pk=pk, slug=slug, user_id=user_id)
 
@@ -111,7 +122,11 @@ def _merge_service(facilitators, fields=()):
 
 
 def _merge_data(**overrides):
-    defaults = {"display_name": "Alice", "accreditation_type": "none", "values": {}}
+    defaults = {
+        "display_name": "Alice",
+        "accreditation_type": "none",
+        "keep_values_from": {},
+    }
     defaults.update(overrides)
     return FacilitatorMergeData(**defaults)
 
@@ -179,6 +194,9 @@ class TestFacilitatorMerge:
         service, repos = _merge_service(
             [_facilitator(1, "alice"), _facilitator(2, "bob")], fields=[field]
         )
+        repos.personal_data_field_values.read_for_facilitator_event.side_effect = (
+            lambda pk, _event_id: ({field.slug: "chosen"} if pk == _BOB_PK else {})
+        )
 
         service.merge(
             event_id=1,
@@ -187,7 +205,7 @@ class TestFacilitatorMerge:
             data=_merge_data(
                 display_name="Alice Prime",
                 accreditation_type="guest",
-                values={5: "chosen", 99: "foreign"},
+                keep_values_from={5: 2, 99: 2},
             ),
         )
 
@@ -202,6 +220,22 @@ class TestFacilitatorMerge:
             [2]
         )
         repos.facilitators.delete.assert_called_once_with(2)
+
+    def test_kept_value_choices_naming_foreign_holder_or_gone_answer_are_dropped(self):
+        fields = [_field(5), _field(6)]
+        service, repos = _merge_service(
+            [_facilitator(1, "alice"), _facilitator(2, "bob")], fields=fields
+        )
+        repos.personal_data_field_values.read_for_facilitator_event.return_value = {}
+
+        service.merge(
+            event_id=1,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(keep_values_from={5: 42, 6: 2}),
+        )
+
+        repos.personal_data_field_values.save.assert_not_called()
 
     def test_linked_source_account_transfers_to_target(self):
         service, repos = _merge_service(
@@ -252,3 +286,79 @@ class TestFacilitatorMerge:
         assert [f.slug for f in context.facilitators] == ["alice", "bob"]
         assert context.fields == [field]
         assert context.values == {1: {"diet": "value-1"}, 2: {"diet": "value-2"}}
+
+
+class TestCreateFacilitator:
+    @staticmethod
+    def _create_service(*, taken_slugs=(), fields=()):
+        facilitators_repo = MagicMock()
+        facilitators_repo.slug_exists.side_effect = (
+            lambda _event_id, slug: slug in taken_slugs
+        )
+        facilitators_repo.create.side_effect = lambda data: SimpleNamespace(
+            pk=_CREATED_PK, **data
+        )
+        repos = FacilitatorPanelRepos(
+            facilitators=facilitators_repo,
+            personal_data_fields=FakeFieldsRepo(list(fields)),
+            personal_data_field_values=MagicMock(),
+            facilitator_change_logs=MagicMock(),
+            panel_settings=FakeSettingsRepo(),
+            sessions=object(),
+            users=object(),
+        )
+        return FacilitatorPanelService(_FakeTransaction(), repos), repos
+
+    def test_uniquifies_a_colliding_slug(self):
+        service, repos = self._create_service(taken_slugs=("alice",))
+
+        result = service.create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        assert result.slug != "alice"
+        assert result.slug.startswith("alice-")
+        assert repos.facilitators.create.call_args[0][0]["slug"] == result.slug
+
+    def test_saves_values_and_logs_creation(self):
+        field = _field(5)
+        service, repos = self._create_service(fields=(field,))
+
+        service.create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice",
+                base_slug="alice",
+                accreditation_type="none",
+                values={5: "yes"},
+            ),
+            user_id=_USER_ID,
+        )
+
+        assert repos.personal_data_field_values.save.call_args[0][0] == [
+            {
+                "facilitator_id": _CREATED_PK,
+                "event_id": 10,
+                "field_id": 5,
+                "value": "yes",
+            }
+        ]
+        log = repos.facilitator_change_logs.create.call_args[0][0]
+        assert log["facilitator_id"] == _CREATED_PK
+        assert log["user_id"] == _USER_ID
+
+    def test_no_values_skips_save_and_log(self):
+        service, repos = self._create_service()
+
+        service.create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        repos.personal_data_field_values.save.assert_not_called()
+        repos.facilitator_change_logs.create.assert_not_called()

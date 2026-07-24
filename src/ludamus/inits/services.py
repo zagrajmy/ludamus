@@ -20,7 +20,6 @@ from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
     ProposalAcceptanceService,
-    ProposalPanelService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
@@ -47,12 +46,13 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.panel_facilitators import FacilitatorPanelService
+from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -63,7 +63,8 @@ from ludamus.mills.submissions.personal_data_fields import (
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.submissions import FacilitatorPanelRepos, ImportRepos
+from ludamus.pacts.panel import FacilitatorPanelRepos
+from ludamus.pacts.submissions import ImportRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation

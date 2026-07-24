@@ -24,40 +24,9 @@
     <div class="px-3 sm:px-4 py-6">
         {% tab_shell "panel/_proposal_tabs.html" %}
         {% tab_shell_body %}
-        <form id="columns-form"
-              method="post"
-              action="{% url 'panel:proposal-columns' slug=current_event.slug %}"
-              class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
-                    <p id="columns-help" class="text-sm text-foreground-muted mb-6">
-                        {% translate "Tick the columns the proposals list shows, and order them top to bottom. Organizers only." %}
-                    </p>
-                    <ul class="column-list space-y-2"
-                        aria-label="{% translate "Shown columns" %}"
-                        aria-describedby="columns-help">
-                        {% for column in chosen_columns %}
-                            {% include "panel/parts/_column_row.html" with column=column shown=True label=column|proposal_column_label only %}
-                        {% endfor %}
-                    </ul>
-                    {% if available_columns %}
-                        <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mt-4 mb-2">
-                            {% translate "Available" context "column group" %}
-                        </p>
-                        <ul class="column-list space-y-2"
-                            aria-label="{% translate "Available columns" %}"
-                            aria-describedby="columns-help">
-                            {% for column in available_columns %}
-                                {% include "panel/parts/_column_row.html" with column=column shown=False label=column|proposal_column_label only %}
-                            {% endfor %}
-                        </ul>
-                    {% endif %}
-                </div>
-            </div>
-        </form>
-        {% vite_asset 'src/facilitator-columns.ts' %}
+        {% url 'panel:proposal-columns' slug=current_event.slug as action_url %}
+        {% translate "Tick the columns the proposals list shows, and order them top to bottom. Organizers only." as help_text %}
+        {% include "panel/parts/_columns_chooser.html" with action_url=action_url help_text=help_text label_kind="proposal" chosen_columns=chosen_columns available_columns=available_columns only %}
     {% end_tab_shell_body %}
 {% end_tab_shell %}
 </div>

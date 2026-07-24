@@ -51,7 +51,7 @@ from ludamus.pacts.chronology import (
     SessionCardStatsDTO,
 )
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )

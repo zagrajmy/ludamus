@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
-from ludamus.mills.slugs import unique_slug
 from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
     EventDTO,
@@ -25,7 +24,6 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
-    SCHEDULED_FILTER,
     TIMETABLE_SLOT_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
@@ -52,11 +50,6 @@ from ludamus.pacts.chronology import (
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     ProposalAcceptContextDTO,
-    ProposalColumnDTO,
-    ProposalColumnsContextDTO,
-    ProposalListContextDTO,
-    ProposalListQuery,
-    ProposalPanelServiceProtocol,
     ProposalScheduledError,
     SessionPlacement,
     SourceQuestion,
@@ -78,13 +71,9 @@ if TYPE_CHECKING:
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
-        ProposalCategoryRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
-        SessionData,
-        SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
-        SessionListItemDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SphereRepositoryProtocol,
@@ -98,7 +87,6 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import EventPanelSettingsRepositoryProtocol
 
 
 def _duration_hours(start: datetime, end: datetime) -> float:
@@ -215,202 +203,6 @@ class SessionDeletionService:
         # scopes to the event (the alive-manager check can't see deleted rows).
         with self._transaction.atomic():
             self._sessions.restore(session_pk, event_pk)
-
-
-_PROPOSAL_SORT_KEYS = ("title", "host", "category", "status", "created")
-_PROPOSAL_BUILTIN_COLUMN_KEYS = ("title", "host", "category", "status", "created")
-_PROPOSAL_FIELD_KEY_PREFIX = "field_"
-
-
-def _session_field_order(field: SessionFieldDTO) -> tuple[int, str]:
-    return (field.order, field.name)
-
-
-def _proposal_sort_value(proposal: SessionListItemDTO, key: str) -> str | datetime:
-    if key == "title":
-        return proposal.title.lower()
-    if key == "host":
-        return proposal.display_name.lower()
-    if key == "category":
-        return proposal.category_name.lower()
-    if key == "status":
-        return str(proposal.status)
-    return proposal.creation_time
-
-
-def _proposal_all_columns(fields: list[SessionFieldDTO]) -> list[ProposalColumnDTO]:
-    return [
-        *(ProposalColumnDTO(key=key) for key in _PROPOSAL_BUILTIN_COLUMN_KEYS),
-        *(
-            ProposalColumnDTO(
-                key=f"{_PROPOSAL_FIELD_KEY_PREFIX}{field.pk}", field=field
-            )
-            for field in sorted(fields, key=_session_field_order)
-        ),
-    ]
-
-
-def _proposal_resolve_columns(
-    *, keys: list[str], fields: list[SessionFieldDTO]
-) -> list[ProposalColumnDTO]:
-    # Keys naming a field that has since been deleted (or never belonged to
-    # this event) resolve to nothing: the column drops, the list still renders.
-    by_key = {column.key: column for column in _proposal_all_columns(fields)}
-    return [
-        column
-        for key in keys or _PROPOSAL_BUILTIN_COLUMN_KEYS
-        if (column := by_key.get(key))
-    ]
-
-
-class ProposalPanelService(ProposalPanelServiceProtocol):
-    """Read path for the panel's proposals list.
-
-    Validates every query value against the event's own data: a tampered
-    category, status, sort key, or `field_<pk>` filter is dropped instead of
-    queried, and the surviving values are echoed back for rendering.
-    """
-
-    def __init__(
-        self,
-        *,
-        sessions: SessionRepositoryProtocol,
-        session_fields: SessionFieldRepositoryProtocol,
-        proposal_categories: ProposalCategoryRepositoryProtocol,
-        panel_settings: EventPanelSettingsRepositoryProtocol,
-    ) -> None:
-        self._sessions = sessions
-        self._session_fields = session_fields
-        self._proposal_categories = proposal_categories
-        self._panel_settings = panel_settings
-
-    def list_context(
-        self, *, event_id: int, query: ProposalListQuery
-    ) -> ProposalListContextDTO:
-        session_fields = self._session_fields.list_by_event(event_id)
-        filterable_fields = [f for f in session_fields if f.field_type == "select"]
-        valid_pks = {f.pk for f in filterable_fields}
-        field_filters = {
-            pk: value
-            for pk, raw in query.raw_field_filters.items()
-            if pk in valid_pks and (value := raw.strip())
-        }
-
-        categories = self._proposal_categories.list_by_event(event_id)
-        category_pk = int(query.category) if query.category.isdigit() else None
-        if category_pk not in {c.pk for c in categories}:
-            category_pk = None
-
-        # Default (no status) shows every proposal: an event whose sessions
-        # weren't created via proposals should not look empty on first load.
-        status = (
-            query.status
-            if query.status == SCHEDULED_FILTER or query.status in set(SessionStatus)
-            else None
-        )
-        # Scheduled is a placement fact, not a status: the "scheduled" option
-        # filters on agenda-item existence, and picking a real status excludes
-        # scheduled sessions so the backlog views stay clean.
-        if status == SCHEDULED_FILTER:
-            status_filter, scheduled_filter = None, True
-        elif status is not None:
-            status_filter, scheduled_filter = SessionStatus(status), False
-        else:
-            status_filter, scheduled_filter = None, None
-
-        proposals = self._sessions.list_sessions_by_event(
-            event_id,
-            {
-                "field_filters": field_filters or None,
-                "search": query.search or None,
-                "track_pk": query.track_pk,
-                "multi_tracks": query.multi_tracks or None,
-                "category_pk": category_pk,
-                "status": status_filter,
-                "scheduled": scheduled_filter,
-            },
-        )
-
-        sort = query.sort
-        if (sort_key := sort.removeprefix("-")) in _PROPOSAL_SORT_KEYS:
-
-            def sort_value(proposal: SessionListItemDTO) -> str | datetime:
-                return _proposal_sort_value(proposal, sort_key)
-
-            proposals = sorted(proposals, key=sort_value, reverse=sort.startswith("-"))
-        else:
-            sort = ""
-
-        settings = self._panel_settings.read_or_create(event_id)
-        return ProposalListContextDTO(
-            proposals=proposals,
-            filterable_fields=filterable_fields,
-            categories=categories,
-            category_pk=category_pk,
-            status=status,
-            sort=sort,
-            columns=_proposal_resolve_columns(
-                keys=settings.proposal_columns, fields=session_fields
-            ),
-        )
-
-    def list_deleted(self, event_id: int) -> list[SessionListItemDTO]:
-        return self._sessions.list_deleted_by_event(event_id)
-
-    def column_values(
-        self, *, session_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str]]:
-        if not session_ids or not field_ids:
-            return {}
-        return self._sessions.list_field_values_for_sessions(session_ids, field_ids)
-
-    def columns_context(self, event_id: int) -> ProposalColumnsContextDTO:
-        fields = self._session_fields.list_by_event(event_id)
-        settings = self._panel_settings.read_or_create(event_id)
-        chosen = _proposal_resolve_columns(
-            keys=settings.proposal_columns, fields=fields
-        )
-        chosen_keys = {column.key for column in chosen}
-        return ProposalColumnsContextDTO(
-            chosen=chosen,
-            available=[
-                column
-                for column in _proposal_all_columns(fields)
-                if column.key not in chosen_keys
-            ],
-        )
-
-    def set_columns(self, *, event_id: int, columns: list[str]) -> None:
-        # Keep only this event's own keys, deduped, in the given order: a
-        # tampered request cannot pull a foreign event's answers into the list
-        # or repeat a column to widen it.
-        valid_keys = {
-            column.key
-            for column in _proposal_all_columns(
-                self._session_fields.list_by_event(event_id)
-            )
-        }
-        chosen: list[str] = []
-        for key in columns:
-            if key in valid_keys and key not in chosen:
-                chosen.append(key)
-        self._panel_settings.update_proposal_columns(event_id, chosen)
-
-    def create_proposal(
-        self,
-        *,
-        event_id: int,
-        data: SessionData,
-        base_slug: str,
-        facilitator_ids: list[int],
-    ) -> int:
-        slug = unique_slug(
-            base=base_slug,
-            default="session",
-            exists=lambda s: self._sessions.slug_exists(event_id, s),
-        )
-        payload: SessionData = {**data, "slug": slug}
-        return self._sessions.create(payload, facilitator_ids=facilitator_ids)
 
 
 class ProposalStatusService:

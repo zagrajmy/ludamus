@@ -36,13 +36,12 @@ from ludamus.pacts import (
     SessionUpdateData,
 )
 from ludamus.pacts.chronology import (
-    SCHEDULED_FILTER,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
-    ProposalListQuery,
     ProposalScheduledError,
 )
 from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.panel import SCHEDULED_FILTER, ProposalListQuery
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
@@ -62,9 +61,11 @@ if TYPE_CHECKING:
         SessionFieldDTO,
         SessionFieldRequirementDTO,
         SessionFieldValueDTO,
+        SessionListItemDTO,
         TimeSlotDTO,
         TrackDTO,
     )
+    from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
 
     PersonalFieldItems = list[
         tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
@@ -166,7 +167,26 @@ def collect_session_field_values(
     return values
 
 
-_PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
+def _field_column_values(
+    *,
+    panel: ProposalPanelServiceProtocol,
+    proposals: Sequence[SessionListItemDTO],
+    columns: Sequence[PanelColumnDTO],
+) -> dict[int, dict[str, str]]:
+    if not (field_columns := [c for c in columns if c.field is not None]):
+        return {}
+    raw_values = panel.column_values(
+        session_ids=[p.pk for p in proposals],
+        field_ids=[c.field.pk for c in field_columns if c.field is not None],
+    )
+    return {
+        proposal.pk: {
+            column.key: raw_values.get(proposal.pk, {}).get(column.field.slug, "")
+            for column in field_columns
+            if column.field is not None
+        }
+        for proposal in proposals
+    }
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -205,24 +225,11 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             event_id=current_event.pk, query=query
         )
         page_obj = paginate(self.request, list_context.proposals)
-
-        field_columns = [c for c in list_context.columns if c.field is not None]
-        column_values: dict[int, dict[str, str]] = {}
-        if field_columns:
-            raw_values = self.request.services.proposal_panel.column_values(
-                session_ids=[p.pk for p in page_obj.object_list],
-                field_ids=[c.field.pk for c in field_columns if c.field is not None],
-            )
-            column_values = {
-                proposal.pk: {
-                    column.key: (
-                        raw_values.get(proposal.pk, {}).get(column.field.slug, "")
-                    )
-                    for column in field_columns
-                    if column.field is not None
-                }
-                for proposal in page_obj.object_list
-            }
+        column_values = _field_column_values(
+            panel=self.request.services.proposal_panel,
+            proposals=list(page_obj.object_list),
+            columns=list_context.columns,
+        )
 
         context["active_nav"] = "proposals"
         context["active_tab"] = "list"

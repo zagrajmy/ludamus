@@ -17,14 +17,14 @@ from ludamus.pacts import (
     SessionListItemDTO,
     SessionStatus,
 )
-from ludamus.pacts.chronology import ProposalColumnDTO
+from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _DEFAULT_KEYS = ["title", "host", "category", "status", "created"]
-_DEFAULT_COLUMNS = [ProposalColumnDTO(key=key) for key in _DEFAULT_KEYS]
+_DEFAULT_COLUMNS = [PanelColumnDTO(key=key) for key in _DEFAULT_KEYS]
 
 
 def _field_dto(field):
@@ -179,7 +179,7 @@ class TestProposalColumnsPageView:
                 **_base_context(event),
                 "chosen_columns": _DEFAULT_COLUMNS,
                 "available_columns": [
-                    ProposalColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
+                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
                 ],
             },
         )
@@ -256,8 +256,8 @@ class TestProposalColumnsPageView:
                 category=proposal_category,
                 session=session,
                 columns=[
-                    ProposalColumnDTO(key="title"),
-                    ProposalColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
+                    PanelColumnDTO(key="title"),
+                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
                 ],
                 column_values={session.pk: {f"field_{field.pk}": "D&D 5e"}},
             ),
@@ -302,8 +302,8 @@ class TestProposalColumnsPageView:
                 category=proposal_category,
                 session=session,
                 columns=[
-                    ProposalColumnDTO(key="title"),
-                    ProposalColumnDTO(
+                    PanelColumnDTO(key="title"),
+                    PanelColumnDTO(
                         key=f"field_{checkbox.pk}", field=_field_dto(checkbox)
                     ),
                 ],

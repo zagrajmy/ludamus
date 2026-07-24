@@ -2,42 +2,66 @@
 
 from typing import TYPE_CHECKING
 
+from ludamus.mills.panel_columns import (
+    columns_context,
+    resolve_columns,
+    sanitize_column_keys,
+)
+from ludamus.mills.slugs import unique_slug
+from ludamus.mills.submissions.personal_data_fields import (
+    diff_personal_data,
+    log_facilitator_changes,
+)
 from ludamus.pacts import (
+    FacilitatorData,
     FacilitatorMergeError,
     NotFoundError,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.submissions import (
-    AccreditationType,
-    FacilitatorColumnDTO,
-    FacilitatorColumnsContextDTO,
+from ludamus.pacts.panel import (
     FacilitatorDetailContextDTO,
     FacilitatorListContextDTO,
     FacilitatorMergeContextDTO,
     FacilitatorPanelServiceProtocol,
 )
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
         ContentFieldChange,
         FacilitatorChangeLogData,
+        FacilitatorChangeLogDTO,
+        FacilitatorDTO,
         FacilitatorUpdateData,
         PersonalDataFieldDTO,
     )
-    from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import (
-        FacilitatorListFilters,
+    from ludamus.pacts.panel import (
+        FacilitatorCreateData,
         FacilitatorListQuery,
         FacilitatorMergeData,
         FacilitatorPanelRepos,
+        PanelColumnsContextDTO,
     )
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.submissions import FacilitatorListFilters
+
+
+def _unique(values: list[str]) -> list[str]:
+    # Order-preserving dedupe; mypy's Any-expression ban in mills rules out
+    # dict.fromkeys here.
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            ordered.append(value)
+    return ordered
+
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
-_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
 # What an event shows until an organizer chooses otherwise — the columns the
 # list hardcoded before they became configurable.
-_DEFAULT_COLUMN_KEYS = _BUILTIN_COLUMN_KEYS
-_FIELD_KEY_PREFIX = "field_"
+_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
 
 
 def _resolve_field_filters(
@@ -56,43 +80,6 @@ def _resolve_field_filters(
         else:
             resolved[pk] = value
     return resolved
-
-
-def _unique(slugs: list[str]) -> list[str]:
-    seen: list[str] = []
-    for slug in slugs:
-        if slug not in seen:
-            seen.append(slug)
-    return seen
-
-
-def _column_order(field: PersonalDataFieldDTO) -> tuple[int, str]:
-    return (field.order, field.name)
-
-
-def _field_key(field: PersonalDataFieldDTO) -> str:
-    return f"{_FIELD_KEY_PREFIX}{field.pk}"
-
-
-def _all_columns(fields: list[PersonalDataFieldDTO]) -> list[FacilitatorColumnDTO]:
-    return [
-        *(FacilitatorColumnDTO(key=key) for key in _BUILTIN_COLUMN_KEYS),
-        *(
-            FacilitatorColumnDTO(key=_field_key(field), field=field)
-            for field in sorted(fields, key=_column_order)
-        ),
-    ]
-
-
-def _resolve_columns(
-    *, keys: list[str], fields: list[PersonalDataFieldDTO]
-) -> list[FacilitatorColumnDTO]:
-    # Keys naming a field that has since been deleted (or never belonged to
-    # this event) resolve to nothing: the column drops, the list still renders.
-    by_key = {column.key: column for column in _all_columns(fields)}
-    return [
-        column for key in keys or _DEFAULT_COLUMN_KEYS if (column := by_key.get(key))
-    ]
 
 
 class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
@@ -136,8 +123,15 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             facilitators=self._repos.facilitators.list_by_event(event_id, filters),
             filterable_fields=filterable_fields,
             field_filters=field_filters,
-            columns=_resolve_columns(keys=settings.facilitator_columns, fields=fields),
+            columns=resolve_columns(
+                keys=settings.facilitator_columns,
+                builtin_keys=_BUILTIN_COLUMN_KEYS,
+                fields=fields,
+            ),
         )
+
+    def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]:
+        return self._repos.personal_data_fields.list_by_event(event_id)
 
     def detail_context(
         self, *, event_id: int, facilitator_slug: str
@@ -161,6 +155,81 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             personal_data_items=[(field, values.get(field.slug)) for field in fields],
             linked_user=linked_user,
             sessions=self._repos.sessions.list_by_facilitator(facilitator.pk),
+        )
+
+    def create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO:
+        with self._transaction.atomic():
+            slug = unique_slug(
+                base=data.base_slug,
+                default="facilitator",
+                exists=lambda s: self._repos.facilitators.slug_exists(event_id, s),
+            )
+            facilitator = self._repos.facilitators.create(
+                FacilitatorData(
+                    accreditation_type=data.accreditation_type,
+                    display_name=data.display_name,
+                    event_id=event_id,
+                    slug=slug,
+                    user_id=None,
+                )
+            )
+            entries = [
+                PersonalDataFieldValueData(
+                    facilitator_id=facilitator.pk,
+                    event_id=event_id,
+                    field_id=field_id,
+                    value=value,
+                )
+                for field_id, value in data.values.items()
+            ]
+            if entries:
+                self._repos.personal_data_field_values.save(entries)
+                self._log_personal_data(
+                    event_id=event_id,
+                    facilitator_id=facilitator.pk,
+                    entries=entries,
+                    user_id=user_id,
+                )
+            return facilitator
+
+    def facilitator_history(
+        self, *, event_id: int, facilitator_slug: str
+    ) -> tuple[str, list[FacilitatorChangeLogDTO]]:
+        facilitator = self._repos.facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        # ponytail: filters the event-wide log in Python; per-facilitator DB
+        # queries if an event's change log grows past a few thousand rows.
+        logs = [
+            log
+            for log in self._repos.facilitator_change_logs.list_by_event(event_id)
+            if log.facilitator_id == facilitator.pk
+        ]
+        return facilitator.display_name, logs
+
+    def _log_personal_data(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+        user_id: int | None,
+    ) -> None:
+        log_facilitator_changes(
+            repo=self._repos.facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            changes=diff_personal_data(
+                old_by_slug={},
+                fields_by_id={
+                    f.pk: f
+                    for f in self._repos.personal_data_fields.list_by_event(event_id)
+                },
+                entries=entries,
+            ),
         )
 
     def merge_context(
@@ -217,21 +286,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
 
             target = next(f for f in facilitators if f.slug == target_slug)
             source_ids = [f.pk for f in facilitators if f.pk != target.pk]
-            # Only this event's own fields: a tampered key naming a foreign
-            # field is dropped, not written.
-            valid_field_pks = {
-                f.pk for f in self._repos.personal_data_fields.list_by_event(event_id)
-            }
-            entries = [
-                PersonalDataFieldValueData(
-                    facilitator_id=target.pk,
-                    event_id=event_id,
-                    field_id=field_id,
-                    value=value,
-                )
-                for field_id, value in data.values.items()
-                if field_id in valid_field_pks
-            ]
+            entries = self._resolve_kept_values(
+                event_id=event_id,
+                target_pk=target.pk,
+                facilitators=facilitators,
+                keep_values_from=data.keep_values_from,
+            )
 
             update: FacilitatorUpdateData = {
                 "display_name": data.display_name,
@@ -249,6 +309,45 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             for source_id in source_ids:
                 self._repos.facilitators.delete(source_id)
 
+    def _resolve_kept_values(
+        self,
+        *,
+        event_id: int,
+        target_pk: int,
+        facilitators: list[FacilitatorDTO],
+        keep_values_from: dict[int, int],
+    ) -> list[PersonalDataFieldValueData]:
+        # Choices name whose answer to keep; the answer itself is read here,
+        # inside the merge transaction, so a value edited between the confirm
+        # screen and the submit can never be applied as somebody else's. Keys
+        # naming a foreign field or facilitator are dropped, not written.
+        if not keep_values_from:
+            return []
+        fields_by_pk = {
+            f.pk: f for f in self._repos.personal_data_fields.list_by_event(event_id)
+        }
+        values_by_holder = {
+            f.pk: self._repos.personal_data_field_values.read_for_facilitator_event(
+                f.pk, event_id
+            )
+            for f in facilitators
+        }
+        entries: list[PersonalDataFieldValueData] = []
+        for field_id, holder_pk in keep_values_from.items():
+            field = fields_by_pk.get(field_id)
+            if field is None or holder_pk not in values_by_holder:
+                continue
+            if (value := values_by_holder[holder_pk].get(field.slug)) is not None:
+                entries.append(
+                    PersonalDataFieldValueData(
+                        facilitator_id=target_pk,
+                        event_id=event_id,
+                        field_id=field_id,
+                        value=value,
+                    )
+                )
+        return entries
+
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]:
@@ -258,35 +357,23 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             facilitator_ids, field_ids
         )
 
-    def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO:
-        fields = self._repos.personal_data_fields.list_by_event(event_id)
+    def columns_context(self, event_id: int) -> PanelColumnsContextDTO:
         settings = self._repos.panel_settings.read_or_create(event_id)
-        chosen = _resolve_columns(keys=settings.facilitator_columns, fields=fields)
-        chosen_keys = {column.key for column in chosen}
-        return FacilitatorColumnsContextDTO(
-            chosen=chosen,
-            available=[
-                column
-                for column in _all_columns(fields)
-                if column.key not in chosen_keys
-            ],
+        return columns_context(
+            keys=settings.facilitator_columns,
+            builtin_keys=_BUILTIN_COLUMN_KEYS,
+            fields=self._repos.personal_data_fields.list_by_event(event_id),
         )
 
     def set_columns(self, *, event_id: int, columns: list[str]) -> None:
-        # Keep only this event's own keys, deduped, in the given order: a
-        # tampered request cannot pull a foreign event's answers into the list
-        # or repeat a column to widen it.
-        valid_keys = {
-            column.key
-            for column in _all_columns(
-                self._repos.personal_data_fields.list_by_event(event_id)
-            )
-        }
-        chosen: list[str] = []
-        for key in columns:
-            if key in valid_keys and key not in chosen:
-                chosen.append(key)
-        self._repos.panel_settings.update_facilitator_columns(event_id, chosen)
+        self._repos.panel_settings.update_facilitator_columns(
+            event_id,
+            sanitize_column_keys(
+                keys=columns,
+                builtin_keys=_BUILTIN_COLUMN_KEYS,
+                fields=self._repos.personal_data_fields.list_by_event(event_id),
+            ),
+        )
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._repos.facilitators.read_by_event_and_slug(

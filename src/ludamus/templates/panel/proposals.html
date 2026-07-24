@@ -215,10 +215,10 @@
                                     {% if column.field %}
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                            {{ column|proposal_column_label }}
+                                            {{ column|panel_column_label:"proposal" }}
                                         </th>
                                     {% else %}
-                                        {% include "panel/parts/_sort_th.html" with column=column.key label=column|proposal_column_label %}
+                                        {% include "panel/parts/_sort_th.html" with column=column.key label=column|panel_column_label:"proposal" %}
                                     {% endif %}
                                 {% endfor %}
                             </tr>

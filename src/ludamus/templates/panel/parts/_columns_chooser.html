@@ -1,0 +1,36 @@
+{% load i18n %}
+{% load django_vite %}
+{% load cfp_tags %}
+{# Columns chooser card: `action_url` receives the checked keys in DOM order, `label_kind` picks the built-in labels, `help_text` names the list. #}
+<form id="columns-form"
+      method="post"
+      action="{{ action_url }}"
+      class="max-w-2xl">
+    {% csrf_token %}
+    <div class="card">
+        <div class="card-body">
+            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Columns" %}</h3>
+            <p id="columns-help" class="text-sm text-foreground-muted mb-6">{{ help_text }}</p>
+            <ul class="column-list space-y-2"
+                aria-label="{% translate "Shown columns" %}"
+                aria-describedby="columns-help">
+                {% for column in chosen_columns %}
+                    {% include "panel/parts/_column_row.html" with column=column shown=True label=column|panel_column_label:label_kind only %}
+                {% endfor %}
+            </ul>
+            {% if available_columns %}
+                <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mt-4 mb-2">
+                    {% translate "Available" context "column group" %}
+                </p>
+                <ul class="column-list space-y-2"
+                    aria-label="{% translate "Available columns" %}"
+                    aria-describedby="columns-help">
+                    {% for column in available_columns %}
+                        {% include "panel/parts/_column_row.html" with column=column shown=False label=column|panel_column_label:label_kind only %}
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
+</form>
+{% vite_asset 'src/panel-columns.ts' %}

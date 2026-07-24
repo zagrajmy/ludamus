@@ -34,12 +34,12 @@ from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.submissions import (
-    AccreditationType,
+from ludamus.pacts.panel import (
     FacilitatorCreateData,
     FacilitatorListQuery,
     FacilitatorMergeData,
 )
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -48,10 +48,10 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
-    from ludamus.pacts.submissions import (
-        FacilitatorColumnDTO,
+    from ludamus.pacts.panel import (
         FacilitatorMergeContextDTO,
         FacilitatorPanelServiceProtocol,
+        PanelColumnDTO,
     )
 
 
@@ -102,7 +102,7 @@ def _build_column_values(
     *,
     panel: FacilitatorPanelServiceProtocol,
     facilitators: Sequence[FacilitatorListItemDTO],
-    columns: Sequence[FacilitatorColumnDTO],
+    columns: Sequence[PanelColumnDTO],
 ) -> dict[int, dict[str, str]]:
     raw_values = panel.column_values(
         facilitator_ids=[f.pk for f in facilitators],
@@ -235,7 +235,7 @@ class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        service = self.request.services.personal_data_field_values
+        service = self.request.services.facilitator_panel
         try:
             name, logs = service.facilitator_history(
                 event_id=current_event.pk, facilitator_slug=facilitator_slug
@@ -249,7 +249,11 @@ class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
         context["facilitator_name"] = name
         context["logs"] = logs
-        context["field_names"] = service.list_field_names(current_event.pk)
+        context["field_names"] = (
+            self.request.services.personal_data_field_values.list_field_names(
+                current_event.pk
+            )
+        )
         return TemplateResponse(self.request, "panel/facilitator-history.html", context)
 
 
@@ -263,9 +267,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        fields = self.request.services.personal_data_field_values.list_fields(
-            current_event.pk
-        )
+        fields = self.request.services.facilitator_panel.list_fields(current_event.pk)
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
         context["personal_fields"] = [(field, None) for field in fields]
@@ -276,7 +278,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        service = self.request.services.personal_data_field_values
+        service = self.request.services.facilitator_panel
         fields = service.list_fields(current_event.pk)
         form = FacilitatorForm(self.request.POST)
         if not form.is_valid():
@@ -365,10 +367,8 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                 self.request, "panel/facilitator-edit.html", context
             )
 
-        all_personal_fields = (
-            self.request.services.personal_data_field_values.list_fields(
-                current_event.pk
-            )
+        all_personal_fields = self.request.services.facilitator_panel.list_fields(
+            current_event.pk
         )
         entries = _personal_entries_from_post(
             request=self.request,
@@ -396,43 +396,43 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 _MIN_MERGE = 2
 
 
-def _distinct(values: Iterable[str]) -> list[str]:
-    seen: list[str] = []
-    for value in values:
-        if value not in seen:
-            seen.append(value)
-    return seen
-
-
-def _attributed[T](pairs: Iterable[tuple[str, T]]) -> list[tuple[T, str]]:
+def _attributed(pairs: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
     # Distinct values in facilitator order, each carrying the facilitators
     # that hold it — the reconcile screen says whose value you are keeping.
-    groups: list[tuple[T, list[str]]] = []
+    groups: dict[str, list[str]] = {}
     for name, value in pairs:
-        for existing, names in groups:
-            if existing == value:
-                names.append(name)
-                break
-        else:
-            groups.append((value, [name]))
-    return [(value, ", ".join(names)) for value, names in groups]
+        groups.setdefault(value, []).append(name)
+    return [(value, ", ".join(names)) for value, names in groups.items()]
 
 
-def _field_options(
+def _field_choices(
     merge_context: FacilitatorMergeContextDTO,
-) -> list[tuple[PersonalDataFieldDTO, list[tuple[_FieldValue, str]]]]:
+) -> list[tuple[PersonalDataFieldDTO, list[tuple[int, str, str]]]]:
     # One entry per field somebody answered, with the distinct answers in
-    # facilitator order — the reconcile screen offers them as choices.
-    options: list[tuple[PersonalDataFieldDTO, list[tuple[_FieldValue, str]]]] = []
+    choices: list[tuple[PersonalDataFieldDTO, list[tuple[int, str, str]]]] = []
     for field in merge_context.fields:
-        answers = [
-            (facilitator.display_name, value)
-            for facilitator in merge_context.facilitators
-            if (value := merge_context.values.get(facilitator.pk, {}).get(field.slug))
-        ]
-        if answers:
-            options.append((field, _attributed(answers)))
-    return options
+        groups: list[tuple[int, _FieldValue, list[str]]] = []
+        for facilitator in merge_context.facilitators:
+            value = merge_context.values.get(facilitator.pk, {}).get(field.slug)
+            if not value:
+                continue
+            for _pk, existing, names in groups:
+                if existing == value:
+                    names.append(facilitator.display_name)
+                    break
+            else:
+                groups.append((facilitator.pk, value, [facilitator.display_name]))
+        if groups:
+            choices.append(
+                (
+                    field,
+                    [
+                        (pk, _format_field_value(value=value), ", ".join(names))
+                        for pk, value, names in groups
+                    ],
+                )
+            )
+    return choices
 
 
 class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
@@ -508,8 +508,8 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         self._base_context(context, slug)
         context["confirm"] = True
         context["facilitators"] = merge_context.facilitators
-        context["name_choices"] = _distinct(
-            f.display_name for f in merge_context.facilitators
+        context["name_choices"] = list(
+            dict.fromkeys(f.display_name for f in merge_context.facilitators)
         )
         context["accreditation_choices"] = [
             (value, ACCREDITATION_TYPE_LABELS[AccreditationType(value)], sources)
@@ -518,16 +518,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                 for f in merge_context.facilitators
             )
         ]
-        context["field_choices"] = [
-            (
-                field,
-                [
-                    (index, _format_field_value(value=value), sources)
-                    for index, (value, sources) in enumerate(options)
-                ],
-            )
-            for field, options in _field_options(merge_context)
-        ]
+        context["field_choices"] = _field_choices(merge_context)
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
@@ -560,22 +551,13 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         basket_slugs = list(
             dict.fromkeys(self.request.POST.getlist("facilitator_slugs"))
         )
-        try:
-            merge_context = self.request.services.facilitator_panel.merge_context(
-                event_id=current_event.pk, facilitator_slugs=basket_slugs
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitator-merge", slug=slug)
-
-        # Radio choices arrive as indexes into the option lists the confirm
-        # screen rendered, so list-typed answers survive the round trip.
-        values: dict[int, _FieldValue] = {}
-        for field, options in _field_options(merge_context):
-            raw = self.request.POST.get(f"personal_{field.pk}", "")
-            if raw.isdigit() and int(raw) < len(options):
-                values[field.pk] = options[int(raw)][0]
-
+        keep_values_from = {
+            int(key.removeprefix("personal_")): int(self.request.POST.get(key, ""))
+            for key in self.request.POST
+            if key.startswith("personal_")
+            and key.removeprefix("personal_").isdigit()
+            and self.request.POST.get(key, "").isdigit()
+        }
         try:
             self.request.services.facilitator_panel.merge(
                 event_id=current_event.pk,
@@ -584,9 +566,12 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
                 data=FacilitatorMergeData(
                     display_name=self.request.POST.get("display_name", "").strip(),
                     accreditation_type=self.request.POST.get("accreditation_type", ""),
-                    values=values,
+                    keep_values_from=keep_values_from,
                 ),
             )
+        except NotFoundError:
+            messages.error(self.request, _("Facilitator not found."))
+            return redirect("panel:facilitator-merge", slug=slug)
         except FacilitatorMergeError:
             return self._render_confirm(
                 context=context,

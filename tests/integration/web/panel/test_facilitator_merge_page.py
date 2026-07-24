@@ -307,8 +307,8 @@ class TestFacilitatorMergeConfirm:
                     (
                         _field_dto(field),
                         [
-                            (0, "Vegan", "Adam Kowalski"),
-                            (1, "Vegetarian", "Jan Wysocki"),
+                            (adam.pk, "Vegan", "Adam Kowalski"),
+                            (jan.pk, "Vegetarian", "Jan Wysocki"),
                         ],
                     )
                 ],
@@ -394,7 +394,7 @@ class TestFacilitatorMergeConfirm:
                 "target_slug": "adam-kowalski",
                 "display_name": "Jan Wysocki",
                 "accreditation_type": "guest",
-                f"personal_{field.pk}": "0",
+                f"personal_{field.pk}": str(jan.pk),
             },
         )
 

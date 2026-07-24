@@ -11,8 +11,7 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 
 if TYPE_CHECKING:
     from ludamus.pacts import SessionDTO
-    from ludamus.pacts.chronology import ProposalColumnDTO
-    from ludamus.pacts.submissions import FacilitatorColumnDTO
+    from ludamus.pacts.panel import PanelColumnDTO
 
 register = template.Library()
 
@@ -83,44 +82,32 @@ def content_field_label(field_key: str) -> str:
 
 
 @register.filter
-def facilitator_column_label(column: FacilitatorColumnDTO) -> str:
-    """Label a column of the panel's facilitator list.
+def panel_column_label(column: PanelColumnDTO, list_kind: str) -> str:
+    """Label a panel list column for the given list ("facilitator"/"proposal").
 
     Returns:
-        The field's own name for personal-data columns, else the built-in's
+        The field's own name for dynamic-field columns, else the built-in's
         translated label.
     """
     if column.field is not None:
         return column.field.name
     # Built per call so gettext resolves in the active request language.
-    labels = {
-        "name": _("Display Name"),
-        "linked": _("Linked User"),
-        "sessions": _("Sessions"),
-        "accreditation": _("Accreditation"),
+    builtin_labels = {
+        "facilitator": {
+            "name": _("Display Name"),
+            "linked": _("Linked User"),
+            "sessions": _("Sessions"),
+            "accreditation": _("Accreditation"),
+        },
+        "proposal": {
+            "title": _("Title"),
+            "host": _("Display Name"),
+            "category": _("Category"),
+            "status": _("Status"),
+            "created": _("Created"),
+        },
     }
-    return labels.get(column.key, column.key)
-
-
-@register.filter
-def proposal_column_label(column: ProposalColumnDTO) -> str:
-    """Label a column of the panel's proposals list.
-
-    Returns:
-        The field's own name for session-field columns, else the built-in's
-        translated label.
-    """
-    if column.field is not None:
-        return column.field.name
-    # Built per call so gettext resolves in the active request language.
-    labels = {
-        "title": _("Title"),
-        "host": _("Display Name"),
-        "category": _("Category"),
-        "status": _("Status"),
-        "created": _("Created"),
-    }
-    return labels.get(column.key, column.key)
+    return builtin_labels.get(list_kind, {}).get(column.key, column.key)
 
 
 @register.filter

@@ -14,12 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
-    from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
-        FacilitatorChangeLogRepositoryProtocol,
-        FacilitatorDTO,
-        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
         FieldUsageSummary,
@@ -31,7 +27,6 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
-        SessionListItemDTO,
         SessionRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
@@ -338,174 +333,6 @@ class FacilitatorListFilters(TypedDict, total=False):
     sort: str | None
 
 
-class EventPanelSettingsDTO(BaseModel):
-    """Organizer-only backoffice settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    facilitator_columns: list[str] = []
-    proposal_columns: list[str] = []
-    pk: int
-
-
-class EventPanelSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
-    @staticmethod
-    def update_facilitator_columns(event_id: int, columns: list[str]) -> None: ...
-    @staticmethod
-    def update_proposal_columns(event_id: int, columns: list[str]) -> None: ...
-
-
-@dataclass
-class FacilitatorPanelRepos:
-    """The repos the panel's facilitator list reads and writes through."""
-
-    facilitators: FacilitatorRepositoryProtocol
-    personal_data_fields: PersonalDataFieldRepositoryProtocol
-    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
-    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
-    panel_settings: EventPanelSettingsRepositoryProtocol
-    sessions: SessionRepositoryProtocol
-    users: UserRepositoryProtocol
-
-
-@dataclass
-class FacilitatorListQuery:
-    """The list's requested view: filters as the request spelled them.
-
-    `raw_field_filters` is keyed by personal-data field pk with the value
-    untouched from the query string; the service resolves it against the
-    event's own fields.
-    """
-
-    search: str = ""
-    accreditation: str = ""
-    flagged: bool = False
-    sort: str = ""
-    raw_field_filters: dict[int, str] = field(default_factory=dict)
-
-
-@dataclass
-class FacilitatorColumnDTO:
-    """One column of the panel's facilitator list.
-
-    `key` is both the column's identity and its sort key — a built-in
-    ("name", "linked", "sessions", "accreditation") or "field_<pk>". `field`
-    is set only for personal-data columns; built-ins label themselves in the
-    template, where the rest of the list's wording lives.
-    """
-
-    key: str
-    field: PersonalDataFieldDTO | None = None
-
-
-@dataclass
-class FacilitatorListContextDTO:
-    """Read aggregate for the panel's facilitator list."""
-
-    facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[PersonalDataFieldDTO]
-    field_filters: dict[int, str | bool]
-    columns: list[FacilitatorColumnDTO]
-
-
-@dataclass
-class FacilitatorCreateData:
-    """A new facilitator as the create form spelled it.
-
-    `values` holds parsed personal-data answers keyed by field pk;
-    `base_slug` is the slugified display name — the service uniquifies it.
-    """
-
-    display_name: str
-    base_slug: str
-    accreditation_type: str
-    values: dict[int, str | list[str] | bool] = field(default_factory=dict)
-
-
-@dataclass
-class FacilitatorDetailContextDTO:
-    """Read aggregate for one facilitator's detail page."""
-
-    facilitator: FacilitatorDTO
-    personal_data_items: list[
-        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
-    ]
-    linked_user: UserDTO | None
-    sessions: list[SessionListItemDTO]
-
-
-@dataclass
-class FacilitatorMergeData:
-    """Reconciled values the merge target keeps.
-
-    `values` holds chosen personal-data answers keyed by field pk; the
-    service drops keys naming a foreign event's field.
-    """
-
-    display_name: str
-    accreditation_type: str
-    values: dict[int, str | list[str] | bool] = field(default_factory=dict)
-
-
-@dataclass
-class FacilitatorMergeContextDTO:
-    """Read aggregate for the merge reconcile screen.
-
-    `values` maps facilitator pk -> field slug -> that facilitator's answer,
-    so the screen can offer a per-attribute choice where sources disagree.
-    """
-
-    facilitators: list[FacilitatorDTO]
-    fields: list[PersonalDataFieldDTO]
-    values: dict[int, dict[str, str | list[str] | bool]]
-
-
-@dataclass
-class FacilitatorColumnsContextDTO:
-    """Read aggregate for the facilitator-columns chooser."""
-
-    chosen: list[FacilitatorColumnDTO]
-    available: list[FacilitatorColumnDTO]
-
-
-class FacilitatorPanelServiceProtocol(Protocol):
-    def list_context(
-        self, *, event_id: int, query: FacilitatorListQuery
-    ) -> FacilitatorListContextDTO: ...
-    def detail_context(
-        self, *, event_id: int, facilitator_slug: str
-    ) -> FacilitatorDetailContextDTO: ...
-    def merge_context(
-        self, *, event_id: int, facilitator_slugs: list[str]
-    ) -> FacilitatorMergeContextDTO: ...
-    def merge(
-        self,
-        *,
-        event_id: int,
-        target_slug: str,
-        facilitator_slugs: list[str],
-        data: FacilitatorMergeData,
-    ) -> None: ...
-    def column_values(
-        self, *, facilitator_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
-    def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
-    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
-    def set_flag(
-        self, *, event_id: int, facilitator_slug: str, flagged: bool
-    ) -> None: ...
-    def set_accreditation(
-        self,
-        *,
-        event_id: int,
-        facilitator_slug: str,
-        accreditation_type: str,
-        user_id: int | None = None,
-    ) -> None: ...
-
-
 class CFPPersonalDataFieldServiceProtocol(Protocol):
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
     def get_create_form_context(
@@ -551,11 +378,4 @@ class PersonalDataFieldValueServiceProtocol(Protocol):
         user_id: int | None = None,
     ) -> None: ...
     def list_log(self, event_id: int) -> list[FacilitatorChangeLogDTO]: ...
-    def facilitator_history(
-        self, *, event_id: int, facilitator_slug: str
-    ) -> tuple[str, list[FacilitatorChangeLogDTO]]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
-    def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]: ...
-    def create_facilitator(
-        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
-    ) -> FacilitatorDTO: ...

@@ -16,7 +16,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
-from ludamus.pacts.submissions import FacilitatorColumnDTO
+from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
@@ -71,7 +71,7 @@ def _field_dto(field):
 
 
 _DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation"]
-_DEFAULT_COLUMNS = [FacilitatorColumnDTO(key=key) for key in _DEFAULT_KEYS]
+_DEFAULT_COLUMNS = [PanelColumnDTO(key=key) for key in _DEFAULT_KEYS]
 
 
 def _column_values(facilitators, extra=None):
@@ -489,9 +489,7 @@ class TestFacilitatorsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "columns": [
                     *_DEFAULT_COLUMNS,
-                    FacilitatorColumnDTO(
-                        key=f"field_{field.pk}", field=_field_dto(field)
-                    ),
+                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
                 ],
                 "column_values": _column_values(
                     expected,
@@ -575,11 +573,11 @@ class TestFacilitatorsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "columns": [
                     *_DEFAULT_COLUMNS,
-                    FacilitatorColumnDTO(
+                    PanelColumnDTO(
                         key=f"field_{checkbox_field.pk}",
                         field=_field_dto(checkbox_field),
                     ),
-                    FacilitatorColumnDTO(
+                    PanelColumnDTO(
                         key=f"field_{multi_field.pk}", field=_field_dto(multi_field)
                     ),
                 ],
@@ -845,7 +843,7 @@ class TestFacilitatorsPageView:
             context_data={
                 **_base_context(event),
                 "facilitators": [],
-                "columns": [FacilitatorColumnDTO(key="name")],
+                "columns": [PanelColumnDTO(key="name")],
                 "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
@@ -1167,9 +1165,7 @@ class TestFacilitatorColumns:
                 **_event_context(event, active_tab="columns"),
                 "chosen_columns": _DEFAULT_COLUMNS,
                 "available_columns": [
-                    FacilitatorColumnDTO(
-                        key=f"field_{field.pk}", field=_field_dto(field)
-                    )
+                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
                 ],
             },
         )

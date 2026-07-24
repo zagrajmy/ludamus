@@ -15,7 +15,6 @@ if TYPE_CHECKING:
         EventIntegrationsServiceProtocol,
         PartySessionHistoryServiceProtocol,
         ProposalAcceptanceServiceProtocol,
-        ProposalPanelServiceProtocol,
         ProposalStatusServiceProtocol,
         SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
@@ -46,6 +45,10 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.panel import (
+        FacilitatorPanelServiceProtocol,
+        ProposalPanelServiceProtocol,
+    )
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -54,7 +57,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
-        FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
