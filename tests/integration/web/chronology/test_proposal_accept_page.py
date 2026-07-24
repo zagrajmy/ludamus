@@ -34,8 +34,8 @@ class TestProposalAcceptPageView:
             self.URL_NAME, kwargs={"event_slug": event_slug, "session_id": session_id}
         )
 
-    def test_get_error_proposal_not_found(self, staff_client, event):
-        response = staff_client.get(self._get_url(17, event.slug))
+    def test_get_error_proposal_not_found(self, manager_client, event):
+        response = manager_client.get(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -44,10 +44,10 @@ class TestProposalAcceptPageView:
             url=reverse("web:index"),
         )
 
-    def test_get_error_session_exists(self, event, pending_session, staff_client):
+    def test_get_error_session_exists(self, event, pending_session, manager_client):
         pending_session.status = "accepted"
         pending_session.save()
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -59,8 +59,8 @@ class TestProposalAcceptPageView:
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_ok(self, event, pending_session, staff_client, time_slot):
-        response = staff_client.get(
+    def test_get_ok(self, event, pending_session, manager_client, time_slot):
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -81,11 +81,11 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_shows_preferred_time_slots(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
         pending_session.time_slots.add(time_slot)
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -107,7 +107,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_renders_select_for_multiple_time_slots(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
         # A second slot means there's a real choice, so the tessera select
         # renders instead of the single-slot read-only collapse.
@@ -117,7 +117,7 @@ class TestProposalAcceptPageView:
             end_time=time_slot.end_time + timedelta(hours=2),
         )
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -128,11 +128,11 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("event", "space")
     def test_get_collapses_single_time_slot_to_forced_choice(
-        self, pending_session, staff_client, time_slot
+        self, pending_session, manager_client, time_slot
     ):
         # A lone slot is a foregone choice: rendered via the forced-choice
         # component (hidden input + read-only field the label associates with).
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -146,7 +146,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_groups_preferred_time_slots_in_picker(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
         # A second slot forces the select; the preferred one is floated into its
         # own optgroup instead of being flagged with a footnote.
@@ -157,7 +157,7 @@ class TestProposalAcceptPageView:
         )
         pending_session.time_slots.add(time_slot)
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -166,8 +166,8 @@ class TestProposalAcceptPageView:
         assert '<optgroup label="Preferred by the facilitator">' in content
 
     @pytest.mark.usefixtures("space", "time_slot")
-    def test_get_renders_host_avatar(self, pending_session, staff_client):
-        response = staff_client.get(
+    def test_get_renders_host_avatar(self, pending_session, manager_client):
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -178,11 +178,11 @@ class TestProposalAcceptPageView:
         assert f">{initials}</span>" in response.content.decode()
 
     @pytest.mark.usefixtures("space", "time_slot")
-    def test_get_renders_proposal_detail_rows(self, pending_session, staff_client):
+    def test_get_renders_proposal_detail_rows(self, pending_session, manager_client):
         pending_session.description = "A haunted manor one-shot."
         pending_session.save()
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -191,11 +191,11 @@ class TestProposalAcceptPageView:
         assert "A haunted manor one-shot." in content
 
     @pytest.mark.usefixtures("space", "time_slot")
-    def test_get_without_presenter_still_renders(self, pending_session, staff_client):
+    def test_get_without_presenter_still_renders(self, pending_session, manager_client):
         pending_session.presenter = None
         pending_session.save()
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -204,10 +204,10 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("event", "time_slot")
     def test_get_collapses_single_space_to_static_value(
-        self, pending_session, space, staff_client
+        self, pending_session, space, manager_client
     ):
         """A lone space is a foregone choice: shown as static text + hidden input."""
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -222,7 +222,7 @@ class TestProposalAcceptPageView:
     @pytest.mark.usefixtures("time_slot")
     @pytest.mark.usefixtures("time_slot")
     def test_get_groups_leaf_spaces_under_their_parent(
-        self, event, pending_session, staff_client
+        self, event, pending_session, manager_client
     ):
         # Leaves sharing a parent node are grouped under that node's path; the
         # non-leaf parent itself is never bookable.
@@ -234,7 +234,7 @@ class TestProposalAcceptPageView:
             event=event, parent=parent, name="Room B", slug="room-b"
         )
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -245,8 +245,8 @@ class TestProposalAcceptPageView:
         assert _has_option(content, second.id, "Room B")
         assert not _has_option(content, parent.id, "Main Hall")
 
-    def test_get_error_no_space(self, event, pending_session, staff_client):
-        response = staff_client.get(
+    def test_get_error_no_space(self, event, pending_session, manager_client):
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -263,8 +263,8 @@ class TestProposalAcceptPageView:
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_error_no_time_slot(self, event, pending_session, staff_client):
-        response = staff_client.get(
+    def test_get_error_no_time_slot(self, event, pending_session, manager_client):
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -300,8 +300,27 @@ class TestProposalAcceptPageView:
             url=f"/event/{event.slug}/",
         )
 
-    def test_post_error_proposal_not_found(self, staff_client, event):
-        response = staff_client.post(self._get_url(17, event.slug))
+    def test_get_wrong_permissions_for_non_manager_staff(
+        self, event, pending_session, staff_client
+    ):
+        response = staff_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "You don't have permission to accept proposals for this event.",
+                )
+            ],
+            url=f"/event/{event.slug}/",
+        )
+
+    def test_post_error_proposal_not_found(self, manager_client, event):
+        response = manager_client.post(self._get_url(17, event.slug))
 
         assert_response(
             response,
@@ -310,10 +329,10 @@ class TestProposalAcceptPageView:
             url=reverse("web:index"),
         )
 
-    def test_post_error_session_exists(self, event, pending_session, staff_client):
+    def test_post_error_session_exists(self, event, pending_session, manager_client):
         pending_session.status = "accepted"
         pending_session.save()
-        response = staff_client.post(
+        response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -324,8 +343,8 @@ class TestProposalAcceptPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
 
-    def test_post_invalid_form(self, event, pending_session, staff_client, time_slot):
-        response = staff_client.post(
+    def test_post_invalid_form(self, event, pending_session, manager_client, time_slot):
+        response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -345,9 +364,9 @@ class TestProposalAcceptPageView:
         )
 
     def test_post_ok(
-        self, active_user, event, pending_session, space, staff_client, time_slot
+        self, active_user, event, pending_session, space, manager_client, time_slot
     ):
-        response = staff_client.post(
+        response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
@@ -376,7 +395,7 @@ class TestProposalAcceptPageView:
         assert session.agenda_item.end_time == time_slot.end_time
 
     def test_post_preserves_unique_slug(
-        self, event, pending_session, space, staff_client, staff_user, time_slot
+        self, event, pending_session, space, manager_client, manager_user, time_slot
     ):
         # Regression: accepting a proposal must not regenerate the slug, which
         # dropped the uniqueness suffix and collided with an existing session.
@@ -387,11 +406,11 @@ class TestProposalAcceptPageView:
             title=pending_session.title,
             event=event,
             slug=base_slug,
-            display_name=staff_user.name,
+            display_name=manager_user.name,
             participants_limit=10,
         )
 
-        response = staff_client.post(
+        response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
@@ -436,9 +455,9 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_post_invalid_space_id(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
-        response = staff_client.post(
+        response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": 99999, "time_slot": time_slot.id},
         )
@@ -459,13 +478,13 @@ class TestProposalAcceptPageView:
         )
 
     def test_post_ok_conflict(
-        self, staff_user, event, pending_session, space, staff_client, time_slot
+        self, manager_user, event, pending_session, space, manager_client, time_slot
     ):
         other_session = Session.objects.create(
             event=event,
             title="Other Session",
             slug="other-session",
-            display_name=staff_user.name,
+            display_name=manager_user.name,
             participants_limit=10,
         )
         AgendaItem.objects.create(
@@ -475,7 +494,7 @@ class TestProposalAcceptPageView:
             end_time=time_slot.end_time,
         )
 
-        response = staff_client.post(
+        response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug),
             data={"space": space.id, "time_slot": time_slot.id},
         )
@@ -497,7 +516,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_select_field_values(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
         """Public select field values are shown in context."""
         session_field = SessionField.objects.create(
@@ -514,7 +533,7 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value=["RPG"]
         )
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -547,7 +566,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_text_field_in_field_values(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
         """Text field values appear in field_values context."""
         session_field = SessionField.objects.create(
@@ -562,7 +581,7 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value="D&D 5e"
         )
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
@@ -595,7 +614,7 @@ class TestProposalAcceptPageView:
 
     @pytest.mark.usefixtures("space")
     def test_get_ok_with_boolean_select_field_in_field_values(
-        self, event, pending_session, staff_client, time_slot
+        self, event, pending_session, manager_client, time_slot
     ):
         """Public select field with a boolean value appears in field_values."""
         session_field = SessionField.objects.create(
@@ -610,7 +629,7 @@ class TestProposalAcceptPageView:
             session=pending_session, field=session_field, value=True
         )
 
-        response = staff_client.get(
+        response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
