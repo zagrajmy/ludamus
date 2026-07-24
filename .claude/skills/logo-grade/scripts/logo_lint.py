@@ -16,11 +16,14 @@ from itertools import starmap
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from defusedxml import DefusedXmlException
-from defusedxml import ElementTree as DefusedElementTree
+from lxml import etree
 
 if TYPE_CHECKING:
-    from xml.etree.ElementTree import Element
+    from lxml.etree import _Element as Element
+
+# libxml2 caps entity amplification (no billion laughs); unresolved entities
+# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
+SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 CONTRAST_WHITE_MIN = 3.0  # WCAG 1.4.11 graphics minimum vs white ground
 CONTRAST_DARK_MIN = 4.5  # white-logo variant gate vs dark ground
@@ -147,12 +150,12 @@ def _ink_colors(root: Element) -> set[Rgb]:
         for attr in ("fill", "stroke"):
             own = _own_paint(element, attr)
             paints[attr] = inherited[attr] if not own or own == "inherit" else own
-        if local_name(element.tag) in SHAPE_TAGS:
+        if local_name(str(element.tag)) in SHAPE_TAGS:
             for paint in paints.values():
                 rgb = parse_color(paint)
                 if rgb and rgb != WHITE:
                     inks.add(rgb)
-        stack.extend((child, paints) for child in element)
+        stack.extend((child, paints) for child in element.iterchildren(etree.Element))
     return inks
 
 
@@ -202,7 +205,7 @@ def _tiny_features(elements: list[Element], canvas: float | None) -> list[str]:
         return []
     tiny = []
     for element in elements:
-        tag = local_name(element.tag)
+        tag = local_name(str(element.tag))
         if tag in SIZED_SHAPES:
             dims = _primitive_dims(element)
         elif tag == "path":
@@ -285,23 +288,17 @@ def _shape_findings(
 
 def lint_file(path: Path) -> dict[str, Any]:
     try:
-        raw = path.read_text(encoding="utf-8", errors="replace")
-        root = DefusedElementTree.fromstring(raw)
-    except (
-        OSError,
-        DefusedElementTree.ParseError,
-        DefusedXmlException,
-        ValueError,
-    ) as exc:
+        root = etree.fromstring(path.read_bytes(), SVG_PARSER)
+    except (OSError, etree.XMLSyntaxError, ValueError) as exc:
         return {"file": str(path), "error": f"not parseable SVG: {exc}"}
-    if local_name(root.tag) != "svg":
+    if local_name(str(root.tag)) != "svg":
         return {"file": str(path), "error": "not an SVG document"}
 
-    elements = list(root.iter())
+    elements = list(root.iter(etree.Element))
     inks = _ink_colors(root)
     node_count = _node_count(elements)
     findings = [
-        *_forbidden_tag_findings([local_name(e.tag) for e in elements]),
+        *_forbidden_tag_findings([local_name(str(e.tag)) for e in elements]),
         *_shape_findings(
             inks=inks,
             stroke_widths=_stroke_widths(elements),
