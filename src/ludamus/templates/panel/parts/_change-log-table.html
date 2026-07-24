@@ -37,13 +37,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ log.creation_time|date:"d.m H:i:s" }}</td>
                 <td class="px-6 py-4 text-sm text-foreground">{{ log.user_name|default:"—" }}</td>
                 {% if item_header %}
-                    <td class="px-6 py-4 text-sm font-medium text-foreground">
-                        {% if item_kind == "facilitator" %}
-                            {{ log.facilitator_name }}
-                        {% else %}
-                            {{ log.session_title }}
-                        {% endif %}
-                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-foreground">{{ log.item_name }}</td>
                 {% endif %}
                 <td class="px-6 py-4 text-sm text-foreground-secondary">
                     <ul class="space-y-1">

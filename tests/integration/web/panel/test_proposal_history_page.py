@@ -131,7 +131,7 @@ class TestProposalHistoryPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-history.html",
+            template_name="panel/item-history.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -144,7 +144,9 @@ class TestProposalHistoryPageView:
                 },
                 "active_tab": "history",
                 "tab_urls": _tab_urls(event, session.pk),
-                "proposal_title": "Dragon Heist",
+                "item_name": "Dragon Heist",
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
+                "back_label": "Proposals",
                 "logs": [
                     ContentChangeLogDTO(
                         pk=log.pk,
@@ -175,7 +177,7 @@ class TestProposalHistoryPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-history.html",
+            template_name="panel/item-history.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -188,7 +190,9 @@ class TestProposalHistoryPageView:
                 },
                 "active_tab": "history",
                 "tab_urls": _tab_urls(event, session.pk),
-                "proposal_title": "Dragon Heist",
+                "item_name": "Dragon Heist",
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
+                "back_label": "Proposals",
                 "logs": [],
                 "field_names": {},
             },

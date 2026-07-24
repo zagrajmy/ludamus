@@ -419,6 +419,7 @@ ignore_names = [
     "is_pending_proposal",
     "is_read",
     "is_unlimited",
+    "item_name",
     "location_label",
     "overflow_count",
     "public_tag_categories",

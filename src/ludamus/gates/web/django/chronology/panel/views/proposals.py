@@ -465,10 +465,12 @@ class ProposalHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["active_tab"] = "history"
         context["tab_urls"] = proposal_detail_tab_urls(slug, proposal_id)
-        context["proposal_title"] = title
+        context["item_name"] = title
+        context["back_url"] = reverse("panel:proposals", kwargs={"slug": slug})
+        context["back_label"] = _("Proposals")
         context["logs"] = logs
         context["field_names"] = service.list_field_names(current_event.pk)
-        return TemplateResponse(self.request, "panel/proposal-history.html", context)
+        return TemplateResponse(self.request, "panel/item-history.html", context)
 
 
 class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 20:12+0200\n"
+"POT-Creation-Date: 2026-07-24 20:51+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1169,8 +1169,24 @@ msgid ""
 "These facilitators each have a linked user account. Unlink all but one "
 "before merging."
 msgstr ""
-"Każdy z tych twórców programu ma powiązane konto użytkownika. Przed scaleniem "
-"odłącz wszystkie oprócz jednego."
+"Każdy z tych twórców programu ma powiązane konto użytkownika. Przed "
+"scaleniem odłącz wszystkie oprócz jednego."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+msgid "Facilitators"
+msgstr "Twórcy programu"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
@@ -1547,6 +1563,17 @@ msgstr "Zaplanowane"
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal not found."
 msgstr "Nie znaleziono zgłoszenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
+#: src/ludamus/templates/panel/proposal-columns.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Proposals"
+msgstr "Zgłoszenia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Couldn't save your changes. Please check your input and try again."
@@ -2704,22 +2731,6 @@ msgstr "Aktywne"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Participants limit"
 msgstr "Limit uczestników"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitator-history.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-msgid "Facilitators"
-msgstr "Twórcy programu"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/propose/parts/details.html
@@ -5640,21 +5651,9 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/_detail_tabs.html
-#: src/ludamus/templates/panel/facilitator-history.html
-#: src/ludamus/templates/panel/proposal-history.html
+#: src/ludamus/templates/panel/item-history.html
 msgid "Change history"
 msgstr "Historia zmian"
-
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
-#: src/ludamus/templates/panel/proposal-columns.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-#: src/ludamus/templates/panel/proposal-history.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Proposals"
-msgstr "Zgłoszenia"
 
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 msgid "Display"
@@ -6356,11 +6355,6 @@ msgstr ""
 "Nazwa zapisana w pamięci przez kreator zgłoszeń — zmień nazwę wyświetlaną "
 "zgłoszenia, aby zmienić byline."
 
-#: src/ludamus/templates/panel/facilitator-history.html
-#: src/ludamus/templates/panel/proposal-history.html
-msgid "No changes recorded yet."
-msgstr "Nie zapisano jeszcze żadnych zmian."
-
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge facilitators"
 msgstr "Scal twórców programu"
@@ -6856,6 +6850,10 @@ msgid ""
 msgstr ""
 "Nie ma jeszcze żadnych integracji. Dodaj jedną, aby to wydarzenie mogło "
 "komunikować się przez zewnętrzny system."
+
+#: src/ludamus/templates/panel/item-history.html
+msgid "No changes recorded yet."
+msgstr "Nie zapisano jeszcze żadnych zmian."
 
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 msgid "Changes"

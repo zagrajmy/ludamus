@@ -1427,6 +1427,12 @@ class ContentChangeLogDTO(BaseModel):
     changes: list[ContentFieldChange]
     creation_time: datetime
 
+    @property
+    def item_name(self) -> str:
+        # What the shared change-log table shows for "which thing changed",
+        # whichever kind of log it is rendering.
+        return self.session_title
+
 
 class ContentChangeLogRepositoryProtocol(Protocol):
     @staticmethod
@@ -1463,6 +1469,11 @@ class FacilitatorChangeLogDTO(BaseModel):
     user_name: str
     changes: list[ContentFieldChange]
     creation_time: datetime
+
+    @property
+    def item_name(self) -> str:
+        # See ContentChangeLogDTO.item_name.
+        return self.facilitator_name
 
 
 class FacilitatorChangeLogRepositoryProtocol(Protocol):

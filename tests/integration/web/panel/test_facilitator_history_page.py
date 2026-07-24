@@ -133,12 +133,14 @@ class TestFacilitatorHistoryPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/facilitator-history.html",
+            template_name="panel/item-history.html",
             context_data={
                 **_base_context(event),
                 "active_tab": "history",
                 "tab_urls": _tab_urls(event, "alice"),
-                "facilitator_name": "Alice",
+                "item_name": "Alice",
+                "back_url": reverse("panel:facilitators", kwargs={"slug": event.slug}),
+                "back_label": "Facilitators",
                 "logs": [
                     FacilitatorChangeLogDTO(
                         pk=log.pk,
@@ -176,12 +178,14 @@ class TestFacilitatorHistoryPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/facilitator-history.html",
+            template_name="panel/item-history.html",
             context_data={
                 **_base_context(event),
                 "active_tab": "history",
                 "tab_urls": _tab_urls(event, "alice"),
-                "facilitator_name": "Alice",
+                "item_name": "Alice",
+                "back_url": reverse("panel:facilitators", kwargs={"slug": event.slug}),
+                "back_label": "Facilitators",
                 "logs": [],
                 "field_names": {},
             },

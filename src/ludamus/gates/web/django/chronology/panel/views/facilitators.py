@@ -263,14 +263,16 @@ class FacilitatorHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["active_tab"] = "history"
         context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
-        context["facilitator_name"] = name
+        context["item_name"] = name
+        context["back_url"] = reverse("panel:facilitators", kwargs={"slug": slug})
+        context["back_label"] = _("Facilitators")
         context["logs"] = logs
         context["field_names"] = (
             self.request.services.personal_data_field_values.list_field_names(
                 current_event.pk
             )
         )
-        return TemplateResponse(self.request, "panel/facilitator-history.html", context)
+        return TemplateResponse(self.request, "panel/item-history.html", context)
 
 
 class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
