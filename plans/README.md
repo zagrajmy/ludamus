@@ -197,3 +197,58 @@ Original list, kept for the record:
 5. **Pre-launch/contributor readiness** — CONTRIBUTING, SECURITY.md,
    templates, CODEOWNERS: many S items, gating only if external
    contributors are the goal.
+
+## Carried over from the 2026-06-10 audit (PR #363)
+
+A separate, earlier audit (commit `337cdde7`) produced its own findings
+table and plans 001-006 in this same directory, filed under different
+names to avoid colliding with the table above. Its findings 001-003 are
+already done; 004-006 are still open and not yet covered by the 2026-07-09
+audit above:
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+| --- | --- | --- | --- | --- | --- |
+| [2026-06-10/001](001-event-page-n-plus-one.md) | Eliminate event-page N+1 queries (issue #323) | P1 | S | — | DONE (PR #366) |
+| [2026-06-10/002](002-oauth-next-open-redirect.md) | Validate OAuth `next` redirect (open redirect) | P1 | S–M | — | DONE (PR #367) |
+| [2026-06-10/003](003-deterministic-factory-slugs.md) | Deterministic factory slugs (flaky CI) | P2 | S | — | DONE (PR #365) |
+| [2026-06-10/004](004-coverage-mills-blindspot.md) | Investigate mills missing from coverage | P2 | S | — | TODO |
+| [2026-06-10/005](005-panel-view-boilerplate.md) | Extract panel-view boilerplate | P2 | M | — | TODO |
+| [2026-06-10/006](006-regression-guardrails.md) | Regression guardrails: N+1 detector in tests (#306) + Faker("slug") lint rule | P1 | M | 2026-06-10/001, 2026-06-10/003 | TODO |
+
+Full findings table, open-PR triage, and rejected findings for that
+audit: [`../IMPROVEMENT_PLAN.md`](../IMPROVEMENT_PLAN.md).
+
+Dependency notes carried over with them:
+
+- 2026-06-10/006 depends on 2026-06-10/001 and 2026-06-10/003 (both
+  done): the N+1 detector would flag the now-fixed event-page N+1s,
+  and the slug fix stabilizes CI first.
+- 2026-06-10/005 deliberately precedes the Kapitularz umbrella's panel
+  features (issue #326) — new panel views should be built on
+  `EventPanelPageView`, same guidance as plan 005 above.
+
+Findings that audit rejected as invalid (so nobody re-audits them;
+already folded into "Findings considered and rejected" above where
+they overlap) — distinct from the one below, which was real but is
+already handled elsewhere:
+
+- **"Django 6.0.5 CVEs"** — poetry.lock already has 6.0.6.
+- **"Secrets committed in .env.local"** — `.env*.local` is gitignored
+  and untracked; per-dev secrets there are by design.
+- **"import-linter not enforced"** — it runs as the `il` task inside
+  `mise run check`/`prcheck` (mise.toml:67-69,105), which CI runs.
+- **"Postgres concurrency tests never run in CI"** —
+  `.github/workflows/ci.yml` has a `test-postgres` job with a
+  postgres:16 service running `mise run test:postgres`.
+- **"CI jobs run sequentially"** — no `needs:` chains; GitHub runs
+  them in parallel.
+- **".env.docker referenced but missing"** — the file exists and is
+  tracked.
+- **"Capacity check runs outside the transaction"** —
+  `_process_enrollments` re-fetches the session with
+  `select_for_update()` before checking (views.py:1473).
+Already fixed elsewhere, not an invalid finding — no plan needed here:
+
+- **Enrollment race conditions (anonymous overbook, stuck waitlist,
+  cancel 500)** — real, but already fixed by open PR #359; land that
+  instead of re-planning.
