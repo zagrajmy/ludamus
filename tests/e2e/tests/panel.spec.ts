@@ -1330,6 +1330,58 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Alice Morgan Copy")).toHaveCount(0);
   });
 
+  // --- Columns chooser (both panel lists) ---
+  // These post a real form, so they also cover the CSRF token surviving the
+  // `only` barrier on the shared chooser partial — the Django test client
+  // does not enforce CSRF, so no integration test can catch that.
+
+  test("facilitator columns chooser saves the selection", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/facilitators/columns/");
+
+    await page.getByLabel("Sessions", { exact: true }).uncheck();
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByText("Columns updated.")).toBeVisible();
+    await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/");
+    await expect(page.getByRole("columnheader", { name: /Sessions/ })).toHaveCount(0);
+
+    // Restore the default so the other facilitator specs see the usual table.
+    await page.goto("/panel/event/frostfire-con/facilitators/columns/");
+    await page.getByLabel("Sessions", { exact: true }).check();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("columnheader", { name: /Sessions/ })).toBeVisible();
+  });
+
+  test("proposal columns chooser saves the selection", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/proposals/columns/");
+
+    await page.getByLabel("Category", { exact: true }).uncheck();
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByText("Columns updated.")).toBeVisible();
+    await expect(page).toHaveURL("/panel/event/frostfire-con/proposals/");
+
+    await page.goto("/panel/event/frostfire-con/proposals/columns/");
+    await expect(page.getByLabel("Category", { exact: true })).not.toBeChecked();
+
+    // Restore the default.
+    await page.getByLabel("Category", { exact: true }).check();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Columns updated.")).toBeVisible();
+  });
+
+  test("columns chooser refuses an empty selection", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/facilitators/columns/");
+
+    for (const label of ["Display Name", "Linked User", "Sessions", "Accreditation"]) {
+      await page.getByLabel(label, { exact: true }).uncheck();
+    }
+    await page.getByRole("button", { name: "Save" }).click();
+
+    await expect(page.getByRole("alert")).toContainText("Pick at least one column to show.");
+    await expect(page).toHaveURL("/panel/event/frostfire-con/facilitators/columns/");
+  });
+
   // --- Organization announcements CRUD ---
 
   test("manages the announcement lifecycle and public visibility", async ({ page }) => {
