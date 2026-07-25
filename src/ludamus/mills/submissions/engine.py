@@ -314,7 +314,12 @@ class ImportEngine:
             )
         ) is not None:
             session_data["category_id"] = category_id
-        facilitator_id = self.facilitator_id(event_id, builtins.display_name)
+        facilitator_id = self.facilitator_id(
+            event_id=event_id,
+            settings=settings,
+            row=row,
+            display_name=builtins.display_name,
+        )
         session_id = self._repos.sessions.create(
             session_data,
             time_slot_ids=self.time_slot_ids(
@@ -382,7 +387,12 @@ class ImportEngine:
         if existing_facilitators:
             facilitator_id: int | None = existing_facilitators[0].pk
         else:
-            facilitator_id = self.facilitator_id(event_id, builtins.display_name)
+            facilitator_id = self.facilitator_id(
+                event_id=event_id,
+                settings=settings,
+                row=row,
+                display_name=builtins.display_name,
+            )
             if facilitator_id is not None:
                 self._repos.sessions.set_facilitators(session_id, [facilitator_id])
         answered = {
@@ -497,22 +507,85 @@ class ImportEngine:
                 raise DuplicateRowError(legacy_ids[0], adopt_ident=ident)
         return ident
 
-    def facilitator_id(self, event_id: int, display_name: str) -> int | None:
+    def facilitator_id(
+        self,
+        *,
+        event_id: int,
+        settings: ImportSettings,
+        row: ImportRow,
+        display_name: str,
+    ) -> int | None:
         # Per-row provisioning: a non-empty `facilitator.display_name` answer
-        # becomes a Facilitator on the event (deduped by slug — repeated names
-        # across rows resolve to the same record); empty answers mean
-        # "respondent didn't fill it in" and produce no facilitator link.
-        # The facilitator carries no `user` — it's a placeholder the operator
-        # can later merge with a real account.
+        # becomes a Facilitator on the event; empty answers mean "respondent
+        # didn't fill it in" and produce no facilitator link. The facilitator
+        # carries no `user` — it's a placeholder the operator can later merge
+        # with a real account. Identity: when the operator named
+        # `facilitator_key_columns`, dedup on their hash so a renamed
+        # facilitator stays one record. Otherwise fall back to display-name
+        # (slug) dedup — repeated names resolve to the same record.
         if not (clean := display_name.strip()):
             return None
-        slug = slugify(clean) or "facilitator"
+        ident = self._facilitator_ident(event_id=event_id, settings=settings, row=row)
+        if ident:
+            return self._facilitator_by_ident(
+                event_id=event_id, ident=ident, display_name=clean
+            )
+        return self._facilitator_by_slug(event_id=event_id, display_name=clean)
+
+    @staticmethod
+    def _facilitator_ident(
+        *, event_id: int, settings: ImportSettings, row: ImportRow
+    ) -> str:
+        if not settings.facilitator_key_columns:
+            return ""
+        identity = "-".join(
+            row.get_value(col, "") for col in settings.facilitator_key_columns
+        )
+        # Every key column blank means the row carries no identity, so a hash
+        # would collapse all such rows onto one facilitator — fall back to slug.
+        if not identity.strip("- "):
+            return ""
+        return dedup_ident(event_id=event_id, identity=identity)
+
+    def _facilitator_by_ident(
+        self, *, event_id: int, ident: str, display_name: str
+    ) -> int:
+        found = self._repos.facilitators.find_id_by_ident(event_id, ident)
+        if found is not None:
+            return found
+        # A pre-ident record with the same slug is the same facilitator under
+        # the old display-name dedup: adopt it and stamp the identity so later
+        # reimports match by key columns, not the name (which may change).
+        slug = slugify(display_name) or "facilitator"
+        try:
+            legacy = self._repos.facilitators.read_by_event_and_slug(event_id, slug)
+        except NotFoundError:
+            legacy = None
+        if legacy is not None and not legacy.ident:
+            self._repos.facilitators.set_ident(legacy.pk, ident)
+            return legacy.pk
+        return self._repos.facilitators.create(
+            {
+                "display_name": display_name,
+                "event_id": event_id,
+                "slug": generate_unique_slug(
+                    display_name,
+                    lambda s: self._repos.facilitators.slug_exists(event_id, s),
+                    fallback="facilitator",
+                ),
+                "ident": ident,
+                "user_id": None,
+            }
+        ).pk
+
+    def _facilitator_by_slug(self, *, event_id: int, display_name: str) -> int:
+        slug = slugify(display_name) or "facilitator"
         try:
             return self._repos.facilitators.read_by_event_and_slug(event_id, slug).pk
         except NotFoundError:
             return self._repos.facilitators.create(
                 {
-                    "display_name": clean,
+                    "display_name": display_name,
                     "event_id": event_id,
                     "slug": slug,
                     "user_id": None,

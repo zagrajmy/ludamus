@@ -78,6 +78,7 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    ident: str = ""
     internal_comment: str = ""
     pk: int
     slug: str
@@ -88,6 +89,7 @@ class FacilitatorData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     event_id: int
+    ident: str
     slug: str
     user_id: int | None
 
@@ -1274,6 +1276,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO: ...
     @staticmethod
     def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO: ...
+    @staticmethod
+    def find_id_by_ident(event_id: int, ident: str) -> int | None: ...
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod

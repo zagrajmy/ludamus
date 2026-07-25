@@ -183,10 +183,15 @@ class ImportSettings(BaseModel):
     # chosen from it: the form schema alone can't offer the metadata columns
     # (timestamp, auto-collected email), whose wording follows the form's
     # locale, so those are mapped like any other column.
+    # `facilitator_key_columns` names the column headers whose values identify a
+    # facilitator across rows and re-fetches (e.g. an email column). Dedup keys
+    # on their hash rather than the display name, so a renamed facilitator stays
+    # one record. Empty keeps the legacy display-name (slug) dedup.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
+    facilitator_key_columns: list[str] = []
     sheet_headers: list[str] = []
 
 

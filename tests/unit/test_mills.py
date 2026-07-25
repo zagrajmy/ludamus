@@ -1103,6 +1103,8 @@ class _ImportServiceMocks:
     def facilitators(self):
         mock = MagicMock()
         mock.read_by_event_and_slug.side_effect = NotFoundError
+        mock.find_id_by_ident.return_value = None
+        mock.slug_exists.return_value = False
         mock.create.side_effect = lambda data: MagicMock(
             pk=7, slug=data["slug"], display_name=data["display_name"]
         )
@@ -1239,6 +1241,86 @@ class TestProposalImportService(_ImportServiceMocks):
             track_ids=[],
             facilitator_ids=[7],
         )
+
+    def test_run_dedupes_facilitator_by_ident_when_key_columns_set(
+        self, service, event_integrations, sessions, facilitators
+    ):
+        # With a key column configured, the facilitator is matched by the hash
+        # of the key cell, not the display name — so the existing record (55) is
+        # reused and no new one is minted.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        )
+        facilitators.find_id_by_ident.return_value = 55
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_not_called()
+        facilitators.find_id_by_ident.assert_called_once_with(
+            2, dedup_ident(event_id=2, identity="bob@x.z")
+        )
+        assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
+
+    def test_run_adopts_a_pre_ident_facilitator_and_stamps_the_ident(
+        self, service, event_integrations, sessions, facilitators
+    ):
+        # No record carries the ident yet, but a slug match exists from a
+        # pre-key-column import (ident=""): adopt it and stamp the ident so the
+        # transition doesn't duplicate the facilitator.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        )
+        facilitators.find_id_by_ident.return_value = None
+        facilitators.read_by_event_and_slug.side_effect = None
+        facilitators.read_by_event_and_slug.return_value = MagicMock(pk=88, ident="")
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_not_called()
+        facilitators.set_ident.assert_called_once_with(
+            88, dedup_ident(event_id=2, identity="bob@x.z")
+        )
+        assert sessions.create.call_args.kwargs["facilitator_ids"] == [88]
+
+    def test_run_creates_a_facilitator_carrying_the_ident_when_nothing_matches(
+        self, service, event_integrations, facilitators
+    ):
+        # No ident match and no slug match: a fresh facilitator is created and
+        # carries the ident so later reimports dedupe on it.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_called_once()
+        created = facilitators.create.call_args.args[0]
+        assert created["ident"] == dedup_ident(event_id=2, identity="bob@x.z")
+        assert created["slug"] == "gm-bob"
 
     def test_run_maps_session_contact_email(
         self, service, event_integrations, sessions
