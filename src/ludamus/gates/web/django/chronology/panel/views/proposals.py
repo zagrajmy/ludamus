@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorDTO, PersonalDataFieldDTO, SessionListItemDTO
+    from ludamus.pacts.chronology import ProposalStatusServiceProtocol
     from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
 
     PersonalFieldItems = list[
@@ -342,23 +343,51 @@ class ProposalHistoryPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/item-history.html", context)
 
 
+class _StatusTransition(Protocol):
+    """One of the status service's `mark_*` methods."""
+
+    def __call__(self, *, event_pk: int, session_pk: int) -> None: ...
+
+
+def _status_transitions(
+    service: ProposalStatusServiceProtocol,
+) -> dict[str, _StatusTransition]:
+    # Spelled out rather than resolved by name: the type checker sees every
+    # call, and grepping for a transition finds this table. One table serves
+    # both the single-proposal views and the bulk one.
+    return {
+        "pending": service.mark_pending,
+        "accept": service.mark_accepted,
+        "hold": service.mark_on_hold,
+        "reject": service.mark_rejected,
+    }
+
+
+_STATUS_MESSAGES: dict[str, _StrPromise] = {
+    "pending": gettext_lazy("Proposal moved back to pending."),
+    "accept": gettext_lazy("Proposal accepted."),
+    "hold": gettext_lazy("Proposal put on hold."),
+    "reject": gettext_lazy("Proposal rejected."),
+}
+
+
 class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
     """Shared POST handler for proposal status transitions."""
 
     request: PanelRequest
     http_method_names = ("post",)
-    success_message: str | _StrPromise = ""
-
-    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
-        raise NotImplementedError
+    action = ""
 
     def post(self, _request: PanelRequest, slug: str, proposal_id: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
+        apply_status = _status_transitions(self.request.services.proposal_status)[
+            self.action
+        ]
         try:
-            self._apply_status(event_pk=current_event.pk, session_pk=proposal_id)
+            apply_status(event_pk=current_event.pk, session_pk=proposal_id)
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
@@ -372,60 +401,32 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
             )
             return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
-        messages.success(self.request, self.success_message)
+        messages.success(self.request, _STATUS_MESSAGES[self.action])
         return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
 
 
 class ProposalPendingActionView(ProposalStatusActionView):
     """Move a proposal back to pending (POST only)."""
 
-    success_message = gettext_lazy("Proposal moved back to pending.")
-
-    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
-        self.request.services.proposal_status.mark_pending(
-            event_pk=event_pk, session_pk=session_pk
-        )
+    action = "pending"
 
 
 class ProposalAcceptActionView(ProposalStatusActionView):
     """Mark a proposal accepted (POST only)."""
 
-    success_message = gettext_lazy("Proposal accepted.")
-
-    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
-        self.request.services.proposal_status.mark_accepted(
-            event_pk=event_pk, session_pk=session_pk
-        )
+    action = "accept"
 
 
 class ProposalHoldActionView(ProposalStatusActionView):
     """Put a proposal on hold / reserve list (POST only)."""
 
-    success_message = gettext_lazy("Proposal put on hold.")
-
-    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
-        self.request.services.proposal_status.mark_on_hold(
-            event_pk=event_pk, session_pk=session_pk
-        )
+    action = "hold"
 
 
 class ProposalRejectActionView(ProposalStatusActionView):
     """Reject a proposal (POST only)."""
 
-    success_message = gettext_lazy("Proposal rejected.")
-
-    def _apply_status(self, *, event_pk: int, session_pk: int) -> None:
-        self.request.services.proposal_status.mark_rejected(
-            event_pk=event_pk, session_pk=session_pk
-        )
-
-
-_BULK_STATUS_METHODS = {
-    "pending": "mark_pending",
-    "accept": "mark_accepted",
-    "hold": "mark_on_hold",
-    "reject": "mark_rejected",
-}
+    action = "reject"
 
 
 class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
@@ -442,8 +443,9 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
         back = safe_next_url(
             self.request, reverse("panel:proposals", kwargs={"slug": slug})
         )
-        method_name = _BULK_STATUS_METHODS.get(self.request.POST.get("action", ""))
-        if method_name is None:
+        transitions = _status_transitions(self.request.services.proposal_status)
+        apply_status = transitions.get(self.request.POST.get("action", ""))
+        if apply_status is None:
             messages.error(self.request, _("Unknown bulk action."))
             return redirect(back)
 
@@ -451,7 +453,6 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             messages.warning(self.request, _("No proposals selected."))
             return redirect(back)
 
-        apply_status = getattr(self.request.services.proposal_status, method_name)
         applied = scheduled = missing = 0
         for session_pk in session_pks:
             try:
