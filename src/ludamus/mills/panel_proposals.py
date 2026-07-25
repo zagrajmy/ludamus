@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         ProposalCategoryRepositoryProtocol,
         SessionData,
+        SessionDTO,
         SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionListItemDTO,
@@ -146,6 +147,11 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         if not session_ids or not field_ids:
             return {}
         return self._sessions.list_field_values_for_sessions(session_ids, field_ids)
+
+    def read_proposal(self, *, event_id: int, proposal_id: int) -> SessionDTO:
+        # Every panel page that names a proposal in its URL goes through here,
+        # so a foreign id is NotFound before anything reads or writes it.
+        return self._sessions.read_by_event(proposal_id, event_id)
 
     def columns_context(self, event_id: int) -> PanelColumnsContextDTO:
         settings = self._panel_settings.read_or_create(event_id)

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
         SessionData,
+        SessionDTO,
         SessionFieldDTO,
         SessionListItemDTO,
         SessionRepositoryProtocol,
@@ -150,6 +151,7 @@ class ProposalPanelServiceProtocol(Protocol):
         self, *, event_id: int, query: ProposalListQuery
     ) -> ProposalListContextDTO: ...
     def list_deleted(self, event_id: int) -> list[SessionListItemDTO]: ...
+    def read_proposal(self, *, event_id: int, proposal_id: int) -> SessionDTO: ...
     def column_values(
         self, *, session_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...

@@ -245,6 +245,19 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         return SessionDTO.model_validate(session)
 
     @staticmethod
+    def read_by_event(pk: int, event_id: int) -> SessionDTO:
+        # Scoped read: a session belonging to another event — or to no event,
+        # because its category was cleared — is NotFound, not somebody else's
+        # proposal to read or edit.
+        try:
+            session = Session.objects.select_related("category").get(
+                id=pk, category__event_id=event_id
+            )
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return SessionDTO.model_validate(session)
+
+    @staticmethod
     def read_presenter(session_id: int) -> UserDTO | None:
         try:
             session = Session.objects.select_related("presenter").get(id=session_id)

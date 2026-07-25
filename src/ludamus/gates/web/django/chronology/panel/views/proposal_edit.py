@@ -399,13 +399,10 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            session = self.request.di.uow.sessions.read(proposal_id)
+            session = self.request.services.proposal_panel.read_proposal(
+                event_id=current_event.pk, proposal_id=proposal_id
+            )
         except NotFoundError:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        session_event = self.request.di.uow.sessions.read_event(proposal_id)
-        if session_event.pk != current_event.pk:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
@@ -495,13 +492,10 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            session = self.request.di.uow.sessions.read(proposal_id)
+            session = self.request.services.proposal_panel.read_proposal(
+                event_id=current_event.pk, proposal_id=proposal_id
+            )
         except NotFoundError:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        session_event = self.request.di.uow.sessions.read_event(proposal_id)
-        if session_event.pk != current_event.pk:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
@@ -768,13 +762,10 @@ class ProposalEditFieldsComponentView(ProposalEditPageView):
             return redirect("panel:index")
 
         try:
-            session = self.request.di.uow.sessions.read(proposal_id)
+            session = self.request.services.proposal_panel.read_proposal(
+                event_id=current_event.pk, proposal_id=proposal_id
+            )
         except NotFoundError:
-            messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
-
-        session_event = self.request.di.uow.sessions.read_event(proposal_id)
-        if session_event.pk != current_event.pk:
             messages.error(self.request, _("Proposal not found."))
             return redirect("panel:proposals", slug=slug)
 
