@@ -18,9 +18,11 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
+        ProposalCategoryRepositoryProtocol,
         SessionData,
         SessionDTO,
         SessionFieldDTO,
+        SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
     )
@@ -163,6 +165,16 @@ class ProposalPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self, *, session_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int: ...
+
+
+@dataclass
+class ProposalPanelRepos:
+    """The repos the panel's proposals list reads and writes through."""
+
+    sessions: SessionRepositoryProtocol
+    session_fields: SessionFieldRepositoryProtocol
+    proposal_categories: ProposalCategoryRepositoryProtocol
+    panel_settings: EventPanelSettingsRepositoryProtocol
 
 
 @dataclass

@@ -63,7 +63,7 @@ from ludamus.mills.submissions.personal_data_fields import (
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.panel import FacilitatorPanelRepos
+from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.submissions import ImportRepos
 
 if TYPE_CHECKING:
@@ -237,11 +237,13 @@ class Services:
     @cached_property
     def proposal_panel(self) -> ProposalPanelService:
         return ProposalPanelService(
-            transaction=self._transaction,
-            sessions=self._repos.sessions,
-            session_fields=self._repos.session_fields,
-            proposal_categories=self._repos.proposal_categories,
-            panel_settings=self._repos.event_panel_settings,
+            self._transaction,
+            ProposalPanelRepos(
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                proposal_categories=self._repos.proposal_categories,
+                panel_settings=self._repos.event_panel_settings,
+            ),
         )
 
     @cached_property

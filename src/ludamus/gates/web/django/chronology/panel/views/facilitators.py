@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -408,7 +408,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         return list(dict.fromkeys(slugs))
 
     @staticmethod
-    def _base_context(context: dict[str, object], slug: str) -> None:
+    def _base_context(context: dict[str, Any], slug: str) -> None:
         context["active_nav"] = "facilitators"
         context["active_tab"] = "merge"
         context["tab_urls"] = facilitator_tab_urls(slug)
@@ -416,7 +416,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
     def _render_search(
         self,
         *,
-        context: dict[str, object],
+        context: dict[str, Any],
         slug: str,
         event_id: int,
         basket_slugs: list[str],
@@ -441,7 +441,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
     def _render_confirm(
         self,
         *,
-        context: dict[str, object],
+        context: dict[str, Any],
         slug: str,
         event_id: int,
         basket_slugs: list[str],

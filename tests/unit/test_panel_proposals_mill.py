@@ -6,7 +6,7 @@ import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.pacts import SessionStatus
-from ludamus.pacts.panel import ProposalDraft, ProposalListQuery
+from ludamus.pacts.panel import ProposalDraft, ProposalListQuery, ProposalPanelRepos
 
 _NEW_PROPOSAL_ID = 42
 
@@ -46,11 +46,13 @@ class TestProposalPanelService:
     @pytest.fixture
     def service(self, sessions, session_fields, proposal_categories, panel_settings):
         return ProposalPanelService(
-            transaction=_FakeTransaction(),
-            sessions=sessions,
-            session_fields=session_fields,
-            proposal_categories=proposal_categories,
-            panel_settings=panel_settings,
+            _FakeTransaction(),
+            ProposalPanelRepos(
+                sessions=sessions,
+                session_fields=session_fields,
+                proposal_categories=proposal_categories,
+                panel_settings=panel_settings,
+            ),
         )
 
     def test_foreign_category_is_dropped(self, service, sessions):

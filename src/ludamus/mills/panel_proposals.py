@@ -15,6 +15,7 @@ from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
     ProposalListContextDTO,
+    ProposalPanelRepos,
     ProposalPanelServiceProtocol,
 )
 
@@ -22,16 +23,12 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.pacts import (
-        ProposalCategoryRepositoryProtocol,
         SessionData,
         SessionDTO,
         SessionFieldDTO,
-        SessionFieldRepositoryProtocol,
         SessionListItemDTO,
-        SessionRepositoryProtocol,
     )
     from ludamus.pacts.panel import (
-        EventPanelSettingsRepositoryProtocol,
         PanelColumnsContextDTO,
         ProposalDraft,
         ProposalListQuery,
@@ -57,24 +54,15 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     """
 
     def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        sessions: SessionRepositoryProtocol,
-        session_fields: SessionFieldRepositoryProtocol,
-        proposal_categories: ProposalCategoryRepositoryProtocol,
-        panel_settings: EventPanelSettingsRepositoryProtocol,
+        self, transaction: TransactionProtocol, repos: ProposalPanelRepos
     ) -> None:
         self._transaction = transaction
-        self._sessions = sessions
-        self._session_fields = session_fields
-        self._proposal_categories = proposal_categories
-        self._panel_settings = panel_settings
+        self._repos = repos
 
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
     ) -> ProposalListContextDTO:
-        session_fields = self._session_fields.list_by_event(event_id)
+        session_fields = self._repos.session_fields.list_by_event(event_id)
         filterable_fields = [f for f in session_fields if f.field_type == "select"]
         valid_pks = {f.pk for f in filterable_fields}
         field_filters = {
@@ -83,7 +71,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             if pk in valid_pks and (value := raw.strip())
         }
 
-        categories = self._proposal_categories.list_by_event(event_id)
+        categories = self._repos.proposal_categories.list_by_event(event_id)
         category_pk = int(query.category) if query.category.isdigit() else None
         if category_pk not in {c.pk for c in categories}:
             category_pk = None
@@ -108,7 +96,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             status_filter, scheduled_filter = None, None
 
         sort = _resolve_sort(query.sort, session_fields)
-        proposals = self._sessions.list_sessions_by_event(
+        proposals = self._repos.sessions.list_sessions_by_event(
             event_id,
             {
                 "field_filters": field_filters or None,
@@ -122,7 +110,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             },
         )
 
-        settings = self._panel_settings.read_or_create(event_id)
+        settings = self._repos.panel_settings.read_or_create(event_id)
         return ProposalListContextDTO(
             proposals=proposals,
             filterable_fields=filterable_fields,
@@ -138,26 +126,28 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         )
 
     def list_deleted(self, event_id: int) -> list[SessionListItemDTO]:
-        return self._sessions.list_deleted_by_event(event_id)
+        return self._repos.sessions.list_deleted_by_event(event_id)
 
     def column_values(
         self, *, session_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]:
         if not session_ids or not field_ids:
             return {}
-        return self._sessions.list_field_values_for_sessions(session_ids, field_ids)
+        return self._repos.sessions.list_field_values_for_sessions(
+            session_ids, field_ids
+        )
 
     def read_proposal(self, *, event_id: int, proposal_id: int) -> SessionDTO:
         # Every panel page that names a proposal in its URL goes through here,
         # so a foreign id is NotFound before anything reads or writes it.
-        return self._sessions.read_by_event(proposal_id, event_id)
+        return self._repos.sessions.read_by_event(proposal_id, event_id)
 
     def columns_context(self, event_id: int) -> PanelColumnsContextDTO:
-        settings = self._panel_settings.read_or_create(event_id)
+        settings = self._repos.panel_settings.read_or_create(event_id)
         return columns_context(
             keys=settings.proposal_columns,
             builtin_keys=PROPOSAL_BUILTIN_KEYS,
-            fields=self._session_fields.list_by_event(event_id),
+            fields=self._repos.session_fields.list_by_event(event_id),
         )
 
     def set_columns(self, *, event_id: int, columns: list[str]) -> None:
@@ -167,11 +157,11 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             keys := sanitize_column_keys(
                 keys=columns,
                 builtin_keys=PROPOSAL_BUILTIN_KEYS,
-                fields=self._session_fields.list_by_event(event_id),
+                fields=self._repos.session_fields.list_by_event(event_id),
             )
         ):
             raise EmptyColumnSelectionError
-        self._panel_settings.update_proposal_columns(event_id, keys)
+        self._repos.panel_settings.update_proposal_columns(event_id, keys)
 
     def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int:
         # One savepoint around every write: a constraint/data error rolls the
@@ -181,14 +171,14 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             slug = unique_slug(
                 base=draft.base_slug,
                 default="session",
-                exists=lambda s: self._sessions.slug_exists(event_id, s),
+                exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
             )
             payload: SessionData = {**draft.data, "slug": slug}
-            session_id = self._sessions.create(
+            session_id = self._repos.sessions.create(
                 payload, facilitator_ids=draft.facilitator_ids
             )
             if draft.field_values:
-                self._sessions.save_field_values(
+                self._repos.sessions.save_field_values(
                     session_id,
                     [
                         SessionFieldValueData(
@@ -198,5 +188,5 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                     ],
                 )
             if draft.time_slot_ids:
-                self._sessions.set_time_slots(session_id, draft.time_slot_ids)
+                self._repos.sessions.set_time_slots(session_id, draft.time_slot_ids)
             return session_id

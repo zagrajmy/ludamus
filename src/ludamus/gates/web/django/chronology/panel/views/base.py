@@ -18,7 +18,7 @@ from ludamus.mills import PanelService, is_proposal_active
 from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
@@ -51,12 +51,18 @@ def safe_next_url(request: HttpRequest, fallback: str) -> str:
     return fallback
 
 
-def format_field_value(*, value: str | list[str] | bool | None) -> str:
+def format_field_value(
+    *, value: str | list[str] | bool | None, labels: Mapping[str, str] | None = None
+) -> str:
+    # A stored answer holds option *values*; pass `labels` where the reader
+    # should see the option labels instead, and a checkbox as a word rather
+    # than "True".
     if isinstance(value, bool):
         return _("Yes") if value else _("No")
+    by_value = labels or {}
     if isinstance(value, list):
-        return ", ".join(value)
-    return value or ""
+        return ", ".join(by_value.get(item) or item for item in value)
+    return by_value.get(value or "") or value or ""
 
 
 class PanelRequest(HttpRequest):

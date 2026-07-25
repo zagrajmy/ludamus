@@ -19,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    format_field_value,
 )
 from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
 from ludamus.pacts import (
@@ -49,7 +50,6 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionFieldDTO,
         SessionFieldRequirementDTO,
-        SessionFieldValueDTO,
         TimeSlotDTO,
         TrackDTO,
     )
@@ -85,18 +85,8 @@ class OrphanFieldValue:
     display_value: str
 
 
-def _display_field_value(
-    field: SessionFieldDTO | None, stored: SessionFieldValueDTO
-) -> str:
-    # Stored answers hold option *values*; show the option labels an organizer
-    # would recognise, and a checkbox as a word rather than "True".
-    raw = stored.value
-    if isinstance(raw, bool):
-        return _("Yes") if raw else _("No")
-    labels = {option.value: option.label for option in field.options} if field else {}
-    if isinstance(raw, list):
-        return ", ".join(labels.get(v) or v for v in raw)
-    return labels.get(raw) or raw
+def _option_labels(field: SessionFieldDTO | None) -> dict[str, str]:
+    return {option.value: option.label for option in field.options} if field else {}
 
 
 def session_field_requirements(
@@ -226,7 +216,10 @@ def orphan_values(
         OrphanFieldValue(
             field_id=value.field_id,
             name=value.field_question or value.field_name,
-            display_value=_display_field_value(fields_by_pk.get(value.field_id), value),
+            display_value=format_field_value(
+                value=value.value,
+                labels=_option_labels(fields_by_pk.get(value.field_id)),
+            ),
         )
         for value in request.di.uow.sessions.read_field_values(session.pk)
         if value.field_id not in asked_pks
