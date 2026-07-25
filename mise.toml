@@ -341,7 +341,13 @@ run = [
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
-run = ["poetry install", { task = "devcheck" }, { task = "diff-cover" }, { task = "lint:tingle" }]
+run = [
+    "poetry install",
+    { task = "devcheck" },
+    { task = "diff-cover" },
+    { task = "lint:tingle" },
+]
+
 
 ## Other
 
