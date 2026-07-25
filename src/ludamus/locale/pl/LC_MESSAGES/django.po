@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 15:09+0200\n"
+"POT-Creation-Date: 2026-07-25 09:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1302,7 +1302,6 @@ msgid "Import settings saved."
 msgstr "Zapisano ustawienia importu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
-#: src/ludamus/templates/panel/import-run.html
 msgid "No columns selected."
 msgstr "Nie wybrano żadnych kolumn."
 
@@ -5575,6 +5574,21 @@ msgstr "Pola punktu programu"
 msgid "Time Slots"
 msgstr "Przedziały czasowe"
 
+#: src/ludamus/templates/panel/_column_key_picker.html
+#, python-format
+msgid "Remove %(col)s"
+msgstr "Usuń %(col)s"
+
+#: src/ludamus/templates/panel/_column_key_picker.html
+msgid "Add column…"
+msgstr "Dodaj kolumnę…"
+
+#: src/ludamus/templates/panel/_column_key_picker.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Add"
+msgstr "Dodaj"
+
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-create.html
@@ -5966,12 +5980,6 @@ msgstr "h"
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "min"
 msgstr "min"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Add"
-msgstr "Dodaj"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "No durations configured yet."
@@ -6614,21 +6622,34 @@ msgstr ""
 "arkusza."
 
 #: src/ludamus/templates/panel/import-run.html
-#, python-format
-msgid "Remove %(col)s"
-msgstr "Usuń %(col)s"
-
-#: src/ludamus/templates/panel/import-run.html
-msgid "Add column…"
-msgstr "Dodaj kolumnę…"
-
-#: src/ludamus/templates/panel/import-run.html
 msgid ""
 "Map the form's questions first — the saved columns will appear here as "
 "unique-key candidates."
 msgstr ""
 "Najpierw przypisz pytania formularza — zapisane kolumny pojawią się tu jako "
 "kandydaci na klucze unikalności."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Facilitator identity columns"
+msgstr "Kolumny tożsamości twórcy programu"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Columns whose values identify a facilitator across rows (e.g. an email). "
+"Import dedupes on them, so a renamed facilitator stays one record. Leave "
+"empty to match by display name."
+msgstr ""
+"Kolumny, których wartości identyfikują twórcę programu w wielu wierszach (np. "
+"adres e-mail). Import deduplikuje na ich podstawie, więc zmiana nazwy nie "
+"tworzy nowego rekordu. Pozostaw puste, aby dopasowywać po nazwie wyświetlanej."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Map the form's questions first — the saved columns will appear here as "
+"facilitator-key candidates."
+msgstr ""
+"Najpierw przypisz pytania formularza — zapisane kolumny pojawią się tu jako "
+"kandydaci na kolumny tożsamości twórcy programu."
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Form fields"

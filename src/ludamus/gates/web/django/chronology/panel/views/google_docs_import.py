@@ -838,13 +838,14 @@ class EventImportRunPageView(_ImportTabView):
             )
             context["header_row"] = settings.header_row
             context["unique_key_columns"] = settings.unique_key_columns
+            context["facilitator_key_columns"] = settings.facilitator_key_columns
             context["available_columns"] = available
             context["fields_imported"] = bool(cached)
             context["fields_count"] = len(cached)
             mappings = [t for t in settings.questions.values() if t.to or t.ignore]
             context["mapping_total"] = len(mappings)
             context["mapping_confirmed"] = sum(1 for t in mappings if t.confirmed)
-            context["no_unique_keys_label"] = _("No columns selected.")
+            context["no_columns_label"] = _("No columns selected.")
         return TemplateResponse(self.request, "panel/import-run.html", context)
 
 
@@ -946,6 +947,11 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
         settings.unique_key_columns = [
             stripped
             for col in self.request.POST.getlist("unique_key_columns")
+            if (stripped := col.strip())
+        ]
+        settings.facilitator_key_columns = [
+            stripped
+            for col in self.request.POST.getlist("facilitator_key_columns")
             if (stripped := col.strip())
         ]
         self.request.services.event_integrations.save_settings(

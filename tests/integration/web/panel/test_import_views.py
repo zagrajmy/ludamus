@@ -2182,12 +2182,13 @@ class TestEventImportRunPageView:
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
                 "unique_key_columns": [],
+                "facilitator_key_columns": [],
                 "available_columns": [],
                 "fields_imported": False,
                 "fields_count": 0,
                 "mapping_total": 0,
                 "mapping_confirmed": 0,
-                "no_unique_keys_label": "No columns selected.",
+                "no_columns_label": "No columns selected.",
             },
         )
 
@@ -2243,12 +2244,13 @@ class TestEventImportRunPageView:
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": header_row,
                 "unique_key_columns": ["Email Address"],
+                "facilitator_key_columns": [],
                 "available_columns": ["Title", "System"],
                 "fields_imported": True,
                 "fields_count": len(["Title", "System"]),
                 "mapping_total": len(["Title", "System"]),
                 "mapping_confirmed": 1,
-                "no_unique_keys_label": "No columns selected.",
+                "no_columns_label": "No columns selected.",
             },
         )
 
@@ -2298,12 +2300,13 @@ class TestEventImportRunPageView:
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
                 "unique_key_columns": ["Sygnatura czasowa"],
+                "facilitator_key_columns": [],
                 "available_columns": headers,
                 "fields_imported": True,
                 "fields_count": 1,
                 "mapping_total": 1,
                 "mapping_confirmed": 1,
-                "no_unique_keys_label": "No columns selected.",
+                "no_columns_label": "No columns selected.",
             },
         )
 
@@ -2342,6 +2345,7 @@ class TestEventImportSettingsSaveView:
             data={
                 "header_row": str(header_row),
                 "unique_key_columns": ["Title", " Email "],
+                "facilitator_key_columns": [" Email ", "Name"],
             },
         )
 
@@ -2355,6 +2359,7 @@ class TestEventImportSettingsSaveView:
         settings = ImportSettings.model_validate_json(integration.settings_json)
         assert settings.header_row == header_row
         assert settings.unique_key_columns == ["Title", "Email"]
+        assert settings.facilitator_key_columns == ["Email", "Name"]
 
     def test_post_rejects_non_positive_header_row(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

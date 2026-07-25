@@ -199,26 +199,27 @@ function initRecipe(): void {
   }
 }
 
-// Unique-key columns chip editor (Run tab): selected columns as removable
-// chips with hidden inputs, plus a dropdown of the remaining candidates.
-// Click "Add" to move the dropdown's selected value into the chip list;
-// click a chip's × to drop it back into the dropdown. Submission is plain
-// form POST — the hidden inputs name="unique_key_columns" carry the
-// selection.
-function initUniqueKeys(root: HTMLElement): void {
-  const list = root.querySelector<HTMLElement>("[data-unique-keys-list]");
-  const select = root.querySelector<HTMLSelectElement>("[data-unique-keys-select]");
-  const addBtn = root.querySelector<HTMLButtonElement>("[data-unique-keys-add]");
-  if (!list || !select || !addBtn) return;
+// Column-key chip editor (Run tab): selected columns as removable chips with
+// hidden inputs, plus a dropdown of the remaining candidates. Click "Add" to
+// move the dropdown's selected value into the chip list; click a chip's × to
+// drop it back into the dropdown. Submission is plain form POST — the hidden
+// inputs carry the selection under the field name in data-name, so one editor
+// drives both the unique-key and facilitator-key pickers.
+function initColumnKeys(root: HTMLElement): void {
+  const list = root.querySelector<HTMLElement>("[data-column-keys-list]");
+  const select = root.querySelector<HTMLSelectElement>("[data-column-keys-select]");
+  const addBtn = root.querySelector<HTMLButtonElement>("[data-column-keys-add]");
+  const { name } = root.dataset;
+  if (!list || !select || !addBtn || !name) return;
 
   const removeEmpty = (): void => {
-    list.querySelector("[data-unique-keys-empty]")?.remove();
+    list.querySelector("[data-column-keys-empty]")?.remove();
   };
 
   const restoreEmptyIfNeeded = (): void => {
-    if (list.querySelector("li:not([data-unique-keys-empty])")) return;
+    if (list.querySelector("li:not([data-column-keys-empty])")) return;
     const empty = document.createElement("li");
-    empty.dataset.uniqueKeysEmpty = "";
+    empty.dataset.columnKeysEmpty = "";
     empty.className = "text-xs text-foreground-muted";
     empty.textContent = root.dataset.emptyLabel ?? "";
     list.append(empty);
@@ -244,7 +245,7 @@ function initUniqueKeys(root: HTMLElement): void {
 
     const hidden = document.createElement("input");
     hidden.type = "hidden";
-    hidden.name = "unique_key_columns";
+    hidden.name = name;
     hidden.value = value;
     li.append(hidden);
 
@@ -256,7 +257,7 @@ function initUniqueKeys(root: HTMLElement): void {
 
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.dataset.uniqueKeysRemove = "";
+    btn.dataset.columnKeysRemove = "";
     btn.className =
       "ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground";
     btn.setAttribute("aria-label", `Remove ${value}`);
@@ -267,10 +268,10 @@ function initUniqueKeys(root: HTMLElement): void {
     return li;
   };
 
-  for (const btn of list.querySelectorAll<HTMLButtonElement>("[data-unique-keys-remove]")) {
+  for (const btn of list.querySelectorAll<HTMLButtonElement>("[data-column-keys-remove]")) {
     btn.addEventListener("click", () => {
       const li = btn.closest<HTMLLIElement>("li");
-      const value = li?.querySelector<HTMLInputElement>("input[name='unique_key_columns']")?.value;
+      const value = li?.querySelector<HTMLInputElement>(`input[name='${name}']`)?.value;
       if (li && value) removeChip(li, value);
     });
   }
@@ -285,20 +286,20 @@ function initUniqueKeys(root: HTMLElement): void {
   });
 }
 
-function initUniqueKeysAll(): void {
-  for (const element of document.querySelectorAll<HTMLElement>("[data-unique-keys]")) {
-    initUniqueKeys(element);
+function initColumnKeysAll(): void {
+  for (const element of document.querySelectorAll<HTMLElement>("[data-column-keys]")) {
+    initColumnKeys(element);
   }
 }
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     initRecipe();
-    initUniqueKeysAll();
+    initColumnKeysAll();
   });
 } else {
   initRecipe();
-  initUniqueKeysAll();
+  initColumnKeysAll();
 }
 
 // The review region is HTMX-swapped when walking Prev/Next/dropdown through
