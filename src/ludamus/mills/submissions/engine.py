@@ -476,8 +476,7 @@ class ImportEngine:
             return
         _, sample = indexed_rows[0]
         configured = settings.unique_key_columns + settings.facilitator_key_columns
-        missing = [col for col in configured if not sample.has_column(col)]
-        if missing:
+        if missing := [col for col in configured if not sample.has_column(col)]:
             raise MissingKeyColumnsError(missing)
 
     def _resolve_ident(
