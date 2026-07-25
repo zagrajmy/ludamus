@@ -23,6 +23,9 @@ def mount_retries[SessionT: Session](session: SessionT) -> SessionT:
     # failure path. read=0 keeps read timeouts out of the policy: a hung
     # upstream must fail after one timeout, not stack three of them inside an
     # inline request — only fast failures (refused connections, 5xx) retry.
+    # respect_retry_after_header=False for the same reason: a server-sent
+    # Retry-After would sleep the worker for the full uncapped duration;
+    # worst-case added latency stays the bounded backoff (0.5s + 1s).
     retry = Retry(
         total=_RETRIES,
         read=0,
@@ -30,6 +33,7 @@ def mount_retries[SessionT: Session](session: SessionT) -> SessionT:
         status_forcelist=_RETRYABLE_STATUSES,
         allowed_methods=frozenset({"GET"}),
         raise_on_status=False,
+        respect_retry_after_header=False,
     )
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
