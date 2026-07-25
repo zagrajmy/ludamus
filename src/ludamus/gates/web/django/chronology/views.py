@@ -46,6 +46,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import SpaceTimeConflictError
+from ludamus.pacts.ids import SessionId, SphereId, UserId
 
 from .forms import (
     SessionCoverImageForm,
@@ -995,9 +996,9 @@ class SessionBookmarkToggleView(View):
             # useless, so surface the auth failure as JSON for the client.
             return JsonResponse({"error": "auth"}, status=401)
         result = request.services.bookmarks.toggle(
-            user_id=user_id,
-            session_id=session_id,
-            sphere_id=request.context.current_sphere_id,
+            user_id=UserId(user_id),
+            session_id=SessionId(session_id),
+            sphere_id=SphereId(request.context.current_sphere_id),
         )
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)

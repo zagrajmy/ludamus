@@ -85,6 +85,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.ids import EventId, SessionId, UserId
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,
@@ -566,10 +567,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
     def _set_bookmark_counts(self, sessions_data: dict[int, SessionData]) -> None:
         counts = self.request.services.bookmarks.bookmark_counts(
-            event_id=self.object.pk
+            event_id=EventId(self.object.pk)
         )
         for sid, data in sessions_data.items():
-            data.bookmark_count = counts.get(sid, 0)
+            data.bookmark_count = counts.get(SessionId(sid), 0)
 
     def _set_user_bookmarks(
         self, sessions_data: dict[int, SessionData], current_user_id: int
@@ -577,7 +578,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Bookmarks are only surfaced on the compact schedule (the lightweight
         # "I want to attend" gesture for big events). One query for the whole set.
         bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
-            user_id=current_user_id, event_id=self.object.pk
+            user_id=UserId(current_user_id), event_id=EventId(self.object.pk)
         )
         for sid, data in sessions_data.items():
             data.user_bookmarked = sid in bookmarked_ids
