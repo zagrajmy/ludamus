@@ -561,7 +561,7 @@ class FacilitatorMergeService:
             msg = "Target cannot be among source facilitators"
             raise FacilitatorMergeError(msg)
 
-        merged = [self._uow.facilitators.read(fid) for fid in [target_id, *source_ids]]
+        merged = [self._uow.facilitators.read(fid) for fid in (target_id, *source_ids)]
         if sum(1 for f in merged if f.user_id is not None) > 1:
             msg = "Cannot merge facilitators that each have a linked user account."
             raise FacilitatorMergeError(msg)
