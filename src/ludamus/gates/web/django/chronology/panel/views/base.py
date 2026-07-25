@@ -94,6 +94,20 @@ class EventContextMixin:
 
     request: PanelRequest
 
+    def get_event(self, slug: str) -> EventDTO | None:
+        """Resolve the panel's event without building any page chrome.
+
+        Returns:
+            The event this sphere owns under that slug, or None.
+        """
+        try:
+            return self.request.di.uow.events.read_by_slug(
+                slug, self.request.context.current_sphere_id
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Event not found."))
+            return None
+
     def get_event_context(self, slug: str) -> tuple[dict[str, Any], EventDTO | None]:
         """Build common context for event pages.
 
@@ -103,10 +117,7 @@ class EventContextMixin:
         sphere_id = self.request.context.current_sphere_id
         events = self.request.di.uow.events.list_by_sphere(sphere_id)
 
-        try:
-            current_event = self.request.di.uow.events.read_by_slug(slug, sphere_id)
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
+        if (current_event := self.get_event(slug)) is None:
             return {}, None
 
         panel_service = PanelService(self.request.di.uow)

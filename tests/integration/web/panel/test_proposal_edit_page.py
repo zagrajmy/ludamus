@@ -2034,19 +2034,9 @@ class TestProposalEditFieldsComponentView:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             # field_descriptors carry BoundFields, which don't compare usefully.
-            # No active_nav: the component renders without the page chrome.
+            # No events, stats or active_nav: a category swap re-renders one
+            # fieldset and builds none of the page chrome.
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
                 "field_descriptors": ANY,
                 "form": ANY,
                 "orphan_values": [],
