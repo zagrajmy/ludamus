@@ -56,7 +56,9 @@ def test_fetch_membership_count_does_not_log_email_on_request_exception(caplog):
     assert email not in caplog.text
 
 
-@responses.activate(registry=registries.OrderedRegistry)
+@responses.activate(
+    registry=registries.OrderedRegistry, assert_all_requests_are_fired=True
+)
 def test_fetch_membership_count_retries_transient_errors(settings):
     expected_membership_count = 2
     responses.get(settings.MEMBERSHIP_API_BASE_URL, status=503)
@@ -71,7 +73,9 @@ def test_fetch_membership_count_retries_transient_errors(settings):
     assert membership_count == expected_membership_count
 
 
-@responses.activate(registry=registries.OrderedRegistry)
+@responses.activate(
+    registry=registries.OrderedRegistry, assert_all_requests_are_fired=True
+)
 def test_fetch_membership_count_fails_when_retries_are_spent(settings):
     for _ in range(3):
         responses.get(settings.MEMBERSHIP_API_BASE_URL, status=503)

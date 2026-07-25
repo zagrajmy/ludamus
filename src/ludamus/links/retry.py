@@ -20,9 +20,12 @@ _RETRYABLE_STATUSES = frozenset({502, 503, 504})
 def mount_retries[SessionT: Session](session: SessionT) -> SessionT:
     # raise_on_status=False returns the last response once retries are spent,
     # so each caller's own ok/raise_for_status handling stays the single
-    # failure path.
+    # failure path. read=0 keeps read timeouts out of the policy: a hung
+    # upstream must fail after one timeout, not stack three of them inside an
+    # inline request — only fast failures (refused connections, 5xx) retry.
     retry = Retry(
         total=_RETRIES,
+        read=0,
         backoff_factor=_BACKOFF_SECONDS,
         status_forcelist=_RETRYABLE_STATUSES,
         allowed_methods=frozenset({"GET"}),
