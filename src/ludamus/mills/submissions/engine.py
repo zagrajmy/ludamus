@@ -538,8 +538,15 @@ class ImportEngine:
     ) -> str:
         if not settings.facilitator_key_columns:
             return ""
+        # Read through `cell()`, not the row directly: a deduped column pair
+        # ("Email" / "Email (2)") with conflicting values raises
+        # DuplicateValueError, which nothing up the stack catches — the run
+        # would 500 instead of skipping the row. `cell()` also applies the
+        # operator's `overrides`, so the identity hashes the same cleaned text
+        # every other consumer of that column sees.
         identity = "-".join(
-            row.get_value(col, "") for col in settings.facilitator_key_columns
+            cell(target=settings.questions.get(col), row=row, header=col)
+            for col in settings.facilitator_key_columns
         )
         # Every key column blank means the row carries no identity, so a hash
         # would collapse all such rows onto one facilitator — fall back to slug.

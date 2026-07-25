@@ -1322,6 +1322,68 @@ class TestProposalImportService(_ImportServiceMocks):
         assert created["ident"] == dedup_ident(event_id=2, identity="bob@x.z")
         assert created["slug"] == "gm-bob"
 
+    def test_run_skips_row_when_a_facilitator_key_column_is_ambiguous(
+        self, service, event_integrations, log_entries
+    ):
+        # The key column resolves to a deduped pair carrying different values.
+        # Reading the row raw would raise out of the whole run; the identity
+        # goes through the same single read point as every other cell, so the
+        # row is skipped and the rest of the sheet still imports.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = [
+            ImportRow(
+                {
+                    "Title": "My Talk",
+                    "Nick": "GM Bob",
+                    "Email": "bob@x.z",
+                    "Email (2)": "robert@x.z",
+                }
+            )
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.skipped == 1
+        log_entries.upsert.assert_called_once()
+        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert upserted.status == ImportLogStatus.SKIPPED
+        assert "bob@x.z" in upserted.reason
+        assert "robert@x.z" in upserted.reason
+
+    def test_run_applies_overrides_to_the_facilitator_identity(
+        self, service, event_integrations, facilitators
+    ):
+        # The operator maps a typoed key cell onto its canonical form; the
+        # identity hashes the cleaned value, so the row lands on the same
+        # facilitator as a row that spelled it correctly.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"},'
+                ' "Email": {"overrides": {"bob@x.zz": "bob@x.z"}}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.zz"}]
+        )
+        facilitators.find_id_by_ident.return_value = 55
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.find_id_by_ident.assert_called_once_with(
+            2, dedup_ident(event_id=2, identity="bob@x.z")
+        )
+
     def test_run_maps_session_contact_email(
         self, service, event_integrations, sessions
     ):
