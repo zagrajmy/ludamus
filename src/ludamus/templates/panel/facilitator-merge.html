@@ -37,9 +37,6 @@
                                name="accreditation_type"
                                value="{{ unanimous_accreditation }}">
                     {% endif %}
-                    {% for field_pk, holder_pk in unanimous_field_values %}
-                        <input type="hidden" name="personal_{{ field_pk }}" value="{{ holder_pk }}">
-                    {% endfor %}
                     {% if error %}
                         <div class="card p-4 text-sm text-danger" role="alert">{{ error }}</div>
                     {% endif %}

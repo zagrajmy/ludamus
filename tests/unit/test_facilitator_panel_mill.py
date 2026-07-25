@@ -8,6 +8,7 @@ from ludamus.mills.panel_facilitators import (
     FacilitatorPanelService,
     accreditation_reconcile,
     field_reconcile,
+    kept_field_values,
     name_reconcile,
 )
 from ludamus.pacts import FacilitatorDTO, PersonalDataFieldDTO
@@ -534,3 +535,42 @@ class TestFieldReconcile:
             )
         ]
         assert not unanimous
+
+
+class TestKeptFieldValues:
+    FIELD = _field(1, field_type="text")
+
+    def _kept(self, values, choices=None):
+        return kept_field_values(
+            fields=[self.FIELD],
+            values_by_holder=values,
+            target_pk=1,
+            choices=choices or {},
+        )
+
+    def test_agreed_answer_is_kept_without_any_choice(self):
+        values = {1: {}, 2: {self.FIELD.slug: "Vegan"}}
+
+        assert self._kept(values) == [(self.FIELD.pk, 2)]
+
+    def test_disputed_answer_follows_the_choice(self):
+        values = {1: {self.FIELD.slug: "Vegan"}, 2: {self.FIELD.slug: "Vegetarian"}}
+
+        assert self._kept(values, {self.FIELD.pk: 2}) == [(self.FIELD.pk, 2)]
+
+    def test_disputed_answer_without_a_usable_choice_keeps_the_target(self):
+        values = {1: {self.FIELD.slug: "Vegan"}, 2: {self.FIELD.slug: "Vegetarian"}}
+
+        assert self._kept(values, {self.FIELD.pk: 99}) == [(self.FIELD.pk, 1)]
+
+    def test_disputed_answer_the_target_lacks_is_dropped_without_a_choice(self):
+        values = {
+            1: {},
+            2: {self.FIELD.slug: "Vegan"},
+            3: {self.FIELD.slug: "Vegetarian"},
+        }
+
+        assert not self._kept(values)
+
+    def test_field_nobody_answered_is_omitted(self):
+        assert not self._kept({1: {}, 2: {}})

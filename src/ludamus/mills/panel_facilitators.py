@@ -27,7 +27,7 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from ludamus.pacts import (
         ContentFieldChange,
@@ -145,6 +145,46 @@ def field_reconcile(
             )
         )
     return conflicts, unanimous
+
+
+def kept_field_values(
+    *,
+    fields: Sequence[PersonalDataFieldDTO],
+    values_by_holder: Mapping[int, Mapping[str, _FieldValue]],
+    target_pk: int,
+    choices: Mapping[int, int],
+) -> list[tuple[int, int]]:
+    """Whose answer the merged facilitator keeps, per field.
+
+    Returns:
+        (field pk, holder pk) pairs. A field every answer agrees on needs no
+        choice: the merge keeps it whether or not the request mentioned it.
+        A disputed field follows the request, and falls back to the target's
+        own answer when the request names nobody who has one.
+    """
+    kept: list[tuple[int, int]] = []
+    for field in fields:
+        holders = [
+            pk for pk, values in values_by_holder.items() if values.get(field.slug)
+        ]
+        if not holders:
+            continue
+        distinct = _unique_values(values_by_holder[pk][field.slug] for pk in holders)
+        if len(distinct) == 1:
+            kept.append((field.pk, holders[0]))
+        elif (chosen := choices.get(field.pk)) in holders:
+            kept.append((field.pk, int(chosen)))
+        elif target_pk in holders:
+            kept.append((field.pk, target_pk))
+    return kept
+
+
+def _unique_values(values: Iterable[_FieldValue]) -> list[_FieldValue]:
+    unique: list[_FieldValue] = []
+    for value in values:
+        if value not in unique:
+            unique.append(value)
+    return unique
 
 
 MIN_MERGE_FACILITATORS = 2
@@ -396,19 +436,27 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             target = next(f for f in facilitators if f.slug == target_slug)
             sources = [f for f in facilitators if f.pk != target.pk]
             source_ids = [f.pk for f in sources]
-            entries = self._resolve_kept_values(
+            # One read of the fields and of everyone's answers, inside the
+            # transaction: what the merge keeps, what it writes and what it
+            # logs all come from this snapshot, so a value edited between the
+            # confirm screen and the submit can never land as somebody else's.
+            fields = self._repos.personal_data_fields.list_by_event(event_id)
+            values_by_holder = {
+                f.pk: self._repos.personal_data_field_values.read_for_facilitator_event(
+                    f.pk, event_id
+                )
+                for f in facilitators
+            }
+            entries = self._kept_entries(
                 event_id=event_id,
                 target_pk=target.pk,
-                facilitators=facilitators,
-                keep_values_from=data.keep_values_from,
+                fields=fields,
+                values_by_holder=values_by_holder,
+                choices=data.keep_values_from,
             )
-            # Read the target's answers before the writes land, so the log
+            # The target's answers as they were before the writes, so the log
             # diffs against what the merge actually replaced.
-            old_values = (
-                self._repos.personal_data_field_values.read_for_facilitator_event(
-                    target.pk, event_id
-                )
-            )
+            old_values = values_by_holder[target.pk]
 
             update: FacilitatorUpdateData = {
                 "display_name": data.display_name,
@@ -436,6 +484,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 ),
                 data=data,
                 user_id=user_id,
+                fields=fields,
             )
 
     def _log_merge(
@@ -445,6 +494,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         record: _MergeRecord,
         data: FacilitatorMergeData,
         user_id: int | None,
+        fields: Sequence[PersonalDataFieldDTO],
     ) -> None:
         # A merge deletes facilitators and rewrites the survivor's answers, so
         # it leaves the same trail an edit does — plus who it absorbed.
@@ -478,10 +528,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         changes.extend(
             diff_personal_data(
                 old_by_slug=record.old_values,
-                fields_by_id={
-                    f.pk: f
-                    for f in self._repos.personal_data_fields.list_by_event(event_id)
-                },
+                fields_by_id={f.pk: f for f in fields},
                 entries=record.entries,
             )
         )
@@ -493,44 +540,33 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             changes=changes,
         )
 
-    def _resolve_kept_values(
-        self,
+    @staticmethod
+    def _kept_entries(
         *,
         event_id: int,
         target_pk: int,
-        facilitators: list[FacilitatorDTO],
-        keep_values_from: dict[int, int],
+        fields: Sequence[PersonalDataFieldDTO],
+        values_by_holder: Mapping[int, Mapping[str, _FieldValue]],
+        choices: Mapping[int, int],
     ) -> list[PersonalDataFieldValueData]:
-        # Choices name whose answer to keep; the answer itself is read here,
-        # inside the merge transaction, so a value edited between the confirm
-        # screen and the submit can never be applied as somebody else's. Keys
-        # naming a foreign field or facilitator are dropped, not written.
-        if not keep_values_from:
-            return []
-        fields_by_pk = {
-            f.pk: f for f in self._repos.personal_data_fields.list_by_event(event_id)
-        }
-        values_by_holder = {
-            f.pk: self._repos.personal_data_field_values.read_for_facilitator_event(
-                f.pk, event_id
+        # The merge decides what every field keeps; the request only breaks
+        # ties. A choice naming a foreign field or a facilitator without an
+        # answer is dropped rather than written.
+        fields_by_pk = {field.pk: field for field in fields}
+        return [
+            PersonalDataFieldValueData(
+                facilitator_id=target_pk,
+                event_id=event_id,
+                field_id=field_pk,
+                value=values_by_holder[holder_pk][fields_by_pk[field_pk].slug],
             )
-            for f in facilitators
-        }
-        entries: list[PersonalDataFieldValueData] = []
-        for field_id, holder_pk in keep_values_from.items():
-            field = fields_by_pk.get(field_id)
-            if field is None or holder_pk not in values_by_holder:
-                continue
-            if (value := values_by_holder[holder_pk].get(field.slug)) is not None:
-                entries.append(
-                    PersonalDataFieldValueData(
-                        facilitator_id=target_pk,
-                        event_id=event_id,
-                        field_id=field_id,
-                        value=value,
-                    )
-                )
-        return entries
+            for field_pk, holder_pk in kept_field_values(
+                fields=fields,
+                values_by_holder=values_by_holder,
+                target_pk=target_pk,
+                choices=choices,
+            )
+        ]
 
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]

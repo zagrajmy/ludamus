@@ -119,7 +119,6 @@ def _confirm_context(
     error,
     unanimous_display_name=None,
     unanimous_accreditation=None,
-    unanimous_field_values=(),
 ):
     return {
         **_event_context(event),
@@ -132,7 +131,6 @@ def _confirm_context(
         ),
         "unanimous_accreditation": unanimous_accreditation,
         "field_choices": field_choices,
-        "unanimous_field_values": list(unanimous_field_values),
         "error": error,
     }
 
@@ -359,7 +357,7 @@ class TestFacilitatorMergeConfirm:
             ),
         )
 
-    def test_confirm_hides_unanimous_values_behind_hidden_inputs(
+    def test_confirm_asks_about_nothing_the_facilitators_agree_on(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -394,7 +392,6 @@ class TestFacilitatorMergeConfirm:
                 accreditation_choices=[],
                 unanimous_accreditation="none",
                 field_choices=[],
-                unanimous_field_values=[(field.pk, twin.pk)],
                 error=None,
             ),
             contains=[
@@ -402,9 +399,10 @@ class TestFacilitatorMergeConfirm:
                 'value="Adam Kowalski"',
                 'name="accreditation_type"',
                 'value="none"',
-                f'name="personal_{field.pk}" value="{twin.pk}"',
             ],
-            not_contains=["Reconcile values"],
+            # The agreed answer never round-trips through the browser: the
+            # merge reads it inside its own transaction.
+            not_contains=["Reconcile values", f'name="personal_{field.pk}"'],
         )
 
     def test_post_merge_keeps_unanimous_field_value_on_target(
@@ -434,7 +432,8 @@ class TestFacilitatorMergeConfirm:
                 "target_slug": "adam-kowalski",
                 "display_name": "Adam Kowalski",
                 "accreditation_type": "none",
-                f"personal_{field.pk}": str(jan.pk),
+                # No `personal_` input: a submission stripped of everything the
+                # confirm screen didn't ask about must still keep the answer.
             },
         )
 

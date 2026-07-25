@@ -460,7 +460,9 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         accreditation_values, unanimous_accreditation = accreditation_reconcile(
             merge_context.facilitators
         )
-        field_conflicts, unanimous_field_values = field_reconcile(merge_context)
+        # Only the disputed fields need a control: the merge keeps a unanimous
+        # answer itself, so nothing about it round-trips through the browser.
+        field_conflicts, _unanimous_field_values = field_reconcile(merge_context)
         context["confirm"] = True
         context["facilitators"] = merge_context.facilitators
         context["name_choices"] = name_choices
@@ -485,7 +487,6 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
             )
             for field, choices in field_conflicts
         ]
-        context["unanimous_field_values"] = unanimous_field_values
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-merge.html", context)
 
