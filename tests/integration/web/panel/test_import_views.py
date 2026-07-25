@@ -2762,6 +2762,7 @@ class TestEventImportLogReimport:
             _log_url(event, integration) + "?status=success"
         )
 
+        assert response.status_code == HTTPStatus.OK
         body = response.content.decode()
         # Reimport only fills gaps, so its form carries no are-you-sure step.
         action = _log_reimport_url(event, integration)

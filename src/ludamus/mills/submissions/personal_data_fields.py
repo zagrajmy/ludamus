@@ -124,9 +124,11 @@ def _means_unset(*, value: str | list[str] | bool | None) -> bool:
     # Wider than `is_empty_answer`: for the change log an unchecked checkbox
     # and a missing row are the same non-event, so `False` counts here too.
     # Storage keeps them apart — `False` is an answer worth a row.
+    if isinstance(value, str):
+        return not value.strip()
     if isinstance(value, list):
         return not value
-    return value in {None, "", False}
+    return value is None or value is False
 
 
 def _diff_personal_data(

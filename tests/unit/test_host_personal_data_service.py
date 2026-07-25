@@ -209,6 +209,25 @@ def test_blank_old_and_blank_new_logs_nothing():
     assert not logs.created
 
 
+def test_whitespace_only_new_answer_over_an_unset_field_logs_nothing():
+    # A whitespace-only value is discarded by storage, so the change log must
+    # treat it as unset too — otherwise it records a ghost edit for a row that
+    # was never written.
+    logs = FakeChangeLogs()
+    service = _service(
+        facilitators=FakeFacilitators(_facilitator()),
+        personal_data_field_values=FakePersonalDataFieldValue(existing={}),
+        fields=[_field()],
+        change_logs=logs,
+    )
+
+    service.update_personal_data(
+        event_id=10, facilitator_id=1, entries=[_entry(value="  ")]
+    )
+
+    assert not logs.created
+
+
 def test_blank_answer_for_an_unanswered_field_stores_nothing():
     repo = FakePersonalDataFieldValue()
     service = _service(

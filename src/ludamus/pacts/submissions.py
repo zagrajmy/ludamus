@@ -71,9 +71,11 @@ class ImportRow:
     def get_value(self, header: str, default: str = "") -> str:
         # Whitespace-only cells count as absent, so a deduped column pair
         # where one side is blank resolves to the filled one instead of
-        # reading as a conflict and skipping the whole row.
+        # reading as a conflict and skipping the whole row. Candidates are
+        # stripped too: `_answer()` trims the winner anyway, so "D&D" and
+        # " D&D " must collapse to one entry rather than read as a conflict.
         candidates = {
-            value
+            value.strip()
             for key, value in self._data.items()
             if value.strip() and _row_header_matches(key, header)
         }

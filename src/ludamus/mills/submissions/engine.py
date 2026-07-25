@@ -372,11 +372,19 @@ class ImportEngine:
                 session_id,
                 self.track_ids(event_id=event_id, settings=settings, row=row),
             )
-        facilitator_id = self.facilitator_id(event_id, builtins.display_name)
-        if facilitator_id is not None and not self._repos.sessions.read_facilitators(
-            session_id
-        ):
-            self._repos.sessions.set_facilitators(session_id, [facilitator_id])
+        # A session that already has a facilitator keeps it: the link and its
+        # personal data belong to the attached facilitator. Re-resolving the
+        # row's display_name every reimport could mint a fresh orphan (a
+        # renamed facilitator no longer matches its old slug) and then land
+        # still-unanswered personal fields on that orphan. Only an unattached
+        # session resolves — and provisions — a facilitator from the row.
+        existing_facilitators = self._repos.sessions.read_facilitators(session_id)
+        if existing_facilitators:
+            facilitator_id: int | None = existing_facilitators[0].pk
+        else:
+            facilitator_id = self.facilitator_id(event_id, builtins.display_name)
+            if facilitator_id is not None:
+                self._repos.sessions.set_facilitators(session_id, [facilitator_id])
         answered = {
             fv.field_id for fv in self._repos.sessions.read_field_values(session_id)
         }

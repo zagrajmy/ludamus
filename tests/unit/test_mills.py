@@ -1002,6 +1002,13 @@ class TestImportRow:
 
         assert row.get_value("Imię") == "Anna"
 
+    def test_get_value_collapses_suffixed_columns_that_differ_only_by_padding(self):
+        # "Anna" and " Anna " trim to the same answer, so a padded duplicate
+        # column must resolve to it, not read as a conflict and skip the row.
+        row = ImportRow({"Imię": "Anna", "Imię (2)": " Anna "})
+
+        assert row.get_value("Imię") == "Anna"
+
     def test_get_value_raises_duplicate_value_error_on_conflict(self):
         row = ImportRow({"Imię": "Anna", "Imię (2)": "Bartek"})
 
@@ -2509,6 +2516,59 @@ class TestImportLogService(_ImportServiceMocks):
 
         assert succeeded is True
         sessions.set_facilitators.assert_called_once_with(existing_session_pk, [7])
+
+    def test_reimport_entry_keeps_the_attached_facilitator_and_its_personal_data(
+        self,
+        service,
+        event_integrations,
+        sessions,
+        facilitators,
+        personal_data_field_values,
+        log_entries,
+    ):
+        # The session is already linked to facilitator 99. The row now carries a
+        # different display_name (the facilitator was renamed in the panel), so
+        # re-resolving it would mint a fresh orphan and land the personal answer
+        # on that orphan. Instead the attached facilitator is kept and gets the
+        # data.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Author": {"to": "facilitator.display_name"},'
+                ' "Phone": {"to": "personal.phone"}},'
+                ' "definitions": {"personal_fields":'
+                ' {"phone": {"name": "Phone"}}}}'
+            ),
+        )
+        row = {"Title": "Talk", "Author": "Renamed Author", "Phone": "555"}
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json=_json.dumps(row),
+            title="Talk",
+            session_id=42,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows([row])
+        sessions.read.return_value = self._empty_session()
+        sessions.read_facilitators.return_value = [MagicMock(pk=99)]
+        personal_data_field_values.list_field_ids_for_facilitator_event.return_value = (
+            []
+        )
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        # No orphan minted, and the existing link is left untouched.
+        facilitators.create.assert_not_called()
+        sessions.set_facilitators.assert_not_called()
+        # The personal answer lands on the attached facilitator, not a re-resolve.
+        personal_data_field_values.save.assert_called_once()
+        saved = personal_data_field_values.save.call_args.args[0]
+        assert [entry["facilitator_id"] for entry in saved] == [99]
 
     def test_reimport_entry_keeps_a_title_the_organiser_already_set(
         self, service, event_integrations, sessions, log_entries
