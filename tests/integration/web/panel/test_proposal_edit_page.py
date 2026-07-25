@@ -1084,6 +1084,67 @@ class TestProposalEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Peanuts"
 
+    def test_invalid_post_preserves_submitted_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=50,
+            order=0,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert response.context["form"].errors
+        assert response.context["facilitator_personal_data"] == [
+            (
+                FacilitatorDTO.model_validate(facilitator),
+                f"facilitator_{facilitator.pk}_personal",
+                [
+                    (
+                        PersonalDataFieldDTO(
+                            allow_custom=False,
+                            field_type="text",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="Allergy",
+                            options=[],
+                            order=0,
+                            pk=field.pk,
+                            question="Any allergy?",
+                            slug="allergy",
+                        ),
+                        "Peanuts",
+                    )
+                ],
+            )
+        ]
+        assert not PersonalDataFieldValue.objects.exists()
+
     def test_post_ignores_personal_data_for_facilitator_from_other_event(
         self, authenticated_client, active_user, sphere, event
     ):
