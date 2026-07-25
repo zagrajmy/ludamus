@@ -738,9 +738,10 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
         self, context: dict[str, Any], *, current_event: EventDTO, prepared: _Prepared
     ) -> HttpResponse:
         form = prepared.form
-        # Invariant: a hand-added proposal always has at least one facilitator.
-        # The picker is not a form field, so the rule is enforced here and
-        # reported through the form's own error channel.
+        # Create-time rule, not an invariant: a hand-added proposal starts with
+        # at least one facilitator, but an edit may later remove them all. The
+        # picker is not a form field, so the rule is enforced here and reported
+        # through the form's own error channel.
         facilitator_ids = self._collect_facilitator_ids(current_event.pk) or []
         if not form.is_valid() or not facilitator_ids:
             if not facilitator_ids:

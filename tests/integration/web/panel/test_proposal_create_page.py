@@ -21,7 +21,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO, TrackDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
@@ -44,6 +44,17 @@ def _fields_context(event):
             "panel:proposal-create-fields", kwargs={"slug": event.slug}
         ),
     }
+
+
+def _facilitator_dto(facilitator, *, session_count=0):
+    return FacilitatorListItemDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        pk=facilitator.pk,
+        session_count=session_count,
+        slug=facilitator.slug,
+        user_id=None,
+    )
 
 
 def _base_context(event):
@@ -150,7 +161,12 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [_facilitator_dto(facilitator)],
+            },
             contains=[
                 'name="facilitator_ids"',
                 f'value="{facilitator.pk}"',
@@ -211,7 +227,7 @@ class TestProposalCreatePageView:
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        Facilitator.objects.create(
+        facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
@@ -225,15 +241,54 @@ class TestProposalCreatePageView:
             },
         )
 
-        # The form itself is valid; the "at least one facilitator" invariant is
-        # enforced by the view and surfaced next to the picker.
+        # The form itself is valid; the "at least one facilitator" rule is
+        # enforced by the view and surfaced above the form.
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [_facilitator_dto(facilitator)],
+            },
             contains=[
                 'name="facilitator_ids"',
+                "Please select at least one facilitator.",
+            ],
+        )
+        assert not Session.objects.filter(title="Missing Facilitator").exists()
+
+    def test_post_renders_facilitator_error_when_event_has_no_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "category_id": category.pk,
+                "facilitators_submitted": "1",
+                "title": "Missing Facilitator",
+                "display_name": "Test Host",
+            },
+        )
+
+        # No picker card renders at all here, so the error has to live outside
+        # it or the submission fails with no visible feedback.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+            },
+            contains=[
+                "This event has no facilitators yet.",
                 "Please select at least one facilitator.",
             ],
         )
@@ -539,7 +594,12 @@ class TestProposalCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_tracks": [TrackDTO.model_validate(track)],
+            },
             contains=[
                 'name="tracks_submitted"',
                 'name="track_ids"',

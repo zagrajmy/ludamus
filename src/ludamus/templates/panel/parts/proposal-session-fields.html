@@ -32,12 +32,9 @@
                                 <p class="text-sm font-medium text-foreground-secondary">{{ orphan.name }}</p>
                                 <p class="text-sm text-foreground break-words">{{ orphan.display_value }}</p>
                             </div>
+                            {% blocktranslate asvar t_remove_field with name=orphan.name %}Remove {{ name }}{% endblocktranslate %}
                             <label class="flex items-center gap-2 text-sm text-foreground-muted shrink-0">
-                                <input type="checkbox"
-                                       name="remove_field_ids"
-                                       value="{{ orphan.field_id }}"
-                                       aria-label="{% blocktranslate with name=orphan.name %}Remove {{ name }}{% endblocktranslate %}"
-                                       class="rounded border-border">
+                                {% include "components/checkbox-field.html" with name="remove_field_ids" value=orphan.field_id aria_label=t_remove_field label="" only %}
                                 {% translate "Remove" %}
                             </label>
                         </li>

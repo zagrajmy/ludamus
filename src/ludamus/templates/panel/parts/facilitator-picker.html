@@ -10,11 +10,7 @@
     {% for f in all_facilitators %}
         <label class="facilitator-row flex items-center gap-2 text-sm py-3 rounded-md hover:bg-foreground/5{% if f.pk not in assigned_facilitator_pks %} hidden{% endif %}"
                data-name="{{ f.display_name|lower }}">
-            {% if f.pk in assigned_facilitator_pks %}
-                {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk checked=True label="" only %}
-            {% else %}
-                {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk label="" only %}
-            {% endif %}
+            {% include "components/checkbox-field.html" with name="facilitator_ids" value=f.pk checked_values=assigned_facilitator_pks label="" only %}
             {{ f.display_name }}
         </label>
     {% endfor %}

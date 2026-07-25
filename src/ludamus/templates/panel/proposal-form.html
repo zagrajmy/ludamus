@@ -38,6 +38,11 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
+        {# Form-level errors live here, outside the column flow, so they show #}
+        {# whichever cards the event's data happens to render. #}
+        {% if form.non_field_errors %}
+            <div class="px-4 pt-4 lg:px-6 lg:pt-6">{% tessera_errors form %}</div>
+        {% endif %}
         <form id="proposal-form"
               method="post"
               enctype="multipart/form-data"
@@ -94,10 +99,7 @@
                                 {% translate "Facilitators" %}
                                 {% if not proposal %}<span class="text-danger ml-0.5">*</span>{% endif %}
                             </h3>
-                            <div class="{% if form.non_field_errors %}border border-danger rounded-lg p-2{% endif %}">
-                                {% include "panel/parts/facilitator-picker.html" %}
-                            </div>
-                            {% if form.non_field_errors %}<p class="mt-1 text-sm text-danger">{{ form.non_field_errors.0 }}</p>{% endif %}
+                            {% include "panel/parts/facilitator-picker.html" %}
                         </div>
                     </div>
                 {% elif not proposal %}
@@ -108,7 +110,10 @@
                             </h3>
                             <p class="text-sm text-foreground-muted">
                                 {% translate "This event has no facilitators yet." %}
+                                {# New tab: the proposal being typed here has no draft storage. #}
                                 <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
+                                   target="_blank"
+                                   rel="noopener"
                                    class="text-primary underline hover:no-underline ml-1">{% translate "Create one first" %}</a>
                             </p>
                         </div>
@@ -125,11 +130,7 @@
                             <div class="space-y-2">
                                 {% for t in all_tracks %}
                                     <label class="flex items-center gap-2 py-2 text-sm">
-                                        {% if t.pk in assigned_track_pks %}
-                                            {% include "components/checkbox-field.html" with name="track_ids" value=t.pk checked=True label="" only %}
-                                        {% else %}
-                                            {% include "components/checkbox-field.html" with name="track_ids" value=t.pk label="" only %}
-                                        {% endif %}
+                                        {% include "components/checkbox-field.html" with name="track_ids" value=t.pk checked_values=assigned_track_pks label="" only %}
                                         {{ t.name }}
                                     </label>
                                 {% endfor %}

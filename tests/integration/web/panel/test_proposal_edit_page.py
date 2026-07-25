@@ -34,6 +34,8 @@ from ludamus.pacts import (
     FacilitatorListItemDTO,
     PersonalDataFieldDTO,
     SessionDTO,
+    TimeSlotDTO,
+    TrackDTO,
 )
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
@@ -84,6 +86,17 @@ def _fields_url(event, proposal_id):
 def _cancel_url(event, proposal_id):
     return reverse(
         "panel:proposal-detail", kwargs={"slug": event.slug, "proposal_id": proposal_id}
+    )
+
+
+def _facilitator_dto(facilitator, *, session_count=0):
+    return FacilitatorListItemDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        pk=facilitator.pk,
+        session_count=session_count,
+        slug=facilitator.slug,
+        user_id=None,
     )
 
 
@@ -1394,7 +1407,31 @@ class TestProposalEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                # Holds the form's BoundFields, so it can't be compared by value.
+                "field_descriptors": ANY,
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             contains=[
                 'name="session_genres"',
                 "Pick all that apply",
@@ -1487,7 +1524,30 @@ class TestProposalEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "assigned_track_pks": {track.pk},
+                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "assigned_time_slot_pks": {slot.pk},
+                "facilitator_personal_data": [],
+            },
             contains=[
                 'name="tracks_submitted"',
                 'name="track_ids"',
@@ -1524,7 +1584,33 @@ class TestProposalEditPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
-            context_data=ANY,
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    _facilitator_dto(assigned, session_count=1),
+                    _facilitator_dto(unassigned),
+                ],
+                "assigned_facilitator_pks": {assigned.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             contains=['id="facilitator-search"', "Alice", "Bob"],
         )
         html = response.content.decode()

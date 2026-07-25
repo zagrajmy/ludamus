@@ -33,6 +33,8 @@ class SelectNode(template.Node):
             k: v.resolve(context) for k, v in self.attrs.items()
         }
 
+        # `class` styles the element and `has_errors` drives the error cues;
+        # every other keyword is forwarded as an HTML attribute on the <select>.
         extra_class = str(resolved.pop("class", ""))
         has_errors = bool(resolved.pop("has_errors", False))
 
