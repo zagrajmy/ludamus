@@ -81,7 +81,7 @@ def _personal_entries_from_post(
     ]
 
 
-def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
+def builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
     if key == "name":
         return facilitator.display_name
     if key == "linked":
@@ -116,7 +116,7 @@ def _build_column_values(
                     value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
                 )
                 if column.field is not None
-                else _builtin_cell(key=column.key, facilitator=facilitator)
+                else builtin_cell(key=column.key, facilitator=facilitator)
             )
             for column in columns
         }

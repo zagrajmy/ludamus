@@ -2,7 +2,9 @@
 
 import pytest
 
+from ludamus.gates.web.django.chronology.panel.views.facilitators import builtin_cell
 from ludamus.gates.web.django.chronology.panel.views.venues import suggest_copy_name
+from ludamus.pacts import FacilitatorListItemDTO
 
 
 class TestSuggestCopyName:
@@ -32,3 +34,30 @@ class TestSuggestCopyName:
         self, name: str, expected: str
     ) -> None:
         assert suggest_copy_name(name) == expected
+
+
+class TestFacilitatorBuiltinCell:
+    """Tests for the facilitator list's built-in column cells."""
+
+    @staticmethod
+    def _facilitator() -> FacilitatorListItemDTO:
+        return FacilitatorListItemDTO(
+            accreditation_type="none",
+            display_name="Alice",
+            pk=1,
+            session_count=3,
+            slug="alice",
+            user_id=None,
+        )
+
+    @pytest.mark.parametrize(
+        ("key", "expected"),
+        (
+            ("name", "Alice"),
+            ("sessions", "3"),
+            # A key with no cell renders empty rather than somebody else's value.
+            ("mystery", ""),
+        ),
+    )
+    def test_renders_cell_for_key(self, key: str, expected: str) -> None:
+        assert builtin_cell(key=key, facilitator=self._facilitator()) == expected

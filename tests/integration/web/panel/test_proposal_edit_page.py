@@ -34,6 +34,7 @@ from ludamus.pacts import (
     FacilitatorListItemDTO,
     PersonalDataFieldDTO,
     SessionDTO,
+    TimeSlotDTO,
 )
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
@@ -857,6 +858,60 @@ class TestProposalEditPageView:
 
         assert not session.time_slots.exists()
 
+    def test_invalid_post_preserves_submitted_time_slot_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "time_slots_submitted": "1",
+                "time_slot_ids": [slot.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "assigned_time_slot_pks": {slot.pk},
+                "facilitator_personal_data": [],
+            },
+        )
+        assert not session.time_slots.exists()
+
     def test_partial_post_without_time_slots_marker_preserves_time_slots(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1108,6 +1163,162 @@ class TestProposalEditPageView:
         assert not PersonalDataFieldValue.objects.filter(
             facilitator=foreign_facilitator
         ).exists()
+
+    def test_invalid_post_preserves_submitted_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Nickname",
+            question="Your nickname?",
+            slug="nick",
+            field_type="text",
+            order=0,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_nick": "Ala",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=1,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    (
+                        FacilitatorDTO.model_validate(facilitator),
+                        f"facilitator_{facilitator.pk}_personal",
+                        [
+                            (
+                                PersonalDataFieldDTO(
+                                    allow_custom=False,
+                                    field_type="text",
+                                    help_text="",
+                                    is_multiple=False,
+                                    is_public=False,
+                                    max_length=50,
+                                    name="Nickname",
+                                    options=[],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Your nickname?",
+                                    slug="nick",
+                                ),
+                                "Ala",
+                            )
+                        ],
+                    )
+                ],
+            },
+        )
+        assert not PersonalDataFieldValue.objects.exists()
+
+    def test_invalid_post_with_personal_data_marker_and_no_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-edit.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        display_name="Alice",
+                        pk=facilitator.pk,
+                        session_count=1,
+                        slug="alice",
+                        user_id=None,
+                    )
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
+        )
 
     def test_post_shows_errors_on_invalid_data(
         self, authenticated_client, active_user, sphere, event
