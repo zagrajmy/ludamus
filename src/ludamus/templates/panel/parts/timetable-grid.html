@@ -34,6 +34,8 @@
             {% endif %}
         </div>
     {% endif %}
+    {% translate "Column width" as t_column_width %}
+    {% translate "Drag, or use the arrow keys, to resize every column. Double-click to reset." as t_column_width_hint %}
     <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
          data-timetable-days
          style="--grid-extent: {{ grid.total_minutes }};
@@ -58,6 +60,23 @@
                             <div class="text-sm font-medium text-white wrap-anywhere">{{ col.space.name }}</div>
                             {% if col.space.capacity %}
                                 <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
+                            {% endif %}
+                            {% comment %}
+                            All columns share one width, so every handle resizes the whole grid. The
+                            rest are the same control under a different pointer target, so only the
+                            first one is exposed — one tab stop per column would be noise.
+                            {% endcomment %}
+                            {% if forloop.first and forloop.parentloop.first %}
+                                <div class="timetable-column-resizer"
+                                     role="separator"
+                                     aria-orientation="vertical"
+                                     aria-label="{{ t_column_width }}"
+                                     title="{{ t_column_width_hint }}"
+                                     tabindex="0"></div>
+                            {% else %}
+                                <div class="timetable-column-resizer"
+                                     title="{{ t_column_width_hint }}"
+                                     aria-hidden="true"></div>
                             {% endif %}
                         </div>
                     {% endfor %}

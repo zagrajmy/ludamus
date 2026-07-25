@@ -2,7 +2,11 @@
   .timetable-calendar {
     --minute-px: 1px;
     --timetable-time-column: 4rem;
-    --timetable-column-min: 9rem;
+    /* Every column is this wide, and the resize handles drag it (timetable.ts
+       writes --timetable-column-width on the document element, so the value
+       outlives each HTMX swap of the grid). The literal is only the default. */
+    --timetable-column-min: var(--timetable-column-width, 9rem);
+    --timetable-resizer-width: 0.875rem;
   }
 
   /* The sticky header and the scrolling body are separate elements, so they
@@ -70,6 +74,50 @@
 
   .timetable-room-cell {
     grid-row: 3;
+    position: relative;
+  }
+
+  /* One shared width means any handle drives the whole grid, so every room
+     cell carries one. It stays inside its cell rather than straddling the
+     border: an overhang would widen the calendar's scrollable area and put the
+     header back out of step with the body. */
+  .timetable-column-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--timetable-resizer-width);
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  /* Focus is left to the global :focus-visible ring; this bar is the pointer
+     affordance -- it marks the border the grip acts on. */
+  .timetable-column-resizer::before {
+    content: "";
+    position: absolute;
+    inset-block: 0.375rem;
+    right: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: transparent;
+    transition: background-color 120ms;
+  }
+
+  .timetable-column-resizer:hover::before,
+  .timetable-column-resizer.is-resizing::before {
+    background: var(--color-primary);
+  }
+
+  /* Pointer capture keeps the drag alive over the whole page, so the resize
+     cursor has to follow it there too. */
+  .timetable-resizing,
+  .timetable-resizing * {
+    cursor: col-resize !important;
   }
 
   .timetable-time-axis,

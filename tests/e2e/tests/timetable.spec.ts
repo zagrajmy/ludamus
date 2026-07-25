@@ -187,6 +187,57 @@ test.describe("Timetable", () => {
     await expectAligned();
   });
 
+  test("dragging one column edge resizes every column, and the width sticks", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // One entry means every column agrees; drift is header vs the body it labels.
+    const geometry = () =>
+      page.locator(".timetable-calendar").evaluate((calendar) => {
+        const boxes = (selector: string) =>
+          Array.from(calendar.querySelectorAll(selector), (cell) => cell.getBoundingClientRect());
+        const header = boxes(".timetable-room-cell");
+        const body = boxes(".timetable-column");
+        return {
+          drift: Math.max(...body.map((box, index) => Math.abs(box.left - header[index].left))),
+          widths: [...new Set(header.map((box) => Math.round(box.width)))],
+        };
+      });
+    const expectWidth = async (expected: number) => {
+      const { drift, widths } = await geometry();
+      expect(widths).toHaveLength(1);
+      expect(Math.abs(widths[0] - expected)).toBeLessThanOrEqual(1);
+      expect(drift).toBeLessThanOrEqual(1);
+    };
+
+    const start = (await geometry()).widths[0];
+
+    // The second handle has two columns to its left, so they split the travel.
+    const handle = page.locator(".timetable-column-resizer").nth(1);
+    const grip = (await handle.boundingBox())!;
+    const [gripX, gripY] = [grip.x + grip.width / 2, grip.y + grip.height / 2];
+    await page.mouse.move(gripX, gripY);
+    await page.mouse.down();
+    await page.mouse.move(gripX + 80, gripY, { steps: 8 });
+    await page.mouse.up();
+    await expectWidth(start + 40);
+
+    await page.reload();
+    await expect(page.locator(".timetable-calendar")).toBeVisible();
+    await expectWidth(start + 40);
+
+    // A single exposed handle stands in for all of them.
+    const exposed = page.locator('.timetable-column-resizer[role="separator"]');
+    await expect(exposed).toHaveCount(1);
+    await expect(exposed).toHaveAttribute("aria-valuenow", String(start + 40));
+    await exposed.focus();
+    await exposed.press("ArrowRight");
+    await expectWidth(start + 56);
+
+    await handle.dblclick();
+    await expectWidth(start);
+  });
+
   test("session list loads via HTMX and shows unscheduled sessions", async ({ page }) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,

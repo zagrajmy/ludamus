@@ -175,3 +175,8 @@ If you fix a papercut, remove it.
 - 2026-07-25: /opt/pw-browsers held chromium_headless_shell-1208 as an empty
   directory, so every e2e test failed with "Executable doesn't exist" until
   npx playwright install chromium refetched it.
+- 2026-07-25: After `aubr -C src/ludamus/client build`, a `runserver --noreload`
+  started earlier keeps serving the previous vite manifest, whose asset files
+  the rebuild has deleted - the page renders with no CSS at all and looks like
+  a layout bug rather than a stale server. Restart the server after every
+  client build.

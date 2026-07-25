@@ -411,3 +411,133 @@ document.addEventListener("keydown", (e) => {
     exitAssignMode();
   }
 });
+
+// --- Column width -----------------------------------------------------------
+// Every column is one CSS track of the same width, so a single stored number
+// drives the whole calendar. It lives on the document element rather than on
+// the calendar, which HTMX replaces wholesale on every pagination or refresh.
+
+const COLUMN_WIDTH_KEY = "timetable.columnWidth";
+const COLUMN_WIDTH_DEFAULT = 144;
+const COLUMN_WIDTH_MIN = 80;
+const COLUMN_WIDTH_MAX = 512;
+const COLUMN_WIDTH_STEP = 16;
+
+// Only the exposed handle carries values; the others are duplicate pointer
+// targets hidden from assistive tech.
+const resizers = (): NodeListOf<HTMLElement> =>
+  document.querySelectorAll<HTMLElement>('.timetable-column-resizer[role="separator"]');
+
+const roomCells = (): HTMLElement[] => [
+  ...document.querySelectorAll<HTMLElement>(".timetable-room-cell"),
+];
+
+const clampColumnWidth = (px: number): number =>
+  Math.round(Math.min(COLUMN_WIDTH_MAX, Math.max(COLUMN_WIDTH_MIN, px)));
+
+// The rendered width, which is what the handles have to report: below the
+// stored width the tracks stretch to fill the calendar (`minmax(w, 1fr)`).
+function renderedColumnWidth(): number {
+  const cell = roomCells()[0];
+  return cell ? cell.getBoundingClientRect().width : storedColumnWidth();
+}
+
+function storedColumnWidth(): number {
+  const parsed = Number.parseFloat(localStorage.getItem(COLUMN_WIDTH_KEY) ?? "");
+  return Number.isFinite(parsed) ? clampColumnWidth(parsed) : COLUMN_WIDTH_DEFAULT;
+}
+
+// One source of truth for the bounds: the template ships the handles without
+// values, and they are announced from here.
+function syncResizers(): void {
+  const now = Math.round(renderedColumnWidth());
+  for (const handle of resizers()) {
+    handle.setAttribute("aria-valuemin", String(COLUMN_WIDTH_MIN));
+    handle.setAttribute("aria-valuemax", String(COLUMN_WIDTH_MAX));
+    handle.setAttribute("aria-valuenow", String(now));
+    handle.setAttribute("aria-valuetext", `${now} px`);
+  }
+}
+
+function setColumnWidth(px: number): void {
+  const width = clampColumnWidth(px);
+  document.documentElement.style.setProperty("--timetable-column-width", `${width}px`);
+  localStorage.setItem(COLUMN_WIDTH_KEY, String(width));
+  syncResizers();
+}
+
+function resetColumnWidth(): void {
+  document.documentElement.style.removeProperty("--timetable-column-width");
+  localStorage.removeItem(COLUMN_WIDTH_KEY);
+  syncResizers();
+}
+
+// The handle sits on the right edge of column `index`, so the pointer marks the
+// end of `index + 1` equal columns measured from where the first one starts.
+// Dividing by the count keeps the drag stable: widening also pushes every
+// column left of the handle, and this accounts for that in the same step.
+function columnWidthFromPointer(handle: HTMLElement, clientX: number, grabOffset: number): number {
+  const cell = handle.closest<HTMLElement>(".timetable-room-cell");
+  const cells = roomCells();
+  const index = cell ? cells.indexOf(cell) : -1;
+  const first = cells[0];
+  if (index < 0 || !first) return storedColumnWidth();
+  return (clientX - grabOffset - first.getBoundingClientRect().left) / (index + 1);
+}
+
+document.addEventListener("pointerdown", (e) => {
+  const handle = (e.target as Element).closest?.<HTMLElement>(".timetable-column-resizer");
+  if (!handle || e.button !== 0) return;
+  e.preventDefault();
+
+  // Resize from wherever inside the grip the drag started, so the edge does not
+  // jump to the cursor on the first move.
+  const grabOffset = e.clientX - handle.getBoundingClientRect().right;
+  handle.setPointerCapture(e.pointerId);
+  handle.classList.add("is-resizing");
+  document.documentElement.classList.add("timetable-resizing");
+
+  const onMove = (move: PointerEvent): void => {
+    setColumnWidth(columnWidthFromPointer(handle, move.clientX, grabOffset));
+  };
+  const onEnd = (): void => {
+    handle.removeEventListener("pointermove", onMove);
+    handle.classList.remove("is-resizing");
+    document.documentElement.classList.remove("timetable-resizing");
+  };
+
+  handle.addEventListener("pointermove", onMove);
+  handle.addEventListener("pointerup", onEnd, { once: true });
+  handle.addEventListener("pointercancel", onEnd, { once: true });
+});
+
+document.addEventListener("dblclick", (e) => {
+  if ((e.target as Element).closest?.(".timetable-column-resizer")) resetColumnWidth();
+});
+
+document.addEventListener("keydown", (e) => {
+  const handle = (e.target as Element).closest?.<HTMLElement>(".timetable-column-resizer");
+  if (!handle) return;
+
+  const steps: Record<string, number> = {
+    ArrowLeft: -COLUMN_WIDTH_STEP,
+    ArrowRight: COLUMN_WIDTH_STEP,
+  };
+  if (e.key in steps) {
+    e.preventDefault();
+    setColumnWidth(renderedColumnWidth() + steps[e.key]);
+  } else if (e.key === "Home") {
+    e.preventDefault();
+    setColumnWidth(COLUMN_WIDTH_MIN);
+  } else if (e.key === "End") {
+    e.preventDefault();
+    setColumnWidth(COLUMN_WIDTH_MAX);
+  }
+});
+
+// The stored width has to be re-applied only once -- it lives above every
+// swapped node -- but freshly swapped handles still need their values.
+document.body.addEventListener("htmx:load", syncResizers);
+
+if (localStorage.getItem(COLUMN_WIDTH_KEY) !== null) setColumnWidth(storedColumnWidth());
+syncResizers();
