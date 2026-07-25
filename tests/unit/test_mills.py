@@ -2714,6 +2714,50 @@ class TestImportLogService(_ImportServiceMocks):
         saved = personal_data_field_values.save.call_args.args[0]
         assert [entry["facilitator_id"] for entry in saved] == [99]
 
+    def test_reimport_entry_writes_no_personal_data_when_several_facilitators(
+        self,
+        service,
+        event_integrations,
+        sessions,
+        facilitators,
+        personal_data_field_values,
+        log_entries,
+    ):
+        # The organiser attached a second facilitator in the panel. The row's
+        # phone number belongs to one respondent and the link carries no order,
+        # so writing it would be a coin flip between two real people.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Author": {"to": "facilitator.display_name"},'
+                ' "Phone": {"to": "personal.phone"}},'
+                ' "definitions": {"personal_fields":'
+                ' {"phone": {"name": "Phone"}}}}'
+            ),
+        )
+        row = {"Title": "Talk", "Author": "GM Bob", "Phone": "555"}
+        log_entries.read.return_value = ImportLogEntryDTO(
+            pk=10,
+            integration_id=3,
+            row_index=0,
+            status=ImportLogStatus.SUCCESS,
+            response_json=_json.dumps(row),
+            title="Talk",
+            session_id=42,
+            attempted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        event_integrations.fetch_responses.return_value = _rows([row])
+        sessions.read.return_value = self._empty_session()
+        sessions.read_facilitators.return_value = [MagicMock(pk=99), MagicMock(pk=100)]
+
+        succeeded = service.reimport_entry(sphere_id=1, event_id=2, entry_pk=10)
+
+        assert succeeded is True
+        personal_data_field_values.save.assert_not_called()
+        facilitators.create.assert_not_called()
+        sessions.set_facilitators.assert_not_called()
+
     def test_reimport_entry_keeps_a_title_the_organiser_already_set(
         self, service, event_integrations, sessions, log_entries
     ):

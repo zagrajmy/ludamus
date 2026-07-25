@@ -384,8 +384,16 @@ class ImportEngine:
         # still-unanswered personal fields on that orphan. Only an unattached
         # session resolves — and provisions — a facilitator from the row.
         existing_facilitators = self._repos.sessions.read_facilitators(session_id)
-        if existing_facilitators:
+        if len(existing_facilitators) == 1:
             facilitator_id: int | None = existing_facilitators[0].pk
+        elif existing_facilitators:
+            # The link is a many-to-many with no ordering, and the row carries
+            # one respondent's personal data. With several facilitators attached
+            # (only the panel does that — an import links exactly one) nothing
+            # says whose data this is, so the row's links stay untouched and no
+            # personal data is written rather than landing on whoever the DB
+            # happened to return first.
+            facilitator_id = None
         else:
             facilitator_id = self.facilitator_id(
                 event_id=event_id,
