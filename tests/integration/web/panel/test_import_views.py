@@ -175,8 +175,9 @@ def _sheets_get(values, *, title="Form Responses 1"):
 def _successes_details_tag(body: str) -> str:
     # Match only the successes <details> opening tag itself, not everything
     # that precedes it (nav, sidebar, event description) — those can contain
-    # the substring "open" from unrelated Faker-generated text.
-    match = re.search(r'<details class="card p-4 sm:p-5"[^>]*>', body)
+    # the substring "open" from unrelated Faker-generated text. Keyed off the
+    # stable id, not the Tailwind classes, so template restyling can't break it.
+    match = re.search(r'<details id="import-log-successes"[^>]*>', body)
     assert match is not None
     return match.group()
 
