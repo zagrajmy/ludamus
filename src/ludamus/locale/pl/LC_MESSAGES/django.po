@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-24 21:10+0200\n"
+"POT-Creation-Date: 2026-07-25 13:08+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -816,6 +816,7 @@ msgid "0 = no limit"
 msgstr "0 = bez limitu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
@@ -989,14 +990,12 @@ msgid "Ban removed."
 msgstr "Ban został usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Yes"
 msgstr "Tak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposal_edit.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "No"
 msgstr "Nie"
@@ -1024,6 +1023,82 @@ msgstr "Nie można usunąć kategorii z istniejącymi zgłoszeniami."
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
 msgid "Category deleted successfully."
 msgstr "Kategoria została usunięta."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Display Name"
+msgstr "Nazwa wyświetlana"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Linked User"
+msgstr "Powiązany użytkownik"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/panel/facilitator-merge.html
+msgid "Linked"
+msgstr "Powiązany"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/components/pill_list.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "None"
+msgstr "Brak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Sessions"
+msgstr "Punkty programu"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Accreditation"
+msgstr "Akredytacja"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+#: src/ludamus/templates/panel/proposal-create.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/proposal-edit.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Category"
+msgstr "Kategoria"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Status"
+msgstr "Status"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Created"
+msgstr "Utworzono"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+msgid "Pick at least one column to show."
+msgstr "Wybierz przynajmniej jedną kolumnę do wyświetlenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+msgid "Columns updated."
+msgstr "Kolumny zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
@@ -1136,18 +1211,6 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/templates/panel/facilitator-merge.html
-msgid "Linked"
-msgstr "Powiązany"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/components/pill_list.html
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "None"
-msgstr "Brak"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
 
@@ -1239,16 +1302,6 @@ msgstr[1] "Nie znaleziono %(count)d twórców programu."
 msgstr[2] "Nie znaleziono %(count)d twórców programu."
 msgstr[3] "Nie znaleziono %(count)d twórców programu."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Pick at least one column to show."
-msgstr "Wybierz przynajmniej jedną kolumnę do wyświetlenia."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "Columns updated."
-msgstr "Kolumny zaktualizowane."
-
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
@@ -1264,18 +1317,6 @@ msgstr "Przedziały czasowe"
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track"
 msgstr "Blok programowy"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-edit.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Category"
-msgstr "Kategoria"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -1596,15 +1637,6 @@ msgid "Proposals"
 msgstr "Zgłoszenia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid ""
-"This session is scheduled and can only be accepted. Remove it from the "
-"timetable to change its status."
-msgstr ""
-"Ten punkt programu jest zaplanowany i może być tylko zaakceptowany. Usuń go "
-"z harmonogramu, aby zmienić status."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal moved back to pending."
 msgstr "Zgłoszenie zostało przywrócone do oczekujących."
 
@@ -1619,6 +1651,15 @@ msgstr "Zgłoszenie zostało wstrzymane."
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal rejected."
 msgstr "Zgłoszenie zostało odrzucone."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid ""
+"This session is scheduled and can only be accepted. Remove it from the "
+"timetable to change its status."
+msgstr ""
+"Ten punkt programu jest zaplanowany i może być tylko zaakceptowany. Usuń go "
+"z harmonogramu, aby zmienić status."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "No proposals selected."
@@ -2747,49 +2788,6 @@ msgstr "Bloki programowe"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Merged from"
 msgstr "Scalono z"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/proposal-create.html
-#: src/ludamus/templates/panel/proposal-edit.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Display Name"
-msgstr "Nazwa wyświetlana"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Linked User"
-msgstr "Powiązany użytkownik"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Sessions"
-msgstr "Punkty programu"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Accreditation"
-msgstr "Akredytacja"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Status"
-msgstr "Status"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Created"
-msgstr "Utworzono"
 
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
