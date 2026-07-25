@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -34,11 +34,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.panel import (
-    SCHEDULED_FILTER,
-    EmptyColumnSelectionError,
-    ProposalListQuery,
-)
+from ludamus.pacts.panel import SCHEDULED_FILTER, ProposalListQuery
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -159,58 +155,6 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_status"] = list_context.status
         context["filter_sort"] = list_context.sort
         return TemplateResponse(self.request, "panel/proposals.html", context)
-
-
-class ProposalColumnsPageView(PanelAccessMixin, EventContextMixin, View):
-    """Choose which session fields show as columns on the proposals list."""
-
-    request: PanelRequest
-
-    def _render(
-        self,
-        *,
-        context: dict[str, Any],
-        slug: str,
-        event_pk: int,
-        error: str | None = None,
-    ) -> HttpResponse:
-        columns = self.request.services.proposal_panel.columns_context(event_pk)
-        context["active_nav"] = "proposals"
-        context["active_tab"] = "columns"
-        context["tab_urls"] = proposal_tab_urls(slug)
-        context["chosen_columns"] = column_views(columns.chosen, PROPOSAL_COLUMNS)
-        context["available_columns"] = column_views(columns.available, PROPOSAL_COLUMNS)
-        context["error"] = error
-        return TemplateResponse(self.request, "panel/proposal-columns.html", context)
-
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        return self._render(context=context, slug=slug, event_pk=current_event.pk)
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        # The chosen keys arrive in display order; the service drops anything
-        # that isn't this event's own column.
-        try:
-            self.request.services.proposal_panel.set_columns(
-                event_id=current_event.pk, columns=self.request.POST.getlist("columns")
-            )
-        except EmptyColumnSelectionError:
-            return self._render(
-                context=context,
-                slug=slug,
-                event_pk=current_event.pk,
-                error=_("Pick at least one column to show."),
-            )
-
-        messages.success(self.request, _("Columns updated."))
-        return redirect("panel:proposals", slug=slug)
 
 
 class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):

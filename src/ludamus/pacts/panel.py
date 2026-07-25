@@ -146,7 +146,14 @@ class ProposalListContextDTO:
     columns: list[PanelColumnDTO]
 
 
-class ProposalPanelServiceProtocol(Protocol):
+class PanelColumnServiceProtocol(Protocol):
+    """What the columns chooser needs of a list's service, either list."""
+
+    def columns_context(self, event_id: int) -> PanelColumnsContextDTO: ...
+    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
+
+
+class ProposalPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
     ) -> ProposalListContextDTO: ...
@@ -155,8 +162,6 @@ class ProposalPanelServiceProtocol(Protocol):
     def column_values(
         self, *, session_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
-    def columns_context(self, event_id: int) -> PanelColumnsContextDTO: ...
-    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
     def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int: ...
 
 
@@ -252,7 +257,7 @@ class FacilitatorMergeContextDTO:
     values: dict[int, dict[str, str | list[str] | bool]]
 
 
-class FacilitatorPanelServiceProtocol(Protocol):
+class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
@@ -287,8 +292,6 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
-    def columns_context(self, event_id: int) -> PanelColumnsContextDTO: ...
-    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
     ) -> None: ...

@@ -5,6 +5,7 @@ from django.urls import include, path
 from ludamus.gates.web.django.chronology.panel.views import (
     bans,
     cfp,
+    columns,
     discounts,
     event_settings,
     facilitators,
@@ -217,7 +218,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/columns/",
-        proposals.ProposalColumnsPageView.as_view(),
+        columns.ProposalColumnsPageView.as_view(),
         name="proposal-columns",
     ),
     path(
@@ -364,7 +365,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/facilitators/columns/",
-        facilitators.FacilitatorColumnsPageView.as_view(),
+        columns.FacilitatorColumnsPageView.as_view(),
         name="facilitator-columns",
     ),
     path(

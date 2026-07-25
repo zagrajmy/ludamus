@@ -9,23 +9,36 @@ rendered in another.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
+from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import format_field_value
+from ludamus.gates.web.django.chronology.panel.views.base import (
+    EventContextMixin,
+    PanelAccessMixin,
+    PanelRequest,
+    facilitator_tab_urls,
+    format_field_value,
+    proposal_tab_urls,
+)
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.mills.panel_columns import FACILITATOR_BUILTIN_KEYS, PROPOSAL_BUILTIN_KEYS
+from ludamus.pacts.panel import EmptyColumnSelectionError
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
+    from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorListItemDTO, SessionListItemDTO
-    from ludamus.pacts.panel import PanelColumnDTO
+    from ludamus.pacts.panel import PanelColumnDTO, PanelColumnServiceProtocol
 
 TEXT_KIND = "text"
 
@@ -34,6 +47,15 @@ class PanelRowProtocol(Protocol):
     """A row of either list."""
 
     pk: int
+
+
+class ColumnMetaProtocol(Protocol):
+    """What naming a column needs — no row type involved."""
+
+    @property
+    def label(self) -> _StrPromise: ...
+    @property
+    def kind(self) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -108,8 +130,8 @@ PROPOSAL_COLUMNS: dict[str, BuiltinColumn[SessionListItemDTO]] = builtin_columns
 )
 
 
-def column_views[RowT: PanelRowProtocol](
-    columns: Sequence[PanelColumnDTO], builtins: Mapping[str, BuiltinColumn[RowT]]
+def column_views(
+    columns: Sequence[PanelColumnDTO], builtins: Mapping[str, ColumnMetaProtocol]
 ) -> list[PanelColumnView]:
     return [
         PanelColumnView(
@@ -147,3 +169,95 @@ def column_values[RowT: PanelRowProtocol](
                 cells[column.key] = cell(row)
         values[row.pk] = cells
     return values
+
+
+@dataclass(frozen=True)
+class PanelColumnSet:
+    """Everything one list's columns chooser differs by."""
+
+    builtins: Mapping[str, ColumnMetaProtocol]
+    active_nav: str
+    tab_urls: Callable[[str], dict[str, str]]
+    template: str
+    list_route: str
+    service: Callable[[PanelRequest], PanelColumnServiceProtocol]
+
+
+class PanelColumnsPageView(PanelAccessMixin, EventContextMixin, View):
+    """Choose which columns a panel list shows, for either list."""
+
+    request: PanelRequest
+    column_set: PanelColumnSet
+
+    def _render(
+        self, *, context: dict[str, Any], slug: str, event_pk: int, error: str | None
+    ) -> HttpResponse:
+        columns = self.column_set.service(self.request).columns_context(event_pk)
+        context["active_nav"] = self.column_set.active_nav
+        context["active_tab"] = "columns"
+        context["tab_urls"] = self.column_set.tab_urls(slug)
+        context["chosen_columns"] = column_views(
+            columns.chosen, self.column_set.builtins
+        )
+        context["available_columns"] = column_views(
+            columns.available, self.column_set.builtins
+        )
+        context["error"] = error
+        return TemplateResponse(self.request, self.column_set.template, context)
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        return self._render(
+            context=context, slug=slug, event_pk=current_event.pk, error=None
+        )
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        # The chosen keys arrive in display order; the service drops anything
+        # that isn't this event's own column.
+        try:
+            self.column_set.service(self.request).set_columns(
+                event_id=current_event.pk, columns=self.request.POST.getlist("columns")
+            )
+        except EmptyColumnSelectionError:
+            return self._render(
+                context=context,
+                slug=slug,
+                event_pk=current_event.pk,
+                error=_("Pick at least one column to show."),
+            )
+
+        messages.success(self.request, _("Columns updated."))
+        return redirect(self.column_set.list_route, slug=slug)
+
+
+class FacilitatorColumnsPageView(PanelColumnsPageView):
+    """Choose which personal-data fields show as columns on the list."""
+
+    column_set = PanelColumnSet(
+        builtins=FACILITATOR_COLUMNS,
+        active_nav="facilitators",
+        tab_urls=facilitator_tab_urls,
+        template="panel/facilitator-columns.html",
+        list_route="panel:facilitators",
+        service=lambda request: request.services.facilitator_panel,
+    )
+
+
+class ProposalColumnsPageView(PanelColumnsPageView):
+    """Choose which session fields show as columns on the proposals list."""
+
+    column_set = PanelColumnSet(
+        builtins=PROPOSAL_COLUMNS,
+        active_nav="proposals",
+        tab_urls=proposal_tab_urls,
+        template="panel/proposal-columns.html",
+        list_route="panel:proposals",
+        service=lambda request: request.services.proposal_panel,
+    )
