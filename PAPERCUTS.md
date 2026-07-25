@@ -175,8 +175,11 @@ If you fix a papercut, remove it.
 - 2026-07-25: /opt/pw-browsers held chromium_headless_shell-1208 as an empty
   directory, so every e2e test failed with "Executable doesn't exist" until
   npx playwright install chromium refetched it.
-- 2026-07-25: After `aubr -C src/ludamus/client build`, a `runserver --noreload`
-  started earlier keeps serving the previous vite manifest, whose asset files
-  the rebuild has deleted - the page renders with no CSS at all and looks like
-  a layout bug rather than a stale server. Restart the server after every
-  client build.
+- 2026-07-25: Iterated on timetable CSS/TS against a `.env.e2e` server, where
+  `ENV="test"` turns django_vite `dev_mode` off, so each edit needed
+  `aubr build` plus a restart (`--noreload` caches the manifest, and the
+  rebuild deletes the hashed files it points at - the page then renders with
+  no CSS and reads as a layout bug). For an edit loop against the e2e seed,
+  export `ENV=development` and `VITE_PORT`, run the vite dev server, and keep
+  the rest of `.env.e2e`: assets come from vite with HMR, no build, no
+  restart. Build only before handing the page to Playwright.
