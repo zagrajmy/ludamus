@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
     FIELD_KEY_PREFIX,
+    PROPOSAL_BUILTIN_KEYS,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
@@ -37,15 +38,13 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.services import TransactionProtocol
 
-_BUILTIN_COLUMN_KEYS = ("title", "host", "category", "status", "created")
-
 
 def _resolve_sort(sort: str, fields: Sequence[SessionFieldDTO]) -> str:
     # A sort key naming a built-in column or one of this event's own fields is
     # passed to the repo; anything else is dropped, so a tampered `sort` falls
     # back to the default order instead of reaching the query.
     key = sort.removeprefix("-")
-    valid = {*_BUILTIN_COLUMN_KEYS, *(f"{FIELD_KEY_PREFIX}{f.pk}" for f in fields)}
+    valid = {*PROPOSAL_BUILTIN_KEYS, *(f"{FIELD_KEY_PREFIX}{f.pk}" for f in fields)}
     return sort if key in valid else ""
 
 
@@ -133,7 +132,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             sort=sort,
             columns=resolve_columns(
                 keys=settings.proposal_columns,
-                builtin_keys=_BUILTIN_COLUMN_KEYS,
+                builtin_keys=PROPOSAL_BUILTIN_KEYS,
                 fields=session_fields,
             ),
         )
@@ -157,7 +156,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         settings = self._panel_settings.read_or_create(event_id)
         return columns_context(
             keys=settings.proposal_columns,
-            builtin_keys=_BUILTIN_COLUMN_KEYS,
+            builtin_keys=PROPOSAL_BUILTIN_KEYS,
             fields=self._session_fields.list_by_event(event_id),
         )
 
@@ -167,7 +166,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         if not (
             keys := sanitize_column_keys(
                 keys=columns,
-                builtin_keys=_BUILTIN_COLUMN_KEYS,
+                builtin_keys=PROPOSAL_BUILTIN_KEYS,
                 fields=self._session_fields.list_by_event(event_id),
             )
         ):

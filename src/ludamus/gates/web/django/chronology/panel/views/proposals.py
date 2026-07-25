@@ -18,11 +18,15 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-    format_field_value,
     pagination_context,
     proposal_detail_tab_urls,
     proposal_tab_urls,
     safe_next_url,
+)
+from ludamus.gates.web.django.chronology.panel.views.columns import (
+    PROPOSAL_COLUMNS,
+    column_values,
+    column_views,
 )
 from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import (
@@ -52,43 +56,21 @@ if TYPE_CHECKING:
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
 
 
-def _builtin_cell(*, key: str, proposal: SessionListItemDTO) -> str:
-    if key == "title":
-        return proposal.title
-    if key == "host":
-        return proposal.display_name
-    if key == "category":
-        return proposal.category_name
-    # "status" and "created" render richly in the template — a badge and a
-    # localized date — so they carry no text cell.
-    return ""
-
-
 def _build_column_values(
     *,
     panel: ProposalPanelServiceProtocol,
     proposals: Sequence[SessionListItemDTO],
     columns: Sequence[PanelColumnDTO],
 ) -> dict[int, dict[str, str]]:
-    raw_values = panel.column_values(
-        session_ids=[p.pk for p in proposals],
-        field_ids=[column.field.pk for column in columns if column.field is not None],
+    return column_values(
+        rows=proposals,
+        columns=columns,
+        builtins=PROPOSAL_COLUMNS,
+        raw_values=panel.column_values(
+            session_ids=[p.pk for p in proposals],
+            field_ids=[c.field.pk for c in columns if c.field is not None],
+        ),
     )
-    # One ready-to-render string per (proposal, column), so the template renders
-    # every column the same way whatever the organizer chose.
-    return {
-        proposal.pk: {
-            column.key: (
-                format_field_value(
-                    value=raw_values.get(proposal.pk, {}).get(column.field.slug)
-                )
-                if column.field is not None
-                else _builtin_cell(key=column.key, proposal=proposal)
-            )
-            for column in columns
-        }
-        for proposal in proposals
-    }
 
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
@@ -128,7 +110,7 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         pagination = pagination_context(self.request, list_context.proposals)
         page_obj = pagination["page_obj"]
-        column_values = _build_column_values(
+        cells = _build_column_values(
             panel=self.request.services.proposal_panel,
             proposals=list(page_obj.object_list),
             columns=list_context.columns,
@@ -137,8 +119,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["active_tab"] = "list"
         context["tab_urls"] = proposal_tab_urls(slug)
-        context["columns"] = list_context.columns
-        context["column_values"] = column_values
+        context["columns"] = column_views(list_context.columns, PROPOSAL_COLUMNS)
+        context["column_values"] = cells
         context["proposals"] = list(page_obj.object_list)
         context.update(pagination)
         context["deleted_proposals"] = (
@@ -196,8 +178,8 @@ class ProposalColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["active_tab"] = "columns"
         context["tab_urls"] = proposal_tab_urls(slug)
-        context["chosen_columns"] = columns.chosen
-        context["available_columns"] = columns.available
+        context["chosen_columns"] = column_views(columns.chosen, PROPOSAL_COLUMNS)
+        context["available_columns"] = column_views(columns.available, PROPOSAL_COLUMNS)
         context["error"] = error
         return TemplateResponse(self.request, "panel/proposal-columns.html", context)
 

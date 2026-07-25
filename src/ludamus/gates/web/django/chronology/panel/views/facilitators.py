@@ -24,6 +24,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     pagination_context,
     safe_next_url,
 )
+from ludamus.gates.web.django.chronology.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    column_values,
+    column_views,
+)
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
     FacilitatorEditForm,
@@ -81,47 +86,21 @@ def _personal_entries_from_post(
     ]
 
 
-def builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
-    if key == "name":
-        return facilitator.display_name
-    if key == "linked":
-        return _("Linked") if facilitator.user_id else _("None")
-    if key == "sessions":
-        return str(facilitator.session_count)
-    if key == "accreditation":
-        return str(
-            ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
-        )
-    # A built-in key with no cell here would otherwise render as somebody
-    # else's value; an empty cell is wrong but at least it isn't a lie.
-    return ""
-
-
 def _build_column_values(
     *,
     panel: FacilitatorPanelServiceProtocol,
     facilitators: Sequence[FacilitatorListItemDTO],
     columns: Sequence[PanelColumnDTO],
 ) -> dict[int, dict[str, str]]:
-    raw_values = panel.column_values(
-        facilitator_ids=[f.pk for f in facilitators],
-        field_ids=[column.field.pk for column in columns if column.field is not None],
+    return column_values(
+        rows=facilitators,
+        columns=columns,
+        builtins=FACILITATOR_COLUMNS,
+        raw_values=panel.column_values(
+            facilitator_ids=[f.pk for f in facilitators],
+            field_ids=[c.field.pk for c in columns if c.field is not None],
+        ),
     )
-    # One ready-to-render string per (facilitator, column), so the template
-    # renders every column the same way whatever the organizer chose.
-    return {
-        facilitator.pk: {
-            column.key: (
-                format_field_value(
-                    value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
-                )
-                if column.field is not None
-                else builtin_cell(key=column.key, facilitator=facilitator)
-            )
-            for column in columns
-        }
-        for facilitator in facilitators
-    }
 
 
 def _merge_error_message(reason: MergeErrorReason) -> str:
@@ -176,7 +155,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         pagination = pagination_context(self.request, list_context.facilitators)
         page_obj = pagination["page_obj"]
 
-        column_values = _build_column_values(
+        cells = _build_column_values(
             panel=self.request.services.facilitator_panel,
             facilitators=list(page_obj.object_list),
             columns=list_context.columns,
@@ -187,8 +166,8 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = list(page_obj.object_list)
         context.update(pagination)
-        context["columns"] = list_context.columns
-        context["column_values"] = column_values
+        context["columns"] = column_views(list_context.columns, FACILITATOR_COLUMNS)
+        context["column_values"] = cells
         context["filterable_fields"] = list_context.filterable_fields
         context["filter_fields"] = {
             field.pk: query.raw_field_filters.get(field.pk, "")
@@ -746,8 +725,10 @@ class FacilitatorColumnsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "facilitators"
         context["active_tab"] = "columns"
         context["tab_urls"] = facilitator_tab_urls(slug)
-        context["chosen_columns"] = columns.chosen
-        context["available_columns"] = columns.available
+        context["chosen_columns"] = column_views(columns.chosen, FACILITATOR_COLUMNS)
+        context["available_columns"] = column_views(
+            columns.available, FACILITATOR_COLUMNS
+        )
         context["error"] = error
         return TemplateResponse(self.request, "panel/facilitator-columns.html", context)
 

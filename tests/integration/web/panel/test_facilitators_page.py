@@ -6,6 +6,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AccreditationType,
@@ -16,7 +17,6 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
-from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
@@ -73,7 +73,20 @@ def _field_dto(field):
 
 
 _DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation"]
-_DEFAULT_COLUMNS = [PanelColumnDTO(key=key) for key in _DEFAULT_KEYS]
+_BUILTIN_LABELS = {
+    "name": "Display Name",
+    "linked": "Linked User",
+    "sessions": "Sessions",
+    "accreditation": "Accreditation",
+}
+_DEFAULT_COLUMNS = [
+    PanelColumnView(key=key, label=_BUILTIN_LABELS[key], kind="text")
+    for key in _DEFAULT_KEYS
+]
+
+
+def _field_column(field):
+    return PanelColumnView(key=f"field_{field.pk}", label=field.name, kind="text")
 
 
 def _column_values(facilitators, extra=None):
@@ -498,10 +511,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
-                "columns": [
-                    *_DEFAULT_COLUMNS,
-                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
-                ],
+                "columns": [*_DEFAULT_COLUMNS, _field_column(field)],
                 "column_values": _column_values(
                     expected,
                     {facilitator.pk: {f"field_{field.pk}": "alice@example.com"}},
@@ -585,13 +595,8 @@ class TestFacilitatorsPageView:
                 "page_sizes": _PAGE_SIZES,
                 "columns": [
                     *_DEFAULT_COLUMNS,
-                    PanelColumnDTO(
-                        key=f"field_{checkbox_field.pk}",
-                        field=_field_dto(checkbox_field),
-                    ),
-                    PanelColumnDTO(
-                        key=f"field_{multi_field.pk}", field=_field_dto(multi_field)
-                    ),
+                    _field_column(checkbox_field),
+                    _field_column(multi_field),
                 ],
                 "column_values": _column_values(
                     expected,
@@ -859,7 +864,7 @@ class TestFacilitatorsPageView:
             context_data={
                 **_base_context(event),
                 "facilitators": [],
-                "columns": [PanelColumnDTO(key="name")],
+                "columns": [_DEFAULT_COLUMNS[0]],
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
             },
@@ -1181,9 +1186,7 @@ class TestFacilitatorColumns:
             context_data={
                 **_event_context(event, active_tab="columns"),
                 "chosen_columns": _DEFAULT_COLUMNS,
-                "available_columns": [
-                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
-                ],
+                "available_columns": [_field_column(field)],
                 "error": None,
             },
         )
@@ -1272,11 +1275,8 @@ class TestFacilitatorColumns:
             template_name="panel/facilitator-columns.html",
             context_data={
                 **_event_context(event, active_tab="columns"),
-                "chosen_columns": [PanelColumnDTO(key="name")],
-                "available_columns": [
-                    PanelColumnDTO(key=key)
-                    for key in ("linked", "sessions", "accreditation")
-                ],
+                "chosen_columns": [_DEFAULT_COLUMNS[0]],
+                "available_columns": _DEFAULT_COLUMNS[1:],
                 "error": "Pick at least one column to show.",
             },
         )

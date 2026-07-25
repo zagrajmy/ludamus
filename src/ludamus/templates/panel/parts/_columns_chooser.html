@@ -16,7 +16,7 @@
                 aria-label="{% translate "Shown columns" %}"
                 aria-describedby="columns-help">
                 {% for column in chosen_columns %}
-                    {% include "panel/parts/_column_row.html" with column=column shown=True label=column|panel_column_label only %}
+                    {% include "panel/parts/_column_row.html" with column=column shown=True label=column.label only %}
                 {% endfor %}
             </ul>
             {% if available_columns %}
@@ -27,7 +27,7 @@
                     aria-label="{% translate "Available columns" %}"
                     aria-describedby="columns-help">
                     {% for column in available_columns %}
-                        {% include "panel/parts/_column_row.html" with column=column shown=False label=column|panel_column_label only %}
+                        {% include "panel/parts/_column_row.html" with column=column shown=False label=column.label only %}
                     {% endfor %}
                 </ul>
             {% endif %}

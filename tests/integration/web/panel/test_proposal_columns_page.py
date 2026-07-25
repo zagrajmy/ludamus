@@ -4,6 +4,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
 from ludamus.links.db.django.models import (
     EventPanelSettings,
     Session,
@@ -17,7 +18,6 @@ from ludamus.pacts import (
     SessionListItemDTO,
     SessionStatus,
 )
-from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
 
@@ -26,7 +26,28 @@ _PAGE_SIZES = [10, 20, 50, 100]
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _DEFAULT_KEYS = ["title", "host", "category", "status", "created"]
-_DEFAULT_COLUMNS = [PanelColumnDTO(key=key) for key in _DEFAULT_KEYS]
+
+_BUILTIN_LABELS = {
+    "title": "Title",
+    "host": "Display Name",
+    "category": "Category",
+    "status": "Status",
+    "created": "Created",
+}
+_BUILTIN_KINDS = {"status": "status", "created": "created"}
+
+
+def _builtin_column(key):
+    return PanelColumnView(
+        key=key, label=_BUILTIN_LABELS[key], kind=_BUILTIN_KINDS.get(key, "text")
+    )
+
+
+def _field_column(field):
+    return PanelColumnView(key=f"field_{field.pk}", label=field.name, kind="text")
+
+
+_DEFAULT_COLUMNS = [_builtin_column(key) for key in _DEFAULT_KEYS]
 
 
 def _field_dto(field):
@@ -181,9 +202,7 @@ class TestProposalColumnsPageView:
             context_data={
                 **_base_context(event),
                 "chosen_columns": _DEFAULT_COLUMNS,
-                "available_columns": [
-                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field))
-                ],
+                "available_columns": [_field_column(field)],
                 "error": None,
             },
         )
@@ -243,9 +262,9 @@ class TestProposalColumnsPageView:
             template_name="panel/proposal-columns.html",
             context_data={
                 **_base_context(event),
-                "chosen_columns": [PanelColumnDTO(key="title")],
+                "chosen_columns": [_builtin_column("title")],
                 "available_columns": [
-                    PanelColumnDTO(key=key)
+                    _builtin_column(key)
                     for key in ("host", "category", "status", "created")
                 ],
                 "error": "Pick at least one column to show.",
@@ -289,8 +308,10 @@ class TestProposalColumnsPageView:
                 event,
                 category=proposal_category,
                 session=session,
-                columns=[PanelColumnDTO(key="status")],
-                column_values={session.pk: {"status": ""}},
+                columns=[_builtin_column("status")],
+                # A status column renders as a badge, so it contributes no
+                # text cell at all — not an empty string standing in for one.
+                column_values={session.pk: {}},
             ),
         )
 
@@ -326,10 +347,7 @@ class TestProposalColumnsPageView:
                 event,
                 category=proposal_category,
                 session=session,
-                columns=[
-                    PanelColumnDTO(key="title"),
-                    PanelColumnDTO(key=f"field_{field.pk}", field=_field_dto(field)),
-                ],
+                columns=[_builtin_column("title"), _field_column(field)],
                 column_values={
                     session.pk: {"title": "Dragon Heist", f"field_{field.pk}": "D&D 5e"}
                 },
@@ -374,12 +392,7 @@ class TestProposalColumnsPageView:
                 event,
                 category=proposal_category,
                 session=session,
-                columns=[
-                    PanelColumnDTO(key="title"),
-                    PanelColumnDTO(
-                        key=f"field_{checkbox.pk}", field=_field_dto(checkbox)
-                    ),
-                ],
+                columns=[_builtin_column("title"), _field_column(checkbox)],
                 column_values={
                     session.pk: {"title": "Dragon Heist", f"field_{checkbox.pk}": "Yes"}
                 },

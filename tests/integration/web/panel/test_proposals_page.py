@@ -4,6 +4,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
 from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
@@ -22,7 +23,6 @@ from ludamus.pacts import (
     TrackDTO,
 )
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.panel import PanelColumnDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -57,22 +57,40 @@ _TRACK_FILTER_CONTEXT = {
     "statuses": _STATUSES,
 }
 
+_BUILTIN_LABELS = {
+    "title": "Title",
+    "host": "Display Name",
+    "category": "Category",
+    "status": "Status",
+    "created": "Created",
+}
+_BUILTIN_KINDS = {"status": "status", "created": "created"}
+
+
+def _builtin_column(key):
+    return PanelColumnView(
+        key=key, label=_BUILTIN_LABELS[key], kind=_BUILTIN_KINDS.get(key, "text")
+    )
+
+
+def _field_column(field):
+    return PanelColumnView(key=f"field_{field.pk}", label=field.name, kind="text")
+
+
 _DEFAULT_COLUMNS = [
-    PanelColumnDTO(key=key)
-    for key in ("title", "host", "category", "status", "created")
+    _builtin_column(key) for key in ("title", "host", "category", "status", "created")
 ]
 
 
 def _cells(proposals):
     # One ready-to-render string per (proposal, column). "status" and "created"
-    # render as a badge and a localized date in the template, not as text.
+    # render as a badge and a localized date in the template, so they carry no
+    # text cell at all.
     return {
         proposal.pk: {
             "title": proposal.title,
             "host": proposal.display_name,
             "category": proposal.category_name,
-            "status": "",
-            "created": "",
         }
         for proposal in proposals
     }

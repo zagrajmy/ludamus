@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
+    FACILITATOR_BUILTIN_KEYS,
     columns_context,
     resolve_columns,
     sanitize_column_keys,
@@ -59,7 +60,7 @@ def _unique(values: list[str]) -> list[str]:
 
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
-_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
+
 
 type _FieldValue = str | list[str] | bool
 
@@ -220,7 +221,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             field_filters=field_filters,
             columns=resolve_columns(
                 keys=settings.facilitator_columns,
-                builtin_keys=_BUILTIN_COLUMN_KEYS,
+                builtin_keys=FACILITATOR_BUILTIN_KEYS,
                 fields=fields,
             ),
         )
@@ -544,7 +545,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         settings = self._repos.panel_settings.read_or_create(event_id)
         return columns_context(
             keys=settings.facilitator_columns,
-            builtin_keys=_BUILTIN_COLUMN_KEYS,
+            builtin_keys=FACILITATOR_BUILTIN_KEYS,
             fields=self._repos.personal_data_fields.list_by_event(event_id),
         )
 
@@ -554,7 +555,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         if not (
             keys := sanitize_column_keys(
                 keys=columns,
-                builtin_keys=_BUILTIN_COLUMN_KEYS,
+                builtin_keys=FACILITATOR_BUILTIN_KEYS,
                 fields=self._repos.personal_data_fields.list_by_event(event_id),
             )
         ):

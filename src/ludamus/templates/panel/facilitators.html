@@ -138,7 +138,7 @@
                                 {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
                             </th>
                             {% for column in columns %}
-                                {% include "panel/parts/_sort_th.html" with column=column.key label=column|panel_column_label %}
+                                {% include "panel/parts/_sort_th.html" with column=column.key label=column.label %}
                             {% endfor %}
                             <th scope="col"
                                 class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">

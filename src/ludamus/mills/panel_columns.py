@@ -13,6 +13,11 @@ if TYPE_CHECKING:
 
 FIELD_KEY_PREFIX = "field_"
 
+# Which built-in columns each list offers, in their default order. The gates
+# layer decides what they are called and how their cells render.
+FACILITATOR_BUILTIN_KEYS = ("name", "linked", "sessions", "accreditation")
+PROPOSAL_BUILTIN_KEYS = ("title", "host", "category", "status", "created")
+
 
 def _column_order(field: PanelFieldProtocol) -> tuple[int, str]:
     return (field.order, field.name)

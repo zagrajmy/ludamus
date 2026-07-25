@@ -1,12 +1,12 @@
 {% load i18n %}
 {% comment %}
     One proposal cell's content. Text cells arrive pre-rendered in `value`;
-    status and created stay here because a badge and a localized date aren't
-    strings.
+    these two stay here because a badge and a localized date aren't strings,
+    and say so by declaring their kind rather than by being named here.
 {% endcomment %}
-{% if column.key == "status" %}
+{% if column.kind == "status" %}
     {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
-{% elif column.key == "created" %}
+{% elif column.kind == "created" %}
     {{ proposal.creation_time|date:"d M Y H:i" }}
 {% else %}
     {{ value }}

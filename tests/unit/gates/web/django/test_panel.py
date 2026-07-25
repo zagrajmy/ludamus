@@ -2,7 +2,11 @@
 
 import pytest
 
-from ludamus.gates.web.django.chronology.panel.views.facilitators import builtin_cell
+from ludamus.gates.web.django.chronology.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    BuiltinColumn,
+    builtin_columns,
+)
 from ludamus.gates.web.django.chronology.panel.views.venues import suggest_copy_name
 from ludamus.pacts import FacilitatorListItemDTO
 
@@ -51,13 +55,17 @@ class TestFacilitatorBuiltinCell:
         )
 
     @pytest.mark.parametrize(
-        ("key", "expected"),
-        (
-            ("name", "Alice"),
-            ("sessions", "3"),
-            # A key with no cell renders empty rather than somebody else's value.
-            ("mystery", ""),
-        ),
+        ("key", "expected"), (("name", "Alice"), ("sessions", "3"))
     )
     def test_renders_cell_for_key(self, key: str, expected: str) -> None:
-        assert builtin_cell(key=key, facilitator=self._facilitator()) == expected
+        cell = FACILITATOR_COLUMNS[key].cell
+        assert cell is not None
+        assert cell(self._facilitator()) == expected
+
+
+class TestBuiltins:
+    """Tests for the guard tying the render table to the mill's key list."""
+
+    def test_rejects_a_key_the_mill_never_offers(self) -> None:
+        with pytest.raises(ValueError, match="built-in columns don't match"):
+            builtin_columns(("name",), {"mystery": BuiltinColumn(label="Mystery")})
