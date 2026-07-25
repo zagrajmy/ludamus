@@ -4,9 +4,7 @@
 {% with size_class=size|default:"size-8" text_class="text-xs" border_class="border border-white/80 dark:border-neutral-900" is_danger=danger_ring|default:False %}
     {% if user %}
         {% with name_value=user.full_name|default:user.name|default:user.username|default:"" %}
-            <div class="{{ size_class }} shrink-0 relative"
-                 role="img"
-                 aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
+            <div class="{{ size_class }} shrink-0 relative" role="img" aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
                 <div class="absolute inset-0 {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full overflow-hidden">
                     <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
                          aria-hidden="true">
