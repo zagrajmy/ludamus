@@ -1298,6 +1298,32 @@ class TestProposalImportService(_ImportServiceMocks):
         )
         assert sessions.create.call_args.kwargs["facilitator_ids"] == [88]
 
+    def test_run_reuses_a_facilitator_carrying_an_ident_when_no_key_columns(
+        self, service, event_integrations, facilitators
+    ):
+        # No key columns configured, so this row has no identity of its own. The
+        # slug match keeps its identity from an earlier keyed run and is still
+        # the same person — plain display-name dedup applies.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob"}]
+        )
+        facilitators.read_by_event_and_slug.side_effect = None
+        facilitators.read_by_event_and_slug.return_value = MagicMock(
+            pk=88, ident="a-prior-identity"
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_not_called()
+        facilitators.set_ident.assert_not_called()
+
     def test_run_creates_a_facilitator_carrying_the_ident_when_nothing_matches(
         self, service, event_integrations, facilitators
     ):

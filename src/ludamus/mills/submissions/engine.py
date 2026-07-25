@@ -544,12 +544,13 @@ class ImportEngine:
         # (slug) dedup — repeated names resolve to the same record.
         if not (clean := display_name.strip()):
             return None
-        ident = self._facilitator_ident(event_id=event_id, settings=settings, row=row)
-        if ident:
-            return self._facilitator_by_ident(
-                event_id=event_id, ident=ident, display_name=clean
-            )
-        return self._facilitator_by_slug(event_id=event_id, display_name=clean)
+        return self._resolve_facilitator(
+            event_id=event_id,
+            ident=self._facilitator_ident(
+                event_id=event_id, settings=settings, row=row
+            ),
+            display_name=clean,
+        )
 
     @staticmethod
     def _facilitator_ident(
@@ -573,23 +574,36 @@ class ImportEngine:
             return ""
         return dedup_ident(event_id=event_id, identity=identity)
 
-    def _facilitator_by_ident(
+    def _resolve_facilitator(
         self, *, event_id: int, ident: str, display_name: str
     ) -> int:
-        found = self._repos.facilitators.find_id_by_ident(event_id, ident)
-        if found is not None:
+        # An empty `ident` means the recipe names no key columns (or this row
+        # left them blank): dedup on the display-name slug alone, as imports did
+        # before identities existed.
+        if (
+            ident
+            and (found := self._repos.facilitators.find_id_by_ident(event_id, ident))
+            is not None
+        ):
             return found
-        # A pre-ident record with the same slug is the same facilitator under
-        # the old display-name dedup: adopt it and stamp the identity so later
-        # reimports match by key columns, not the name (which may change).
-        slug = slugify(display_name) or "facilitator"
         try:
-            legacy = self._repos.facilitators.read_by_event_and_slug(event_id, slug)
+            existing = self._repos.facilitators.read_by_event_and_slug(
+                event_id, slugify(display_name) or "facilitator"
+            )
         except NotFoundError:
-            legacy = None
-        if legacy is not None and not legacy.ident:
-            self._repos.facilitators.set_ident(legacy.pk, ident)
-            return legacy.pk
+            pass
+        else:
+            # A slug match carrying no identity of its own is this facilitator
+            # under the old dedup: adopt it, and stamp the identity so later
+            # reimports match by key columns rather than the name, which may
+            # change. One that already carries a *different* identity is someone
+            # else who happens to share a slug, so it gets left alone.
+            if not existing.ident:
+                if ident:
+                    self._repos.facilitators.set_ident(existing.pk, ident)
+                return existing.pk
+            if not ident:
+                return existing.pk
         return self._repos.facilitators.create(
             {
                 "display_name": display_name,
@@ -603,20 +617,6 @@ class ImportEngine:
                 "user_id": None,
             }
         ).pk
-
-    def _facilitator_by_slug(self, *, event_id: int, display_name: str) -> int:
-        slug = slugify(display_name) or "facilitator"
-        try:
-            return self._repos.facilitators.read_by_event_and_slug(event_id, slug).pk
-        except NotFoundError:
-            return self._repos.facilitators.create(
-                {
-                    "display_name": display_name,
-                    "event_id": event_id,
-                    "slug": slug,
-                    "user_id": None,
-                }
-            ).pk
 
     def _save_personal_data(
         self,
