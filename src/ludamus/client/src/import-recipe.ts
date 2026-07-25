@@ -260,7 +260,12 @@ function initColumnKeys(root: HTMLElement): void {
     btn.dataset.columnKeysRemove = "";
     btn.className =
       "ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground";
-    btn.setAttribute("aria-label", `Remove ${value}`);
+    // Same msgid as the server-rendered chips: the template hands over the
+    // translated sentence with a placeholder standing in for the column name.
+    btn.setAttribute(
+      "aria-label",
+      (root.dataset.removeLabel ?? "Remove __COL__").replace("__COL__", value),
+    );
     btn.textContent = "×";
     btn.addEventListener("click", () => removeChip(li, value));
     li.append(btn);
