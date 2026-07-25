@@ -888,6 +888,23 @@ class TestProposalCreateCategoryFields:
         assert 'hx-target="#proposal-session-fields"' in html
         assert 'id="proposal-session-fields"' in html
 
+    def test_post_to_fields_component_is_rejected(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category, _field = self._category_with_field(
+            event, name="A", slug="a", field_slug="only-a"
+        )
+
+        response = authenticated_client.post(
+            self.get_fields_url(event), data={"category_id": category.pk}
+        )
+
+        # The fragment endpoint is read-only; it must not share the page view's
+        # create handler.
+        assert_response(response, HTTPStatus.METHOD_NOT_ALLOWED)
+        assert not Session.objects.exists()
+
     def test_get_fields_component_follows_the_requested_category(
         self, authenticated_client, active_user, sphere, event
     ):

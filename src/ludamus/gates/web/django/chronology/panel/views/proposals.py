@@ -343,8 +343,8 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
 
 
-class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
-    """Create a new proposal or edit an existing one from the organizer panel."""
+class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
+    """Request-scoped pieces the full page and the fields fragment both need."""
 
     request: PanelRequest
 
@@ -500,6 +500,10 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
             for value in self.request.di.uow.sessions.read_field_values(session.pk)
             if value.field_id not in asked_pks
         ]
+
+
+class ProposalFormPageView(_ProposalFormBase):
+    """Create a new proposal or edit an existing one from the organizer panel."""
 
     def _collect_ids(
         self, *, plural: str, singular: str, valid: set[int]
@@ -909,10 +913,8 @@ class ProposalFormPageView(PanelAccessMixin, EventContextMixin, View):
                 )
 
 
-class ProposalFormFieldsComponentView(ProposalFormPageView):
+class ProposalFormFieldsComponentView(_ProposalFormBase):
     """Re-render the form's session fields for the picked category."""
-
-    http_method_names = ("get",)
 
     def get(
         self, _request: PanelRequest, slug: str, proposal_id: int | None = None
