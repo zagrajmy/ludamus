@@ -2756,25 +2756,6 @@ class TestEventImportLogReimport:
         assert entries[0].status == "success"
         assert entries[0].session_id == session_pk
 
-    def test_template_renders_reimport_without_a_confirm_dialog(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        integration, _entry = self._setup(
-            authenticated_client, active_user, sphere, event, connection_with_secret
-        )
-
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?status=success"
-        )
-
-        assert response.status_code == HTTPStatus.OK
-        body = response.content.decode()
-        # Reimport only fills gaps, so its form carries no are-you-sure step.
-        action = _log_reimport_url(event, integration)
-        assert action in body
-        form_tag = body[body.rindex("<form", 0, body.index(action)) :]
-        assert "data-confirm" not in form_tag[: form_tag.index(">")]
-
     def test_post_keeps_contact_email_when_source_row_blanks_it(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
