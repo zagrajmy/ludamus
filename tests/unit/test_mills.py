@@ -1376,6 +1376,36 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.duplicates == 0
         assert result.skipped == len(reasons)
 
+    def test_run_skips_row_when_a_unique_key_column_is_ambiguous(
+        self, service, event_integrations, log_entries
+    ):
+        # The key column resolves to a deduped pair carrying different values.
+        # Reading the row raw would raise out of the whole run; the identity
+        # goes through the same single read point as every other cell, so the
+        # row is skipped and the rest of the sheet still imports.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"}}}'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = [
+            ImportRow(
+                {"Title": "My Talk", "Email": "bob@x.z", "Email (2)": "robert@x.z"}
+            )
+        ]
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 0
+        assert result.skipped == 1
+        log_entries.upsert.assert_called_once()
+        upserted: ImportLogEntryCreateData = log_entries.upsert.call_args.args[0]
+        assert upserted.status == ImportLogStatus.SKIPPED
+        assert "bob@x.z" in upserted.reason
+        assert "robert@x.z" in upserted.reason
+
     def test_run_skips_row_when_a_facilitator_key_column_is_ambiguous(
         self, service, event_integrations, log_entries
     ):

@@ -499,8 +499,15 @@ class ImportEngine:
         # matches mean "create". With no unique-key columns every row creates.
         if not settings.unique_key_columns:
             return ""
+        # Read through `cell()`, as the facilitator identity does: a deduped
+        # column pair ("Email" / "Email (2)") with conflicting values raises
+        # DuplicateValueError, which nothing up the stack catches — the run
+        # would 500 instead of skipping the row. `cell()` also applies the
+        # operator's `overrides`, so the identity hashes the same cleaned text
+        # every other consumer of that column sees.
         identity = "-".join(
-            row.get_value(col, "") for col in settings.unique_key_columns
+            cell(target=settings.questions.get(col), row=row, header=col)
+            for col in settings.unique_key_columns
         )
         # Every key cell blank means the row carries no identity at all. Hashing
         # it anyway collapses all such rows onto one ident, so the second one
