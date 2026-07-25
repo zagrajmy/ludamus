@@ -114,7 +114,9 @@
                                 </button>
                             </form>
                         {% endif %}
-                        <form method="post" action="{% url 'panel:import-refetch' slug=current_event.slug pk=active_integration.pk %}" {% if fields_imported %}data-confirm="{% blocktranslate with mappings=mapping_total confirmed=mapping_confirmed %}Reimport the form? This drops every confirmation ({{ confirmed }} of {{ mappings }} confirmed) and rebuilds the question list. Mappings and field definitions are preserved.{% endblocktranslate %}"{% endif %}>
+                        <form method="post"
+                              action="{% url 'panel:import-refetch' slug=current_event.slug pk=active_integration.pk %}"
+                              {% if fields_imported %}data-confirm="{% blocktranslate with mappings=mapping_total confirmed=mapping_confirmed %}Reimport the form? This drops every confirmation ({{ confirmed }} of {{ mappings }} confirmed) and rebuilds the question list. Mappings and field definitions are preserved.{% endblocktranslate %}"{% endif %}>
                             {% csrf_token %}
                             <button type="submit" class="btn btn-secondary flex items-center">
                                 {% icon "arrow-path" class="w-4 h-4 mr-2" %}

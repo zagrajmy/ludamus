@@ -18,4 +18,7 @@
            {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}
            {% if aria_expanded|default:"" %}aria-expanded="{{ aria_expanded }}"{% endif %}
            {% if hx_on_change|default:"" %}hx-on:change="{{ hx_on_change }}"{% endif %}>
-    {% if label|default:"" %}<span class="ml-2 text-sm text-foreground">{{ label }}</span></label>{% endif %}
+    {% if label|default:"" %}
+        <span class="ml-2 text-sm text-foreground">{{ label }}</span>
+    </label>
+{% endif %}

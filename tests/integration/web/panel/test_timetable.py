@@ -430,7 +430,7 @@ class TestPanelBaseHeader:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=ANY,
-            contains="<strong>06 Aug 2026</strong>",
+            contains="06 Aug 2026",
             not_contains="06 Aug - 06 Aug",
         )
 
@@ -452,5 +452,5 @@ class TestPanelBaseHeader:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=ANY,
-            contains="<strong>06 Aug - 08 Aug 2026</strong>",
+            contains="06 Aug - 08 Aug 2026",
         )

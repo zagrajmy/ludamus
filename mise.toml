@@ -336,12 +336,12 @@ run = [
     { task = "lint:mypy" },
     { task = "lint:pylint", args = ["src"] },
     { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
-    { task = "lint:tingle" },
+    { task = "test:py", args = ["-xvv"]}
 ]
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
-run = [{ task = "check" }, { task = "diff-cover" }, { task = "lint:tingle" }]
+run = ["poetry install", { task = "devcheck" }, { task = "diff-cover" }, { task = "lint:tingle" }]
 
 
 ## Other
