@@ -1322,6 +1322,34 @@ class TestProposalImportService(_ImportServiceMocks):
         assert created["ident"] == dedup_ident(event_id=2, identity="bob@x.z")
         assert created["slug"] == "gm-bob"
 
+    def test_run_skips_row_when_every_unique_key_cell_is_blank(
+        self, service, event_integrations, log_entries
+    ):
+        # Both rows leave the key column empty. Hashing "" would give them the
+        # same ident, so the second used to be reported as a duplicate of the
+        # first — two unrelated proposals merged into one.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"unique_key_columns": ["Email"],'
+                ' "questions": {"Title": {"to": "session.title"}}}'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [
+                {"Title": "First Talk", "Email": ""},
+                {"Title": "Second Talk", "Email": "   "},
+            ]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        reasons = [call.args[0].reason for call in log_entries.upsert.call_args_list]
+        assert reasons == ["unique-key columns are all blank: 'Email'"] * 2
+        assert result.created == 0
+        assert result.duplicates == 0
+        assert result.skipped == len(reasons)
+
     def test_run_skips_row_when_a_facilitator_key_column_is_ambiguous(
         self, service, event_integrations, log_entries
     ):

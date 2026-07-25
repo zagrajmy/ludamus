@@ -503,6 +503,16 @@ class ImportEngine:
         identity = "-".join(
             row.get_value(col, "") for col in settings.unique_key_columns
         )
+        # Every key cell blank means the row carries no identity at all. Hashing
+        # it anyway collapses all such rows onto one ident, so the second one
+        # would be reported as a duplicate of the first — two unrelated
+        # proposals silently merged into one. Skip it instead, with a reason the
+        # operator can act on from the Log tab.
+        if not identity.strip("- "):
+            msg = "unique-key columns are all blank: " + ", ".join(
+                repr(c) for c in settings.unique_key_columns
+            )
+            raise RowSkippedError(msg)
         ident = dedup_ident(event_id=event_id, identity=identity)
         if (
             existing_id := self._repos.sessions.find_id_by_ident(event_id, ident)
