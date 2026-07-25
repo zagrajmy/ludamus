@@ -167,3 +167,7 @@ If you fix a papercut, remove it.
   Playwright still transpiles and executes the changed spec successfully.
 - 2026-07-24: playwriter 'session new' printed a fresh id but the relay 404'd it
   (Session 14 not found); had to reuse an old session id from session list
+- 2026-07-25: mise run papercut (and mise exec) in a web sandbox first tries to
+  install pipx:shellcheck-py==0.11.0 and hadolint-py==2.14.0; uv can't find
+  those versions on the first PyPI index and mise errors out, so the papercut
+  task itself never runs. Appended by hand.
