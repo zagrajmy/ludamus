@@ -7,6 +7,7 @@ integration is just the connection it pulls through.
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
@@ -169,6 +170,15 @@ def _sheets_get(values, *, title="Form Responses 1"):
     )
     vals = MagicMock(ok=True, json=lambda: {"values": values})
     return lambda url, **_: vals if "/values/" in url else meta
+
+
+def _successes_details_tag(body: str) -> str:
+    # Match only the successes <details> opening tag itself, not everything
+    # that precedes it (nav, sidebar, event description) — those can contain
+    # the substring "open" from unrelated Faker-generated text.
+    match = re.search(r'<details class="card p-4 sm:p-5"[^>]*>', body)
+    assert match is not None
+    return match.group()
 
 
 @pytest.mark.django_db
@@ -2436,8 +2446,7 @@ class TestEventImportLogPageView:
         assert response.context_data["log_error_count"] == 0
         body = response.content.decode()
         # Successes are collapsed inside a <details> without `open`.
-        assert "<details" in body
-        assert "open" not in body.split("</details>")[0]
+        assert "open" not in _successes_details_tag(body)
 
     def test_post_retry_creates_a_fresh_entry_and_redirects_to_log(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -2615,8 +2624,7 @@ class TestEventImportLogFilters:
         ]
         # The success <details> renders with the open attribute.
         body = response.content.decode()
-        assert "<details" in body
-        assert "open" in body.split("</details>")[0]
+        assert "open" in _successes_details_tag(body)
 
     def test_search_narrows_to_matching_title_or_display_name(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
