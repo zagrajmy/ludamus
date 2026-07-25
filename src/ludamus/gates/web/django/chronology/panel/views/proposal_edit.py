@@ -277,13 +277,27 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         assigned_pks = set(self.request.di.uow.sessions.read_track_ids(proposal_id))
         return all_tracks, assigned_pks
 
-    def _collect_track_ids(self, event_pk: int) -> list[int] | None:
-        if self.request.POST.get("tracks_submitted") != "1":
+    def _submitted_ids(
+        self, *, flag: str, key: str, valid_pks: set[int]
+    ) -> list[int] | None:
+        # None means "this section wasn't part of the submission" — an empty
+        # list means the organizer cleared it. Ids the event doesn't own are
+        # dropped rather than written.
+        if self.request.POST.get(flag) != "1":
             return None
-        raw_ids = self.request.POST.getlist("track_ids")
-        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
-        valid_pks = {t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)}
-        return list(submitted_ids & valid_pks)
+        submitted = {
+            int(raw) for raw in self.request.POST.getlist(key) if raw.isdigit()
+        }
+        return list(submitted & valid_pks)
+
+    def _collect_track_ids(self, event_pk: int) -> list[int] | None:
+        return self._submitted_ids(
+            flag="tracks_submitted",
+            key="track_ids",
+            valid_pks={
+                t.pk for t in self.request.di.uow.tracks.list_by_event(event_pk)
+            },
+        )
 
     def _get_time_slot_context(
         self, event_pk: int, proposal_id: int
@@ -295,14 +309,13 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         return all_time_slots, assigned_pks
 
     def _collect_time_slot_ids(self, event_pk: int) -> list[int] | None:
-        if self.request.POST.get("time_slots_submitted") != "1":
-            return None
-        raw_ids = self.request.POST.getlist("time_slot_ids")
-        submitted_ids = {int(tid) for tid in raw_ids if tid.isdigit()}
-        valid_pks = {
-            ts.pk for ts in self.request.di.uow.time_slots.list_by_event(event_pk)
-        }
-        return list(submitted_ids & valid_pks)
+        return self._submitted_ids(
+            flag="time_slots_submitted",
+            key="time_slot_ids",
+            valid_pks={
+                ts.pk for ts in self.request.di.uow.time_slots.list_by_event(event_pk)
+            },
+        )
 
     def _get_facilitator_personal_data(
         self, event_pk: int, proposal_id: int
@@ -379,13 +392,13 @@ class ProposalEditPageView(PanelAccessMixin, EventContextMixin, View):
         return result
 
     def _collect_facilitator_ids(self, event_pk: int) -> list[int] | None:
-        if self.request.POST.get("facilitators_submitted") != "1":
-            return None
-        raw_ids = self.request.POST.getlist("facilitator_ids")
-        submitted_ids = {int(fid) for fid in raw_ids if fid.isdigit()}
-        all_facilitators = self.request.di.uow.facilitators.list_by_event(event_pk)
-        valid_pks = {f.pk for f in all_facilitators}
-        return list(submitted_ids & valid_pks)
+        return self._submitted_ids(
+            flag="facilitators_submitted",
+            key="facilitator_ids",
+            valid_pks={
+                f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
+            },
+        )
 
     def _collect_remove_field_ids(
         self, event_pk: int, session: SessionDTO
