@@ -336,7 +336,7 @@ run = [
     { task = "lint:mypy" },
     { task = "lint:pylint", args = ["src"] },
     { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
-    { task = "test:py", args = ["-xvv"]}
+    { task = "test:py", args = ["-xvv"] },
 ]
 
 [tasks.fullcheck]

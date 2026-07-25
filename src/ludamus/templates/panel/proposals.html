@@ -206,10 +206,8 @@
                         <thead class="bg-bg-tertiary">
                             <tr>
                                 <th scope="col" class="px-6 py-3 w-12">
-                                    <input type="checkbox"
-                                           id="bulk-select-all"
-                                           aria-label="{% translate "Select all proposals" %}"
-                                           class="rounded border-border">
+                                    {% translate "Select all proposals" as t_select_all %}
+                                    {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
                                 </th>
                                 {% for column in columns %}
                                     {% include "panel/parts/_sort_th.html" with column=column.key label=column|panel_column_label %}
@@ -220,11 +218,8 @@
                             {% for proposal in proposals %}
                                 <tr>
                                     <td class="px-6 py-4">
-                                        <input type="checkbox"
-                                               name="proposal_ids"
-                                               value="{{ proposal.pk }}"
-                                               aria-label="{% blocktranslate with title=proposal.title %}Select {{ title }}{% endblocktranslate %}"
-                                               class="bulk-row-checkbox rounded border-border">
+                                        {% blocktranslate asvar t_select_row with title=proposal.title %}Select {{ title }}{% endblocktranslate %}
+                                        {% include "components/checkbox-field.html" with name="proposal_ids" value=proposal.pk aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
                                     </td>
                                     {% for column in columns %}
                                         {% with value=column_values|get_item:proposal.pk|get_item:column.key %}

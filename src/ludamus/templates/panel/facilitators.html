@@ -134,10 +134,8 @@
                     <thead class="bg-bg-tertiary">
                         <tr>
                             <th scope="col" class="px-6 py-3 w-12">
-                                <input type="checkbox"
-                                       id="bulk-select-all"
-                                       aria-label="{% translate "Select all facilitators" %}"
-                                       class="rounded border-border">
+                                {% translate "Select all facilitators" as t_select_all %}
+                                {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
                             </th>
                             {% for column in columns %}
                                 {% include "panel/parts/_sort_th.html" with column=column.key label=column|panel_column_label %}
@@ -152,12 +150,8 @@
                         {% for facilitator in facilitators %}
                             <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
                                 <td class="px-6 py-4">
-                                    <input type="checkbox"
-                                           form="bulk-status-form"
-                                           name="facilitator_slugs"
-                                           value="{{ facilitator.slug }}"
-                                           aria-label="{% blocktranslate with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}"
-                                           class="bulk-row-checkbox rounded border-border">
+                                    {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
+                                    {% include "components/checkbox-field.html" with name="facilitator_slugs" value=facilitator.slug form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
                                 </td>
                                 {% for column in columns %}
                                     {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
