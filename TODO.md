@@ -103,10 +103,6 @@ kanban
     [Link form field errors to inputs - aria-invalid + aria-describedby]@{
       assigned: 'frontend'
     }
-    [Proposal form: migrate hand-rolled category select + facilitator/track
-     checkboxes to tessera select/checkbox tags]@{
-      assigned: 'frontend'
-    }
 
   chores
     [Expand README.md - description, features, quick start]@{

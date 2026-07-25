@@ -63,7 +63,7 @@
                                           role="status"
                                           aria-label="{% translate "Loading" %}"></span>
                                 </div>
-                                {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors %}
+                                {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors aria-describedby=form.category_id.errors|yesno:"id_category_id_errors," %}
                                     {% for value, label in form.category_id.field.choices %}
                                         <option value="{{ value }}"
                                                 {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
@@ -71,7 +71,9 @@
                                         </option>
                                     {% endfor %}
                                 {% end_select %}
-                                {% if form.category_id.errors %}<p class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>{% endif %}
+                                {% if form.category_id.errors %}
+                                    <p id="id_category_id_errors" class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>
+                                {% endif %}
                             </div>
                             <div>{% tessera_field form.cover_image %}</div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -692,7 +692,7 @@ class SessionEditForm(forms.Form):
         required=False, min_value=0, label=_("Participants Limit")
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
-    duration = forms.CharField(required=False)
+    duration = forms.CharField(required=False, label=_("Duration"))
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -743,6 +743,7 @@ def create_proposal_form(
     if category and category.durations:
         attrs["duration"] = forms.ChoiceField(
             required=False,
+            label=_("Duration"),
             choices=[
                 ("", "---"),
                 *((d, format_duration(d)) for d in category.durations),
