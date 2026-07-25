@@ -28,7 +28,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     import_tab_urls,
 )
-from ludamus.mills.submissions.mapping import MissingUniqueKeyColumnsError, slugify
+from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
     DurationSpec,
@@ -973,8 +973,8 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
 
 def _missing_columns_message(columns: list[str]) -> str:
     return _(
-        "Import aborted: unique-key columns not found in the sheet: %(columns)s. "
-        "Fix the unique-key selection on the run tab, then try again."
+        "Import aborted: key columns not found in the sheet: %(columns)s. "
+        "Fix the key-column selection on the run tab, then try again."
     ) % {"columns": ", ".join(columns)}
 
 
@@ -1009,7 +1009,7 @@ class EventImportRunActionView(_ImportActionView):
             result = self.request.services.proposals_import.run(
                 sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
             )
-        except MissingUniqueKeyColumnsError as exc:
+        except MissingKeyColumnsError as exc:
             messages.error(self.request, _missing_columns_message(exc.columns))
             return
         messages.success(
@@ -1037,7 +1037,7 @@ class EventImportTestRowActionView(_ImportActionView):
             result = self.request.services.proposals_import.run_sample(
                 sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
             )
-        except MissingUniqueKeyColumnsError as exc:
+        except MissingKeyColumnsError as exc:
             messages.error(self.request, _missing_columns_message(exc.columns))
             return
         if result.created:

@@ -3936,8 +3936,8 @@ class TestImportDistinctSessionsSameName:
                 (
                     messages.ERROR,
                     (
-                        "Import aborted: unique-key columns not found in the "
-                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "Import aborted: key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the key-column "
                         "selection on the run tab, then try again."
                     ),
                 )
@@ -3969,8 +3969,41 @@ class TestImportDistinctSessionsSameName:
                 (
                     messages.ERROR,
                     (
-                        "Import aborted: unique-key columns not found in the "
-                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "Import aborted: key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the key-column "
+                        "selection on the run tab, then try again."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(event=event).exists()
+
+    def test_run_aborts_when_facilitator_key_column_missing_from_sheet(
+        self, authenticated_client, active_user, sphere, event, connection_with_secret
+    ):
+        sphere.managers.add(active_user)
+        integration = _make_import_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        # A renamed facilitator-identity header would silently drop the run back
+        # to display-name dedup — the very thing the key columns replace.
+        settings = json.loads(self._settings(_LOCALIZED_HEADER))
+        settings["facilitator_key_columns"] = ["Adres e-mail (prowadzący)"]
+        integration.settings_json = json.dumps(settings)
+        integration.save(update_fields=["settings_json"])
+
+        response = self._run(authenticated_client, event, integration)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Import aborted: key columns not found in the sheet: "
+                        "Adres e-mail (prowadzący). Fix the key-column "
                         "selection on the run tab, then try again."
                     ),
                 )

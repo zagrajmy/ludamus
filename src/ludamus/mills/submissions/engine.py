@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import (
     DuplicateRowError,
-    MissingUniqueKeyColumnsError,
+    MissingKeyColumnsError,
     ResolvedBuiltins,
     RowSkippedError,
     build_personal_data_field_values,
@@ -84,7 +84,7 @@ class ImportEngine:
         settings: ImportSettings,
         indexed_rows: list[tuple[int, ImportRow]],
     ) -> ProposalImportResult:
-        self._guard_unique_key_columns(settings, indexed_rows)
+        self._guard_key_columns(settings, indexed_rows)
         created = 0
         skipped = 0
         duplicates = 0
@@ -455,21 +455,22 @@ class ImportEngine:
             self._repos.sessions.update(session_id, update_data)
 
     @staticmethod
-    def _guard_unique_key_columns(
+    def _guard_key_columns(
         settings: ImportSettings, indexed_rows: list[tuple[int, ImportRow]]
     ) -> None:
         # Headers are the same across a fetch, so one row settles it. Bail before
-        # any writes (field provisioning included) when a configured unique-key
-        # column isn't in the sheet — otherwise the identity silently collapses
-        # and distinct rows merge onto one slug.
-        if not (settings.unique_key_columns and indexed_rows):
+        # any writes (field provisioning included) when a configured key column
+        # isn't in the sheet: a missing unique-key column collapses the row
+        # identity so distinct rows merge onto one slug, and a missing
+        # facilitator-key column drops the run back to display-name dedup, which
+        # is the very thing the key columns were configured to replace.
+        if not indexed_rows:
             return
         _, sample = indexed_rows[0]
-        missing = [
-            col for col in settings.unique_key_columns if not sample.has_column(col)
-        ]
+        configured = settings.unique_key_columns + settings.facilitator_key_columns
+        missing = [col for col in configured if not sample.has_column(col)]
         if missing:
-            raise MissingUniqueKeyColumnsError(missing)
+            raise MissingKeyColumnsError(missing)
 
     def _resolve_ident(
         self,

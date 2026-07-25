@@ -1316,12 +1316,11 @@ msgstr "Zapisano ustawienia arkusza."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid ""
-"Import aborted: unique-key columns not found in the sheet: %(columns)s. Fix "
-"the unique-key selection on the run tab, then try again."
+"Import aborted: key columns not found in the sheet: %(columns)s. Fix the key-"
+"column selection on the run tab, then try again."
 msgstr ""
-"Przerwano import: nie znaleziono w arkuszu kolumn klucza unikalnego: "
-"%(columns)s. Popraw wybór klucza unikalnego na karcie uruchamiania i spróbuj "
-"ponownie."
+"Przerwano import: nie znaleziono w arkuszu kolumn kluczowych: %(columns)s. "
+"Popraw wybór kolumn kluczowych na karcie uruchamiania i spróbuj ponownie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
