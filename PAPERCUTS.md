@@ -167,3 +167,11 @@ If you fix a papercut, remove it.
   Playwright still transpiles and executes the changed spec successfully.
 - 2026-07-24: playwriter 'session new' printed a fresh id but the relay 404'd it
   (Session 14 not found); had to reuse an old session id from session list
+- 2026-07-25: Web sandbox session started with an empty .venv (no pytest, no
+  django) and mise still wedged on pipx:shellcheck-py/hadolint-py, so no mise
+  task could bootstrap it; ran poetry install by hand and invoked pytest as
+  .venv/bin/python -m pytest with PYTHONPATH=src plus .env.test sourced
+  manually.
+- 2026-07-25: /opt/pw-browsers held chromium_headless_shell-1208 as an empty
+  directory, so every e2e test failed with "Executable doesn't exist" until
+  npx playwright install chromium refetched it.

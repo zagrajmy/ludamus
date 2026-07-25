@@ -220,6 +220,10 @@ class TestTimetablePageView:
         assert content.count('class="timetable-time-axis ') == 1
         assert content.count("Time</div>") == 1
         assert [column.space.pk for column in grid.days[0].columns] == [space.pk]
+        # Header and body share one track list, so the calendar has to declare
+        # every day's columns end to end.
+        assert grid.total_columns == expected_day_count
+        assert "--total-columns: 2" in content
 
     def test_single_schedule_day_hides_day_selector(
         self, authenticated_client, active_user, sphere, event, time_slot

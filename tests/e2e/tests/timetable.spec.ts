@@ -149,6 +149,44 @@ test.describe("Timetable", () => {
     });
   });
 
+  test("room headers stay aligned with their columns, whatever they contain", async ({ page }) => {
+    await page.setViewportSize({ width: 480, height: 800 });
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const columnEdges = () =>
+      page.locator(".timetable-calendar").evaluate((calendar) => {
+        const edges = (selector: string) =>
+          Array.from(calendar.querySelectorAll(selector), (cell) => {
+            const box = cell.getBoundingClientRect();
+            return { left: box.left, right: box.right };
+          });
+        return { body: edges(".timetable-column"), header: edges(".timetable-room-cell") };
+      });
+
+    const expectAligned = async () => {
+      const { body, header } = await columnEdges();
+      expect(header.length).toBeGreaterThan(1);
+      expect(body).toHaveLength(header.length);
+      for (const [index, cell] of header.entries()) {
+        expect(Math.abs(cell.left - body[index].left)).toBeLessThanOrEqual(1);
+        expect(Math.abs(cell.right - body[index].right)).toBeLessThanOrEqual(1);
+      }
+    };
+
+    await expectAligned();
+
+    // Column widths must come from the track list, not from what a cell holds:
+    // sessions are absolutely positioned and contribute no width, so any
+    // content-driven header would drift away from the body it labels.
+    await page
+      .locator(".timetable-room-cell")
+      .first()
+      .evaluate((cell) => {
+        cell.textContent = "Room name long enough to stretch a content-sized column";
+      });
+    await expectAligned();
+  });
+
   test("session list loads via HTMX and shows unscheduled sessions", async ({ page }) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,

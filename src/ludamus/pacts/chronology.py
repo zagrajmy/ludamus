@@ -427,6 +427,13 @@ class TimetableGridDTO(BaseModel):
     available_dates: list[date] = []
     date_selection: DateSelection = "all"
 
+    @property
+    def total_columns(self) -> int:
+        # The calendar is one flat track list that the sticky header and the
+        # scrolling body are both laid out from, so it needs every day's
+        # columns end to end.
+        return sum(len(day.columns) for day in self.days)
+
 
 class ConflictType(StrEnum):
     SPACE_OVERLAP = auto()
