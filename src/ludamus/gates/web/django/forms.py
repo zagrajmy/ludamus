@@ -789,7 +789,7 @@ class FacilitatorForm(forms.Form):
         initial=True,
         required=False,
         label=_("Assign me as organizer"),
-        help_text=_("You become this facilitator's contact person."),
+        help_text=_("You handle this facilitator until you step down."),
     )
 
     def clean_accreditation_type(self) -> str:

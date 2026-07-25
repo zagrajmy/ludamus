@@ -229,11 +229,17 @@ class TestFacilitatorMergePageView:
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
         Facilitator.objects.filter(pk=source.pk).update(organizer=organizer)
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         target.refresh_from_db()
         assert target.organizer_id == organizer.pk
 
@@ -248,11 +254,17 @@ class TestFacilitatorMergePageView:
         Facilitator.objects.filter(pk=target.pk).update(organizer=one)
         Facilitator.objects.filter(pk=source.pk).update(organizer=two)
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         target.refresh_from_db()
         assert target.organizer_id is None
 
@@ -267,11 +279,17 @@ class TestFacilitatorMergePageView:
             organizer=organizer
         )
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         target.refresh_from_db()
         assert target.organizer_id == organizer.pk
 

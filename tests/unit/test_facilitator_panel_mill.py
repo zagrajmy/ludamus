@@ -1,9 +1,13 @@
+import pytest
+
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
 from ludamus.pacts import FacilitatorDTO, PersonalDataFieldDTO
 from ludamus.pacts.submissions import (
     EventPanelSettingsDTO,
+    FacilitatorActionError,
     FacilitatorListQuery,
     FacilitatorPanelRepos,
+    OrganizerActionRefusal,
 )
 
 
@@ -77,28 +81,27 @@ _MINE = 42
 _THEIRS = 7
 
 
+_NOT_CALLED = object()
+
+
 class FakeOrganizerRepo:
-    # In-memory stand-in for the conditional updates `claim` / `release` run.
-    def __init__(self, organizer_id=None):
+    # Records what the mill asked for and answers with a canned verdict. The
+    # conditional updates themselves are the repo's job, covered by
+    # tests/integration/links/test_facilitator_repository.py.
+    def __init__(self, organizer_id=None, *, update_applies=False):
         self.organizer_id = organizer_id
+        self.update_applies = update_applies
+        self.released_with = _NOT_CALLED
 
-    @staticmethod
-    def read_by_event_and_slug(_event_id, _slug):
-        return FacilitatorDTO.model_construct(pk=7)
+    def read_by_event_and_slug(self, _event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=7, organizer_id=self.organizer_id)
 
-    def claim(self, _pk, organizer_id):
-        if self.organizer_id is not None:
-            return False
-        self.organizer_id = organizer_id
-        return True
+    def claim(self, _pk, _organizer_id):
+        return self.update_applies
 
     def release(self, _pk, *, organizer_id):
-        if self.organizer_id is None:
-            return False
-        if organizer_id is not None and organizer_id != self.organizer_id:
-            return False
-        self.organizer_id = None
-        return True
+        self.released_with = organizer_id
+        return self.update_applies
 
 
 def _organizer_service(facilitators):
@@ -112,58 +115,77 @@ def _organizer_service(facilitators):
     return FacilitatorPanelService(object(), repos)
 
 
+def _refusal(call):
+    with pytest.raises(FacilitatorActionError) as exc_info:
+        call()
+    return exc_info.value.refusal
+
+
 class TestOrganizerAssignment:
-    def test_free_facilitator_is_claimed(self):
+    def test_a_refused_claim_on_a_free_row_blames_the_winner(self):
+        service = _organizer_service(FakeOrganizerRepo(organizer_id=_THEIRS))
+
+        refusal = _refusal(
+            lambda: service.assign_organizer(
+                event_id=1, facilitator_slug="alice", organizer_id=_MINE
+            )
+        )
+
+        assert refusal == OrganizerActionRefusal.ALREADY_TAKEN
+
+    def test_a_refused_claim_on_your_own_row_says_it_is_already_yours(self):
+        service = _organizer_service(FakeOrganizerRepo(organizer_id=_MINE))
+
+        refusal = _refusal(
+            lambda: service.assign_organizer(
+                event_id=1, facilitator_slug="alice", organizer_id=_MINE
+            )
+        )
+
+        assert refusal == OrganizerActionRefusal.ALREADY_YOURS
+
+
+class TestOrganizerStepDown:
+    def test_stepping_down_from_a_free_row_says_nobody_handles_it(self):
         facilitators = FakeOrganizerRepo()
         service = _organizer_service(facilitators)
 
-        assigned = service.assign_organizer(
-            event_id=1, facilitator_slug="alice", organizer_id=_MINE
+        refusal = _refusal(
+            lambda: service.unassign_organizer(
+                event_id=1, facilitator_slug="alice", organizer_id=_MINE, force=False
+            )
         )
 
-        assert assigned
-        assert facilitators.organizer_id == _MINE
+        assert refusal == OrganizerActionRefusal.ALREADY_FREE
+        assert facilitators.released_with is _NOT_CALLED
 
-    def test_taken_facilitator_is_refused(self):
-        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
-        service = _organizer_service(facilitators)
+    def test_a_refused_release_blames_the_holder(self):
+        service = _organizer_service(FakeOrganizerRepo(organizer_id=_THEIRS))
 
-        assigned = service.assign_organizer(
-            event_id=1, facilitator_slug="alice", organizer_id=_THEIRS
+        refusal = _refusal(
+            lambda: service.unassign_organizer(
+                event_id=1, facilitator_slug="alice", organizer_id=_MINE, force=False
+            )
         )
 
-        assert not assigned
-        assert facilitators.organizer_id == _MINE
+        assert refusal == OrganizerActionRefusal.NOT_ORGANIZER
 
-    def test_organizer_releases_their_own(self):
-        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
+    def test_stepping_down_narrows_the_update_to_you(self):
+        facilitators = FakeOrganizerRepo(organizer_id=_MINE, update_applies=True)
         service = _organizer_service(facilitators)
 
-        released = service.unassign_organizer(
+        service.unassign_organizer(
             event_id=1, facilitator_slug="alice", organizer_id=_MINE, force=False
         )
 
-        assert released
-        assert facilitators.organizer_id is None
+        assert facilitators.released_with == _MINE
 
-    def test_someone_else_cannot_release(self):
-        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
+    def test_force_drops_the_organizer_from_the_update(self):
+        facilitators = FakeOrganizerRepo(organizer_id=_MINE, update_applies=True)
         service = _organizer_service(facilitators)
 
-        released = service.unassign_organizer(
-            event_id=1, facilitator_slug="alice", organizer_id=_THEIRS, force=False
-        )
-
-        assert not released
-        assert facilitators.organizer_id == _MINE
-
-    def test_force_releases_someone_elses(self):
-        facilitators = FakeOrganizerRepo(organizer_id=_MINE)
-        service = _organizer_service(facilitators)
-
-        released = service.unassign_organizer(
+        service.unassign_organizer(
             event_id=1, facilitator_slug="alice", organizer_id=_THEIRS, force=True
         )
 
-        assert released
-        assert facilitators.organizer_id is None
+        assert facilitators.released_with is None

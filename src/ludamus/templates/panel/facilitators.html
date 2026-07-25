@@ -56,7 +56,7 @@
                                 <option value="mine" {% if filter_organizer == "mine" %}selected{% endif %}>{% translate "Mine" %}</option>
                                 <option value="unassigned"
                                         {% if filter_organizer == "unassigned" %}selected{% endif %}>
-                                    {% translate "Unassigned" %}
+                                    {% translate "Nobody" %}
                                 </option>
                             {% end_select %}
                         </div>
@@ -139,7 +139,7 @@
                                     {% if not facilitator.organizer_id %}
                                         <form method="post"
                                               action="{% url 'panel:facilitator-assign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Become the organizer of {{ name }}? You stay their contact person until you release them.{% endblocktranslate %}"
+                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Take {{ name }} on? You handle them until you step down.{% endblocktranslate %}"
                                               data-confirm-action="{% translate "Assign to me" %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -150,16 +150,16 @@
                                                 {% icon "hand-raised" class="w-4 h-4" %}
                                             </button>
                                         </form>
-                                    {% elif facilitator.organizer_id == current_user.pk or user.is_superuser %}
+                                    {% elif facilitator.organizer_id == current_user.pk or current_user.is_superuser %}
                                         <form method="post"
                                               action="{% url 'panel:facilitator-unassign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Release {{ name }}? Anyone can take them on afterwards.{% endblocktranslate %}"
-                                              data-confirm-action="{% translate "Release" %}">
+                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Step down from {{ name }}? Anyone can take them on afterwards.{% endblocktranslate %}"
+                                              data-confirm-action="{% translate "Step down" %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             <button type="submit"
-                                                    title="{% translate "Release" %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Release {{ name }}{% endblocktranslate %}"
+                                                    title="{% translate "Step down" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Step down from {{ name }}{% endblocktranslate %}"
                                                     class="text-foreground-muted hover:text-foreground inline-flex items-center">
                                                 {% icon "user-minus" class="w-4 h-4" %}
                                             </button>

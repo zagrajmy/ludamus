@@ -80,6 +80,10 @@ class FacilitatorDTO(BaseModel):
     event_id: int
     internal_comment: str = ""
     organizer_id: int | None = None
+    # Annotated by the single-facilitator reads, so a page showing the
+    # organizer needs no second lookup. `create` and `update` return the row
+    # they just wrote, without it.
+    organizer_name: str | None = None
     pk: int
     slug: str
     user_id: int | None
@@ -107,8 +111,8 @@ class FacilitatorListItemDTO(BaseModel):
     accreditation_type: str
     display_name: str
     flagged_for_deletion: bool = False
-    # Annotated by `list_by_event`; absent on rows validated elsewhere.
     organizer_id: int | None = None
+    # Annotated by `list_by_event`; null when nobody took the facilitator on.
     organizer_name: str | None = None
     pk: int
     session_count: int

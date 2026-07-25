@@ -185,10 +185,16 @@ class TestFacilitatorCreatePageView:
     ):
         sphere.managers.add(active_user)
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event), data={"display_name": "Bob", "assign_me": "on"}
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator created successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         facilitator = Facilitator.objects.get(event=event, display_name="Bob")
         assert facilitator.organizer_id == active_user.pk
 
@@ -197,8 +203,16 @@ class TestFacilitatorCreatePageView:
     ):
         sphere.managers.add(active_user)
 
-        authenticated_client.post(self.get_url(event), data={"display_name": "Bob"})
+        response = authenticated_client.post(
+            self.get_url(event), data={"display_name": "Bob"}
+        )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator created successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         facilitator = Facilitator.objects.get(event=event, display_name="Bob")
         assert facilitator.organizer_id is None
 

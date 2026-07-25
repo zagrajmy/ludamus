@@ -561,7 +561,9 @@ class FacilitatorMergeService:
             msg = "Target cannot be among source facilitators"
             raise FacilitatorMergeError(msg)
 
-        merged = [self._uow.facilitators.read(fid) for fid in (target_id, *source_ids)]
+        target = self._uow.facilitators.read(target_id)
+        sources = [self._uow.facilitators.read(fid) for fid in source_ids]
+        merged = [target, *sources]
         if sum(1 for f in merged if f.user_id is not None) > 1:
             msg = "Cannot merge facilitators that each have a linked user account."
             raise FacilitatorMergeError(msg)
@@ -577,7 +579,7 @@ class FacilitatorMergeService:
             self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._uow.facilitators.delete(source_id)
-            if organizer_id != merged[0].organizer_id:
+            if organizer_id != target.organizer_id:
                 self._uow.facilitators.update(
                     target_id, FacilitatorUpdateData(organizer_id=organizer_id)
                 )

@@ -67,14 +67,14 @@
                         <div>
                             <dt class="text-xs text-foreground-muted">{% translate "Organizer" %}</dt>
                             <dd class="text-foreground">
-                                {% if organizer %}
-                                    {{ organizer.name }}
+                                {% if facilitator.organizer_name %}
+                                    {{ facilitator.organizer_name }}
                                 {% else %}
                                     <span class="text-foreground-muted">—</span>
                                 {% endif %}
                             </dd>
                             <p class="mt-1 text-xs text-foreground-muted">
-                                {% translate "Default contact person. Assign yourself from the facilitator list." %}
+                                {% translate "The organizer handling this facilitator. Take them on from the facilitator list." %}
                             </p>
                         </div>
                         <div>

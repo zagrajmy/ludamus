@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
-from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 
@@ -41,7 +40,6 @@ def _base_context(event):
             "total_sessions": 0,
         },
         "active_nav": "facilitators",
-        "organizer": None,
     }
 
 
@@ -141,9 +139,12 @@ class TestFacilitatorEditPageView:
             template_name="panel/facilitator-edit.html",
             context_data={
                 **_base_context(event),
-                "organizer": UserDTO.model_validate(organizer),
                 "form": ANY,
-                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "facilitator": (
+                    FacilitatorDTO.model_validate(facilitator).model_copy(
+                        update={"organizer_name": "Olga Organizer"}
+                    )
+                ),
                 "personal_fields": [],
             },
             contains="Olga Organizer",

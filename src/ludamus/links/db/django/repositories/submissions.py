@@ -74,6 +74,12 @@ _FACILITATOR_SORT_FIELDS = {
 }
 
 
+def _readable_facilitators() -> QuerySet[Facilitator]:
+    # Every single-facilitator read carries the organizer's name, so a page
+    # that shows it needs no second lookup through the user repo.
+    return Facilitator.objects.annotate(organizer_name=F("organizer__name"))
+
+
 def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
     descending = sort.startswith("-")
     key = sort.lstrip("-")
@@ -896,7 +902,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def read(pk: int) -> FacilitatorDTO:
         try:
-            facilitator = Facilitator.objects.get(pk=pk)
+            facilitator = _readable_facilitators().get(pk=pk)
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
@@ -904,7 +910,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO:
         try:
-            facilitator = Facilitator.objects.get(event_id=event_id, slug=slug)
+            facilitator = _readable_facilitators().get(event_id=event_id, slug=slug)
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
@@ -912,7 +918,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO:
         try:
-            facilitator = Facilitator.objects.get(user_id=user_id, event_id=event_id)
+            facilitator = _readable_facilitators().get(
+                user_id=user_id, event_id=event_id
+            )
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)

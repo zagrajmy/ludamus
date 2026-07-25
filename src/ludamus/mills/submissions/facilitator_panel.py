@@ -3,10 +3,12 @@
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.submissions import (
+    FacilitatorActionError,
     FacilitatorColumnDTO,
     FacilitatorColumnsContextDTO,
     FacilitatorListContextDTO,
     FacilitatorPanelServiceProtocol,
+    OrganizerActionRefusal,
 )
 
 if TYPE_CHECKING:
@@ -116,8 +118,10 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             "accreditation": query.accreditation or None,
             "flagged": query.flagged or None,
             "field_filters": field_filters or None,
-            "organizer_id": query.organizer_id,
-            "organizer_unassigned": query.organizer_unassigned or None,
+            "organizer_id": (
+                query.current_user_id if query.organizer == "mine" else None
+            ),
+            "organizer_unassigned": query.organizer == "unassigned" or None,
             "sort": query.sort or None,
         }
         settings = self._panel_settings.read_or_create(event_id)
@@ -169,23 +173,34 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
 
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int
-    ) -> bool:
+    ) -> None:
         facilitator = self._facilitators.read_by_event_and_slug(
             event_id, facilitator_slug
         )
-        return self._facilitators.claim(facilitator.pk, organizer_id)
+        if self._facilitators.claim(facilitator.pk, organizer_id):
+            return
+        # The conditional update refuses either way; the row we read says which
+        # of the two it was, so the organizer gets the real reason.
+        raise FacilitatorActionError(
+            OrganizerActionRefusal.ALREADY_YOURS
+            if facilitator.organizer_id == organizer_id
+            else OrganizerActionRefusal.ALREADY_TAKEN
+        )
 
     def unassign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
-    ) -> bool:
+    ) -> None:
         # Only the organizer holding it can let go — `force` is the superuser
         # escape, so a departed organizer never locks a facilitator forever.
         facilitator = self._facilitators.read_by_event_and_slug(
             event_id, facilitator_slug
         )
-        return self._facilitators.release(
+        if facilitator.organizer_id is None:
+            raise FacilitatorActionError(OrganizerActionRefusal.ALREADY_FREE)
+        if not self._facilitators.release(
             facilitator.pk, organizer_id=None if force else organizer_id
-        )
+        ):
+            raise FacilitatorActionError(OrganizerActionRefusal.NOT_ORGANIZER)
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._facilitators.read_by_event_and_slug(

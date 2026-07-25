@@ -327,6 +327,21 @@ class PersonalDataFieldEditContextDTO:
     optional_category_pks: set[int]
 
 
+class OrganizerActionRefusal(StrEnum):
+    ALREADY_TAKEN = "already_taken"
+    ALREADY_YOURS = "already_yours"
+    ALREADY_FREE = "already_free"
+    NOT_ORGANIZER = "not_organizer"
+
+
+class FacilitatorActionError(Exception):
+    """Raised when a facilitator action cannot apply, with the reason why."""
+
+    def __init__(self, refusal: OrganizerActionRefusal) -> None:
+        super().__init__(refusal.value)
+        self.refusal = refusal
+
+
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     accreditation: str | None
@@ -376,10 +391,11 @@ class FacilitatorListQuery:
     search: str = ""
     accreditation: str = ""
     flagged: bool = False
-    # The gate resolves "mine" to an id, so the mill needs no notion of who is
-    # asking.
-    organizer_id: int | None = None
-    organizer_unassigned: bool = False
+    # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
+    # nobody" can never both be asked for. `current_user_id` is who "mine"
+    # means, not a filter of its own.
+    organizer: str = ""
+    current_user_id: int | None = None
     sort: str = ""
     raw_field_filters: dict[int, str] = field(default_factory=dict)
 
@@ -430,10 +446,10 @@ class FacilitatorPanelServiceProtocol(Protocol):
     ) -> None: ...
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int
-    ) -> bool: ...
+    ) -> None: ...
     def unassign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
-    ) -> bool: ...
+    ) -> None: ...
     def set_accreditation(
         self,
         *,

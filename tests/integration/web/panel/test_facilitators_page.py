@@ -1175,7 +1175,26 @@ class TestFacilitatorActions:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "You are now this facilitator's organizer.")],
+            messages=[(messages.SUCCESS, "You now handle this facilitator.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == active_user.pk
+
+    def test_assign_organizer_twice_says_it_is_already_yours(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event, organizer=active_user)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-assign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "You already handle this facilitator.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()
@@ -1196,7 +1215,7 @@ class TestFacilitatorActions:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Another organizer already took this facilitator.")
+                (messages.ERROR, "Someone else already handles this facilitator.")
             ],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
@@ -1214,7 +1233,26 @@ class TestFacilitatorActions:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Facilitator released.")],
+            messages=[(messages.SUCCESS, "Stepped down.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id is None
+
+    def test_unassign_organizer_twice_says_nobody_handles_it(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Nobody handles this facilitator.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()
@@ -1235,7 +1273,10 @@ class TestFacilitatorActions:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.ERROR, "Only this facilitator's organizer can release it.")
+                (
+                    messages.ERROR,
+                    "Only the person handling this facilitator can step down.",
+                )
             ],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
@@ -1257,7 +1298,7 @@ class TestFacilitatorActions:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Facilitator released.")],
+            messages=[(messages.SUCCESS, "Stepped down.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()

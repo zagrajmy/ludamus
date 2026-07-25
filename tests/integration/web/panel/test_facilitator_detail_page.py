@@ -90,7 +90,6 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
-                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -138,7 +137,6 @@ class TestFacilitatorDetailPageView:
                 },
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
-                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -178,7 +176,6 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": UserDTO.model_validate(linked),
-                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -202,9 +199,12 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
-                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "facilitator": (
+                    FacilitatorDTO.model_validate(facilitator).model_copy(
+                        update={"organizer_name": "Olga Organizer"}
+                    )
+                ),
                 "linked_user": None,
-                "organizer": UserDTO.model_validate(organizer),
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -230,7 +230,6 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
-                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -305,7 +304,6 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
-                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
                 "has_personal_data": False,
@@ -352,7 +350,6 @@ class TestFacilitatorDetailPageView:
                 **_base_context(event),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
-                "organizer": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [(field_dto, None)],
                 "has_personal_data": False,
