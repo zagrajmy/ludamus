@@ -13,7 +13,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.links.retry import mount_retries
+from ludamus.links.retry import bounded_timeout, mount_retries
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
@@ -226,7 +226,8 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
             response = session.get(
-                FORMS_API_URL.format(form_id=config.form_id), timeout=10
+                FORMS_API_URL.format(form_id=config.form_id),
+                timeout=bounded_timeout(10),
             )
         if response is None or not response.ok:
             return []
@@ -304,7 +305,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
                 SHEETS_VALUES_URL.format(
                     sheet_id=sheet_id, range=quote(row_range, safe="")
                 ),
-                timeout=10,
+                timeout=bounded_timeout(10),
             )
         if response is None or not response.ok:
             return []
@@ -334,7 +335,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
                 SHEETS_VALUES_URL.format(
                     sheet_id=config.sheet_id, range=quote(title, safe="")
                 ),
-                timeout=30,
+                timeout=bounded_timeout(30),
             )
         if response is None or not response.ok:
             return []
@@ -352,7 +353,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         response: requests.Response | None = None
         with suppress(requests.RequestException, GoogleAuthError):
             response = session.get(
-                SHEETS_META_URL.format(sheet_id=sheet_id), timeout=10
+                SHEETS_META_URL.format(sheet_id=sheet_id), timeout=bounded_timeout(10)
             )
         if response is None or not response.ok:
             return ""
@@ -365,7 +366,7 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
     @staticmethod
     def _probe(*, session: AuthorizedSession, url: str, what: str) -> CheckResult:
         try:
-            response = session.get(url, timeout=10)
+            response = session.get(url, timeout=bounded_timeout(10))
         except (requests.RequestException, GoogleAuthError) as exc:
             return CheckResult(
                 outcome=CheckOutcome.AUTH_FAILED,
@@ -434,7 +435,7 @@ class GoogleSheetsWriter(SheetWriterProtocol):
                     sheet_id=spreadsheet_id, range=quote(f"{title}!A1", safe="")
                 ),
                 json={"values": _pad_to_extent(rows=rows, height=height, width=width)},
-                timeout=30,
+                timeout=bounded_timeout(30),
             ),
         )
 
@@ -450,7 +451,7 @@ class GoogleSheetsWriter(SheetWriterProtocol):
                 SHEETS_VALUES_URL.format(
                     sheet_id=spreadsheet_id, range=quote(title, safe="")
                 ),
-                timeout=10,
+                timeout=bounded_timeout(10),
             ),
         )
         values = response.json().get("values") or []
@@ -460,7 +461,8 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         response = self._call(
             what="Spreadsheet metadata",
             send=lambda: session.get(
-                SHEETS_META_URL.format(sheet_id=spreadsheet_id), timeout=10
+                SHEETS_META_URL.format(sheet_id=spreadsheet_id),
+                timeout=bounded_timeout(10),
             ),
         )
         meta = _SpreadsheetMeta.model_validate(response.json())

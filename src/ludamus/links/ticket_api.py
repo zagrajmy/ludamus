@@ -7,7 +7,7 @@ import logging
 import requests
 from django.conf import settings
 
-from ludamus.links.retry import mount_retries
+from ludamus.links.retry import bounded_timeout, mount_retries
 from ludamus.pacts import MembershipAPIError
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class MembershipApiClient:
                 self.base_url,
                 params={"email": email},
                 headers={"Authorization": f"Token {self.token}"},
-                timeout=self.timeout,
+                timeout=bounded_timeout(self.timeout),
             )
             response.raise_for_status()
 
