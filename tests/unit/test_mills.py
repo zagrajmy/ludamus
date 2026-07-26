@@ -1376,6 +1376,35 @@ class TestProposalImportService(_ImportServiceMocks):
         assert result.duplicates == 0
         assert result.skipped == len(reasons)
 
+    def test_run_skips_row_when_every_facilitator_key_cell_is_blank(
+        self, service, event_integrations, log_entries
+    ):
+        # Same rule as the session unique key: configured key columns are
+        # required, so a row that leaves them all empty is skipped rather than
+        # silently falling back to display-name dedup.
+        event_integrations.get.return_value = MagicMock(
+            pk=3,
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            ),
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [
+                {"Title": "First Talk", "Nick": "GM Bob", "Email": ""},
+                {"Title": "Second Talk", "Nick": "GM Ann", "Email": "   "},
+            ]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        reasons = [call.args[0].reason for call in log_entries.upsert.call_args_list]
+        assert reasons == ["facilitator-key columns are all blank: 'Email'"] * 2
+        assert result.created == 0
+        assert result.duplicates == 0
+        assert result.skipped == len(reasons)
+
     def test_run_skips_row_when_a_unique_key_column_is_ambiguous(
         self, service, event_integrations, log_entries
     ):

@@ -575,17 +575,21 @@ class ImportEngine:
             for col in settings.facilitator_key_columns
         )
         # Every key column blank means the row carries no identity, so a hash
-        # would collapse all such rows onto one facilitator — fall back to slug.
+        # would collapse all such rows onto one facilitator. Skip the row, as
+        # the session-side unique key does, instead of quietly dropping back to
+        # display-name dedup — the very thing the key columns replace.
         if not identity.strip("- "):
-            return ""
+            msg = "facilitator-key columns are all blank: " + ", ".join(
+                repr(c) for c in settings.facilitator_key_columns
+            )
+            raise RowSkippedError(msg)
         return dedup_ident(event_id=event_id, identity=identity)
 
     def _resolve_facilitator(
         self, *, event_id: int, ident: str, display_name: str
     ) -> int:
-        # An empty `ident` means the recipe names no key columns (or this row
-        # left them blank): dedup on the display-name slug alone, as imports did
-        # before identities existed.
+        # An empty `ident` means the recipe names no key columns: dedup on the
+        # display-name slug alone, as imports did before identities existed.
         if (
             ident
             and (found := self._repos.facilitators.find_id_by_ident(event_id, ident))
