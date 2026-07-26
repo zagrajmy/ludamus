@@ -39,12 +39,12 @@
     <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
          data-timetable-days
          style="--grid-extent: {{ grid.total_minutes }};
-                --total-columns: {{ grid.total_columns }}">
+                --total-columns: {{ grid.total_columns }};
+                --columns-per-day: {{ grid.spaces|length }}">
         <div class="timetable-day-strip timetable-day-strip-header sticky top-0 z-20 border-b border-neutral-700">
             <div class="timetable-corner sticky left-0 z-40 flex items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
             {% for day in grid.days %}
-                <div class="timetable-day-header"
-                     style="--column-count: {{ day.columns|length }}">
+                <div class="timetable-day-header">
                     {% if grid.days|length > 1 %}
                         <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
                             class="timetable-day-title flex h-9 items-center border-b border-l border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
@@ -62,21 +62,22 @@
                                 <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
                             {% endif %}
                             {% comment %}
-                            All columns share one width, so every handle resizes the whole grid. The
-                            rest are the same control under a different pointer target, so only the
-                            first one is exposed — one tab stop per column would be noise.
+                            Every room border is a drag grip (a hit-testable ::after, so the pointer
+                            path costs no nodes). All columns share one width, so one control is the
+                            whole story -- this is it, carrying focus and the ARIA contract.
                             {% endcomment %}
                             {% if forloop.first and forloop.parentloop.first %}
+                                {% comment %}
+                                Focusable only once timetable.ts has added tabindex and the
+                                aria-value* range: resizing is script-only, so without it this is a
+                                static separator rather than a dead tab stop. The bounds stay in one
+                                place, the script.
+                                {% endcomment %}
                                 <div class="timetable-column-resizer"
                                      role="separator"
                                      aria-orientation="vertical"
                                      aria-label="{{ t_column_width }}"
-                                     title="{{ t_column_width_hint }}"
-                                     tabindex="0"></div>
-                            {% else %}
-                                <div class="timetable-column-resizer"
-                                     title="{{ t_column_width_hint }}"
-                                     aria-hidden="true"></div>
+                                     title="{{ t_column_width_hint }}"></div>
                             {% endif %}
                         </div>
                     {% endfor %}

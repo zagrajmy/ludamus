@@ -11,9 +11,6 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
-    TIMETABLE_ROOM_PAGE_SIZE,
-    TIMETABLE_SLOT_MINUTES,
-    TIMETABLE_SNAP_MINUTES,
     DateSelection,
     SessionPlacement,
     SessionPositionDTO,
@@ -22,6 +19,11 @@ from ludamus.pacts.chronology import (
     TimeLabelDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
+)
+from ludamus.specs.timetable import (
+    TIMETABLE_ROOM_PAGE_SIZE,
+    TIMETABLE_SLOT_MINUTES,
+    TIMETABLE_SNAP_MINUTES,
 )
 
 if TYPE_CHECKING:
@@ -153,6 +155,10 @@ class TimetableService:
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,
+            # Every day renders the same page of spaces -- `groups` already
+            # relies on that -- so the calendar's flat track list is just the
+            # page repeated once per day.
+            total_columns=len(spaces) * len(days),
             available_dates=available_dates,
             date_selection=date_selection,
         )

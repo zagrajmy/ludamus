@@ -9,11 +9,11 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import (
+from ludamus.pacts.chronology import TimetableGridDTO
+from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
     TIMETABLE_SNAP_MINUTES,
-    TimetableGridDTO,
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -39,6 +39,7 @@ def _empty_grid():
         page=1,
         total_pages=1,
         total_spaces=0,
+        total_columns=0,
         available_dates=[],
     )
 
@@ -220,10 +221,40 @@ class TestTimetablePageView:
         assert content.count('class="timetable-time-axis ') == 1
         assert content.count("Time</div>") == 1
         assert [column.space.pk for column in grid.days[0].columns] == [space.pk]
-        # Header and body share one track list, so the calendar has to declare
-        # every day's columns end to end.
-        assert grid.total_columns == expected_day_count
-        assert "--total-columns: 2" in content
+
+    def test_grid_declares_one_track_per_room_per_day(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        # Rooms and days differ, and differ from their product, so nothing but
+        # the track count itself can satisfy the assertions.
+        sphere.managers.add(active_user)
+        room_count = 3
+        day_count = 2
+        for _ in range(room_count - 1):
+            SpaceFactory(event=event)
+        TimeSlotFactory(
+            event=event,
+            start_time=time_slot.start_time + timedelta(days=1),
+            end_time=time_slot.end_time + timedelta(days=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=response.context_data,
+            # Header and body are laid out from these two numbers alone.
+            contains=["--total-columns: 6", "--columns-per-day: 3"],
+        )
+        grid = response.context["grid"]
+        assert len(grid.spaces) == room_count
+        assert len(grid.days) == day_count
+        assert grid.total_columns == room_count * day_count
+        content = response.content.decode()
+        assert content.count('class="timetable-room-cell ') == room_count * day_count
+        assert space.pk in {column.space.pk for column in grid.days[0].columns}
 
     def test_single_schedule_day_hides_day_selector(
         self, authenticated_client, active_user, sphere, event, time_slot

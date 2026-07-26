@@ -373,11 +373,6 @@ class SessionModalServiceProtocol(Protocol):
     ) -> SessionModalDTO | None: ...
 
 
-TIMETABLE_ROOM_PAGE_SIZE = 5
-TIMETABLE_SLOT_MINUTES = 60
-TIMETABLE_SNAP_MINUTES = 5
-
-
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
@@ -424,15 +419,9 @@ class TimetableGridDTO(BaseModel):
     page: int
     total_pages: int
     total_spaces: int
+    total_columns: int
     available_dates: list[date] = []
     date_selection: DateSelection = "all"
-
-    @property
-    def total_columns(self) -> int:
-        # The calendar is one flat track list that the sticky header and the
-        # scrolling body are both laid out from, so it needs every day's
-        # columns end to end.
-        return sum(len(day.columns) for day in self.days)
 
 
 class ConflictType(StrEnum):

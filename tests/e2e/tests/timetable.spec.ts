@@ -177,12 +177,13 @@ test.describe("Timetable", () => {
 
     // Column widths must come from the track list, not from what a cell holds:
     // sessions are absolutely positioned and contribute no width, so any
-    // content-driven header would drift away from the body it labels.
+    // content-driven header would drift away from the body it labels. Written
+    // into the room name, leaving the resize handle that shares the cell alone.
     await page
-      .locator(".timetable-room-cell")
-      .first()
-      .evaluate((cell) => {
-        cell.textContent = "Room name long enough to stretch a content-sized column";
+      .locator(".timetable-room-cell div")
+      .last()
+      .evaluate((name) => {
+        name.textContent = "Room name long enough to stretch a content-sized column";
       });
     await expectAligned();
   });
@@ -212,29 +213,55 @@ test.describe("Timetable", () => {
 
     const start = (await geometry()).widths[0];
 
-    // The second handle has two columns to its left, so they split the travel.
-    const handle = page.locator(".timetable-column-resizer").nth(1);
-    const grip = (await handle.boundingBox())!;
-    const [gripX, gripY] = [grip.x + grip.width / 2, grip.y + grip.height / 2];
-    await page.mouse.move(gripX, gripY);
+    // Grabbing the border after the second column, so the two columns before it
+    // split the travel -- the border itself tracks the cursor either way.
+    const grabbed = 2;
+    const border = (await page
+      .locator(".timetable-room-cell")
+      .nth(grabbed - 1)
+      .boundingBox())!;
+    const [edgeX, edgeY] = [border.x + border.width - 2, border.y + border.height / 2];
+    const travel = 80;
+    await page.mouse.move(edgeX, edgeY);
     await page.mouse.down();
-    await page.mouse.move(gripX + 80, gripY, { steps: 8 });
+    await page.mouse.move(edgeX + travel, edgeY, { steps: 8 });
     await page.mouse.up();
-    await expectWidth(start + 40);
+    const resized = start + travel / grabbed;
+    await expectWidth(resized);
 
     await page.reload();
     await expect(page.locator(".timetable-calendar")).toBeVisible();
-    await expectWidth(start + 40);
+    await expectWidth(resized);
 
-    // A single exposed handle stands in for all of them.
-    const exposed = page.locator('.timetable-column-resizer[role="separator"]');
-    await expect(exposed).toHaveCount(1);
-    await expect(exposed).toHaveAttribute("aria-valuenow", String(start + 40));
-    await exposed.focus();
-    await exposed.press("ArrowRight");
-    await expectWidth(start + 56);
+    // Every border resizes, but one handle carries focus and the ARIA contract,
+    // and the script is what promotes it from a static separator.
+    const handle = page.locator('.timetable-column-resizer[role="separator"]');
+    await expect(handle).toHaveCount(1);
+    await expect(handle).toHaveAttribute("aria-valuenow", String(Math.round(resized)));
+    await expect(handle).toHaveAttribute("tabindex", "0");
+    await handle.focus();
+    await handle.press("ArrowRight");
+    await expectWidth(resized + 16);
 
-    await handle.dblclick();
+    // The width outlives an HTMX swap of the grid because it is stored above
+    // every node HTMX replaces; the handle in the new markup is re-promoted.
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/parts/grid/") && r.status() === 200),
+      page.evaluate(() => document.body.dispatchEvent(new Event("timetableChanged"))),
+    ]);
+    await expectWidth(resized + 16);
+    await expect(handle).toHaveAttribute("tabindex", "0");
+
+    // Re-measured: the cell is wider than when it was grabbed, so the grip has
+    // moved with its right edge.
+    const widened = (await page
+      .locator(".timetable-room-cell")
+      .nth(grabbed - 1)
+      .boundingBox())!;
+    await page
+      .locator(".timetable-room-cell")
+      .nth(grabbed - 1)
+      .dblclick({ position: { x: widened.width - 2, y: widened.height / 2 } });
     await expectWidth(start);
   });
 
