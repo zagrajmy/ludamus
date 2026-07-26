@@ -2,7 +2,10 @@
 {% with date_value=date_selection|date:"Y-m-d"|default:date_selection %}
     {% load tessera %}
     {% for col in day.columns %}
+        {# Names the column after its room: a session block says what it is, and this says where. #}
         <div class="timetable-column relative border-l border-border"
+             role="group"
+             aria-label="{{ col.space.name }}"
              data-space-pk="{{ col.space.pk }}">
             {% for label in grid.time_labels %}
                 <div class="timetable-slot-line absolute left-0 right-0 border-t border-border"
