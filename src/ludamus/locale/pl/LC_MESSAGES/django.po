@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-25 13:30+0200\n"
+"POT-Creation-Date: 2026-07-26 20:54+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6938,6 +6938,10 @@ msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Print door cards"
 msgstr "Drukuj tabliczki na drzwi"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Participants and duration"
+msgstr "Uczestnicy i czas trwania"
 
 #: src/ludamus/templates/panel/parts/proposal-session-fields.html
 msgid "Answers outside this category"

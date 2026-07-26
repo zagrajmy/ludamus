@@ -81,12 +81,9 @@
                                 <div>{% tessera_field form.contact_email %}</div>
                             </div>
                             <div>{% tessera_field form.description %}</div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>{% tessera_field form.participants_limit %}</div>
-                                <div>{% tessera_field form.min_age %}</div>
-                            </div>
-                            {# Free text when the category configures no durations, a picker when it does. #}
-                            {% tessera_field form.duration %}
+                            {# Participants limit and duration live in the swapped #}
+                            {# region below: the category rebuilds them, min age it doesn't. #}
+                            <div>{% tessera_field form.min_age %}</div>
                         </div>
                     </div>
                 </div>

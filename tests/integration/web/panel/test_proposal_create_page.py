@@ -26,6 +26,7 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+CATEGORY_B_MAX_PARTICIPANTS = 9
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
     b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
@@ -943,6 +944,36 @@ class TestProposalCreateCategoryFields:
             },
             contains='name="session_only-b"',
             not_contains='name="session_only-a"',
+        )
+
+    def test_get_fields_component_follows_the_category_derived_controls(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(
+            event=event,
+            name="A",
+            slug="a",
+            durations=["PT1H"],
+            max_participants_limit=4,
+        )
+        category_b = ProposalCategory.objects.create(
+            event=event,
+            name="B",
+            slug="b",
+            durations=["PT3H"],
+            max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
+        )
+
+        response = authenticated_client.get(
+            self.get_fields_url(event), data={"category_id": category_b.pk}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        form = response.context["form"]
+        assert form.fields["duration"].choices == [("", "---"), ("PT3H", "3h")]
+        assert (
+            form.fields["participants_limit"].max_value == CATEGORY_B_MAX_PARTICIPANTS
         )
 
     def test_get_renders_checkbox_field_with_allow_custom_without_companion(
