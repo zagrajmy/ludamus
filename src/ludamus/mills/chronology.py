@@ -24,7 +24,6 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
-    TIMETABLE_SLOT_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -60,6 +59,7 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 

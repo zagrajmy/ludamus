@@ -187,6 +187,8 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                         for field_id, value in draft.field_values.items()
                     ],
                 )
+            if draft.track_ids:
+                self._repos.sessions.set_session_tracks(session_id, draft.track_ids)
             if draft.time_slot_ids:
                 self._repos.sessions.set_time_slots(session_id, draft.time_slot_ids)
             return session_id

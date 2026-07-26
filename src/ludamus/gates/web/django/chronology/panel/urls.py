@@ -193,12 +193,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/create/",
-        proposal_edit.ProposalCreatePageView.as_view(),
+        proposal_edit.ProposalFormPageView.as_view(),
         name="proposal-create",
     ),
     path(
         "event/<slug:slug>/proposals/create/fields/",
-        proposal_edit.ProposalCreateFieldsComponentView.as_view(),
+        proposal_edit.ProposalFormFieldsComponentView.as_view(),
         name="proposal-create-fields",
     ),
     path(
@@ -228,12 +228,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
-        proposal_edit.ProposalEditPageView.as_view(),
+        proposal_edit.ProposalFormPageView.as_view(),
         name="proposal-edit",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
-        proposal_edit.ProposalEditFieldsComponentView.as_view(),
+        proposal_edit.ProposalFormFieldsComponentView.as_view(),
         name="proposal-edit-fields",
     ),
     path(

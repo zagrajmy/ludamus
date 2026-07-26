@@ -1,17 +1,131 @@
 @layer components {
   .timetable-calendar {
     --minute-px: 1px;
+    --timetable-time-column: 4rem;
+    /* Every column is this wide, and the resize handles drag it (timetable.ts
+       writes --timetable-column-width on the document element, so the value
+       outlives each HTMX swap of the grid). The literal is only the default. */
+    --timetable-column-min: var(--timetable-column-width, 9rem);
+    --timetable-grip-width: 0.875rem;
   }
 
-  .timetable-day-grid,
+  /* The sticky header and the scrolling body are separate elements, so they
+     line up only if both are laid out from the same track list. Tracks are
+     therefore fully explicit and nothing inside a cell can resize them:
+     `minmax(min, 1fr)` pins the lower bound, and the strip width is computed
+     from the column count instead of being derived from content. Sizing to
+     content is what drifts -- room names widen the header while the body,
+     whose sessions are absolutely positioned, contributes nothing. */
+  .timetable-day-strip {
+    display: grid;
+    grid-template-columns: var(--timetable-time-column) repeat(
+        var(--total-columns),
+        minmax(var(--timetable-column-min), 1fr)
+      );
+    width: max(
+      100%,
+      calc(var(--timetable-time-column) + var(--total-columns) * var(--timetable-column-min))
+    );
+  }
+
+  /* Day name, room group, room name. A tier with no cells collapses to zero --
+     that is how the single-day view drops the date row. */
+  .timetable-day-strip-header {
+    grid-template-rows: auto auto auto;
+  }
+
+  /* A day reuses the parent tracks rather than splitting its own width, so
+     adding days or rooms cannot shift the columns out of step. Subgrids must
+     stay free of padding, border and margin: those inset the subgrid and would
+     shove every track inside the day sideways. Chrome goes on the cells. */
+  .timetable-day-header,
+  .timetable-day-grid {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: span var(--columns-per-day);
+  }
+
   .timetable-day-header {
-    flex: 1 0 calc(9rem * var(--column-count));
-    min-width: calc(9rem * var(--column-count));
+    grid-row: 1 / -1;
+    grid-template-rows: subgrid;
+  }
+
+  /* Pinned explicitly: the day headers span rows, and auto-placement resolves
+     row-spanning items before auto-placed ones, so an unpinned corner would be
+     pushed past the first day. */
+  .timetable-corner {
+    grid-row: 1 / -1;
+    grid-column: 1;
+  }
+
+  .timetable-time-axis {
+    grid-column: 1;
+  }
+
+  .timetable-day-title {
+    grid-row: 1;
+    grid-column: 1 / -1;
   }
 
   .timetable-header-cell {
-    flex: var(--columns) 1 0;
-    min-width: calc(9rem * var(--columns));
+    grid-row: 2;
+    grid-column: span var(--columns);
+  }
+
+  .timetable-room-cell {
+    grid-row: 3;
+    position: relative;
+  }
+
+  /* One shared width means every room border resizes the whole grid, so every
+     border is a grip. Pseudo-elements are hit-testable, so the pointer path
+     needs no nodes -- timetable.ts recognises a grab by how close the pointer
+     is to the cell's right edge. The grip stays inside its cell rather than
+     straddling the border: an overhang would widen the calendar's scrollable
+     area and put the header back out of step with the body. */
+  .timetable-room-cell::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--timetable-grip-width);
+    border-right: 2px solid transparent;
+    cursor: col-resize;
+    transition: border-color 120ms;
+  }
+
+  .timetable-room-cell:hover::after,
+  .timetable-room-cell.is-resizing::after {
+    border-right-color: var(--color-primary);
+  }
+
+  /* The one focusable handle. It sits on the first border, over that cell's
+     grip, so the pointer path treats it like any other. Focus is left to the
+     global :focus-visible ring. */
+  .timetable-column-resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--timetable-grip-width);
+    z-index: 1;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  /* Pointer capture keeps the drag alive over the whole page, so the resize
+     cursor has to follow it there too. */
+  .timetable-resizing,
+  .timetable-resizing * {
+    cursor: col-resize !important;
+  }
+
+  /* A day boundary reads the same as a room boundary once the header scrolls
+     out of view, so the day's first column carries a stronger rule. It cannot
+     go on the day itself: border on a subgrid insets its tracks. */
+  .timetable-day-grid + .timetable-day-grid > .timetable-column:first-child {
+    border-left-color: var(--color-foreground-muted);
   }
 
   .timetable-time-axis,

@@ -128,6 +128,7 @@ class ProposalDraft:
     base_slug: str
     facilitator_ids: list[int] = field(default_factory=list)
     field_values: dict[int, str | list[str] | bool] = field(default_factory=dict)
+    track_ids: list[int] = field(default_factory=list)
     time_slot_ids: list[int] = field(default_factory=list)
 
 
