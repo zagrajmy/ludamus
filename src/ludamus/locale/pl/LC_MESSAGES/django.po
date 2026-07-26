@@ -1124,19 +1124,21 @@ msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Someone else already handles this facilitator."
-msgstr "Tym twórcą programu zajmuje się już ktoś inny."
+msgstr "Ten twórca programu jest już przypisany do kogoś innego."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "You already handle this facilitator."
-msgstr "Już zajmujesz się tym twórcą programu."
+msgstr "Ten twórca programu jest już przypisany do Ciebie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Nobody handles this facilitator."
-msgstr "Nikt się nie zajmuje tym twórcą programu."
+msgstr "Ten twórca programu nie jest do nikogo przypisany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Only the person handling this facilitator can step down."
-msgstr "Zrezygnować może tylko osoba, która się tym zajmuje."
+msgstr ""
+"Przypisanie może usunąć tylko osoba, do której twórca programu jest "
+"przypisany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
@@ -1198,11 +1200,11 @@ msgstr "Twórca programu oznaczony jako gość."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "You now handle this facilitator."
-msgstr "Od teraz zajmujesz się tym twórcą programu."
+msgstr "Ten twórca programu jest teraz przypisany do Ciebie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Stepped down."
-msgstr "Rezygnacja przyjęta."
+msgstr "Przypisanie usunięte."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Columns updated."
@@ -2753,7 +2755,7 @@ msgstr "Akredytacja"
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Organizer"
-msgstr "Zajmuje się"
+msgstr "Przypisany do"
 
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
@@ -6321,8 +6323,8 @@ msgid ""
 "The organizer handling this facilitator. Take them on from the facilitator "
 "list."
 msgstr ""
-"Organizator, który zajmuje się tym twórcą programu. Możesz się nim zająć z "
-"listy twórców programu."
+"Organizator, do którego przypisany jest ten twórca programu. Możesz "
+"przypisać go sobie z listy twórców programu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -6418,7 +6420,7 @@ msgstr "Moi"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Nobody"
-msgstr "Nikt się nie zajmuje"
+msgstr "Nikt"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Flagged for deletion only"
@@ -6443,8 +6445,8 @@ msgstr "Oznaczony"
 #, python-format
 msgid "Take %(name)s on? You handle them until you step down."
 msgstr ""
-"Zająć się twórcą %(name)s? Będziesz się nim zajmować, dopóki nie "
-"zrezygnujesz."
+"Przypisać sobie twórcę %(name)s? Będzie przypisany do Ciebie, dopóki nie "
+"usuniesz przypisania."
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Assign to me"
@@ -6453,23 +6455,22 @@ msgstr "Przypisz do mnie"
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
 msgid "Become the organizer of %(name)s"
-msgstr "Zacznij zajmować się twórcą %(name)s"
+msgstr "Przypisz sobie twórcę %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
 msgid "Step down from %(name)s? Anyone can take them on afterwards."
 msgstr ""
-"Zrezygnować z zajmowania się twórcą %(name)s? Potem może się nim zająć ktoś "
-"inny."
+"Usunąć przypisanie twórcy %(name)s? Potem może go przypisać sobie ktoś inny."
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Step down"
-msgstr "Zrezygnuj"
+msgstr "Usuń przypisanie"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
 msgid "Step down from %(name)s"
-msgstr "Zrezygnuj z zajmowania się twórcą %(name)s"
+msgstr "Usuń przypisanie twórcy %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Mark as guest"
