@@ -235,7 +235,7 @@ test.describe("Timetable", () => {
 
     // Every border resizes, but one handle carries focus and the ARIA contract,
     // and the script is what promotes it from a static separator.
-    const handle = page.locator('.timetable-column-resizer[role="separator"]');
+    const handle = page.getByRole("separator", { name: "Column width" });
     await expect(handle).toHaveCount(1);
     await expect(handle).toHaveAttribute("aria-valuenow", String(Math.round(resized)));
     await expect(handle).toHaveAttribute("tabindex", "0");
