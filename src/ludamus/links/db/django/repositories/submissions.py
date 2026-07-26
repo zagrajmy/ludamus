@@ -693,6 +693,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.is_public = data["is_public"]
+        field.is_multiple = (
+            data["is_multiple"] if field.field_type == "select" else False
+        )
+        field.allow_custom = (
+            data["allow_custom"] if field.field_type == "select" else False
+        )
         field.save()
 
         options = data["options"]
@@ -843,6 +849,12 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         field.help_text = data["help_text"]
         field.icon = data["icon"]
         field.is_public = data["is_public"]
+        field.is_multiple = (
+            data["is_multiple"] if field.field_type == "select" else False
+        )
+        field.allow_custom = (
+            data["allow_custom"] if field.field_type == "select" else False
+        )
         field.save()
 
         options = data["options"]

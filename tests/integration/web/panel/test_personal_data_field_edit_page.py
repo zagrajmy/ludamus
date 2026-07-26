@@ -417,6 +417,108 @@ class TestPersonalDataFieldEditPageView:
         form = response.context["form"]
         assert form.initial["options"] == "Poland\nGermany"
 
+    def test_get_prepopulates_multi_and_custom_toggles_for_select_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Country",
+            question="What country?",
+            slug="country",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event, field))
+
+        form = response.context["form"]
+        assert form.initial["is_multiple"] is True
+        assert form.initial["allow_custom"] is True
+
+    def test_post_enables_multiple_selection_on_select_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Country",
+            question="What country?",
+            slug="country",
+            field_type="select",
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Country",
+                "question": "What country?",
+                "options": "Poland\nGermany",
+                "is_multiple": "on",
+                "allow_custom": "on",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Personal data field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/personal-data/",
+        )
+        field.refresh_from_db()
+        assert field.is_multiple is True
+        assert field.allow_custom is True
+
+    def test_post_disables_multiple_selection_when_unchecked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Country",
+            question="What country?",
+            slug="country",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+        )
+
+        authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Country",
+                "question": "What country?",
+                "options": "Poland\nGermany",
+            },
+        )
+
+        field.refresh_from_db()
+        assert field.is_multiple is False
+        assert field.allow_custom is False
+
+    def test_post_ignores_multi_toggle_on_text_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = PersonalDataField.objects.create(
+            event=event, name="Email", question="What is your email?", slug="email"
+        )
+
+        authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Email",
+                "question": "What is your email?",
+                "is_multiple": "on",
+                "allow_custom": "on",
+            },
+        )
+
+        field.refresh_from_db()
+        assert field.is_multiple is False
+        assert field.allow_custom is False
+
     def test_get_returns_field_with_is_multiple_attribute(
         self, authenticated_client, active_user, sphere, event
     ):
