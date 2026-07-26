@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 test.describe.configure({ mode: "serial" });
 
@@ -149,88 +149,127 @@ test.describe("Timetable", () => {
     });
   });
 
-  test("room headers stay aligned with their columns, whatever they contain", async ({ page }) => {
+  // Read off the page instead of restating bootstrap_timetable.py: every column
+  // names itself after its room. Groups are also how a fieldset and a details
+  // surface, so only the named ones are ours -- and every later lookup asks for
+  // a specific room, which those two can never answer to.
+  const roomColumns = (page: Page, room: string) => page.getByRole("group", { name: room });
+
+  const roomNames = async (page: Page) => {
+    const names = await page
+      .getByRole("group")
+      .evaluateAll((groups) => [
+        ...new Set(groups.map((group) => group.getAttribute("aria-label")).filter(Boolean)),
+      ]);
+    expect(names.length, "named room columns on the page").toBeGreaterThan(0);
+    return names as string[];
+  };
+
+  const columnWidths = async (page: Page, rooms: string[]) => {
+    const measured = await Promise.all(
+      rooms.map((room) =>
+        roomColumns(page, room).evaluateAll((columns) =>
+          columns.map((column) => Math.round(column.getBoundingClientRect().width)),
+        ),
+      ),
+    );
+    return [...new Set(measured.flat())];
+  };
+
+  // What a reader of the schedule checks: is this room's name over this room's
+  // column? Centres rather than edges -- the name is what is visible, and a
+  // column that drifts from its label drifts by whole columns.
+  const expectAlignedColumns = async (page: Page, rooms: string[]) => {
+    expect(rooms.length, "rooms to check").toBeGreaterThan(0);
+    for (const room of rooms) {
+      const labels = page.getByText(room, { exact: true });
+      const columns = roomColumns(page, room);
+      const dayCount = await columns.count();
+      expect(dayCount, `columns for ${room}`).toBeGreaterThan(0);
+      await expect(labels).toHaveCount(dayCount);
+
+      for (let day = 0; day < dayCount; day++) {
+        const label = (await labels.nth(day).boundingBox())!;
+        const column = (await columns.nth(day).boundingBox())!;
+        const centre = (box: { width: number; x: number }) => box.x + box.width / 2;
+        expect(
+          Math.abs(centre(label) - centre(column)),
+          `${room}, day ${day + 1}: the room name is not over its column`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+    // Shared width is the other half of the contract: without it a drift could
+    // hide inside one column that grew to cover it.
+    expect(await columnWidths(page, rooms), "columns share one width").toHaveLength(1);
+  };
+
+  test("room names stay over their own columns, whatever they contain", async ({ page }) => {
     await page.setViewportSize({ width: 480, height: 800 });
     await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
 
-    const columnEdges = () =>
-      page.locator(".timetable-calendar").evaluate((calendar) => {
-        const edges = (selector: string) =>
-          Array.from(calendar.querySelectorAll(selector), (cell) => {
-            const box = cell.getBoundingClientRect();
-            return { left: box.left, right: box.right };
-          });
-        return { body: edges(".timetable-column"), header: edges(".timetable-room-cell") };
-      });
-
-    const expectAligned = async () => {
-      const { body, header } = await columnEdges();
-      expect(header.length).toBeGreaterThan(1);
-      expect(body).toHaveLength(header.length);
-      for (const [index, cell] of header.entries()) {
-        expect(Math.abs(cell.left - body[index].left)).toBeLessThanOrEqual(1);
-        expect(Math.abs(cell.right - body[index].right)).toBeLessThanOrEqual(1);
-      }
-    };
-
-    await expectAligned();
+    const rooms = await roomNames(page);
+    await expectAlignedColumns(page, rooms);
 
     // Column widths must come from the track list, not from what a cell holds:
-    // sessions are absolutely positioned and contribute no width, so any
-    // content-driven header would drift away from the body it labels. Written
-    // into the room name, leaving the resize handle that shares the cell alone.
+    // sessions are absolutely positioned and contribute no width, so a
+    // content-driven header would widen the first room and shove every room
+    // after it off the column it labels.
+    expect(rooms.length, "a room left to check after renaming the first").toBeGreaterThan(1);
     await page
-      .locator(".timetable-room-cell div")
-      .last()
+      .getByText(rooms[0], { exact: true })
+      .first()
       .evaluate((name) => {
         name.textContent = "Room name long enough to stretch a content-sized column";
       });
-    await expectAligned();
+    await expectAlignedColumns(page, rooms.slice(1));
   });
 
   test("dragging one column edge resizes every column, and the width sticks", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
 
-    // One entry means every column agrees; drift is header vs the body it labels.
-    const geometry = () =>
-      page.locator(".timetable-calendar").evaluate((calendar) => {
-        const boxes = (selector: string) =>
-          Array.from(calendar.querySelectorAll(selector), (cell) => cell.getBoundingClientRect());
-        const header = boxes(".timetable-room-cell");
-        const body = boxes(".timetable-column");
-        return {
-          drift: Math.max(...body.map((box, index) => Math.abs(box.left - header[index].left))),
-          widths: [...new Set(header.map((box) => Math.round(box.width)))],
-        };
-      });
+    const rooms = await roomNames(page);
     const expectWidth = async (expected: number) => {
-      const { drift, widths } = await geometry();
-      expect(widths).toHaveLength(1);
-      expect(Math.abs(widths[0] - expected)).toBeLessThanOrEqual(1);
-      expect(drift).toBeLessThanOrEqual(1);
+      const [width, ...rest] = await columnWidths(page, rooms);
+      expect(rest, "columns share one width").toHaveLength(0);
+      expect(Math.abs(width - expected), `column width, wanted ~${expected}`).toBeLessThanOrEqual(
+        1,
+      );
+      await expectAlignedColumns(page, rooms);
     };
 
-    const start = (await geometry()).widths[0];
+    // Asserted before the grab, not assumed by it: the grip sits on the header
+    // border, and this is what establishes that the column's edge is under it.
+    // A desync now fails here, naming itself, instead of surfacing downstream as
+    // an unexplained width mismatch.
+    await expectAlignedColumns(page, rooms);
+    const [start] = await columnWidths(page, rooms);
 
-    // Grabbing the border after the second column, so the two columns before it
-    // split the travel -- the border itself tracks the cursor either way.
+    // The border on the far side of the second room, so the two rooms before it
+    // split the travel -- the border tracks the cursor either way.
     const grabbed = 2;
-    const border = (await page
-      .locator(".timetable-room-cell")
-      .nth(grabbed - 1)
-      .boundingBox())!;
-    const [edgeX, edgeY] = [border.x + border.width - 2, border.y + border.height / 2];
+    const gripAt = async () => {
+      const column = (await roomColumns(page, rooms[grabbed - 1])
+        .first()
+        .boundingBox())!;
+      const name = (await page
+        .getByText(rooms[grabbed - 1], { exact: true })
+        .first()
+        .boundingBox())!;
+      return { x: column.x + column.width - 2, y: name.y + name.height / 2 };
+    };
+
+    const grip = await gripAt();
     const travel = 80;
-    await page.mouse.move(edgeX, edgeY);
+    await page.mouse.move(grip.x, grip.y);
     await page.mouse.down();
-    await page.mouse.move(edgeX + travel, edgeY, { steps: 8 });
+    await page.mouse.move(grip.x + travel, grip.y, { steps: 8 });
     await page.mouse.up();
     const resized = start + travel / grabbed;
     await expectWidth(resized);
 
     await page.reload();
-    await expect(page.locator(".timetable-calendar")).toBeVisible();
+    await expect(page.getByText(rooms[0], { exact: true }).first()).toBeVisible();
     await expectWidth(resized);
 
     // Every border resizes, but one handle carries focus and the ARIA contract,
@@ -252,16 +291,10 @@ test.describe("Timetable", () => {
     await expectWidth(resized + 16);
     await expect(handle).toHaveAttribute("tabindex", "0");
 
-    // Re-measured: the cell is wider than when it was grabbed, so the grip has
-    // moved with its right edge.
-    const widened = (await page
-      .locator(".timetable-room-cell")
-      .nth(grabbed - 1)
-      .boundingBox())!;
-    await page
-      .locator(".timetable-room-cell")
-      .nth(grabbed - 1)
-      .dblclick({ position: { x: widened.width - 2, y: widened.height / 2 } });
+    // Re-measured: the columns are wider than when they were grabbed, so the
+    // grip has moved with the border.
+    const widened = await gripAt();
+    await page.mouse.dblclick(widened.x, widened.y);
     await expectWidth(start);
   });
 
