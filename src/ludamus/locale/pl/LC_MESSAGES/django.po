@@ -7173,6 +7173,17 @@ msgstr "Dodaj przedziały czasowe, aby zobaczyć siatkę harmonogramu."
 msgid "total"
 msgstr "łącznie"
 
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid "Column width"
+msgstr "Szerokość kolumny"
+
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+msgid ""
+"Drag, or use the arrow keys, to resize every column. Double-click to reset."
+msgstr ""
+"Przeciągnij lub użyj strzałek, aby zmienić szerokość wszystkich kolumn. "
+"Kliknij dwukrotnie, aby przywrócić domyślną."
+
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Session details"
 msgstr "Szczegóły punktu programu"
