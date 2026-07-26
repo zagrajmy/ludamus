@@ -14,7 +14,10 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
-from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
+from ludamus.gates.web.django.templatetags.cfp_tags import (
+    build_duration,
+    format_duration,
+)
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.submissions import AccreditationType
@@ -714,6 +717,49 @@ def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.Intege
     return forms.IntegerField(**kwargs)
 
 
+CUSTOM_DURATION = "custom"
+MAX_DURATION_HOURS = 23
+MAX_DURATION_MINUTES = 59
+
+
+class _ComposedDurationForm(SessionEditForm):
+    # A session stores one ISO duration, but the organizer may type it as hours
+    # plus minutes, so the composed value has to land back on `duration`.
+    # Returns nothing: the composed value is written straight into
+    # cleaned_data, which Django keeps when clean() returns None.
+    def clean(self) -> None:
+        super().clean()
+        cleaned = self.cleaned_data
+        if "duration" in self.fields and cleaned.get("duration") != CUSTOM_DURATION:
+            return
+        cleaned["duration"] = build_duration(
+            hours=cleaned.get("duration_hours") or 0,
+            minutes=cleaned.get("duration_minutes") or 0,
+        )
+        # Picking "Custom" and entering nothing is a mistake worth naming; with
+        # no preset picker at all the duration simply stays unset.
+        if not cleaned["duration"] and "duration" in self.fields:
+            self.add_error("duration", _("Enter how long the session lasts."))
+
+
+def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
+    # No configured durations means the steppers are the whole control, so the
+    # inherited free-text field is dropped (a None entry removes it).
+    if not durations:
+        return None
+    return forms.ChoiceField(
+        required=False,
+        label=_("Duration"),
+        choices=[
+            ("", "---"),
+            *((d, format_duration(d)) for d in durations),
+            # Kept last: the template reveals the steppers with a CSS
+            # :last-child selector rather than JavaScript.
+            (CUSTOM_DURATION, _("Custom")),
+        ],
+    )
+
+
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
@@ -738,22 +784,21 @@ def create_proposal_form(
             max_limit=category.max_participants_limit,
         )
 
-    # A category with no configured durations keeps the inherited free-text
-    # field, so organizers can still record one.
-    if category and category.durations:
-        attrs["duration"] = forms.ChoiceField(
-            required=False,
-            label=_("Duration"),
-            choices=[
-                ("", "---"),
-                *((d, format_duration(d)) for d in category.durations),
-            ],
-        )
+    attrs["duration_hours"] = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
+    )
+    attrs["duration_minutes"] = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
+    )
 
     for req in requirements:
         build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
 
-    return type("ProposalCreateForm", (SessionEditForm,), attrs)
+    namespace: dict[str, forms.Field | None] = {
+        **attrs,
+        "duration": _duration_field(category.durations if category else []),
+    }
+    return type("ProposalCreateForm", (_ComposedDurationForm,), namespace)
 
 
 ACCREDITATION_TYPE_LABELS = {

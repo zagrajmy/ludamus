@@ -5,10 +5,11 @@
     <div class="card">
         <div class="card-body">
             <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Participants and duration" %}</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {# Stacked, not columns: the card sits in a narrow masonry column, #}
+            {# where a two-up grid squeezes the duration steppers into a wrap. #}
+            <div class="space-y-4">
                 <div>{% tessera_field form.participants_limit %}</div>
-                {# Free text when the category configures no durations, a picker when it does. #}
-                <div>{% tessera_field form.duration %}</div>
+                <div>{% include "panel/parts/proposal-duration.html" %}</div>
             </div>
         </div>
     </div>
