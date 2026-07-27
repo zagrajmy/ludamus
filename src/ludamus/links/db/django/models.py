@@ -403,34 +403,17 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
-    def get_eligible_enrollment_configs(
-        self, session: Session | None = None
-    ) -> list[EnrollmentConfig]:
-        configs = self.get_active_enrollment_configs()
-        if session is None:
-            return configs
-        return [config for config in configs if config.is_session_eligible(session)]
-
     def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
+        eligible_configs = [
+            config
+            for config in self.get_active_enrollment_configs()
+            if config.is_session_eligible(session)
+        ]
+
+        if not eligible_configs:
             return None
 
         return max(eligible_configs, key=lambda c: c.percentage_slots)
-
-    def restricts_to_configured_users(self, session: Session | None = None) -> bool:
-        configs = self.get_eligible_enrollment_configs(session)
-        return bool(configs) and all(
-            config.restrict_to_configured_users for config in configs
-        )
-
-    def max_waitlist_sessions(self, session: Session | None = None) -> int:
-        return max(
-            (
-                config.max_waitlist_sessions
-                for config in self.get_eligible_enrollment_configs(session)
-            ),
-            default=0,
-        )
 
 
 class EventProposalSettings(models.Model):
