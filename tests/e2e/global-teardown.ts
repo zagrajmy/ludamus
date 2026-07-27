@@ -10,7 +10,9 @@ export default async function globalTeardown() {
   if (!collecting) return;
   const files = (await new CoverageReport(coverageOptions).generate())?.files ?? [];
   const unmapped = files.filter((file) => !file.sourcePath.startsWith("src/ludamus/client/src/"));
-  if (!files.length || unmapped.length) {
+  // A filtered local run can legitimately touch no chromium test; only CI,
+  // which uploads what comes out, needs an empty report to be an error.
+  if (unmapped.length || (!files.length && process.env.CI)) {
     throw new Error(
       `Client coverage did not reach the TypeScript sources (${files.length} files,` +
         ` ${unmapped.length} unmapped). The server was likely reused from a build without` +
