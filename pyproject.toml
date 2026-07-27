@@ -189,6 +189,10 @@ module = ["debug_toolbar.toolbar"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["django_vite.templatetags.django_vite"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["environ"]
 ignore_missing_imports = true
 
@@ -446,6 +450,7 @@ ignore_names = [
     "list_filter",
     "Meta",
     "ordering",
+    "ready",
     # Used in settings
     "__call__",
     "*Middleware",

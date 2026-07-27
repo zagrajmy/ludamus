@@ -180,7 +180,9 @@ def _logo_field() -> forms.FileField:
         help_text=_(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": LOGO_ACCEPT}),
+        widget=forms.ClearableFileInput(
+            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
+        ),
     )
 
 

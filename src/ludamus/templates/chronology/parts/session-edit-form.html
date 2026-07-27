@@ -1,7 +1,6 @@
 {% load i18n %}
 {% load cfp_tags %}
 {% load tessera %}
-{% load django_vite %}
 <form id="session-{{ session.pk }}-edit-form"
       class="flex flex-col min-h-0 flex-auto"
       method="post"
@@ -210,4 +209,3 @@
         </button>
     </div>
 </form>
-{% vite_asset 'src/encounter-form.ts' %}

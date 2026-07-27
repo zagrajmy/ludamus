@@ -2,6 +2,7 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 
 from ludamus.links.db.django.models import Announcement, Connection, Sphere
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.pacts import (
     NotFoundError,
     SphereDTO,
@@ -75,9 +76,7 @@ class SphereRepository(
         except Sphere.DoesNotExist as exception:
             raise NotFoundError from exception
 
-        for key, value in data.items():
-            setattr(sphere, key, value)
-        sphere.save(update_fields=list(data.keys()))
+        save_replacing_files(sphere, data)
 
 
 _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"

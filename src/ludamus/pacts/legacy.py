@@ -63,10 +63,10 @@ def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
     return value if isinstance(value, UploadedFileProtocol) else None
 
 
-def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
     # ClearableFileInput's tri-state in one place: a file on upload becomes the
-    # new cover, False clears it (""), and any other value (None / unchanged)
-    # returns None so the caller leaves the stored cover untouched.
+    # new value, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored file untouched.
     if uploaded := parse_uploaded_file(raw):
         return uploaded
     return "" if raw is False else None
@@ -436,9 +436,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
-    logo: str
+    logo: UploadedFileProtocol | str
 
 
 @dataclass
@@ -519,7 +517,7 @@ class EncounterData(TypedDict, total=False):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
+    header_image: UploadedFileProtocol | str
     max_participants: int
     place: str
     share_code: str
@@ -672,9 +670,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime, matching the EncounterData.header_image convention.
-    logo: str
+    logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime

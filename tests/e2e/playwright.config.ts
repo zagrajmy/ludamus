@@ -85,6 +85,7 @@ export default defineConfig({
         /panel-crud\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
+        /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
