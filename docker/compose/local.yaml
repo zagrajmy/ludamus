@@ -59,8 +59,8 @@ services:
       ROOT_DOMAIN:
       SUPPORT_EMAIL:
       SESSION_COOKIE_DOMAIN:
-      STATIC_ROOT:
-      MEDIA_ROOT:
+      STATIC_ROOT: /app/staticfiles
+      MEDIA_ROOT: /app/media
       DB_NAME:
       DB_USER:
       DB_PASSWORD:

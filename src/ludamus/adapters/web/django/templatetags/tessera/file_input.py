@@ -52,5 +52,6 @@ def render_file_input(field: BoundField) -> str:
             "initial_url": initial_url,
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
+            "preview_fit": attrs.get("data-preview-fit", "cover"),
         },
     )
