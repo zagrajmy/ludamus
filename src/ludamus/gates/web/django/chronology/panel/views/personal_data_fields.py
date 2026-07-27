@@ -153,6 +153,8 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
+            initial["is_multiple"] = field.is_multiple
+            initial["allow_custom"] = field.allow_custom
 
         context["active_nav"] = "cfp"
         context["field"] = field
@@ -217,6 +219,8 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "help_text": form.cleaned_data.get("help_text") or "",
                 "is_public": form.cleaned_data.get("is_public", False),
                 "options": options,
+                "is_multiple": form.cleaned_data.get("is_multiple") or False,
+                "allow_custom": form.cleaned_data.get("allow_custom") or False,
             },
             category_requirements=cat_reqs,
         )

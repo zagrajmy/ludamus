@@ -373,11 +373,6 @@ class SessionModalServiceProtocol(Protocol):
     ) -> SessionModalDTO | None: ...
 
 
-TIMETABLE_ROOM_PAGE_SIZE = 5
-TIMETABLE_SLOT_MINUTES = 60
-TIMETABLE_SNAP_MINUTES = 5
-
-
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
@@ -424,6 +419,7 @@ class TimetableGridDTO(BaseModel):
     page: int
     total_pages: int
     total_spaces: int
+    total_columns: int
     available_dates: list[date] = []
     date_selection: DateSelection = "all"
 
