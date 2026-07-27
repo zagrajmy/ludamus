@@ -235,22 +235,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
 
-def is_proposal_active(event: EventDTO) -> bool:
-    """Check if proposals are currently open for an event.
-
-    Returns:
-        True if the event is published and current time is within
-        the proposal submission window.
-        False if the event is unpublished or proposal times are not set.
-    """
-    now = datetime.now(tz=UTC)
-    if event.publication_time is None or event.publication_time > now:
-        return False
-    if event.proposal_start_time is None or event.proposal_end_time is None:
-        return False
-    return event.proposal_start_time <= now <= event.proposal_end_time
-
-
 class ProposeSessionService:
     def __init__(self, uow: UnitOfWorkProtocol, context: RequestContext) -> None:
         self._uow = uow

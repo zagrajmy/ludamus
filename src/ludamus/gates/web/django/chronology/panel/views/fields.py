@@ -65,25 +65,6 @@ def parse_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
     )
 
 
-def sort_fields_by_order[T: _FieldDTO](fields: list[T], order: list[int]) -> list[T]:
-    """Sort fields by saved order, with unordered fields at the end.
-
-    Args:
-        fields: List of field DTOs to sort.
-        order: List of field PKs defining the order.
-
-    Returns:
-        Sorted list of fields.
-    """
-    if not order:
-        return fields
-    order_map = {fid: idx for idx, fid in enumerate(order)}
-    for idx, field in enumerate(fields):
-        if field.pk not in order_map:
-            order_map[field.pk] = len(order) + idx
-    return sorted(fields, key=lambda f: order_map[f.pk])
-
-
 def parse_field_requirements(
     post_data: QueryDict, prefix: str, order_key: str
 ) -> tuple[dict[int, bool], list[int]]:

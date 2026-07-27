@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
+{% load django_vite %}
 {% block title_prefix %}
     {% translate "Configure Category" %} -
 {% endblock title_prefix %}
@@ -134,20 +135,6 @@
                                 {% tessera_field form.offer_claim_window_minutes %}
                             </div>
                         </div>
-                        <script>
-                            (function() {
-                                const settings = document.querySelector('[data-promotion-settings]');
-                                if (!settings) return;
-                                const claimWindow = settings.querySelector('[data-offer-claim-window]');
-                                const modes = settings.querySelectorAll('input[name="promotion_mode"]');
-                                const update = () => {
-                                    const selected = settings.querySelector('input[name="promotion_mode"]:checked');
-                                    claimWindow.hidden = selected?.value !== 'offer_claim';
-                                };
-                                modes.forEach((mode) => mode.addEventListener('change', update));
-                                update();
-                            })();
-                        </script>
                     </div>
                 </div>
                 <div class="card mt-6">
@@ -730,5 +717,6 @@
                 </script>
             </form>
         </div>
+        {% vite_asset 'src/proposal-category-settings.ts' %}
     {% endif %}
 {% endblock content %}

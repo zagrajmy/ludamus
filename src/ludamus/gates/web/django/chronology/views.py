@@ -32,12 +32,9 @@ from ludamus.gates.web.django.helpers import (
     parse_dynamic_field_value,
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.mills import (
-    ProposeSessionService,
-    check_proposal_rate_limit,
-    is_proposal_active,
-)
+from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
 from ludamus.mills.chronology import SessionEditNotAllowedError
+from ludamus.mills.event import is_proposal_active
 from ludamus.pacts import (
     NotFoundError,
     RedirectError,

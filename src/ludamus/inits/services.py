@@ -61,10 +61,17 @@ from ludamus.mills.submissions.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
 )
+from ludamus.mills.submissions.proposal_category_settings import (
+    ProposalCategorySettingsService,
+)
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.submissions import FacilitatorPanelRepos, ImportRepos
+from ludamus.pacts.submissions import (
+    FacilitatorPanelRepos,
+    ImportRepos,
+    ProposalCategorySettingsRepos,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -293,6 +300,19 @@ class Services:
     def enrollment_settings(self) -> EnrollmentSettingsService:
         return EnrollmentSettingsService(
             self._transaction, self._repos.enrollment_windows
+        )
+
+    @cached_property
+    def proposal_category_settings(self) -> ProposalCategorySettingsService:
+        return ProposalCategorySettingsService(
+            self._transaction,
+            ProposalCategorySettingsRepos(
+                categories=self._repos.proposal_categories,
+                personal_fields=self._repos.personal_data_fields,
+                session_fields=self._repos.session_fields,
+                time_slots=self._repos.time_slots,
+                sessions=self._repos.sessions,
+            ),
         )
 
     @cached_property

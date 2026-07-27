@@ -13,7 +13,8 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
-from ludamus.mills import PanelService, is_proposal_active
+from ludamus.mills import PanelService
+from ludamus.mills.event import is_proposal_active
 from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
 
 if TYPE_CHECKING:

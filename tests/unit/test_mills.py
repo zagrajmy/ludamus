@@ -11,10 +11,10 @@ from ludamus.mills import (
     check_proposal_rate_limit,
     generate_ics_content,
     google_calendar_url,
-    is_proposal_active,
     outlook_calendar_url,
     render_markdown,
 )
+from ludamus.mills.event import is_proposal_active
 from ludamus.mills.multiverse import ConnectionsService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService

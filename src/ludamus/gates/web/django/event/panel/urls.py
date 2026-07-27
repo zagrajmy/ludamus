@@ -20,7 +20,10 @@ from ludamus.gates.web.django.chronology.panel.views import (
     venues,
 )
 from ludamus.gates.web.django.chronology.panel.views import print as print_views
-from ludamus.gates.web.django.event.panel.views import enrollment_settings
+from ludamus.gates.web.django.event.panel.views import (
+    enrollment_settings,
+    proposal_category_settings,
+)
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -333,7 +336,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:event_slug>/cfp/<str:category_slug>/",
-        cfp.CFPEditPageView.as_view(),
+        proposal_category_settings.ProposalCategorySettingsPageView.as_view(),
         name="cfp-edit",
     ),
     path(

@@ -110,6 +110,11 @@ class FacilitatorListItemDTO(BaseModel):
     user_id: int | None
 
 
+class PromotionMode(StrEnum):
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -121,7 +126,7 @@ class ProposalCategoryDTO(BaseModel):
     name: str
     offer_claim_window: timedelta = timedelta(hours=24)
     pk: int
-    promotion_mode: str = "auto"
+    promotion_mode: PromotionMode = PromotionMode.AUTO
     slug: str
     start_time: datetime | None
 
@@ -274,18 +279,6 @@ OCCUPYING_PARTICIPATION_STATUSES = (
     SessionParticipationStatus.CONFIRMED,
     SessionParticipationStatus.OFFERED,
 )
-
-
-class PromotionMode(StrEnum):
-    """How a freed seat is filled from the waiting list, per ProposalCategory.
-
-    AUTO: the next eligible waiter is moved straight to CONFIRMED.
-    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
-    bounded window; they must actively claim it or it rolls to the next party.
-    """
-
-    AUTO = auto()
-    OFFER_CLAIM = auto()
 
 
 class NotificationKind(StrEnum):
@@ -584,7 +577,7 @@ class ProposalCategoryData(TypedDict, total=False):
     min_participants_limit: int
     name: str
     offer_claim_window: timedelta
-    promotion_mode: str
+    promotion_mode: PromotionMode
     start_time: datetime | None
 
 

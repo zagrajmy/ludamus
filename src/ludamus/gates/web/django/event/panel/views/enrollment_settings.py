@@ -14,8 +14,8 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
     EventPanelAccessMixin,
     EventPanelRequest,
-    settings_tab_urls,
 )
+from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts.enrollment import EnrollmentWindowData, EnrollmentWindowDTO
 
 if TYPE_CHECKING:

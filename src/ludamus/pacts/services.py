@@ -59,6 +59,7 @@ if TYPE_CHECKING:
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
+        ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
@@ -85,6 +86,8 @@ class ServicesProtocol(Protocol):
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
     def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
+    @property
+    def proposal_category_settings(self) -> ProposalCategorySettingsServiceProtocol: ...
     @property
     def facilitator_panel(self) -> FacilitatorPanelServiceProtocol: ...
     @property

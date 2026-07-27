@@ -9,7 +9,7 @@ from ludamus.pacts.legacy import (
 )
 
 
-def _is_proposal_active(event: EventDTO) -> bool:
+def is_proposal_active(event: EventDTO) -> bool:
     current_time = datetime.now(tz=UTC)
     return bool(
         event.publication_time is not None
@@ -41,6 +41,6 @@ class EventPanelService(EventPanelServiceProtocol):
         return EventPanelContextDTO(
             events=self._events.list_by_sphere(sphere_id),
             current_event=current_event,
-            is_proposal_active=_is_proposal_active(current_event),
+            is_proposal_active=is_proposal_active(current_event),
             stats=build_panel_stats(stats_data),
         )
