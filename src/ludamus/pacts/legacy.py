@@ -1099,6 +1099,8 @@ class PersonalDataFieldUpdateData(TypedDict):
     help_text: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class SessionFieldCreateData(TypedDict):
@@ -1123,6 +1125,8 @@ class SessionFieldUpdateData(TypedDict):
     icon: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class PersonalDataFieldRepositoryProtocol(Protocol):
