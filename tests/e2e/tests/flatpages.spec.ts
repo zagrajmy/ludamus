@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 test.describe("Flatpages", () => {
   test("About page displays seeded content", async ({ page }) => {

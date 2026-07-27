@@ -1,7 +1,7 @@
 import { type Page } from "@playwright/test";
 import path from "node:path";
 
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 const expectPageScrollLocked = async (page: Page) => {
   const pageScrollLocked = await page.evaluate(() => {

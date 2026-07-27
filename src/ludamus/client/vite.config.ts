@@ -68,7 +68,7 @@ export default defineConfig({
     },
     // Coverage runs need the map inside the bundle: V8 hands back the source
     // text, and that is what carries the coverage home to the .ts files.
-    sourcemap: process.env.COVERAGE_FILE ? "inline" : true,
+    sourcemap: process.env.COVERAGE_FILE?.endsWith(".coverage.e2e") ? "inline" : true,
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {

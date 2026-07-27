@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 // The delete + restore actions mutate the shared seeded "Pending Neon
 // Proposal" (bootstrap_data.py), so the two scenarios run serially: delete

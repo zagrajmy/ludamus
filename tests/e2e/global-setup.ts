@@ -1,8 +1,7 @@
 import { CoverageReport } from "monocart-coverage-reports";
 
-import { coverageOptions } from "./coverage";
+import { collecting, coverageOptions } from "./coverage";
 
 export default function globalSetup() {
-  if (!process.env.COVERAGE_FILE) return;
-  new CoverageReport(coverageOptions).cleanCache();
+  if (collecting) new CoverageReport(coverageOptions).cleanCache();
 }

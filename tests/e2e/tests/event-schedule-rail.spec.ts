@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 const denseEventUrl = "/chronology/event/kapitularz-2025-anonymized/";
 

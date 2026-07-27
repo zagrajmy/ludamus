@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 const PNG_BYTES = Buffer.from(
   "89504e470d0a1a0a0000000d4948445200000001000000010802000000" +

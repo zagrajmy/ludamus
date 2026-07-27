@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 test.describe("Anonymous proposals", () => {
   test("redirects to login when anonymous proposals are disabled", async ({ page }) => {

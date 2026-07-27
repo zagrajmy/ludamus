@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 // User-centric tests (Kent C. Dodds style): drive the controls the way a person
 // does — find them by their accessible role/name, act, and assert on the state

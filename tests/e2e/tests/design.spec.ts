@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/coverage-fixture";
+import { expect, test } from "./helpers/test";
 
 test.describe("Design system page", () => {
   test("renders design showcase with component sections", async ({ page }) => {

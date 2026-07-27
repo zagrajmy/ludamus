@@ -1,10 +1,10 @@
 import { test as base } from "@playwright/test";
 import { CoverageReport } from "monocart-coverage-reports";
 
-import { coverageOptions } from "../../coverage";
+import { collecting, coverageOptions } from "../../coverage";
 
-const collecting = !!process.env.COVERAGE_FILE;
-
+// The suite's own `test`: specs import from here, not from @playwright/test,
+// so every one of them lands in the client coverage report.
 export const test = base.extend<{ clientCoverage: void }>({
   clientCoverage: [
     async ({ page, browserName }, use) => {
