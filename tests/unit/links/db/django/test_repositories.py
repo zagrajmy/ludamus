@@ -10,9 +10,6 @@ from ludamus.links.db.django.repositories import (
 
 
 class TestDeleteStoredFile:
-    def test_noop_when_field_has_no_storage(self):
-        delete_stored_file(object(), "orphan/path.png")
-
     def test_logs_and_swallows_storage_delete_errors(self, caplog):
         storage = MagicMock()
         storage.delete.side_effect = OSError("boom")

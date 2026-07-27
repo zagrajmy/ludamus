@@ -12,6 +12,9 @@ from ludamus.pacts import EventDTO, NotFoundError
 from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import assert_response
 
+# The settings page renders a cover image and a logo dropzone.
+DROPZONE_COUNT = 2
+
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
@@ -105,6 +108,23 @@ class TestEventSettingsPageViewGet:
             },
         )
         assert "events/brand.png" in response.content.decode()
+
+    def test_ships_the_dropzone_script_once_for_two_dropzones(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
+        content = response.content
+        assert content.count(b"data-dropzone-input") == DROPZONE_COUNT
+        assert content.count(b"src/dropzone.ts") == 1
 
     def test_inherit_label_reflects_sphere_default_disallowed(
         self, authenticated_client, active_user, sphere, event
