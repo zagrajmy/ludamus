@@ -1,5 +1,5 @@
 import { analyzePageAccessibility } from "./helpers/a11y";
-import { expect, test } from "./helpers/test";
+import { expect, test } from "./helpers/fixtures";
 
 // The seeded e2e-tester has one unread WAITLIST_PROMOTED notification
 // (tests/e2e/scripts/bootstrap_data.py), so the navbar dropdown has content.

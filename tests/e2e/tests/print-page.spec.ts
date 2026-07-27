@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers/test";
+import { expect, test } from "./helpers/fixtures";
 
 const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
 
