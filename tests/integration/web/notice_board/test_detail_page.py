@@ -4,7 +4,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.notice_board.helpers import encounter_meta_description
 from ludamus.links.db.django.models import EncounterRSVP
 from ludamus.links.gravatar import gravatar_url
 from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
@@ -53,7 +52,6 @@ def _detail_context(
         "description_html": (
             render_markdown(encounter.description) if encounter.description else ""
         ),
-        "page_description": encounter_meta_description(encounter_dto),
         "share_url": share_url,
         "user_has_rsvpd": user_has_rsvpd,
         "google_calendar_url": google_calendar_url(encounter_dto, share_url),

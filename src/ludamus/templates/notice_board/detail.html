@@ -9,9 +9,15 @@
 {% block twitter_title %}
     {{ encounter.title }}
 {% endblock twitter_title %}
-{% comment %}The description comes from the view as `page_description`; it needs
-the start time formatted, which a template can't compose into one string.
-{% endcomment %}
+{% block meta_description %}
+    {% include "notice_board/_meta_description.html" %}
+{% endblock meta_description %}
+{% block og_description %}
+    {% include "notice_board/_meta_description.html" %}
+{% endblock og_description %}
+{% block twitter_description %}
+    {% include "notice_board/_meta_description.html" %}
+{% endblock twitter_description %}
 {% block og_image %}
     {% if encounter.header_image_url %}
         {% include "components/meta_image_url.html" with url=encounter.header_image_url %}

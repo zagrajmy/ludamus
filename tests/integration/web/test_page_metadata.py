@@ -1,26 +1,32 @@
 import re
+from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
+from tests.integration.utils import assert_response
 
-PRODUCT_PITCH = "Zagrajmy brings players and organizers together."
+PRODUCT_PITCH = "Conventions, RPG sessions and game nights in one place."
+
+
+def _head(response, pattern):
+    match = re.search(pattern, response.content.decode(), re.DOTALL)
+    assert match, f"no {pattern} in response"
+    return match.group(1)
 
 
 def _title(response):
-    match = re.search(r"<title>(.*?)</title>", response.content.decode(), re.DOTALL)
-    assert match, "no <title> in response"
-    return " ".join(match.group(1).split())
+    return " ".join(_head(response, r"<title>(.*?)</title>").split())
+
+
+def _meta_raw(response, attribute, value):
+    return _head(response, rf'<meta[^>]+{attribute}="{value}"[^>]+content="([^"]*)"')
 
 
 def _meta(response, attribute, value):
-    match = re.search(
-        rf'<meta[^>]+{attribute}="{value}"[^>]+content="([^"]*)"',
-        response.content.decode(),
-    )
-    assert match, f"no <meta {attribute}={value}> in response"
-    return " ".join(match.group(1).split())
+    return " ".join(_meta_raw(response, attribute, value).split())
 
 
 def _descriptions(response):
@@ -31,64 +37,89 @@ def _descriptions(response):
     ]
 
 
+def _get_ok(client, url, **extra):
+    response = client.get(url, **extra)
+    assert_response(response, HTTPStatus.OK, context_data=ANY, template_name=ANY)
+    return response
+
+
 class TestPageTitle:
     def test_root_sphere_title_omits_the_brand_tail(self, client, sphere):
-        response = client.get(reverse("web:events"))
+        response = _get_ok(client, reverse("web:events"))
 
-        assert _title(response).endswith(f"• {sphere.name}")
+        assert _title(response) == f"Events • {sphere.name}"
 
     def test_sub_sphere_title_ends_with_the_brand(
         self, client, sphere, non_root_sphere
     ):
-        response = client.get(
-            reverse("web:events"), HTTP_HOST=non_root_sphere.site.domain
+        response = _get_ok(
+            client, reverse("web:events"), HTTP_HOST=non_root_sphere.site.domain
         )
 
-        assert _title(response).endswith(f"• {non_root_sphere.name} • {sphere.name}")
+        assert _title(response) == f"Events • {non_root_sphere.name} • {sphere.name}"
 
 
 class TestMetaDescription:
     def test_listing_page_describes_the_product(self, client):
-        response = client.get(reverse("web:events"))
+        response = _get_ok(client, reverse("web:events"))
 
-        assert all(
-            description.endswith(PRODUCT_PITCH)
-            for description in _descriptions(response)
-        )
+        descriptions = _descriptions(response)
+        assert descriptions[0].startswith(PRODUCT_PITCH)
+        assert descriptions == [descriptions[0]] * 3
 
     def test_event_page_describes_the_event(self, client, sphere):
         event = EventFactory(sphere=sphere, description="Konwent gier w Krakowie")
 
-        response = client.get(
-            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        response = _get_ok(
+            client, reverse("web:chronology:event", kwargs={"slug": event.slug})
         )
 
         assert _descriptions(response) == ["Konwent gier w Krakowie"] * 3
 
     def test_encounter_page_describes_the_encounter(self, client, sphere):
         encounter = EncounterFactory(
-            sphere=sphere, place="Kraków", description="Kolacja i planszówki"
+            sphere=sphere, place="Kraków", description="# Kolacja i **planszówki**"
         )
 
-        response = client.get(
+        response = _get_ok(
+            client,
             reverse(
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
-            )
+            ),
         )
 
         description = _meta(response, "name", "description")
         assert "Kraków" in description
-        assert "Kolacja i planszówki" in description
+        assert description.endswith("| Kolacja i planszówki")
         assert _descriptions(response) == [description] * 3
+
+    def test_encounter_without_place_or_description_still_has_the_date(
+        self, client, sphere
+    ):
+        encounter = EncounterFactory(sphere=sphere, place="", description="")
+
+        response = _get_ok(
+            client,
+            reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+
+        description = _meta(response, "name", "description")
+        assert "—" not in description
+        assert "|" not in description
+        assert str(encounter.start_time.year) in description
 
 
 class TestMetaImage:
-    def test_defaults_to_an_absolute_brand_url(self, client):
-        response = client.get(reverse("web:events"))
+    def test_defaults_to_the_absolute_brand_url(self, client):
+        response = _get_ok(client, reverse("web:events"))
 
-        assert _meta(response, "property", "og:image").startswith(
-            "http://testserver/static/"
+        assert (
+            _meta_raw(response, "property", "og:image")
+            == "http://testserver/static/logo.png"
         )
 
     def test_event_cover_wins_over_the_brand_image(self, client, sphere):
@@ -96,8 +127,8 @@ class TestMetaImage:
         event.cover_image = SimpleUploadedFile("cover.png", PNG_BYTES, "image/png")
         event.save()
 
-        response = client.get(
-            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        response = _get_ok(
+            client, reverse("web:chronology:event", kwargs={"slug": event.slug})
         )
 
         assert _meta(response, "property", "og:image").endswith(event.cover_image.url)
