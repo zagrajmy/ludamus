@@ -1,3 +1,15 @@
+---
+name: glimpse
+description: >-
+  GLIMPSE architecture rules for ludamus backend code. Load before creating,
+  moving, or reviewing anything under src/ludamus/pacts, specs, mills, links,
+  gates, or inits: services, repositories, DTOs, protocols, views, DI
+  wiring. Covers layer import rules, file layout and slicing (noun, verb,
+  port, adapter, kind), the __init__.py re-export policy, growth thresholds,
+  required patterns, and drift red flags. Also use when deciding where new
+  code goes or which test type a layer needs.
+---
+
 # GLIMPSE Architecture Reference
 
 ## Layers

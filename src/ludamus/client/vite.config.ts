@@ -53,6 +53,7 @@ export default defineConfig({
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "panel-columns": resolve(rootDir, "src/panel-columns.ts"),
+        "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
         "session-card": resolve(rootDir, "src/session-card.ts"),
@@ -66,6 +67,7 @@ export default defineConfig({
         timetable: resolve(rootDir, "src/timetable.ts"),
       },
     },
+    sourcemap: true,
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {

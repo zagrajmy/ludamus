@@ -3,11 +3,19 @@
     "target": "ES2020",
     "module": "CommonJS",
     "moduleResolution": "Node",
-    "lib": ["ES2020", "DOM"],
+    "lib": [
+      "ES2020",
+      "DOM"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["playwright.config.ts", "tests/**/*.ts", "global-setup.ts"]
+  "include": [
+    "playwright.config.ts",
+    "tests/**/*.ts",
+    "global-setup.ts",
+    "global-teardown.ts"
+  ]
 }

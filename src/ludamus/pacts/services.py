@@ -35,9 +35,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
+        EnrollmentSettingsServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.event import EventPanelServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -57,9 +59,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        CFPSessionFieldServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
+        ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
@@ -85,7 +89,11 @@ class ServicesProtocol(Protocol):
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
+    def session_fields(self) -> CFPSessionFieldServiceProtocol: ...
+    @property
     def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
+    @property
+    def proposal_category_settings(self) -> ProposalCategorySettingsServiceProtocol: ...
     @property
     def facilitator_panel(self) -> FacilitatorPanelServiceProtocol: ...
     @property
@@ -108,6 +116,8 @@ class ServicesProtocol(Protocol):
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
     def events(self) -> EventsServiceProtocol: ...
+    @property
+    def event_panel(self) -> EventPanelServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
@@ -136,6 +146,8 @@ class ServicesProtocol(Protocol):
     def notifications(self) -> NotificationsServiceProtocol: ...
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
+    @property
+    def enrollment_settings(self) -> EnrollmentSettingsServiceProtocol: ...
     @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property

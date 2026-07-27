@@ -712,7 +712,7 @@ class ProposalFormFieldsComponentView(_ProposalFormBase):
     ) -> HttpResponse:
         # A category swap re-renders one fieldset: it needs the event, not the
         # page's event list and stats.
-        if (current_event := self.get_event(slug)) is None:
+        if (current_event := self.get_current_event(slug)) is None:
             return redirect("panel:index")
 
         prepared = self._prepare(slug, current_event, proposal_id)

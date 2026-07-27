@@ -36,9 +36,11 @@ from ludamus.mills.discounts import DiscountsExportService, DiscountsService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
+    EnrollmentSettingsService,
     NotificationsService,
     WaitlistPromotionService,
 )
+from ludamus.mills.event import EventPanelService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -60,11 +62,15 @@ from ludamus.mills.submissions.personal_data_fields import (
     CFPPersonalDataFieldService,
     PersonalDataFieldValueService,
 )
+from ludamus.mills.submissions.proposal_category_settings import (
+    ProposalCategorySettingsService,
+)
+from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
-from ludamus.pacts.submissions import ImportRepos
+from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -86,6 +92,14 @@ class Services:
         return CFPPersonalDataFieldService(
             transaction=self._transaction,
             fields=self._repos.personal_data_fields,
+            categories=self._repos.proposal_categories,
+        )
+
+    @cached_property
+    def session_fields(self) -> CFPSessionFieldService:
+        return CFPSessionFieldService(
+            transaction=self._transaction,
+            fields=self._repos.session_fields,
             categories=self._repos.proposal_categories,
         )
 
@@ -174,6 +188,10 @@ class Services:
     @cached_property
     def events(self) -> EventsService:
         return EventsService(self._repos.events)
+
+    @cached_property
+    def event_panel(self) -> EventPanelService:
+        return EventPanelService(self._repos.events)
 
     @cached_property
     def print_materials(self) -> PrintMaterialsService:
@@ -298,6 +316,25 @@ class Services:
     @cached_property
     def notifications(self) -> NotificationsService:
         return NotificationsService(self._transaction, self._repos.notifications)
+
+    @cached_property
+    def enrollment_settings(self) -> EnrollmentSettingsService:
+        return EnrollmentSettingsService(
+            self._transaction, self._repos.enrollment_windows
+        )
+
+    @cached_property
+    def proposal_category_settings(self) -> ProposalCategorySettingsService:
+        return ProposalCategorySettingsService(
+            self._transaction,
+            ProposalCategorySettingsRepos(
+                categories=self._repos.proposal_categories,
+                personal_fields=self._repos.personal_data_fields,
+                session_fields=self._repos.session_fields,
+                time_slots=self._repos.time_slots,
+                sessions=self._repos.sessions,
+            ),
+        )
 
     @cached_property
     def enrollment(self) -> EnrollmentService:

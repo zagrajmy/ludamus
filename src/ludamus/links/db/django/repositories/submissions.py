@@ -159,6 +159,8 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
         "durations",
         "min_participants_limit",
         "max_participants_limit",
+        "promotion_mode",
+        "offer_claim_window",
     )
 
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO:
@@ -323,52 +325,6 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
                 field_id=field_id,
                 is_required=is_required,
                 order=order_map.get(field_id, 0),
-            )
-
-    @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None:
-        """Add a personal data field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                PersonalDataFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        """Add a session field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                SessionFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            SessionFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
             )
 
     @staticmethod
@@ -693,6 +649,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.is_public = data["is_public"]
+        field.is_multiple = (
+            data["is_multiple"] if field.field_type == "select" else False
+        )
+        field.allow_custom = (
+            data["allow_custom"] if field.field_type == "select" else False
+        )
         field.save()
 
         options = data["options"]
@@ -843,6 +805,12 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         field.help_text = data["help_text"]
         field.icon = data["icon"]
         field.is_public = data["is_public"]
+        field.is_multiple = (
+            data["is_multiple"] if field.field_type == "select" else False
+        )
+        field.allow_custom = (
+            data["allow_custom"] if field.field_type == "select" else False
+        )
         field.save()
 
         options = data["options"]

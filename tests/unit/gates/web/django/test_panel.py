@@ -1,6 +1,9 @@
 """Unit tests for panel helpers."""
 
+from types import SimpleNamespace
+
 import pytest
+from django.http import QueryDict
 
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     FACILITATOR_COLUMNS,
@@ -8,6 +11,7 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     builtin_columns,
 )
 from ludamus.gates.web.django.chronology.panel.views.venues import suggest_copy_name
+from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import FacilitatorListItemDTO
 
 
@@ -69,3 +73,35 @@ class TestBuiltins:
     def test_rejects_a_key_the_mill_never_offers(self) -> None:
         with pytest.raises(ValueError, match="built-in columns don't match"):
             builtin_columns(("name",), {"mystery": BuiltinColumn(label="Mystery")})
+
+
+class TestParseRequirementSelection:
+    def test_reads_requirements_and_order(self) -> None:
+        post = QueryDict("field_1=required&field_2=optional&field_order=2,1")
+
+        selection = parse_requirement_selection(
+            post, prefix="field_", order_key="field_order"
+        )
+
+        assert selection.requirements == {1: True, 2: False}
+        assert selection.order == [2, 1]
+
+    def test_ignores_non_numeric_keys_and_order_entries(self) -> None:
+        post = QueryDict("field_abc=required&field_1=required&field_order=abc,1,")
+
+        selection = parse_requirement_selection(
+            post, prefix="field_", order_key="field_order"
+        )
+
+        assert selection.requirements == {1: True}
+        assert selection.order == [1]
+
+    def test_scoped_to_drops_pks_outside_the_event(self) -> None:
+        post = QueryDict("field_1=required&field_999=required&field_order=999,1")
+
+        selection = parse_requirement_selection(
+            post, prefix="field_", order_key="field_order"
+        ).scoped_to([SimpleNamespace(pk=1)])
+
+        assert selection.requirements == {1: True}
+        assert selection.order == [1]

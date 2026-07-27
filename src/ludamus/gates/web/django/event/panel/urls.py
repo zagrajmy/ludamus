@@ -1,4 +1,4 @@
-"""URL patterns for the chronology panel bounded context."""
+"""URL patterns for the event-scoped Panel."""
 
 from django.urls import include, path
 
@@ -22,6 +22,10 @@ from ludamus.gates.web.django.chronology.panel.views import (
     venues,
 )
 from ludamus.gates.web.django.chronology.panel.views import print as print_views
+from ludamus.gates.web.django.event.panel.views import (
+    enrollment_settings,
+    proposal_category_settings,
+)
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -113,6 +117,26 @@ urlpatterns = [
         "event/<slug:slug>/settings/proposals/",
         event_settings.EventProposalSettingsPageView.as_view(),
         name="event-proposal-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/",
+        enrollment_settings.EventEnrollmentSettingsPageView.as_view(),
+        name="event-enrollment-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/create/",
+        enrollment_settings.EnrollmentWindowCreatePageView.as_view(),
+        name="enrollment-window-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/<int:pk>/edit/",
+        enrollment_settings.EnrollmentWindowEditPageView.as_view(),
+        name="enrollment-window-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/<int:pk>/do/delete",
+        enrollment_settings.EnrollmentWindowDeleteActionView.as_view(),
+        name="enrollment-window-delete",
     ),
     path(
         "event/<slug:slug>/settings/display/",
@@ -324,7 +348,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:event_slug>/cfp/<str:category_slug>/",
-        cfp.CFPEditPageView.as_view(),
+        proposal_category_settings.ProposalCategorySettingsPageView.as_view(),
         name="cfp-edit",
     ),
     path(
