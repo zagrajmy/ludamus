@@ -27,8 +27,7 @@ class CustomAnswerFormMixin(forms.Form):
     custom_required_keys: ClassVar[tuple[str, ...]] = ()
 
     def clean(self) -> dict[str, Any]:
-        # BaseForm.clean returns cleaned_data; read the pair from there.
-        super().clean()
+        self.cleaned_data = super().clean() or self.cleaned_data
         for key in self.custom_required_keys:
             if self.cleaned_data.get(key) or self.cleaned_data.get(f"{key}_custom"):
                 continue
@@ -154,6 +153,7 @@ def fold_custom_answers(
 
 
 def build_dynamic_fields(
+    *,
     fields: dict[str, forms.Field],
     requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
     prefix: str,

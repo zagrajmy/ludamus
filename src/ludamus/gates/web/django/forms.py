@@ -688,7 +688,9 @@ def create_proposal_form(
             ],
         )
 
-    custom_required = build_dynamic_fields(attrs, requirements, "session")
+    custom_required = build_dynamic_fields(
+        fields=attrs, requirements=requirements, prefix="session"
+    )
 
     return type(
         "ProposalCreateForm",

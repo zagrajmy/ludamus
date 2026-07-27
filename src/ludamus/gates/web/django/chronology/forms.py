@@ -30,7 +30,9 @@ def build_personal_data_form(
 ) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {}
 
-    custom_required = build_dynamic_fields(fields, requirements, "personal")
+    custom_required = build_dynamic_fields(
+        fields=fields, requirements=requirements, prefix="personal"
+    )
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
 
@@ -86,7 +88,9 @@ def build_session_details_form(
             label=_("Duration"), choices=[("", "---"), *duration_choices]
         )
 
-    custom_required = build_dynamic_fields(fields, requirements, "session")
+    custom_required = build_dynamic_fields(
+        fields=fields, requirements=requirements, prefix="session"
+    )
 
     return type(
         "SessionDetailsForm",
