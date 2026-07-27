@@ -181,6 +181,9 @@
                         </div>
                     </div>
                 </div>
+                {% translate "h" as hour_suffix %}
+                {% translate "min" as minute_suffix %}
+                {% translate "No durations configured yet." as no_durations_text %}
                 <script>
                     (function() {
                         const hoursInput = document.getElementById('duration-hours');
@@ -188,15 +191,18 @@
                         const addBtn = document.getElementById('add-duration-btn');
                         const list = document.getElementById('durations-list');
                         const noMsg = document.getElementById('no-durations-msg');
+                        const hourSuffix = '{{ hour_suffix|escapejs }}';
+                        const minuteSuffix = '{{ minute_suffix|escapejs }}';
+                        const noDurationsText = '{{ no_durations_text|escapejs }}';
 
                         function formatDuration(iso) {
                             const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
                             if (!match) return iso;
                             const hours = match[1] ? parseInt(match[1]) : 0;
                             const mins = match[2] ? parseInt(match[2]) : 0;
-                            if (hours && mins) return hours + 'h ' + mins + 'min';
-                            if (hours) return hours + 'h';
-                            return mins + 'min';
+                            if (hours && mins) return hours + hourSuffix + ' ' + mins + minuteSuffix;
+                            if (hours) return hours + hourSuffix;
+                            return mins + minuteSuffix;
                         }
 
                         function toIso(hours, mins) {
@@ -245,7 +251,7 @@
                                     const p = document.createElement('p');
                                     p.id = 'no-durations-msg';
                                     p.className = 'text-sm text-foreground-muted italic';
-                                    p.textContent = 'No durations configured yet.';
+                                    p.textContent = noDurationsText;
                                     list.appendChild(p);
                                 }
                             }

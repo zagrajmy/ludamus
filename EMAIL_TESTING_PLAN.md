@@ -1,7 +1,7 @@
 # Production email and seat-claim test plan
 
 This runbook verifies the `OFFER_CLAIM` seat flow on
-<https://skytower.zagrajmy.net/> with `kobold.zagrajmy@gmail.com`. It covers
+<https://skytower.zagrajmy.net/> with `<test-mailbox>`. It covers
 production SMTP delivery, in-app notifications, anonymous token use, claiming,
 declining, token replay, and automatic expiry.
 
@@ -54,7 +54,7 @@ Use these status values: `Not started`, `In progress`, `Passed`, `Failed`, or
 
 ### Account
 
-- [x] Log in to the Skytower sphere as `kobold.zagrajmy@gmail.com`.
+- [x] Log in to the Skytower sphere as `<test-mailbox>`.
 - [x] Confirm the Ludamus user stores that exact email address.
 - [x] Confirm the user can enroll and manage the sphere. Kobold can open the
       Wrocław Megagames Weekend dashboard at `/panel/event/wroclaw-megagames-weekend/`.
@@ -77,7 +77,7 @@ Use these status values: `Not started`, `In progress`, `Passed`, `Failed`, or
 - [ ] Confirm `EMAIL_URL` selects the production SMTP transport without printing
       its secret value.
 - [ ] Send one harmless message from Django's configured email backend to
-      `kobold.zagrajmy@gmail.com` with subject
+      `<test-mailbox>` with subject
       `[PROD TEST] Ludamus SMTP preflight`.
 - [ ] Require Gmail delivery within two minutes.
 - [ ] Save redacted evidence of the sender, delivery time, SPF, DKIM, and DMARC
@@ -114,7 +114,7 @@ For each session:
 - [ ] Add one synthetic blocker as `CONFIRMED`.
 - [ ] Use a clearly named blocker with an `.invalid` email address and no login.
 - [ ] Join the waiting list through the real participant UI as
-      `kobold.zagrajmy@gmail.com`.
+      `<test-mailbox>`.
 - [ ] Verify the blocker is `CONFIRMED`, Kobold is `WAITING`, and the session has
       no other participation.
 
@@ -264,7 +264,7 @@ Append dated entries here. Include commands only when they contain no secrets.
   HSTS enabled.
 - Account reconnaissance: the user's existing Playwriter browser session is
   authenticated as Kobold, and the account menu confirms
-  `kobold.zagrajmy@gmail.com`. Kobold can now access the Wrocław Megagames
+  `<test-mailbox>`. Kobold can now access the Wrocław Megagames
   Weekend backoffice. The Django admin still identifies Kobold as authenticated
   but unauthorized; admin-only configuration requires the assisting staff user.
 - Fixture setup: created `[PROD TEST] Offer and claim` through the Panel with
