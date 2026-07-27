@@ -85,21 +85,26 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
-      - name: Warm up Safari
-        run: |
-          # Safari's first launch on a freshly booted simulator times out
-          # (NSPOSIXErrorDomain 60 / ETIMEDOUT) and leaves agent-device unable
-          # to attach its runner. Absorb that launch here, where it costs
-          # seconds, instead of inside a 240s test hook that then fails.
-          xcrun simctl launch "$UDID" com.apple.mobilesafari || true
-          sleep 5
-          xcrun simctl openurl "$UDID" http://localhost:8000/event/autumn-open/ || true
-          sleep 10
+      - name: Warm up the agent-device runner
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 90000
+          AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
+          BASE_URL: http://localhost:8000
+          IOS_DEVICE_NAME: iPhone 16
+          SESSION: ios-regressions
+        run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
+        timeout-minutes: 22
         env:
-          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
+          # A daemon call that outlives the hook budget reports as an unnamed
+          # 240s hook timeout with no attribution. Bounded well under the hook,
+          # a wedged runner throws a named IOS_RUNNER_CONNECT_TIMEOUT instead.
+          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 90000
           AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
+          IOS_HOOK_TIMEOUT_MS: 150000
           BASE_URL: http://localhost:8000
           IOS_DEVICE_NAME: iPhone 16
           SESSION: ios-regressions
@@ -107,13 +112,19 @@ jobs:
           # Retry per file, not per suite: a runner that dies in one file used
           # to take the next one down with it ("No active session"), and a
           # whole-suite retry re-ran files that had already passed.
+          # Order is spelled out rather than globbed: scrubber is the cheaper
+          # hook, and a glob would silently reorder on collation.
+          attempts=3
           status=0
-          for file in scripts/ios-regressions/*.test.ts; do
-            for attempt in 1 2; do
-              if bun test "$file"; then
+          for file in scrubber-longpress modal; do
+            for attempt in $(seq 1 "$attempts"); do
+              if bun test "scripts/ios-regressions/${file}.test.ts"; then
                 continue 2
               fi
-              echo "::warning::${file} attempt ${attempt} failed; retrying after simulator cleanup"
+              echo "::warning::${file} attempt ${attempt} of ${attempts} failed"
+              if [ "$attempt" -eq "$attempts" ]; then
+                break
+              fi
               xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
               sleep 15
             done
@@ -129,7 +140,7 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: always()
         with:
           name: ios-regression-logs
           path: |
