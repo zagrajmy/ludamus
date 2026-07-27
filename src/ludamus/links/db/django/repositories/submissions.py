@@ -166,6 +166,8 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
         "durations",
         "min_participants_limit",
         "max_participants_limit",
+        "promotion_mode",
+        "offer_claim_window",
     )
 
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO:
@@ -330,52 +332,6 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
                 field_id=field_id,
                 is_required=is_required,
                 order=order_map.get(field_id, 0),
-            )
-
-    @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None:
-        """Add a personal data field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                PersonalDataFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        """Add a session field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                SessionFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            SessionFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
             )
 
     @staticmethod

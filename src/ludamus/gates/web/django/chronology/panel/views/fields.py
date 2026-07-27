@@ -14,18 +14,9 @@ from django.contrib import messages
 from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from django import forms
-    from django.http import QueryDict
 
     from ludamus.gates.web.django.chronology.panel.views.base import PanelRequest
-
-
-class _HasPk(Protocol):
-    """Anything carrying an integer primary key."""
-
-    pk: int
 
 
 class _FieldDTO(Protocol):
@@ -63,73 +54,6 @@ def parse_field_form_data(form: forms.Form) -> PersonalDataFieldCreateData:
         help_text=form.cleaned_data.get("help_text") or "",
         is_public=form.cleaned_data.get("is_public") or False,
     )
-
-
-def sort_fields_by_order[T: _FieldDTO](fields: list[T], order: list[int]) -> list[T]:
-    """Sort fields by saved order, with unordered fields at the end.
-
-    Args:
-        fields: List of field DTOs to sort.
-        order: List of field PKs defining the order.
-
-    Returns:
-        Sorted list of fields.
-    """
-    if not order:
-        return fields
-    order_map = {fid: idx for idx, fid in enumerate(order)}
-    for idx, field in enumerate(fields):
-        if field.pk not in order_map:
-            order_map[field.pk] = len(order) + idx
-    return sorted(fields, key=lambda f: order_map[f.pk])
-
-
-def parse_field_requirements(
-    post_data: QueryDict, prefix: str, order_key: str
-) -> tuple[dict[int, bool], list[int]]:
-    """Parse field requirements and order from POST data.
-
-    Args:
-        post_data: The POST data from the request.
-        prefix: The field prefix (e.g., "field_" or "session_field_").
-        order_key: The key for the order field (e.g., "field_order").
-
-    Returns:
-        Tuple of (requirements dict mapping field_id to is_required, order list).
-    """
-    requirements: dict[int, bool] = {}
-    for key, value in post_data.items():
-        if key.startswith(prefix) and value in {"required", "optional"}:
-            field_id = int(key.removeprefix(prefix))
-            requirements[field_id] = value == "required"
-    order_raw = post_data.get(order_key, "")
-    order = [int(x) for x in order_raw.split(",") if x.strip()]
-    return requirements, order
-
-
-def scoped_requirements(
-    post_data: QueryDict, prefix: str, order_key: str, valid_items: Iterable[_HasPk]
-) -> tuple[dict[int, bool], list[int]]:
-    """Parse requirements and order from POST, dropping pks outside the event.
-
-    Wraps `parse_field_requirements` and keeps only the pks present in
-    `valid_items`, so a tampered request cannot link an event's category to
-    fields, session fields, time slots, or categories from another event.
-
-    Args:
-        post_data: The POST data from the request.
-        prefix: The field prefix (e.g. "field_", "session_field_").
-        order_key: The key for the order field (e.g. "field_order").
-        valid_items: DTOs whose pks are allowed (scoped to the current event).
-
-    Returns:
-        Tuple of (requirements, order) limited to pks present in valid_items.
-    """
-    valid_pks = {item.pk for item in valid_items}
-    requirements, order = parse_field_requirements(post_data, prefix, order_key)
-    requirements = {pk: req for pk, req in requirements.items() if pk in valid_pks}
-    order = [pk for pk in order if pk in valid_pks]
-    return requirements, order
 
 
 def read_field_or_redirect[T: _FieldDTO](

@@ -1,4 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { type Page } from "@playwright/test";
+
+import { expect, test } from "./helpers/fixtures";
 
 const MOBILE_WIDTH = 375;
 

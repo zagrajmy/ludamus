@@ -243,7 +243,9 @@ run = [
     "python tests/e2e/scripts/bootstrap_data.py",
     "python tests/e2e/scripts/bootstrap_facilitators.py",
     "python tests/e2e/scripts/bootstrap_timetable.py",
-    "aubr -C src/ludamus/client build",
+    # Inline, so the V8 coverage the run collects carries the map back to the
+    # .ts sources with it.
+    "aubr -C src/ludamus/client build -- --sourcemap inline",
 ]
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
