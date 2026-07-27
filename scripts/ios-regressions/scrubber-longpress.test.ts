@@ -1,14 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import type { Rect } from "./harness";
-
-import {
-  baseUrl,
-  createIosHarness,
-  FALLBACK_VIEWPORT,
-  hookTimeoutMs,
-  sessionName,
-} from "./harness";
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 
 const env = process.env;
 const session = sessionName("scrubber");
@@ -28,6 +20,8 @@ const {
   deviceOptions,
   takeSnapshot,
   snapshotLabels,
+  viewportOf,
+  viewportRect,
   close,
   wait,
   openUrl,
@@ -35,13 +29,10 @@ const {
   assertPageReady,
 } = await createIosHarness(session);
 
-const viewportRect = async (): Promise<Rect> =>
-  (await takeSnapshot()).nodes[0]?.rect ?? FALLBACK_VIEWPORT;
-
 const scrollScheduleIntoView = async (): Promise<void> => {
   for (let attempt = 0; attempt < 14; attempt += 1) {
     const snapshot = await takeSnapshot();
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? FALLBACK_VIEWPORT.height;
+    const viewportHeight = viewportOf(snapshot).height;
     const sessionOnScreen = snapshot.nodes.some(
       (node) =>
         (node.label ?? "").startsWith("Open details for") &&
