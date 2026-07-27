@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, assert_never
 
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.pacts.enrollment import (
@@ -18,7 +17,6 @@ from ludamus.pacts.enrollment import (
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
-    from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.enrollment import AnonymousCancelResultDTO
@@ -30,29 +28,49 @@ _SESSION_KEYS = (
     "anonymous_site_id",
 )
 
-_ERROR_MESSAGES: dict[AnonymousEnrollmentErrorCode, _StrPromise] = {
-    AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND: gettext_lazy("Event not found."),
-    AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT: gettext_lazy(
-        "Anonymous enrollment is not available for this event."
-    ),
-    AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND: gettext_lazy("Session not found."),
-    AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION: gettext_lazy(
-        "Anonymous enrollment is not available for this session."
-    ),
-    AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG: gettext_lazy(
-        "No enrollment configuration is available for this session."
-    ),
-    AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED: gettext_lazy(
-        "Anonymous enrollment for this session is closed."
-    ),
-    AnonymousEnrollmentErrorCode.SESSION_EXPIRED: gettext_lazy(
-        "Anonymous session expired."
-    ),
-    AnonymousEnrollmentErrorCode.USER_NOT_FOUND: gettext_lazy(
-        "Anonymous user not found."
-    ),
-    AnonymousEnrollmentErrorCode.NAME_REQUIRED: gettext_lazy("Name is required."),
-}
+
+# match + assert_never (not an enum-keyed dict) so mypy flags a new code
+# immediately; split in two for the complexity limit, joined by fallthrough.
+def _target_error_message(
+    code: Literal[
+        AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND,
+        AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT,
+        AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND,
+        AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION,
+        AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
+        AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
+    ],
+) -> str:
+    match code:
+        case AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND:
+            return _("Event not found.")
+        case AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT:
+            return _("Anonymous enrollment is not available for this event.")
+        case AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND:
+            return _("Session not found.")
+        case AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION:
+            return _("Anonymous enrollment is not available for this session.")
+        case AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG:
+            return _("No enrollment configuration is available for this session.")
+        case AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED:
+            return _("Anonymous enrollment for this session is closed.")
+        case _:
+            assert_never(code)
+
+
+def _error_message(code: AnonymousEnrollmentErrorCode) -> str:
+    match code:
+        case AnonymousEnrollmentErrorCode.SESSION_EXPIRED:
+            return _("Anonymous session expired.")
+        case AnonymousEnrollmentErrorCode.USER_NOT_FOUND:
+            return _("Anonymous user not found.")
+        case AnonymousEnrollmentErrorCode.NAME_REQUIRED:
+            return _("Name is required.")
+        case AnonymousEnrollmentErrorCode.NO_ENROLLMENTS:
+            # Missing from the table this replaced; used to KeyError here.
+            return _("No enrollments found for this code.")
+        case _:
+            return _target_error_message(code)
 
 
 def _store_anonymous_state(
@@ -109,7 +127,7 @@ def _error_response(
     event_slug: str,
     session_id: int,
 ) -> HttpResponse:
-    messages.error(request, _ERROR_MESSAGES[error.code])
+    messages.error(request, _error_message(error.code))
     if error.code == AnonymousEnrollmentErrorCode.NAME_REQUIRED:
         return redirect(
             "web:chronology:session-enrollment-anonymous",
@@ -132,7 +150,7 @@ class EventAnonymousActivateActionView(View):
                 event_slug=event_slug
             )
         except AnonymousEnrollmentError as error:
-            messages.error(request, _ERROR_MESSAGES[error.code])
+            messages.error(request, _error_message(error.code))
             if error.event_slug:
                 return redirect("web:chronology:event", slug=error.event_slug)
             return redirect("web:index")
@@ -211,34 +229,37 @@ class SessionEnrollmentAnonymousPageView(View):
                 request, error, event_slug=event_slug, session_id=session_id
             )
 
-        if enrolled.outcome == AnonymousEnrollOutcome.CONFLICT:
-            messages.error(
-                request,
-                _(
-                    "Cannot enroll: You are already enrolled in another session "
-                    "that conflicts with this time slot."
-                ),
-            )
-            return redirect(
-                "web:chronology:session-enrollment-anonymous",
-                event_slug=event_slug,
-                session_id=session_id,
-            )
-        if enrolled.outcome == AnonymousEnrollOutcome.WAITLISTED:
-            messages.success(
-                request,
-                _(
-                    "Session is full. You have been added to the waiting list "
-                    "for: %(title)s"
+        match enrolled.outcome:
+            case AnonymousEnrollOutcome.CONFLICT:
+                messages.error(
+                    request,
+                    _(
+                        "Cannot enroll: You are already enrolled in another session "
+                        "that conflicts with this time slot."
+                    ),
                 )
-                % {"title": enrolled.session_title},
-            )
-        else:
-            messages.success(
-                request,
-                _("Successfully enrolled in session: %(title)s")
-                % {"title": enrolled.session_title},
-            )
+                return redirect(
+                    "web:chronology:session-enrollment-anonymous",
+                    event_slug=event_slug,
+                    session_id=session_id,
+                )
+            case AnonymousEnrollOutcome.WAITLISTED:
+                messages.success(
+                    request,
+                    _(
+                        "Session is full. You have been added to the waiting list "
+                        "for: %(title)s"
+                    )
+                    % {"title": enrolled.session_title},
+                )
+            case AnonymousEnrollOutcome.ENROLLED:
+                messages.success(
+                    request,
+                    _("Successfully enrolled in session: %(title)s")
+                    % {"title": enrolled.session_title},
+                )
+            case _:
+                assert_never(enrolled.outcome)
         return redirect("web:chronology:event", slug=enrolled.event_slug)
 
 

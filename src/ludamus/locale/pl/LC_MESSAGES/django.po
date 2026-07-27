@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 16:22+0200\n"
+"POT-Creation-Date: 2026-07-27 14:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -747,6 +747,10 @@ msgid "Name is required."
 msgstr "Imię jest wymagane."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "No enrollments found for this code."
+msgstr "Nie znaleziono zapisów dla tego kodu."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not active."
 msgstr "Anonimowy zapis nie jest aktywny."
 
@@ -790,10 +794,6 @@ msgstr "Proszę wprowadzić kod."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Invalid code. Please check and try again."
 msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/chronology/anonymous.py
-msgid "No enrollments found for this code."
-msgstr "Nie znaleziono zapisów dla tego kodu."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Code loaded successfully. You can now manage your enrollments."
@@ -3070,6 +3070,19 @@ msgstr "Przejdź do strony głównej"
 #: src/ludamus/templates/500_dynamic.html
 msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
+
+#: src/ludamus/templates/base.html
+#, python-format
+msgid "Programme and sign-ups for %(sphere)s."
+msgstr "Program i zapisy na %(sphere)s."
+
+#: src/ludamus/templates/base.html
+msgid ""
+"A convention without spreadsheet chaos. Programme proposals, a schedule of "
+"rooms and tracks, sign-ups with seat limits and a waitlist."
+msgstr ""
+"Konwent bez chaosu w arkuszach. Zgłoszenia programu, harmonogram sal i "
+"bloków tematycznych, zapisy z limitem miejsc i listą rezerwową."
 
 #: src/ludamus/templates/base.html
 msgid ""
@@ -8314,12 +8327,41 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#, python-format
 #~ msgid ""
-#~ "Set when enrollment opens and which rules apply. Overlapping windows "
-#~ "combine, and participants receive the most permissive available access."
+#~ "Programme and sign-ups for %(sphere)s. Every item shows its time, room "
+#~ "and how many seats are left."
 #~ msgstr ""
-#~ "Ustal terminy zapisów i obowiązujące zasady. Nakładające się okna łączą "
-#~ "się, a uczestnicy otrzymują najszerszy dostęp."
+#~ "Program i zapisy na %(sphere)s. Przy każdym punkcie programu godzina, "
+#~ "sala i liczba wolnych miejsc."
+
+#~ msgid ""
+#~ "One account for every convention. Sign up for sessions and see your plan "
+#~ "before you even arrive."
+#~ msgstr ""
+#~ "Jedno konto na wszystkie konwenty. Zapisujesz się na sesje i widzisz swój "
+#~ "plan, zanim jeszcze dojedziesz na miejsce."
+
+#~ msgid ""
+#~ "Convention sign-ups: grab your seat on an RPG session or workshop before "
+#~ "it's gone. Organizers collect proposals and build the schedule here."
+#~ msgstr ""
+#~ "Zapisy na konwenty: łapiesz miejsce na sesji RPG czy warsztatach, zanim "
+#~ "zniknie. Organizatorzy zbierają tu zgłoszenia i układają harmonogram."
+
+#~ msgid ""
+#~ "The convention programme in your pocket. See what's being run and grab a "
+#~ "seat at the table before it's gone."
+#~ msgstr ""
+#~ "Program konwentu w telefonie. Zobacz, co grają, i złap miejsce przy "
+#~ "stole, zanim zniknie."
+
+#~ msgid ""
+#~ "Conventions, RPG sessions and game nights in one place. Browse the "
+#~ "programme, sign up and plan your own schedule."
+#~ msgstr ""
+#~ "Konwenty, sesje RPG i wieczory z grami w jednym miejscu. Przeglądaj "
+#~ "program, zapisz się i ułóż własny harmonogram."
 
 #~ msgid "Invalid facilitator selection."
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
