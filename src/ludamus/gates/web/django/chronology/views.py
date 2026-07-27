@@ -26,13 +26,13 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.forms import (
-    SessionEditForm,
+from ludamus.gates.web.django.dynamic_fields import (
     WizardData,
     field_descriptors,
     fold_custom_answers,
     unfold_custom_answers,
 )
+from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import (
     get_client_ip,
     is_event_published,

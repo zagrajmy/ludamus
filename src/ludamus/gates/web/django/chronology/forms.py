@@ -7,12 +7,11 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import (
+from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
-    cover_image_field,
-    validate_uploaded_image,
 )
+from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:

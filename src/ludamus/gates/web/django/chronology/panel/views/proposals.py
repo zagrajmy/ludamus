@@ -24,12 +24,12 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import (
-    create_proposal_form,
+from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
     fold_custom_answers,
     unfold_custom_answers,
 )
+from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
 from ludamus.pacts import (
     NotFoundError,
