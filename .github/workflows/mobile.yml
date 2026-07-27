@@ -17,11 +17,14 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # Worst case is 7 (warm-up) + 20 (tests) + ~7 of setup and teardown. Sized
-    # so the step timeouts bind first: a step failure uploads logs, a job cancel
-    # does not.
-    timeout-minutes: 36
+    # 9.5 setup + 7 warm-up + 22 tests + 1.5 teardown and upload = 40. Sized so
+    # the step timeouts bind first: a step failure still uploads logs, a job
+    # cancel skips the upload.
+    timeout-minutes: 40
     env:
+      # Above the measured 194-240s cold runner attach, with room to spare. The
+      # 90s default aborts it every time.
+      AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
       IOS_DEVICE_NAME: iPhone 16
@@ -96,36 +99,31 @@ jobs:
       - name: Warm up the agent-device runner
         continue-on-error: true
         timeout-minutes: 7
-        env:
-          # This is the one step that is supposed to be slow: the RPC it makes
-          # is the cold runner build-and-attach. The 90s default would abort it
-          # every time.
-          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
-        # Bounds a hang at the step, where the logs still upload. A job-level
-        # cancel skips the upload -- that is how run 30275377814 lost its logs.
-        timeout-minutes: 20
+        # 2 files x 2 attempts x ~310s worst case = 20.7min, so this binds only
+        # on a genuine hang -- and it binds at the step, where logs still
+        # upload. A job-level cancel skips the upload; that is how run
+        # 30275377814 lost its logs.
+        timeout-minutes: 22
         env:
-          # The hook must outlive the daemon RPC, or a wedged runner surfaces as
-          # an unattributed `(unnamed)` hook timeout instead of a named
-          # IOS_RUNNER_CONNECT_TIMEOUT. Both stay above the measured 194-240s
-          # attach, so a failed warm-up degrades to slow rather than broken.
-          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
+          # Bounds the whole hook, so it has to cover a healthy hook (184s
+          # measured for modal) plus a wedged RPC on top.
           IOS_HOOK_TIMEOUT_MS: 300000
         run: |
-          # Retry per file, not per suite: a runner that dies in one file used
-          # to take the next one down with it ("No active session"), and a
-          # whole-suite retry re-ran files that had already passed.
-          # Order is spelled out rather than globbed: scrubber is the cheaper
-          # hook, and a glob would silently reorder on collation.
+          # Retry per file, not per suite: a whole-suite retry re-ran files that
+          # had already passed. Two attempts each, not three: with the runner
+          # warmed up front the retries cover transient connect failures, and
+          # the multiplication has to fit the step budget above.
+          # Order is spelled out rather than globbed, which would silently
+          # reorder on collation.
           run_file() {
-            for attempt in 1 2 3; do
+            for attempt in 1 2; do
               if bun test "scripts/ios-regressions/$1.test.ts"; then
                 return 0
               fi
-              echo "::warning::$1 attempt ${attempt}/3 failed"
+              echo "::warning::$1 attempt ${attempt}/2 failed"
             done
             return 1
           }

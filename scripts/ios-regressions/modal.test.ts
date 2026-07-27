@@ -10,13 +10,8 @@ const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
-// ~3800px in five round trips rather than 3600px in eight: each scroll costs
-// ~15s against the simulator, and this ramp was two thirds of the hook budget.
-// 760 is the per-scroll ceiling agent-device enforces -- it clamps pixels to
-// `referenceHeight - 2 * round(0.05 * referenceHeight)`, which is 766 on the
-// iPhone 16 viewport, so asking for more silently scrolls less.
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "5");
-const preOpenScrollPixels = Number(env.PRE_OPEN_SCROLL_PIXELS ?? "760");
+const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+const preOpenScrollPixels = Number(env.PRE_OPEN_SCROLL_PIXELS ?? "450");
 
 const {
   client,
@@ -118,14 +113,25 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
 };
 
 const forcePreOpenScroll = async (): Promise<void> => {
-  for (let step = 0; step < preOpenScrollSteps; step += 1) {
-    await client.interactions.scroll({
-      ...deviceOptions,
-      direction: "down",
-      pixels: preOpenScrollPixels,
-    });
-    await client.command.wait({ ...deviceOptions, durationMs: 150 });
-  }
+  // One RPC carrying `count` drags, rather than one RPC per drag. The ~15s a
+  // scroll costs is the round trip and XCUITest's idle wait, not the gesture,
+  // so the loop was the whole expense -- two thirds of this hook's budget.
+  // Explicit coordinates also sidestep `scroll`'s pixel clamp, which silently
+  // caps a request at `referenceHeight - 2 * round(0.05 * referenceHeight)`
+  // against Safari's whole window, so a large `pixels` both scrolls less than
+  // asked and starts the drag down in the browser chrome.
+  const viewport = (await takeSnapshot()).nodes[0]?.rect;
+  const centerX = viewport ? viewport.x + viewport.width / 2 : 196;
+  const centerY = viewport ? viewport.y + viewport.height / 2 : 426;
+  const reach = preOpenScrollPixels / 2;
+
+  await client.interactions.swipe({
+    ...deviceOptions,
+    from: { x: centerX, y: centerY + reach },
+    to: { x: centerX, y: centerY - reach },
+    count: preOpenScrollSteps,
+    pauseMs: 150,
+  });
 };
 
 const waitForLabel = async (label: string, timeoutMs: number): Promise<SnapshotNode | null> => {

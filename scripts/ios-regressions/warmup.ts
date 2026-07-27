@@ -12,13 +12,15 @@ const session = process.env.SESSION ? `${process.env.SESSION}-warmup` : "zagrajm
 
 const { client, prepareDevice, takeSnapshot } = await createIosHarness(session);
 
-await prepareDevice();
+try {
+  await prepareDevice();
 
-// A snapshot is the readiness signal: it is the round trip that installs and
-// attaches the runner, and it only returns once the runner answers.
-const snapshot = await takeSnapshot();
-console.log(`Runner warm: ${snapshot.nodes.length} nodes.`);
-
-// Hand the device back, so the first test file's `closeDeviceSessionIfPresent`
-// does not spend up to 15s evicting us from its own hook.
-await client.sessions.close({ session });
+  // A snapshot is the readiness signal: it is the round trip that installs and
+  // attaches the runner, and it only returns once the runner answers.
+  const snapshot = await takeSnapshot();
+  console.log(`Runner warm: ${snapshot.nodes.length} nodes.`);
+} finally {
+  // Hand the device back even when warming failed, or the first test file
+  // spends up to 15s evicting us from inside its own hook.
+  await client.sessions.close({ session }).catch(() => undefined);
+}
