@@ -1,12 +1,12 @@
-from ludamus.mills.field_values import merge_custom, split_custom, split_stored
+from ludamus.mills.field_values import merge_custom, split_answers, split_stored
 
 
-class TestSplitCustom:
+class TestSplitAnswers:
     def test_strips_blanks_and_duplicates(self):
-        assert split_custom(" krew , przemoc,, krew ") == ["krew", "przemoc"]
+        assert split_answers(" krew , przemoc,, krew ") == ["krew", "przemoc"]
 
     def test_empty_input_is_no_values(self):
-        assert not split_custom("  ")
+        assert not split_answers("  ")
 
 
 class TestMergeCustom:

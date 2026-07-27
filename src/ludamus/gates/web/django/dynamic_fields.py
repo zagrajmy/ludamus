@@ -55,6 +55,7 @@ def build_field_from_requirement(
     label = field_def.question
     help_text = field_def.help_text
     offers_custom = offers_custom_input(field_def)
+    max_len = field_def.max_length if field_def.max_length > 0 else None
     is_required = req.is_required and not offers_custom
 
     if field_def.field_type == "select":
@@ -81,15 +82,11 @@ def build_field_from_requirement(
             label=label, help_text=help_text, required=False
         )
     else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
         fields[field_key] = forms.CharField(
             label=label, help_text=help_text, required=is_required, max_length=max_len
         )
 
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion input the descriptors expect.
     if offers_custom:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
         fields[f"{field_key}_custom"] = forms.CharField(
             label=_("Or type a custom value"), required=False, max_length=max_len
         )
@@ -118,6 +115,8 @@ def unfold_custom_answers(
         )
         initial[key] = chosen
         custom_key = f"{key}_custom"
+        # When another field is slugged like this one's companion, the write-in
+        # has nowhere to go — better lost than written over a real answer.
         if custom and req.field.allow_custom and custom_key not in keys:
             initial[custom_key] = custom
     return initial

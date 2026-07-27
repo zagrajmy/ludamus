@@ -29,14 +29,6 @@ def split_answers(raw: str, known: Collection[str] = ()) -> list[str]:
     return [value for index, value in enumerate(values) if value not in values[:index]]
 
 
-def split_custom(raw: str) -> list[str]:
-    values: list[str] = []
-    for part in (part.strip() for part in raw.split(",")):
-        if part and part not in values:
-            values.append(part)
-    return values
-
-
 def merge_custom(
     *, chosen: FieldAnswer | None, custom: str, is_multiple: bool
 ) -> FieldAnswer:
@@ -49,7 +41,7 @@ def merge_custom(
         if isinstance(chosen, list)
         else []
     )
-    for part in split_custom(custom):
+    for part in split_answers(custom):
         if part not in values:
             values.append(part)
     return values
