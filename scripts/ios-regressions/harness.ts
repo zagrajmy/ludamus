@@ -16,6 +16,9 @@ type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
 const env = process.env;
 
 export const baseUrl = env.BASE_URL ?? "http://localhost:8000";
+
+export const sessionName = (role: string): string =>
+  env.SESSION ? `${env.SESSION}-${role}` : `zagrajmy-ios-${role}-local`;
 export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "240000");
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
@@ -45,10 +48,15 @@ const importAgentDevice = async (): Promise<AgentDeviceModule> => {
   }
 };
 
+export type Rect = { x: number; y: number; width: number; height: number };
+
 export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
   takeSnapshot: () => Promise<CaptureSnapshotResult>;
+  viewportRect: () => Promise<Rect>;
+  swipeUpBy: (options: { viewport: Rect; count: number; pixels: number }) => Promise<void>;
+  close: () => Promise<void>;
   snapshotLabels: () => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
@@ -71,6 +79,41 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
   const snapshotLabels = async (): Promise<string[]> => {
     const snapshot = await takeSnapshot();
     return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
+  };
+
+  const viewportRect = async (): Promise<Rect> =>
+    (await takeSnapshot()).nodes[0]?.rect ?? { x: 0, y: 0, width: 393, height: 852 };
+
+  // One RPC carrying `count` drags. The ~15s a scroll costs is the round trip
+  // and XCUITest's idle wait, not the gesture, so a loop of single scrolls pays
+  // that toll every step. Explicit coordinates are what let `swipe` batch them.
+  const swipeUpBy = async ({
+    viewport,
+    count,
+    pixels,
+  }: {
+    viewport: Rect;
+    count: number;
+    pixels: number;
+  }): Promise<void> => {
+    const centerX = viewport.x + viewport.width / 2;
+    const centerY = viewport.y + viewport.height / 2;
+    const reach = pixels / 2;
+    await client.interactions.swipe({
+      ...deviceOptions,
+      from: { x: centerX, y: centerY + reach },
+      to: { x: centerX, y: centerY - reach },
+      count,
+      pauseMs: 150,
+    });
+  };
+
+  const close = async (): Promise<void> => {
+    try {
+      await client.sessions.close({ session });
+    } catch (error) {
+      console.warn(`Could not close session ${session}:`, error);
+    }
   };
 
   const findNodeByLabel = async (label: string): Promise<SnapshotNode | null> => {
@@ -202,6 +245,9 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
     client,
     deviceOptions,
     takeSnapshot,
+    viewportRect,
+    swipeUpBy,
+    close,
     snapshotLabels,
     findNodeByLabel,
     wait,

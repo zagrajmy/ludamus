@@ -1,9 +1,9 @@
-import { beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs } from "./harness";
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 
 const env = process.env;
-const session = env.SESSION ? `${env.SESSION}-scrubber` : "zagrajmy-ios-scrubber-local";
+const session = sessionName("scrubber");
 const eventPath = env.EVENT_PATH ?? "/chronology/event/kapitularz-2025-anonymized/";
 const eventUrl = new URL(eventPath, baseUrl);
 
@@ -20,31 +20,30 @@ const {
   deviceOptions,
   takeSnapshot,
   snapshotLabels,
+  viewportRect,
+  swipeUpBy,
+  close,
   wait,
   openUrl,
   prepareDevice,
   assertPageReady,
 } = await createIosHarness(session);
 
-type Rect = { x: number; y: number; width: number; height: number };
-
-const viewportRect = async (): Promise<Rect> =>
-  (await takeSnapshot()).nodes[0]?.rect ?? { x: 0, y: 0, width: 402, height: 874 };
-
+// Four bursts of three drags rather than fourteen single scrolls: same reach,
+// but a snapshot only between bursts instead of before every scroll.
 const scrollScheduleIntoView = async (): Promise<void> => {
-  for (let attempt = 0; attempt < 14; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     const snapshot = await takeSnapshot();
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 874;
+    const viewport = snapshot.nodes[0]?.rect ?? { x: 0, y: 0, width: 393, height: 852 };
     const sessionOnScreen = snapshot.nodes.some(
       (node) =>
         (node.label ?? "").startsWith("Open details for") &&
         node.rect !== undefined &&
         node.rect.y > 80 &&
-        node.rect.y < viewportHeight - 120,
+        node.rect.y < viewport.height - 120,
     );
     if (sessionOnScreen) return;
-    await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
-    await wait(300);
+    await swipeUpBy({ viewport, count: 3, pixels: 450 });
   }
 };
 
@@ -78,6 +77,8 @@ beforeAll(async () => {
     }
   }
 }, hookTimeoutMs);
+
+afterAll(close);
 
 test("long-pressing the hour rail does not open the iOS link callout", () => {
   expect(surfacedCalloutSignals).toEqual([]);

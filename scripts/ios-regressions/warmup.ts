@@ -1,4 +1,4 @@
-import { createIosHarness } from "./harness";
+import { createIosHarness, sessionName } from "./harness";
 
 // agent-device's runner attach -- not Safari -- is what times out
 // (IOS_RUNNER_CONNECT_TIMEOUT). The first runner-backed command triggers an
@@ -8,9 +8,7 @@ import { createIosHarness } from "./harness";
 // attempt. Pay it here instead, in a step allowed to be slow and allowed to
 // fail. The runner is keyed by device and outlives the session that warmed it,
 // so both test files inherit it.
-const session = process.env.SESSION ? `${process.env.SESSION}-warmup` : "zagrajmy-ios-warmup";
-
-const { client, prepareDevice, takeSnapshot } = await createIosHarness(session);
+const { close, prepareDevice, takeSnapshot } = await createIosHarness(sessionName("warmup"));
 
 try {
   await prepareDevice();
@@ -22,5 +20,5 @@ try {
 } finally {
   // Hand the device back even when warming failed, or the first test file
   // spends up to 15s evicting us from inside its own hook.
-  await client.sessions.close({ session }).catch(() => undefined);
+  await close();
 }

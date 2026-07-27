@@ -17,10 +17,9 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 9.5 setup + 7 warm-up + 22 tests + 1.5 teardown and upload = 40. Sized so
-    # the step timeouts bind first: a step failure still uploads logs, a job
-    # cancel skips the upload.
-    timeout-minutes: 40
+    # 6.5 setup (measured) + 7 warm-up + 22 tests + 1.5 teardown and upload =
+    # 37, leaving the step timeouts to bind first with a few minutes to spare.
+    timeout-minutes: 42
     env:
       # Above the measured 194-240s cold runner attach, with room to spare. The
       # 90s default aborts it every time.
@@ -102,28 +101,26 @@ jobs:
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
-        # 2 files x 2 attempts x ~310s worst case = 20.7min, so this binds only
-        # on a genuine hang -- and it binds at the step, where logs still
-        # upload. A job-level cancel skips the upload; that is how run
-        # 30275377814 lost its logs.
+        # 2 files x 2 attempts x ~310s = 20.7min worst case, so this binds only
+        # on a genuine hang.
         timeout-minutes: 22
         env:
-          # Bounds the whole hook, so it has to cover a healthy hook (184s
-          # measured for modal) plus a wedged RPC on top.
+          # A hard per-attempt cap, sized so four attempts fit the step budget
+          # above. Healthy hooks measure well under half of it.
           IOS_HOOK_TIMEOUT_MS: 300000
         run: |
           # Retry per file, not per suite: a whole-suite retry re-ran files that
-          # had already passed. Two attempts each, not three: with the runner
-          # warmed up front the retries cover transient connect failures, and
-          # the multiplication has to fit the step budget above.
-          # Order is spelled out rather than globbed, which would silently
-          # reorder on collation.
+          # had already passed. Two attempts each, because four attempts is what
+          # fits the step budget above.
           run_file() {
             for attempt in 1 2; do
               if bun test "scripts/ios-regressions/$1.test.ts"; then
                 return 0
               fi
               echo "::warning::$1 attempt ${attempt}/2 failed"
+              # Retrying straight into a Safari left mid-gesture wastes the
+              # second attempt.
+              xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
             done
             return 1
           }
