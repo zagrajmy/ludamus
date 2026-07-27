@@ -12,7 +12,7 @@ from ludamus.mills.field_values import split_stored
 
 if TYPE_CHECKING:
     from ludamus.mills.field_values import FieldAnswer
-    from ludamus.pacts import SessionDTO, SessionFieldDTO
+    from ludamus.pacts import PersonalDataFieldDTO, SessionDTO, SessionFieldDTO
     from ludamus.pacts.submissions import FacilitatorColumnDTO
 
 register = template.Library()
@@ -177,7 +177,9 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
 
 
 @register.filter
-def custom_values(value: FieldAnswer | None, field: SessionFieldDTO) -> str:
+def custom_values(
+    value: FieldAnswer | None, field: SessionFieldDTO | PersonalDataFieldDTO
+) -> str:
     """Write-in part of a stored answer: what matches no configured option.
 
     Returns:

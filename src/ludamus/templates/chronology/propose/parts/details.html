@@ -219,7 +219,7 @@
                         {% if desc.help_text %}
                             <div class="text-xs text-foreground-muted mt-1">{{ desc.help_text|render_markdown }}</div>
                         {% endif %}
-                        {% if desc.allow_custom %}
+                        {% if desc.offers_custom %}
                             <div class="mt-2">
                                 <input type="text"
                                        name="{{ desc.key }}_custom"

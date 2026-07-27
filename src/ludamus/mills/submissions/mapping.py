@@ -252,9 +252,13 @@ def field_answer(
     raw = cell(target=target, row=row, header=header)
     slug = (target.to or "").split(".", 1)[-1] if target else ""
     definition = definitions.get(slug)
-    if definition is not None and definition.multiple:
-        return split_custom(raw)
-    return raw
+    if definition is None or not definition.multiple:
+        return raw
+    # A response cell joins a checkbox question's answers with ", ", but an
+    # option is free to contain a comma itself — it wins over the split.
+    if raw in definition.options:
+        return [raw]
+    return split_custom(raw)
 
 
 def session_field_values(

@@ -27,10 +27,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import (
     create_proposal_form,
     field_descriptors,
+    fold_custom_answers,
     unfold_custom_answers,
 )
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
-from ludamus.mills.field_values import merge_custom
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -129,21 +129,17 @@ def collect_session_field_values(
 ) -> list[SessionFieldValueData]:
     # Only the category's own fields are read back; a value the category no
     # longer asks for is left untouched rather than blanked.
+    folded = fold_custom_answers(
+        cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+    )
     values: list[SessionFieldValueData] = []
     for req in requirements:
-        key = f"session_{req.field.slug}"
-        value = form.cleaned_data.get(key)
-        if req.field.allow_custom:
-            value = merge_custom(
-                chosen=value,
-                custom=form.cleaned_data.get(f"{key}_custom", ""),
-                is_multiple=req.field.is_multiple,
-            )
+        value = folded.get(f"session_{req.field.slug}")
         values.append(
             SessionFieldValueData(
                 session_id=session_id,
                 field_id=req.field.pk,
-                value=value if value is not None else "",
+                value=value if isinstance(value, str | list | bool) else "",
             )
         )
     return values

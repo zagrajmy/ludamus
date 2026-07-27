@@ -635,7 +635,7 @@ def build_field_from_requirement(
     fields: dict[str, forms.Field],
     field_key: str,
     req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> bool:
+) -> None:
     # Shared by the proposal wizard and the organizer panel so a category's
     # configured fields render identically in both. The label is the field's
     # question — the wording the proposer is actually asked — since the panel
@@ -682,7 +682,6 @@ def build_field_from_requirement(
         fields[f"{field_key}_custom"] = forms.CharField(
             label=_("Or type a custom value"), required=False, max_length=max_len
         )
-    return offers_custom and req.is_required
 
 
 type WizardData = dict[str, FieldAnswer | int | None]
@@ -717,7 +716,14 @@ def fold_custom_answers(
     requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
     prefix: str,
 ) -> WizardData:
-    companions = {f"{prefix}_{req.field.slug}_custom" for req in requirements}
+    keys = {f"{prefix}_{req.field.slug}" for req in requirements}
+    # Minus the real keys: a field slugged "triggers_custom" alongside
+    # "triggers" owns its answer, companion spelling notwithstanding.
+    companions = {
+        f"{prefix}_{req.field.slug}_custom"
+        for req in requirements
+        if offers_custom_input(req.field)
+    } - keys
     folded: WizardData = {
         key: value for key, value in cleaned.items() if key not in companions
     }
@@ -732,6 +738,22 @@ def fold_custom_answers(
             is_multiple=req.field.is_multiple,
         )
     return folded
+
+
+def build_dynamic_fields(
+    fields: dict[str, forms.Field],
+    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
+    prefix: str,
+) -> tuple[str, ...]:
+    # Returns the keys whose requirement the choice field alone can no longer
+    # enforce, for CustomAnswerFormMixin to check as a pair.
+    for req in requirements:
+        build_field_from_requirement(fields, f"{prefix}_{req.field.slug}", req)
+    return tuple(
+        f"{prefix}_{req.field.slug}"
+        for req in requirements
+        if req.is_required and offers_custom_input(req.field)
+    )
 
 
 def field_descriptors(
@@ -851,16 +873,12 @@ def create_proposal_form(
             ],
         )
 
-    custom_required = [
-        key
-        for req in requirements
-        if build_field_from_requirement(attrs, key := f"session_{req.field.slug}", req)
-    ]
+    custom_required = build_dynamic_fields(attrs, requirements, "session")
 
     return type(
         "ProposalCreateForm",
         (CustomAnswerFormMixin, SessionEditForm),
-        {**attrs, "custom_required_keys": tuple(custom_required)},
+        {**attrs, "custom_required_keys": custom_required},
     )
 
 

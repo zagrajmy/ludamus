@@ -2683,6 +2683,30 @@ class TestMappingHelpers:
 
         assert value == ["krew", "przemoc"]
 
+    def test_answer_keeps_an_option_that_contains_a_comma(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele"]
+
     def test_answer_keeps_a_single_value_cell_as_text(self):
         settings = ImportSettings(
             questions={"System": QuestionTarget(to="field.system")},

@@ -1845,6 +1845,22 @@ class TestProposeSessionPageView:
         )
         assert descriptor["offers_custom"] is True
 
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers_custom": "krew",
+            },
+        )
+
+        session_data = authenticated_client.session[f"propose_{event.slug}"][
+            "session_data"
+        ]
+        assert session_data["session_triggers"] == "krew"
+
     def test_details_rejects_a_required_field_with_neither_answer(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):

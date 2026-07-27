@@ -75,7 +75,6 @@ Renders personal-data field inputs. Caller passes:
                 {% if field.allow_custom %}
                     <input type="text"
                            name="{{ name_prefix }}_{{ field.slug }}_custom"
-                           value="{{ current_value|custom_values:field }}"
                            aria-label="{% translate "Or type a custom value" %}"
                            placeholder="{% translate "Or type a custom value" %}"
                            class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
