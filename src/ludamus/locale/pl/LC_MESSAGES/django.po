@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 14:12+0200\n"
+"POT-Creation-Date: 2026-07-27 14:25+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2981,11 +2981,11 @@ msgstr ""
 
 #: src/ludamus/templates/base.html
 msgid ""
-"One account for every convention. Sign up for sessions and see your plan "
-"before you even arrive."
+"A convention without spreadsheet chaos. Programme proposals, a schedule of "
+"rooms and tracks, sign-ups with seat limits and a waitlist."
 msgstr ""
-"Jedno konto na wszystkie konwenty. Zapisujesz się na sesje i widzisz swój "
-"plan, zanim jeszcze dojedziesz na miejsce."
+"Konwent bez chaosu w arkuszach. Zgłoszenia programu, harmonogram sal i "
+"bloków tematycznych, zapisy z limitem miejsc i listą rezerwową."
 
 #: src/ludamus/templates/base.html
 msgid ""
@@ -8086,6 +8086,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "One account for every convention. Sign up for sessions and see your plan "
+#~ "before you even arrive."
+#~ msgstr ""
+#~ "Jedno konto na wszystkie konwenty. Zapisujesz się na sesje i widzisz swój "
+#~ "plan, zanim jeszcze dojedziesz na miejsce."
 
 #~ msgid ""
 #~ "Convention sign-ups: grab your seat on an RPG session or workshop before "

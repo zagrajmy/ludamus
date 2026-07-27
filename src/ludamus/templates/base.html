@@ -15,7 +15,7 @@
         {% if current_sphere and root_sphere and current_sphere.pk != root_sphere.pk %}
             {% blocktranslate asvar default_description with sphere=current_sphere.name %}Programme and sign-ups for {{ sphere }}. Book your seat on a session and see where you need to be and when.{% endblocktranslate %}
         {% else %}
-            {% translate "One account for every convention. Sign up for sessions and see your plan before you even arrive." as default_description %}
+            {% translate "A convention without spreadsheet chaos. Programme proposals, a schedule of rooms and tracks, sign-ups with seat limits and a waitlist." as default_description %}
         {% endif %}
         <meta name="description"
               content="{% block meta_description %}{{ default_description }}{% endblock meta_description %}">

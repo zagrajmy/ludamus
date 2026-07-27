@@ -8,7 +8,7 @@ from django.urls import reverse
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
 from tests.integration.utils import assert_response
 
-PRODUCT_PITCH = "One account for every convention."
+PRODUCT_PITCH = "A convention without spreadsheet chaos."
 
 
 def _head(response, pattern):
