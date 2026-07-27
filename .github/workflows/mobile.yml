@@ -35,9 +35,6 @@ jobs:
       AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
-      # Only used for local runs: the prepare step below picks a UDID from
-      # whatever the runner image ships, and a UDID takes precedence.
-      IOS_DEVICE_NAME: iPhone 16
       SESSION: ios-regressions
     steps:
       - uses: actions/checkout@v4
@@ -121,13 +118,17 @@ jobs:
         timeout-minutes: 28
         env:
           # Per-attempt cap, sized so four attempts fit the step budget above.
-          # The slowest healthy hook measures 289s.
+          # The slowest healthy hook measures 316s.
           IOS_HOOK_TIMEOUT_MS: 360000
         run: |
           shopt -s nullglob
           files=(scripts/ios-regressions/*.test.ts)
           if [ ${#files[@]} -eq 0 ]; then
             echo "::error::no iOS regression test files found"
+            exit 1
+          fi
+          if [ ${#files[@]} -gt 2 ]; then
+            echo "::error::${#files[@]} iOS specs found; the budget here is sized for 2. Raise timeout-minutes on this step and on the job."
             exit 1
           fi
 

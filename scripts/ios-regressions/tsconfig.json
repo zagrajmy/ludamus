@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "es2024",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": [
+      "bun"
+    ],
+    "lib": [
+      "es2024"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "*.ts"
+  ]
+}
