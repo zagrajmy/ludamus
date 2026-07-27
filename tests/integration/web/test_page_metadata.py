@@ -1,6 +1,5 @@
 import re
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -45,8 +44,13 @@ def _descriptions(response):
 
 def _get_ok(client, url, template_name, **extra):
     response = client.get(url, **extra)
+    # Every test here reads <head>. What each view puts in the context is
+    # asserted by that view's own test module, so this passes it through.
     assert_response(
-        response, HTTPStatus.OK, context_data=ANY, template_name=template_name
+        response,
+        HTTPStatus.OK,
+        context_data=response.context_data,
+        template_name=template_name,
     )
     return response
 

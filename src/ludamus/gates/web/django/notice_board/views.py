@@ -16,6 +16,7 @@ from django.views.generic.base import TemplateView, View
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import get_client_ip as _get_client_ip
+from ludamus.gates.web.django.meta import encounter_description
 from ludamus.mills import (
     EncounterService,
     generate_ics_content,
@@ -28,7 +29,7 @@ from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
 
 from .forms import EncounterForm
-from .helpers import build_attendee_list, encounter_meta_description
+from .helpers import build_attendee_list
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -306,11 +307,9 @@ class EncounterDetailPageView(View):
         except NotFoundError as exc:
             raise Http404 from exc
 
-        description_html = (
-            render_markdown(result.encounter.description)
-            if result.encounter.description
-            else ""
-        )
+        raw_description = result.encounter.description
+        description_html = render_markdown(raw_description) if raw_description else ""
+        meta_description = encounter_description(result.encounter, description_html)
 
         gravatar = self.request.di.gravatar_url
         creator = UserInfo.from_user_dto(result.creator, gravatar_url=gravatar)
@@ -328,9 +327,7 @@ class EncounterDetailPageView(View):
                 "spots_remaining": result.spots_remaining,
                 "is_creator": result.is_creator,
                 "description_html": description_html,
-                "encounter_meta_description": encounter_meta_description(
-                    result.encounter, description_html
-                ),
+                "encounter_meta_description": meta_description,
                 "share_url": share_url,
                 "user_has_rsvpd": result.user_has_rsvpd,
                 "google_calendar_url": google_calendar_url(result.encounter, share_url),
