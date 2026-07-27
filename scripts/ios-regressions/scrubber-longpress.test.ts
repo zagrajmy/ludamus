@@ -1,6 +1,14 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import type { Rect } from "./harness";
+
+import {
+  baseUrl,
+  createIosHarness,
+  FALLBACK_VIEWPORT,
+  hookTimeoutMs,
+  sessionName,
+} from "./harness";
 
 const env = process.env;
 const session = sessionName("scrubber");
@@ -26,10 +34,6 @@ const {
   prepareDevice,
   assertPageReady,
 } = await createIosHarness(session);
-
-type Rect = { x: number; y: number; width: number; height: number };
-
-const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
 
 const viewportRect = async (): Promise<Rect> =>
   (await takeSnapshot()).nodes[0]?.rect ?? FALLBACK_VIEWPORT;

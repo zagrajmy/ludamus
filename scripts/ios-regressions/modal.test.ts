@@ -2,7 +2,13 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import {
+  baseUrl,
+  createIosHarness,
+  FALLBACK_VIEWPORT,
+  hookTimeoutMs,
+  sessionName,
+} from "./harness";
 
 const env = process.env;
 const session = sessionName("modal");
@@ -56,7 +62,7 @@ const describeNode = (node: SnapshotNode): string => {
 
 const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean => {
   if (!node.rect) return false;
-  const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
+  const viewportHeight = snapshot.nodes[0]?.rect?.height ?? FALLBACK_VIEWPORT.height;
   const centerY = node.rect.y + node.rect.height / 2;
   return centerY >= 80 && centerY <= viewportHeight - 120;
 };
@@ -99,7 +105,7 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
       snapshot.nodes.find(
         (candidate) => candidate.label === targetTriggerLabel && !isHiddenDialogLabel(candidate),
       ) ?? snapshot.nodes.find(isTargetTitleNode);
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
+    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? FALLBACK_VIEWPORT.height;
     const centerY = node?.rect ? node.rect.y + node.rect.height / 2 : viewportHeight;
     await client.interactions.scroll({
       ...deviceOptions,
