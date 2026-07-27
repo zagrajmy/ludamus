@@ -29,22 +29,18 @@ _SESSION_KEYS = (
 )
 
 
-# match + assert_never (instead of an enum-keyed dict) so mypy flags a new
-# error code the moment it is added, instead of a KeyError in the least-tested
-# path at runtime. Split in two — codes about the enrollment target vs codes
-# about the visitor's own state — to stay within the complexity limit; the
-# Literal parameters keep the split exhaustive as a whole.
-_TargetErrorCode = Literal[
-    AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND,
-    AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT,
-    AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND,
-    AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION,
-    AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
-    AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
-]
-
-
-def _target_error_message(code: _TargetErrorCode) -> str:
+# match + assert_never (not an enum-keyed dict) so mypy flags a new code
+# immediately; split in two for the complexity limit, joined by fallthrough.
+def _target_error_message(
+    code: Literal[
+        AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND,
+        AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT,
+        AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND,
+        AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION,
+        AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
+        AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
+    ],
+) -> str:
     match code:
         case AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND:
             return _("Event not found.")
@@ -62,14 +58,7 @@ def _target_error_message(code: _TargetErrorCode) -> str:
             assert_never(code)
 
 
-def _visitor_error_message(
-    code: Literal[
-        AnonymousEnrollmentErrorCode.SESSION_EXPIRED,
-        AnonymousEnrollmentErrorCode.USER_NOT_FOUND,
-        AnonymousEnrollmentErrorCode.NAME_REQUIRED,
-        AnonymousEnrollmentErrorCode.NO_ENROLLMENTS,
-    ],
-) -> str:
+def _error_message(code: AnonymousEnrollmentErrorCode) -> str:
     match code:
         case AnonymousEnrollmentErrorCode.SESSION_EXPIRED:
             return _("Anonymous session expired.")
@@ -78,26 +67,10 @@ def _visitor_error_message(
         case AnonymousEnrollmentErrorCode.NAME_REQUIRED:
             return _("Name is required.")
         case AnonymousEnrollmentErrorCode.NO_ENROLLMENTS:
-            # Missing from the message table these functions replaced —
-            # reaching it through a generic error path used to KeyError.
+            # Missing from the table this replaced; used to KeyError here.
             return _("No enrollments found for this code.")
         case _:
-            assert_never(code)
-
-
-def _error_message(code: AnonymousEnrollmentErrorCode) -> str:
-    match code:
-        case (
-            AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
-            | AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT
-            | AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND
-            | AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION
-            | AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
-            | AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
-        ):
             return _target_error_message(code)
-        case _:
-            return _visitor_error_message(code)
 
 
 def _store_anonymous_state(
