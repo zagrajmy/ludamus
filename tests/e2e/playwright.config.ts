@@ -83,6 +83,7 @@ export default defineConfig({
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
+        /proposal-delete-restore\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },
     },
