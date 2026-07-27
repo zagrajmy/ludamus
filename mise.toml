@@ -243,6 +243,7 @@ run = [
     "python tests/e2e/scripts/bootstrap_data.py",
     "python tests/e2e/scripts/bootstrap_facilitators.py",
     "python tests/e2e/scripts/bootstrap_timetable.py",
+    "python tests/e2e/scripts/bootstrap_dynamic_fields.py",
     "aubr -C src/ludamus/client build",
 ]
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
