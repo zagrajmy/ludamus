@@ -324,7 +324,7 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
 
         target_event_id = int(form.cleaned_data["target_event"])
         target_name = next(
-            (e.name for e in context["events"] if e.pk == target_event_id), ""
+            (name for event_pk, name in choices if event_pk == target_event_id), ""
         )
         self.request.services.space_tree.copy_to_event(
             pk=node.pk, target_event_id=target_event_id

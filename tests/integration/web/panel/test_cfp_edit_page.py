@@ -16,14 +16,20 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     TimeSlotRequirement,
 )
-from ludamus.pacts import EventDTO, OrganizerFieldDTO, ProposalCategoryDTO, TimeSlotDTO
+from ludamus.pacts import (
+    EventDTO,
+    OrganizerFieldDTO,
+    PromotionMode,
+    ProposalCategoryDTO,
+    TimeSlotDTO,
+)
 from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-class TestCFPEditPageView:
+class TestProposalCategorySettingsPageView:
     """Tests for /panel/event/<slug>/cfp/<category_slug>/ page."""
 
     @staticmethod
@@ -192,6 +198,33 @@ class TestCFPEditPageView:
         assert category.name == "Workshops"
         assert category.slug == "workshops"
 
+    def test_post_updates_waiting_list_offer_settings(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, category),
+            data={
+                "name": "RPG Sessions",
+                "promotion_mode": "offer_claim",
+                "offer_claim_window_minutes": "15",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        category.refresh_from_db()
+        assert category.promotion_mode == "offer_claim"
+        assert category.offer_claim_window == timedelta(minutes=15)
+
     def test_post_generates_unique_slug_on_collision(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -306,6 +339,30 @@ class TestCFPEditPageView:
             url=f"/panel/event/{event.slug}/cfp/",
         )
 
+    def test_post_rejects_category_from_another_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        foreign_category = ProposalCategory.objects.create(
+            event=other_event, name="Workshops", slug="workshops"
+        )
+        url = reverse(
+            "panel:cfp-edit",
+            kwargs={"event_slug": event.slug, "category_slug": foreign_category.slug},
+        )
+
+        response = authenticated_client.post(url, data={"name": "Renamed"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Category not found.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        foreign_category.refresh_from_db()
+        assert foreign_category.name == "Workshops"
+
     # Time fields tests
 
     def test_get_form_contains_time_fields_with_initial_values(
@@ -356,6 +413,73 @@ class TestCFPEditPageView:
                 "proposal_count": 0,
             },
         )
+
+    def test_get_ok_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, event
+    ):
+        assert panel_access_user
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+
+        response = authenticated_client.get(self.get_url(event, category))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cfp-edit.html",
+            context_data=ANY,
+        )
+
+    def test_get_form_shows_stored_promotion_config(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        window_minutes = 15
+        category = ProposalCategory.objects.create(
+            event=event,
+            name="RPG Sessions",
+            slug="rpg-sessions",
+            promotion_mode=PromotionMode.OFFER_CLAIM,
+            offer_claim_window=timedelta(minutes=window_minutes),
+        )
+
+        response = authenticated_client.get(self.get_url(event, category))
+
+        form = response.context["form"]
+        assert form.initial["promotion_mode"] == PromotionMode.OFFER_CLAIM.value
+        assert form.initial["offer_claim_window_minutes"] == window_minutes
+
+    def test_post_rejects_offer_claim_without_a_claim_window(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event,
+            name="RPG Sessions",
+            slug="rpg-sessions",
+            promotion_mode=PromotionMode.OFFER_CLAIM,
+            offer_claim_window=timedelta(minutes=60),
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, category),
+            data={
+                "name": "RPG Sessions",
+                "promotion_mode": PromotionMode.OFFER_CLAIM.value,
+                "offer_claim_window_minutes": "",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cfp-edit.html",
+            context_data=ANY,
+        )
+        assert response.context["form"].errors["offer_claim_window_minutes"]
+        category.refresh_from_db()
+        assert category.offer_claim_window == timedelta(minutes=60)
 
     def test_post_updates_time_fields(
         self, authenticated_client, active_user, sphere, event
