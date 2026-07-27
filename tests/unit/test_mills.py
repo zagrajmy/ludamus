@@ -27,6 +27,7 @@ from ludamus.mills.submissions.mapping import (
     decode_response,
     dedup_ident,
     extract_identity,
+    field_answer,
     field_setup,
     generate_unique_slug,
     locate_row,
@@ -1003,7 +1004,7 @@ class TestImportRow:
     def test_get_value_returns_the_cell_unstripped(self):
         # `Session.ident` hashes this value. Trimming it here would re-hash
         # every already-imported row whose unique-key cell carried padding and
-        # fork it into a second session; `_answer()` trims what gets stored.
+        # fork it into a second session; `field_answer()` trims what gets stored.
         row = ImportRow({"Tytuł": '"Tenebre" '})
 
         assert row.get_value("Tytuł") == '"Tenebre" '
@@ -3342,6 +3343,92 @@ class TestMappingHelpers:
         builtins = resolve_builtins(settings, ImportRow({"Desc": "Hello"}))
 
         assert builtins.description == "Hello"
+
+    def test_answer_splits_a_multi_value_cell_into_a_list(self):
+        settings = ImportSettings(
+            questions={"Triggers": QuestionTarget(to="field.triggers")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "triggers": FieldDefinition(
+                        name="Triggers", type="select", multiple=True
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Triggers": "krew, przemoc"}),
+            header="Triggers",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["krew", "przemoc"]
+
+    def test_answer_keeps_an_option_that_contains_a_comma(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele"]
+
+    def test_answer_keeps_a_comma_bearing_option_beside_another(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele, Prelekcja"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele", "Prelekcja"]
+
+    def test_answer_keeps_a_single_value_cell_as_text(self):
+        settings = ImportSettings(
+            questions={"System": QuestionTarget(to="field.system")},
+            definitions=FieldDefinitions(
+                session_fields={"system": FieldDefinition(name="System")}
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"System": "D&D, 5e"}),
+            header="System",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == "D&D, 5e"
 
     def test_cell_reads_value_despite_trailing_space_in_recipe_key(self):
         target = QuestionTarget(to="track")

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal, Never
 from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
+from ludamus.mills.field_values import split_answers
 from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.submissions import (
     DuplicateValueError,
@@ -240,10 +241,22 @@ def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     return target.overrides.get(raw, raw)
 
 
-def _answer(*, settings: ImportSettings, row: ImportRow, header: str) -> str:
+def field_answer(
+    *,
+    settings: ImportSettings,
+    row: ImportRow,
+    header: str,
+    definitions: dict[str, FieldDefinition],
+) -> str | list[str]:
     # Stripped: surrounding whitespace is never part of an answer, so a
     # whitespace-only cell reads as unanswered and stored values carry no padding.
-    return cell(target=settings.questions.get(header), row=row, header=header).strip()
+    target = settings.questions.get(header)
+    raw = cell(target=target, row=row, header=header).strip()
+    slug = (target.to or "").split(".", 1)[-1] if target else ""
+    definition = definitions.get(slug)
+    if definition is None or not definition.multiple:
+        return raw
+    return split_answers(raw, definition.options)
 
 
 def session_field_values(
@@ -258,7 +271,14 @@ def session_field_values(
     return [
         SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
         for header, field_id in field_ids.items()
-        if (value := _answer(settings=settings, row=row, header=header))
+        if (
+            value := field_answer(
+                settings=settings,
+                row=row,
+                header=header,
+                definitions=settings.definitions.session_fields,
+            )
+        )
     ]
 
 
@@ -279,7 +299,14 @@ def build_personal_data_field_values(
             value=value,
         )
         for header, field_id in field_ids.items()
-        if (value := _answer(settings=settings, row=row, header=header))
+        if (
+            value := field_answer(
+                settings=settings,
+                row=row,
+                header=header,
+                definitions=settings.definitions.personal_fields,
+            )
+        )
     ]
 
 

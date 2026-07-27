@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 14:40+0200\n"
+"POT-Creation-Date: 2026-07-27 20:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2056,6 +2056,18 @@ msgstr "Opuszczasz drużynę."
 msgid "Could not leave this party."
 msgstr "Nie udało się opuścić tej drużyny."
 
+#: src/ludamus/gates/web/django/dynamic_fields.py
+msgid "Pick an option or type your own."
+msgstr "Wybierz opcję lub wpisz własną."
+
+#: src/ludamus/gates/web/django/dynamic_fields.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/panel/_personal_data_fields.html
+msgid "Or type a custom value"
+msgstr "Lub wpisz własną wartość"
+
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Enrollment opens"
 msgstr "Otwarcie zapisów"
@@ -2411,14 +2423,6 @@ msgid "Public tracks are shown to proposers in the submission wizard."
 msgstr ""
 "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
 "propozycji."
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/_personal_data_fields.html
-msgid "Or type a custom value"
-msgstr "Lub wpisz własną wartość"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Title is required."
@@ -4151,6 +4155,13 @@ msgstr "Pełny harmonogram"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/panel/_personal_data_fields.html
+msgid "comma separated"
+msgstr "po przecinku"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html

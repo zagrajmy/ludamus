@@ -86,7 +86,7 @@ class ImportRow:
         # conflict — but the cell comes back raw, and deliberately so:
         # `Session.ident` hashes what this method returns, so trimming here
         # would re-hash every already-imported row whose key cell carried
-        # padding and fork it into a second session. `_answer()` trims what
+        # padding and fork it into a second session. `field_answer()` trims what
         # actually gets stored.
         matches = [
             value
