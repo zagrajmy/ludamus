@@ -2,11 +2,17 @@
 
 from typing import TYPE_CHECKING
 
+from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
 from ludamus.pacts import (
     FacilitatorUpdateData,
     FieldUsageSummary,
     NotFoundError,
     PersonalDataFieldValueRepositoryProtocol,
+)
+from ludamus.pacts.legacy import (
+    PersonalDataFieldCreateData,
+    PersonalDataFieldDTO,
+    PersonalDataFieldUpdateData,
 )
 from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
@@ -20,29 +26,18 @@ if TYPE_CHECKING:
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
-        PersonalDataFieldCreateData,
-        PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
-        PersonalDataFieldUpdateData,
         PersonalDataFieldValueData,
-        ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
 
 
-class CFPPersonalDataFieldService:
+class CFPPersonalDataFieldService(
+    CFPFieldCategoryService[
+        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, PersonalDataFieldDTO
+    ]
+):
     """Backoffice operations for an event's personal-data fields."""
-
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        fields: PersonalDataFieldRepositoryProtocol,
-        categories: ProposalCategoryRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._fields = fields
-        self._categories = categories
 
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
         fields = self._fields.list_by_event(event_pk)
@@ -74,40 +69,11 @@ class CFPPersonalDataFieldService:
             optional_category_pks={pk for pk, req in field_cats.items() if not req},
         )
 
-    def _scope_to_event(
-        self, event_pk: int, category_requirements: dict[int, bool]
-    ) -> dict[int, bool]:
-        # Drop category pks that belong to another event so a tampered
-        # request cannot link this field to a foreign event's categories.
-        valid_pks = {c.pk for c in self._categories.list_by_event(event_pk)}
-        return {pk: req for pk, req in category_requirements.items() if pk in valid_pks}
+    def _add_to_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
+        self._categories.add_field_to_categories(field_pk, scoped)
 
-    def create(
-        self,
-        *,
-        event_pk: int,
-        data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
-    ) -> PersonalDataFieldDTO:
-        with self._transaction.atomic():
-            field = self._fields.create(event_pk, data)
-            if scoped := self._scope_to_event(event_pk, category_requirements):
-                self._categories.add_field_to_categories(field.pk, scoped)
-        return field
-
-    def update(
-        self,
-        *,
-        event_pk: int,
-        field_slug: str,
-        data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
-    ) -> None:
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        scoped = self._scope_to_event(event_pk, category_requirements)
-        with self._transaction.atomic():
-            self._fields.update(field.pk, data)
-            self._categories.set_personal_field_categories(field.pk, scoped)
+    def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
+        self._categories.set_personal_field_categories(field_pk, scoped)
 
     def delete(self, event_pk: int, field_slug: str) -> bool:
         # Returns False when the field is in use by session types.

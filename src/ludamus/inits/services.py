@@ -64,6 +64,7 @@ from ludamus.mills.submissions.personal_data_fields import (
 from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
+from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
@@ -93,6 +94,14 @@ class Services:
         return CFPPersonalDataFieldService(
             transaction=self._transaction,
             fields=self._repos.personal_data_fields,
+            categories=self._repos.proposal_categories,
+        )
+
+    @cached_property
+    def session_fields(self) -> CFPSessionFieldService:
+        return CFPSessionFieldService(
+            transaction=self._transaction,
+            fields=self._repos.session_fields,
             categories=self._repos.proposal_categories,
         )
 

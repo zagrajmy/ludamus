@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        CFPSessionFieldServiceProtocol,
         FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
@@ -84,6 +85,8 @@ class TransactionProtocol(Protocol):
 class ServicesProtocol(Protocol):
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
+    @property
+    def session_fields(self) -> CFPSessionFieldServiceProtocol: ...
     @property
     def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
     @property

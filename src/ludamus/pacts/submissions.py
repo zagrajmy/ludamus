@@ -36,7 +36,9 @@ if TYPE_CHECKING:
         PersonalDataFieldUpdateData,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldCreateData,
         SessionFieldRepositoryProtocol,
+        SessionFieldUpdateData,
         SessionRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
@@ -504,6 +506,37 @@ class ProposalCategorySettingsServiceProtocol(Protocol):
     ) -> ProposalCategoryEditContextDTO: ...
     def update(
         self, *, event_id: int, category_slug: str, data: ProposalCategorySettingsData
+    ) -> None: ...
+
+
+class CFPFieldRepositoryProtocol[CreateT, UpdateT, DtoT](Protocol):
+    def create(self, event_id: int, data: CreateT) -> DtoT: ...
+    def read_by_slug(self, event_id: int, slug: str) -> DtoT: ...
+    def update(self, pk: int, data: UpdateT) -> DtoT: ...
+    def list_by_event(self, event_id: int) -> list[DtoT]: ...
+    @staticmethod
+    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
+    @staticmethod
+    def has_requirements(pk: int) -> bool: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+
+
+class CFPSessionFieldServiceProtocol(Protocol):
+    def create(
+        self,
+        *,
+        event_pk: int,
+        data: SessionFieldCreateData,
+        category_requirements: dict[int, bool],
+    ) -> SessionFieldDTO: ...
+    def update(
+        self,
+        *,
+        event_pk: int,
+        field_slug: str,
+        data: SessionFieldUpdateData,
+        category_requirements: dict[int, bool],
     ) -> None: ...
 
 

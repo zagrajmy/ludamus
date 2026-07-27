@@ -8,6 +8,7 @@ from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
 from ludamus.pacts.legacy import NotFoundError, RedirectError
 
@@ -25,10 +26,7 @@ class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
     request: EventPanelRequest
 
     def test_func(self) -> bool:
-        return self.request.services.sphere_panel.is_manager(
-            self.request.context.current_sphere_id,
-            self.request.context.current_user_slug,
-        )
+        return has_panel_access(self.request)
 
 
 class EventContextMixin:

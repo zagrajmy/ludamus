@@ -415,6 +415,23 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
+    def test_get_ok_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, event
+    ):
+        assert panel_access_user
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+
+        response = authenticated_client.get(self.get_url(event, category))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cfp-edit.html",
+            context_data=ANY,
+        )
+
     def test_get_form_shows_stored_promotion_config(
         self, authenticated_client, active_user, sphere, event
     ):
