@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -112,6 +112,11 @@ class FacilitatorListItemDTO(BaseModel):
     user_id: int | None
 
 
+class PromotionMode(StrEnum):
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -121,7 +126,9 @@ class ProposalCategoryDTO(BaseModel):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta = timedelta(hours=24)
     pk: int
+    promotion_mode: PromotionMode = PromotionMode.AUTO
     slug: str
     start_time: datetime | None
 
@@ -274,18 +281,6 @@ OCCUPYING_PARTICIPATION_STATUSES = (
     SessionParticipationStatus.CONFIRMED,
     SessionParticipationStatus.OFFERED,
 )
-
-
-class PromotionMode(StrEnum):
-    """How a freed seat is filled from the waiting list, per ProposalCategory.
-
-    AUTO: the next eligible waiter is moved straight to CONFIRMED.
-    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
-    bounded window; they must actively claim it or it rolls to the next party.
-    """
-
-    AUTO = auto()
-    OFFER_CLAIM = auto()
 
 
 class NotificationKind(StrEnum):
@@ -583,6 +578,8 @@ class ProposalCategoryData(TypedDict, total=False):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta
+    promotion_mode: PromotionMode
     start_time: datetime | None
 
 
@@ -1062,12 +1059,6 @@ class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-method
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None: ...
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None: ...
-    @staticmethod
     def get_personal_field_categories(field_id: int) -> dict[int, bool]: ...
     @staticmethod
     def set_personal_field_categories(
@@ -1102,6 +1093,8 @@ class PersonalDataFieldUpdateData(TypedDict):
     help_text: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class SessionFieldCreateData(TypedDict):
@@ -1126,6 +1119,8 @@ class SessionFieldUpdateData(TypedDict):
     icon: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class PersonalDataFieldRepositoryProtocol(Protocol):

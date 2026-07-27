@@ -44,6 +44,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage-client/
 *.cover
 *.py,cover
 .hypothesis/
@@ -200,6 +201,8 @@ cython_debug/
 
 .DS_Store
 *.sqlite3
+*.orig
+*.rej
 seed_local.py
 src/ludamus/static/icon_cache/
 src/ludamus/staticfiles/

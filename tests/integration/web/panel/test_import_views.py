@@ -171,6 +171,14 @@ def _sheets_get(values, *, title="Form Responses 1"):
     return lambda url, **_: vals if "/values/" in url else meta
 
 
+def _successes_details_tag(body: str) -> str:
+    # Scoped to the successes <details ...> opening tag itself, not the whole
+    # page: unrelated content (e.g. a randomly generated event title) can
+    # otherwise contain the substring "open" and make the check flaky.
+    start = body.index('<details class="card p-4 sm:p-5"')
+    return body[start : body.index(">", start) + 1]
+
+
 @pytest.mark.django_db
 class TestEventImportProposalView:
     def test_get_redirects_anonymous(self, client, event):
@@ -2442,7 +2450,7 @@ class TestEventImportLogPageView:
         body = response.content.decode()
         # Successes are collapsed inside a <details> without `open`.
         assert "<details" in body
-        assert "open" not in body.split("</details>")[0]
+        assert "open" not in _successes_details_tag(body)
 
     def test_post_retry_creates_a_fresh_entry_and_redirects_to_log(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -2621,7 +2629,7 @@ class TestEventImportLogFilters:
         # The success <details> renders with the open attribute.
         body = response.content.decode()
         assert "<details" in body
-        assert "open" in body.split("</details>")[0]
+        assert "open" in _successes_details_tag(body)
 
     def test_search_narrows_to_matching_title_or_display_name(
         self, authenticated_client, active_user, sphere, event, connection_with_secret

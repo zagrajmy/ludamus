@@ -127,6 +127,20 @@ edit).
 
 Per-branch context coverage belongs in integration.
 
+The run also measures the client TypeScript: Chromium's V8 coverage is
+collected per test and mapped back through the bundle's inline sourcemaps to
+`src/ludamus/client/src/*.ts`, landing in `coverage-client/lcov.info`. CI
+uploads it to Codecov under the `client` flag, next to the Python report from
+pytest and the same run's Django server.
+
+Read that number as a **ceiling**. V8 reports only the scripts the browser
+loaded, so a module no spec reaches is missing from the report entirely rather
+than counted as uncovered — it leaves the denominator, and the percentage goes
+up. Two more limits: coverage comes from the `page` a test is given, so a test
+that opens its own context via `browser.newContext()` contributes nothing, and
+only Chromium reports at all, so a behaviour covered exclusively by a
+Firefox-only spec reads as uncovered.
+
 ## Migration to the new strategy
 
 1. Move current integration tests to the right directories and files.

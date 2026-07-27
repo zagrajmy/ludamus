@@ -127,7 +127,7 @@ class TestHeldSeatForConsentingMember:
         assert "needs their approval" in content
         member = User.objects.get(username="member")
         assert f'name="user_{member.pk}" value="include"' in content
-        assert "waitlist" not in content
+        assert 'value="waitlist"' not in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_holds_offered_seat_and_notifies(

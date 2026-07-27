@@ -6,13 +6,23 @@ context today, with the Session lifecycle and proposal import to follow.
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.pacts.legacy import (
+    PersonalDataFieldDTO,
+    PromotionMode,
+    ProposalCategoryDTO,
+    SessionFieldDTO,
+    TimeSlotDTO,
+)
+
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
@@ -22,13 +32,13 @@ if TYPE_CHECKING:
         FacilitatorUpdateData,
         FieldUsageSummary,
         PersonalDataFieldCreateData,
-        PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         PersonalDataFieldValueRepositoryProtocol,
-        ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
+        SessionFieldCreateData,
         SessionFieldRepositoryProtocol,
+        SessionFieldUpdateData,
         SessionRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
@@ -453,6 +463,104 @@ class FacilitatorPanelServiceProtocol(Protocol):
     ) -> None: ...
 
 
+class HasPk(Protocol):
+    pk: int
+
+
+class RequirementSelectionDTO(BaseModel):
+    requirements: dict[int, bool]
+    order: list[int]
+
+    def scoped_to(self, valid_items: Iterable[HasPk]) -> RequirementSelectionDTO:
+        valid_pks = {item.pk for item in valid_items}
+        return RequirementSelectionDTO(
+            requirements={
+                pk: required
+                for pk, required in self.requirements.items()
+                if pk in valid_pks
+            },
+            order=[pk for pk in self.order if pk in valid_pks],
+        )
+
+
+class ProposalCategorySettingsData(BaseModel):
+    name: str
+    description: str
+    start_time: datetime | None
+    end_time: datetime | None
+    durations: list[str]
+    min_participants_limit: int
+    max_participants_limit: int
+    promotion_mode: PromotionMode | None
+    offer_claim_window: timedelta | None
+    personal_fields: RequirementSelectionDTO
+    session_fields: RequirementSelectionDTO
+    time_slots: RequirementSelectionDTO
+
+
+class ProposalCategoryEditContextDTO(BaseModel):
+    category: ProposalCategoryDTO
+    available_fields: list[PersonalDataFieldDTO]
+    field_requirements: dict[int, bool]
+    field_order: list[int]
+    available_session_fields: list[SessionFieldDTO]
+    session_field_requirements: dict[int, bool]
+    session_field_order: list[int]
+    available_time_slots: list[TimeSlotDTO]
+    time_slot_requirements: dict[int, bool]
+    time_slot_order: list[int]
+    proposal_count: int
+
+
+@dataclass
+class ProposalCategorySettingsRepos:
+    categories: ProposalCategoryRepositoryProtocol
+    personal_fields: PersonalDataFieldRepositoryProtocol
+    session_fields: SessionFieldRepositoryProtocol
+    time_slots: TimeSlotRepositoryProtocol
+    sessions: SessionRepositoryProtocol
+
+
+class ProposalCategorySettingsServiceProtocol(Protocol):
+    def read_context(
+        self, event_id: int, category_slug: str
+    ) -> ProposalCategoryEditContextDTO: ...
+    def update(
+        self, *, event_id: int, category_slug: str, data: ProposalCategorySettingsData
+    ) -> None: ...
+
+
+class CFPFieldRepositoryProtocol[CreateT, UpdateT, DtoT](Protocol):
+    def create(self, event_id: int, data: CreateT) -> DtoT: ...
+    def read_by_slug(self, event_id: int, slug: str) -> DtoT: ...
+    def update(self, pk: int, data: UpdateT) -> DtoT: ...
+    def list_by_event(self, event_id: int) -> list[DtoT]: ...
+    @staticmethod
+    def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
+    @staticmethod
+    def has_requirements(pk: int) -> bool: ...
+    @staticmethod
+    def delete(pk: int) -> None: ...
+
+
+class CFPSessionFieldServiceProtocol(Protocol):
+    def create(
+        self,
+        *,
+        event_pk: int,
+        data: SessionFieldCreateData,
+        category_requirements: RequirementSelectionDTO,
+    ) -> SessionFieldDTO: ...
+    def update(
+        self,
+        *,
+        event_pk: int,
+        field_slug: str,
+        data: SessionFieldUpdateData,
+        category_requirements: RequirementSelectionDTO,
+    ) -> None: ...
+
+
 class CFPPersonalDataFieldServiceProtocol(Protocol):
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]: ...
     def get_create_form_context(
@@ -466,7 +574,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         *,
         event_pk: int,
         data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> PersonalDataFieldDTO: ...
     def update(
         self,
@@ -474,7 +582,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         field_slug: str,
         data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
 
