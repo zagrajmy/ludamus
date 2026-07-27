@@ -68,7 +68,7 @@ from ludamus.links.db.django.repositories.sessions import (
     field_value_dto,
     with_session_card_relations,
 )
-from ludamus.mills.enrollment import get_user_enrollment_config
+from ludamus.mills.enrollment import EnrollmentPolicy, get_user_enrollment_config
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
@@ -83,7 +83,7 @@ from ludamus.pacts import (
     SpherePage,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
-from ludamus.pacts.enrollment import EnrollmentPolicy, SeatHoldRequest
+from ludamus.pacts.enrollment import SeatHoldRequest
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,
@@ -824,8 +824,6 @@ _status_by_choice = {
 
 
 class SessionEnrollPageView(LoginRequiredMixin, View):
-    _cached_policy: EnrollmentPolicy | None = None
-
     request: AuthenticatedRootRequest
 
     def get(
@@ -1279,14 +1277,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
     def _actor_policy(self, session: Session) -> EnrollmentPolicy:
-        if self._cached_policy is None:
-            viewer = self.request.services.enrollment.read_viewer(
-                self.request.context.current_user_slug
-            )
-            self._cached_policy = session.event.enrollment_policy(
-                session, is_configured_user=self._member_has_access(session, viewer)
-            )
-        return self._cached_policy
+        viewer = self.request.services.enrollment.read_viewer(
+            self.request.context.current_user_slug
+        )
+        return EnrollmentPolicy.for_actor(
+            session.event.get_eligible_enrollment_configs(session),
+            is_configured_user=self._member_has_access(session, viewer),
+        )
 
     @staticmethod
     def _restricts_unconfigured(session: Session) -> bool:

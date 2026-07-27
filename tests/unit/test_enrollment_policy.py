@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ludamus.pacts.enrollment import EnrollmentPolicy
+from ludamus.mills.enrollment import EnrollmentPolicy
 
 
 @dataclass
@@ -8,8 +8,6 @@ class _Window:
     percentage_slots: int = 100
     max_waitlist_sessions: int = 0
     restrict_to_configured_users: bool = False
-    allow_anonymous_enrollment: bool = False
-    banner_text: str = ""
 
 
 _OPEN_PERCENT = 20
@@ -134,16 +132,6 @@ class TestAggregates:
         )
 
         assert policy.max_waitlist_sessions == _NARROW_WAITLIST
-
-    def test_anonymous_enrollment_needs_only_one_window_allowing_it(self) -> None:
-        policy = _policy(_Window(), _Window(allow_anonymous_enrollment=True))
-
-        assert policy.allows_anonymous_enrollment is True
-
-    def test_banner_comes_from_the_first_window_that_has_one(self) -> None:
-        policy = _policy(_Window(), _Window(banner_text="Zapisy trwają"))
-
-        assert policy.banner_text == "Zapisy trwają"
 
 
 class TestSlotAllowance:

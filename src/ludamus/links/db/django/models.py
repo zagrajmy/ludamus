@@ -27,7 +27,6 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
-from ludamus.pacts.enrollment import EnrollmentPolicy
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -412,14 +411,6 @@ class Event(models.Model):
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
-
-    def enrollment_policy(
-        self, session: Session, *, is_configured_user: bool
-    ) -> EnrollmentPolicy:
-        return EnrollmentPolicy.for_actor(
-            self.get_eligible_enrollment_configs(session),
-            is_configured_user=is_configured_user,
-        )
 
     def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
         if not (eligible_configs := self.get_eligible_enrollment_configs(session)):

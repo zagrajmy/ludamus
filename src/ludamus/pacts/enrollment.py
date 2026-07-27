@@ -6,8 +6,6 @@ Bottom-layer contracts consumed by the enrollment mills
 notifier, scheduler) so their decisions stay unit-testable with fakes.
 """
 
-import math
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -174,90 +172,6 @@ class OfferNotification(BaseModel):
     event_slug: str
     claim_token: str
     offer_expires_at: datetime
-
-
-class EnrollmentWindowLike(Protocol):
-    allow_anonymous_enrollment: bool
-    banner_text: str
-    max_waitlist_sessions: int
-    percentage_slots: int
-    restrict_to_configured_users: bool
-
-
-def _percentage_slots(window: EnrollmentWindowLike) -> int:
-    return window.percentage_slots
-
-
-@dataclass(frozen=True)
-class EnrollmentPolicy:
-    """What one actor may do across the enrollment windows open to them.
-
-    A window grants access for its period, so the windows an actor can use are
-    unioned. Selecting first and aggregating second is what keeps capacity from
-    being drawn from a window the actor is not allowed into.
-    """
-
-    windows: tuple[EnrollmentWindowLike, ...]
-
-    @classmethod
-    def for_actor(
-        cls, windows: Iterable[EnrollmentWindowLike], *, is_configured_user: bool
-    ) -> EnrollmentPolicy:
-        return cls(
-            tuple(
-                window
-                for window in windows
-                if is_configured_user or not window.restrict_to_configured_users
-            )
-        )
-
-    @property
-    def can_enroll(self) -> bool:
-        return bool(self.windows)
-
-    @property
-    def seating_window(self) -> EnrollmentWindowLike | None:
-        if not self.windows:
-            return None
-        return max(self.windows, key=_percentage_slots)
-
-    @property
-    def percentage_slots(self) -> int:
-        return self.seating_window.percentage_slots if self.seating_window else 0
-
-    @property
-    def max_waitlist_sessions(self) -> int:
-        return max((window.max_waitlist_sessions for window in self.windows), default=0)
-
-    @property
-    def restricts_everyone(self) -> bool:
-        return bool(self.windows) and all(
-            window.restrict_to_configured_users for window in self.windows
-        )
-
-    @property
-    def allows_anonymous_enrollment(self) -> bool:
-        return any(window.allow_anonymous_enrollment for window in self.windows)
-
-    @property
-    def banner_text(self) -> str:
-        return next(
-            (window.banner_text for window in self.windows if window.banner_text), ""
-        )
-
-    @property
-    def requires_slot_allowance(self) -> bool:
-        return bool(
-            self.seating_window and self.seating_window.restrict_to_configured_users
-        )
-
-    def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
-        if not self.windows:
-            return 0
-        if participants_limit == 0:
-            return sys.maxsize
-        effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)
-        return max(0, effective_limit - enrolled_count)
 
 
 class EnrollmentWindowData(BaseModel):
