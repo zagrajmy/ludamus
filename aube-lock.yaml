@@ -12,7 +12,7 @@ importers:
   .:
     devDependencies:
       '@types/bun':
-        specifier: ^1.3.0
+        specifier: 1.3.14
         version: 1.3.14
       agent-device:
         specifier: 0.14.7

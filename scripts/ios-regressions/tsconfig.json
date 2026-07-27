@@ -6,15 +6,9 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
-    "types": [
-      "bun"
-    ],
-    "lib": [
-      "es2024"
-    ],
+    "types": ["bun"],
+    "lib": ["es2024"],
     "skipLibCheck": true
   },
-  "include": [
-    "*.ts"
-  ]
+  "include": ["**/*.ts"]
 }
