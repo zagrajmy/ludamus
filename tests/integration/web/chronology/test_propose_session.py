@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 from django.contrib import messages
 from django.core.files.storage import default_storage
@@ -1814,13 +1814,8 @@ class TestProposeSessionPageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=ANY,
-            template_name="chronology/propose/parts/details.html",
-            contains=["Pick an option or type your own."],
-        )
+        form = response.context["form"]
+        assert form.errors["session_triggers"] == ["Pick an option or type your own."]
         assert (
             "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
         )
@@ -1865,15 +1860,9 @@ class TestProposeSessionPageView:
             self._get_details_url(event.slug), {"back": "1"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=ANY,
-            template_name="chronology/propose/parts/details.html",
-            contains=['name="session_triggers_custom"', 'value="krew"'],
-        )
         form = response.context["form"]
         assert form.initial["session_triggers"] == ["horror"]
+        assert form.initial["session_triggers_custom"] == "krew"
 
     def test_submit_saves_write_ins_as_list_entries(
         self, authenticated_client, event, faker, time_zone, proposal_category

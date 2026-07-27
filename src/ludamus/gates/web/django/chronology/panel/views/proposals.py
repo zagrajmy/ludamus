@@ -26,7 +26,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
-from ludamus.mills.field_values import merge_custom, split_stored
+from ludamus.mills.field_values import merge_custom, unfold_custom_answers
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -457,21 +457,15 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             fv.field_id: fv.value
             for fv in self.request.di.uow.sessions.read_field_values(session.pk)
         }
-        for req in requirements:
-            if req.field.pk not in stored:
-                continue
-            key = f"session_{req.field.slug}"
-            if req.field.field_type != "select":
-                initial[key] = stored[req.field.pk]
-                continue
-            chosen, custom = split_stored(
-                stored=stored[req.field.pk],
-                known={option.value for option in req.field.options},
-                is_multiple=req.field.is_multiple,
-            )
-            initial[key] = chosen
-            if custom and req.field.allow_custom:
-                initial[f"{key}_custom"] = custom
+        initial |= unfold_custom_answers(
+            stored={
+                f"session_{req.field.slug}": stored[req.field.pk]
+                for req in requirements
+                if req.field.pk in stored
+            },
+            requirements=requirements,
+            prefix="session",
+        )
         return form_class(initial=initial)
 
     def _add_field_context(self, context: dict[str, Any], prepared: _Prepared) -> None:

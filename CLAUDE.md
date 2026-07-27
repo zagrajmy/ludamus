@@ -95,6 +95,10 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - View tests use `assert_response`, never manual assertions, and use ANY only
   for forms/views, never for simple values ([], {}, booleans, strings, ints).
   Patterns: [docs/agents/testing-assertions.md](docs/agents/testing-assertions.md).
+- Migrating: UI belongs to Playwright. Assert status, redirect, context, and
+  state in Python; assert rendered HTML in `tests/e2e`. Don't add
+  `assert_response(contains=...)` on markup, and drop such assertions from
+  tests you touch — the e2e run covers them, and the coverage reports combine.
 - NEVER add noqa/type ignore/pylint comments or directives without explicit
   per-case approval.
 - `test` / `tested` is reserved for pytest; production names use `check` /
