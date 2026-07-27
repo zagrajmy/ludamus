@@ -21,6 +21,8 @@ from ludamus.pacts.legacy import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Container
+
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
@@ -441,6 +443,16 @@ class FacilitatorPanelServiceProtocol(Protocol):
 class RequirementSelectionDTO(BaseModel):
     requirements: dict[int, bool]
     order: list[int]
+
+    def scoped_to(self, valid_pks: Container[int]) -> RequirementSelectionDTO:
+        return RequirementSelectionDTO(
+            requirements={
+                pk: required
+                for pk, required in self.requirements.items()
+                if pk in valid_pks
+            },
+            order=[pk for pk in self.order if pk in valid_pks],
+        )
 
 
 class ProposalCategorySettingsData(BaseModel):

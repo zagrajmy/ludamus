@@ -8,7 +8,6 @@ from ludamus.pacts.submissions import (
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,
     ProposalCategorySettingsServiceProtocol,
-    RequirementSelectionDTO,
 )
 
 if TYPE_CHECKING:
@@ -32,18 +31,8 @@ def _sort_by_order[T: _HasPk](items: list[T], order: list[int]) -> list[T]:
     return sorted(items, key=position)
 
 
-def _scope_selection(
-    selection: RequirementSelectionDTO, valid_items: Sequence[_HasPk]
-) -> RequirementSelectionDTO:
-    valid_pks = {item.pk for item in valid_items}
-    return RequirementSelectionDTO(
-        requirements={
-            pk: required
-            for pk, required in selection.requirements.items()
-            if pk in valid_pks
-        },
-        order=[pk for pk in selection.order if pk in valid_pks],
-    )
+def _pks(items: Sequence[_HasPk]) -> set[int]:
+    return {item.pk for item in items}
 
 
 class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
@@ -95,9 +84,9 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
             personal_fields = list(self._repos.personal_fields.list_by_event(event_id))
             session_fields = list(self._repos.session_fields.list_by_event(event_id))
             time_slots = list(self._repos.time_slots.list_by_event(event_id))
-            personal = _scope_selection(data.personal_fields, personal_fields)
-            session = _scope_selection(data.session_fields, session_fields)
-            slots = _scope_selection(data.time_slots, time_slots)
+            personal = data.personal_fields.scoped_to(_pks(personal_fields))
+            session = data.session_fields.scoped_to(_pks(session_fields))
+            slots = data.time_slots.scoped_to(_pks(time_slots))
 
             category_data = ProposalCategoryData(
                 name=data.name,

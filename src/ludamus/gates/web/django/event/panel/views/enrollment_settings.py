@@ -21,6 +21,10 @@ from ludamus.pacts.enrollment import EnrollmentWindowData, EnrollmentWindowDTO
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.pacts import EventDTO
+
+_SETTINGS_URL = "panel:event-enrollment-settings"
+
 
 def _window_data(form: EnrollmentWindowForm) -> EnrollmentWindowData:
     return EnrollmentWindowData.model_validate(form.cleaned_data)
@@ -34,18 +38,50 @@ def _window_initial(window: EnrollmentWindowDTO) -> dict[str, object]:
     }
 
 
-class EventEnrollmentSettingsPageView(EventPanelAccessMixin, EventContextMixin, View):
+class EnrollmentSettingsViewMixin(EventContextMixin):
     request: EventPanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
+    def tab_context(self, slug: str) -> tuple[dict[str, object], EventDTO] | None:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
-            return redirect("panel:index")
-
+            return None
         context.update(
             active_nav="settings",
             active_tab="enrollment",
             tab_urls=settings_tab_urls(slug),
+        )
+        return context, current_event
+
+    def render_window_form(
+        self,
+        *,
+        slug: str,
+        form: EnrollmentWindowForm,
+        window: EnrollmentWindowDTO | None,
+    ) -> HttpResponse:
+        if (seeded := self.tab_context(slug)) is None:
+            return redirect("panel:index")
+        context, _current_event = seeded
+        context.update(form=form, window=window)
+        return TemplateResponse(
+            self.request, "panel/enrollment-window-form.html", context
+        )
+
+    def window_not_found(self, slug: str) -> HttpResponse:
+        messages.error(self.request, _("Enrollment window not found."))
+        return redirect(_SETTINGS_URL, slug=slug)
+
+
+class EventEnrollmentSettingsPageView(
+    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
+):
+    request: EventPanelRequest
+
+    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
+        if (seeded := self.tab_context(slug)) is None:
+            return redirect("panel:index")
+        context, current_event = seeded
+        context.update(
             windows=self.request.services.enrollment_settings.list_windows(
                 current_event.pk
             ),
@@ -54,16 +90,20 @@ class EventEnrollmentSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
         return TemplateResponse(self.request, "panel/enrollment-settings.html", context)
 
 
-class EnrollmentWindowCreatePageView(EventPanelAccessMixin, EventContextMixin, View):
+class EnrollmentWindowCreatePageView(
+    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
+):
     request: EventPanelRequest
 
     def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        return self._render(slug, EnrollmentWindowForm())
+        return self.render_window_form(
+            slug=slug, form=EnrollmentWindowForm(), window=None
+        )
 
     def post(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
         form = EnrollmentWindowForm(self.request.POST)
         if not form.is_valid():
-            return self._render(slug, form)
+            return self.render_window_form(slug=slug, form=form, window=None)
 
         if (current_event := self.get_current_event(slug)) is None:
             return redirect("panel:index")
@@ -71,25 +111,12 @@ class EnrollmentWindowCreatePageView(EventPanelAccessMixin, EventContextMixin, V
             current_event.pk, _window_data(form)
         )
         messages.success(self.request, _("Enrollment window created."))
-        return redirect("panel:event-enrollment-settings", slug=slug)
-
-    def _render(self, slug: str, form: EnrollmentWindowForm) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        context.update(
-            active_nav="settings",
-            active_tab="enrollment",
-            tab_urls=settings_tab_urls(slug),
-            form=form,
-            window=None,
-        )
-        return TemplateResponse(
-            self.request, "panel/enrollment-window-form.html", context
-        )
+        return redirect(_SETTINGS_URL, slug=slug)
 
 
-class EnrollmentWindowEditPageView(EventPanelAccessMixin, EventContextMixin, View):
+class EnrollmentWindowEditPageView(
+    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
+):
     request: EventPanelRequest
 
     def get(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
@@ -99,12 +126,11 @@ class EnrollmentWindowEditPageView(EventPanelAccessMixin, EventContextMixin, Vie
             current_event.pk, pk
         )
         if window is None:
-            messages.error(self.request, _("Enrollment window not found."))
-            return redirect("panel:event-enrollment-settings", slug=slug)
-        return self._render(
+            return self.window_not_found(slug)
+        return self.render_window_form(
             slug=slug,
-            window=window,
             form=EnrollmentWindowForm(initial=_window_initial(window)),
+            window=window,
         )
 
     def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
@@ -114,51 +140,32 @@ class EnrollmentWindowEditPageView(EventPanelAccessMixin, EventContextMixin, Vie
             current_event.pk, pk
         )
         if window is None:
-            messages.error(self.request, _("Enrollment window not found."))
-            return redirect("panel:event-enrollment-settings", slug=slug)
+            return self.window_not_found(slug)
 
         form = EnrollmentWindowForm(self.request.POST)
         if not form.is_valid():
-            return self._render(slug=slug, window=window, form=form)
+            return self.render_window_form(slug=slug, form=form, window=window)
         updated = self.request.services.enrollment_settings.update_window(
             event_id=current_event.pk, pk=pk, data=_window_data(form)
         )
         if updated is None:
-            messages.error(self.request, _("Enrollment window not found."))
-        else:
-            messages.success(self.request, _("Enrollment window saved."))
-        return redirect("panel:event-enrollment-settings", slug=slug)
-
-    def _render(
-        self, *, slug: str, window: EnrollmentWindowDTO, form: EnrollmentWindowForm
-    ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        context.update(
-            active_nav="settings",
-            active_tab="enrollment",
-            tab_urls=settings_tab_urls(slug),
-            form=form,
-            window=window,
-        )
-        return TemplateResponse(
-            self.request, "panel/enrollment-window-form.html", context
-        )
+            return self.window_not_found(slug)
+        messages.success(self.request, _("Enrollment window saved."))
+        return redirect(_SETTINGS_URL, slug=slug)
 
 
-class EnrollmentWindowDeleteActionView(EventPanelAccessMixin, EventContextMixin, View):
+class EnrollmentWindowDeleteActionView(
+    EventPanelAccessMixin, EnrollmentSettingsViewMixin, View
+):
     request: EventPanelRequest
     http_method_names = ("post",)
 
     def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
         if (current_event := self.get_current_event(slug)) is None:
             return redirect("panel:index")
-        deleted = self.request.services.enrollment_settings.delete_window(
+        if not self.request.services.enrollment_settings.delete_window(
             current_event.pk, pk
-        )
-        if deleted:
-            messages.success(self.request, _("Enrollment window deleted."))
-        else:
-            messages.error(self.request, _("Enrollment window not found."))
-        return redirect("panel:event-enrollment-settings", slug=slug)
+        ):
+            return self.window_not_found(slug)
+        messages.success(self.request, _("Enrollment window deleted."))
+        return redirect(_SETTINGS_URL, slug=slug)

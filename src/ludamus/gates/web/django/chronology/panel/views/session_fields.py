@@ -21,11 +21,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_field_form_data,
-    parse_field_requirements,
     read_field_or_redirect,
-    scoped_requirements,
 )
 from ludamus.gates.web.django.forms import SessionFieldForm
+from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.mills import PanelService
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, FieldUsageSummary, NotFoundError
 
@@ -108,9 +107,9 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             context["categories"] = (
                 self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
             )
-            cat_reqs, _order = parse_field_requirements(
-                self.request.POST, "category_", "category_order"
-            )
+            cat_reqs = parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            ).requirements
             context["required_category_pks"] = {
                 pk for pk, is_req in cat_reqs.items() if is_req
             }
@@ -127,11 +126,21 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk, {**parsed, "icon": form.cleaned_data.get("icon") or ""}
         )
 
-        category_requirements, _order = scoped_requirements(
-            self.request.POST,
-            "category_",
-            "category_order",
-            self.request.di.uow.proposal_categories.list_by_event(current_event.pk),
+        category_requirements = (
+            parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            )
+            .scoped_to(
+                {
+                    category.pk
+                    for category in (
+                        self.request.di.uow.proposal_categories.list_by_event(
+                            current_event.pk
+                        )
+                    )
+                }
+            )
+            .requirements
         )
         if category_requirements:
             self.request.di.uow.proposal_categories.add_session_field_to_categories(
@@ -226,9 +235,9 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["categories"] = (
                 self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
             )
-            cat_reqs, _order = parse_field_requirements(
-                self.request.POST, "category_", "category_order"
-            )
+            cat_reqs = parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            ).requirements
             context["required_category_pks"] = {
                 pk for pk, is_req in cat_reqs.items() if is_req
             }
@@ -247,11 +256,21 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         options: list[str] | None = None
         if field.field_type == "select":
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
-        cat_reqs, _order = scoped_requirements(
-            self.request.POST,
-            "category_",
-            "category_order",
-            self.request.di.uow.proposal_categories.list_by_event(current_event.pk),
+        cat_reqs = (
+            parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            )
+            .scoped_to(
+                {
+                    category.pk
+                    for category in (
+                        self.request.di.uow.proposal_categories.list_by_event(
+                            current_event.pk
+                        )
+                    )
+                }
+            )
+            .requirements
         )
         with self.request.di.uow.atomic():
             self.request.di.uow.session_fields.update(

@@ -8,8 +8,26 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
+from ludamus.pacts.submissions import RequirementSelectionDTO
+
 if TYPE_CHECKING:
-    from django.http import HttpRequest, HttpResponseRedirect
+    from django.http import HttpRequest, HttpResponseRedirect, QueryDict
+
+
+def parse_requirement_selection(
+    post_data: QueryDict, *, prefix: str, order_key: str
+) -> RequirementSelectionDTO:
+    requirements: dict[int, bool] = {}
+    for key, value in post_data.items():
+        raw_pk = key.removeprefix(prefix) if key.startswith(prefix) else ""
+        if raw_pk.isdigit() and value in {"required", "optional"}:
+            requirements[int(raw_pk)] = value == "required"
+    order = [
+        int(raw_pk)
+        for raw_pk in post_data.get(order_key, "").split(",")
+        if raw_pk.isdigit()
+    ]
+    return RequirementSelectionDTO(requirements=requirements, order=order)
 
 
 def settings_tab_urls(slug: str) -> dict[str, str]:

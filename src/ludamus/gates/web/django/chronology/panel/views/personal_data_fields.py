@@ -16,11 +16,9 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     cfp_tab_urls,
 )
-from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_form_data,
-    parse_field_requirements,
-)
+from ludamus.gates.web.django.chronology.panel.views.fields import parse_field_form_data
 from ludamus.gates.web.django.forms import PersonalDataFieldForm
+from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 
 if TYPE_CHECKING:
@@ -92,9 +90,9 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
 
         service = self.request.services.personal_data_fields
         form = PersonalDataFieldForm(self.request.POST)
-        cat_reqs, _order = parse_field_requirements(
-            self.request.POST, "category_", "category_order"
-        )
+        cat_reqs = parse_requirement_selection(
+            self.request.POST, prefix="category_", order_key="category_order"
+        ).requirements
 
         if not form.is_valid():
             form_ctx = service.get_create_form_context(current_event.pk)
@@ -183,9 +181,9 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         field = edit_ctx.field
         form = PersonalDataFieldForm(self.request.POST)
-        cat_reqs, _order = parse_field_requirements(
-            self.request.POST, "category_", "category_order"
-        )
+        cat_reqs = parse_requirement_selection(
+            self.request.POST, prefix="category_", order_key="category_order"
+        ).requirements
 
         if not form.is_valid():
             context["active_nav"] = "cfp"

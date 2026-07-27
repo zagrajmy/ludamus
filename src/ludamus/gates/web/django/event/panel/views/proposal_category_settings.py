@@ -9,13 +9,13 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.event.panel.forms import parse_requirement_selection
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
     EventPanelAccessMixin,
     EventPanelRequest,
 )
 from ludamus.gates.web.django.forms import ProposalCategoryForm
+from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts.legacy import NotFoundError, PromotionMode
 from ludamus.pacts.submissions import (
     ProposalCategoryEditContextDTO,
