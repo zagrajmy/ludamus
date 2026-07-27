@@ -183,3 +183,10 @@ If you fix a papercut, remove it.
   export `ENV=development` and `VITE_PORT`, run the vite dev server, and keep
   the rest of `.env.e2e`: assets come from vite with HMR, no build, no
   restart. Build only before handing the page to Playwright.
+- 2026-07-27: Stop hook flags merge commits as Unverified (missing SSH
+  signature) — commit_signing_key.pub is an empty 0-byte file in this sandbox,
+  so commit.gpgsign=true+gpg.format=ssh silently fails to sign any commit here
+  (confirmed with a throwaway repo). The hook's suggested fix (rebase --reset-
+  author back through origin/main) would incorrectly reassign authorship of
+  dependabot/human commits already verified on main. Not fixable from the
+  session side; signing key provisioning needs to happen at environment setup.
