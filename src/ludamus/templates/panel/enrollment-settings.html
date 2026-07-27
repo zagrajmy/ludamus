@@ -91,7 +91,8 @@
                                           data-confirm="{% translate 'Delete this enrollment window? Its user and domain access rules will also be deleted.' %}"
                                           data-confirm-action="{% translate 'Delete window' %}">
                                         {% csrf_token %}
-                                        {% tessera_button "Delete window" variant="danger" size="sm" %}
+                                        {% translate "Delete window" as delete_label %}
+                                        {% tessera_button delete_label variant="danger" size="sm" %}
                                     </form>
                                 </div>
                             </td>

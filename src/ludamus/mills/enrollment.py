@@ -32,6 +32,7 @@ from ludamus.pacts.enrollment import (
     AnonymousLoadDTO,
     ClaimResult,
     EnrollmentServiceProtocol,
+    EnrollmentSettingsServiceProtocol,
     GuestSeatData,
     HeldSeatData,
     NavbarNotificationsDTO,
@@ -94,7 +95,7 @@ def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipient
     return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
 
 
-class EnrollmentSettingsService:
+class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
     def __init__(
         self,
         transaction: TransactionProtocol,

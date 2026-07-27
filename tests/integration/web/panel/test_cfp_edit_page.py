@@ -339,6 +339,30 @@ class TestCFPEditPageView:
             url=f"/panel/event/{event.slug}/cfp/",
         )
 
+    def test_post_rejects_category_from_another_event(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other_event = EventFactory(sphere=sphere)
+        foreign_category = ProposalCategory.objects.create(
+            event=other_event, name="Workshops", slug="workshops"
+        )
+        url = reverse(
+            "panel:cfp-edit",
+            kwargs={"event_slug": event.slug, "category_slug": foreign_category.slug},
+        )
+
+        response = authenticated_client.post(url, data={"name": "Renamed"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Category not found.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        foreign_category.refresh_from_db()
+        assert foreign_category.name == "Workshops"
+
     # Time fields tests
 
     def test_get_form_contains_time_fields_with_initial_values(

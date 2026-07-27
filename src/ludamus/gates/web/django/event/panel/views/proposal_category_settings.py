@@ -58,9 +58,15 @@ def _settings_data(
         ],
         min_participants_limit=cleaned["min_participants_limit"] or 0,
         max_participants_limit=cleaned["max_participants_limit"] or 0,
-        promotion_mode=PromotionMode(cleaned["promotion_mode"] or PromotionMode.AUTO),
-        offer_claim_window=timedelta(
-            minutes=cleaned["offer_claim_window_minutes"] or 1_440
+        promotion_mode=(
+            PromotionMode(cleaned["promotion_mode"])
+            if cleaned.get("promotion_mode")
+            else None
+        ),
+        offer_claim_window=(
+            timedelta(minutes=cleaned["offer_claim_window_minutes"])
+            if cleaned.get("offer_claim_window_minutes")
+            else None
         ),
         personal_fields=parse_requirement_selection(
             request.POST, prefix="field_", order_key="field_order"

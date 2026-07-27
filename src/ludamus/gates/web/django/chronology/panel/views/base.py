@@ -73,9 +73,6 @@ class EventContextMixin:
 
         return context, current_event
 
-    def get_current_event(self, slug: str) -> EventDTO | None:
-        return self.get_event_context(slug)[1]
-
     def get_track_filter_context(
         self, event_pk: int
     ) -> tuple[list[Any], set[int], int | None]:

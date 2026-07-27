@@ -99,20 +99,20 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
             session = _scope_selection(data.session_fields, session_fields)
             slots = _scope_selection(data.time_slots, time_slots)
 
-            self._repos.categories.update(
-                category.pk,
-                ProposalCategoryData(
-                    name=data.name,
-                    description=data.description,
-                    start_time=data.start_time,
-                    end_time=data.end_time,
-                    durations=data.durations,
-                    min_participants_limit=data.min_participants_limit,
-                    max_participants_limit=data.max_participants_limit,
-                    promotion_mode=data.promotion_mode,
-                    offer_claim_window=data.offer_claim_window,
-                ),
+            category_data = ProposalCategoryData(
+                name=data.name,
+                description=data.description,
+                start_time=data.start_time,
+                end_time=data.end_time,
+                durations=data.durations,
+                min_participants_limit=data.min_participants_limit,
+                max_participants_limit=data.max_participants_limit,
             )
+            if data.promotion_mode is not None:
+                category_data["promotion_mode"] = data.promotion_mode
+            if data.offer_claim_window is not None:
+                category_data["offer_claim_window"] = data.offer_claim_window
+            self._repos.categories.update(category.pk, category_data)
             self._repos.categories.set_field_requirements(
                 category.pk, personal.requirements, personal.order
             )
