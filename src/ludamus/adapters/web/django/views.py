@@ -378,12 +378,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             )
         context["user_enrollment_config"] = user_enrollment_config
 
-        # Check if any active enrollment config requires slots
-        active_configs = self.object.get_active_enrollment_configs()
-        requires_slots = any(
-            config.restrict_to_configured_users for config in active_configs
+        context["enrollment_requires_slots"] = (
+            self.object.restricts_to_configured_users()
         )
-        context["enrollment_requires_slots"] = requires_slots
         context.update(self._get_anonymous_context())
 
         context["filterable_tag_categories"] = _get_public_select_fields(self.object)
@@ -927,10 +924,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 [member.user_pk for member in eligible]
             )
         }
-        enrollment_config = session.event.get_most_liberal_config(session)
-        restricted = bool(
-            enrollment_config and enrollment_config.restrict_to_configured_users
-        )
+        restricted = session.event.restricts_to_configured_users(session)
         return [
             RosterMember(
                 user=users[member.user_pk],
@@ -1092,8 +1086,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             for error in field_errors:
                 messages.error(self.request, str(error))
 
-        enrollment_config = session.event.get_most_liberal_config(session)
-        if not (enrollment_config and enrollment_config.restrict_to_configured_users):
+        if not session.event.restricts_to_configured_users(session):
             messages.warning(
                 self.request, _("Please review the enrollment options below.")
             )

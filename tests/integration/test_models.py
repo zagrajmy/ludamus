@@ -13,7 +13,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
 )
 from ludamus.pacts.legacy import NotificationKind
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import EnrollmentConfigFactory, EventFactory
 
 
 class TestEventIsPublished:
@@ -124,3 +124,64 @@ class TestPartyMembershipConstraint:
 
         with pytest.raises(IntegrityError), transaction.atomic():
             PartyMembership.objects.create(party=party, member=active_user)
+
+
+def _active_window(event, **kwargs):
+    now = datetime.now(UTC)
+    return EnrollmentConfigFactory(
+        event=event,
+        start_time=now - timedelta(days=1),
+        end_time=now + timedelta(days=5),
+        **kwargs,
+    )
+
+
+class TestEventRestrictsToConfiguredUsers:
+    def test_false_without_any_active_window(self, event):
+        assert event.restricts_to_configured_users() is False
+
+    def test_true_when_the_only_window_restricts(self, event):
+        _active_window(event, restrict_to_configured_users=True)
+
+        assert event.restricts_to_configured_users() is True
+
+    def test_false_when_the_only_window_does_not_restrict(self, event):
+        _active_window(event, restrict_to_configured_users=False)
+
+        assert event.restricts_to_configured_users() is False
+
+    def test_false_when_an_overlapping_window_stays_open(self, event):
+        _active_window(event, restrict_to_configured_users=True, percentage_slots=100)
+        _active_window(event, restrict_to_configured_users=False, percentage_slots=50)
+
+        assert event.restricts_to_configured_users() is False
+
+    def test_true_when_every_overlapping_window_restricts(self, event):
+        _active_window(event, restrict_to_configured_users=True, percentage_slots=100)
+        _active_window(event, restrict_to_configured_users=True, percentage_slots=50)
+
+        assert event.restricts_to_configured_users() is True
+
+    def test_ignores_inactive_windows(self, event):
+        now = datetime.now(UTC)
+        _active_window(event, restrict_to_configured_users=False)
+        EnrollmentConfigFactory(
+            event=event,
+            start_time=now - timedelta(days=10),
+            end_time=now - timedelta(days=9),
+            restrict_to_configured_users=True,
+        )
+
+        assert event.restricts_to_configured_users() is False
+
+
+class TestEventMaxWaitlistSessions:
+    def test_zero_without_any_active_window(self, event):
+        assert event.max_waitlist_sessions() == 0
+
+    def test_takes_the_highest_across_overlapping_windows(self, event):
+        highest = 5
+        _active_window(event, max_waitlist_sessions=2)
+        _active_window(event, max_waitlist_sessions=highest, percentage_slots=10)
+
+        assert event.max_waitlist_sessions() == highest
