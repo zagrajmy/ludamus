@@ -5,16 +5,16 @@ from __future__ import annotations
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 
-from django.contrib.auth.mixins import UserPassesTestMixin
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin as EventPanelContextMixin,
 )
-from ludamus.gates.web.django.event.panel.views.base import EventPanelRequest
-from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelAccessMixin,
+    EventPanelRequest,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,11 +29,8 @@ class PanelRequest(EventPanelRequest):
     di: DependencyInjectorProtocol
 
 
-class PanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
+class PanelAccessMixin(EventPanelAccessMixin):
     request: PanelRequest
-
-    def test_func(self) -> bool:
-        return has_panel_access(self.request)
 
 
 class EventContextMixin(EventPanelContextMixin):

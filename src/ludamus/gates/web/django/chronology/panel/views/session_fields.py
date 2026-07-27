@@ -127,7 +127,7 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             data={**parsed, "icon": form.cleaned_data.get("icon") or ""},
             category_requirements=parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
-            ).requirements,
+            ),
         )
 
         messages.success(self.request, _("Session field created successfully."))
@@ -257,7 +257,7 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             },
             category_requirements=parse_requirement_selection(
                 self.request.POST, prefix="category_", order_key="category_order"
-            ).requirements,
+            ),
         )
 
         messages.success(self.request, _("Session field updated successfully."))

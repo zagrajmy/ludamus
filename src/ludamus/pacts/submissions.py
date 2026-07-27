@@ -528,7 +528,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         *,
         event_pk: int,
         data: SessionFieldCreateData,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> SessionFieldDTO: ...
     def update(
         self,
@@ -536,7 +536,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         event_pk: int,
         field_slug: str,
         data: SessionFieldUpdateData,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> None: ...
 
 
@@ -553,7 +553,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         *,
         event_pk: int,
         data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> PersonalDataFieldDTO: ...
     def update(
         self,
@@ -561,7 +561,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         field_slug: str,
         data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> None: ...
     def delete(self, event_pk: int, field_slug: str) -> bool: ...
 

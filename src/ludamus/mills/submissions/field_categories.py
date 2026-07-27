@@ -5,9 +5,10 @@ table they write to, so the transaction and the event-scoping of the submitted
 category pks live here once.
 """
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.submissions import HasPk
+from ludamus.pacts.submissions import HasPk, RequirementSelectionDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts import ProposalCategoryRepositoryProtocol
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import CFPFieldRepositoryProtocol
 
 
-class CFPFieldCategoryService[CreateT, UpdateT, DtoT: HasPk]:
+class CFPFieldCategoryService[CreateT, UpdateT, DtoT: HasPk](ABC):
     def __init__(
         self,
         *,
@@ -27,25 +28,20 @@ class CFPFieldCategoryService[CreateT, UpdateT, DtoT: HasPk]:
         self._fields = fields
         self._categories = categories
 
-    def _add_to_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
-        raise NotImplementedError
-
-    def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
-        raise NotImplementedError
-
-    def _scope_to_event(
-        self, event_pk: int, category_requirements: dict[int, bool]
-    ) -> dict[int, bool]:
-        valid_pks = {c.pk for c in self._categories.list_by_event(event_pk)}
-        return {pk: req for pk, req in category_requirements.items() if pk in valid_pks}
+    @abstractmethod
+    def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None: ...
 
     def create(
-        self, *, event_pk: int, data: CreateT, category_requirements: dict[int, bool]
+        self,
+        *,
+        event_pk: int,
+        data: CreateT,
+        category_requirements: RequirementSelectionDTO,
     ) -> DtoT:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
-            if scoped := self._scope_to_event(event_pk, category_requirements):
-                self._add_to_categories(field.pk, scoped)
+            if scoped := self._scoped(event_pk, category_requirements):
+                self._set_categories(field.pk, scoped)
         return field
 
     def update(
@@ -54,10 +50,17 @@ class CFPFieldCategoryService[CreateT, UpdateT, DtoT: HasPk]:
         event_pk: int,
         field_slug: str,
         data: UpdateT,
-        category_requirements: dict[int, bool],
+        category_requirements: RequirementSelectionDTO,
     ) -> None:
         field = self._fields.read_by_slug(event_pk, field_slug)
-        scoped = self._scope_to_event(event_pk, category_requirements)
+        scoped = self._scoped(event_pk, category_requirements)
         with self._transaction.atomic():
             self._fields.update(field.pk, data)
             self._set_categories(field.pk, scoped)
+
+    def _scoped(
+        self, event_pk: int, category_requirements: RequirementSelectionDTO
+    ) -> dict[int, bool]:
+        return category_requirements.scoped_to(
+            self._categories.list_by_event(event_pk)
+        ).requirements

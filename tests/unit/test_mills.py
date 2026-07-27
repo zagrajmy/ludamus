@@ -33,6 +33,7 @@ from ludamus.mills.submissions.mapping import (
     slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
+from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.pacts import (
     EncounterDTO,
     EventDTO,
@@ -45,6 +46,7 @@ from ludamus.pacts import (
     RequestContext,
     SessionStatus,
 )
+from ludamus.pacts.legacy import SessionFieldDTO
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
@@ -61,6 +63,7 @@ from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
     QuestionTarget,
+    RequirementSelectionDTO,
 )
 
 
@@ -92,6 +95,10 @@ def _category(pk=1, name="Talk", slug="talk"):
         slug=slug,
         start_time=None,
     )
+
+
+def _selection(requirements: dict[int, bool]) -> RequirementSelectionDTO:
+    return RequirementSelectionDTO(requirements=requirements, order=[])
 
 
 class TestCFPPersonalDataFieldService:
@@ -192,13 +199,13 @@ class TestCFPPersonalDataFieldService:
         }
 
         result = service.create(
-            event_pk=7, data=data, category_requirements={1: True, 2: False}
+            event_pk=7, data=data, category_requirements=_selection({1: True, 2: False})
         )
 
         assert result is created
         transaction.atomic.assert_called_once()
         fields.create.assert_called_once_with(7, data)
-        categories.add_field_to_categories.assert_called_once_with(
+        categories.set_personal_field_categories.assert_called_once_with(
             99, {1: True, 2: False}
         )
 
@@ -220,11 +227,13 @@ class TestCFPPersonalDataFieldService:
         }
 
         service.create(
-            event_pk=7, data=data, category_requirements={1: True, 999: True}
+            event_pk=7,
+            data=data,
+            category_requirements=_selection({1: True, 999: True}),
         )
 
         # The foreign category pk (999) is dropped before persisting.
-        categories.add_field_to_categories.assert_called_once_with(99, {1: True})
+        categories.set_personal_field_categories.assert_called_once_with(99, {1: True})
 
     def test_create_skips_category_assignment_when_no_requirements(
         self, service, fields, categories
@@ -242,9 +251,9 @@ class TestCFPPersonalDataFieldService:
             "is_public": False,
         }
 
-        service.create(event_pk=7, data=data, category_requirements={})
+        service.create(event_pk=7, data=data, category_requirements=_selection({}))
 
-        categories.add_field_to_categories.assert_not_called()
+        categories.set_personal_field_categories.assert_not_called()
 
     def test_update_writes_field_and_sets_categories_in_transaction(
         self, service, transaction, fields, categories
@@ -265,7 +274,7 @@ class TestCFPPersonalDataFieldService:
             event_pk=5,
             field_slug="email",
             data=update_data,
-            category_requirements={1: True},
+            category_requirements=_selection({1: True}),
         )
 
         transaction.atomic.assert_called_once()
@@ -287,7 +296,7 @@ class TestCFPPersonalDataFieldService:
                     "is_public": False,
                     "options": None,
                 },
-                category_requirements={},
+                category_requirements=_selection({}),
             )
 
     def test_delete_returns_false_when_field_has_requirements(self, service, fields):
@@ -2809,3 +2818,47 @@ class TestDedupIdent:
         assert dedup_ident(event_id=7, identity=identity) == dedup_ident(
             event_id=7, identity=identity
         )
+
+
+def _session_field_dto(pk=99):
+    return SessionFieldDTO(
+        field_type="text", name="Genre", order=pk, pk=pk, question="Q", slug="genre"
+    )
+
+
+class TestCFPSessionFieldService:
+    @pytest.fixture
+    def categories(self):
+        categories = MagicMock()
+        categories.list_by_event.return_value = [_category(pk=1)]
+        return categories
+
+    @pytest.fixture
+    def service(self, categories):
+        fields = MagicMock()
+        fields.create.return_value = _session_field_dto()
+        fields.read_by_slug.return_value = _session_field_dto()
+        return CFPSessionFieldService(
+            transaction=MagicMock(), fields=fields, categories=categories
+        )
+
+    def test_create_writes_to_the_session_field_link_table(self, service, categories):
+        service.create(
+            event_pk=7,
+            data={"name": "Genre", "question": "Q", "field_type": "text"},
+            category_requirements=_selection({1: True, 999: True}),
+        )
+
+        categories.set_session_field_categories.assert_called_once_with(99, {1: True})
+        categories.set_personal_field_categories.assert_not_called()
+
+    def test_update_writes_to_the_session_field_link_table(self, service, categories):
+        service.update(
+            event_pk=7,
+            field_slug="genre",
+            data={"name": "Genre"},
+            category_requirements=_selection({1: False, 999: True}),
+        )
+
+        categories.set_session_field_categories.assert_called_once_with(99, {1: False})
+        categories.set_personal_field_categories.assert_not_called()
