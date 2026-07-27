@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
+from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import FieldAnswer
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from lxml.etree import _Element as Element
 
+    from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import (
+        FieldDescriptor,
+    )
     from ludamus.pacts import (
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
@@ -640,32 +644,28 @@ def field_descriptors(
         Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
     ),
     form: forms.Form,
-) -> list[dict[str, object]]:
-    # Template-facing view of a category's fields: pairs each requirement with
-    # its bound field so the wizard and the panel render them the same way.
-    descriptors = []
+) -> list[FieldDescriptor]:
+    # Template-facing view of a category's fields. Everything the markup needs
+    # comes off the DTO, so the wizard and the panel both hand this straight to
+    # the `dynamic_field` tag instead of re-deriving the shapes per template.
+    descriptors: list[FieldDescriptor] = []
     for req in requirements:
         field_key = f"{prefix}_{req.field.slug}"
-        desc: dict[str, object] = {
-            "key": field_key,
-            "bound_field": form[field_key],
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        # Checkboxes get no companion input even when allow_custom is set.
         custom_key = f"{field_key}_custom"
-        desc["custom_bound_field"] = (
-            form[custom_key] if custom_key in form.fields else None
-        )
-        descriptors.append(desc)
+        descriptor: FieldDescriptor = {
+            "field": req.field,
+            "name_prefix": prefix,
+            "answer": FieldAnswer(
+                value=form[field_key].value(),
+                # Checkboxes get no companion input even with allow_custom.
+                custom_value=(
+                    form[custom_key].value() if custom_key in form.fields else ""
+                ),
+                errors=[str(error) for error in form[field_key].errors],
+                is_required=req.is_required,
+            ),
+        }
+        descriptors.append(descriptor)
     return descriptors
 
 

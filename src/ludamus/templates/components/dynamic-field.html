@@ -1,0 +1,47 @@
+{% load i18n tessera markdown_tags %}
+{# One organizer-defined personal-data or session field, switched on its type. #}
+{# Built by the `dynamic_field` tag — call that, never include this directly. #}
+{% translate "Or type a custom value" as custom_placeholder %}
+<div class="flex flex-col gap-y-1 not-last:mb-4">
+    {% if field.field_type != "checkbox" %}
+        <label {% if field.field_type == "text" %}for="{{ input_id }}"{% elif field.field_type == "select" and not field.is_multiple %}for="{{ input_id }}"{% endif %}
+               class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
+            {% if icon_name %}
+                {% icon icon_name class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+            {% endif %}
+            {{ label }}
+            {% if is_required %}
+                <span class="text-danger" aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+            {% endif %}
+            {% include "components/visibility-icon.html" with is_public=field.is_public only %}
+        </label>
+    {% endif %}
+    {% if field.field_type == "select" and field.is_multiple %}
+        {% include "components/choice-group.html" with input_type="checkbox" name=name options=options only %}
+    {% elif field.field_type == "select" %}
+        {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=is_required has_errors=errors only %}
+    {% elif field.field_type == "checkbox" %}
+        <label class="inline-flex items-center cursor-pointer">
+            {% include "components/checkbox-input.html" with name=name id=input_id value="true" checked=is_checked only %}
+            <span class="ml-2 text-sm text-foreground first-letter:uppercase">
+                {% if icon_name %}
+                    {% icon icon_name class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+                {% endif %}
+                {{ label }}
+                {% if is_required %}
+                    <span class="text-danger" aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+                {% endif %}
+                {% include "components/visibility-icon.html" with is_public=field.is_public only %}
+            </span>
+        </label>
+    {% else %}
+        {% include "components/text-field.html" with name=name id=input_id value=text_value maxlength=field.max_length required=is_required has_errors=errors only %}
+    {% endif %}
+    {% if field.allow_custom and field.field_type != "checkbox" %}
+        {% include "components/text-field.html" with name=custom_name id=custom_id value=custom_value placeholder=custom_placeholder only %}
+    {% endif %}
+    {% if field.help_text %}
+        <div class="text-xs text-foreground-muted">{{ field.help_text|render_markdown }}</div>
+    {% endif %}
+    {% for error in errors %}<p class="text-sm text-danger">{{ error }}</p>{% endfor %}
+</div>

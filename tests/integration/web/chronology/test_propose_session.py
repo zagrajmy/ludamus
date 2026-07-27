@@ -404,7 +404,10 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
         assert len(response.context["field_descriptors"]) == 1
-        assert response.context["field_descriptors"][0]["name"] == "What is your phone?"
+        assert (
+            response.context["field_descriptors"][0]["field"].question
+            == "What is your phone?"
+        )
 
     def test_post_category_shows_personal_step_even_without_fields(
         self, authenticated_client, event, faker, time_zone
@@ -872,7 +875,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert len(response.context["field_descriptors"]) == 1
         assert (
-            response.context["field_descriptors"][0]["name"]
+            response.context["field_descriptors"][0]["field"].question
             == "What RPG system will you use?"
         )
 
@@ -1396,7 +1399,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert "custom_bound_field" in descriptors[0]
+        assert descriptors[0]["field"].allow_custom is True
 
     def test_post_session_field_with_allow_custom(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1423,7 +1426,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert "custom_bound_field" in descriptors[0]
+        assert descriptors[0]["field"].allow_custom is True
 
     def test_submit_without_title_redirects(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1724,7 +1727,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert descriptors[0]["is_multiple"] is True
+        assert descriptors[0]["field"].is_multiple is True
 
     def test_post_session_multiple_select_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1754,7 +1757,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert descriptors[0]["is_multiple"] is True
+        assert descriptors[0]["field"].is_multiple is True
 
     def test_submit_personal_data_with_non_personal_key_skipped(
         self, authenticated_client, event, faker, time_zone, proposal_category
