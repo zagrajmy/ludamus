@@ -17,6 +17,7 @@ from PIL import Image, UnidentifiedImageError
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
+from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -329,6 +330,27 @@ class ProposalCategoryForm(forms.Form):
     end_time = forms.DateTimeField(required=False)
     min_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
     max_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
+    promotion_mode = forms.ChoiceField(
+        required=False,
+        initial=PromotionMode.AUTO.value,
+        label=_("When a seat becomes available"),
+        choices=(
+            (PromotionMode.AUTO.value, _("Confirm the next person automatically")),
+            (
+                PromotionMode.OFFER_CLAIM.value,
+                _("Hold the seat until the next person confirms"),
+            ),
+        ),
+        widget=forms.RadioSelect,
+    )
+    offer_claim_window_minutes = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=10_080,
+        initial=1_440,
+        label=_("Time to confirm the seat"),
+        help_text=_("Minutes before an unconfirmed seat goes to the next person."),
+    )
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean() or {}
@@ -337,6 +359,15 @@ class ProposalCategoryForm(forms.Form):
         if min_limit and max_limit and min_limit > max_limit:
             raise forms.ValidationError(
                 _("Minimum participants limit cannot exceed maximum.")
+            )
+        if cleaned.get(
+            "promotion_mode"
+        ) == PromotionMode.OFFER_CLAIM.value and not cleaned.get(
+            "offer_claim_window_minutes"
+        ):
+            self.add_error(
+                "offer_claim_window_minutes",
+                _("Set how long a held seat waits for confirmation."),
             )
         return cleaned
 
