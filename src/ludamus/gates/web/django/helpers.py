@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 
+from ludamus.mills.field_values import merge_custom
+
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
@@ -23,12 +25,16 @@ def parse_dynamic_field_value(
 ) -> str | list[str] | bool:
     if field.field_type == "checkbox":
         return request.POST.get(key) == "true"
-    if field.is_multiple:
-        return request.POST.getlist(key)
-    value = request.POST.get(key, "")
-    if field.allow_custom and not value:
-        value = request.POST.get(f"{key}_custom", "")
-    return value
+    chosen = (
+        request.POST.getlist(key) if field.is_multiple else request.POST.get(key, "")
+    )
+    if not field.allow_custom:
+        return chosen
+    return merge_custom(
+        chosen=chosen,
+        custom=request.POST.get(f"{key}_custom", ""),
+        is_multiple=field.is_multiple,
+    )
 
 
 def get_client_ip(request: HttpRequest) -> str:

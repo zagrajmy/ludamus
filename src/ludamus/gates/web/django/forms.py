@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import operator
 import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -14,6 +13,10 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
+from ludamus.gates.web.django.dynamic_fields import (
+    CustomAnswerFormMixin,
+    build_dynamic_fields,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import (
     build_duration,
     format_duration,
@@ -29,11 +32,7 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from lxml.etree import _Element as Element
 
-    from ludamus.pacts import (
-        PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -611,98 +610,6 @@ class TrackForm(forms.Form):
     )
 
 
-def build_field_from_requirement(
-    fields: dict[str, forms.Field],
-    field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> None:
-    # Shared by the proposal wizard and the organizer panel so a category's
-    # configured fields render identically in both. The label is the field's
-    # question — the wording the proposer is actually asked — since the panel
-    # renders these through tessera_field rather than hand-rolled labels.
-    field_def = req.field
-    label = field_def.question
-    help_text = field_def.help_text
-
-    if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
-
-        if field_def.is_multiple:
-            fields[field_key] = forms.MultipleChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices[1:],  # no blank for multi
-                required=req.is_required,
-                widget=forms.CheckboxSelectMultiple,
-            )
-        else:
-            fields[field_key] = forms.ChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices,
-                required=req.is_required,
-            )
-
-    elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
-        fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
-        )
-    else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[field_key] = forms.CharField(
-            label=label,
-            help_text=help_text,
-            required=req.is_required,
-            max_length=max_len,
-        )
-
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion input the descriptors expect.
-    if field_def.allow_custom and field_def.field_type != "checkbox":
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[f"{field_key}_custom"] = forms.CharField(
-            label=_("Or type a custom value"), required=False, max_length=max_len
-        )
-
-
-def field_descriptors(
-    prefix: str,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    form: forms.Form,
-) -> list[dict[str, object]]:
-    # Template-facing view of a category's fields: pairs each requirement with
-    # its bound field so the wizard and the panel render them the same way.
-    descriptors = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
-        desc: dict[str, object] = {
-            "key": field_key,
-            "bound_field": form[field_key],
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        # Checkboxes get no companion input even when allow_custom is set.
-        custom_key = f"{field_key}_custom"
-        desc["custom_bound_field"] = (
-            form[custom_key] if custom_key in form.fields else None
-        )
-        descriptors.append(desc)
-    return descriptors
-
-
 class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
@@ -822,14 +729,18 @@ def create_proposal_form(
         required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
     )
 
-    for req in requirements:
-        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+    custom_required = build_dynamic_fields(
+        fields=attrs, requirements=requirements, prefix="session"
+    )
 
-    namespace: dict[str, forms.Field | None] = {
+    namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
         **attrs,
         "duration": _duration_field(category.durations if category else []),
+        "custom_required_keys": custom_required,
     }
-    return type("ProposalCreateForm", (_ComposedDurationForm,), namespace)
+    return type(
+        "ProposalCreateForm", (CustomAnswerFormMixin, _ComposedDurationForm), namespace
+    )
 
 
 ACCREDITATION_TYPE_LABELS = {

@@ -87,6 +87,7 @@ export default defineConfig({
         /cover-images\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
+        /write-in-fields\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },
     },
