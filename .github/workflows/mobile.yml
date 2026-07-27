@@ -85,6 +85,17 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
+      - name: Warm up Safari
+        run: |
+          # Safari's first launch on a freshly booted simulator times out
+          # (NSPOSIXErrorDomain 60 / ETIMEDOUT) and leaves agent-device unable
+          # to attach its runner. Absorb that launch here, where it costs
+          # seconds, instead of inside a 240s test hook that then fails.
+          xcrun simctl launch "$UDID" com.apple.mobilesafari || true
+          sleep 5
+          xcrun simctl openurl "$UDID" http://localhost:8000/event/autumn-open/ || true
+          sleep 10
+
       - name: Run iOS Safari regressions
         env:
           AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
@@ -93,18 +104,22 @@ jobs:
           IOS_DEVICE_NAME: iPhone 16
           SESSION: ios-regressions
         run: |
-          # Three attempts: agent-device runner startup flakes on slow macOS
-          # runners (IOS_RUNNER_CONNECT_TIMEOUT / mid-gesture hangs) and two
-          # attempts have been observed landing in the bad window together.
-          for attempt in 1 2 3; do
-            if bun test scripts/ios-regressions/; then
-              exit 0
-            fi
-            echo "iOS regressions attempt ${attempt} failed; retrying after simulator cleanup" >&2
-            xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
-            sleep 15
+          # Retry per file, not per suite: a runner that dies in one file used
+          # to take the next one down with it ("No active session"), and a
+          # whole-suite retry re-ran files that had already passed.
+          status=0
+          for file in scripts/ios-regressions/*.test.ts; do
+            for attempt in 1 2; do
+              if bun test "$file"; then
+                continue 2
+              fi
+              echo "::warning::${file} attempt ${attempt} failed; retrying after simulator cleanup"
+              xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+              sleep 15
+            done
+            status=1
           done
-          exit 1
+          exit "$status"
 
       - name: Stop local e2e server
         if: always()
