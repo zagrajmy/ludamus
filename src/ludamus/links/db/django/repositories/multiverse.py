@@ -2,6 +2,7 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 
 from ludamus.links.db.django.models import Announcement, Connection, Sphere
+from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.pacts import (
     NotFoundError,
     SphereDTO,
@@ -75,9 +76,14 @@ class SphereRepository(
         except Sphere.DoesNotExist as exception:
             raise NotFoundError from exception
 
+        old_logo = sphere.logo.name if "logo" in data else None
+
         for key, value in data.items():
             setattr(sphere, key, value)
         sphere.save(update_fields=list(data.keys()))
+
+        if old_logo and old_logo != sphere.logo.name:
+            delete_stored_file(sphere.logo, old_logo)
 
 
 _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"

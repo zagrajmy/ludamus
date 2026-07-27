@@ -273,6 +273,7 @@ class EventRepository(EventRepositoryProtocol):
             raise NotFoundError from exception
 
         old_cover = event.cover_image.name if "cover_image" in data else None
+        old_logo = event.logo.name if "logo" in data else None
 
         for key, value in data.items():
             setattr(event, key, value)
@@ -280,6 +281,8 @@ class EventRepository(EventRepositoryProtocol):
 
         if old_cover and old_cover != event.cover_image.name:
             delete_stored_file(event.cover_image, old_cover)
+        if old_logo and old_logo != event.logo.name:
+            delete_stored_file(event.logo, old_logo)
 
 
 class EventSettingsRepository(EventSettingsRepositoryProtocol):

@@ -522,7 +522,7 @@ class EncounterData(TypedDict, total=False):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
+    header_image: UploadedFileProtocol | str
     max_participants: int
     place: str
     share_code: str

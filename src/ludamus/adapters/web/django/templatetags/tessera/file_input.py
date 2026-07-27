@@ -52,6 +52,6 @@ def render_file_input(field: BoundField) -> str:
             "initial_url": initial_url,
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
-            "fit": attrs.get("data-fit", "cover"),
+            "contain": attrs.get("data-fit") == "contain",
         },
     )
