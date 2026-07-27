@@ -81,6 +81,12 @@
                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                                           placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
                                 <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
+                                {% translate "Allow multiple selections" as t_is_multiple %}
+                                {% translate "Allow custom values" as t_allow_custom %}
+                                <div class="mt-4 flex flex-col gap-3">
+                                    {% include "components/checkbox-field.html" with name="is_multiple" id="id_is_multiple" label=t_is_multiple checked=form.is_multiple.value only %}
+                                    {% include "components/checkbox-field.html" with name="allow_custom" id="id_allow_custom" label=t_allow_custom checked=form.allow_custom.value only %}
+                                </div>
                             </div>
                         {% endif %}
                         {% if field.field_type != "checkbox" %}

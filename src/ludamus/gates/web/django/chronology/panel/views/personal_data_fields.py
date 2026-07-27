@@ -16,11 +16,9 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     cfp_tab_urls,
 )
-from ludamus.gates.web.django.chronology.panel.views.fields import (
-    parse_field_form_data,
-    parse_field_requirements,
-)
+from ludamus.gates.web.django.chronology.panel.views.fields import parse_field_form_data
 from ludamus.gates.web.django.forms import PersonalDataFieldForm
+from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
 
 if TYPE_CHECKING:
@@ -92,9 +90,10 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
 
         service = self.request.services.personal_data_fields
         form = PersonalDataFieldForm(self.request.POST)
-        cat_reqs, _order = parse_field_requirements(
-            self.request.POST, "category_", "category_order"
+        selection = parse_requirement_selection(
+            self.request.POST, prefix="category_", order_key="category_order"
         )
+        cat_reqs = selection.requirements
 
         if not form.is_valid():
             form_ctx = service.get_create_form_context(current_event.pk)
@@ -114,7 +113,7 @@ class PersonalDataFieldCreatePageView(PanelAccessMixin, EventContextMixin, View)
         service.create(
             event_pk=current_event.pk,
             data=parse_field_form_data(form),
-            category_requirements=cat_reqs,
+            category_requirements=selection,
         )
 
         messages.success(self.request, _("Personal data field created successfully."))
@@ -153,6 +152,8 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
+            initial["is_multiple"] = field.is_multiple
+            initial["allow_custom"] = field.allow_custom
 
         context["active_nav"] = "cfp"
         context["field"] = field
@@ -183,9 +184,10 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         field = edit_ctx.field
         form = PersonalDataFieldForm(self.request.POST)
-        cat_reqs, _order = parse_field_requirements(
-            self.request.POST, "category_", "category_order"
+        selection = parse_requirement_selection(
+            self.request.POST, prefix="category_", order_key="category_order"
         )
+        cat_reqs = selection.requirements
 
         if not form.is_valid():
             context["active_nav"] = "cfp"
@@ -217,8 +219,10 @@ class PersonalDataFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "help_text": form.cleaned_data.get("help_text") or "",
                 "is_public": form.cleaned_data.get("is_public", False),
                 "options": options,
+                "is_multiple": form.cleaned_data.get("is_multiple") or False,
+                "allow_custom": form.cleaned_data.get("allow_custom") or False,
             },
-            category_requirements=cat_reqs,
+            category_requirements=selection,
         )
 
         messages.success(self.request, _("Personal data field updated successfully."))

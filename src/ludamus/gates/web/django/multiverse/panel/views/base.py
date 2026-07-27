@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.urls import reverse
 
-from ludamus.mills import is_proposal_active
+from ludamus.mills.event import is_proposal_active
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.multiverse.access import MultiverseRequest

@@ -4235,14 +4235,14 @@ typer = ">=0.24.0"
 
 [[package]]
 name = "types-authlib"
-version = "1.6.11.20260518"
+version = "1.7.2.20260724"
 description = "Typing stubs for Authlib"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "types_authlib-1.6.11.20260518-py3-none-any.whl", hash = "sha256:e9c873dbc61d87f57cda25b8eb6d35610eb1cae2f5f2b74a8faf94c5e5f01b90"},
-    {file = "types_authlib-1.6.11.20260518.tar.gz", hash = "sha256:15b9a257e849e740241baa2113dd868c1b295cdc32449e54b109e9fc0105b556"},
+    {file = "types_authlib-1.7.2.20260724-py3-none-any.whl", hash = "sha256:ed5ad55d94eadfc4df8ac6396df36e28bd188bf50e05ae892463ff6d85456e03"},
+    {file = "types_authlib-1.7.2.20260724.tar.gz", hash = "sha256:ce1f40fa4269daf029e9b288d82083675b45c9e88c2787be6a4bfdd5484607f1"},
 ]
 
 [package.dependencies]
@@ -4552,4 +4552,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "95033b5cf86dfff77e089bc41a55aac6c51b05780306025b144811ccbd4d6c12"
+content-hash = "66db3cf1d862c8410ca502e29ea34170a08dfb1bb819f33405f739220d3da187"

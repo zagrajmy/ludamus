@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@playwright/test",
+            "importNames": [
+              "test"
+            ],
+            "message": "Import test from ./helpers/fixtures so the spec lands in the client coverage report."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "helpers/fixtures.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ]
+}
