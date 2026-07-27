@@ -76,7 +76,7 @@ class SphereRepository(
         except Sphere.DoesNotExist as exception:
             raise NotFoundError from exception
 
-        save_replacing_files(sphere, data, "logo")
+        save_replacing_files(sphere, data)
 
 
 _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"

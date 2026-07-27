@@ -73,7 +73,7 @@ class EncounterRepository(EncounterRepositoryProtocol):
     @staticmethod
     def update(pk: int, data: EncounterData) -> None:
         encounter = Encounter.objects.get(pk=pk)
-        save_replacing_files(encounter, data, "header_image")
+        save_replacing_files(encounter, data)
 
     @staticmethod
     def delete(pk: int) -> None:

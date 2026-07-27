@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from django.db.models.fields.files import FieldFile
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -22,14 +24,15 @@ def delete_stored_file(field_file: object, old_name: str) -> None:
         )
 
 
-def save_replacing_files(
-    instance: Model, data: Mapping[str, object], *file_fields: str
-) -> None:
+def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
     # A replaced file field strands its previous blob, because unique_upload_to
-    # never reuses a name. Naming the file fields here keeps the cleanup from
-    # being something each repository has to remember on its own.
+    # never reuses a name. Which keys are files is read off the instance rather
+    # than listed per repository -- forgetting to list Event.logo is what
+    # stranded logos in the first place.
     old_names = {
-        field: getattr(instance, field).name for field in file_fields if field in data
+        key: current.name
+        for key in data
+        if isinstance(current := getattr(instance, key, None), FieldFile)
     }
 
     for key, value in data.items():

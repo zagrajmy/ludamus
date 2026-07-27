@@ -13,28 +13,28 @@ from django_vite.templatetags.django_vite import vite_asset
 
 register = template.Library()
 
-_emitted: ContextVar[set[str]] = ContextVar("vite_assets_emitted")
+RESET_DISPATCH_UID = "vite_tags.reset_emitted"
+_emitted: ContextVar[set[str] | None] = ContextVar("vite_assets_emitted", default=None)
 
 
-def _reset_emitted(**_kwargs: object) -> None:
+def reset_emitted_assets(**_kwargs: object) -> None:
     _emitted.set(set())
 
 
-request_started.connect(_reset_emitted, dispatch_uid="vite_tags.reset_emitted")
+request_started.connect(reset_emitted_assets, dispatch_uid=RESET_DISPATCH_UID)
 
 
 @register.simple_tag
 def vite_asset_once(path: str) -> SafeString:
-    """Render an asset's tags the first time it is asked for in a request.
+    """Render an asset's tags the first time a request asks for them.
 
     Returns:
-        The asset's tags, or an empty string if they were already emitted.
+        The asset's tags, or an empty string for a repeat within one request.
     """
-    try:
-        emitted = _emitted.get()
-    except LookupError:
-        emitted = set()
-        _emitted.set(emitted)
+    # Outside a request there is no page to dedupe within, and suppressing a
+    # tag we cannot prove is already on the page would be the worse failure.
+    if (emitted := _emitted.get()) is None:
+        return SafeString(vite_asset(path))
     if path in emitted:
         return SafeString("")
     emitted.add(path)

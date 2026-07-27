@@ -272,7 +272,7 @@ class EventRepository(EventRepositoryProtocol):
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
 
-        save_replacing_files(event, data, "cover_image", "logo")
+        save_replacing_files(event, data)
 
 
 class EventSettingsRepository(EventSettingsRepositoryProtocol):

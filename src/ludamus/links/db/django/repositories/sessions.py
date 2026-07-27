@@ -248,7 +248,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             session = Session.objects.get(id=pk)
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
-        save_replacing_files(session, data, "cover_image")
+        save_replacing_files(session, data)
 
     @staticmethod
     def soft_delete(pk: int) -> None:
