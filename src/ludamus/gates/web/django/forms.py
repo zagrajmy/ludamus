@@ -577,11 +577,25 @@ class TrackForm(forms.Form):
     )
 
 
+class CustomAnswerFormMixin(forms.Form):
+    """Answers a write-in can satisfy, for fields that offer one."""
+
+    custom_required_keys: ClassVar[tuple[str, ...]] = ()
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean() or {}
+        for key in self.custom_required_keys:
+            if cleaned.get(key) or cleaned.get(f"{key}_custom"):
+                continue
+            self.add_error(key, _("Pick an option or type your own."))
+        return cleaned
+
+
 def build_field_from_requirement(
     fields: dict[str, forms.Field],
     field_key: str,
     req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> None:
+) -> bool:
     # Shared by the proposal wizard and the organizer panel so a category's
     # configured fields render identically in both. The label is the field's
     # question — the wording the proposer is actually asked — since the panel
@@ -589,6 +603,8 @@ def build_field_from_requirement(
     field_def = req.field
     label = field_def.question
     help_text = field_def.help_text
+    offers_custom = field_def.allow_custom and field_def.field_type != "checkbox"
+    is_required = req.is_required and not offers_custom
 
     if field_def.field_type == "select":
         raw_options = [(o.value, o.label, o.order) for o in field_def.options]
@@ -600,15 +616,12 @@ def build_field_from_requirement(
                 label=label,
                 help_text=help_text,
                 choices=choices[1:],  # no blank for multi
-                required=req.is_required,
+                required=is_required,
                 widget=forms.CheckboxSelectMultiple,
             )
         else:
             fields[field_key] = forms.ChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices,
-                required=req.is_required,
+                label=label, help_text=help_text, choices=choices, required=is_required
             )
 
     elif field_def.field_type == "checkbox":
@@ -619,19 +632,17 @@ def build_field_from_requirement(
     else:
         max_len = field_def.max_length if field_def.max_length > 0 else None
         fields[field_key] = forms.CharField(
-            label=label,
-            help_text=help_text,
-            required=req.is_required,
-            max_length=max_len,
+            label=label, help_text=help_text, required=is_required, max_length=max_len
         )
 
     # A checkbox has nothing to customise; every other type with allow_custom
     # gets the companion input the descriptors expect.
-    if field_def.allow_custom and field_def.field_type != "checkbox":
+    if offers_custom:
         max_len = field_def.max_length if field_def.max_length > 0 else None
         fields[f"{field_key}_custom"] = forms.CharField(
             label=_("Or type a custom value"), required=False, max_length=max_len
         )
+    return offers_custom and req.is_required
 
 
 def field_descriptors(
@@ -750,10 +761,17 @@ def create_proposal_form(
             ],
         )
 
-    for req in requirements:
-        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+    custom_required = [
+        key
+        for req in requirements
+        if build_field_from_requirement(attrs, key := f"session_{req.field.slug}", req)
+    ]
 
-    return type("ProposalCreateForm", (SessionEditForm,), attrs)
+    return type(
+        "ProposalCreateForm",
+        (CustomAnswerFormMixin, SessionEditForm),
+        {**attrs, "custom_required_keys": tuple(custom_required)},
+    )
 
 
 ACCREDITATION_TYPE_LABELS = {

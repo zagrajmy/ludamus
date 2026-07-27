@@ -8,6 +8,7 @@ from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import (
+    CustomAnswerFormMixin,
     build_field_from_requirement,
     cover_image_field,
     validate_uploaded_image,
@@ -30,12 +31,21 @@ def build_personal_data_form(
 ) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {}
 
-    for req in requirements:
-        build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
+    custom_required = [
+        key
+        for req in requirements
+        if build_field_from_requirement(
+            fields, key := f"personal_{req.field.slug}", req
+        )
+    ]
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
 
-    return type("PersonalDataForm", (forms.Form,), fields)
+    return type(
+        "PersonalDataForm",
+        (CustomAnswerFormMixin,),
+        {**fields, "custom_required_keys": tuple(custom_required)},
+    )
 
 
 def build_session_details_form(
@@ -83,10 +93,17 @@ def build_session_details_form(
             label=_("Duration"), choices=[("", "---"), *duration_choices]
         )
 
-    for req in requirements:
-        build_field_from_requirement(fields, f"session_{req.field.slug}", req)
+    custom_required = [
+        key
+        for req in requirements
+        if build_field_from_requirement(fields, key := f"session_{req.field.slug}", req)
+    ]
 
-    return type("SessionDetailsForm", (forms.Form,), fields)
+    return type(
+        "SessionDetailsForm",
+        (CustomAnswerFormMixin,),
+        {**fields, "custom_required_keys": tuple(custom_required)},
+    )
 
 
 class SessionCoverImageForm(forms.Form):

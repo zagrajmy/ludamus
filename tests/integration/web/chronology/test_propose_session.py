@@ -1756,7 +1756,7 @@ class TestProposeSessionPageView:
         assert len(descriptors) == 1
         assert descriptors[0]["is_multiple"] is True
 
-    def _multi_custom_field(self, event, proposal_category):
+    def _multi_custom_field(self, event, proposal_category, *, is_required=False):
         field = SessionField.objects.create(
             event=event,
             name="Trigger warnings",
@@ -1770,9 +1770,60 @@ class TestProposeSessionPageView:
             field=field, label="Horror", value="horror", order=0
         )
         SessionFieldRequirement.objects.create(
-            category=proposal_category, field=field, is_required=False
+            category=proposal_category, field=field, is_required=is_required
         )
         return field
+
+    def test_details_accepts_a_write_in_as_the_answer_to_a_required_field(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category, is_required=True)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers_custom": "krew",
+            },
+        )
+
+        session_data = authenticated_client.session[f"propose_{event.slug}"][
+            "session_data"
+        ]
+        assert session_data["session_triggers"] == ["krew"]
+
+    def test_details_rejects_a_required_field_with_neither_answer(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category, is_required=True)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/details.html",
+            contains=["Pick an option or type your own."],
+        )
+        assert (
+            "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
+        )
 
     def test_details_keeps_write_ins_next_to_the_chosen_options(
         self, authenticated_client, event, faker, time_zone, proposal_category

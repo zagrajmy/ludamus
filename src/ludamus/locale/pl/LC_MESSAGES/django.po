@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 14:03+0200\n"
+"POT-Creation-Date: 2026-07-27 14:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2318,6 +2318,10 @@ msgid "Public tracks are shown to proposers in the submission wizard."
 msgstr ""
 "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
 "propozycji."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Pick an option or type your own."
+msgstr "Wybierz opcję lub wpisz własną."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
