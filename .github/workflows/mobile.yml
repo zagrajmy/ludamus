@@ -17,9 +17,15 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    timeout-minutes: 30
+    # Worst case is 7 (warm-up) + 20 (tests) + ~7 of setup and teardown. Sized
+    # so the step timeouts bind first: a step failure uploads logs, a job cancel
+    # does not.
+    timeout-minutes: 36
     env:
-      E2E_EVENT_URL: http://localhost:8000/event/autumn-open/
+      AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
+      BASE_URL: http://localhost:8000
+      IOS_DEVICE_NAME: iPhone 16
+      SESSION: ios-regressions
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +84,7 @@ jobs:
       - name: Wait for local e2e server
         run: |
           for _ in {1..60}; do
-            if curl --fail --silent --show-error "$E2E_EVENT_URL" > /dev/null; then
+            if curl --fail --silent --show-error http://localhost:8000/event/autumn-open/ > /dev/null; then
               exit 0
             fi
             sleep 2
@@ -89,48 +95,44 @@ jobs:
 
       - name: Warm up the agent-device runner
         continue-on-error: true
-        timeout-minutes: 6
+        timeout-minutes: 7
         env:
-          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 90000
-          AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
-          BASE_URL: http://localhost:8000
-          IOS_DEVICE_NAME: iPhone 16
-          SESSION: ios-regressions
+          # This is the one step that is supposed to be slow: the RPC it makes
+          # is the cold runner build-and-attach. The 90s default would abort it
+          # every time.
+          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
-        timeout-minutes: 22
+        # Bounds a hang at the step, where the logs still upload. A job-level
+        # cancel skips the upload -- that is how run 30275377814 lost its logs.
+        timeout-minutes: 20
         env:
-          # A daemon call that outlives the hook budget reports as an unnamed
-          # 240s hook timeout with no attribution. Bounded well under the hook,
-          # a wedged runner throws a named IOS_RUNNER_CONNECT_TIMEOUT instead.
-          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 90000
-          AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
-          IOS_HOOK_TIMEOUT_MS: 150000
-          BASE_URL: http://localhost:8000
-          IOS_DEVICE_NAME: iPhone 16
-          SESSION: ios-regressions
+          # The hook must outlive the daemon RPC, or a wedged runner surfaces as
+          # an unattributed `(unnamed)` hook timeout instead of a named
+          # IOS_RUNNER_CONNECT_TIMEOUT. Both stay above the measured 194-240s
+          # attach, so a failed warm-up degrades to slow rather than broken.
+          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
+          IOS_HOOK_TIMEOUT_MS: 300000
         run: |
           # Retry per file, not per suite: a runner that dies in one file used
           # to take the next one down with it ("No active session"), and a
           # whole-suite retry re-ran files that had already passed.
           # Order is spelled out rather than globbed: scrubber is the cheaper
           # hook, and a glob would silently reorder on collation.
-          attempts=3
+          run_file() {
+            for attempt in 1 2 3; do
+              if bun test "scripts/ios-regressions/$1.test.ts"; then
+                return 0
+              fi
+              echo "::warning::$1 attempt ${attempt}/3 failed"
+            done
+            return 1
+          }
+
           status=0
           for file in scrubber-longpress modal; do
-            for attempt in $(seq 1 "$attempts"); do
-              if bun test "scripts/ios-regressions/${file}.test.ts"; then
-                continue 2
-              fi
-              echo "::warning::${file} attempt ${attempt} of ${attempts} failed"
-              if [ "$attempt" -eq "$attempts" ]; then
-                break
-              fi
-              xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
-              sleep 15
-            done
-            status=1
+            run_file "$file" || status=1
           done
           exit "$status"
 
@@ -147,5 +149,6 @@ jobs:
           name: ios-regression-logs
           path: |
             ios-server.log
+            ~/.agent-device/daemon.log
             ~/.agent-device/logs/
           retention-days: 14

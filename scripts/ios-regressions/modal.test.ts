@@ -10,11 +10,13 @@ const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
-// Same displacement as before, in two round trips instead of eight: each
-// scroll costs ~15s against the simulator, and this ramp was two thirds of the
-// hook budget.
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "2");
-const preOpenScrollPixels = Number(env.PRE_OPEN_SCROLL_PIXELS ?? "1800");
+// ~3800px in five round trips rather than 3600px in eight: each scroll costs
+// ~15s against the simulator, and this ramp was two thirds of the hook budget.
+// 760 is the per-scroll ceiling agent-device enforces -- it clamps pixels to
+// `referenceHeight - 2 * round(0.05 * referenceHeight)`, which is 766 on the
+// iPhone 16 viewport, so asking for more silently scrolls less.
+const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "5");
+const preOpenScrollPixels = Number(env.PRE_OPEN_SCROLL_PIXELS ?? "760");
 
 const {
   client,
