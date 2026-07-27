@@ -8,7 +8,7 @@ from django.urls import reverse
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
 from tests.integration.utils import assert_response
 
-PRODUCT_PITCH = "Conventions, RPG sessions and game nights in one place."
+PRODUCT_PITCH = "The convention programme in your pocket."
 
 
 def _head(response, pattern):
