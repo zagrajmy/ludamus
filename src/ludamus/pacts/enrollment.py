@@ -184,6 +184,10 @@ class EnrollmentWindowLike(Protocol):
     restrict_to_configured_users: bool
 
 
+def _percentage_slots(window: EnrollmentWindowLike) -> int:
+    return window.percentage_slots
+
+
 @dataclass(frozen=True)
 class EnrollmentPolicy:
     """What one actor may do across the enrollment windows open to them.
@@ -212,12 +216,24 @@ class EnrollmentPolicy:
         return bool(self.windows)
 
     @property
+    def seating_window(self) -> EnrollmentWindowLike | None:
+        if not self.windows:
+            return None
+        return max(self.windows, key=_percentage_slots)
+
+    @property
     def percentage_slots(self) -> int:
-        return max((window.percentage_slots for window in self.windows), default=0)
+        return self.seating_window.percentage_slots if self.seating_window else 0
 
     @property
     def max_waitlist_sessions(self) -> int:
         return max((window.max_waitlist_sessions for window in self.windows), default=0)
+
+    @property
+    def restricts_everyone(self) -> bool:
+        return bool(self.windows) and all(
+            window.restrict_to_configured_users for window in self.windows
+        )
 
     @property
     def allows_anonymous_enrollment(self) -> bool:
@@ -231,8 +247,8 @@ class EnrollmentPolicy:
 
     @property
     def requires_slot_allowance(self) -> bool:
-        return bool(self.windows) and all(
-            window.restrict_to_configured_users for window in self.windows
+        return bool(
+            self.seating_window and self.seating_window.restrict_to_configured_users
         )
 
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:

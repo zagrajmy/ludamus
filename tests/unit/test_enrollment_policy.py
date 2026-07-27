@@ -162,13 +162,47 @@ class TestSlotAllowance:
 
         assert policy.requires_slot_allowance is True
 
-    def test_one_open_window_frees_a_configured_actor_from_their_allowance(
+    def test_a_wider_open_window_frees_a_configured_actor_from_their_allowance(
         self,
     ) -> None:
         policy = _policy(
-            _Window(restrict_to_configured_users=True),
-            _Window(),
+            _Window(percentage_slots=_OPEN_PERCENT, restrict_to_configured_users=True),
+            _Window(percentage_slots=_RESTRICTED_PERCENT),
             is_configured_user=True,
         )
 
         assert policy.requires_slot_allowance is False
+
+    def test_the_restricted_pool_cannot_be_taken_without_its_allowance(self) -> None:
+        policy = _policy(
+            _Window(
+                percentage_slots=_RESTRICTED_PERCENT, restrict_to_configured_users=True
+            ),
+            _Window(percentage_slots=_OPEN_PERCENT),
+            is_configured_user=True,
+        )
+
+        assert policy.percentage_slots == _RESTRICTED_PERCENT
+        assert policy.requires_slot_allowance is True
+
+
+class TestRestrictsEveryone:
+    def test_open_window_leaves_the_event_unrestricted(self) -> None:
+        policy = EnrollmentPolicy(
+            (_Window(restrict_to_configured_users=True), _Window())
+        )
+
+        assert policy.restricts_everyone is False
+
+    def test_every_window_restricting_restricts_the_event(self) -> None:
+        policy = EnrollmentPolicy(
+            (
+                _Window(restrict_to_configured_users=True),
+                _Window(restrict_to_configured_users=True),
+            )
+        )
+
+        assert policy.restricts_everyone is True
+
+    def test_no_windows_restricts_nobody(self) -> None:
+        assert EnrollmentPolicy(()).restricts_everyone is False

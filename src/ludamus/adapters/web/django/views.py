@@ -1290,9 +1290,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def _restricts_unconfigured(session: Session) -> bool:
-        return session.event.enrollment_policy(
-            session, is_configured_user=True
-        ).requires_slot_allowance
+        return EnrollmentPolicy(
+            tuple(session.event.get_eligible_enrollment_configs(session))
+        ).restricts_everyone
 
     def _available_slots(self, session: Session) -> int:
         return self._actor_policy(session).available_slots(
@@ -1607,9 +1607,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         guest_seats_needed: int = 0,
         guest_seats_freed: int = 0,
     ) -> bool:
-        enroll_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
-        enroll_count += guest_seats_needed
-        if enroll_count == 0:
+        member_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        if (enroll_count := member_count + guest_seats_needed) == 0:
             return False
 
         # A cancellation in the same batch frees its held seat (CONFIRMED or
@@ -1626,34 +1625,32 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        # Zero config rows (cancel-only carve-out) contribute no slots; guest
-        # increases stay bounded by seats freed by the same batch's cancels.
         session_wide = session.event.get_most_liberal_config(session)
         available_spots = freed_spots + (
             session_wide.get_available_slots(session) if session_wide else 0
         )
+        member_spots = freed_spots + self._available_slots(session)
+        if member_count > member_spots:
+            requested, available = member_count, member_spots
+        elif enroll_count > available_spots:
+            requested, available = enroll_count, available_spots
+        else:
+            return False
 
-        if enroll_count > available_spots:
-            # Guests cannot wait on the list, so the generic "use the waiting
-            # list" advice would be a dead end when guests caused the overflow.
-            message = (
-                _(
-                    "Not enough spots available. {} spots requested, {} available. "
-                    "Bring fewer guests or use the waiting list for account "
-                    "holders."
-                )
-                if guest_seats_needed
-                else _(
-                    "Not enough spots available. {} spots requested, {} available. "
-                    "Please use waiting list for some users."
-                )
+        message = (
+            _(
+                "Not enough spots available. {} spots requested, {} available. "
+                "Bring fewer guests or use the waiting list for account "
+                "holders."
             )
-            messages.error(
-                self.request, str(message).format(enroll_count, available_spots)
+            if guest_seats_needed
+            else _(
+                "Not enough spots available. {} spots requested, {} available. "
+                "Please use waiting list for some users."
             )
-            return True
-
-        return False
+        )
+        messages.error(self.request, str(message).format(requested, available))
+        return True
 
     def _manage_enrollments(
         self,

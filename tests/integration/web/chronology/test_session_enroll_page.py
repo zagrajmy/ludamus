@@ -1235,6 +1235,64 @@ class TestSessionEnrollPageView:
         )
         assert participation.status == SessionParticipationStatus.WAITING
 
+    def test_post_one_click_seats_come_from_the_open_window_too(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            user=UserFactory(),
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert not SessionParticipation.objects.filter(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+
+    def test_post_restricted_pool_still_costs_a_slot_beside_an_open_window(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        PartyMembership.objects.filter(member=companion).delete()
+        sponsor_user(leader=staff_user, member=companion)
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=staff_user.email,
+            allowed_slots=1,
+        )
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+
+        staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=agenda_item.session
+        ).exists()
+
     def test_post_restrict_to_configured_users_config_exists_too_many_enrollment2(
         self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
     ):
