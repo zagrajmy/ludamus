@@ -5,33 +5,28 @@ from __future__ import annotations
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 
-from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.text import slugify
-from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventContextMixin as EventPanelContextMixin,
+)
+from ludamus.gates.web.django.event.panel.views.base import EventPanelRequest
 from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
-from ludamus.mills import PanelService
-from ludamus.mills.event import is_proposal_active
-from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ludamus.pacts import AuthenticatedRequestContext, EventDTO
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts import DependencyInjectorProtocol
     from ludamus.pacts.venues import PrintScopeOptionDTO
 
 
-class PanelRequest(HttpRequest):
+class PanelRequest(EventPanelRequest):
     """Request type for panel views with UoW and context."""
 
-    context: AuthenticatedRequestContext
     di: DependencyInjectorProtocol
-    services: ServicesProtocol
 
 
 class PanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
@@ -41,37 +36,10 @@ class PanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
         return has_panel_access(self.request)
 
 
-class EventContextMixin:
-    """Mixin providing common event context for panel views."""
+class EventContextMixin(EventPanelContextMixin):
+    """Adds the legacy UoW-backed helpers to the shared event context mixin."""
 
     request: PanelRequest
-
-    def get_event_context(self, slug: str) -> tuple[dict[str, Any], EventDTO | None]:
-        """Build common context for event pages.
-
-        Returns:
-            Tuple of (context dict, current_event or None if not found).
-        """
-        sphere_id = self.request.context.current_sphere_id
-        events = self.request.di.uow.events.list_by_sphere(sphere_id)
-
-        try:
-            current_event = self.request.di.uow.events.read_by_slug(slug, sphere_id)
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
-            return {}, None
-
-        panel_service = PanelService(self.request.di.uow)
-        stats = panel_service.get_event_stats(current_event.pk)
-
-        context: dict[str, Any] = {
-            "events": events,
-            "current_event": current_event,
-            "is_proposal_active": is_proposal_active(current_event),
-            "stats": stats.model_dump(),
-        }
-
-        return context, current_event
 
     def get_track_filter_context(
         self, event_pk: int

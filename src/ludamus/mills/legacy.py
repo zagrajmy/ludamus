@@ -7,7 +7,6 @@ from urllib.parse import urlencode
 import markdown as _md
 import nh3
 
-from ludamus.mills.event import build_panel_stats
 from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts import (
     CacheProtocol,
@@ -21,7 +20,6 @@ from ludamus.pacts import (
     FacilitatorDTO,
     FacilitatorMergeError,
     NotFoundError,
-    PanelStatsDTO,
     PersonalDataFieldValueData,
     PersonalFieldRequirementDTO,
     ProposalCategoryDTO,
@@ -486,17 +484,6 @@ class PanelService:
             return False
         self._uow.time_slots.delete(time_slot_pk)
         return True
-
-    def get_event_stats(self, event_id: int) -> PanelStatsDTO:
-        """Calculate panel statistics for an event.
-
-        Args:
-            event_id: The event ID to get stats for.
-
-        Returns:
-            PanelStatsDTO with computed statistics.
-        """
-        return build_panel_stats(self._uow.events.get_stats_data(event_id))
 
     @staticmethod
     def validate_time_slot(

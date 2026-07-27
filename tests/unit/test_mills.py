@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills import (
-    PanelService,
     ProposeSessionService,
     check_proposal_rate_limit,
     generate_ics_content,
@@ -14,7 +13,7 @@ from ludamus.mills import (
     outlook_calendar_url,
     render_markdown,
 )
-from ludamus.mills.event import is_proposal_active
+from ludamus.mills.event import build_panel_stats, is_proposal_active
 from ludamus.mills.multiverse import ConnectionsService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
@@ -316,81 +315,72 @@ class TestCFPPersonalDataFieldService:
             service.delete(event_pk=5, field_slug="missing")
 
 
-class TestPanelService:
-    @pytest.fixture
-    def mock_uow(self):
-        return MagicMock()
+class TestBuildPanelStats:
+    def test_total_sessions_sums_pending_and_scheduled(self) -> None:
+        pending, scheduled = 5, 10
 
-    @pytest.fixture
-    def panel_service(self, mock_uow):
-        return PanelService(mock_uow)
-
-    def test_get_event_stats_calculates_total_sessions(self, panel_service, mock_uow):
-        total_proposals = 15
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=5,
-            scheduled_sessions=10,
-            total_proposals=total_proposals,
-            unique_host_ids={1, 2, 3},
-            rooms_count=4,
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=pending,
+                scheduled_sessions=scheduled,
+                total_proposals=15,
+                unique_host_ids={1, 2, 3},
+                rooms_count=4,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=1)
+        assert stats.total_sessions == pending + scheduled
 
-        assert result.total_sessions == total_proposals
-        mock_uow.events.get_stats_data.assert_called_once_with(1)
-
-    def test_get_event_stats_counts_unique_hosts(self, panel_service, mock_uow):
+    def test_counts_unique_hosts(self) -> None:
         hosts = {10, 20, 30, 40, 50}
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=0,
-            scheduled_sessions=0,
-            total_proposals=0,
-            unique_host_ids=hosts,
-            rooms_count=0,
+
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=0,
+                scheduled_sessions=0,
+                total_proposals=0,
+                unique_host_ids=hosts,
+                rooms_count=0,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=42)
+        assert stats.hosts_count == len(hosts)
 
-        assert result.hosts_count == len(hosts)
+    def test_maps_every_field(self) -> None:
+        pending, scheduled, total, rooms = 3, 7, 10, 5
+        hosts = {1, 2}
 
-    def test_get_event_stats_returns_panel_stats_dto(self, panel_service, mock_uow):
-        pending_proposals = 3
-        scheduled_sessions = 7
-        total_proposals = 10
-        unique_host_ids = {1, 2}
-        rooms_count = 5
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=pending_proposals,
-            scheduled_sessions=scheduled_sessions,
-            total_proposals=total_proposals,
-            unique_host_ids=unique_host_ids,
-            rooms_count=rooms_count,
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=pending,
+                scheduled_sessions=scheduled,
+                total_proposals=total,
+                unique_host_ids=hosts,
+                rooms_count=rooms,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=1)
+        assert isinstance(stats, PanelStatsDTO)
+        assert stats.pending_proposals == pending
+        assert stats.scheduled_sessions == scheduled
+        assert stats.total_proposals == total
+        assert stats.rooms_count == rooms
+        assert stats.hosts_count == len(hosts)
+        assert stats.total_sessions == pending + scheduled
 
-        assert isinstance(result, PanelStatsDTO)
-        assert result.pending_proposals == pending_proposals
-        assert result.scheduled_sessions == scheduled_sessions
-        assert result.total_proposals == total_proposals
-        assert result.rooms_count == rooms_count
-        assert result.hosts_count == len(unique_host_ids)
-        assert result.total_sessions == total_proposals
-
-    def test_get_event_stats_with_empty_hosts(self, panel_service, mock_uow):
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=0,
-            scheduled_sessions=0,
-            total_proposals=0,
-            unique_host_ids=set(),
-            rooms_count=0,
+    def test_handles_empty_hosts(self) -> None:
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=0,
+                scheduled_sessions=0,
+                total_proposals=0,
+                unique_host_ids=set(),
+                rooms_count=0,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=1)
-
-        assert result.hosts_count == 0
-        assert result.total_sessions == 0
+        assert stats.hosts_count == 0
+        assert stats.total_sessions == 0
 
 
 class TestIsProposalActive:

@@ -23,9 +23,7 @@
         <div class="max-w-5xl space-y-6">
             <div class="max-w-2xl">
                 <h2 class="text-lg font-semibold text-foreground">{% translate "Enrollment windows" %}</h2>
-                <p class="mt-1 text-sm text-foreground-muted">
-                    {% translate "Set when enrollment opens and which rules apply. Overlapping windows combine, and participants receive the most permissive available access." %}
-                </p>
+                <p class="mt-1 text-sm text-foreground-muted">{% translate "Set when enrollment opens and which rules apply." %}</p>
             </div>
             {% if windows %}
                 {% tessera_table %}

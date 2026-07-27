@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-26 18:43+0200\n"
+"POT-Creation-Date: 2026-07-27 14:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -716,7 +716,6 @@ msgid "Please select at least one user to enroll."
 msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
-#: src/ludamus/gates/web/django/chronology/panel/views/base.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/chronology/views.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
@@ -6353,12 +6352,8 @@ msgid "Enrollment windows"
 msgstr "Okna zapisów"
 
 #: src/ludamus/templates/panel/enrollment-settings.html
-msgid ""
-"Set when enrollment opens and which rules apply. Overlapping windows "
-"combine, and participants receive the most permissive available access."
-msgstr ""
-"Ustal terminy zapisów i obowiązujące zasady. Nakładające się okna łączą się, "
-"a uczestnicy otrzymują najszerszy dostęp."
+msgid "Set when enrollment opens and which rules apply."
+msgstr "Ustaw, kiedy otwierają się zapisy i jakie zasady obowiązują."
 
 #: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Period"
@@ -8314,6 +8309,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Set when enrollment opens and which rules apply. Overlapping windows "
+#~ "combine, and participants receive the most permissive available access."
+#~ msgstr ""
+#~ "Ustal terminy zapisów i obowiązujące zasady. Nakładające się okna łączą "
+#~ "się, a uczestnicy otrzymują najszerszy dostęp."
 
 #~ msgid "Invalid facilitator selection."
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
