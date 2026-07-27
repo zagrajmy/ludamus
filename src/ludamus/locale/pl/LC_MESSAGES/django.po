@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 13:57+0200\n"
+"POT-Creation-Date: 2026-07-27 14:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2972,11 +2972,11 @@ msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
 msgid ""
-"The convention programme in your pocket. See what's being run and grab a "
-"seat at the table before it's gone."
+"Convention sign-ups: grab your seat on an RPG session or workshop before "
+"it's gone. Organizers collect proposals and build the schedule here."
 msgstr ""
-"Program konwentu w telefonie. Zobacz, co grają, i złap miejsce przy stole, "
-"zanim zniknie."
+"Zapisy na konwenty: łapiesz miejsce na sesji RPG czy warsztatach, zanim "
+"zniknie. Organizatorzy zbierają tu zgłoszenia i układają harmonogram."
 
 #: src/ludamus/templates/base.html
 msgid ""
@@ -8077,6 +8077,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "The convention programme in your pocket. See what's being run and grab a "
+#~ "seat at the table before it's gone."
+#~ msgstr ""
+#~ "Program konwentu w telefonie. Zobacz, co grają, i złap miejsce przy "
+#~ "stole, zanim zniknie."
 
 #~ msgid ""
 #~ "Conventions, RPG sessions and game nights in one place. Browse the "
