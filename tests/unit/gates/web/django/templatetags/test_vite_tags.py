@@ -1,7 +1,10 @@
+import sys
 from contextvars import Context
 
+from django.apps import apps
 from django.core.signals import request_started
 
+from ludamus.gates.web.django.templatetags import vite_tags
 from ludamus.gates.web.django.templatetags.vite_tags import (
     RESET_DISPATCH_UID,
     reset_emitted_assets,
@@ -50,3 +53,11 @@ class TestViteAssetOnce:
         uids = [receiver[0][0] for receiver in request_started.receivers]
 
         assert RESET_DISPATCH_UID in uids
+
+    def test_is_wired_up_before_the_first_request(self, monkeypatch):
+        # `{% load vite_tags %}` would otherwise connect the receiver
+        # mid-request, after that request's `request_started` had fired.
+        monkeypatch.delitem(sys.modules, vite_tags.__name__)
+        apps.get_app_config("web_gates").ready()
+
+        assert vite_tags.__name__ in sys.modules

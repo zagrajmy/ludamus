@@ -449,6 +449,7 @@ ignore_names = [
     "list_filter",
     "Meta",
     "ordering",
+    "ready",
     # Used in settings
     "__call__",
     "*Middleware",
