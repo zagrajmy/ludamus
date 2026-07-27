@@ -10,12 +10,12 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
 from ludamus.links.db.django.models import (
-    EnrollmentConfig,
     Session,
     SessionParticipation,
     SessionParticipationStatus,
 )
 from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
+from ludamus.pacts.enrollment import EnrollmentPolicy
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,20 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 def _can_join_waitlist(
-    *,
-    user: UserDTO,
-    session: Session,
-    enrollment_config: EnrollmentConfig | None,
-    current_user_enrollment_config: VirtualEnrollmentConfig | None,
+    *, user: UserDTO, session: Session, policy: EnrollmentPolicy
 ) -> bool:
-    if not enrollment_config:
-        return False
-    if enrollment_config.max_waitlist_sessions == 0:
-        return False
-    if (
-        enrollment_config.restrict_to_configured_users
-        and not current_user_enrollment_config
-    ):
+    if policy.max_waitlist_sessions == 0:
         return False
 
     current_waitlist_count = SessionParticipation.objects.filter(
@@ -51,7 +40,7 @@ def _can_join_waitlist(
         session__event=session.event,
         session__agenda_item__isnull=False,
     ).count()
-    return current_waitlist_count < enrollment_config.max_waitlist_sessions
+    return current_waitlist_count < policy.max_waitlist_sessions
 
 
 def _build_user_choices(
@@ -110,11 +99,11 @@ def _has_no_actionable_choices(choices: list[tuple[str, str]]) -> bool:
 
 def _build_fallback_choices(
     *,
-    enrollment_config: EnrollmentConfig | None,
+    restricted_out: bool,
     current_user_enrollment_config: VirtualEnrollmentConfig | None,
     user: UserDTO,
 ) -> tuple[list[tuple[str, str]], str]:
-    if enrollment_config and enrollment_config.restrict_to_configured_users:
+    if restricted_out:
         if not user.email:
             return (
                 [("", _("No enrollment options (email required)"))],
@@ -141,14 +130,14 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
         self,
         *,
         user_obj: UserDTO,
-        enrollment_config: EnrollmentConfig | None,
+        restricted_out: bool,
         current_user_enrollment_config: VirtualEnrollmentConfig | None,
         user_can_enroll: bool,
         current_user: UserDTO,
         **kwargs: Any,
     ) -> None:
         self.user_obj = user_obj
-        self._enrollment_config = enrollment_config
+        self._restricted_out = restricted_out
         self._current_user_enrollment_config = current_user_enrollment_config
         self._user_can_enroll = user_can_enroll
         self._current_user = current_user
@@ -182,8 +171,7 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
             )
 
     def _raise_enroll_error(self, user_name: str) -> None:
-        ec = self._enrollment_config
-        if ec and ec.restrict_to_configured_users:
+        if self._restricted_out:
             if not self._current_user.email:
                 raise ValidationError(
                     _("%(user)s cannot enroll: email address required")
@@ -204,8 +192,8 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
 def _make_enrollment_clean(
     *,
     all_users: list[UserDTO],
-    enrollment_config: EnrollmentConfig | None,
-    current_user_enrollment_config: VirtualEnrollmentConfig | None,
+    event: EventDTO,
+    slot_allowance: VirtualEnrollmentConfig | None,
     enrollment: EnrollmentServiceProtocol,
     currently_seated_pks: set[int],
 ) -> Callable[..., dict[str, Any] | None]:
@@ -240,22 +228,17 @@ def _make_enrollment_clean(
 
         if (
             enroll_requests
-            and enrollment_config
-            and enrollment_config.restrict_to_configured_users
-            and current_user_enrollment_config
+            and slot_allowance
             and not enrollment.can_enroll_users(
                 users=all_users,
-                event=EventDTO.model_validate(enrollment_config.event),
-                virtual_config=current_user_enrollment_config,
+                event=event,
+                virtual_config=slot_allowance,
                 users_to_enroll=enroll_requests,
             )
         ):
-            event = EventDTO.model_validate(enrollment_config.event)
             used_slots = enrollment.get_used_slots(users=all_users, event=event)
             available_slots = enrollment.get_vc_available_slots(
-                users=all_users,
-                event=event,
-                virtual_config=current_user_enrollment_config,
+                users=all_users, event=event, virtual_config=slot_allowance
             )
             user_field = next(
                 field_name
@@ -268,7 +251,7 @@ def _make_enrollment_clean(
                 (
                     f"{user_name}: Cannot enroll more users. You have "
                     f"already enrolled {used_slots} out of "
-                    f"{current_user_enrollment_config.allowed_slots} "
+                    f"{slot_allowance.allowed_slots} "
                     "unique people "
                     "(each person can enroll in multiple sessions). "
                     f"Only {available_slots} slots remaining for "
@@ -374,19 +357,22 @@ def create_enrollment_form(
     roster: EnrollmentRoster,
     enrollment: EnrollmentServiceProtocol,
 ) -> type[forms.Form]:
-    enrollment_config = session.event.get_most_liberal_config(session)
+    event = EventDTO.model_validate(session.event)
     current_user_enrollment_config = enrollment.virtual_config(
-        event=EventDTO.model_validate(session.event), user_email=current_user.email
+        event=event, user_email=current_user.email
     )
-    user_can_enroll = bool(
-        enrollment_config
-        and (
-            not enrollment_config.restrict_to_configured_users
-            or (
-                current_user_enrollment_config
-                and current_user_enrollment_config.allowed_slots
-            )
-        )
+    eligible_configs = session.event.get_eligible_enrollment_configs(session)
+    policy = EnrollmentPolicy.for_actor(
+        eligible_configs,
+        is_configured_user=bool(
+            current_user_enrollment_config
+            and current_user_enrollment_config.allowed_slots
+        ),
+    )
+    user_can_enroll = policy.can_enroll
+    restricted_out = bool(eligible_configs) and not user_can_enroll
+    slot_allowance = (
+        current_user_enrollment_config if policy.requires_slot_allowance else None
     )
 
     form_fields: dict[str, forms.Field] = {}
@@ -408,12 +394,7 @@ def create_enrollment_form(
         if current_participation is not None:
             currently_seated_pks.add(user.pk)
         has_conflict = Session.objects.has_conflicts(session, user)
-        can_join_wl = _can_join_waitlist(
-            user=user,
-            session=session,
-            enrollment_config=enrollment_config,
-            current_user_enrollment_config=current_user_enrollment_config,
-        )
+        can_join_wl = _can_join_waitlist(user=user, session=session, policy=policy)
 
         if seat.needs_accept:
             choices, help_text = _build_held_seat_choices(
@@ -439,7 +420,7 @@ def create_enrollment_form(
             )
             if _has_no_actionable_choices(choices) and not has_conflict:
                 choices, help_text = _build_fallback_choices(
-                    enrollment_config=enrollment_config,
+                    restricted_out=restricted_out,
                     current_user_enrollment_config=current_user_enrollment_config,
                     user=user,
                 )
@@ -447,7 +428,7 @@ def create_enrollment_form(
         field_name = f"user_{user.pk}"
         form_fields[field_name] = _UserEnrollmentChoiceField(
             user_obj=user,
-            enrollment_config=enrollment_config,
+            restricted_out=restricted_out,
             current_user_enrollment_config=current_user_enrollment_config,
             user_can_enroll=user_can_enroll,
             current_user=current_user,
@@ -469,8 +450,8 @@ def create_enrollment_form(
     # seat spends that member's allowance, not the enroller's.
     clean = _make_enrollment_clean(
         all_users=[current_user, *roster.companions],
-        enrollment_config=enrollment_config,
-        current_user_enrollment_config=current_user_enrollment_config,
+        event=event,
+        slot_allowance=slot_allowance,
         enrollment=enrollment,
         currently_seated_pks=currently_seated_pks,
     )

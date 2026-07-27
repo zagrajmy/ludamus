@@ -56,7 +56,6 @@ from ludamus.gates.web.django.entities import (
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     AgendaItem,
-    EnrollmentConfig,
     Event,
     EventSettings,
     Session,
@@ -929,10 +928,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 [member.user_pk for member in eligible]
             )
         }
-        enrollment_config = session.event.get_most_liberal_config(session)
-        restricted = bool(
-            enrollment_config and enrollment_config.restrict_to_configured_users
-        )
+        restricted = self._restricts_unconfigured(session)
         return [
             RosterMember(
                 user=users[member.user_pk],
@@ -954,25 +950,18 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     @staticmethod
     def _validate_request(
         session: Session, enrollment_requests: list[EnrollmentRequest] | None = None
-    ) -> EnrollmentConfig | None:
-        event = session.event
+    ) -> None:
         if enrollment_requests and all(
             req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
         ):
             # Cancels release seats and must work with all configs deleted.
-            return event.enrollment_configs.order_by("pk").first()
+            return
 
-        if not (enrollment_config := event.get_most_liberal_config(session)):
+        if not session.event.get_eligible_enrollment_configs(session):
             raise RedirectError(
                 reverse("web:chronology:event", kwargs={"slug": session.event.slug}),
                 error=_("No enrollment configuration is available for this session."),
             )
-
-        # Note: UserDTO slot limits (max number of unique users that can be enrolled)
-        # are handled in _process_enrollments(). Users can enroll in multiple sessions
-        # without consuming additional slots. No need to block access here.
-
-        return enrollment_config
 
     def _get_user_participation_data(
         self,
@@ -1094,8 +1083,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             for error in field_errors:
                 messages.error(self.request, str(error))
 
-        enrollment_config = session.event.get_most_liberal_config(session)
-        if not (enrollment_config and enrollment_config.restrict_to_configured_users):
+        if not self._restricts_unconfigured(session):
             messages.warning(
                 self.request, _("Please review the enrollment options below.")
             )
@@ -1164,11 +1152,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Only validate enrollment requirements when form is valid
         enrollment_requests = self._get_enrollment_requests(form, roster, session)
         try:
-            enrollment_config = self._validate_request(session, enrollment_requests)
+            self._validate_request(session, enrollment_requests)
             self._manage_enrollments(
                 form=form,
                 session=session,
-                enrollment_config=enrollment_config,
                 roster=roster,
                 party_pk=selection.selected.pk if selection.selected else None,
             )
@@ -1292,23 +1279,20 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
     def _actor_policy(self, session: Session) -> EnrollmentPolicy:
-        # Seats must come from a window this viewer may actually use, so resolve
-        # their windows before aggregating capacity out of them.
         if self._cached_policy is None:
-            viewer_email = self.request.services.enrollment.read_viewer(
+            viewer = self.request.services.enrollment.read_viewer(
                 self.request.context.current_user_slug
-            ).email
+            )
             self._cached_policy = session.event.enrollment_policy(
-                session,
-                is_configured_user=bool(
-                    viewer_email
-                    and self.request.services.enrollment.virtual_config(
-                        event=EventDTO.model_validate(session.event),
-                        user_email=viewer_email,
-                    )
-                ),
+                session, is_configured_user=self._member_has_access(session, viewer)
             )
         return self._cached_policy
+
+    @staticmethod
+    def _restricts_unconfigured(session: Session) -> bool:
+        return session.event.enrollment_policy(
+            session, is_configured_user=True
+        ).requires_slot_allowance
 
     def _available_slots(self, session: Session) -> int:
         return self._actor_policy(session).available_slots(
@@ -1375,7 +1359,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         *,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
-        enrollment_config: EnrollmentConfig | None,
         party_pk: int | None,
         guests_target: int | None = None,
     ) -> Enrollments:
@@ -1398,7 +1381,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         if self._is_capacity_invalid(
             enrollment_requests,
             session,
-            enrollment_config,
             guest_seats_needed=guest_seats_needed,
             guest_seats_freed=guest_seats_freed,
         ):
@@ -1621,7 +1603,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
-        enrollment_config: EnrollmentConfig | None,
         *,
         guest_seats_needed: int = 0,
         guest_seats_freed: int = 0,
@@ -1647,8 +1628,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         # Zero config rows (cancel-only carve-out) contribute no slots; guest
         # increases stay bounded by seats freed by the same batch's cancels.
-        config_slots = self._available_slots(session) if enrollment_config else 0
-        available_spots = config_slots + freed_spots
+        session_wide = session.event.get_most_liberal_config(session)
+        available_spots = freed_spots + (
+            session_wide.get_available_slots(session) if session_wide else 0
+        )
 
         if enroll_count > available_spots:
             # Guests cannot wait on the list, so the generic "use the waiting
@@ -1677,7 +1660,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         *,
         form: forms.Form,
         session: Session,
-        enrollment_config: EnrollmentConfig | None,
         roster: EnrollmentRoster,
         party_pk: int | None,
     ) -> None:
@@ -1695,7 +1677,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 enrollments = self._process_enrollments(
                     enrollment_requests=enrollment_requests,
                     session=session,
-                    enrollment_config=enrollment_config,
                     party_pk=party_pk,
                     guests_target=guests_target,
                 )

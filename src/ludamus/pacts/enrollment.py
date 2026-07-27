@@ -229,7 +229,15 @@ class EnrollmentPolicy:
             (window.banner_text for window in self.windows if window.banner_text), ""
         )
 
+    @property
+    def requires_slot_allowance(self) -> bool:
+        return bool(self.windows) and all(
+            window.restrict_to_configured_users for window in self.windows
+        )
+
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
+        if not self.windows:
+            return 0
         if participants_limit == 0:
             return sys.maxsize
         effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)

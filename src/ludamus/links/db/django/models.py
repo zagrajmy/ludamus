@@ -405,15 +405,16 @@ class Event(models.Model):
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
     def get_eligible_enrollment_configs(
-        self, session: Session | None = None
+        self, session: Session
     ) -> list[EnrollmentConfig]:
-        configs = self.get_active_enrollment_configs()
-        if session is None:
-            return configs
-        return [config for config in configs if config.is_session_eligible(session)]
+        return [
+            config
+            for config in self.get_active_enrollment_configs()
+            if config.is_session_eligible(session)
+        ]
 
     def enrollment_policy(
-        self, session: Session | None = None, *, is_configured_user: bool
+        self, session: Session, *, is_configured_user: bool
     ) -> EnrollmentPolicy:
         return EnrollmentPolicy.for_actor(
             self.get_eligible_enrollment_configs(session),
@@ -421,8 +422,6 @@ class Event(models.Model):
         )
 
     def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        # Actor-blind: the widest window any user could enrol through. Use it for
-        # display capacity only; enrolment decisions go through enrollment_policy.
         if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
             return None
 
