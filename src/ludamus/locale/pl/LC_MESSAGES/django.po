@@ -747,6 +747,10 @@ msgid "Name is required."
 msgstr "Imię jest wymagane."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
+msgid "No enrollments found for this code."
+msgstr "Nie znaleziono zapisów dla tego kodu."
+
+#: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Anonymous enrollment is not active."
 msgstr "Anonimowy zapis nie jest aktywny."
 
@@ -790,10 +794,6 @@ msgstr "Proszę wprowadzić kod."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Invalid code. Please check and try again."
 msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
-
-#: src/ludamus/gates/web/django/chronology/anonymous.py
-msgid "No enrollments found for this code."
-msgstr "Nie znaleziono zapisów dla tego kodu."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Code loaded successfully. You can now manage your enrollments."
