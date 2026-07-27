@@ -8,37 +8,47 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% comment %}Description standard, the shape Meetup and Luma use: one
+        product pitch on every listing page, and a description built from the
+        object itself on object pages. Those pass `page_description` from the
+        view (it needs data the template can't compose) or override the blocks
+        below. One string feeds search results and every link preview.
+        {% endcomment %}
+        {% translate "Conventions, RPG sessions and game nights in one place. Browse the programme, sign up for what interests you and plan your own schedule. Zagrajmy brings players and organizers together." as default_description %}
+        {% firstof page_description|default:"" default_description as description %}
+        {% static 'logo.png' as brand_image %}
+        {% firstof current_sphere.logo_url brand_image as default_image %}
         <meta name="description"
-              content="{% block meta_description %}Event webapp{% endblock meta_description %}">
-        <meta name="keywords"
-              content="events, conferences, workshops, seminars, meetups, registration, enrollment, sessions, networking, professional development, tech events, design workshops, free events">
+              content="{% block meta_description %}{{ description }}{% endblock meta_description %}">
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="website">
         <meta property="og:url" content="{{ request.build_absolute_uri }}">
+        <meta property="og:site_name" content="{{ current_sphere.name }}">
         <meta property="og:title"
               content="{% block og_title %}{{ current_sphere.name }}{% endblock og_title %}">
         <meta property="og:description"
-              content="{% block og_description %}Event webapp{% endblock og_description %}">
+              content="{% block og_description %}{{ description }}{% endblock og_description %}">
         <meta property="og:image"
-              content="{% block og_image %}https://zagrajmy.net/static/logo.png{% endblock og_image %}">
-        <meta property="og:site_name" content="{{ current_sphere.name }}">
+              content="{% block og_image %}{% include "components/meta_image_url.html" with url=default_image %}{% endblock og_image %}">
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:title"
               content="{% block twitter_title %}{{ current_sphere.name }}{% endblock twitter_title %}">
         <meta name="twitter:description"
-              content="{% block twitter_description %}Event webapp{% endblock twitter_description %}">
+              content="{% block twitter_description %}{{ description }}{% endblock twitter_description %}">
         <meta name="twitter:image"
-              content="{% block twitter_image %}https://zagrajmy.net/static/logo.png{% endblock twitter_image %}">
-        {% comment %}Title standard: "{page name} • {sphere name}". Pages set
-        block title; pages whose name IS the sphere (landing) empty out
-        title_suffix instead.{% endcomment %}
+              content="{% block twitter_image %}{% include "components/meta_image_url.html" with url=default_image %}{% endblock twitter_image %}">
+        {% comment %}Title standard: "{page name} • {sphere name} • {brand}".
+        Pages set block title; pages whose name IS the sphere (landing) empty
+        out title_suffix instead. The brand tail is skipped on the root sphere,
+        which is the brand.{% endcomment %}
         <title>
             {% block title %}
             {% endblock title %}
             {% block title_suffix %}
                 {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
             {% endblock title_suffix %}
+            {% if root_sphere and root_sphere.pk != current_sphere.pk %}• {{ root_sphere.name }}{% endif %}
         </title>
         {% comment %}Chrome/Safari don't apply an SVG favicon's internal
         prefers-color-scheme media query in the tab, so we swap the href to a

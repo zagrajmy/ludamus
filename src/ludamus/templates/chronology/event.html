@@ -24,14 +24,14 @@
 {% endblock twitter_description %}
 {% block og_image %}
     {% if event.cover_image_url %}
-        {% include "chronology/_meta_image_url.html" with url=event.cover_image_url %}
+        {% include "components/meta_image_url.html" with url=event.cover_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock og_image %}
 {% block twitter_image %}
     {% if event.cover_image_url %}
-        {% include "chronology/_meta_image_url.html" with url=event.cover_image_url %}
+        {% include "components/meta_image_url.html" with url=event.cover_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}

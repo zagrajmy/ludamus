@@ -1,3 +1,5 @@
+{% comment %}Link-preview images must be absolute URLs; media and static paths
+arrive relative.{% endcomment %}
 {% if url|slice:":4" == "http" %}
     {{ url }}
 {% else %}

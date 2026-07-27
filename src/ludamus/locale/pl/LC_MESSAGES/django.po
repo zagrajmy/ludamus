@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-25 13:30+0200\n"
+"POT-Creation-Date: 2026-07-27 13:35+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2969,6 +2969,16 @@ msgstr "Przejdź do strony głównej"
 #: src/ludamus/templates/500_dynamic.html
 msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
+
+#: src/ludamus/templates/base.html
+msgid ""
+"Conventions, RPG sessions and game nights in one place. Browse the "
+"programme, sign up for what interests you and plan your own schedule. "
+"Zagrajmy brings players and organizers together."
+msgstr ""
+"Konwenty, sesje RPG i wieczory z grami w jednym miejscu. Przeglądaj program, "
+"zapisz się na to, co Cię interesuje, i ułóż własny harmonogram. Zagrajmy "
+"łączy graczy z organizatorami."
 
 #: src/ludamus/templates/base.html
 msgid ""

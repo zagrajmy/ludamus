@@ -6,29 +6,22 @@
 {% block og_title %}
     {{ encounter.title }}
 {% endblock og_title %}
-{% block og_description %}
-    {{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
-    {% if encounter.place %}— {{ encounter.place }}{% endif %}
-    {% if encounter.description %}| {{ encounter.description|truncatewords:25 }}{% endif %}
-{% endblock og_description %}
+{% block twitter_title %}
+    {{ encounter.title }}
+{% endblock twitter_title %}
+{% comment %}The description comes from the view as `page_description`; it needs
+the start time formatted, which a template can't compose into one string.
+{% endcomment %}
 {% block og_image %}
     {% if encounter.header_image_url %}
-        {% include "chronology/_meta_image_url.html" with url=encounter.header_image_url %}
+        {% include "components/meta_image_url.html" with url=encounter.header_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock og_image %}
-{% block twitter_title %}
-    {{ encounter.title }}
-{% endblock twitter_title %}
-{% block twitter_description %}
-    {{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
-    {% if encounter.place %}— {{ encounter.place }}{% endif %}
-    {% if encounter.description %}| {{ encounter.description|truncatewords:25 }}{% endif %}
-{% endblock twitter_description %}
 {% block twitter_image %}
     {% if encounter.header_image_url %}
-        {% include "chronology/_meta_image_url.html" with url=encounter.header_image_url %}
+        {% include "components/meta_image_url.html" with url=encounter.header_image_url %}
     {% else %}
         {{ block.super }}
     {% endif %}
