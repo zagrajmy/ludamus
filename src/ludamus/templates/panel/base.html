@@ -347,40 +347,46 @@
                         <div class="hidden sm:flex items-center space-x-4 shrink-0">
                             {% if current_event %}
                                 <span class="text-sm text-foreground-muted hidden md:inline">
-                                    {% translate "Event:" %} <strong>{% if current_event.start_time|date:"Ymd" == current_event.end_time|date:"Ymd" %}{{ current_event.start_time|date:"d M Y" }}{% else %}{{ current_event.start_time|date:"d M" }} - {{ current_event.end_time|date:"d M Y" }}{% endif %}</strong>
-                                </span>
-                                {% if is_proposal_active %}
-                                    <span class="px-3 py-1 bg-success-bg text-success-text text-sm rounded-full whitespace-nowrap">{% translate "Proposals Open" %}</span>
-                                {% else %}
-                                    <span class="px-3 py-1 bg-bg-tertiary text-foreground-secondary text-sm rounded-full whitespace-nowrap">{% translate "Proposals Closed" %}</span>
-                                {% endif %}
+                                    {% translate "Event:" %} <strong>
+                                    {% if current_event.start_time|date:"Ymd" == current_event.end_time|date:"Ymd" %}
+                                        {{ current_event.start_time|date:"d M Y" }}
+                                    {% else %}
+                                        {{ current_event.start_time|date:"d M" }} - {{ current_event.end_time|date:"d M Y" }}
+                                    {% endif %}
+                                </strong>
+                            </span>
+                            {% if is_proposal_active %}
+                                <span class="px-3 py-1 bg-success-bg text-success-text text-sm rounded-full whitespace-nowrap">{% translate "Proposals Open" %}</span>
+                            {% else %}
+                                <span class="px-3 py-1 bg-bg-tertiary text-foreground-secondary text-sm rounded-full whitespace-nowrap">{% translate "Proposals Closed" %}</span>
                             {% endif %}
-                        </div>
-                    {% endblock header_actions %}
-                </div>
-            </header>
-            <!-- Messages -->
-            {% if messages %}
-                <div class="flash-region"
-                     role="region"
-                     aria-live="polite"
-                     aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
-            {% endif %}
-            <div class="relative z-0 flex min-h-0 flex-1 flex-col">
-                {% block content %}
-                {% endblock content %}
+                        {% endif %}
+                    </div>
+                {% endblock header_actions %}
             </div>
-        </main>
-    </div>
-    {% vite_asset 'src/info-popover.ts' %}
-    <script type="module">
-        document.addEventListener('keydown', e => {
-            if (e.key !== 'Escape') return;
-            const overlay = document.getElementById('sidebarOverlay');
-            const sidebar = document.getElementById('sidebar');
-            if (!overlay || overlay.classList.contains('hidden')) return;
-            overlay.classList.add('hidden');
-            sidebar.classList.add('-translate-x-full');
-        });
-    </script>
+        </header>
+        <!-- Messages -->
+        {% if messages %}
+            <div class="flash-region"
+                 role="region"
+                 aria-live="polite"
+                 aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+        {% endif %}
+        <div class="relative z-0 flex min-h-0 flex-1 flex-col">
+            {% block content %}
+            {% endblock content %}
+        </div>
+    </main>
+</div>
+{% vite_asset 'src/info-popover.ts' %}
+<script type="module">
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('sidebarOverlay');
+        const sidebar = document.getElementById('sidebar');
+        if (!overlay || overlay.classList.contains('hidden')) return;
+        overlay.classList.add('hidden');
+        sidebar.classList.add('-translate-x-full');
+    });
+</script>
 {% endblock main_region %}

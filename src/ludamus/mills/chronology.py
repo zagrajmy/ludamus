@@ -24,7 +24,6 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
-    TIMETABLE_SLOT_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -50,6 +49,7 @@ from ludamus.pacts.chronology import (
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     ProposalAcceptContextDTO,
+    ProposalAcceptDeniedError,
     ProposalScheduledError,
     SessionPlacement,
     SourceQuestion,
@@ -59,6 +59,7 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.legacy import resolve_cover_image
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
@@ -292,13 +293,21 @@ class ProposalAcceptanceService:
 
     def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
         user = self._active_users.read(user_slug)
-        if user.is_superuser or user.is_staff:
+        if user.is_superuser:
             return True
         return self._spheres.is_manager(sphere_id, user_slug)
 
     def accept_session(
-        self, *, session_id: int, space_id: int, time_slot_id: int
+        self,
+        *,
+        session_id: int,
+        space_id: int,
+        time_slot_id: int,
+        user_slug: str,
+        sphere_id: int,
     ) -> None:
+        if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
+            raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
         time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
         with self._transaction.atomic():

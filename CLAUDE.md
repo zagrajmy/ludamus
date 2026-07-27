@@ -30,6 +30,13 @@ description — run it rather than trusting a hardcoded list here. Most used:
 - No single-line files.
 - Tailwind is here to lower CSS output size. Prefer Tailwind over CSS files.
 
+## Definition of done
+
+Strings wrapped + i18n updated; schema change has a reversible migration;
+failure paths return useful errors, no silent swallows; keyboard-reachable
+semantic HTML; new path logs meaningful events; authz checked, no new secrets;
+happy path + one edge case tested.
+
 ## Debt metrics (tingle)
 
 `tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
@@ -122,6 +129,13 @@ Strict rules:
   Use ANY only for forms/views. See docs/agents/testing-assertions.md.
 - NEVER add noqa/type ignore/pylint comments or directives without explicit
   per-case approval.
+- `test` / `tested` is reserved for pytest; production names use `check` /
+  `validation` / `verification`.
+- Panel access proves you manage the current sphere/event, not the objects the
+  request names. Scope every request-supplied id (URL pk/slug and body ids) to
+  `current_event`/sphere before read or write — in the service, not the view —
+  and test that a foreign id 404/422s without side effects. See
+  [panel object-scope authz](docs/refactors/panel-object-scope-authz.md).
 - Default: do not write re-export `__init__.py` files (no wildcard imports, no
   explicit re-export lists). Keep `__init__.py` empty and import each symbol
   from the module that defines it (`from ludamus.foo.bar import Bar`, not

@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
@@ -81,11 +82,8 @@ class TestEventIndexPageView:
             url="/",
         )
 
-    def test_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_ok_for_manager_and_superuser(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
         current_event = response.context["current_event"]

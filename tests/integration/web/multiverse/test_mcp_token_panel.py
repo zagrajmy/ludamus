@@ -83,3 +83,29 @@ class TestMcpTokenPanelPageView:
             HTTP_AUTHORIZATION=f"Bearer {token}",
         )
         assert ping.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+
+    def test_post_mints_working_token_for_non_manager_superuser(
+        self, authenticated_client, active_user, client
+    ):
+        active_user.is_superuser = True
+        active_user.save()
+
+        response = authenticated_client.post(URL)
+
+        token = response.context_data.pop("token")
+        assert token
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/mcp-token.html",
+            context_data=MCP_PANEL_CONTEXT,
+            contains=["claude mcp add", "http://testserver/mcp/organizer/"],
+        )
+
+        ping = client.post(
+            "/mcp/organizer/",
+            data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {token}",
+        )
+        assert ping.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}

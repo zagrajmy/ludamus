@@ -104,6 +104,8 @@ If you fix a papercut, remove it.
 - 2026-07-14: Ran poetry run pytest for focused party tests -> ENV was unset
   because only mise test tasks load .env.test; use the task or load its
   environment explicitly.
+- 2026-07-23: mypy INTERNAL ERROR in django-stubs request.pyi during mise run
+  check; deleting .mypy_cache fixed it
 - 2026-07-23: Running mise tasks in the managed sandbox failed with Operation
   not permitted, so task discovery required a retry outside the sandbox.
 - 2026-07-23: Running mise run test:int with focused files still prepended
@@ -190,3 +192,21 @@ If you fix a papercut, remove it.
   the cross-section import coupling before commit.
 - 2026-07-24: Uploading required PR screenshots to Catbox returned HTTP 412 for
   every PNG, so the documented image-upload path could not publish the evidence.
+- 2026-07-24: playwriter 'session new' printed a fresh id but the relay 404'd it
+  (Session 14 not found); had to reuse an old session id from session list
+- 2026-07-25: Web sandbox session started with an empty .venv (no pytest, no
+  django) and mise still wedged on pipx:shellcheck-py/hadolint-py, so no mise
+  task could bootstrap it; ran poetry install by hand and invoked pytest as
+  .venv/bin/python -m pytest with PYTHONPATH=src plus .env.test sourced
+  manually.
+- 2026-07-25: /opt/pw-browsers held chromium_headless_shell-1208 as an empty
+  directory, so every e2e test failed with "Executable doesn't exist" until
+  npx playwright install chromium refetched it.
+- 2026-07-25: Iterated on timetable CSS/TS against a `.env.e2e` server, where
+  `ENV="test"` turns django_vite `dev_mode` off, so each edit needed
+  `aubr build` plus a restart (`--noreload` caches the manifest, and the
+  rebuild deletes the hashed files it points at - the page then renders with
+  no CSS and reads as a layout bug). For an edit loop against the e2e seed,
+  export `ENV=development` and `VITE_PORT`, run the vite dev server, and keep
+  the rest of `.env.e2e`: assets come from vite with HMR, no build, no
+  restart. Build only before handing the page to Playwright.
