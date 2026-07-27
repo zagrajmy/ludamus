@@ -484,7 +484,7 @@ class TestPersonalDataFieldEditPageView:
             allow_custom=True,
         )
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event, field),
             data={
                 "name": "Country",
@@ -493,6 +493,12 @@ class TestPersonalDataFieldEditPageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Personal data field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/personal-data/",
+        )
         field.refresh_from_db()
         assert field.is_multiple is False
         assert field.allow_custom is False
@@ -505,7 +511,7 @@ class TestPersonalDataFieldEditPageView:
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event, field),
             data={
                 "name": "Email",
@@ -515,6 +521,12 @@ class TestPersonalDataFieldEditPageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Personal data field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/personal-data/",
+        )
         field.refresh_from_db()
         assert field.is_multiple is False
         assert field.allow_custom is False

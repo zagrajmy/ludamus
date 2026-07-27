@@ -483,7 +483,7 @@ class TestSessionFieldEditPageView:
             allow_custom=True,
         )
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event, field),
             data={
                 "name": "Tags",
@@ -492,6 +492,12 @@ class TestSessionFieldEditPageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/session-fields/",
+        )
         field.refresh_from_db()
         assert field.is_multiple is False
         assert field.allow_custom is False
@@ -504,7 +510,7 @@ class TestSessionFieldEditPageView:
             event=event, name="Notes", question="Any notes?", slug="notes"
         )
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event, field),
             data={
                 "name": "Notes",
@@ -514,6 +520,12 @@ class TestSessionFieldEditPageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/session-fields/",
+        )
         field.refresh_from_db()
         assert field.is_multiple is False
         assert field.allow_custom is False
