@@ -131,14 +131,7 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 self.request.POST, prefix="category_", order_key="category_order"
             )
             .scoped_to(
-                {
-                    category.pk
-                    for category in (
-                        self.request.di.uow.proposal_categories.list_by_event(
-                            current_event.pk
-                        )
-                    )
-                }
+                self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
             )
             .requirements
         )
@@ -263,14 +256,7 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                 self.request.POST, prefix="category_", order_key="category_order"
             )
             .scoped_to(
-                {
-                    category.pk
-                    for category in (
-                        self.request.di.uow.proposal_categories.list_by_event(
-                            current_event.pk
-                        )
-                    )
-                }
+                self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
             )
             .requirements
         )

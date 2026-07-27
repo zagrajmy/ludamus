@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 14:57+0200\n"
+"POT-Creation-Date: 2026-07-27 16:22+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2258,6 +2258,10 @@ msgstr ""
 #: src/ludamus/gates/web/django/forms.py
 msgid "Minimum participants limit cannot exceed maximum."
 msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Set how long a held seat waits for confirmation."
+msgstr "Ustaw, jak długo zajęte miejsce czeka na potwierdzenie."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/parts/import-recipe-row.html

@@ -204,6 +204,10 @@ class EnrollmentWindowRepositoryProtocol(Protocol):
     def delete(self, event_id: int, pk: int) -> bool: ...
 
 
+class InvalidEnrollmentWindowError(Exception):
+    """Raised when a window's period is not a forward range."""
+
+
 class EnrollmentSettingsServiceProtocol(Protocol):
     def list_windows(self, event_id: int) -> list[EnrollmentWindowDTO]: ...
     def read_window(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None: ...

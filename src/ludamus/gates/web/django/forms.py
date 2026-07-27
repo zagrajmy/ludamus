@@ -360,6 +360,15 @@ class ProposalCategoryForm(forms.Form):
             raise forms.ValidationError(
                 _("Minimum participants limit cannot exceed maximum.")
             )
+        if cleaned.get(
+            "promotion_mode"
+        ) == PromotionMode.OFFER_CLAIM.value and not cleaned.get(
+            "offer_claim_window_minutes"
+        ):
+            self.add_error(
+                "offer_claim_window_minutes",
+                _("Set how long a held seat waits for confirmation."),
+            )
         return cleaned
 
 

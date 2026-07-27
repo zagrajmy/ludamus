@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 from ludamus.pacts.legacy import ProposalCategoryData
 from ludamus.pacts.submissions import (
+    HasPk,
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,
@@ -11,16 +12,11 @@ from ludamus.pacts.submissions import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
 
     from ludamus.pacts.services import TransactionProtocol
 
 
-class _HasPk(Protocol):
-    pk: int
-
-
-def _sort_by_order[T: _HasPk](items: list[T], order: list[int]) -> list[T]:
+def _sort_by_order[T: HasPk](items: list[T], order: list[int]) -> list[T]:
     positions = {pk: position for position, pk in enumerate(order)}
     for offset, item in enumerate(items, start=len(order)):
         positions.setdefault(item.pk, offset)
@@ -29,10 +25,6 @@ def _sort_by_order[T: _HasPk](items: list[T], order: list[int]) -> list[T]:
         return positions[item.pk]
 
     return sorted(items, key=position)
-
-
-def _pks(items: Sequence[_HasPk]) -> set[int]:
-    return {item.pk for item in items}
 
 
 class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
@@ -84,9 +76,9 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
             personal_fields = list(self._repos.personal_fields.list_by_event(event_id))
             session_fields = list(self._repos.session_fields.list_by_event(event_id))
             time_slots = list(self._repos.time_slots.list_by_event(event_id))
-            personal = data.personal_fields.scoped_to(_pks(personal_fields))
-            session = data.session_fields.scoped_to(_pks(session_fields))
-            slots = data.time_slots.scoped_to(_pks(time_slots))
+            personal = data.personal_fields.scoped_to(personal_fields)
+            session = data.session_fields.scoped_to(session_fields)
+            slots = data.time_slots.scoped_to(time_slots)
 
             category_data = ProposalCategoryData(
                 name=data.name,

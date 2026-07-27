@@ -1,11 +1,14 @@
 from contextlib import nullcontext
 from datetime import UTC, datetime
 
+import pytest
+
 from ludamus.mills.enrollment import EnrollmentSettingsService
 from ludamus.pacts.enrollment import (
     EnrollmentWindowData,
     EnrollmentWindowDTO,
     EnrollmentWindowRepositoryProtocol,
+    InvalidEnrollmentWindowError,
 )
 
 _START = datetime(2026, 8, 1, 10, tzinfo=UTC)
@@ -116,3 +119,14 @@ def test_cannot_update_or_delete_another_events_window() -> None:
     assert updated is None
     assert deleted is False
     assert service.read_window(3, 7) is not None
+
+
+def test_rejects_a_window_that_closes_before_it_opens() -> None:
+    repo = FakeWindows()
+    service = _service(repo)
+    backwards = _data().model_copy(update={"start_time": _END, "end_time": _START})
+
+    with pytest.raises(InvalidEnrollmentWindowError):
+        service.create_window(3, backwards)
+
+    assert repo.list_for_event(3) == [_window()]

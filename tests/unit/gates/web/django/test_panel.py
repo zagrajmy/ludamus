@@ -1,5 +1,7 @@
 """Unit tests for panel helpers."""
 
+from types import SimpleNamespace
+
 import pytest
 from django.http import QueryDict
 
@@ -62,7 +64,7 @@ class TestParseRequirementSelection:
 
         selection = parse_requirement_selection(
             post, prefix="field_", order_key="field_order"
-        ).scoped_to({1})
+        ).scoped_to([SimpleNamespace(pk=1)])
 
         assert selection.requirements == {1: True}
         assert selection.order == [1]

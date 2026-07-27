@@ -35,6 +35,7 @@ from ludamus.pacts.enrollment import (
     EnrollmentSettingsServiceProtocol,
     GuestSeatData,
     HeldSeatData,
+    InvalidEnrollmentWindowError,
     NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
@@ -47,7 +48,7 @@ from ludamus.pacts.legacy import (
     PromotionMode,
 )
 from ludamus.pacts.party import HeldSeatNotification
-from ludamus.specs.enrollment import select_promotable_parties
+from ludamus.specs.enrollment import is_valid_window_period, select_promotable_parties
 
 if TYPE_CHECKING:
     from ludamus.pacts import (
@@ -113,18 +114,27 @@ class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
     def create_window(
         self, event_id: int, data: EnrollmentWindowData
     ) -> EnrollmentWindowDTO:
+        self._check_period(data)
         with self._transaction.atomic():
             return self._windows.create(event_id, data)
 
     def update_window(
         self, *, event_id: int, pk: int, data: EnrollmentWindowData
     ) -> EnrollmentWindowDTO | None:
+        self._check_period(data)
         with self._transaction.atomic():
             return self._windows.update(event_id=event_id, pk=pk, data=data)
 
     def delete_window(self, event_id: int, pk: int) -> bool:
         with self._transaction.atomic():
             return self._windows.delete(event_id, pk)
+
+    @staticmethod
+    def _check_period(data: EnrollmentWindowData) -> None:
+        if not is_valid_window_period(
+            start_time=data.start_time, end_time=data.end_time
+        ):
+            raise InvalidEnrollmentWindowError
 
 
 class WaitlistPromotionService:

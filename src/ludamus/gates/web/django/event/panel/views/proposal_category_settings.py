@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
@@ -16,7 +17,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import ProposalCategoryForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
-from ludamus.pacts.legacy import NotFoundError, PromotionMode
+from ludamus.pacts.legacy import NotFoundError, PromotionMode, RedirectError
 from ludamus.pacts.submissions import (
     ProposalCategoryEditContextDTO,
     ProposalCategorySettingsData,
@@ -24,6 +25,13 @@ from ludamus.pacts.submissions import (
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+
+
+def _category_not_found(event_slug: str) -> RedirectError:
+    return RedirectError(
+        reverse("panel:cfp", kwargs={"slug": event_slug}),
+        error=_("Category not found."),
+    )
 
 
 def _form(page: ProposalCategoryEditContextDTO) -> ProposalCategoryForm:
@@ -112,15 +120,8 @@ class ProposalCategorySettingsPageView(EventPanelAccessMixin, EventContextMixin,
     def get(
         self, _request: EventPanelRequest, event_slug: str, category_slug: str
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(event_slug)
-        if current_event is None:
-            return redirect("panel:index")
-        try:
-            page = self.request.services.proposal_category_settings.read_context(
-                current_event.pk, category_slug
-            )
-        except NotFoundError:
-            return self._category_not_found(event_slug)
+        context, current_event = self.require_event_context(event_slug)
+        page = self._read_page(current_event.pk, category_slug, event_slug)
         return _render(
             request=self.request, context=context, page=page, form=_form(page)
         )
@@ -128,18 +129,11 @@ class ProposalCategorySettingsPageView(EventPanelAccessMixin, EventContextMixin,
     def post(
         self, _request: EventPanelRequest, event_slug: str, category_slug: str
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(event_slug)
-        if current_event is None:
-            return redirect("panel:index")
+        context, current_event = self.require_event_context(event_slug)
 
         form = ProposalCategoryForm(self.request.POST)
         if not form.is_valid():
-            try:
-                page = self.request.services.proposal_category_settings.read_context(
-                    current_event.pk, category_slug
-                )
-            except NotFoundError:
-                return self._category_not_found(event_slug)
+            page = self._read_page(current_event.pk, category_slug, event_slug)
             return _render(request=self.request, context=context, page=page, form=form)
 
         try:
@@ -148,11 +142,17 @@ class ProposalCategorySettingsPageView(EventPanelAccessMixin, EventContextMixin,
                 category_slug=category_slug,
                 data=_settings_data(self.request, form),
             )
-        except NotFoundError:
-            return self._category_not_found(event_slug)
+        except NotFoundError as error:
+            raise _category_not_found(event_slug) from error
         messages.success(self.request, _("Category updated successfully."))
         return redirect("panel:cfp", slug=event_slug)
 
-    def _category_not_found(self, event_slug: str) -> HttpResponse:
-        messages.error(self.request, _("Category not found."))
-        return redirect("panel:cfp", slug=event_slug)
+    def _read_page(
+        self, event_pk: int, category_slug: str, event_slug: str
+    ) -> ProposalCategoryEditContextDTO:
+        try:
+            return self.request.services.proposal_category_settings.read_context(
+                event_pk, category_slug
+            )
+        except NotFoundError as error:
+            raise _category_not_found(event_slug) from error

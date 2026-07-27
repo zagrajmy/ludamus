@@ -14,7 +14,6 @@ from django.contrib import messages
 from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
 
 if TYPE_CHECKING:
-
     from django import forms
 
     from ludamus.gates.web.django.chronology.panel.views.base import PanelRequest

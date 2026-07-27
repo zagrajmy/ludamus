@@ -323,7 +323,7 @@ group, no ownership split.
 
 | Area | Views | Templates |
 | ---- | ----- | --------- |
-| Proposal categories | `panel/views/cfp.py` | `cfp-*.html` |
+| Proposal categories | `panel/views/cfp.py`, `event/panel/views/proposal_category_settings.py` | `cfp-*.html` |
 | Proposals / sessions | `panel/views/proposals.py` | `proposal-*.html` |
 | Personal data fields | `panel/views/personal_data_fields.py` | `personal-data-field-*.html` |
 | Session fields | `panel/views/session_fields.py` | `session-field-*.html` |

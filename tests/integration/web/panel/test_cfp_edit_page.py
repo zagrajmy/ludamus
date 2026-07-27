@@ -19,6 +19,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import (
     EventDTO,
     PersonalDataFieldDTO,
+    PromotionMode,
     ProposalCategoryDTO,
     SessionFieldDTO,
     TimeSlotDTO,
@@ -29,7 +30,7 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-class TestCFPEditPageView:
+class TestProposalCategorySettingsPageView:
     """Tests for /panel/event/<slug>/cfp/<category_slug>/ page."""
 
     @staticmethod
@@ -413,6 +414,56 @@ class TestCFPEditPageView:
                 "proposal_count": 0,
             },
         )
+
+    def test_get_form_shows_stored_promotion_config(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        window_minutes = 15
+        category = ProposalCategory.objects.create(
+            event=event,
+            name="RPG Sessions",
+            slug="rpg-sessions",
+            promotion_mode=PromotionMode.OFFER_CLAIM,
+            offer_claim_window=timedelta(minutes=window_minutes),
+        )
+
+        response = authenticated_client.get(self.get_url(event, category))
+
+        form = response.context["form"]
+        assert form.initial["promotion_mode"] == PromotionMode.OFFER_CLAIM.value
+        assert form.initial["offer_claim_window_minutes"] == window_minutes
+
+    def test_post_rejects_offer_claim_without_a_claim_window(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event,
+            name="RPG Sessions",
+            slug="rpg-sessions",
+            promotion_mode=PromotionMode.OFFER_CLAIM,
+            offer_claim_window=timedelta(minutes=60),
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, category),
+            data={
+                "name": "RPG Sessions",
+                "promotion_mode": PromotionMode.OFFER_CLAIM.value,
+                "offer_claim_window_minutes": "",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cfp-edit.html",
+            context_data=ANY,
+        )
+        assert response.context["form"].errors["offer_claim_window_minutes"]
+        category.refresh_from_db()
+        assert category.offer_claim_window == timedelta(minutes=60)
 
     def test_post_updates_time_fields(
         self, authenticated_client, active_user, sphere, event

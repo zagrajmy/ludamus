@@ -121,22 +121,7 @@ def _mock_repos() -> tuple[ProposalCategorySettingsRepos, MagicMock]:
 
 def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
     transaction = RecordingTransaction()
-    categories = MagicMock()
-    categories.read_by_slug.return_value = _category()
-    personal_fields = MagicMock()
-    personal_fields.list_by_event.return_value = [_personal_field(1)]
-    session_fields = MagicMock()
-    session_fields.list_by_event.return_value = [_session_field(2)]
-    time_slots = MagicMock()
-    time_slots.list_by_event.return_value = [_time_slot(3)]
-    sessions = MagicMock()
-    repos = ProposalCategorySettingsRepos(
-        categories=categories,
-        personal_fields=personal_fields,
-        session_fields=session_fields,
-        time_slots=time_slots,
-        sessions=sessions,
-    )
+    repos, categories = _mock_repos()
     mutations = (
         categories.update,
         categories.set_field_requirements,
