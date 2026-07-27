@@ -6,11 +6,13 @@ import { baseUrl, createIosHarness } from "./harness";
 // inside a `beforeAll`, where it burns the hook budget and an attempt. Pay it
 // here instead, in a step that is allowed to be slow and allowed to fail.
 const session = process.env.SESSION ? `${process.env.SESSION}-warmup` : "zagrajmy-ios-warmup";
-const eventPath = process.env.EVENT_PATH ?? "/event/autumn-open/";
 
 const { openUrl, prepareDevice, takeSnapshot, assertPageReady } = await createIosHarness(session);
 
-const eventUrl = new URL(eventPath, baseUrl);
+// Deliberately not EVENT_PATH: both test files read that name with different
+// defaults, so a job-level value would point the scrubber at the wrong page.
+// An absolute E2E_EVENT_URL wins; the base is only used for the local default.
+const eventUrl = new URL(process.env.E2E_EVENT_URL ?? "/event/autumn-open/", baseUrl);
 await assertPageReady(eventUrl, "<html");
 const udid = await prepareDevice();
 await openUrl(eventUrl.toString(), udid);
