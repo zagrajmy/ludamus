@@ -14,9 +14,15 @@
 {% block twitter_title %}
     {{ event.name }}
 {% endblock twitter_title %}
-{% block meta_description %}{{ event.description|truncatewords:20 }}{% endblock meta_description %}
-{% block og_description %}{{ event.description|truncatewords:20 }}{% endblock og_description %}
-{% block twitter_description %}{{ event.description|truncatewords:20 }}{% endblock twitter_description %}
+{% block meta_description %}
+    {% firstof event.description|truncatewords:20 default_description %}
+{% endblock meta_description %}
+{% block og_description %}
+    {% firstof event.description|truncatewords:20 default_description %}
+{% endblock og_description %}
+{% block twitter_description %}
+    {% firstof event.description|truncatewords:20 default_description %}
+{% endblock twitter_description %}
 {% block og_image %}
     {% meta_image_url event.cover_image_url %}
 {% endblock og_image %}

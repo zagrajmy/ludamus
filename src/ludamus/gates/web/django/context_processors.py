@@ -39,9 +39,10 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
 
     sites_service = request.services.sites
     root_sphere = sites_service.read(request.context.root_sphere_id)
+    is_root_sphere = request.context.current_sphere_id == request.context.root_sphere_id
     current_sphere = (
         root_sphere
-        if request.context.current_sphere_id == request.context.root_sphere_id
+        if is_root_sphere
         else sites_service.read(request.context.current_sphere_id)
     )
 
@@ -49,7 +50,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         root_site=root_sphere.site,
         current_site=current_sphere.site,
         current_sphere=current_sphere,
-        is_root_sphere=current_sphere is root_sphere,
+        is_root_sphere=is_root_sphere,
         has_panel_access=has_panel_access(request),
     )
 

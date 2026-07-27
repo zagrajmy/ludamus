@@ -43,15 +43,17 @@ def _descriptions(response):
     ]
 
 
-def _get_ok(client, url, **extra):
+def _get_ok(client, url, template_name, **extra):
     response = client.get(url, **extra)
-    assert_response(response, HTTPStatus.OK, context_data=ANY, template_name=ANY)
+    assert_response(
+        response, HTTPStatus.OK, context_data=ANY, template_name=template_name
+    )
     return response
 
 
 class TestPageTitle:
     def test_root_sphere_title_omits_the_brand_tail(self, client, sphere):
-        response = _get_ok(client, reverse("web:events"))
+        response = _get_ok(client, reverse("web:events"), ["index.html"])
 
         assert _title(response) == f"Events • {sphere.name}"
 
@@ -59,7 +61,10 @@ class TestPageTitle:
         self, client, sphere, non_root_sphere
     ):
         response = _get_ok(
-            client, reverse("web:events"), HTTP_HOST=non_root_sphere.site.domain
+            client,
+            reverse("web:events"),
+            ["index.html"],
+            HTTP_HOST=non_root_sphere.site.domain,
         )
 
         assert _title(response) == f"Events • {non_root_sphere.name} • Zagrajmy"
@@ -67,13 +72,16 @@ class TestPageTitle:
 
 class TestMetaDescription:
     def test_brand_domain_pitches_the_product(self, client):
-        response = _get_ok(client, reverse("web:events"))
+        response = _get_ok(client, reverse("web:events"), ["index.html"])
 
         assert _descriptions(response) == [PRODUCT_PITCH] * 3
 
     def test_sphere_subdomain_names_the_sphere_instead(self, client, non_root_sphere):
         response = _get_ok(
-            client, reverse("web:events"), HTTP_HOST=non_root_sphere.site.domain
+            client,
+            reverse("web:events"),
+            ["index.html"],
+            HTTP_HOST=non_root_sphere.site.domain,
         )
 
         descriptions = _descriptions(response)
@@ -84,7 +92,9 @@ class TestMetaDescription:
         event = EventFactory(sphere=sphere, description="Konwent gier w Krakowie")
 
         response = _get_ok(
-            client, reverse("web:chronology:event", kwargs={"slug": event.slug})
+            client,
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            ["chronology/event.html"],
         )
 
         assert _descriptions(response) == ["Konwent gier w Krakowie"] * 3
@@ -100,12 +110,26 @@ class TestMetaDescription:
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
             ),
+            "notice_board/detail.html",
         )
 
         description = _meta(response, "name", "description")
         assert "Kraków" in description
         assert description.endswith("| Kolacja i planszówki")
         assert _descriptions(response) == [description] * 3
+
+    def test_event_without_a_description_falls_back_to_the_default(
+        self, client, sphere
+    ):
+        event = EventFactory(sphere=sphere, description="")
+
+        response = _get_ok(
+            client,
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            ["chronology/event.html"],
+        )
+
+        assert _descriptions(response) == [PRODUCT_PITCH] * 3
 
     def test_encounter_description_keeps_ampersands_readable(self, client, sphere):
         encounter = EncounterFactory(
@@ -118,6 +142,7 @@ class TestMetaDescription:
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
             ),
+            "notice_board/detail.html",
         )
 
         assert _meta_raw(response, "name", "description").endswith(
@@ -135,6 +160,7 @@ class TestMetaDescription:
                 "web:notice-board:encounter-detail",
                 kwargs={"share_code": encounter.share_code},
             ),
+            "notice_board/detail.html",
         )
 
         description = _meta(response, "name", "description")
@@ -145,7 +171,7 @@ class TestMetaDescription:
 
 class TestMetaImage:
     def test_defaults_to_the_absolute_brand_url(self, client):
-        response = _get_ok(client, reverse("web:events"))
+        response = _get_ok(client, reverse("web:events"), ["index.html"])
 
         assert (
             _meta_raw(response, "property", "og:image")
@@ -158,7 +184,9 @@ class TestMetaImage:
         event.save()
 
         response = _get_ok(
-            client, reverse("web:chronology:event", kwargs={"slug": event.slug})
+            client,
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            ["chronology/event.html"],
         )
 
         assert _meta(response, "property", "og:image").endswith(event.cover_image.url)
