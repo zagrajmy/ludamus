@@ -26,7 +26,13 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.forms import SessionEditForm, field_descriptors
+from ludamus.gates.web.django.forms import (
+    SessionEditForm,
+    WizardData,
+    field_descriptors,
+    fold_custom_answers,
+    unfold_custom_answers,
+)
 from ludamus.gates.web.django.helpers import (
     get_client_ip,
     is_event_published,
@@ -36,11 +42,6 @@ from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.mills.event import is_proposal_active
-from ludamus.mills.field_values import (
-    WizardData,
-    fold_custom_answers,
-    unfold_custom_answers,
-)
 from ludamus.pacts import (
     NotFoundError,
     RedirectError,
@@ -291,14 +292,13 @@ def _personal_context(
     requirements = service.get_personal_requirements(category.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial: WizardData = {}
-    if saved_personal := wizard.get("personal_data"):
-        initial = unfold_custom_answers(
-            stored=saved_personal, requirements=requirements, prefix="personal"
-        )
-    else:
-        saved = service.get_saved_personal_data(event.pk)
-        initial = {f"personal_{slug}": value for slug, value in saved.items()}
+    stored: WizardData = wizard.get("personal_data") or {
+        f"personal_{slug}": value
+        for slug, value in service.get_saved_personal_data(event.pk).items()
+    }
+    initial = unfold_custom_answers(
+        stored=stored, requirements=requirements, prefix="personal"
+    )
 
     initial["contact_email"] = wizard.get(
         "contact_email", getattr(request.user, "email", "")

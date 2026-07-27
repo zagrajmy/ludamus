@@ -7,9 +7,11 @@
           {
             "name": "@playwright/test",
             "importNames": [
-              "test"
+              "test",
+              "expect",
+              "default"
             ],
-            "message": "Import test from ./helpers/fixtures so the spec lands in the client coverage report."
+            "message": "Import test and expect from ./helpers/fixtures so the spec lands in the client coverage report."
           }
         ]
       }
@@ -18,7 +20,7 @@
   "overrides": [
     {
       "files": [
-        "helpers/fixtures.ts"
+        "helpers/*.ts"
       ],
       "rules": {
         "no-restricted-imports": "off"

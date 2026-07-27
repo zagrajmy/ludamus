@@ -8,9 +8,10 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.mills.field_values import FieldAnswer, split_stored
+from ludamus.mills.field_values import split_stored
 
 if TYPE_CHECKING:
+    from ludamus.mills.field_values import FieldAnswer
     from ludamus.pacts import SessionDTO, SessionFieldDTO
     from ludamus.pacts.submissions import FacilitatorColumnDTO
 

@@ -24,9 +24,13 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
+from ludamus.gates.web.django.forms import (
+    create_proposal_form,
+    field_descriptors,
+    unfold_custom_answers,
+)
 from ludamus.gates.web.django.helpers import parse_dynamic_field_value
-from ludamus.mills.field_values import merge_custom, unfold_custom_answers
+from ludamus.mills.field_values import merge_custom
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,

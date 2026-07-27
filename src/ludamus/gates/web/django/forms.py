@@ -15,6 +15,7 @@ from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
+from ludamus.mills.field_values import FieldAnswer, merge_custom, split_stored
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import PromotionMode
@@ -27,8 +28,10 @@ if TYPE_CHECKING:
     from lxml.etree import _Element as Element
 
     from ludamus.pacts import (
+        PersonalDataFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
+        SessionFieldDTO,
         SessionFieldRequirementDTO,
     )
     from ludamus.pacts.multiverse import ConnectionDTO
@@ -622,6 +625,12 @@ class CustomAnswerFormMixin(forms.Form):
         return cleaned
 
 
+def offers_custom_input(field: PersonalDataFieldDTO | SessionFieldDTO) -> bool:
+    # A checkbox has nothing to customise; every other type with allow_custom
+    # gets the companion write-in.
+    return field.allow_custom and field.field_type != "checkbox"
+
+
 def build_field_from_requirement(
     fields: dict[str, forms.Field],
     field_key: str,
@@ -634,7 +643,7 @@ def build_field_from_requirement(
     field_def = req.field
     label = field_def.question
     help_text = field_def.help_text
-    offers_custom = field_def.allow_custom and field_def.field_type != "checkbox"
+    offers_custom = offers_custom_input(field_def)
     is_required = req.is_required and not offers_custom
 
     if field_def.field_type == "select":
@@ -676,6 +685,55 @@ def build_field_from_requirement(
     return offers_custom and req.is_required
 
 
+type WizardData = dict[str, FieldAnswer | int | None]
+
+
+def unfold_custom_answers(
+    *,
+    stored: WizardData,
+    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
+    prefix: str,
+) -> WizardData:
+    initial: WizardData = dict(stored)
+    for req in requirements:
+        key = f"{prefix}_{req.field.slug}"
+        value = initial.get(key)
+        if req.field.field_type != "select" or not isinstance(value, str | list):
+            continue
+        chosen, custom = split_stored(
+            stored=value,
+            known={option.value for option in req.field.options},
+            is_multiple=req.field.is_multiple,
+        )
+        initial[key] = chosen
+        if custom and req.field.allow_custom:
+            initial[f"{key}_custom"] = custom
+    return initial
+
+
+def fold_custom_answers(
+    *,
+    cleaned: WizardData,
+    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
+    prefix: str,
+) -> WizardData:
+    companions = {f"{prefix}_{req.field.slug}_custom" for req in requirements}
+    folded: WizardData = {
+        key: value for key, value in cleaned.items() if key not in companions
+    }
+    for req in requirements:
+        key = f"{prefix}_{req.field.slug}"
+        value = folded.get(key)
+        if not req.field.allow_custom or not isinstance(value, str | list | bool):
+            continue
+        folded[key] = merge_custom(
+            chosen=value,
+            custom=str(cleaned.get(f"{key}_custom") or ""),
+            is_multiple=req.field.is_multiple,
+        )
+    return folded
+
+
 def field_descriptors(
     prefix: str,
     requirements: (
@@ -698,6 +756,7 @@ def field_descriptors(
             "is_required": req.is_required,
             "is_multiple": req.field.is_multiple,
             "allow_custom": req.field.allow_custom,
+            "offers_custom": offers_custom_input(req.field),
             "max_length": req.field.max_length,
             "is_public": req.field.is_public,
             "icon": getattr(req.field, "icon", ""),

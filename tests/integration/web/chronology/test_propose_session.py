@@ -1833,6 +1833,24 @@ class TestProposeSessionPageView:
         ]
         assert session_data["session_triggers"] == ["krew"]
 
+    def test_details_leaves_the_browser_out_of_a_write_in_requirement(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = self._multi_custom_field(event, proposal_category, is_required=True)
+        field.is_multiple = False
+        field.save()
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(self._get_details_url(event.slug), {})
+
+        descriptor = next(
+            desc
+            for desc in response.context["field_descriptors"]
+            if desc["slug"] == "triggers"
+        )
+        assert descriptor["offers_custom"] is True
+
     def test_details_rejects_a_required_field_with_neither_answer(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):

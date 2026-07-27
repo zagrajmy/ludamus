@@ -5,9 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Sequence
-
-    from ludamus.pacts import PersonalFieldRequirementDTO, SessionFieldRequirementDTO
+    from collections.abc import Collection
 
 type FieldAnswer = str | list[str] | bool
 
@@ -53,51 +51,3 @@ def split_stored(
     if is_multiple:
         return chosen, custom
     return (chosen[0] if chosen else ""), custom
-
-
-type WizardData = dict[str, FieldAnswer | int | None]
-
-
-def unfold_custom_answers(
-    *,
-    stored: WizardData,
-    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
-    prefix: str,
-) -> WizardData:
-    initial: WizardData = dict(stored)
-    for req in requirements:
-        key = f"{prefix}_{req.field.slug}"
-        value = initial.get(key)
-        if req.field.field_type != "select" or not isinstance(value, str | list):
-            continue
-        chosen, custom = split_stored(
-            stored=value,
-            known={option.value for option in req.field.options},
-            is_multiple=req.field.is_multiple,
-        )
-        initial[key] = chosen
-        if custom and req.field.allow_custom:
-            initial[f"{key}_custom"] = custom
-    return initial
-
-
-def fold_custom_answers(
-    *,
-    cleaned: WizardData,
-    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
-    prefix: str,
-) -> WizardData:
-    folded: WizardData = {
-        key: value for key, value in cleaned.items() if not key.endswith("_custom")
-    }
-    for req in requirements:
-        key = f"{prefix}_{req.field.slug}"
-        value = folded.get(key)
-        if not req.field.allow_custom or isinstance(value, int) or value is None:
-            continue
-        folded[key] = merge_custom(
-            chosen=value,
-            custom=str(cleaned.get(f"{key}_custom") or ""),
-            is_multiple=req.field.is_multiple,
-        )
-    return folded

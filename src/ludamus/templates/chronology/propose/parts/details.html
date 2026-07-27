@@ -183,7 +183,7 @@
                             <select name="{{ desc.key }}"
                                     id="id_{{ desc.key }}"
                                     class="w-full px-4 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                    {% if desc.is_required %}required{% endif %}>
+                                    {% if desc.is_required and not desc.offers_custom %}required{% endif %}>
                                 {% for choice in desc.bound_field.field.choices %}
                                     <option value="{{ choice.0 }}"
                                             {% if choice.0|stringformat:"s" == desc.bound_field.value|default_if_none:""|stringformat:"s" %}selected{% endif %}>
@@ -213,7 +213,7 @@
                                    value="{{ desc.bound_field.value|default_if_none:'' }}"
                                    class="w-full px-4 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary"
                                    {% if desc.max_length %}maxlength="{{ desc.max_length }}"{% endif %}
-                                   {% if desc.is_required %}required{% endif %}>
+                                   {% if desc.is_required and not desc.offers_custom %}required{% endif %}>
                         {% endif %}
                         {% if desc.bound_field.errors %}<p class="text-sm text-danger mt-1">{{ desc.bound_field.errors.0 }}</p>{% endif %}
                         {% if desc.help_text %}
@@ -224,6 +224,7 @@
                                 <input type="text"
                                        name="{{ desc.key }}_custom"
                                        value="{{ desc.custom_bound_field.value|default_if_none:'' }}"
+                                       aria-label="{% translate "Or type a custom value" %}"
                                        placeholder="{% translate "Or type a custom value" %}"
                                        {% if desc.max_length %}maxlength="{{ desc.max_length }}"{% endif %}
                                        class="w-full px-4 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary">
