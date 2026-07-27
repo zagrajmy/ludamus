@@ -39,6 +39,11 @@ from ludamus.mills import (
     is_proposal_active,
 )
 from ludamus.mills.chronology import SessionEditNotAllowedError
+from ludamus.mills.field_values import (
+    WizardData,
+    fold_custom_answers,
+    unfold_custom_answers,
+)
 from ludamus.pacts import (
     NotFoundError,
     RedirectError,
@@ -289,9 +294,11 @@ def _personal_context(
     requirements = service.get_personal_requirements(category.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial: dict[str, str | list[str] | bool] = {}
+    initial: WizardData = {}
     if saved_personal := wizard.get("personal_data"):
-        initial = saved_personal
+        initial = unfold_custom_answers(
+            stored=saved_personal, requirements=requirements, prefix="personal"
+        )
     else:
         saved = service.get_saved_personal_data(event.pk)
         initial = {f"personal_{slug}": value for slug, value in saved.items()}
@@ -374,7 +381,11 @@ def _render_details(
     public_tracks = service.get_public_tracks(event.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial = wizard.get("session_data", {})
+    initial = unfold_custom_answers(
+        stored=wizard.get("session_data", {}),
+        requirements=requirements,
+        prefix="session",
+    )
     if "display_name" not in initial:
         initial["display_name"] = getattr(request.user, "name", "")
 
@@ -678,9 +689,12 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
             )
 
         wizard = request.session.get(_session_key(event_slug), {})
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="personal"
+        )
         wizard["personal_data"] = {
             key: value
-            for key, value in form.cleaned_data.items()
+            for key, value in folded.items()
             if key != "contact_email" and value
         }
 
@@ -806,9 +820,10 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             if tid in valid_track_ids
         ]
 
-        wizard["session_data"] = {
-            key: value for key, value in form.cleaned_data.items() if value
-        }
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+        )
+        wizard["session_data"] = {key: value for key, value in folded.items() if value}
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 

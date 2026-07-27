@@ -25,6 +25,8 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     make_unique_slug,
 )
 from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
+from ludamus.gates.web.django.helpers import parse_dynamic_field_value
+from ludamus.mills.field_values import merge_custom, split_stored
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -127,8 +129,12 @@ def collect_session_field_values(
     for req in requirements:
         key = f"session_{req.field.slug}"
         value = form.cleaned_data.get(key)
-        if req.field.allow_custom and not value:
-            value = form.cleaned_data.get(f"{key}_custom", "")
+        if req.field.allow_custom:
+            value = merge_custom(
+                chosen=value,
+                custom=form.cleaned_data.get(f"{key}_custom", ""),
+                is_multiple=req.field.is_multiple,
+            )
         values.append(
             SessionFieldValueData(
                 session_id=session_id,
@@ -452,8 +458,20 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             for fv in self.request.di.uow.sessions.read_field_values(session.pk)
         }
         for req in requirements:
-            if req.field.pk in stored:
-                initial[f"session_{req.field.slug}"] = stored[req.field.pk]
+            if req.field.pk not in stored:
+                continue
+            key = f"session_{req.field.slug}"
+            if req.field.field_type != "select":
+                initial[key] = stored[req.field.pk]
+                continue
+            chosen, custom = split_stored(
+                stored=stored[req.field.pk],
+                known={option.value for option in req.field.options},
+                is_multiple=req.field.is_multiple,
+            )
+            initial[key] = chosen
+            if custom and req.field.allow_custom:
+                initial[f"{key}_custom"] = custom
         return form_class(initial=initial)
 
     def _add_field_context(self, context: dict[str, Any], prepared: _Prepared) -> None:
@@ -572,19 +590,6 @@ class ProposalFormPageView(_ProposalFormBase):
             )
         return result
 
-    def _read_post_field_value(
-        self, prefix: str, field: PersonalDataFieldDTO
-    ) -> str | list[str] | bool:
-        key = f"{prefix}_{field.slug}"
-        if field.field_type == "checkbox":
-            return self.request.POST.get(key) == "true"
-        if field.is_multiple:
-            return self.request.POST.getlist(key)
-        value = self.request.POST.get(key, "")
-        if field.allow_custom and not value:
-            value = self.request.POST.get(f"{key}_custom", "")
-        return value
-
     def _get_facilitator_personal_data_post(
         self, event_pk: int, proposal_id: int
     ) -> FacilitatorPersonalData:
@@ -596,7 +601,13 @@ class ProposalFormPageView(_ProposalFormBase):
         for facilitator in assigned:
             prefix = f"facilitator_{facilitator.pk}_personal"
             items: PersonalFieldItems = [
-                (field, self._read_post_field_value(prefix, field)) for field in fields
+                (
+                    field,
+                    parse_dynamic_field_value(
+                        request=self.request, field=field, key=f"{prefix}_{field.slug}"
+                    ),
+                )
+                for field in fields
             ]
             result.append((facilitator, prefix, items))
         return result
@@ -620,7 +631,9 @@ class ProposalFormPageView(_ProposalFormBase):
                     facilitator_id=facilitator_id,
                     event_id=event_pk,
                     field_id=field.pk,
-                    value=self._read_post_field_value(prefix, field),
+                    value=parse_dynamic_field_value(
+                        request=self.request, field=field, key=f"{prefix}_{field.slug}"
+                    ),
                 )
                 for field in fields
             ]

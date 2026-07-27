@@ -146,20 +146,25 @@
                 {% for desc in field_descriptors|default:"" %}
                     <div>
                         {% if desc.field_type != "checkbox" %}
-                            <label for="id_{{ desc.key }}"
-                                   class="block text-sm font-medium text-foreground-secondary mb-1">
-                                {% if desc.icon %}
-                                    {% icon desc.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+                            <div class="flex items-baseline justify-between gap-2 mb-1">
+                                <label for="id_{{ desc.key }}"
+                                       class="block text-sm font-medium text-foreground-secondary">
+                                    {% if desc.icon %}
+                                        {% icon desc.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+                                    {% endif %}
+                                    {{ desc.name }}
+                                    {% if desc.is_required %}
+                                        <span class="text-danger" aria-hidden="true">*</span>
+                                        <span class="sr-only">{% translate "(required)" %}</span>
+                                    {% endif %}
+                                    {% if not desc.is_public %}
+                                        {% include "components/visibility-icon.html" with is_public=False %}
+                                    {% endif %}
+                                </label>
+                                {% if desc.allow_custom and desc.is_multiple %}
+                                    <span class="text-xs text-foreground-muted">{% translate "comma separated" %}</span>
                                 {% endif %}
-                                {{ desc.name }}
-                                {% if desc.is_required %}
-                                    <span class="text-danger" aria-hidden="true">*</span>
-                                    <span class="sr-only">{% translate "(required)" %}</span>
-                                {% endif %}
-                                {% if not desc.is_public %}
-                                    {% include "components/visibility-icon.html" with is_public=False %}
-                                {% endif %}
-                            </label>
+                            </div>
                         {% endif %}
                         {% if desc.field_type == "select" and desc.is_multiple %}
                             <div class="space-y-1">

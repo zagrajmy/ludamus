@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from django.contrib import messages
 from django.core.files.storage import default_storage
@@ -1755,6 +1755,96 @@ class TestProposeSessionPageView:
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
         assert descriptors[0]["is_multiple"] is True
+
+    def _multi_custom_field(self, event, proposal_category):
+        field = SessionField.objects.create(
+            event=event,
+            name="Trigger warnings",
+            question="Any trigger warnings?",
+            slug="triggers",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+        )
+        SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False
+        )
+        return field
+
+    def test_details_keeps_write_ins_next_to_the_chosen_options(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers": ["horror"],
+                "session_triggers_custom": "krew, przemoc",
+            },
+        )
+
+        session_data = authenticated_client.session[f"propose_{event.slug}"][
+            "session_data"
+        ]
+        assert session_data["session_triggers"] == ["horror", "krew", "przemoc"]
+
+    def test_details_shows_a_saved_write_in_back_in_the_custom_input(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category)
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            session_data={"session_triggers": ["horror", "krew"]},
+        )
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug), {"back": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/details.html",
+            contains=['name="session_triggers_custom"', 'value="krew"'],
+        )
+        form = response.context["form"]
+        assert form.initial["session_triggers"] == ["horror"]
+
+    def test_submit_saves_write_ins_as_list_entries(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = self._multi_custom_field(event, proposal_category)
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            session_data={
+                "title": "Test Session",
+                "participants_limit": 6,
+                "session_triggers": ["horror", "krew"],
+            },
+        )
+
+        authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        session = Session.objects.get(title="Test Session")
+        sfv = SessionFieldValue.objects.get(session=session, field=field)
+        assert sfv.value == ["horror", "krew"]
 
     def test_submit_personal_data_with_non_personal_key_skipped(
         self, authenticated_client, event, faker, time_zone, proposal_category

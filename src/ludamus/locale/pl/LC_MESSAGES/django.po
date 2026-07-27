@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-25 13:30+0200\n"
+"POT-Creation-Date: 2026-07-27 14:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4034,6 +4034,12 @@ msgstr "Pełny harmonogram"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+msgid "comma separated"
+msgstr "po przecinku"
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html
