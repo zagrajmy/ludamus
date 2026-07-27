@@ -210,3 +210,6 @@ If you fix a papercut, remove it.
   export `ENV=development` and `VITE_PORT`, run the vite dev server, and keep
   the rest of `.env.e2e`: assets come from vite with HMR, no build, no
   restart. Build only before handing the page to Playwright.
+- 2026-07-27: mise run check (format+lint) omits messages-check, so a stale PL
+  catalog passes locally and only fails in CI; after any edit that reorders
+  translated strings, run 'mise run messages-check' separately.
