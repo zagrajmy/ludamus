@@ -73,10 +73,7 @@ class TestMetaDescription:
         )
 
         descriptions = _descriptions(response)
-        assert descriptions[0] == (
-            f"Programme and sign-ups for {non_root_sphere.name}. Every item"
-            " shows its time, room and how many seats are left."
-        )
+        assert descriptions[0] == f"Programme and sign-ups for {non_root_sphere.name}."
         assert descriptions == [descriptions[0]] * 3
 
     def test_event_page_describes_the_event(self, client, sphere):

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 14:38+0200\n"
+"POT-Creation-Date: 2026-07-27 14:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2972,12 +2972,8 @@ msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
 #, python-format
-msgid ""
-"Programme and sign-ups for %(sphere)s. Every item shows its time, room and "
-"how many seats are left."
-msgstr ""
-"Program i zapisy na %(sphere)s. Przy każdym punkcie programu godzina, sala "
-"i liczba wolnych miejsc."
+msgid "Programme and sign-ups for %(sphere)s."
+msgstr "Program i zapisy na %(sphere)s."
 
 #: src/ludamus/templates/base.html
 msgid ""
@@ -8086,6 +8082,14 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#, python-format
+#~ msgid ""
+#~ "Programme and sign-ups for %(sphere)s. Every item shows its time, room "
+#~ "and how many seats are left."
+#~ msgstr ""
+#~ "Program i zapisy na %(sphere)s. Przy każdym punkcie programu godzina, "
+#~ "sala i liczba wolnych miejsc."
 
 #~ msgid ""
 #~ "One account for every convention. Sign up for sessions and see your plan "

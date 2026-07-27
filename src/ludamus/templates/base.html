@@ -13,7 +13,7 @@
         partial. Sphere subdomains name the sphere; the brand domain pitches the
         product.{% endcomment %}
         {% if current_sphere and root_sphere and current_sphere.pk != root_sphere.pk %}
-            {% blocktranslate asvar default_description with sphere=current_sphere.name %}Programme and sign-ups for {{ sphere }}. Every item shows its time, room and how many seats are left.{% endblocktranslate %}
+            {% blocktranslate asvar default_description with sphere=current_sphere.name %}Programme and sign-ups for {{ sphere }}.{% endblocktranslate %}
         {% else %}
             {% translate "A convention without spreadsheet chaos. Programme proposals, a schedule of rooms and tracks, sign-ups with seat limits and a waitlist." as default_description %}
         {% endif %}
