@@ -8,7 +8,7 @@ from django.urls import reverse
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
 from tests.integration.utils import assert_response
 
-PRODUCT_PITCH = "Convention sign-ups: grab your seat"
+PRODUCT_PITCH = "One account for every convention."
 
 
 def _head(response, pattern):
@@ -60,11 +60,23 @@ class TestPageTitle:
 
 
 class TestMetaDescription:
-    def test_listing_page_describes_the_product(self, client):
+    def test_brand_domain_pitches_the_product(self, client):
         response = _get_ok(client, reverse("web:events"))
 
         descriptions = _descriptions(response)
         assert descriptions[0].startswith(PRODUCT_PITCH)
+        assert descriptions == [descriptions[0]] * 3
+
+    def test_sphere_subdomain_names_the_sphere_instead(self, client, non_root_sphere):
+        response = _get_ok(
+            client, reverse("web:events"), HTTP_HOST=non_root_sphere.site.domain
+        )
+
+        descriptions = _descriptions(response)
+        assert descriptions[0] == (
+            f"Programme and sign-ups for {non_root_sphere.name}. Book your seat"
+            " on a session and see where you need to be and when."
+        )
         assert descriptions == [descriptions[0]] * 3
 
     def test_event_page_describes_the_event(self, client, sphere):

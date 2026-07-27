@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 14:02+0200\n"
+"POT-Creation-Date: 2026-07-27 14:12+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2971,12 +2971,21 @@ msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
 
 #: src/ludamus/templates/base.html
+#, python-format
 msgid ""
-"Convention sign-ups: grab your seat on an RPG session or workshop before "
-"it's gone. Organizers collect proposals and build the schedule here."
+"Programme and sign-ups for %(sphere)s. Book your seat on a session and see "
+"where you need to be and when."
 msgstr ""
-"Zapisy na konwenty: łapiesz miejsce na sesji RPG czy warsztatach, zanim "
-"zniknie. Organizatorzy zbierają tu zgłoszenia i układają harmonogram."
+"Program i zapisy: %(sphere)s. Zarezerwuj miejsce na sesji i sprawdź, gdzie "
+"masz być o której."
+
+#: src/ludamus/templates/base.html
+msgid ""
+"One account for every convention. Sign up for sessions and see your plan "
+"before you even arrive."
+msgstr ""
+"Jedno konto na wszystkie konwenty. Zapisujesz się na sesje i widzisz swój "
+"plan, zanim jeszcze dojedziesz na miejsce."
 
 #: src/ludamus/templates/base.html
 msgid ""
@@ -8077,6 +8086,13 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Convention sign-ups: grab your seat on an RPG session or workshop before "
+#~ "it's gone. Organizers collect proposals and build the schedule here."
+#~ msgstr ""
+#~ "Zapisy na konwenty: łapiesz miejsce na sesji RPG czy warsztatach, zanim "
+#~ "zniknie. Organizatorzy zbierają tu zgłoszenia i układają harmonogram."
 
 #~ msgid ""
 #~ "The convention programme in your pocket. See what's being run and grab a "

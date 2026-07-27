@@ -8,13 +8,15 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        {% comment %}Description standard, the shape Meetup and Luma use: the
-        product pitch on every listing page, a description built from the object
-        itself on object pages. Object pages override the three description
-        blocks with one shared expression or partial, never three copies of the
-        same logic — a Django block can't hand its output to a variable, so the
-        three tags stay three blocks.{% endcomment %}
-        {% translate "Convention sign-ups: grab your seat on an RPG session or workshop before it's gone. Organizers collect proposals and build the schedule here." as default_description %}
+        {% comment %}One value, three tags: a block can't hand its output to a
+        variable. Object pages override all three with one shared expression or
+        partial. Sphere subdomains name the sphere; the brand domain pitches the
+        product.{% endcomment %}
+        {% if current_sphere and root_sphere and current_sphere.pk != root_sphere.pk %}
+            {% blocktranslate asvar default_description with sphere=current_sphere.name %}Programme and sign-ups for {{ sphere }}. Book your seat on a session and see where you need to be and when.{% endblocktranslate %}
+        {% else %}
+            {% translate "One account for every convention. Sign up for sessions and see your plan before you even arrive." as default_description %}
+        {% endif %}
         <meta name="description"
               content="{% block meta_description %}{{ default_description }}{% endblock meta_description %}">
         <!-- Open Graph / Facebook -->
