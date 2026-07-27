@@ -24,6 +24,9 @@ import django  # ruff:ignore[module-import-not-at-top-of-file]
 django.setup()
 
 from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+    Facilitator,
+    PersonalDataField,
+    PersonalDataFieldOption,
     ProposalCategory,
     SessionField,
     SessionFieldOption,
@@ -31,6 +34,39 @@ from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at
 )
 
 TONE_OPTIONS = (("Comedy", "comedy"), ("Horror", "horror"))
+DIET_OPTIONS = (("Vegan", "vegan"), ("Gluten-free", "gluten-free"))
+
+
+def _seed_personal_data(event: object) -> None:
+    # The panel's facilitator pages render these through the same tag as the
+    # wizard, so the e2e event needs one of each shape to exercise them.
+    diet = PersonalDataField.objects.create(
+        event=event,
+        slug="diet",
+        name="Diet",
+        question="Any dietary needs we should plan for?",
+        help_text="We share this with catering only.",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        order=0,
+    )
+    for order, (label, value) in enumerate(DIET_OPTIONS):
+        PersonalDataFieldOption.objects.create(
+            field=diet, label=label, value=value, order=order
+        )
+    PersonalDataField.objects.create(
+        event=event,
+        slug="first-time",
+        name="First time",
+        question="Is this your first time running a game here?",
+        field_type="checkbox",
+        is_public=True,
+        order=1,
+    )
+    Facilitator.objects.create(
+        event=event, display_name="Robin Fox", slug="robin-fox", user=None
+    )
 
 
 def main() -> None:
@@ -75,7 +111,9 @@ def main() -> None:
         category=category, field=system, is_required=True, order=1
     )
 
-    print("Added dynamic fields to the open-mic category.")  # ruff:ignore[print]
+    _seed_personal_data(category.event)
+
+    print("Added dynamic fields to the open-mic event.")  # ruff:ignore[print]
 
 
 if __name__ == "__main__":
