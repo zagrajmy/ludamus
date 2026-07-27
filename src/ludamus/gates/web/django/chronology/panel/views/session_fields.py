@@ -180,6 +180,8 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
+            initial["is_multiple"] = field.is_multiple
+            initial["allow_custom"] = field.allow_custom
         context["form"] = SessionFieldForm(initial=initial)
         context["categories"] = self.request.di.uow.proposal_categories.list_by_event(
             current_event.pk
@@ -264,6 +266,8 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
                     "icon": form.cleaned_data.get("icon") or "",
                     "is_public": form.cleaned_data.get("is_public", False),
                     "options": options,
+                    "is_multiple": form.cleaned_data.get("is_multiple") or False,
+                    "allow_custom": form.cleaned_data.get("allow_custom") or False,
                 },
             )
             self.request.di.uow.proposal_categories.set_session_field_categories(

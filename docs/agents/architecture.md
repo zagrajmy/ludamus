@@ -1,37 +1,22 @@
 # Architecture
 
+This doc maps the codebase: where each layer lives, which nouns own which
+pages and models, and how services are wired. The rules themselves (imports,
+file layout, slicing, patterns) live in the `glimpse` skill
+(`.claude/skills/glimpse/SKILL.md`) and are enforced by `importlinter`.
+
 ## Layers
 
 | Layer | Location | Purpose |
 | ----- | -------- | ------- |
-| pacts | `pacts.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
+| pacts | `pacts/{noun}.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
 | specs | `specs/{noun}.py` | Business invariants — pure constants, no IO |
-| mills | `mills.py` | Business logic, Django-free |
+| mills | `mills/{noun}.py` | Business logic, Django-free |
 | links | `links/` | Repositories, UoW, external clients |
 | gates | `gates/` | Views, forms, URLs, templatetags |
-| inits | `inits.py` | DI container, middleware wiring |
+| inits | `inits/` | DI container, middleware wiring |
 | edges | `edges/` | settings, wsgi/asgi — outside GLIMPSE |
 | adapters | `adapters/` | Legacy — new code goes into GLIMPSE layers |
-
-## Import Rules
-
-Enforced by `importlinter`:
-
-```text
-General flow (Y can import X):
-pacts -> mills -> links -> gates -> inits
-
-specs sits at the bottom alongside pacts, consumed only by mills:
-pacts -> specs -> mills
-
-Forbidden:
-mills   ✗ gates, links, inits, edges, django
-links   ✗ gates, mills, inits, specs, edges
-gates   ✗ links, inits, specs, edges
-inits   ✗ edges
-specs   ✗ gates, links, inits, mills, edges, django
-pacts   ✗ gates, links, inits, mills, specs, edges, django
-```
 
 ## Repository Pattern
 
@@ -83,10 +68,8 @@ from ludamus.links.db.django import SessionRepository
 
 and never reaches `models`.
 
-**Splitting rules.** Baseline across adapters: halve, don't shard, and
-arrange parts so they don't cause circular imports. For `db/django`,
-models tend to halve along FK dependency or aggregate boundaries;
-repositories halve by aggregate group. A per-entity submodule
+Splitting thresholds and the halve-don't-shard baseline are in the
+`glimpse` skill (Growing rules). A per-entity submodule
 (`repositories/agenda_item.py`) is an escape hatch when one entity's repo
 genuinely dwarfs the rest, not the default.
 
