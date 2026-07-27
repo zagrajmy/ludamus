@@ -16,7 +16,10 @@ type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
 const env = process.env;
 
 export const baseUrl = env.BASE_URL ?? "http://localhost:8000";
-export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "240000");
+
+export const sessionName = (role: string): string =>
+  env.SESSION ? `${env.SESSION}-${role}` : `zagrajmy-ios-${role}-local`;
+export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
 const runtime = env.IOS_RUNTIME;
@@ -49,6 +52,7 @@ export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
   takeSnapshot: () => Promise<CaptureSnapshotResult>;
+  close: () => Promise<void>;
   snapshotLabels: () => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
@@ -71,6 +75,14 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
   const snapshotLabels = async (): Promise<string[]> => {
     const snapshot = await takeSnapshot();
     return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
+  };
+
+  const close = async (): Promise<void> => {
+    try {
+      await client.sessions.close({ session });
+    } catch (error) {
+      console.warn(`Could not close session ${session}:`, error);
+    }
   };
 
   const findNodeByLabel = async (label: string): Promise<SnapshotNode | null> => {
@@ -202,6 +214,7 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
     client,
     deviceOptions,
     takeSnapshot,
+    close,
     snapshotLabels,
     findNodeByLabel,
     wait,

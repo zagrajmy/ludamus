@@ -1,16 +1,16 @@
 import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
-import { beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs } from "./harness";
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 
 const env = process.env;
-const session = env.SESSION ? `${env.SESSION}-modal` : "zagrajmy-ios-modal-local";
+const session = sessionName("modal");
 const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+const preOpenScrollSteps = 8;
 
 const {
   client,
@@ -18,6 +18,7 @@ const {
   takeSnapshot,
   snapshotLabels,
   findNodeByLabel,
+  close,
   openUrl,
   prepareDevice,
   assertPageReady,
@@ -217,6 +218,8 @@ beforeAll(async () => {
     }
   }
 }, hookTimeoutMs);
+
+afterAll(close, 30_000);
 
 test("modal content is visible when the session modal opens", () => {
   expect(contentIssue).toBeNull();

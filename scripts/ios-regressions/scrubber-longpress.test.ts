@@ -1,9 +1,9 @@
-import { beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs } from "./harness";
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 
 const env = process.env;
-const session = env.SESSION ? `${env.SESSION}-scrubber` : "zagrajmy-ios-scrubber-local";
+const session = sessionName("scrubber");
 const eventPath = env.EVENT_PATH ?? "/chronology/event/kapitularz-2025-anonymized/";
 const eventUrl = new URL(eventPath, baseUrl);
 
@@ -20,6 +20,7 @@ const {
   deviceOptions,
   takeSnapshot,
   snapshotLabels,
+  close,
   wait,
   openUrl,
   prepareDevice,
@@ -28,13 +29,15 @@ const {
 
 type Rect = { x: number; y: number; width: number; height: number };
 
+const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
+
 const viewportRect = async (): Promise<Rect> =>
-  (await takeSnapshot()).nodes[0]?.rect ?? { x: 0, y: 0, width: 402, height: 874 };
+  (await takeSnapshot()).nodes[0]?.rect ?? FALLBACK_VIEWPORT;
 
 const scrollScheduleIntoView = async (): Promise<void> => {
   for (let attempt = 0; attempt < 14; attempt += 1) {
     const snapshot = await takeSnapshot();
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 874;
+    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? FALLBACK_VIEWPORT.height;
     const sessionOnScreen = snapshot.nodes.some(
       (node) =>
         (node.label ?? "").startsWith("Open details for") &&
@@ -78,6 +81,8 @@ beforeAll(async () => {
     }
   }
 }, hookTimeoutMs);
+
+afterAll(close, 30_000);
 
 test("long-pressing the hour rail does not open the iOS link callout", () => {
   expect(surfacedCalloutSignals).toEqual([]);
