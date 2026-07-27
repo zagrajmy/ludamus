@@ -84,7 +84,7 @@ from ludamus.pacts import (
     SpherePage,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
-from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.enrollment import EnrollmentPolicy, SeatHoldRequest
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,
@@ -825,6 +825,8 @@ _status_by_choice = {
 
 
 class SessionEnrollPageView(LoginRequiredMixin, View):
+    _cached_policy: EnrollmentPolicy | None = None
+
     request: AuthenticatedRootRequest
 
     def get(
@@ -1289,6 +1291,31 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             form, session, wants_in, member_pks, freed
         )
 
+    def _actor_policy(self, session: Session) -> EnrollmentPolicy:
+        # Seats must come from a window this viewer may actually use, so resolve
+        # their windows before aggregating capacity out of them.
+        if self._cached_policy is None:
+            viewer_email = self.request.services.enrollment.read_viewer(
+                self.request.context.current_user_slug
+            ).email
+            self._cached_policy = session.event.enrollment_policy(
+                session,
+                is_configured_user=bool(
+                    viewer_email
+                    and self.request.services.enrollment.virtual_config(
+                        event=EventDTO.model_validate(session.event),
+                        user_email=viewer_email,
+                    )
+                ),
+            )
+        return self._cached_policy
+
+    def _available_slots(self, session: Session) -> int:
+        return self._actor_policy(session).available_slots(
+            participants_limit=session.participants_limit,
+            enrolled_count=session.enrolled_count,
+        )
+
     def _route_wants_in(
         self,
         form: forms.Form,
@@ -1300,10 +1327,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Fill confirmed seats first (viewer, then companions, then members — the
         # household order), overflow to the waiting list. Counting matches
         # _is_capacity_invalid so the capacity net never rejects this routing.
-        enrollment_config = session.event.get_most_liberal_config(session)
-        available = freed + (
-            enrollment_config.get_available_slots(session) if enrollment_config else 0
-        )
+        available = freed + self._available_slots(session)
         routed: list[EnrollmentRequest] = []
         for member in wants_in:
             user = member.user
@@ -1623,9 +1647,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
         # Zero config rows (cancel-only carve-out) contribute no slots; guest
         # increases stay bounded by seats freed by the same batch's cancels.
-        config_slots = (
-            enrollment_config.get_available_slots(session) if enrollment_config else 0
-        )
+        config_slots = self._available_slots(session) if enrollment_config else 0
         available_spots = config_slots + freed_spots
 
         if enroll_count > available_spots:
