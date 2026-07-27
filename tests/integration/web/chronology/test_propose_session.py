@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from django.contrib import messages
 from django.core.files.storage import default_storage
@@ -1725,6 +1725,42 @@ class TestProposeSessionPageView:
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
         assert descriptors[0]["is_multiple"] is True
+
+    def test_post_personal_multi_value_write_in_field(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Dietary needs",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            is_public=True,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_personal_url(event.slug), {"contact_email": ""}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name="chronology/propose/parts/personal.html",
+        )
+        descriptor = response.context["field_descriptors"][0]
+        assert descriptor["allow_custom"] is True
+        assert descriptor["is_public"] is True
 
     def test_post_session_multiple_select_field(
         self, authenticated_client, event, faker, time_zone, proposal_category

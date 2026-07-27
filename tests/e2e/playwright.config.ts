@@ -81,6 +81,7 @@ export default defineConfig({
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
+        /write-in-fields\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },
     },
