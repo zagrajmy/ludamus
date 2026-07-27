@@ -568,11 +568,16 @@ class FacilitatorMergeService:
             msg = "Cannot merge facilitators that each have a linked user account."
             raise FacilitatorMergeError(msg)
 
-        # A unanimous organizer survives the merge, even when only a source held
-        # it. Organizers that disagree cancel out, so the merged row goes back
-        # on the unassigned pile for someone to claim deliberately.
-        organizer_ids = {f.organizer_id for f in merged if f.organizer_id is not None}
-        organizer_id = organizer_ids.pop() if len(organizer_ids) == 1 else None
+        # Whoever holds the target keeps it — a merge never takes a facilitator
+        # away from its organizer. An unheld target inherits a unanimous
+        # organizer from the sources; sources that disagree cancel out, so the
+        # merged row stays unassigned for someone to claim deliberately.
+        source_organizer_ids = {
+            f.organizer_id for f in sources if f.organizer_id is not None
+        }
+        organizer_id = target.organizer_id or (
+            source_organizer_ids.pop() if len(source_organizer_ids) == 1 else None
+        )
 
         with self._uow.atomic():
             self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)

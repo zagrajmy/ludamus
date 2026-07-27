@@ -243,7 +243,7 @@ class TestFacilitatorMergePageView:
         target.refresh_from_db()
         assert target.organizer_id == organizer.pk
 
-    def test_post_clears_disagreeing_organizers(
+    def test_post_keeps_the_targets_organizer_over_a_disagreeing_source(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -257,6 +257,35 @@ class TestFacilitatorMergePageView:
         response = authenticated_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == one.pk
+
+    def test_post_clears_disagreeing_organizers_of_an_unheld_target(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        one = UserFactory(username="organizer-one", email="organizer1@example.com")
+        two = UserFactory(username="organizer-two", email="organizer2@example.com")
+        target = _make_facilitator(event, "Alice", "alice")
+        first = _make_facilitator(event, "Alice Duplicate", "alice-dup")
+        second = _make_facilitator(event, "Alice Copy", "alice-copy")
+        Facilitator.objects.filter(pk=first.pk).update(organizer=one)
+        Facilitator.objects.filter(pk=second.pk).update(organizer=two)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitator_ids": [target.pk, first.pk, second.pk],
+                "target_id": target.pk,
+            },
         )
 
         assert_response(
