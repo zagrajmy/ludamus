@@ -10,7 +10,7 @@ const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+const preOpenScrollSteps = 8;
 
 const {
   client,
@@ -18,8 +18,6 @@ const {
   takeSnapshot,
   snapshotLabels,
   findNodeByLabel,
-  viewportRect,
-  swipeUpBy,
   close,
   openUrl,
   prepareDevice,
@@ -115,7 +113,10 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
 };
 
 const forcePreOpenScroll = async (): Promise<void> => {
-  await swipeUpBy({ viewport: await viewportRect(), count: preOpenScrollSteps, pixels: 450 });
+  for (let step = 0; step < preOpenScrollSteps; step += 1) {
+    await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
+    await client.command.wait({ ...deviceOptions, durationMs: 150 });
+  }
 };
 
 const waitForLabel = async (label: string, timeoutMs: number): Promise<SnapshotNode | null> => {
@@ -218,7 +219,7 @@ beforeAll(async () => {
   }
 }, hookTimeoutMs);
 
-afterAll(close);
+afterAll(close, 30_000);
 
 test("modal content is visible when the session modal opens", () => {
   expect(contentIssue).toBeNull();

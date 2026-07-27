@@ -17,12 +17,21 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup (measured) + 7 warm-up + 22 tests + 1.5 teardown and upload =
-    # 37, leaving the step timeouts to bind first with a few minutes to spare.
-    timeout-minutes: 42
+    # 6.5 setup + 7 warm-up + 26 tests + 1.5 teardown and upload, leaving the
+    # step timeouts to bind first.
+    timeout-minutes: 46
     env:
-      # Above the measured 194-240s cold runner attach, with room to spare. The
-      # 90s default aborts it every time.
+      # Every runner command is an HTTP request capped by
+      # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
+      # snapshot that runs long aborts and is reported as a connect failure,
+      # which makes agent-device kill and relaunch a runner that was healthy.
+      AGENT_DEVICE_RUNNER_CONNECT_REQUEST_TIMEOUT_MS: 90000
+      # Total deadline per runner command; has to exceed the per-request cap.
+      AGENT_DEVICE_RUNNER_COMMAND_TIMEOUT_MS: 180000
+      # Spawn to AGENT_DEVICE_RUNNER_LISTENER_READY measures 70s on these
+      # runners, so at the 45s default the relaunch path can never succeed.
+      AGENT_DEVICE_RUNNER_STARTUP_TIMEOUT_MS: 180000
+      # Client-to-daemon, not runner-facing: it only has to outlast the above.
       AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
@@ -95,31 +104,33 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
+      # The first runner-backed command builds, launches and attaches the
+      # XCUITest runner, which measures 194-240s. Left inside a test hook it
+      # burns that hook's budget and one of its attempts.
       - name: Warm up the agent-device runner
         continue-on-error: true
         timeout-minutes: 7
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
-        # 2 files x 2 attempts x ~310s = 20.7min worst case, so this binds only
+        # 2 files x 2 attempts x ~370s = 24.7min worst case, so this binds only
         # on a genuine hang.
-        timeout-minutes: 22
+        timeout-minutes: 26
         env:
-          # A hard per-attempt cap, sized so four attempts fit the step budget
-          # above. Healthy hooks measure well under half of it.
-          IOS_HOOK_TIMEOUT_MS: 300000
+          # Per-attempt cap, sized so four attempts fit the step budget above.
+          # The slowest healthy hook measures 289s.
+          IOS_HOOK_TIMEOUT_MS: 360000
         run: |
-          # Retry per file, not per suite: a whole-suite retry re-ran files that
-          # had already passed. Two attempts each, because four attempts is what
-          # fits the step budget above.
+          # Per file rather than per suite, so a retry re-runs only what failed.
+          # Two attempts each is what fits the step budget above.
           run_file() {
             for attempt in 1 2; do
               if bun test "scripts/ios-regressions/$1.test.ts"; then
                 return 0
               fi
               echo "::warning::$1 attempt ${attempt}/2 failed"
-              # Retrying straight into a Safari left mid-gesture wastes the
-              # second attempt.
+              # Retrying into a Safari left mid-gesture wastes the second
+              # attempt.
               xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
             done
             return 1

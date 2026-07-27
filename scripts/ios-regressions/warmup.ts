@@ -1,20 +1,14 @@
 import { createIosHarness, sessionName } from "./harness";
 
-// agent-device's runner attach -- not Safari -- is what times out
-// (IOS_RUNNER_CONNECT_TIMEOUT). The first runner-backed command triggers an
-// `xcodebuild build-for-testing` plus runner launch and connect, which measures
-// at 194-240s on a cold macOS runner. Whichever test file went first used to
-// absorb that inside a `beforeAll`, where it burned the hook budget and an
-// attempt. Pay it here instead, in a step allowed to be slow and allowed to
-// fail. The runner is keyed by device and outlives the session that warmed it,
-// so both test files inherit it.
 const { close, prepareDevice, takeSnapshot } = await createIosHarness(sessionName("warmup"));
 
 try {
   await prepareDevice();
 
-  // A snapshot is the readiness signal: it is the round trip that installs and
-  // attaches the runner, and it only returns once the runner answers.
+  // A snapshot is the readiness signal: it is the round trip that builds,
+  // launches and attaches the XCUITest runner, and it only returns once the
+  // runner answers. The runner is keyed by device and outlives this session,
+  // so both test files inherit it.
   const snapshot = await takeSnapshot();
   console.log(`Runner warm: ${snapshot.nodes.length} nodes.`);
 } finally {
