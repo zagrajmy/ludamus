@@ -1,5 +1,3 @@
-const isSameOriginBlobUrl = (url: string): boolean => url.startsWith("blob:");
-
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -7,6 +5,7 @@ const formatBytes = (bytes: number): string => {
 };
 
 const initDropzone = (label: HTMLLabelElement): void => {
+  // Idempotent: a label may be re-scanned after an HTMX swap.
   if (label.dataset.dropzoneReady === "1") return;
   label.dataset.dropzoneReady = "1";
   const input = label.querySelector<HTMLInputElement>("[data-dropzone-input]");
@@ -33,6 +32,7 @@ const initDropzone = (label: HTMLLabelElement): void => {
       label.dataset.state = "empty";
       return;
     }
+    // A fresh selection cancels any pending removal of the stored file.
     if (clearFlag) clearFlag.checked = false;
     for (const el of nameEls) {
       el.textContent = file.name;
@@ -40,12 +40,18 @@ const initDropzone = (label: HTMLLabelElement): void => {
     for (const el of sizeEls) {
       el.textContent = formatBytes(file.size);
     }
+    // Read the accepted formats off the input rather than restating them, so an
+    // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.
     const accepted = new Set(input.accept.split(",").map((t) => t.trim()));
     const isImage = accepted.has(file.type) || accepted.has("image/*");
     if (preview && isImage) {
       revokePreview();
       const objectUrl = URL.createObjectURL(file);
-      if (!isSameOriginBlobUrl(objectUrl)) {
+      // `createObjectURL` only ever returns a `blob:` URL, so this guard is
+      // not reachable at runtime — it exists as an explicit taint barrier so
+      // static analysis (CodeQL) can see the value reaching `img.src` is a
+      // same-origin blob and not a user-controlled URL.
+      if (!objectUrl.startsWith("blob:")) {
         URL.revokeObjectURL(objectUrl);
         return;
       }
@@ -64,6 +70,7 @@ const initDropzone = (label: HTMLLabelElement): void => {
       e.preventDefault();
       e.stopPropagation();
       input.value = "";
+      // Signal removal of the already-stored file on the next submit.
       if (clearFlag) clearFlag.checked = true;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
@@ -78,6 +85,8 @@ const initDropzones = (root: ParentNode = document): void => {
 
 initDropzones();
 
+// This module evaluates once, so dropzones swapped in later (the propose
+// wizard's review step) never run it. Re-scan swapped-in content instead.
 document.body.addEventListener("htmx:afterSwap", (event) => {
   const { target } = event as CustomEvent;
   initDropzones(target instanceof Element ? target : document);

@@ -7,12 +7,11 @@ import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from defusedxml import DefusedXmlException
-from defusedxml import ElementTree as SafeElementTree
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
+from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
@@ -22,9 +21,9 @@ from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-    from xml.etree.ElementTree import Element
 
     from django.core.files.uploadedfile import UploadedFile
+    from lxml.etree import _Element as Element
 
     from ludamus.pacts import (
         PersonalFieldRequirementDTO,
@@ -81,19 +80,27 @@ def validate_uploaded_image(image: object) -> None:
 
 
 _SVG_FORBIDDEN_TAGS = frozenset({"script", "foreignobject"})
+# libxml2 caps entity amplification (no billion laughs); unresolved entities
+# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
+_SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 
 def _xml_local_name(name: str) -> str:
     return name.rsplit("}", 1)[-1].lower()
 
 
+# lxml types attribute names/values as str | bytes; parsed documents yield str.
+def _xml_text(value: str | bytes) -> str:
+    return value if isinstance(value, str) else value.decode(errors="replace")
+
+
 def _svg_element_is_safe(element: Element) -> bool:
-    if _xml_local_name(element.tag) in _SVG_FORBIDDEN_TAGS:
+    if _xml_local_name(str(element.tag)) in _SVG_FORBIDDEN_TAGS:
         return False
     for name, value in element.attrib.items():
-        if _xml_local_name(name).startswith("on"):
+        if _xml_local_name(_xml_text(name)).startswith("on"):
             return False
-        if "javascript:" in "".join(value.split()).lower():
+        if "javascript:" in "".join(_xml_text(value).split()).lower():
             return False
     return True
 
@@ -101,15 +108,20 @@ def _svg_element_is_safe(element: Element) -> bool:
 def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
     uploaded.seek(0)
     try:
-        root = SafeElementTree.parse(uploaded, forbid_dtd=True).getroot()
-    except (SafeElementTree.ParseError, DefusedXmlException) as error:
+        # fromstring, not parse: parse() takes a filename too, so passing an
+        # upload there reads as a path expression to taint analysis. Size is
+        # already capped by validate_uploaded_image_size.
+        root = etree.fromstring(uploaded.read(), _SVG_PARSER)
+    except etree.XMLSyntaxError as error:
         raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
     finally:
         uploaded.seek(0)
     if (
-        root is None
-        or _xml_local_name(root.tag) != "svg"
-        or not all(_svg_element_is_safe(element) for element in root.iter())
+        _xml_local_name(str(root.tag)) != "svg"
+        # iter(Element) skips entity/comment/PI nodes, whose tag is not a string
+        or not all(
+            _svg_element_is_safe(element) for element in root.iter(etree.Element)
+        )
     ):
         raise ValidationError(_gettext("Invalid or unsafe SVG file."))
 
@@ -169,7 +181,7 @@ def _logo_field() -> forms.FileField:
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
         widget=forms.ClearableFileInput(
-            attrs={"accept": LOGO_ACCEPT, "data-preview-fit": "contain"}
+            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
         ),
     )
 
@@ -663,20 +675,26 @@ class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
     title = forms.CharField(
-        max_length=255, strip=True, error_messages={"required": _("Title is required.")}
+        max_length=255,
+        strip=True,
+        label=_("Title"),
+        error_messages={"required": _("Title is required.")},
     )
     display_name = forms.CharField(
         max_length=255,
         strip=True,
+        label=_("Display Name"),
         error_messages={"required": _("Display name is required.")},
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 5})
+        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
     )
-    contact_email = forms.EmailField(required=False)
-    participants_limit = forms.IntegerField(required=False, min_value=0)
-    min_age = forms.IntegerField(required=False, min_value=0)
-    duration = forms.CharField(required=False)
+    contact_email = forms.EmailField(required=False, label=_("Contact Email"))
+    participants_limit = forms.IntegerField(
+        required=False, min_value=0, label=_("Participants Limit")
+    )
+    min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
+    duration = forms.CharField(required=False, label=_("Duration"))
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -688,7 +706,11 @@ class SessionEditForm(forms.Form):
 def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
     # Stays optional (blank = no limit, as organizers expect) but honours the
     # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {"required": False, "min_value": min_limit or 0}
+    kwargs: dict[str, Any] = {
+        "required": False,
+        "min_value": min_limit or 0,
+        "label": _("Participants Limit"),
+    }
     if max_limit:
         kwargs["max_value"] = max_limit
     return forms.IntegerField(**kwargs)
@@ -697,7 +719,6 @@ def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.Intege
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
-    facilitators: list[tuple[int, str]] | None = None,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
@@ -710,17 +731,6 @@ def create_proposal_form(
             },
         )
     }
-    # Create variant only: a required facilitator binding so a hand-added
-    # proposal can never exist with zero facilitators. The edit view omits
-    # this — it manages facilitators through its own inline list.
-    if facilitators is not None:
-        attrs["facilitator_ids"] = forms.MultipleChoiceField(
-            choices=facilitators,
-            error_messages={
-                "required": _("Please select at least one facilitator."),
-                "invalid_choice": _("Invalid facilitator selection."),
-            },
-        )
 
     if category and (
         category.min_participants_limit or category.max_participants_limit
@@ -735,6 +745,7 @@ def create_proposal_form(
     if category and category.durations:
         attrs["duration"] = forms.ChoiceField(
             required=False,
+            label=_("Duration"),
             choices=[
                 ("", "---"),
                 *((d, format_duration(d)) for d in category.durations),

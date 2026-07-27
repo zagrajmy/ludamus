@@ -80,6 +80,7 @@ export default defineConfig({
         /panel-crud\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
+        /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },

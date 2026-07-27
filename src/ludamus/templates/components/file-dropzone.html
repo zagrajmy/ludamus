@@ -1,9 +1,7 @@
-{% load i18n tessera django_vite %}
-{% vite_asset 'src/dropzone.ts' %}
+{% load i18n tessera %}
 <label for="{{ id }}"
        data-dropzone
        data-state="{{ dropzone_state }}"
-       data-fit="{{ preview_fit|default:'cover' }}"
        class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
     <input type="file"
            id="{{ id }}"
@@ -41,12 +39,10 @@
                  alt=""
                  width="800"
                  height="400"
-                 class="absolute inset-0 w-full h-full object-cover group-data-[fit=contain]:object-contain group-data-[fit=contain]:p-6 group-data-[fit=contain]:pb-12">
-            <div class="absolute inset-x-0 bottom-0 pt-12 pb-2 px-3 bg-linear-to-t from-black via-black/55 to-transparent group-data-[fit=contain]:bg-none group-data-[fit=contain]:pt-0">
-                <p data-dropzone-name
-                   class="text-sm font-medium text-white truncate group-data-[fit=contain]:text-foreground">{{ initial_name }}</p>
-                <p data-dropzone-size
-                   class="text-xs text-white/75 group-data-[fit=contain]:text-foreground-muted"></p>
+                 class="absolute inset-0 w-full h-full {% if fit == 'contain' %}object-contain p-6 pb-12{% else %}object-cover{% endif %}">
+            <div class="absolute inset-x-0 bottom-0 pb-2 px-3 {% if fit == 'contain' %}text-foreground{% else %}pt-12 text-white bg-linear-to-t from-black via-black/55 to-transparent{% endif %}">
+                <p data-dropzone-name class="text-sm font-medium truncate">{{ initial_name }}</p>
+                <p data-dropzone-size class="text-xs opacity-75"></p>
             </div>
             <button type="button"
                     data-dropzone-clear

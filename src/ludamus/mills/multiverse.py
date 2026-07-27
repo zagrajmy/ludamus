@@ -160,6 +160,7 @@ class SpherePanelService:
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit
         }
+        # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
         with self._transaction.atomic():

@@ -64,6 +64,9 @@ def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
 
 
 def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
+    # ClearableFileInput's tri-state in one place: a file on upload becomes the
+    # new value, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored file untouched.
     if uploaded := parse_uploaded_file(raw):
         return uploaded
     return "" if raw is False else None

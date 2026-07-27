@@ -550,6 +550,27 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.logo.name == "events/keep.png"
 
+    def test_save_with_clear_checkbox_removes_logo(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/drop-me.png"
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, name="Renamed") | {"logo-clear": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert not event.logo
+
     def test_error_on_empty_form(
         self, authenticated_client, active_user, sphere, event
     ):
