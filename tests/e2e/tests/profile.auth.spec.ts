@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 test.describe("Profile — Personal Information (edit.html)", () => {
   test("shows profile form with tab navigation", async ({ page }) => {

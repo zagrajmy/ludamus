@@ -37,6 +37,8 @@ webServerEnv.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
 
 export default defineConfig({
   testDir: "./tests",
+  globalSetup: "./global-setup.ts",
+  globalTeardown: "./global-teardown.ts",
   outputDir: "test-results",
   /* Timeout per test */
   timeout: 120 * 1000,

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
 

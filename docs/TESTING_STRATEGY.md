@@ -127,6 +127,14 @@ edit).
 
 Per-branch context coverage belongs in integration.
 
+The run also measures the client TypeScript: Chromium's V8 coverage is
+collected per test and mapped back through the bundle's inline sourcemaps to
+`src/ludamus/client/src/*.ts`, landing in `coverage-client/lcov.info`. CI
+uploads it to Codecov under the `client` flag, next to the Python report from
+pytest and the same run's Django server. A module no spec ever loads is absent
+from that report rather than counted as uncovered — the client flag is
+informational for now, so treat its number as a floor.
+
 ## Migration to the new strategy
 
 1. Move current integration tests to the right directories and files.

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 test.describe("Anonymous proposals", () => {
   test("redirects to login when anonymous proposals are disabled", async ({ page }) => {

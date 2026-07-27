@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 test.describe("Encounter detail — organizer share dialog", () => {
   test("reveals and dismisses the QR code from the share menu", async ({ page }) => {

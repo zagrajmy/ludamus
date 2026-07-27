@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { expect, test } from "@playwright/test";
-
+import { expect, test } from "./helpers/coverage-fixture";
 import { createIosModalContext } from "./helpers/ios-modal";
 
 const settleViewTransitions = (page: Page): Promise<void> =>

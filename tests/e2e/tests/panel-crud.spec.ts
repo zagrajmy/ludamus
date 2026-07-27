@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 // Facilitator + proposal CRUD against the dedicated, otherwise-untouched
 // "Frostfire Game Convention" panel-lab event (bootstrap_data.py). A proposal

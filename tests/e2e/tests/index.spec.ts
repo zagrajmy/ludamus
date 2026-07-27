@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 test.describe("Event index", () => {
   test("lists upcoming and past events and links to event detail", async ({ page }) => {

@@ -66,6 +66,9 @@ export default defineConfig({
         timetable: resolve(rootDir, "src/timetable.ts"),
       },
     },
+    // Coverage runs need the map inside the bundle: V8 hands back the source
+    // text, and that is what carries the coverage home to the .ts files.
+    sourcemap: process.env.COVERAGE_FILE ? "inline" : true,
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/coverage-fixture";
 
 test.describe("Design system page", () => {
   test("renders design showcase with component sections", async ({ page }) => {
