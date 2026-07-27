@@ -1,5 +1,5 @@
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
-from ludamus.pacts import PersonalDataFieldDTO
+from ludamus.pacts import OrganizerFieldDTO
 from ludamus.pacts.submissions import (
     EventPanelSettingsDTO,
     FacilitatorListQuery,
@@ -8,7 +8,7 @@ from ludamus.pacts.submissions import (
 
 
 def _field(pk, field_type="select"):
-    return PersonalDataFieldDTO.model_construct(
+    return OrganizerFieldDTO.model_construct(
         pk=pk, field_type=field_type, name=f"Field {pk}", order=pk, question="", slug=""
     )
 

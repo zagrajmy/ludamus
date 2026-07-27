@@ -109,11 +109,11 @@
                     <p class="mt-1 text-sm text-danger">{{ form.duration.errors.0 }}</p>
                 {% endif %}
             </div>
-            {% if session_fields %}
+            {% if field_descriptors %}
                 <input type="hidden" name="session_fields_submitted" value="1">
             {% endif %}
-            {% for field, current_value in session_fields %}
-                {% dynamic_field field name_prefix="session_field" answer=current_value %}
+            {% for desc in field_descriptors %}
+                {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
             {% endfor %}
         </div>
     </div>

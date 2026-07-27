@@ -31,9 +31,9 @@ from ludamus.pacts import (
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
     NotFoundError,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     PersonalDataFieldCreateData,
-    PersonalDataFieldDTO,
-    PersonalDataFieldOptionDTO,
     PersonalDataFieldRepositoryProtocol,
     PersonalDataFieldUpdateData,
     PersonalDataFieldValueData,
@@ -43,8 +43,6 @@ from ludamus.pacts import (
     ProposalCategoryDTO,
     ProposalCategoryRepositoryProtocol,
     SessionFieldCreateData,
-    SessionFieldDTO,
-    SessionFieldOptionDTO,
     SessionFieldRepositoryProtocol,
     SessionFieldRequirementDTO,
     SessionFieldUpdateData,
@@ -493,10 +491,9 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
         for req in requirements:
             field = req.field
             options = [
-                PersonalDataFieldOptionDTO.model_validate(o)
-                for o in field.options.all()
+                OrganizerFieldOptionDTO.model_validate(o) for o in field.options.all()
             ]
-            field_dto = PersonalDataFieldDTO(
+            field_dto = OrganizerFieldDTO(
                 allow_custom=field.allow_custom,
                 field_type=cast("_FieldType", field.field_type),
                 help_text=field.help_text,
@@ -535,9 +532,9 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
         for req in requirements:
             field = req.field
             options = [
-                SessionFieldOptionDTO.model_validate(o) for o in field.options.all()
+                OrganizerFieldOptionDTO.model_validate(o) for o in field.options.all()
             ]
-            field_dto = SessionFieldDTO(
+            field_dto = OrganizerFieldDTO(
                 allow_custom=field.allow_custom,
                 field_type=cast("_FieldType", field.field_type),
                 help_text=field.help_text,
@@ -587,7 +584,7 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
 class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     def create(
         self, event_id: int, data: PersonalDataFieldCreateData
-    ) -> PersonalDataFieldDTO:
+    ) -> OrganizerFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
         base_slug = data.get("slug") or slugify(data["name"])
@@ -660,13 +657,13 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
             for row in rows
         }
 
-    def list_by_event(self, event_id: int) -> list[PersonalDataFieldDTO]:
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
         fields = PersonalDataField.objects.filter(event_id=event_id).prefetch_related(
             "options"
         )
         return [self._to_dto(f) for f in fields]
 
-    def read_by_slug(self, event_id: int, slug: str) -> PersonalDataFieldDTO:
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         try:
             field = PersonalDataField.objects.prefetch_related("options").get(
                 event_id=event_id, slug=slug
@@ -676,9 +673,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
 
         return self._to_dto(field)
 
-    def update(
-        self, pk: int, data: PersonalDataFieldUpdateData
-    ) -> PersonalDataFieldDTO:
+    def update(self, pk: int, data: PersonalDataFieldUpdateData) -> OrganizerFieldDTO:
         try:
             field = PersonalDataField.objects.prefetch_related("options").get(pk=pk)
         except PersonalDataField.DoesNotExist as exc:
@@ -723,11 +718,11 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         )
 
     @staticmethod
-    def _to_dto(field: PersonalDataField) -> PersonalDataFieldDTO:
+    def _to_dto(field: PersonalDataField) -> OrganizerFieldDTO:
         options = [
-            PersonalDataFieldOptionDTO.model_validate(o) for o in field.options.all()
+            OrganizerFieldOptionDTO.model_validate(o) for o in field.options.all()
         ]
-        return PersonalDataFieldDTO(
+        return OrganizerFieldDTO(
             allow_custom=field.allow_custom,
             field_type=cast("_FieldType", field.field_type),
             help_text=field.help_text,
@@ -744,7 +739,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
 
 
 class SessionFieldRepository(SessionFieldRepositoryProtocol):
-    def create(self, event_id: int, data: SessionFieldCreateData) -> SessionFieldDTO:
+    def create(self, event_id: int, data: SessionFieldCreateData) -> OrganizerFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
         base_slug = data.get("slug") or slugify(data["name"])
@@ -817,13 +812,13 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
             for row in rows
         }
 
-    def list_by_event(self, event_id: int) -> list[SessionFieldDTO]:
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
         fields = SessionField.objects.filter(event_id=event_id).prefetch_related(
             "options"
         )
         return [self._to_dto(f) for f in fields]
 
-    def read_by_slug(self, event_id: int, slug: str) -> SessionFieldDTO:
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         try:
             field = SessionField.objects.prefetch_related("options").get(
                 event_id=event_id, slug=slug
@@ -833,7 +828,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
 
         return self._to_dto(field)
 
-    def update(self, pk: int, data: SessionFieldUpdateData) -> SessionFieldDTO:
+    def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO:
         try:
             field = SessionField.objects.prefetch_related("options").get(pk=pk)
         except SessionField.DoesNotExist as exc:
@@ -879,9 +874,11 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         )
 
     @staticmethod
-    def _to_dto(field: SessionField) -> SessionFieldDTO:
-        options = [SessionFieldOptionDTO.model_validate(o) for o in field.options.all()]
-        return SessionFieldDTO(
+    def _to_dto(field: SessionField) -> OrganizerFieldDTO:
+        options = [
+            OrganizerFieldOptionDTO.model_validate(o) for o in field.options.all()
+        ]
+        return OrganizerFieldDTO(
             allow_custom=field.allow_custom,
             field_type=cast("_FieldType", field.field_type),
             help_text=field.help_text,

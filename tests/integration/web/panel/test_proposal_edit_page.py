@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Notification,
     PersonalDataField,
+    PersonalDataFieldOption,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
@@ -32,7 +33,8 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     FacilitatorListItemDTO,
-    PersonalDataFieldDTO,
+    FieldAnswer,
+    OrganizerFieldDTO,
     SessionDTO,
     TimeSlotDTO,
     TrackDTO,
@@ -965,8 +967,8 @@ class TestProposalEditPageView:
                         FacilitatorDTO.model_validate(facilitator),
                         f"facilitator_{facilitator.pk}_personal",
                         [
-                            (
-                                PersonalDataFieldDTO(
+                            {
+                                "field": OrganizerFieldDTO(
                                     allow_custom=False,
                                     field_type="text",
                                     help_text="",
@@ -980,13 +982,13 @@ class TestProposalEditPageView:
                                     question="Your nickname?",
                                     slug="nick",
                                 ),
-                                None,
-                            )
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(),
+                            }
                         ],
                     )
                 ],
             },
-            contains=["Alice", f'name="facilitator_{facilitator.pk}_personal_nick"'],
         )
 
     def test_post_saves_facilitator_personal_data(
@@ -1042,6 +1044,10 @@ class TestProposalEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["vegan", "gluten-free"]):
+            PersonalDataFieldOption.objects.create(
+                field=field, label=value, value=value, order=order
+            )
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1136,8 +1142,8 @@ class TestProposalEditPageView:
                 FacilitatorDTO.model_validate(facilitator),
                 f"facilitator_{facilitator.pk}_personal",
                 [
-                    (
-                        PersonalDataFieldDTO(
+                    {
+                        "field": OrganizerFieldDTO(
                             allow_custom=False,
                             field_type="text",
                             help_text="",
@@ -1151,8 +1157,9 @@ class TestProposalEditPageView:
                             question="Any allergy?",
                             slug="allergy",
                         ),
-                        "Peanuts",
-                    )
+                        "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                        "answer": FieldAnswer(value="Peanuts"),
+                    }
                 ],
             )
         ]

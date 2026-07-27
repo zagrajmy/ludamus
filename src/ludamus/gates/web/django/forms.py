@@ -14,22 +14,23 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
-from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import FieldAnswer
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
+from ludamus.pacts import FieldAnswer
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
+    from django.http import QueryDict
     from lxml.etree import _Element as Element
 
-    from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import (
-        FieldDescriptor,
-    )
     from ludamus.pacts import (
+        FieldDescriptor,
+        FieldValue,
+        OrganizerFieldDTO,
         PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
         SessionFieldRequirementDTO,
@@ -581,16 +582,17 @@ class TrackForm(forms.Form):
     )
 
 
-def build_field_from_requirement(
+def build_field(
     fields: dict[str, forms.Field],
     field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
+    field_def: OrganizerFieldDTO,
+    *,
+    is_required: bool,
 ) -> None:
-    # Shared by the proposal wizard and the organizer panel so a category's
-    # configured fields render identically in both. The label is the field's
-    # question — the wording the proposer is actually asked — since the panel
-    # renders these through tessera_field rather than hand-rolled labels.
-    field_def = req.field
+    # Shared by the proposal wizard, the organizer panel and every other page
+    # that offers an organizer-defined field, so one field renders and
+    # validates identically wherever it appears. The label is the field's
+    # question — the wording the proposer is actually asked.
     label = field_def.question
     help_text = field_def.help_text
 
@@ -604,15 +606,12 @@ def build_field_from_requirement(
                 label=label,
                 help_text=help_text,
                 choices=choices[1:],  # no blank for multi
-                required=req.is_required,
+                required=is_required,
                 widget=forms.CheckboxSelectMultiple,
             )
         else:
             fields[field_key] = forms.ChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices,
-                required=req.is_required,
+                label=label, help_text=help_text, choices=choices, required=is_required
             )
 
     elif field_def.field_type == "checkbox":
@@ -623,10 +622,7 @@ def build_field_from_requirement(
     else:
         max_len = field_def.max_length if field_def.max_length > 0 else None
         fields[field_key] = forms.CharField(
-            label=label,
-            help_text=help_text,
-            required=req.is_required,
-            max_length=max_len,
+            label=label, help_text=help_text, required=is_required, max_length=max_len
         )
 
     # A checkbox has nothing to customise; every other type with allow_custom
@@ -638,31 +634,69 @@ def build_field_from_requirement(
         )
 
 
-def field_descriptors(
-    prefix: str,
+def requirement_fields(
     requirements: (
         Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
     ),
-    form: forms.Form,
+) -> list[tuple[OrganizerFieldDTO, bool]]:
+    return [(req.field, req.is_required) for req in requirements]
+
+
+def dynamic_fields_form(
+    prefix: str,
+    fields: Sequence[tuple[OrganizerFieldDTO, bool]],
+    data: QueryDict | None = None,
+    *,
+    initial: Mapping[str, FieldValue] | None = None,
+) -> forms.Form:
+    # Every page offering organizer-defined fields validates them through a
+    # real form, so choice, length and required rules are enforced server-side
+    # rather than per page.
+    form_fields: dict[str, forms.Field] = {}
+    for field_def, is_required in fields:
+        build_field(
+            form_fields,
+            f"{prefix}_{field_def.slug}",
+            field_def,
+            is_required=is_required,
+        )
+    form_class: type[forms.Form] = type("DynamicFieldsForm", (forms.Form,), form_fields)
+    return form_class(data, initial=dict(initial or {}))
+
+
+def answered_value(
+    prefix: str, field_def: OrganizerFieldDTO, form: forms.Form
+) -> str | list[str] | bool:
+    # The companion input stands in for the main control when the organizer
+    # allows a value outside the offered options.
+    key = f"{prefix}_{field_def.slug}"
+    value = form.cleaned_data.get(key)
+    if field_def.allow_custom and not value:
+        value = form.cleaned_data.get(f"{key}_custom", "")
+    return value if value is not None else ""
+
+
+def field_descriptors(
+    prefix: str, fields: Sequence[tuple[OrganizerFieldDTO, bool]], form: forms.Form
 ) -> list[FieldDescriptor]:
-    # Template-facing view of a category's fields. Everything the markup needs
-    # comes off the DTO, so the wizard and the panel both hand this straight to
-    # the `dynamic_field` tag instead of re-deriving the shapes per template.
+    # Template-facing view of a page's fields. Everything the markup needs
+    # comes off the DTO, so every page hands this straight to the
+    # `dynamic_field` tag instead of re-deriving the shapes per template.
     descriptors: list[FieldDescriptor] = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
+    for field_def, is_required in fields:
+        field_key = f"{prefix}_{field_def.slug}"
         custom_key = f"{field_key}_custom"
         descriptor: FieldDescriptor = {
-            "field": req.field,
+            "field": field_def,
             "name_prefix": prefix,
             "answer": FieldAnswer(
                 value=form[field_key].value(),
                 # Checkboxes get no companion input even with allow_custom.
                 custom_value=(
-                    form[custom_key].value() if custom_key in form.fields else ""
+                    form[custom_key].value() or "" if custom_key in form.fields else ""
                 ),
                 errors=[str(error) for error in form[field_key].errors],
-                is_required=req.is_required,
+                is_required=is_required,
             ),
         }
         descriptors.append(descriptor)
@@ -751,7 +785,9 @@ def create_proposal_form(
         )
 
     for req in requirements:
-        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+        build_field(
+            attrs, f"session_{req.field.slug}", req.field, is_required=req.is_required
+        )
 
     return type("ProposalCreateForm", (SessionEditForm,), attrs)
 

@@ -20,8 +20,8 @@ if TYPE_CHECKING:
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
+        OrganizerFieldDTO,
         PersonalDataFieldCreateData,
-        PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldUpdateData,
         PersonalDataFieldValueData,
@@ -88,7 +88,7 @@ class CFPPersonalDataFieldService:
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: dict[int, bool],
-    ) -> PersonalDataFieldDTO:
+    ) -> OrganizerFieldDTO:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
             if scoped := self._scope_to_event(event_pk, category_requirements):
@@ -128,7 +128,7 @@ def _is_blank(*, value: str | list[str] | bool | None) -> bool:
 def _diff_personal_data(
     *,
     old_by_slug: dict[str, str | list[str] | bool],
-    fields_by_id: dict[int, PersonalDataFieldDTO],
+    fields_by_id: dict[int, OrganizerFieldDTO],
     entries: list[PersonalDataFieldValueData],
 ) -> list[ContentFieldChange]:
     changes: list[ContentFieldChange] = []

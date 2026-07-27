@@ -25,8 +25,10 @@ from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
     FacilitatorEditForm,
     FacilitatorForm,
+    answered_value,
+    dynamic_fields_form,
+    field_descriptors,
 )
-from ludamus.gates.web.django.helpers import parse_dynamic_field_value
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (
     FacilitatorData,
@@ -38,12 +40,18 @@ from ludamus.pacts import (
 from ludamus.pacts.submissions import AccreditationType, FacilitatorListQuery
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
-    from django.http import HttpResponse
+    from django import forms
+    from django.http import HttpResponse, QueryDict
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import FacilitatorListItemDTO, PersonalDataFieldDTO
+    from ludamus.pacts import (
+        FacilitatorListItemDTO,
+        FieldDescriptor,
+        FieldValue,
+        OrganizerFieldDTO,
+    )
     from ludamus.pacts.submissions import (
         FacilitatorColumnDTO,
         FacilitatorListContextDTO,
@@ -54,10 +62,41 @@ if TYPE_CHECKING:
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
 
-def _personal_entries_from_post(
+_PERSONAL_PREFIX = "personal"
+
+
+def _personal_fields_form(
+    fields: Sequence[OrganizerFieldDTO],
+    data: QueryDict | None = None,
     *,
-    request: PanelRequest,
-    fields: Sequence[PersonalDataFieldDTO],
+    values: Mapping[str, FieldValue] | None = None,
+) -> forms.Form:
+    # The panel records answers on someone's behalf, so nothing is required
+    # here even when the proposal wizard would demand it.
+    stored = values or {}
+    return dynamic_fields_form(
+        _PERSONAL_PREFIX,
+        [(field, False) for field in fields],
+        data,
+        initial={
+            f"{_PERSONAL_PREFIX}_{field.slug}": stored.get(field.slug)
+            for field in fields
+        },
+    )
+
+
+def _personal_descriptors(
+    fields: Sequence[OrganizerFieldDTO], form: forms.Form
+) -> list[FieldDescriptor]:
+    return field_descriptors(
+        _PERSONAL_PREFIX, [(field, False) for field in fields], form
+    )
+
+
+def _personal_entries(
+    *,
+    form: forms.Form,
+    fields: Sequence[OrganizerFieldDTO],
     facilitator_id: int,
     event_id: int,
 ) -> list[PersonalDataFieldValueData]:
@@ -66,9 +105,7 @@ def _personal_entries_from_post(
             facilitator_id=facilitator_id,
             event_id=event_id,
             field_id=field.pk,
-            value=parse_dynamic_field_value(
-                request=request, field=field, key=f"personal_{field.slug}"
-            ),
+            value=answered_value(_PERSONAL_PREFIX, field, form),
         )
         for field in fields
     ]
@@ -260,7 +297,9 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
-        context["personal_fields"] = [(field, None) for field in fields]
+        context["field_descriptors"] = _personal_descriptors(
+            fields, _personal_fields_form(fields)
+        )
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -272,10 +311,11 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         form = FacilitatorForm(self.request.POST)
-        if not form.is_valid():
+        fields_form = _personal_fields_form(fields, self.request.POST)
+        if not form.is_valid() or not fields_form.is_valid():
             context["active_nav"] = "facilitators"
             context["form"] = form
-            context["personal_fields"] = [(field, None) for field in fields]
+            context["field_descriptors"] = _personal_descriptors(fields, fields_form)
             return TemplateResponse(
                 self.request, "panel/facilitator-create.html", context
             )
@@ -297,8 +337,8 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 user_id=None,
             )
         )
-        entries = _personal_entries_from_post(
-            request=self.request,
+        entries = _personal_entries(
+            form=fields_form,
             fields=fields,
             facilitator_id=facilitator.pk,
             event_id=current_event.pk,
@@ -319,16 +359,16 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def _get_personal_fields(
+    def _stored_fields_form(
         self, event_pk: int, facilitator_pk: int
-    ) -> list[tuple[PersonalDataFieldDTO, str | list[str] | bool | None]]:
+    ) -> tuple[Sequence[OrganizerFieldDTO], forms.Form]:
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         values = (
             self.request.di.uow.personal_data_field_values.read_for_facilitator_event(
                 facilitator_pk, event_pk
             )
         )
-        return [(field, values.get(field.slug)) for field in fields]
+        return fields, _personal_fields_form(fields, values=values)
 
     def get(
         self, _request: PanelRequest, slug: str, facilitator_slug: str
@@ -345,7 +385,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
 
-        personal_fields = self._get_personal_fields(current_event.pk, facilitator.pk)
+        fields, fields_form = self._stored_fields_form(current_event.pk, facilitator.pk)
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
         context["form"] = FacilitatorEditForm(
@@ -354,7 +394,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
                 "internal_comment": facilitator.internal_comment,
             }
         )
-        context["personal_fields"] = personal_fields
+        context["field_descriptors"] = _personal_descriptors(fields, fields_form)
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
 
     def post(
@@ -373,23 +413,23 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:facilitators", slug=slug)
 
         form = FacilitatorEditForm(self.request.POST)
-        if not form.is_valid():
-            personal_fields = self._get_personal_fields(
-                current_event.pk, facilitator.pk
-            )
+        all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
+            current_event.pk
+        )
+        fields_form = _personal_fields_form(all_personal_fields, self.request.POST)
+        if not form.is_valid() or not fields_form.is_valid():
             context["active_nav"] = "facilitators"
             context["facilitator"] = facilitator
             context["form"] = form
-            context["personal_fields"] = personal_fields
+            context["field_descriptors"] = _personal_descriptors(
+                all_personal_fields, fields_form
+            )
             return TemplateResponse(
                 self.request, "panel/facilitator-edit.html", context
             )
 
-        all_personal_fields = self.request.di.uow.personal_data_fields.list_by_event(
-            current_event.pk
-        )
-        entries = _personal_entries_from_post(
-            request=self.request,
+        entries = _personal_entries(
+            form=fields_form,
             fields=all_personal_fields,
             facilitator_id=facilitator.pk,
             event_id=current_event.pk,

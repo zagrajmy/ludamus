@@ -16,7 +16,7 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
-    PersonalDataFieldDTO,
+    OrganizerFieldDTO,
     SessionListItemDTO,
     SessionStatus,
 )
@@ -304,7 +304,7 @@ class TestFacilitatorDetailPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        field_dto = PersonalDataFieldDTO(
+        field_dto = OrganizerFieldDTO(
             pk=field.pk,
             name=field.name,
             question=field.question,

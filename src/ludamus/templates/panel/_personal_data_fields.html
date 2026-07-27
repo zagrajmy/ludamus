@@ -1,11 +1,10 @@
 {% load tessera %}
 {% comment %}
 Renders personal-data field inputs. Caller passes:
-  fields       — list of (PersonalDataFieldDTO, current_value) tuples
-  name_prefix  — input name/id prefix (e.g. "personal" or "facilitator_5_personal")
+  descriptors — list of FieldDescriptor (field, name_prefix, answer)
 {% endcomment %}
 <div class="space-y-6">
-    {% for field, current_value in fields %}
-        {% dynamic_field field name_prefix=name_prefix answer=current_value %}
+    {% for desc in descriptors %}
+        {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
     {% endfor %}
 </div>

@@ -1,143 +1,145 @@
-from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import (
-    FieldAnswer,
-    dynamic_field,
-)
-from ludamus.pacts import PersonalDataFieldDTO, SessionFieldDTO, SessionFieldOptionDTO
+from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import field_context
+from ludamus.pacts import FieldAnswer, OrganizerFieldDTO, OrganizerFieldOptionDTO
+
+RPG = OrganizerFieldOptionDTO(label="RPG", order=1, pk=1, value="rpg")
+BOARD = OrganizerFieldOptionDTO(label="Board", order=0, pk=2, value="board")
 
 
-def _session_field(**overrides: object) -> SessionFieldDTO:
-    defaults: dict[str, object] = {
-        "field_type": "select",
-        "name": "Tags",
-        "order": 0,
-        "pk": 1,
-        "question": "What tags apply?",
-        "slug": "tags",
-        "options": [
-            SessionFieldOptionDTO(label="RPG", order=0, pk=1, value="rpg"),
-            SessionFieldOptionDTO(label="Board", order=1, pk=2, value="board"),
-        ],
-    }
-    return SessionFieldDTO(**(defaults | overrides))  # type: ignore[arg-type]
+def _field(**overrides) -> OrganizerFieldDTO:
+    field = OrganizerFieldDTO(
+        field_type="select",
+        name="Tags",
+        options=[RPG, BOARD],
+        order=0,
+        pk=1,
+        question="What tags apply?",
+        slug="tags",
+    )
+    return field.model_copy(update=overrides)
 
 
-class TestSelectShapes:
-    def test_multi_select_renders_checkboxes_not_radios(self) -> None:
-        field = _session_field(is_multiple=True)
+class TestOptions:
+    def test_options_follow_the_organizers_order(self) -> None:
+        context = field_context(_field(), name_prefix="session", answer=FieldAnswer())
 
-        html = dynamic_field(field, name_prefix="session_field")
+        assert context["options"] == [
+            ("board", "Board", False, "id_session_tags_0"),
+            ("rpg", "RPG", False, "id_session_tags_1"),
+        ]
 
-        assert 'type="checkbox"' in html
-        assert 'type="radio"' not in html
+    def test_choices_start_with_a_blank_option(self) -> None:
+        context = field_context(_field(), name_prefix="session", answer=FieldAnswer())
 
-    def test_single_select_renders_a_select_with_a_blank_option(self) -> None:
-        field = _session_field(is_multiple=False)
+        assert context["choices"] == [("", "—"), ("board", "Board"), ("rpg", "RPG")]
 
-        html = dynamic_field(field, name_prefix="session_field")
-
-        assert "<select" in html
-        assert 'value=""' in html
-
-    def test_multi_select_checks_the_values_already_answered(self) -> None:
-        field = _session_field(is_multiple=True)
-
-        html = dynamic_field(field, name_prefix="session_field", answer=["board"])
-
-        assert html.count("checked") == 1
-        assert 'value="board"' in html
-
-    def test_single_select_marks_the_answered_option(self) -> None:
-        field = _session_field(is_multiple=False)
-
-        html = dynamic_field(field, name_prefix="session_field", answer="rpg")
-
-        assert "selected" in html
-
-
-class TestOtherShapes:
-    def test_checkbox_field_renders_one_box(self) -> None:
-        field = _session_field(field_type="checkbox", options=[])
-
-        html = dynamic_field(field, name_prefix="session_field", answer=True)
-
-        assert 'type="checkbox"' in html
-        assert "checked" in html
-
-    def test_text_field_carries_its_value_and_max_length(self) -> None:
-        field = _session_field(field_type="text", max_length=120, options=[])
-
-        html = dynamic_field(field, name_prefix="session_field", answer="anything")
-
-        assert 'value="anything"' in html
-        assert 'maxlength="120"' in html
-
-
-class TestSharedBehaviour:
-    def test_input_name_combines_the_prefix_and_slug(self) -> None:
-        field = _session_field(field_type="text", options=[])
-
-        html = dynamic_field(field, name_prefix="session_field")
-
-        assert 'name="session_field_tags"' in html
-
-    def test_multi_select_option_ids_are_scoped_to_the_field(self) -> None:
-        field = _session_field(is_multiple=True)
-
-        html = dynamic_field(field, name_prefix="session_field")
-
-        assert 'id="id_session_field_tags_0"' in html
-        assert 'id="_0"' not in html
-
-    def test_errors_render_for_every_shape(self) -> None:
-        field = _session_field(field_type="text", options=[])
-
-        html = dynamic_field(
-            field, name_prefix="session", answer=FieldAnswer(errors=["Too long."])
+    def test_answered_options_are_marked_selected(self) -> None:
+        context = field_context(
+            _field(is_multiple=True),
+            name_prefix="session",
+            answer=FieldAnswer(value=["board"]),
         )
 
-        assert "Too long." in html
+        assert context["options"] == [
+            ("board", "Board", True, "id_session_tags_0"),
+            ("rpg", "RPG", False, "id_session_tags_1"),
+        ]
 
-    def test_allow_custom_adds_a_companion_input_keeping_its_value(self) -> None:
-        field = _session_field(allow_custom=True, is_multiple=False)
 
-        html = dynamic_field(
-            field,
+class TestAnswerShapes:
+    def test_a_single_answer_becomes_the_text_value(self) -> None:
+        context = field_context(
+            _field(field_type="text", options=[]),
+            name_prefix="session",
+            answer=FieldAnswer(value="anything"),
+        )
+
+        assert (context["text_value"], context["is_checked"]) == ("anything", True)
+
+    def test_an_unanswered_field_has_no_text_value(self) -> None:
+        context = field_context(
+            _field(field_type="text", options=[]),
+            name_prefix="session",
+            answer=FieldAnswer(),
+        )
+
+        assert (context["text_value"], context["is_checked"]) == ("", False)
+
+    def test_an_unticked_checkbox_selects_nothing(self) -> None:
+        context = field_context(
+            _field(field_type="checkbox", options=[]),
+            name_prefix="session",
+            answer=FieldAnswer(value=False),
+        )
+
+        assert context["options"] == []
+        assert (context["text_value"], context["is_checked"]) == ("", False)
+
+
+class TestNamesAndIds:
+    def test_names_and_ids_combine_the_prefix_and_slug(self) -> None:
+        context = field_context(
+            _field(), name_prefix="session_field", answer=FieldAnswer()
+        )
+
+        assert context["name"] == "session_field_tags"
+        assert context["input_id"] == "id_session_field_tags"
+        assert context["custom_name"] == "session_field_tags_custom"
+        assert context["custom_id"] == "id_session_field_tags_custom"
+
+    def test_help_and_error_ids_describe_the_input(self) -> None:
+        context = field_context(
+            _field(help_text="Pick one."),
+            name_prefix="session",
+            answer=FieldAnswer(errors=["Too long."]),
+        )
+
+        assert context["help_id"] == "id_session_tags_help"
+        assert context["error_id"] == "id_session_tags_error"
+        assert context["described_by"] == "id_session_tags_help id_session_tags_error"
+
+    def test_nothing_is_described_when_there_is_nothing_to_say(self) -> None:
+        context = field_context(_field(), name_prefix="session", answer=FieldAnswer())
+
+        assert (context["help_id"], context["error_id"], context["described_by"]) == (
+            "",
+            "",
+            "",
+        )
+
+
+class TestLabelling:
+    def test_the_question_is_the_label(self) -> None:
+        context = field_context(_field(), name_prefix="session", answer=FieldAnswer())
+
+        assert context["label"] == "What tags apply?"
+
+    def test_a_personal_data_field_carries_no_icon(self) -> None:
+        context = field_context(_field(), name_prefix="personal", answer=FieldAnswer())
+
+        assert not context["icon_name"]
+
+    def test_a_session_field_carries_its_icon(self) -> None:
+        context = field_context(
+            _field(icon="sparkles"), name_prefix="session", answer=FieldAnswer()
+        )
+
+        assert context["icon_name"] == "sparkles"
+
+    def test_required_and_errors_come_from_the_answer(self) -> None:
+        context = field_context(
+            _field(),
+            name_prefix="session",
+            answer=FieldAnswer(is_required=True, errors=["Too long."]),
+        )
+
+        assert context["is_required"] is True
+        assert context["errors"] == ["Too long."]
+
+    def test_the_custom_value_is_carried_through(self) -> None:
+        context = field_context(
+            _field(allow_custom=True),
             name_prefix="session",
             answer=FieldAnswer(custom_value="Something else"),
         )
 
-        assert 'name="session_tags_custom"' in html
-        assert 'value="Something else"' in html
-
-    def test_checkbox_field_gets_no_companion_input(self) -> None:
-        field = _session_field(field_type="checkbox", allow_custom=True, options=[])
-
-        html = dynamic_field(field, name_prefix="session")
-
-        assert "_custom" not in html
-
-    def test_personal_data_field_renders_without_an_icon(self) -> None:
-        field = PersonalDataFieldDTO(
-            field_type="select",
-            is_multiple=True,
-            name="Country",
-            options=[],
-            order=0,
-            pk=1,
-            question="What country?",
-            slug="country",
-        )
-
-        html = dynamic_field(field, name_prefix="personal")
-
-        assert "What country?" in html
-
-    def test_required_field_is_marked(self) -> None:
-        field = _session_field(field_type="text", options=[])
-
-        html = dynamic_field(
-            field, name_prefix="session", answer=FieldAnswer(is_required=True)
-        )
-
-        assert "*" in html
-        assert "required" in html
+        assert context["custom_value"] == "Something else"

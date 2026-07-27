@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 15:12+0200\n"
+"POT-Creation-Date: 2026-07-27 17:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4353,7 +4353,7 @@ msgid "Please confirm"
 msgstr "Potwierdź"
 
 # Login Required Page
-#: src/ludamus/templates/components/dynamic-field.html
+#: src/ludamus/templates/components/dynamic-field-label.html
 #: src/ludamus/templates/components/label.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -4531,8 +4531,8 @@ msgstr "Dla organizatorów"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
-msgid "Shown on public session card"
-msgstr "Widoczne na publicznej karcie punktu programu"
+msgid "Shown publicly"
+msgstr "Widoczne publicznie"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
@@ -8083,6 +8083,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Shown on public session card"
+#~ msgstr "Widoczne na publicznej karcie punktu programu"
 
 #, python-format
 #~ msgid ""

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
         ContentFieldChange,
         FacilitatorChangeLogData,
         FacilitatorUpdateData,
-        PersonalDataFieldDTO,
+        OrganizerFieldDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import (
@@ -32,7 +32,7 @@ _FIELD_KEY_PREFIX = "field_"
 
 
 def _resolve_field_filters(
-    *, filterable_fields: list[PersonalDataFieldDTO], raw: dict[int, str]
+    *, filterable_fields: list[OrganizerFieldDTO], raw: dict[int, str]
 ) -> dict[int, str | bool]:
     # Only fields of this event, only filterable types: a tampered `field_<pk>`
     # naming a foreign or free-text field is dropped, not queried.
@@ -49,15 +49,15 @@ def _resolve_field_filters(
     return resolved
 
 
-def _column_order(field: PersonalDataFieldDTO) -> tuple[int, str]:
+def _column_order(field: OrganizerFieldDTO) -> tuple[int, str]:
     return (field.order, field.name)
 
 
-def _field_key(field: PersonalDataFieldDTO) -> str:
+def _field_key(field: OrganizerFieldDTO) -> str:
     return f"{_FIELD_KEY_PREFIX}{field.pk}"
 
 
-def _all_columns(fields: list[PersonalDataFieldDTO]) -> list[FacilitatorColumnDTO]:
+def _all_columns(fields: list[OrganizerFieldDTO]) -> list[FacilitatorColumnDTO]:
     return [
         *(FacilitatorColumnDTO(key=key) for key in _BUILTIN_COLUMN_KEYS),
         *(
@@ -68,7 +68,7 @@ def _all_columns(fields: list[PersonalDataFieldDTO]) -> list[FacilitatorColumnDT
 
 
 def _resolve_columns(
-    *, keys: list[str], fields: list[PersonalDataFieldDTO]
+    *, keys: list[str], fields: list[OrganizerFieldDTO]
 ) -> list[FacilitatorColumnDTO]:
     # Keys naming a field that has since been deleted (or never belonged to
     # this event) resolve to nothing: the column drops, the list still renders.

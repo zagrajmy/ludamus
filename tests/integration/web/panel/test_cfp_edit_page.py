@@ -16,13 +16,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     TimeSlotRequirement,
 )
-from ludamus.pacts import (
-    EventDTO,
-    PersonalDataFieldDTO,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts import EventDTO, OrganizerFieldDTO, ProposalCategoryDTO, TimeSlotDTO
 from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 
@@ -457,7 +451,7 @@ class TestCFPEditPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -466,7 +460,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -531,7 +525,7 @@ class TestCFPEditPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -540,7 +534,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -596,7 +590,7 @@ class TestCFPEditPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1059,7 +1053,7 @@ class TestCFPEditPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1068,7 +1062,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1136,7 +1130,7 @@ class TestCFPEditPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1145,7 +1139,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1204,7 +1198,7 @@ class TestCFPEditPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1414,7 +1408,7 @@ class TestCFPEditPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -1423,7 +1417,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1490,7 +1484,7 @@ class TestCFPEditPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1499,7 +1493,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -1653,7 +1647,7 @@ class TestCFPEditPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1662,7 +1656,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1734,7 +1728,7 @@ class TestCFPEditPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1743,7 +1737,7 @@ class TestCFPEditPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",

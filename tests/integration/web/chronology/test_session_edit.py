@@ -63,7 +63,7 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -136,7 +136,7 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -166,7 +166,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": True,
             },
@@ -190,7 +190,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": True,
             },
@@ -286,7 +286,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -317,7 +317,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },

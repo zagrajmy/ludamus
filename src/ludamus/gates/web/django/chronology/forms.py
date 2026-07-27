@@ -8,7 +8,7 @@ from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import (
-    build_field_from_requirement,
+    build_field,
     cover_image_field,
     validate_uploaded_image,
 )
@@ -31,7 +31,9 @@ def build_personal_data_form(
     fields: dict[str, forms.Field] = {}
 
     for req in requirements:
-        build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
+        build_field(
+            fields, f"personal_{req.field.slug}", req.field, is_required=req.is_required
+        )
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
 
@@ -84,7 +86,9 @@ def build_session_details_form(
         )
 
     for req in requirements:
-        build_field_from_requirement(fields, f"session_{req.field.slug}", req)
+        build_field(
+            fields, f"session_{req.field.slug}", req.field, is_required=req.is_required
+        )
 
     return type("SessionDetailsForm", (forms.Form,), fields)
 

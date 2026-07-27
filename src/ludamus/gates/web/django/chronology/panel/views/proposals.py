@@ -24,7 +24,13 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
+from ludamus.gates.web.django.forms import (
+    answered_value,
+    create_proposal_form,
+    dynamic_fields_form,
+    field_descriptors,
+    requirement_fields,
+)
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -43,7 +49,7 @@ from ludamus.pacts.legacy import parse_uploaded_file, resolve_cover_image
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from django import forms
     from django.http import QueryDict
@@ -52,18 +58,42 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         EventDTO,
         FacilitatorDTO,
-        PersonalDataFieldDTO,
+        FieldDescriptor,
+        FieldValue,
+        OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionDTO,
-        SessionFieldDTO,
         SessionFieldRequirementDTO,
         SessionFieldValueDTO,
     )
 
-    PersonalFieldItems = list[
-        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
-    ]
-    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
+    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, list[FieldDescriptor]]]
+
+
+def _facilitator_prefix(facilitator_id: int) -> str:
+    return f"facilitator_{facilitator_id}_personal"
+
+
+def _facilitator_fields_form(
+    prefix: str,
+    fields: Sequence[OrganizerFieldDTO],
+    data: QueryDict | None = None,
+    *,
+    values: Mapping[str, FieldValue] | None = None,
+) -> forms.Form:
+    stored = values or {}
+    return dynamic_fields_form(
+        prefix,
+        [(field, False) for field in fields],
+        data,
+        initial={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
+    )
+
+
+def _descriptors(
+    prefix: str, fields: Sequence[OrganizerFieldDTO], form: forms.Form
+) -> list[FieldDescriptor]:
+    return field_descriptors(prefix, [(field, False) for field in fields], form)
 
 
 class _HasPk(Protocol):
@@ -92,7 +122,7 @@ class OrphanFieldValue:
 
 
 def _display_field_value(
-    field: SessionFieldDTO | None, stored: SessionFieldValueDTO
+    field: OrganizerFieldDTO | None, stored: SessionFieldValueDTO
 ) -> str:
     # Stored answers hold option *values*; show the option labels an organizer
     # would recognise, and a checkbox as a word rather than "True".
@@ -460,7 +490,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
         current_event = context["current_event"]
         session = prepared.session
         context["field_descriptors"] = field_descriptors(
-            "session", prepared.requirements, prepared.form
+            "session", requirement_fields(prepared.requirements), prepared.form
         )
         context["orphan_values"] = self._orphan_values(
             current_event.pk, requirements=prepared.requirements, session=session
@@ -566,24 +596,10 @@ class ProposalFormPageView(_ProposalFormBase):
             values = personal_data_field_values.read_for_facilitator_event(
                 facilitator.pk, event_pk
             )
-            items = [(field, values.get(field.slug)) for field in fields]
-            result.append(
-                (facilitator, f"facilitator_{facilitator.pk}_personal", items)
-            )
+            prefix = _facilitator_prefix(facilitator.pk)
+            form = _facilitator_fields_form(prefix, fields, values=values)
+            result.append((facilitator, prefix, _descriptors(prefix, fields, form)))
         return result
-
-    def _read_post_field_value(
-        self, prefix: str, field: PersonalDataFieldDTO
-    ) -> str | list[str] | bool:
-        key = f"{prefix}_{field.slug}"
-        if field.field_type == "checkbox":
-            return self.request.POST.get(key) == "true"
-        if field.is_multiple:
-            return self.request.POST.getlist(key)
-        value = self.request.POST.get(key, "")
-        if field.allow_custom and not value:
-            value = self.request.POST.get(f"{key}_custom", "")
-        return value
 
     def _get_facilitator_personal_data_post(
         self, event_pk: int, proposal_id: int
@@ -594,16 +610,16 @@ class ProposalFormPageView(_ProposalFormBase):
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
-            prefix = f"facilitator_{facilitator.pk}_personal"
-            items: PersonalFieldItems = [
-                (field, self._read_post_field_value(prefix, field)) for field in fields
-            ]
-            result.append((facilitator, prefix, items))
+            prefix = _facilitator_prefix(facilitator.pk)
+            form = _facilitator_fields_form(prefix, fields, self.request.POST)
+            result.append((facilitator, prefix, _descriptors(prefix, fields, form)))
         return result
 
-    def _collect_personal_data(
+    def _personal_data_forms(
         self, event_pk: int
-    ) -> dict[int, list[PersonalDataFieldValueData]] | None:
+    ) -> tuple[Sequence[OrganizerFieldDTO], dict[int, forms.Form]] | None:
+        # One bound form per facilitator whose block was posted, so the panel
+        # enforces the same choice and length rules the wizard does.
         if self.request.POST.get("personal_data_submitted") != "1":
             return None
         raw_ids = self.request.POST.getlist("personal_data_facilitator_ids")
@@ -612,20 +628,42 @@ class ProposalFormPageView(_ProposalFormBase):
             f.pk for f in self.request.di.uow.facilitators.list_by_event(event_pk)
         }
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
-        result: dict[int, list[PersonalDataFieldValueData]] = {}
-        for facilitator_id in submitted_ids & valid_pks:
-            prefix = f"facilitator_{facilitator_id}_personal"
-            entries = [
+        return fields, {
+            facilitator_id: _facilitator_fields_form(
+                _facilitator_prefix(facilitator_id), fields, self.request.POST
+            )
+            for facilitator_id in submitted_ids & valid_pks
+        }
+
+    def _personal_data_is_valid(self, event_pk: int) -> bool:
+        submitted = self._personal_data_forms(event_pk)
+        return submitted is None or all(
+            form.is_valid() for form in submitted[1].values()
+        )
+
+    def _collect_personal_data(
+        self, event_pk: int
+    ) -> dict[int, list[PersonalDataFieldValueData]] | None:
+        if (submitted := self._personal_data_forms(event_pk)) is None:
+            return None
+        fields, posted = submitted
+        return {
+            facilitator_id: [
                 PersonalDataFieldValueData(
                     facilitator_id=facilitator_id,
                     event_id=event_pk,
                     field_id=field.pk,
-                    value=self._read_post_field_value(prefix, field),
+                    value=answered_value(
+                        _facilitator_prefix(facilitator_id), field, form
+                    ),
                 )
                 for field in fields
             ]
-            result[facilitator_id] = entries
-        return result
+            for facilitator_id, form in posted.items()
+            # Validity is checked before the write; is_valid() here only
+            # populates cleaned_data for the forms that passed.
+            if form.is_valid()
+        }
 
     def _collect_remove_field_ids(
         self,
@@ -747,7 +785,8 @@ class ProposalFormPageView(_ProposalFormBase):
         # picker is not a form field, so the rule is enforced here and reported
         # through the form's own error channel.
         facilitator_ids = self._collect_facilitator_ids(current_event.pk) or []
-        if not form.is_valid() or not facilitator_ids:
+        personal_data_valid = self._personal_data_is_valid(current_event.pk)
+        if not form.is_valid() or not facilitator_ids or not personal_data_valid:
             if not facilitator_ids:
                 form.add_error(None, _("Please select at least one facilitator."))
             return self._render(context, prepared)
@@ -832,7 +871,7 @@ class ProposalFormPageView(_ProposalFormBase):
         prepared: _Prepared,
     ) -> HttpResponse:
         form = prepared.form
-        if not form.is_valid():
+        if not form.is_valid() or not self._personal_data_is_valid(current_event.pk):
             return self._render(context, prepared)
 
         try:
