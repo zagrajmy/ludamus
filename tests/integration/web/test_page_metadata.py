@@ -74,8 +74,8 @@ class TestMetaDescription:
 
         descriptions = _descriptions(response)
         assert descriptions[0] == (
-            f"Programme and sign-ups for {non_root_sphere.name}. Book your seat"
-            " on a session and see where you need to be and when."
+            f"Programme and sign-ups for {non_root_sphere.name}. Every item"
+            " shows its time, room and how many seats are left."
         )
         assert descriptions == [descriptions[0]] * 3
 
