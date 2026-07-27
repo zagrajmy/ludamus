@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 11:53+0200\n"
+"POT-Creation-Date: 2026-07-27 13:51+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2116,12 +2116,12 @@ msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
-msgid "Enrollment window created."
-msgstr "Utworzono okno zapisów."
-
-#: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window not found."
 msgstr "Nie znaleziono okna zapisów."
+
+#: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
+msgid "Enrollment window created."
+msgstr "Utworzono okno zapisów."
 
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window saved."
