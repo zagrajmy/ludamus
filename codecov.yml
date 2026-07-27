@@ -19,7 +19,17 @@ coverage:
     project:
       default:
         threshold: 1%
+        flags: [python]
+      # Browser tests cover a slice of the client bundle so far; report the
+      # number without gating on it until the e2e suite has grown into it.
+      client:
+        flags: [client]
+        informational: true
     patch:
       default:
         target: 96%
         threshold: 1%
+        flags: [python]
+      client:
+        flags: [client]
+        informational: true

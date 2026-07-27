@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/fixtures";
 
 test.describe("Write-in answers", () => {
   test("carries a write-in alongside the picked options", async ({ page }) => {

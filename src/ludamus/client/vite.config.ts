@@ -67,6 +67,7 @@ export default defineConfig({
         timetable: resolve(rootDir, "src/timetable.ts"),
       },
     },
+    sourcemap: true,
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {
