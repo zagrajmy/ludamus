@@ -21,7 +21,7 @@ from ludamus.links.db.django.repositories.chronology import (
     location_data,
     session_card_stats,
 )
-from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -248,12 +248,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             session = Session.objects.get(id=pk)
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
-        old_cover = session.cover_image.name
-        for key, value in data.items():
-            setattr(session, key, value)
-        session.save(update_fields=list(data.keys()))
-        if old_cover and old_cover != session.cover_image.name:
-            delete_stored_file(session.cover_image, old_cover)
+        save_replacing_files(session, data, "cover_image")
 
     @staticmethod
     def soft_delete(pk: int) -> None:

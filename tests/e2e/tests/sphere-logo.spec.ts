@@ -63,7 +63,9 @@ test.describe("Sphere logo upload", () => {
     await logoInput(page).setInputFiles({
       name: "evil.svg",
       mimeType: "image/svg+xml",
-      buffer: Buffer.from(String(SVG_BYTES).replace("</svg>", "<script>alert(1)</script></svg>")),
+      buffer: Buffer.from(
+        SVG_BYTES.toString().replace("</svg>", "<script>alert(1)</script></svg>"),
+      ),
     });
     await page.getByRole("button", { name: "Save Settings" }).click();
 
@@ -71,6 +73,7 @@ test.describe("Sphere logo upload", () => {
   });
 
   test("manager removes a saved logo via the clear button", async ({ page }) => {
+    await page.goto("/multiverse/panel/");
     await logoInput(page).setInputFiles({
       name: "brand.svg",
       mimeType: "image/svg+xml",

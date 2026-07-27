@@ -188,6 +188,10 @@ module = ["debug_toolbar.toolbar"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["django_vite.templatetags.django_vite"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["environ"]
 ignore_missing_imports = true
 
