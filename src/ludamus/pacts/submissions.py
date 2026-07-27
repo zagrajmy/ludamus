@@ -81,17 +81,21 @@ class ImportRow:
     def get_value(self, header: str, default: str = "") -> str:
         # Whitespace-only cells count as absent, so a deduped column pair
         # where one side is blank resolves to the filled one instead of
-        # reading as a conflict and skipping the whole row. Candidates are
-        # stripped too: `_answer()` trims the winner anyway, so "D&D" and
-        # " D&D " must collapse to one entry rather than read as a conflict.
-        candidates = {
-            value.strip()
+        # reading as a conflict and skipping the whole row. Conflicts are
+        # judged on stripped text — "D&D" and " D&D " are one answer, not a
+        # conflict — but the cell comes back raw, and deliberately so:
+        # `Session.ident` hashes what this method returns, so trimming here
+        # would re-hash every already-imported row whose key cell carried
+        # padding and fork it into a second session. `_answer()` trims what
+        # actually gets stored.
+        matches = [
+            value
             for key, value in self._data.items()
             if value.strip() and _row_header_matches(key, header)
-        }
-        if len(candidates) > 1:
+        ]
+        if len(candidates := {value.strip() for value in matches}) > 1:
             raise DuplicateValueError(header, sorted(candidates))
-        return next(iter(candidates), default)
+        return matches[0] if matches else default
 
     def has_column(self, header: str) -> bool:
         # Whether the source row carries this column at all (even when empty),

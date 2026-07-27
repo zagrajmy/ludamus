@@ -1000,9 +1000,18 @@ class TestImportRow:
 
         assert row.get_value("Imię") == "Anna"
 
+    def test_get_value_returns_the_cell_unstripped(self):
+        # `Session.ident` hashes this value. Trimming it here would re-hash
+        # every already-imported row whose unique-key cell carried padding and
+        # fork it into a second session; `_answer()` trims what gets stored.
+        row = ImportRow({"Tytuł": '"Tenebre" '})
+
+        assert row.get_value("Tytuł") == '"Tenebre" '
+
     def test_get_value_collapses_suffixed_columns_that_differ_only_by_padding(self):
         # "Anna" and " Anna " trim to the same answer, so a padded duplicate
         # column must resolve to it, not read as a conflict and skip the row.
+        # The first filled column wins, raw.
         row = ImportRow({"Imię": "Anna", "Imię (2)": " Anna "})
 
         assert row.get_value("Imię") == "Anna"
@@ -1682,6 +1691,29 @@ class TestProposalImportService(_ImportServiceMocks):
         assert created_data["ident"] == dedup_ident(
             event_id=2, identity="2026-06-04T10:00-a@x.z"
         )
+
+    def test_run_hashes_the_unique_key_cells_unstripped(
+        self, service, event_integrations, sessions
+    ):
+        # The identity hashes the cell exactly as the sheet holds it. Trimming
+        # it would give an already-imported row a second ident, and since the
+        # title+email fallback only looks at ident="" sessions, the row would
+        # fork into a duplicate session instead of matching its own.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"unique_key_columns": ["Title"],'
+                ' "questions": {"Title": {"to": "session.title"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": '"Tenebre" '}]
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        created_data = sessions.create.call_args.args[0]
+        assert created_data["ident"] == dedup_ident(event_id=2, identity='"Tenebre" ')
 
     def test_run_adopts_preident_session_matching_title_and_email(
         self, service, event_integrations, sessions, log_entries
