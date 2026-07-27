@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
+
+import { expect, test } from "./helpers/fixtures";
 
 const SVG_BYTES = Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="20" viewBox="0 0 60 20">' +
