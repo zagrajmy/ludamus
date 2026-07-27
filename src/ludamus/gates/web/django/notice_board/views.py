@@ -28,7 +28,7 @@ from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
 
 from .forms import EncounterForm
-from .helpers import build_attendee_list
+from .helpers import build_attendee_list, encounter_meta_description
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -328,6 +328,9 @@ class EncounterDetailPageView(View):
                 "spots_remaining": result.spots_remaining,
                 "is_creator": result.is_creator,
                 "description_html": description_html,
+                "encounter_meta_description": encounter_meta_description(
+                    result.encounter, description_html
+                ),
                 "share_url": share_url,
                 "user_has_rsvpd": result.user_has_rsvpd,
                 "google_calendar_url": google_calendar_url(result.encounter, share_url),

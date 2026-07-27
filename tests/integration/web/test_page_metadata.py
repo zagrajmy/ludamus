@@ -8,7 +8,10 @@ from django.urls import reverse
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
 from tests.integration.utils import assert_response
 
-PRODUCT_PITCH = "A convention without spreadsheet chaos."
+PRODUCT_PITCH = (
+    "A convention without spreadsheet chaos. Programme proposals, a schedule of"
+    " rooms and tracks, sign-ups with seat limits and a waitlist."
+)
 
 
 def _head(response, pattern):
@@ -21,6 +24,9 @@ def _title(response):
     return " ".join(_head(response, r"<title>(.*?)</title>").split())
 
 
+# Raw for the tags base.html renders inline; object pages override with a
+# standalone block, which djlint reflows onto its own line and so pads the
+# attribute with whitespace.
 def _meta_raw(response, attribute, value):
     return _head(response, rf'<meta[^>]+{attribute}="{value}"[^>]+content="([^"]*)"')
 
@@ -56,16 +62,14 @@ class TestPageTitle:
             client, reverse("web:events"), HTTP_HOST=non_root_sphere.site.domain
         )
 
-        assert _title(response) == f"Events • {non_root_sphere.name} • {sphere.name}"
+        assert _title(response) == f"Events • {non_root_sphere.name} • Zagrajmy"
 
 
 class TestMetaDescription:
     def test_brand_domain_pitches_the_product(self, client):
         response = _get_ok(client, reverse("web:events"))
 
-        descriptions = _descriptions(response)
-        assert descriptions[0].startswith(PRODUCT_PITCH)
-        assert descriptions == [descriptions[0]] * 3
+        assert _descriptions(response) == [PRODUCT_PITCH] * 3
 
     def test_sphere_subdomain_names_the_sphere_instead(self, client, non_root_sphere):
         response = _get_ok(
@@ -102,6 +106,23 @@ class TestMetaDescription:
         assert "Kraków" in description
         assert description.endswith("| Kolacja i planszówki")
         assert _descriptions(response) == [description] * 3
+
+    def test_encounter_description_keeps_ampersands_readable(self, client, sphere):
+        encounter = EncounterFactory(
+            sphere=sphere, place="", description="Dungeons & Dragons"
+        )
+
+        response = _get_ok(
+            client,
+            reverse(
+                "web:notice-board:encounter-detail",
+                kwargs={"share_code": encounter.share_code},
+            ),
+        )
+
+        assert _meta_raw(response, "name", "description").endswith(
+            "| Dungeons &amp; Dragons"
+        )
 
     def test_encounter_without_place_or_description_still_has_the_date(
         self, client, sphere

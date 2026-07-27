@@ -4,6 +4,7 @@
 {% load cfp_tags %}
 {% load django_vite %}
 {% load markdown_tags %}
+{% load meta_tags %}
 {% block title %}
     {{ event.name }}
 {% endblock title %}
@@ -13,28 +14,14 @@
 {% block twitter_title %}
     {{ event.name }}
 {% endblock twitter_title %}
-{% block meta_description %}
-    {{ event.description|truncatewords:30 }}
-{% endblock meta_description %}
-{% block og_description %}
-    {{ event.description|truncatewords:30 }}
-{% endblock og_description %}
-{% block twitter_description %}
-    {{ event.description|truncatewords:30 }}
-{% endblock twitter_description %}
+{% block meta_description %}{{ event.description|truncatewords:20 }}{% endblock meta_description %}
+{% block og_description %}{{ event.description|truncatewords:20 }}{% endblock og_description %}
+{% block twitter_description %}{{ event.description|truncatewords:20 }}{% endblock twitter_description %}
 {% block og_image %}
-    {% if event.cover_image_url %}
-        {% include "components/meta_image_url.html" with url=event.cover_image_url %}
-    {% else %}
-        {{ block.super }}
-    {% endif %}
+    {% meta_image_url event.cover_image_url %}
 {% endblock og_image %}
 {% block twitter_image %}
-    {% if event.cover_image_url %}
-        {% include "components/meta_image_url.html" with url=event.cover_image_url %}
-    {% else %}
-        {{ block.super }}
-    {% endif %}
+    {% meta_image_url event.cover_image_url %}
 {% endblock twitter_image %}
 {% block header_section %}
 {% endblock header_section %}

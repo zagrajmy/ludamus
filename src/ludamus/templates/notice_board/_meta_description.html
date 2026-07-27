@@ -1,6 +1,0 @@
-{% comment %}The one description an encounter link previews with, shared by the
-description, og: and twitter: tags. Reads the rendered HTML, not the Markdown
-source, so `#` and `**` don't ship to search results.{% endcomment %}
-{{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
-{% if encounter.place %}— {{ encounter.place }}{% endif %}
-{% if description_html %}| {{ description_html|striptags|truncatewords:25 }}{% endif %}

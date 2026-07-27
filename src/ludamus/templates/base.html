@@ -2,6 +2,7 @@
 {% load static %}
 {% load django_vite %}
 {% load heroicons %}
+{% load meta_tags %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE }}">
@@ -12,7 +13,7 @@
         variable. Object pages override all three with one shared expression or
         partial. Sphere subdomains name the sphere; the brand domain pitches the
         product.{% endcomment %}
-        {% if current_sphere and root_sphere and current_sphere.pk != root_sphere.pk %}
+        {% if not is_root_sphere %}
             {% blocktranslate asvar default_description with sphere=current_sphere.name %}Programme and sign-ups for {{ sphere }}.{% endblocktranslate %}
         {% else %}
             {% translate "A convention without spreadsheet chaos. Programme proposals, a schedule of rooms and tracks, sign-ups with seat limits and a waitlist." as default_description %}
@@ -30,7 +31,7 @@
         {% comment %}Not the sphere logo: it may be an SVG, which every link
         preview crawler rejects.{% endcomment %}
         <meta property="og:image"
-              content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'logo.png' %}{% endblock og_image %}">
+              content="{% block og_image %}{% meta_image_url %}{% endblock og_image %}">
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:title"
@@ -38,18 +39,18 @@
         <meta name="twitter:description"
               content="{% block twitter_description %}{{ default_description }}{% endblock twitter_description %}">
         <meta name="twitter:image"
-              content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'logo.png' %}{% endblock twitter_image %}">
-        {% comment %}Title standard: "{page name} • {sphere name} • {brand}".
+              content="{% block twitter_image %}{% meta_image_url %}{% endblock twitter_image %}">
+        {% comment %}Title standard: "{page name} • {sphere name} • Zagrajmy".
         Pages set block title; pages whose name IS the sphere (landing) empty
-        out title_suffix instead. The brand tail is skipped on the root sphere,
-        which is the brand.{% endcomment %}
+        out title_suffix instead. The root sphere is Zagrajmy, so it takes no
+        brand tail.{% endcomment %}
         <title>
             {% block title %}
             {% endblock title %}
             {% block title_suffix %}
                 {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
             {% endblock title_suffix %}
-            {% if root_sphere and root_sphere.pk != current_sphere.pk %}• {{ root_sphere.name }}{% endif %}
+            {% if not is_root_sphere %}• Zagrajmy{% endif %}
         </title>
         {% comment %}Chrome/Safari don't apply an SVG favicon's internal
         prefers-color-scheme media query in the tab, so we swap the href to a

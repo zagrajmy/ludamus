@@ -18,9 +18,9 @@ if TYPE_CHECKING:
 
 class SitesContextData(TypedDict):
     root_site: SiteDTO | None
-    root_sphere: SphereDTO | None
     current_site: SiteDTO | None
     current_sphere: SphereDTO | None
+    is_root_sphere: bool
     has_panel_access: bool
 
 
@@ -31,9 +31,9 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
     ):  # pragma: no cover
         return SitesContextData(
             root_site=None,
-            root_sphere=None,
             current_site=None,
             current_sphere=None,
+            is_root_sphere=True,
             has_panel_access=False,
         )
 
@@ -47,9 +47,9 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
 
     return SitesContextData(
         root_site=root_sphere.site,
-        root_sphere=root_sphere,
         current_site=current_sphere.site,
         current_sphere=current_sphere,
+        is_root_sphere=current_sphere is root_sphere,
         has_panel_access=has_panel_access(request),
     )
 
