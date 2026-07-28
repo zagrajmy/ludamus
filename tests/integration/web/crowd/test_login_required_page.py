@@ -15,7 +15,7 @@ class TestLoginRequiredPage:
             response,
             HTTPStatus.OK,
             template_name="crowd/login_required.html",
-            context_data={"next": "", "show_icon": True, "text": "", "extra_class": ""},
+            context_data={"next": ""},
         )
 
     def test_ok_with_next_url(self, client):
@@ -26,10 +26,5 @@ class TestLoginRequiredPage:
             response,
             HTTPStatus.OK,
             template_name="crowd/login_required.html",
-            context_data={
-                "next": "/event/test-event",
-                "show_icon": True,
-                "text": "",
-                "extra_class": "",
-            },
+            context_data={"next": "/event/test-event"},
         )
