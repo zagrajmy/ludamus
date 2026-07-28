@@ -448,6 +448,8 @@ class TestFacilitatorEditPageView:
             'name="personal_languages"' in html and 'value="en"' in html
         )
         assert "Pick all that apply" in html
+        assert 'name="personal_languages_custom"' in html
+        assert "śląski, ale tylko trochę" in html
         assert 'name="personal_system"' in html
         assert 'name="personal_system_custom"' in html
         assert 'name="personal_vegan"' in html
