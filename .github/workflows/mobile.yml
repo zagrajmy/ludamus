@@ -35,12 +35,22 @@ jobs:
       AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
-      # Only used for local runs: the prepare step below picks a UDID from
-      # whatever the runner image ships, and a UDID takes precedence.
-      IOS_DEVICE_NAME: iPhone 16
       SESSION: ios-regressions
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the iOS spec budget
+        run: |
+          shopt -s nullglob
+          files=(scripts/ios-regressions/*.test.ts)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no iOS regression test files found"
+            exit 1
+          fi
+          if [ ${#files[@]} -gt 2 ]; then
+            echo "::error::${#files[@]} iOS specs found; the budget is sized for 2. Raise timeout-minutes on the test step and the job, and the 2 in this guard."
+            exit 1
+          fi
 
       - uses: jdx/mise-action@v2
         with:
@@ -53,9 +63,6 @@ jobs:
 
       - run: mise install
       - run: mise exec -- poetry install
-
-      - name: Install agent-device
-        run: bun install -g agent-device@0.14.7
 
       - name: Prepare iOS simulator
         run: |
@@ -77,7 +84,7 @@ jobs:
               for device in runtime_devices
               if device.get("isAvailable") and "iPhone" in device.get("name", "")
           ]
-          preferred = next((device for device in devices if device["name"] == "iPhone 16"), None)
+          preferred = next((d for d in devices if d["name"] == "iPhone 17 Pro"), None)
           selected = preferred or devices[0]
           print(selected["udid"])
           PY
@@ -121,15 +128,11 @@ jobs:
         timeout-minutes: 28
         env:
           # Per-attempt cap, sized so four attempts fit the step budget above.
-          # The slowest healthy hook measures 289s.
+          # The slowest healthy hook measures 316s.
           IOS_HOOK_TIMEOUT_MS: 360000
         run: |
           shopt -s nullglob
           files=(scripts/ios-regressions/*.test.ts)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::no iOS regression test files found"
-            exit 1
-          fi
 
           # Per file rather than per suite, so a retry re-runs only what failed.
           # Two attempts each is what fits the step budget above.

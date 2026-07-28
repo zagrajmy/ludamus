@@ -362,11 +362,28 @@ class PersonalDataFieldEditContextDTO:
     optional_category_pks: set[int]
 
 
+class OrganizerActionRefusal(StrEnum):
+    ALREADY_TAKEN = "already_taken"
+    ALREADY_YOURS = "already_yours"
+    ALREADY_FREE = "already_free"
+    NOT_ORGANIZER = "not_organizer"
+
+
+class FacilitatorActionError(Exception):
+    """Raised when a facilitator action cannot apply, with the reason why."""
+
+    def __init__(self, refusal: OrganizerActionRefusal) -> None:
+        super().__init__(refusal.value)
+        self.refusal = refusal
+
+
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     accreditation: str | None
     flagged: bool | None
     field_filters: dict[int, str | bool] | None
+    organizer_id: int | None
+    organizer_unassigned: bool | None
     sort: str | None
 
 
@@ -409,6 +426,11 @@ class FacilitatorListQuery:
     search: str = ""
     accreditation: str = ""
     flagged: bool = False
+    # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
+    # nobody" can never both be asked for. `current_user_id` is who "mine"
+    # means, not a filter of its own.
+    organizer: str = ""
+    current_user_id: int | None = None
     sort: str = ""
     raw_field_filters: dict[int, str] = field(default_factory=dict)
 
@@ -456,6 +478,12 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
+    ) -> None: ...
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> None: ...
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
     ) -> None: ...
     def set_accreditation(
         self,

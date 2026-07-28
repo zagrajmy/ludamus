@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from django.db.models import Q
 
 from ludamus.links.db.django.models import Encounter, EncounterRSVP
-from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.pacts import (
     EncounterData,
     EncounterDTO,
@@ -73,12 +73,7 @@ class EncounterRepository(EncounterRepositoryProtocol):
     @staticmethod
     def update(pk: int, data: EncounterData) -> None:
         encounter = Encounter.objects.get(pk=pk)
-        old_header = encounter.header_image.name if "header_image" in data else None
-        for key, value in data.items():
-            setattr(encounter, key, value)
-        encounter.save()
-        if old_header and old_header != encounter.header_image.name:
-            delete_stored_file(encounter.header_image, old_header)
+        save_replacing_files(encounter, data)
 
     @staticmethod
     def delete(pk: int) -> None:

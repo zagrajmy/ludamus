@@ -63,10 +63,10 @@ def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
     return value if isinstance(value, UploadedFileProtocol) else None
 
 
-def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
     # ClearableFileInput's tri-state in one place: a file on upload becomes the
-    # new cover, False clears it (""), and any other value (None / unchanged)
-    # returns None so the caller leaves the stored cover untouched.
+    # new value, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored file untouched.
     if uploaded := parse_uploaded_file(raw):
         return uploaded
     return "" if raw is False else None
@@ -80,6 +80,11 @@ class FacilitatorDTO(BaseModel):
     event_id: int
     ident: str = ""
     internal_comment: str = ""
+    organizer_id: int | None = None
+    # Annotated by the single-facilitator reads, so a page showing the
+    # organizer needs no second lookup. `create` and `update` return the row
+    # they just wrote, without it.
+    organizer_name: str | None = None
     pk: int
     slug: str
     user_id: int | None
@@ -90,6 +95,7 @@ class FacilitatorData(TypedDict, total=False):
     display_name: str
     event_id: int
     ident: str
+    organizer_id: int | None
     slug: str
     user_id: int | None
 
@@ -98,6 +104,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    organizer_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -106,6 +113,9 @@ class FacilitatorListItemDTO(BaseModel):
     accreditation_type: str
     display_name: str
     flagged_for_deletion: bool = False
+    organizer_id: int | None = None
+    # Annotated by `list_by_event`; null when nobody took the facilitator on.
+    organizer_name: str | None = None
     pk: int
     session_count: int
     slug: str
@@ -438,9 +448,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
-    logo: str
+    logo: UploadedFileProtocol | str
 
 
 @dataclass
@@ -521,7 +529,7 @@ class EncounterData(TypedDict, total=False):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
+    header_image: UploadedFileProtocol | str
     max_participants: int
     place: str
     share_code: str
@@ -674,9 +682,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime, matching the EncounterData.header_image convention.
-    logo: str
+    logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
@@ -1283,6 +1289,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None: ...
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool: ...
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

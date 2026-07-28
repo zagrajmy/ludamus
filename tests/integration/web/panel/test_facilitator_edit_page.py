@@ -14,6 +14,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -121,6 +122,33 @@ class TestFacilitatorEditPageView:
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "personal_fields": [],
             },
+        )
+
+    def test_get_shows_the_organizer_read_only(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
+        facilitator = _make_facilitator(event, organizer=organizer)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "facilitator": (
+                    FacilitatorDTO.model_validate(facilitator).model_copy(
+                        update={"organizer_name": "Olga Organizer"}
+                    )
+                ),
+                "personal_fields": [],
+            },
+            contains="Olga Organizer",
+            not_contains='name="organizer"',
         )
 
     def test_post_redirects_when_event_not_found(

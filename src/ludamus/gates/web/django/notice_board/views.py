@@ -27,6 +27,7 @@ from ludamus.mills import (
 )
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
+from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 from .forms import EncounterForm
 from .helpers import build_attendee_list
@@ -258,11 +259,9 @@ class EncounterEditPageView(LoginRequiredMixin, View):
             place=form.cleaned_data.get("place", ""),
             max_participants=form.cleaned_data.get("max_participants") or 0,
         )
-        # ClearableFileInput: a file replaces, False clears, None keeps as-is.
-        if header_image := form.cleaned_data.get("header_image"):
-            data["header_image"] = header_image
-        elif header_image is False:
-            data["header_image"] = ""
+        header = resolve_uploaded_file_field(form.cleaned_data.get("header_image"))
+        if header is not None:
+            data["header_image"] = header
 
         uow.encounters.update(pk, data)
         messages.success(request, _("Encounter updated."))

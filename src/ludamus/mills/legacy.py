@@ -19,6 +19,7 @@ from ludamus.pacts import (
     FacilitatorData,
     FacilitatorDTO,
     FacilitatorMergeError,
+    FacilitatorUpdateData,
     NotFoundError,
     PersonalDataFieldValueData,
     PersonalFieldRequirementDTO,
@@ -528,16 +529,30 @@ class FacilitatorMergeService:
             msg = "Target cannot be among source facilitators"
             raise FacilitatorMergeError(msg)
 
-        all_ids = [target_id, *source_ids]
-        linked_count = sum(
-            1 for fid in all_ids if self._uow.facilitators.read(fid).user_id is not None
-        )
-        if linked_count > 1:
+        target = self._uow.facilitators.read(target_id)
+        sources = [self._uow.facilitators.read(fid) for fid in source_ids]
+        merged = [target, *sources]
+        if sum(1 for f in merged if f.user_id is not None) > 1:
             msg = "Cannot merge facilitators that each have a linked user account."
             raise FacilitatorMergeError(msg)
+
+        # Whoever holds the target keeps it — a merge never takes a facilitator
+        # away from its organizer. An unheld target inherits a unanimous
+        # organizer from the sources; sources that disagree cancel out, so the
+        # merged row stays unassigned for someone to claim deliberately.
+        source_organizer_ids = {
+            f.organizer_id for f in sources if f.organizer_id is not None
+        }
+        organizer_id = target.organizer_id or (
+            source_organizer_ids.pop() if len(source_organizer_ids) == 1 else None
+        )
 
         with self._uow.atomic():
             self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
             self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._uow.facilitators.delete(source_id)
+            if organizer_id != target.organizer_id:
+                self._uow.facilitators.update(
+                    target_id, FacilitatorUpdateData(organizer_id=organizer_id)
+                )
