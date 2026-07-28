@@ -1726,6 +1726,36 @@ class TestProposeSessionPageView:
         assert len(descriptors) == 1
         assert descriptors[0]["is_multiple"] is True
 
+    def test_post_personal_multi_value_write_in_field(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Dietary needs",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            is_public=True,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_personal_url(event.slug), {"contact_email": ""}
+        )
+
+        descriptor = response.context["field_descriptors"][0]
+        assert descriptor["custom_bound_field"] is not None
+        assert descriptor["offers_custom"] is True
+
     def test_post_session_multiple_select_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1755,6 +1785,170 @@ class TestProposeSessionPageView:
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
         assert descriptors[0]["is_multiple"] is True
+
+    def _multi_custom_field(self, event, proposal_category, *, is_required=False):
+        field = SessionField.objects.create(
+            event=event,
+            name="Trigger warnings",
+            question="Any trigger warnings?",
+            slug="triggers",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+        )
+        SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=is_required
+        )
+        return field
+
+    def test_details_accepts_a_write_in_as_the_answer_to_a_required_field(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category, is_required=True)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers_custom": "krew",
+            },
+        )
+
+        session_data = authenticated_client.session[f"propose_{event.slug}"][
+            "session_data"
+        ]
+        assert session_data["session_triggers"] == ["krew"]
+
+    def test_details_leaves_the_browser_out_of_a_write_in_requirement(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = self._multi_custom_field(event, proposal_category, is_required=True)
+        field.is_multiple = False
+        field.save()
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(self._get_details_url(event.slug), {})
+
+        descriptor = next(
+            desc
+            for desc in response.context["field_descriptors"]
+            if desc["slug"] == "triggers"
+        )
+        assert descriptor["offers_custom"] is True
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers_custom": "krew",
+            },
+        )
+
+        session_data = authenticated_client.session[f"propose_{event.slug}"][
+            "session_data"
+        ]
+        assert session_data["session_triggers"] == "krew"
+
+    def test_details_rejects_a_required_field_with_neither_answer(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category, is_required=True)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+            },
+        )
+
+        form = response.context["form"]
+        assert form.errors["session_triggers"] == ["Pick an option or type your own."]
+        assert (
+            "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
+        )
+
+    def test_details_keeps_write_ins_next_to_the_chosen_options(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers": ["horror"],
+                "session_triggers_custom": "krew, przemoc",
+            },
+        )
+
+        session_data = authenticated_client.session[f"propose_{event.slug}"][
+            "session_data"
+        ]
+        assert session_data["session_triggers"] == ["horror", "krew", "przemoc"]
+
+    def test_details_shows_a_saved_write_in_back_in_the_custom_input(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._multi_custom_field(event, proposal_category)
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            session_data={"session_triggers": ["horror", "krew"]},
+        )
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug), {"back": "1"}
+        )
+
+        form = response.context["form"]
+        assert form.initial["session_triggers"] == ["horror"]
+        assert form.initial["session_triggers_custom"] == "krew"
+
+    def test_submit_saves_write_ins_as_list_entries(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = self._multi_custom_field(event, proposal_category)
+        self._set_wizard_full(
+            authenticated_client,
+            event,
+            proposal_category,
+            session_data={
+                "title": "Test Session",
+                "participants_limit": 6,
+                "session_triggers": ["horror", "krew"],
+            },
+        )
+
+        authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        session = Session.objects.get(title="Test Session")
+        sfv = SessionFieldValue.objects.get(session=session, field=field)
+        assert sfv.value == ["horror", "krew"]
 
     def test_submit_personal_data_with_non_personal_key_skipped(
         self, authenticated_client, event, faker, time_zone, proposal_category

@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -309,24 +310,28 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_panel_link_shown_for_sphere_manager(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_panel_link_shown_for_manager_and_superuser(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert "is_sphere_manager" in response.context
-        assert response.context["is_sphere_manager"] is True
-        assert b"Panel" in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["index.html"],
+            contains='href="/panel/"',
+        )
 
     def test_panel_link_hidden_for_non_manager(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["is_sphere_manager"] is False
-        assert b'href="/panel/"' not in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["index.html"],
+            not_contains='href="/panel/"',
+        )
 
     def test_published_announcement_shown(self, client, sphere):
         announcement = Announcement.objects.create(
@@ -423,10 +428,10 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_unpublished_event_visible_for_manager(
-        self, authenticated_client, active_user, sphere
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_unpublished_event_visible_for_manager_and_superuser(
+        self, authenticated_client, sphere
     ):
-        sphere.managers.add(active_user)
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self.URL)

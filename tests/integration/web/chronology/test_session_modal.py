@@ -154,10 +154,19 @@ class TestSessionModalComponentView:
 
         assert_response_404(response)
 
-    def test_unpublished_event_ok_for_manager(
-        self, authenticated_client, active_user, sphere, agenda_item, event
+    def test_unpublished_event_404_for_authenticated_non_manager(
+        self, agenda_item, authenticated_client, event
     ):
-        sphere.managers.add(active_user)
+        event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
+        event.save()
+
+        response = authenticated_client.get(_url(event, agenda_item.session.pk))
+
+        assert_response_404(response)
+
+    def test_unpublished_event_ok_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, agenda_item, event
+    ):
         event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
         event.save()
 
@@ -171,7 +180,7 @@ class TestSessionModalComponentView:
                 "data": _expected_session_data(
                     agenda_item=agenda_item,
                     session=agenda_item.session,
-                    presenter=active_user,
+                    presenter=panel_access_user,
                     can_edit=True,
                 ),
                 "event": EventDTO.model_validate(event),

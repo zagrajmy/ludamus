@@ -3,9 +3,9 @@
 {% block title %}
     {{ document.event_name }}
 {% endblock title %}
-{% block meta_description %}
-    {{ document.event_description|default:document.event_name }}
-{% endblock meta_description %}
+{% block meta_description %}{{ document.event_description|default:document.event_name }}{% endblock meta_description %}
+{% block og_description %}{{ document.event_description|default:document.event_name }}{% endblock og_description %}
+{% block twitter_description %}{{ document.event_description|default:document.event_name }}{% endblock twitter_description %}
 {% block extra_head %}
     <style>
         @page {

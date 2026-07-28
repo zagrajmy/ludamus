@@ -1,0 +1,15 @@
+{# Bare checkbox input. Callers should use checkbox-field.html instead; this #}
+{# exists so the labelled and unlabelled branches there can each be a #}
+{# complete element without duplicating the attribute list. #}
+<input type="checkbox"
+       class="{{ size|default:'w-4 h-4' }} rounded border border-border accent-primary shrink-0 focus:ring-1 focus:ring-offset-0"
+       {% if id|default:"" %}id="{{ id }}"{% endif %}
+       name="{{ name }}"
+       {% if value|default:"" %}value="{{ value }}"{% endif %}
+       {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}
+       {% if checked|default:False or value in checked_values %}checked{% endif %}
+       {% if disabled|default:False %}disabled{% endif %}
+       {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}
+       {% if aria_expanded|default:"" %}aria-expanded="{{ aria_expanded }}"{% endif %}
+       {% if data_action|default:"" %}data-action="{{ data_action }}"{% endif %}
+       {% if data_required_target|default:"" %}data-required-target="{{ data_required_target }}"{% endif %}>

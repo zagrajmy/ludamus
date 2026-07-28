@@ -16,6 +16,7 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
+from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -53,7 +54,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
-            logo=form.cleaned_data.get("logo") or None,
+            logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
         )
         messages.success(self.request, _("Sphere settings saved successfully."))
         return redirect("multiverse:panel:sphere-settings")

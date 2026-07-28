@@ -12,6 +12,8 @@ from collections import Counter
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from ludamus.pacts.enrollment import PromotionStateDTO, WaitingParticipantDTO
 
 
@@ -113,3 +115,7 @@ def select_promotable_parties(
             break
 
     return selected
+
+
+def is_valid_window_period(*, start_time: datetime, end_time: datetime) -> bool:
+    return start_time < end_time

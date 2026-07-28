@@ -41,6 +41,7 @@ export default defineConfig({
         copy: resolve(rootDir, "src/copy.ts"),
         "design-page": resolve(rootDir, "src/design-page.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
+        dropzone: resolve(rootDir, "src/dropzone.ts"),
         "encounter-form": resolve(rootDir, "src/encounter-form.ts"),
         "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
@@ -54,6 +55,7 @@ export default defineConfig({
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
+        "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
         "session-card": resolve(rootDir, "src/session-card.ts"),
@@ -67,6 +69,7 @@ export default defineConfig({
         timetable: resolve(rootDir, "src/timetable.ts"),
       },
     },
+    sourcemap: true,
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {

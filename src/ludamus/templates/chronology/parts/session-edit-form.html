@@ -1,6 +1,6 @@
 {% load i18n %}
+{% load cfp_tags %}
 {% load tessera %}
-{% load django_vite %}
 <form id="session-{{ session.pk }}-edit-form"
       class="flex flex-col min-h-0 flex-auto"
       method="post"
@@ -115,8 +115,13 @@
             {% for field, current_value in session_fields %}
                 <div>
                     {% if field.field_type != "checkbox" %}
-                        <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                               for="id_sf_{{ field.slug }}">{{ field.name }}</label>
+                        <div class="flex items-baseline justify-between gap-2 mb-1">
+                            <label class="block text-sm font-medium text-foreground-secondary"
+                                   for="id_sf_{{ field.slug }}">{{ field.name }}</label>
+                            {% if field.allow_custom and field.is_multiple %}
+                                <span class="text-xs text-foreground-muted">{% translate "comma separated" %}</span>
+                            {% endif %}
+                        </div>
                     {% endif %}
                     {% if field.field_type == "select" and field.is_multiple %}
                         <div class="space-y-1">
@@ -131,6 +136,14 @@
                                 </label>
                             {% endfor %}
                         </div>
+                        {% if field.allow_custom %}
+                            <input type="text"
+                                   name="session_field_{{ field.slug }}_custom"
+                                   value="{{ current_value|custom_values:field }}"
+                                   aria-label="{% translate "Or type a custom value" %}"
+                                   placeholder="{% translate "Or type a custom value" %}"
+                                   class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                        {% endif %}
                     {% elif field.field_type == "select" %}
                         <select name="session_field_{{ field.slug }}"
                                 id="id_sf_{{ field.slug }}"
@@ -146,6 +159,8 @@
                         {% if field.allow_custom %}
                             <input type="text"
                                    name="session_field_{{ field.slug }}_custom"
+                                   value="{{ current_value|custom_values:field }}"
+                                   aria-label="{% translate "Or type a custom value" %}"
                                    placeholder="{% translate "Or type a custom value" %}"
                                    class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                         {% endif %}
@@ -168,6 +183,7 @@
                         {% if field.allow_custom %}
                             <input type="text"
                                    name="session_field_{{ field.slug }}_custom"
+                                   aria-label="{% translate "Or type a custom value" %}"
                                    placeholder="{% translate "Or type a custom value" %}"
                                    class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                         {% endif %}
@@ -193,4 +209,3 @@
         </button>
     </div>
 </form>
-{% vite_asset 'src/encounter-form.ts' %}

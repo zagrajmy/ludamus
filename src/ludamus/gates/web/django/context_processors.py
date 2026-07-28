@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from django.conf import settings
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
 
 if TYPE_CHECKING:
@@ -19,7 +20,8 @@ class SitesContextData(TypedDict):
     root_site: SiteDTO | None
     current_site: SiteDTO | None
     current_sphere: SphereDTO | None
-    is_sphere_manager: bool
+    is_root_sphere: bool
+    has_panel_access: bool
 
 
 def sites(request: RootRepositoryRequest) -> SitesContextData:
@@ -31,28 +33,25 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
             root_site=None,
             current_site=None,
             current_sphere=None,
-            is_sphere_manager=False,
+            is_root_sphere=True,
+            has_panel_access=False,
         )
 
     sites_service = request.services.sites
     root_sphere = sites_service.read(request.context.root_sphere_id)
+    is_root_sphere = request.context.current_sphere_id == request.context.root_sphere_id
     current_sphere = (
         root_sphere
-        if request.context.current_sphere_id == request.context.root_sphere_id
+        if is_root_sphere
         else sites_service.read(request.context.current_sphere_id)
     )
-
-    is_sphere_manager = False
-    if request.user.is_authenticated and request.context.current_user_slug:
-        is_sphere_manager = sites_service.is_manager(
-            current_sphere.pk, request.context.current_user_slug
-        )
 
     return SitesContextData(
         root_site=root_sphere.site,
         current_site=current_sphere.site,
         current_sphere=current_sphere,
-        is_sphere_manager=is_sphere_manager,
+        is_root_sphere=is_root_sphere,
+        has_panel_access=has_panel_access(request),
     )
 
 

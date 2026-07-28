@@ -1,4 +1,20 @@
+import pytest
 from django.urls import reverse
+
+
+class TestSitesContext:
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_manager_and_superuser_have_panel_access(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:events"))
+
+        has_panel_access = response.context["has_panel_access"]
+        assert has_panel_access is True
+
+    def test_regular_user_has_no_panel_access(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:events"))
+
+        has_panel_access = response.context["has_panel_access"]
+        assert has_panel_access is False
 
 
 class TestCurrentUserContext:

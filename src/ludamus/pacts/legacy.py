@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -63,10 +63,10 @@ def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
     return value if isinstance(value, UploadedFileProtocol) else None
 
 
-def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
     # ClearableFileInput's tri-state in one place: a file on upload becomes the
-    # new cover, False clears it (""), and any other value (None / unchanged)
-    # returns None so the caller leaves the stored cover untouched.
+    # new value, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored file untouched.
     if uploaded := parse_uploaded_file(raw):
         return uploaded
     return "" if raw is False else None
@@ -110,6 +110,11 @@ class FacilitatorListItemDTO(BaseModel):
     user_id: int | None
 
 
+class PromotionMode(StrEnum):
+    AUTO = auto()
+    OFFER_CLAIM = auto()
+
+
 class ProposalCategoryDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -119,7 +124,9 @@ class ProposalCategoryDTO(BaseModel):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta = timedelta(hours=24)
     pk: int
+    promotion_mode: PromotionMode = PromotionMode.AUTO
     slug: str
     start_time: datetime | None
 
@@ -272,18 +279,6 @@ OCCUPYING_PARTICIPATION_STATUSES = (
     SessionParticipationStatus.CONFIRMED,
     SessionParticipationStatus.OFFERED,
 )
-
-
-class PromotionMode(StrEnum):
-    """How a freed seat is filled from the waiting list, per ProposalCategory.
-
-    AUTO: the next eligible waiter is moved straight to CONFIRMED.
-    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
-    bounded window; they must actively claim it or it rolls to the next party.
-    """
-
-    AUTO = auto()
-    OFFER_CLAIM = auto()
 
 
 class NotificationKind(StrEnum):
@@ -441,9 +436,7 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
-    logo: str
+    logo: UploadedFileProtocol | str
 
 
 @dataclass
@@ -524,7 +517,7 @@ class EncounterData(TypedDict, total=False):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
+    header_image: UploadedFileProtocol | str
     max_participants: int
     place: str
     share_code: str
@@ -581,6 +574,8 @@ class ProposalCategoryData(TypedDict, total=False):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta
+    promotion_mode: PromotionMode
     start_time: datetime | None
 
 
@@ -675,9 +670,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime, matching the EncounterData.header_image convention.
-    logo: str
+    logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
@@ -1062,12 +1055,6 @@ class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-method
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None: ...
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None: ...
-    @staticmethod
     def get_personal_field_categories(field_id: int) -> dict[int, bool]: ...
     @staticmethod
     def set_personal_field_categories(
@@ -1102,6 +1089,8 @@ class PersonalDataFieldUpdateData(TypedDict):
     help_text: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class SessionFieldCreateData(TypedDict):
@@ -1126,6 +1115,8 @@ class SessionFieldUpdateData(TypedDict):
     icon: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class PersonalDataFieldRepositoryProtocol(Protocol):
