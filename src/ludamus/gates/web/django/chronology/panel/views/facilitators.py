@@ -39,7 +39,12 @@ from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
 )
-from ludamus.pacts.submissions import AccreditationType, FacilitatorListQuery
+from ludamus.pacts.submissions import (
+    AccreditationType,
+    FacilitatorActionError,
+    FacilitatorListQuery,
+    OrganizerActionRefusal,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -54,6 +59,7 @@ if TYPE_CHECKING:
         FieldValue,
         OrganizerFieldDTO,
     )
+    from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.submissions import (
         FacilitatorColumnDTO,
         FacilitatorListContextDTO,
@@ -62,6 +68,25 @@ if TYPE_CHECKING:
 
 
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
+# A tampered `?organizer=` value falls back to "all", so the toolbar never
+# shows a selected option the list is not actually filtered by.
+_ORGANIZER_FILTERS = ("mine", "unassigned")
+# Why the claim or the step-down did not apply. A double-click and a genuine
+# clash are different stories, so they get different messages.
+_ORGANIZER_REFUSALS: dict[OrganizerActionRefusal, _StrPromise] = {
+    OrganizerActionRefusal.ALREADY_TAKEN: gettext_lazy(
+        "Someone else already handles this facilitator."
+    ),
+    OrganizerActionRefusal.ALREADY_YOURS: gettext_lazy(
+        "You already handle this facilitator."
+    ),
+    OrganizerActionRefusal.ALREADY_FREE: gettext_lazy(
+        "Nobody handles this facilitator."
+    ),
+    OrganizerActionRefusal.NOT_ORGANIZER: gettext_lazy(
+        "Only the person handling this facilitator can step down."
+    ),
+}
 
 
 _PERSONAL_PREFIX = "personal"
@@ -113,6 +138,15 @@ def _personal_entries(
     ]
 
 
+def _read_user(request: PanelRequest, user_id: int | None) -> UserDTO | None:
+    if user_id is None:
+        return None
+    try:
+        return request.di.uow.active_users.read_by_id(user_id)
+    except NotFoundError:
+        return None
+
+
 def _format_field_value(*, value: str | list[str] | bool | None) -> str:
     if isinstance(value, bool):
         return _("Yes") if value else _("No")
@@ -128,6 +162,8 @@ def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
         return _("Linked") if facilitator.user_id else _("None")
     if key == "sessions":
         return str(facilitator.session_count)
+    if key == "organizer":
+        return facilitator.organizer_name or "—"
     return str(
         ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
     )
@@ -167,10 +203,13 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _read_query(self) -> FacilitatorListQuery:
         accreditation = self.request.GET.get("accreditation", "").strip()
+        organizer = self.request.GET.get("organizer", "").strip()
         return FacilitatorListQuery(
             search=self.request.GET.get("search", "").strip(),
             accreditation=(accreditation if accreditation in AccreditationType else ""),
             flagged=self.request.GET.get("flagged") == "true",
+            organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
+            current_user_id=self.request.context.current_user_id,
             sort=self.request.GET.get("sort", "").strip() or "name",
             raw_field_filters={
                 int(key.removeprefix("field_")): self.request.GET.get(key, "")
@@ -213,11 +252,13 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_search"] = query.search
         context["filter_accreditation"] = query.accreditation or None
         context["filter_flagged"] = query.flagged
+        context["filter_organizer"] = query.organizer
         context["filter_sort"] = query.sort
         context["filters_active"] = bool(
             query.search
             or query.accreditation
             or query.flagged
+            or query.organizer
             or list_context.field_filters
         )
         context["accreditation_types"] = [
@@ -261,18 +302,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
         has_personal_data = any(v for _, v in personal_data_items)
 
-        linked_user = None
-        if facilitator.user_id is not None:
-            try:
-                linked_user = self.request.di.uow.active_users.read_by_id(
-                    facilitator.user_id
-                )
-            except NotFoundError:
-                linked_user = None
-
         context["active_nav"] = "facilitators"
         context["facilitator"] = facilitator
-        context["linked_user"] = linked_user
+        context["linked_user"] = _read_user(self.request, facilitator.user_id)
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
             AccreditationType(facilitator.accreditation_type)
         ]
@@ -335,6 +367,11 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 display_name=display_name,
                 event_id=current_event.pk,
+                organizer_id=(
+                    self.request.context.current_user_id
+                    if form.cleaned_data["assign_me"]
+                    else None
+                ),
                 slug=facilitator_slug,
                 user_id=None,
             )
@@ -570,6 +607,9 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
             return redirect("panel:facilitators", slug=slug)
+        except FacilitatorActionError as exc:
+            messages.error(self.request, _ORGANIZER_REFUSALS[exc.refusal])
+            return redirect(self._safe_next(slug))
 
         messages.success(self.request, self.success_message)
         return redirect(self._safe_next(slug))
@@ -618,6 +658,33 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
             facilitator_slug=facilitator_slug,
             accreditation_type=AccreditationType.GUEST.value,
             user_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorAssignOrganizerActionView(_FacilitatorActionView):
+    """Take an unassigned facilitator on as its organizer (POST only)."""
+
+    success_message = gettext_lazy("You now handle this facilitator.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.assign_organizer(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            organizer_id=self.request.context.current_user_id,
+        )
+
+
+class FacilitatorUnassignOrganizerActionView(_FacilitatorActionView):
+    """Release a facilitator you organize, so someone else can take it."""
+
+    success_message = gettext_lazy("Stepped down.")
+
+    def _apply(self, event_id: int, facilitator_slug: str) -> None:
+        self.request.services.facilitator_panel.unassign_organizer(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            organizer_id=self.request.context.current_user_id,
+            force=self.request.user.is_superuser,
         )
 
 

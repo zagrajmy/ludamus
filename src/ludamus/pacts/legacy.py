@@ -81,6 +81,11 @@ class FacilitatorDTO(BaseModel):
     display_name: str
     event_id: int
     internal_comment: str = ""
+    organizer_id: int | None = None
+    # Annotated by the single-facilitator reads, so a page showing the
+    # organizer needs no second lookup. `create` and `update` return the row
+    # they just wrote, without it.
+    organizer_name: str | None = None
     pk: int
     slug: str
     user_id: int | None
@@ -90,6 +95,7 @@ class FacilitatorData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     event_id: int
+    organizer_id: int | None
     slug: str
     user_id: int | None
 
@@ -98,6 +104,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    organizer_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -106,6 +113,9 @@ class FacilitatorListItemDTO(BaseModel):
     accreditation_type: str
     display_name: str
     flagged_for_deletion: bool = False
+    organizer_id: int | None = None
+    # Annotated by `list_by_event`; null when nobody took the facilitator on.
+    organizer_name: str | None = None
     pk: int
     session_count: int
     slug: str
@@ -1216,6 +1226,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None: ...
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool: ...
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
