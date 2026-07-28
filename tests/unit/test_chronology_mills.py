@@ -217,7 +217,53 @@ class TestBuildGridOverlappingSessions:
         )
 
         assert grid.date_selection == date(2026, 1, 1)
-        assert grid.total_minutes == 2 * 60
+        assert grid.total_minutes == 4 * 60
+
+    def test_overnight_slot_extends_its_day_instead_of_adding_a_24h_day(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
+            ),
+            TimeSlotDTO(
+                pk=2,
+                start_time=datetime(2026, 1, 2, 12, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 22, 0, tzinfo=UTC),
+            ),
+        ]
+        night_owl = _make_item(
+            start_time=datetime(2026, 1, 2, 0, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [night_owl]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, date_selection="all"
+        )
+
+        assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
+        assert grid.total_minutes == 13 * 60
+        assert [label.time.strftime("%H:%M") for label in grid.time_labels][:2] == [
+            "12:00",
+            "13:00",
+        ]
+        assert grid.time_labels[-1].time.strftime("%H:%M") == "01:00"
+        day_one, day_two = grid.days
+        assert [pos.start_minutes for pos in day_one.columns[0].sessions] == [12 * 60]
+        assert day_two.columns[0].sessions == []
 
 
 class TestRevertChange:

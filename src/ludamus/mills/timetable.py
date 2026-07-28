@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from ludamus.mills.timeslots import slot_windows_by_local_date
+from ludamus.mills.timeslots import SlotWindow, slot_windows_by_local_date
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
@@ -27,7 +27,26 @@ from ludamus.specs.timetable import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import AgendaItemDTO, SpaceDTO, UnitOfWorkProtocol
+    from ludamus.pacts import AgendaItemDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
+
+
+def _slot_windows_by_grid_date(
+    slots: list[TimeSlotDTO], tz: tzinfo
+) -> dict[date, list[SlotWindow]]:
+    # A slot that crosses one midnight stays whole on the day it starts, so
+    # night program extends that day's column past 24:00. Splitting it at
+    # midnight would mint a 00:00-anchored phantom day and stretch the grid's
+    # shared time axis to a full 24 hours.
+    grouped: dict[date, list[SlotWindow]] = defaultdict(list)
+    for slot in slots:
+        local_start = slot.start_time.astimezone(tz)
+        local_end = slot.end_time.astimezone(tz)
+        if (local_end.date() - local_start.date()).days <= 1:
+            grouped[local_start.date()].append((local_start, local_end))
+        else:
+            for day, windows in slot_windows_by_local_date([slot], tz).items():
+                grouped[day].extend(windows)
+    return grouped
 
 
 def _position_sessions(
@@ -99,7 +118,7 @@ class TimetableService:
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
         all_slots = self._uow.time_slots.list_by_event(event_pk)
-        windows_by_date = slot_windows_by_local_date(all_slots, tz)
+        windows_by_date = _slot_windows_by_grid_date(all_slots, tz)
         available_dates = sorted(windows_by_date)
         if date_selection != "all" and date_selection not in windows_by_date:
             date_selection = available_dates[0] if available_dates else "all"
@@ -219,20 +238,20 @@ class TimetableService:
         for day in dates_to_render:
             for window_start, window_end in windows_by_date[day]:
                 start_minutes.append(window_start.hour * 60 + window_start.minute)
-                if window_end.date() > day:
-                    end_minutes.append(24 * 60)
-                else:
-                    end_minutes.append(
-                        math.ceil(
-                            (
-                                window_end.hour * 60
-                                + window_end.minute
-                                + window_end.second / 60
-                            )
-                            / TIMETABLE_SLOT_MINUTES
+                # An overnight window ends past 24:00 on its own day's clock.
+                days_past_midnight = (window_end.date() - day).days
+                end_minutes.append(
+                    math.ceil(
+                        (
+                            days_past_midnight * 24 * 60
+                            + window_end.hour * 60
+                            + window_end.minute
+                            + window_end.second / 60
                         )
-                        * TIMETABLE_SLOT_MINUTES
+                        / TIMETABLE_SLOT_MINUTES
                     )
+                    * TIMETABLE_SLOT_MINUTES
+                )
 
         return (
             min(start_minutes) // TIMETABLE_SLOT_MINUTES * TIMETABLE_SLOT_MINUTES,

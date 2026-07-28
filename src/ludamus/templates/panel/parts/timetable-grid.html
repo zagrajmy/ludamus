@@ -36,7 +36,13 @@
     {% endif %}
     {% translate "Column width" as t_column_width %}
     {% translate "Drag, or use the arrow keys, to resize every column. Double-click to reset." as t_column_width_hint %}
-    <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
+    {% comment %}
+    The calendar is its own two-axis scroller: the viewport cap makes it
+    actually scroll vertically, which is what lets the sticky day/room header
+    engage. Containment is x-only — y-containment would swallow wheel events
+    whenever the grid can't consume them and lock the page under the cursor.
+    {% endcomment %}
+    <div class="timetable-calendar max-h-[calc(100dvh-5rem)] overflow-auto overscroll-x-contain border border-border rounded-lg select-none"
          data-timetable-days
          style="--grid-extent: {{ grid.total_minutes }};
                 --total-columns: {{ grid.total_columns }};
