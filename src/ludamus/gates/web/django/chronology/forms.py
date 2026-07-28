@@ -7,11 +7,11 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import (
-    build_field_from_requirement,
-    cover_image_field,
-    validate_uploaded_image,
+from ludamus.gates.web.django.dynamic_fields import (
+    CustomAnswerFormMixin,
+    build_dynamic_fields,
 )
+from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -30,12 +30,17 @@ def build_personal_data_form(
 ) -> type[forms.Form]:
     fields: dict[str, forms.Field] = {}
 
-    for req in requirements:
-        build_field_from_requirement(fields, f"personal_{req.field.slug}", req)
+    custom_required = build_dynamic_fields(
+        fields=fields, requirements=requirements, prefix="personal"
+    )
 
     fields["contact_email"] = forms.EmailField(label=_("Contact email"), required=True)
 
-    return type("PersonalDataForm", (forms.Form,), fields)
+    return type(
+        "PersonalDataForm",
+        (CustomAnswerFormMixin,),
+        {**fields, "custom_required_keys": custom_required},
+    )
 
 
 def build_session_details_form(
@@ -83,10 +88,15 @@ def build_session_details_form(
             label=_("Duration"), choices=[("", "---"), *duration_choices]
         )
 
-    for req in requirements:
-        build_field_from_requirement(fields, f"session_{req.field.slug}", req)
+    custom_required = build_dynamic_fields(
+        fields=fields, requirements=requirements, prefix="session"
+    )
 
-    return type("SessionDetailsForm", (forms.Form,), fields)
+    return type(
+        "SessionDetailsForm",
+        (CustomAnswerFormMixin,),
+        {**fields, "custom_required_keys": custom_required},
+    )
 
 
 class SessionCoverImageForm(forms.Form):

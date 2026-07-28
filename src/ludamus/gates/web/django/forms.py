@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import operator
 import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -14,9 +13,14 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
+from ludamus.gates.web.django.dynamic_fields import (
+    CustomAnswerFormMixin,
+    build_dynamic_fields,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
+from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -25,11 +29,7 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from lxml.etree import _Element as Element
 
-    from ludamus.pacts import (
-        PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -180,7 +180,9 @@ def _logo_field() -> forms.FileField:
         help_text=_(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": LOGO_ACCEPT}),
+        widget=forms.ClearableFileInput(
+            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
+        ),
     )
 
 
@@ -329,6 +331,27 @@ class ProposalCategoryForm(forms.Form):
     end_time = forms.DateTimeField(required=False)
     min_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
     max_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
+    promotion_mode = forms.ChoiceField(
+        required=False,
+        initial=PromotionMode.AUTO.value,
+        label=_("When a seat becomes available"),
+        choices=(
+            (PromotionMode.AUTO.value, _("Confirm the next person automatically")),
+            (
+                PromotionMode.OFFER_CLAIM.value,
+                _("Hold the seat until the next person confirms"),
+            ),
+        ),
+        widget=forms.RadioSelect,
+    )
+    offer_claim_window_minutes = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=10_080,
+        initial=1_440,
+        label=_("Time to confirm the seat"),
+        help_text=_("Minutes before an unconfirmed seat goes to the next person."),
+    )
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean() or {}
@@ -337,6 +360,15 @@ class ProposalCategoryForm(forms.Form):
         if min_limit and max_limit and min_limit > max_limit:
             raise forms.ValidationError(
                 _("Minimum participants limit cannot exceed maximum.")
+            )
+        if cleaned.get(
+            "promotion_mode"
+        ) == PromotionMode.OFFER_CLAIM.value and not cleaned.get(
+            "offer_claim_window_minutes"
+        ):
+            self.add_error(
+                "offer_claim_window_minutes",
+                _("Set how long a held seat waits for confirmation."),
             )
         return cleaned
 
@@ -577,116 +609,30 @@ class TrackForm(forms.Form):
     )
 
 
-def build_field_from_requirement(
-    fields: dict[str, forms.Field],
-    field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> None:
-    # Shared by the proposal wizard and the organizer panel so a category's
-    # configured fields render identically in both. The label is the field's
-    # question — the wording the proposer is actually asked — since the panel
-    # renders these through tessera_field rather than hand-rolled labels.
-    field_def = req.field
-    label = field_def.question
-    help_text = field_def.help_text
-
-    if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
-
-        if field_def.is_multiple:
-            fields[field_key] = forms.MultipleChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices[1:],  # no blank for multi
-                required=req.is_required,
-                widget=forms.CheckboxSelectMultiple,
-            )
-        else:
-            fields[field_key] = forms.ChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices,
-                required=req.is_required,
-            )
-
-    elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
-        fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
-        )
-    else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[field_key] = forms.CharField(
-            label=label,
-            help_text=help_text,
-            required=req.is_required,
-            max_length=max_len,
-        )
-
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion input the descriptors expect.
-    if field_def.allow_custom and field_def.field_type != "checkbox":
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[f"{field_key}_custom"] = forms.CharField(
-            label=_("Or type a custom value"), required=False, max_length=max_len
-        )
-
-
-def field_descriptors(
-    prefix: str,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    form: forms.Form,
-) -> list[dict[str, object]]:
-    # Template-facing view of a category's fields: pairs each requirement with
-    # its bound field so the wizard and the panel render them the same way.
-    descriptors = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
-        desc: dict[str, object] = {
-            "key": field_key,
-            "bound_field": form[field_key],
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        # Checkboxes get no companion input even when allow_custom is set.
-        custom_key = f"{field_key}_custom"
-        desc["custom_bound_field"] = (
-            form[custom_key] if custom_key in form.fields else None
-        )
-        descriptors.append(desc)
-    return descriptors
-
-
 class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
     title = forms.CharField(
-        max_length=255, strip=True, error_messages={"required": _("Title is required.")}
+        max_length=255,
+        strip=True,
+        label=_("Title"),
+        error_messages={"required": _("Title is required.")},
     )
     display_name = forms.CharField(
         max_length=255,
         strip=True,
+        label=_("Display Name"),
         error_messages={"required": _("Display name is required.")},
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 5})
+        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
     )
-    contact_email = forms.EmailField(required=False)
-    participants_limit = forms.IntegerField(required=False, min_value=0)
-    min_age = forms.IntegerField(required=False, min_value=0)
-    duration = forms.CharField(required=False)
+    contact_email = forms.EmailField(required=False, label=_("Contact Email"))
+    participants_limit = forms.IntegerField(
+        required=False, min_value=0, label=_("Participants Limit")
+    )
+    min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
+    duration = forms.CharField(required=False, label=_("Duration"))
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -698,7 +644,11 @@ class SessionEditForm(forms.Form):
 def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
     # Stays optional (blank = no limit, as organizers expect) but honours the
     # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {"required": False, "min_value": min_limit or 0}
+    kwargs: dict[str, Any] = {
+        "required": False,
+        "min_value": min_limit or 0,
+        "label": _("Participants Limit"),
+    }
     if max_limit:
         kwargs["max_value"] = max_limit
     return forms.IntegerField(**kwargs)
@@ -707,7 +657,6 @@ def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.Intege
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
-    facilitators: list[tuple[int, str]] | None = None,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
@@ -720,17 +669,6 @@ def create_proposal_form(
             },
         )
     }
-    # Create variant only: a required facilitator binding so a hand-added
-    # proposal can never exist with zero facilitators. The edit view omits
-    # this — it manages facilitators through its own inline list.
-    if facilitators is not None:
-        attrs["facilitator_ids"] = forms.MultipleChoiceField(
-            choices=facilitators,
-            error_messages={
-                "required": _("Please select at least one facilitator."),
-                "invalid_choice": _("Invalid facilitator selection."),
-            },
-        )
 
     if category and (
         category.min_participants_limit or category.max_participants_limit
@@ -745,16 +683,22 @@ def create_proposal_form(
     if category and category.durations:
         attrs["duration"] = forms.ChoiceField(
             required=False,
+            label=_("Duration"),
             choices=[
                 ("", "---"),
                 *((d, format_duration(d)) for d in category.durations),
             ],
         )
 
-    for req in requirements:
-        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+    custom_required = build_dynamic_fields(
+        fields=attrs, requirements=requirements, prefix="session"
+    )
 
-    return type("ProposalCreateForm", (SessionEditForm,), attrs)
+    return type(
+        "ProposalCreateForm",
+        (CustomAnswerFormMixin, SessionEditForm),
+        {**attrs, "custom_required_keys": custom_required},
+    )
 
 
 ACCREDITATION_TYPE_LABELS = {

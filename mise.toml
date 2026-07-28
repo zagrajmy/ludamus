@@ -243,7 +243,9 @@ run = [
     "python tests/e2e/scripts/bootstrap_data.py",
     "python tests/e2e/scripts/bootstrap_facilitators.py",
     "python tests/e2e/scripts/bootstrap_timetable.py",
-    "aubr -C src/ludamus/client build",
+    # Inline, so the V8 coverage the run collects carries the map back to the
+    # .ts sources with it.
+    "aubr -C src/ludamus/client build -- --sourcemap inline",
 ]
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
@@ -336,12 +338,17 @@ run = [
     { task = "lint:mypy" },
     { task = "lint:pylint", args = ["src"] },
     { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
-    { task = "lint:tingle" },
+    { task = "test:py", args = ["-xvv"] },
 ]
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
-run = [{ task = "check" }, { task = "diff-cover" }, { task = "lint:tingle" }]
+run = [
+    "poetry install",
+    { task = "devcheck" },
+    { task = "diff-cover" },
+    { task = "lint:tingle" },
+]
 
 
 ## Other
@@ -398,6 +405,10 @@ run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -
 [tasks.ts-check]
 description = "Type-check frontend TypeScript"
 run = "aubr -C src/ludamus/client typecheck"
+
+[tasks."ts-check:ios"]
+description = "Type-check the iOS regression scripts"
+run = "aube exec tsc -p scripts/ios-regressions/tsconfig.json"
 
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"

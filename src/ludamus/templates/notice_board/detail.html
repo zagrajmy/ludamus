@@ -1,37 +1,23 @@
 {% extends "base.html" %}
 {% load i18n tessera date_tags %}
+{% load meta_tags %}
 {% block title %}
     {{ encounter.title }}
 {% endblock title %}
 {% block og_title %}
     {{ encounter.title }}
 {% endblock og_title %}
-{% block og_description %}
-    {{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
-    {% if encounter.place %}— {{ encounter.place }}{% endif %}
-    {% if encounter.description %}| {{ encounter.description|truncatewords:25 }}{% endif %}
-{% endblock og_description %}
-{% block og_image %}
-    {% if encounter.header_image_url %}
-        {% include "chronology/_meta_image_url.html" with url=encounter.header_image_url %}
-    {% else %}
-        {{ block.super }}
-    {% endif %}
-{% endblock og_image %}
 {% block twitter_title %}
     {{ encounter.title }}
 {% endblock twitter_title %}
-{% block twitter_description %}
-    {{ encounter.start_time|date:"DATE_FORMAT" }}, {{ encounter.start_time|time:"TIME_FORMAT" }}
-    {% if encounter.place %}— {{ encounter.place }}{% endif %}
-    {% if encounter.description %}| {{ encounter.description|truncatewords:25 }}{% endif %}
-{% endblock twitter_description %}
+{% block meta_description %}{{ encounter_meta_description }}{% endblock meta_description %}
+{% block og_description %}{{ encounter_meta_description }}{% endblock og_description %}
+{% block twitter_description %}{{ encounter_meta_description }}{% endblock twitter_description %}
+{% block og_image %}
+    {% meta_image_url encounter.header_image_url %}
+{% endblock og_image %}
 {% block twitter_image %}
-    {% if encounter.header_image_url %}
-        {% include "chronology/_meta_image_url.html" with url=encounter.header_image_url %}
-    {% else %}
-        {{ block.super }}
-    {% endif %}
+    {% meta_image_url encounter.header_image_url %}
 {% endblock twitter_image %}
 {% block header %}
 {% endblock header %}

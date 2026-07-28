@@ -11,12 +11,9 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.pacts.chronology import (
-    TIMETABLE_SLOT_MINUTES,
-    TIMETABLE_SNAP_MINUTES,
-    TimetableGridDTO,
-)
+from ludamus.pacts.chronology import TimetableGridDTO
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -43,6 +40,7 @@ def _empty_grid():
         page=1,
         total_pages=1,
         total_spaces=0,
+        total_columns=0,
         available_dates=[],
     )
 
