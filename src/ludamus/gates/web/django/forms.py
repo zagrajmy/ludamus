@@ -729,6 +729,12 @@ class FacilitatorForm(forms.Form):
         required=False,
         label=_("Accreditation type"),
     )
+    assign_me = forms.BooleanField(
+        initial=True,
+        required=False,
+        label=_("Assign me as organizer"),
+        help_text=_("You handle this facilitator until you step down."),
+    )
 
     def clean_accreditation_type(self) -> str:
         return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
