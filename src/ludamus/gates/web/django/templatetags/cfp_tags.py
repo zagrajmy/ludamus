@@ -183,7 +183,7 @@ def custom_values(
     """Write-in part of a stored answer: what matches no configured option.
 
     Returns:
-        Comma-separated values, ready for the companion custom input.
+        Semicolon-separated values, ready for the companion custom input.
     """
     _chosen, custom = split_stored(
         stored=value,

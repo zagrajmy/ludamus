@@ -41,8 +41,10 @@ def merge_custom(
         if isinstance(chosen, list)
         else []
     )
-    for part in split_answers(custom):
-        if part not in values:
+    # The write-in input splits on semicolons, not commas: free-text answers
+    # ("dim lights, quiet sound") contain commas far more often than semicolons.
+    for part in (part.strip() for part in custom.split(";")):
+        if part and part not in values:
             values.append(part)
     return values
 
@@ -58,7 +60,7 @@ def split_stored(
         else [stored]
     )
     chosen = [value for value in values if value in known]
-    custom = ", ".join(value for value in values if value not in known)
+    custom = "; ".join(value for value in values if value not in known)
     if is_multiple:
         return chosen, custom
     return (chosen[0] if chosen else ""), custom

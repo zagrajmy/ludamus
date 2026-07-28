@@ -466,7 +466,7 @@ class TestSessionEditViewPost:
             data=self._data(
                 session_fields_submitted="1",
                 session_field_genres=["horror"],
-                session_field_genres_custom="kobolds, gore",
+                session_field_genres_custom="kobolds; gore",
             ),
             headers={"hx-request": "true"},
         )
