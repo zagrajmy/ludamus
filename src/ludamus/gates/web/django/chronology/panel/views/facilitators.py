@@ -21,13 +21,15 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     facilitator_tab_urls,
     make_unique_slug,
 )
+from ludamus.gates.web.django.dynamic_fields import (
+    answered_value,
+    dynamic_fields_form,
+    field_descriptors,
+)
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
     FacilitatorEditForm,
     FacilitatorForm,
-    answered_value,
-    dynamic_fields_form,
-    field_descriptors,
 )
 from ludamus.mills import FacilitatorMergeService
 from ludamus.pacts import (

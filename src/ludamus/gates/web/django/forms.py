@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import operator
 import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -14,28 +13,23 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
+from ludamus.gates.web.django.dynamic_fields import (
+    CustomAnswerFormMixin,
+    build_dynamic_fields,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
-from ludamus.pacts import FieldAnswer
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
-    from django.http import QueryDict
     from lxml.etree import _Element as Element
 
-    from ludamus.pacts import (
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
-        SessionFieldRequirementDTO,
-    )
+    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -186,7 +180,9 @@ def _logo_field() -> forms.FileField:
         help_text=_(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": LOGO_ACCEPT}),
+        widget=forms.ClearableFileInput(
+            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
+        ),
     )
 
 
@@ -613,127 +609,6 @@ class TrackForm(forms.Form):
     )
 
 
-def build_field(
-    fields: dict[str, forms.Field],
-    field_key: str,
-    field_def: OrganizerFieldDTO,
-    *,
-    is_required: bool,
-) -> None:
-    # Shared by the proposal wizard, the organizer panel and every other page
-    # that offers an organizer-defined field, so one field renders and
-    # validates identically wherever it appears. The label is the field's
-    # question — the wording the proposer is actually asked.
-    label = field_def.question
-    help_text = field_def.help_text
-
-    if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
-
-        if field_def.is_multiple:
-            fields[field_key] = forms.MultipleChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices[1:],  # no blank for multi
-                required=is_required,
-                widget=forms.CheckboxSelectMultiple,
-            )
-        else:
-            fields[field_key] = forms.ChoiceField(
-                label=label, help_text=help_text, choices=choices, required=is_required
-            )
-
-    elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
-        fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
-        )
-    else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[field_key] = forms.CharField(
-            label=label, help_text=help_text, required=is_required, max_length=max_len
-        )
-
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion input the descriptors expect.
-    if field_def.allow_custom and field_def.field_type != "checkbox":
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[f"{field_key}_custom"] = forms.CharField(
-            label=_("Or type a custom value"), required=False, max_length=max_len
-        )
-
-
-def requirement_fields(
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-) -> list[tuple[OrganizerFieldDTO, bool]]:
-    return [(req.field, req.is_required) for req in requirements]
-
-
-def dynamic_fields_form(
-    prefix: str,
-    fields: Sequence[tuple[OrganizerFieldDTO, bool]],
-    data: QueryDict | None = None,
-    *,
-    initial: Mapping[str, FieldValue] | None = None,
-) -> forms.Form:
-    # Every page offering organizer-defined fields validates them through a
-    # real form, so choice, length and required rules are enforced server-side
-    # rather than per page.
-    form_fields: dict[str, forms.Field] = {}
-    for field_def, is_required in fields:
-        build_field(
-            form_fields,
-            f"{prefix}_{field_def.slug}",
-            field_def,
-            is_required=is_required,
-        )
-    form_class: type[forms.Form] = type("DynamicFieldsForm", (forms.Form,), form_fields)
-    return form_class(data, initial=dict(initial or {}))
-
-
-def answered_value(
-    prefix: str, field_def: OrganizerFieldDTO, form: forms.Form
-) -> str | list[str] | bool:
-    # The companion input stands in for the main control when the organizer
-    # allows a value outside the offered options.
-    key = f"{prefix}_{field_def.slug}"
-    value = form.cleaned_data.get(key)
-    if field_def.allow_custom and not value:
-        value = form.cleaned_data.get(f"{key}_custom", "")
-    return value if value is not None else ""
-
-
-def field_descriptors(
-    prefix: str, fields: Sequence[tuple[OrganizerFieldDTO, bool]], form: forms.Form
-) -> list[FieldDescriptor]:
-    # Template-facing view of a page's fields. Everything the markup needs
-    # comes off the DTO, so every page hands this straight to the
-    # `dynamic_field` tag instead of re-deriving the shapes per template.
-    descriptors: list[FieldDescriptor] = []
-    for field_def, is_required in fields:
-        field_key = f"{prefix}_{field_def.slug}"
-        custom_key = f"{field_key}_custom"
-        descriptor: FieldDescriptor = {
-            "field": field_def,
-            "name_prefix": prefix,
-            "answer": FieldAnswer(
-                value=form[field_key].value(),
-                # Checkboxes get no companion input even with allow_custom.
-                custom_value=(
-                    form[custom_key].value() or "" if custom_key in form.fields else ""
-                ),
-                errors=[str(error) for error in form[field_key].errors],
-                is_required=is_required,
-            ),
-        }
-        descriptors.append(descriptor)
-    return descriptors
-
-
 class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
@@ -815,12 +690,15 @@ def create_proposal_form(
             ],
         )
 
-    for req in requirements:
-        build_field(
-            attrs, f"session_{req.field.slug}", req.field, is_required=req.is_required
-        )
+    custom_required = build_dynamic_fields(
+        fields=attrs, requirements=requirements, prefix="session"
+    )
 
-    return type("ProposalCreateForm", (SessionEditForm,), attrs)
+    return type(
+        "ProposalCreateForm",
+        (CustomAnswerFormMixin, SessionEditForm),
+        {**attrs, "custom_required_keys": custom_required},
+    )
 
 
 ACCREDITATION_TYPE_LABELS = {

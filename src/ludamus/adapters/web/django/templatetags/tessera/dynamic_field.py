@@ -40,6 +40,10 @@ def field_context(
     options = sorted(field.options, key=lambda o: (o.order, o.label))
     help_id = f"{input_id}_help" if field.help_text else ""
     error_id = f"{input_id}_error" if answer.errors else ""
+    # A checkbox has nothing to customise; every other type with allow_custom
+    # gets the companion write-in — and a write-in can answer the question, so
+    # the browser must not block the control on its own.
+    offers_custom = field.allow_custom and field.field_type != "checkbox"
     return {
         "field": field,
         "label": field.question,
@@ -47,6 +51,8 @@ def field_context(
         "name": name,
         "input_id": input_id,
         "is_required": answer.is_required,
+        "control_required": answer.is_required and not offers_custom,
+        "offers_custom": offers_custom,
         "errors": answer.errors,
         "choices": [("", "—"), *((o.value, o.label) for o in options)],
         "options": [

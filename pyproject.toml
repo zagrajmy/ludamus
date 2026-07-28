@@ -97,7 +97,8 @@ target-version = ['py314']
 skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
-ignore-words-list = 'fallow,adres'
+# 'afterall' is bun:test's afterAll hook.
+ignore-words-list = 'fallow,adres,afterall'
 
 # COVERAGE
 
@@ -185,6 +186,10 @@ django_settings_module = "ludamus.edges.settings"
 
 [[tool.mypy.overrides]]
 module = ["debug_toolbar.toolbar"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["django_vite.templatetags.django_vite"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -445,6 +450,7 @@ ignore_names = [
     "list_filter",
     "Meta",
     "ordering",
+    "ready",
     # Used in settings
     "__call__",
     "*Middleware",

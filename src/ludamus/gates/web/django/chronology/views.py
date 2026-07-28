@@ -26,13 +26,16 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.forms import (
-    SessionEditForm,
+from ludamus.gates.web.django.dynamic_fields import (
+    WizardData,
     answered_value,
     dynamic_fields_form,
     field_descriptors,
+    fold_custom_answers,
     requirement_fields,
+    unfold_custom_answers,
 )
+from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
@@ -287,12 +290,13 @@ def _personal_context(
     requirements = service.get_personal_requirements(category.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial: dict[str, str | list[str] | bool] = {}
-    if saved_personal := wizard.get("personal_data"):
-        initial = saved_personal
-    else:
-        saved = service.get_saved_personal_data(event.pk)
-        initial = {f"personal_{slug}": value for slug, value in saved.items()}
+    stored: WizardData = wizard.get("personal_data") or {
+        f"personal_{slug}": value
+        for slug, value in service.get_saved_personal_data(event.pk).items()
+    }
+    initial = unfold_custom_answers(
+        stored=stored, requirements=requirements, prefix="personal"
+    )
 
     initial["contact_email"] = wizard.get(
         "contact_email", getattr(request.user, "email", "")
@@ -374,7 +378,11 @@ def _render_details(
     public_tracks = service.get_public_tracks(event.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial = wizard.get("session_data", {})
+    initial = unfold_custom_answers(
+        stored=wizard.get("session_data", {}),
+        requirements=requirements,
+        prefix="session",
+    )
     if "display_name" not in initial:
         initial["display_name"] = getattr(request.user, "name", "")
 
@@ -682,9 +690,12 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
             )
 
         wizard = request.session.get(_session_key(event_slug), {})
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="personal"
+        )
         wizard["personal_data"] = {
             key: value
-            for key, value in form.cleaned_data.items()
+            for key, value in folded.items()
             if key != "contact_email" and value
         }
 
@@ -810,9 +821,10 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             if tid in valid_track_ids
         ]
 
-        wizard["session_data"] = {
-            key: value for key, value in form.cleaned_data.items() if value
-        }
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+        )
+        wizard["session_data"] = {key: value for key, value in folded.items() if value}
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 

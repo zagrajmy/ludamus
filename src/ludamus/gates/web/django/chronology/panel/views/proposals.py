@@ -24,13 +24,15 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     make_unique_slug,
 )
-from ludamus.gates.web.django.forms import (
+from ludamus.gates.web.django.dynamic_fields import (
     answered_value,
-    create_proposal_form,
     dynamic_fields_form,
     field_descriptors,
+    fold_custom_answers,
     requirement_fields,
+    unfold_custom_answers,
 )
+from ludamus.gates.web.django.forms import create_proposal_form
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -45,7 +47,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.legacy import parse_uploaded_file, resolve_cover_image
+from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
@@ -153,17 +155,17 @@ def collect_session_field_values(
 ) -> list[SessionFieldValueData]:
     # Only the category's own fields are read back; a value the category no
     # longer asks for is left untouched rather than blanked.
+    folded = fold_custom_answers(
+        cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+    )
     values: list[SessionFieldValueData] = []
     for req in requirements:
-        key = f"session_{req.field.slug}"
-        value = form.cleaned_data.get(key)
-        if req.field.allow_custom and not value:
-            value = form.cleaned_data.get(f"{key}_custom", "")
+        value = folded.get(f"session_{req.field.slug}")
         values.append(
             SessionFieldValueData(
                 session_id=session_id,
                 field_id=req.field.pk,
-                value=value if value is not None else "",
+                value=value if isinstance(value, str | list | bool) else "",
             )
         )
     return values
@@ -481,9 +483,15 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             fv.field_id: fv.value
             for fv in self.request.di.uow.sessions.read_field_values(session.pk)
         }
-        for req in requirements:
-            if req.field.pk in stored:
-                initial[f"session_{req.field.slug}"] = stored[req.field.pk]
+        initial |= unfold_custom_answers(
+            stored={
+                f"session_{req.field.slug}": stored[req.field.pk]
+                for req in requirements
+                if req.field.pk in stored
+            },
+            requirements=requirements,
+            prefix="session",
+        )
         return form_class(initial=initial)
 
     def _add_field_context(self, context: dict[str, Any], prepared: _Prepared) -> None:
@@ -911,7 +919,7 @@ class ProposalFormPageView(_ProposalFormBase):
             "min_age": form.cleaned_data.get("min_age") or 0,
             "duration": form.cleaned_data.get("duration") or "",
         }
-        cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
+        cover = resolve_uploaded_file_field(form.cleaned_data.get("cover_image"))
         if cover is not None:
             update_data["cover_image"] = cover
         remove_field_ids = self._collect_remove_field_ids(

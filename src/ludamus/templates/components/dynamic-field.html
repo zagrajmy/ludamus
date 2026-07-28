@@ -17,7 +17,7 @@
                class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
             {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
         </label>
-        {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=is_required has_errors=errors aria_describedby=described_by only %}
+        {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=control_required has_errors=errors aria_describedby=described_by only %}
     {% elif field.field_type == "checkbox" %}
         <label class="inline-flex items-center cursor-pointer">
             {% include "components/checkbox-input.html" with name=name id=input_id value="true" checked=is_checked aria_describedby=described_by only %}
@@ -30,10 +30,13 @@
                class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
             {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
         </label>
-        {% include "components/text-field.html" with name=name id=input_id value=text_value maxlength=field.max_length required=is_required has_errors=errors aria_describedby=described_by only %}
+        {% include "components/text-field.html" with name=name id=input_id value=text_value maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by only %}
     {% endif %}
-    {% if field.allow_custom and field.field_type != "checkbox" %}
+    {% if offers_custom %}
         {% include "components/text-field.html" with name=custom_name id=custom_id value=custom_value placeholder=custom_placeholder maxlength=field.max_length aria_label=custom_placeholder only %}
+        {% if field.is_multiple %}
+            <p class="text-xs text-foreground-muted">{% translate "comma separated" %}</p>
+        {% endif %}
     {% endif %}
     {% if field.help_text %}
         <div id="{{ help_id }}" class="text-xs text-foreground-muted">{{ field.help_text|render_markdown }}</div>

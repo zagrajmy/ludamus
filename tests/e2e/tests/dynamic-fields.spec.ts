@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/fixtures";
 
 // Every organizer-defined field on the site renders through the `dynamic_field`
 // tag, so these markup checks cover the panel and the wizard at once.
@@ -20,11 +20,15 @@ test.describe("Organizer-defined fields", () => {
     await expect(group.locator('input[type="radio"]')).toHaveCount(0);
   });
 
-  test("marks a required text field and caps its length", async ({ page }) => {
+  test("caps a text field's length and leaves its write-in requirement to the server", async ({
+    page,
+  }) => {
     const input = page.locator("#id_session_system");
 
-    await expect(input).toHaveAttribute("required", "");
     await expect(input).toHaveAttribute("maxlength", "40");
+    // A write-in answers the question too, so the browser must not block on
+    // the control alone — the form checks the pair.
+    await expect(input).not.toHaveAttribute("required", "");
   });
 
   test("points the input at its help text", async ({ page }) => {
