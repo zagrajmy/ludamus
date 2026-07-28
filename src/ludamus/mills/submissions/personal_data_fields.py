@@ -15,6 +15,7 @@ from ludamus.pacts.legacy import (
     PersonalDataFieldUpdateData,
 )
 from ludamus.pacts.submissions import (
+    CFPPersonalDataFieldServiceProtocol,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
@@ -35,7 +36,8 @@ if TYPE_CHECKING:
 class CFPPersonalDataFieldService(
     CFPFieldCategoryService[
         PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO
-    ]
+    ],
+    CFPPersonalDataFieldServiceProtocol,
 ):
     """Backoffice operations for an event's personal-data fields."""
 
