@@ -85,19 +85,15 @@ class Auth0LoginActionView(View):
         ):
             next_path = None
         # Auth0 opens the signup screen instead of login when asked to.
-        if (screen_hint := request.GET.get("screen_hint")) != "signup":
-            screen_hint = None
+        wants_signup = request.GET.get("screen_hint") == "signup"
+        hint = {"screen_hint": "signup"} if wants_signup else {}
         if request.get_host() != root_domain:
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
             login_url = (
                 f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:login')}"
             )
-            params = {}
-            if next_path:
-                params["next"] = next_path
-            if screen_hint:
-                params["screen_hint"] = screen_hint
+            params = {"next": next_path, **hint} if next_path else hint
             url = f"{login_url}?{urlencode(params)}" if params else login_url
             raise RedirectError(url)
 
@@ -112,12 +108,11 @@ class Auth0LoginActionView(View):
         cache_key = f"oauth_state:{state_token}"
         cache.set(cache_key, json.dumps(state_data), timeout=CACHE_TIMEOUT)
 
-        hint_kwargs = {"screen_hint": screen_hint} if screen_hint else {}
         return oauth.auth0.authorize_redirect(  # type: ignore [no-any-return]
             request,
             request.build_absolute_uri(reverse("web:crowd:auth0:login-callback")),
             state=state_token,
-            **hint_kwargs,
+            **hint,
         )
 
 
