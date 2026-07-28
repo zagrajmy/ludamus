@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from ludamus.mills.timeslots import SlotWindow, slot_windows_by_local_date
+from ludamus.mills.timeslots import SlotWindow, slot_windows
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
@@ -29,23 +29,24 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from ludamus.pacts import AgendaItemDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
+_WINDOWS_ACROSS_ONE_MIDNIGHT = 2
+
 
 def _slot_windows_by_grid_date(
     slots: list[TimeSlotDTO], tz: tzinfo
 ) -> dict[date, list[SlotWindow]]:
-    # A slot that crosses one midnight stays whole on the day it starts, so
-    # night program extends that day's column past 24:00. Splitting it at
-    # midnight would mint a 00:00-anchored phantom day and stretch the grid's
-    # shared time axis to a full 24 hours.
+    # A slot that crosses one midnight — exactly two per-date windows — stays
+    # whole on the day it starts, so night program extends that day's column
+    # past 24:00. Splitting it would mint a 00:00-anchored phantom day and
+    # stretch the grid's shared time axis to a full 24 hours. Slots touching
+    # more dates keep the per-date windows.
     grouped: dict[date, list[SlotWindow]] = defaultdict(list)
     for slot in slots:
-        local_start = slot.start_time.astimezone(tz)
-        local_end = slot.end_time.astimezone(tz)
-        if (local_end.date() - local_start.date()).days <= 1:
-            grouped[local_start.date()].append((local_start, local_end))
-        else:
-            for day, windows in slot_windows_by_local_date([slot], tz).items():
-                grouped[day].extend(windows)
+        windows = slot_windows(slot, tz)
+        if len(windows) == _WINDOWS_ACROSS_ONE_MIDNIGHT:
+            windows = [(windows[0][0], windows[1][1])]
+        for window in windows:
+            grouped[window[0].date()].append(window)
     return grouped
 
 
@@ -136,16 +137,31 @@ class TimetableService:
             dates_to_render, windows_by_date
         )
         total_minutes = grid_end_minute - grid_start_minute
-        days = [
-            self._build_day_grid(
-                date_to_render=date_to_render,
-                day_windows=windows_by_date[date_to_render],
-                spaces=spaces,
-                all_items=all_items,
-                grid_minute_bounds=(grid_start_minute, grid_end_minute),
+        day_range_starts = [
+            datetime.combine(
+                day, datetime.min.time(), tzinfo=windows_by_date[day][0][0].tzinfo
             )
-            for date_to_render in dates_to_render
+            + timedelta(minutes=grid_start_minute)
+            for day in dates_to_render
         ]
+        days: list[TimetableDayGridDTO] = []
+        for index, date_to_render in enumerate(dates_to_render):
+            range_start = day_range_starts[index]
+            range_end = range_start + timedelta(minutes=total_minutes)
+            # Past-midnight ranges can reach into the next rendered day. The
+            # next day owns everything from its own range start, so capping
+            # here makes the day filters a partition — a night session never
+            # renders in two columns.
+            if index + 1 < len(day_range_starts):
+                range_end = min(range_end, day_range_starts[index + 1])
+            days.append(
+                self._build_day_grid(
+                    date_to_render=date_to_render,
+                    day_range=(range_start, range_end),
+                    spaces=spaces,
+                    all_items=all_items,
+                )
+            )
         time_labels: list[TimeLabelDTO] = []
         if dates_to_render:
             first_date = dates_to_render[0]
@@ -186,17 +202,11 @@ class TimetableService:
     def _build_day_grid(
         *,
         date_to_render: date,
-        day_windows: list[tuple[datetime, datetime]],
+        day_range: tuple[datetime, datetime],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
-        grid_minute_bounds: tuple[int, int],
     ) -> TimetableDayGridDTO:
-        grid_start_minute, grid_end_minute = grid_minute_bounds
-        day_midnight = datetime.combine(
-            date_to_render, datetime.min.time(), tzinfo=day_windows[0][0].tzinfo
-        )
-        grid_start = day_midnight + timedelta(minutes=grid_start_minute)
-        grid_end = day_midnight + timedelta(minutes=grid_end_minute)
+        grid_start, grid_end = day_range
 
         space_pk_set = {space.pk for space in spaces}
         space_items: dict[int, list[AgendaItemDTO]] = defaultdict(list)

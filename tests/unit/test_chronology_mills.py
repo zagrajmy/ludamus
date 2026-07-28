@@ -265,6 +265,59 @@ class TestBuildGridOverlappingSessions:
         assert [pos.start_minutes for pos in day_one.columns[0].sessions] == [12 * 60]
         assert day_two.columns[0].sessions == []
 
+    def test_overlapping_day_ranges_render_each_item_in_exactly_one_column(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 18, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
+            ),
+            TimeSlotDTO(
+                pk=2,
+                start_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+                end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
+            ),
+        ]
+        first_night = _make_item(
+            pk=1,
+            start_time=datetime(2026, 1, 2, 0, 15, tzinfo=UTC),
+            end_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+        )
+        second_night = _make_item(
+            pk=2,
+            session_id=2,
+            start_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 2, 1, 30, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [first_night, second_night]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, date_selection="all"
+        )
+
+        day_one, day_two = grid.days
+        # Day one's range reaches 01:00 of Jan 2 while day two's starts at
+        # midnight (00:30 floored to the hour grid), so both contain the two
+        # night items; the later day owns the overlap instead of rendering
+        # the items in both columns.
+        assert day_one.columns[0].sessions == []
+        assert [
+            (pos.agenda_item.pk, pos.start_minutes)
+            for pos in day_two.columns[0].sessions
+        ] == [(1, 15), (2, 30)]
+
 
 class TestRevertChange:
     @pytest.fixture

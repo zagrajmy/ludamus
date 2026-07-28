@@ -39,8 +39,8 @@
     {% comment %}
     The calendar is its own two-axis scroller: the viewport cap makes it
     actually scroll vertically, which is what lets the sticky day/room header
-    engage. Containment is x-only — y-containment would swallow wheel events
-    whenever the grid can't consume them and lock the page under the cursor.
+    engage even on an overnight-length grid. Containment is x-only so vertical
+    scrolling always chains to the page when the grid cannot consume it.
     {% endcomment %}
     <div class="timetable-calendar max-h-[calc(100dvh-5rem)] overflow-auto overscroll-x-contain border border-border rounded-lg select-none"
          data-timetable-days
