@@ -73,6 +73,19 @@ class LoginRequiredPageView(TemplateView):
         return context
 
 
+class AuthErrorPageView(TemplateView):
+    template_name = "crowd/auth_error.html"
+
+    TRACKING_MAX_LENGTH = 64
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["tracking"] = self.request.GET.get("tracking", "")[
+            : self.TRACKING_MAX_LENGTH
+        ]
+        return context
+
+
 class Auth0LoginActionView(View):
     @staticmethod
     def get(request: RootRequest) -> HttpResponse:
