@@ -502,12 +502,17 @@ class TrackRepository(TrackRepositoryProtocol):
         return result
 
     @staticmethod
-    def list_manager_names(track_pk: int) -> list[str]:
-        return list(
-            User.objects.filter(managed_tracks__pk=track_pk)
-            .order_by("name")
-            .values_list("name", flat=True)
+    def list_track_pks_by_sessions(session_pks: Iterable[int]) -> dict[int, list[int]]:
+        # Membership only -- no model hydration, unlike list_by_sessions.
+        if not (pks := list(session_pks)):
+            return {}
+        result: dict[int, list[int]] = defaultdict(list)
+        rows = Track.objects.filter(sessions__pk__in=pks).values_list(
+            "sessions__pk", "pk"
         )
+        for session_pk, track_pk in rows:
+            result[session_pk].append(track_pk)
+        return dict(result)
 
     @staticmethod
     def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:

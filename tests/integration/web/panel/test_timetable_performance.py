@@ -1,9 +1,10 @@
 """Performance tests for timetable views — bounded query counts at scale.
 
 The bounds are deliberately close to the real counts. Conflict detection and
-preferred-slot attribution both used to run one query per scheduled item, which
-at this fixture's size lands in the hundreds; a limit generous enough to absorb
-that hides the regression it exists to catch.
+preferred-slot attribution both used to run one query per scheduled item, and
+the overview's block progress one per track; at this fixture's size that lands
+in the hundreds. A limit generous enough to absorb it hides the regression it
+exists to catch.
 """
 
 from http import HTTPStatus

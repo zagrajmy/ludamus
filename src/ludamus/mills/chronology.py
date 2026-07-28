@@ -77,6 +77,7 @@ if TYPE_CHECKING:
         ScheduleChangeLogRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
+        SessionListItemDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SphereRepositoryProtocol,
@@ -733,46 +734,59 @@ class TimetableOverviewService:
         return grouped
 
     def track_progress(self, event_pk: int) -> list[TrackProgressDTO]:
-        tracks = self._uow.tracks.list_by_event(event_pk)
-        result = []
-        for track in tracks:
-            sessions = self._uow.sessions.list_sessions_by_event(
-                event_pk, {"track_pk": track.pk}
+        if not (tracks := self._uow.tracks.list_by_event(event_pk)):
+            return []
+
+        # One pass over the event's sessions, bucketed by track -- querying per
+        # track re-scanned the whole proposal pool once for every block.
+        sessions = self._uow.sessions.list_sessions_by_event(event_pk)
+        track_pks_by_session = self._uow.tracks.list_track_pks_by_sessions(
+            [session.pk for session in sessions]
+        )
+        sessions_by_track: dict[int, list[SessionListItemDTO]] = defaultdict(list)
+        for session in sessions:
+            for track_pk in track_pks_by_session.get(session.pk, []):
+                sessions_by_track[track_pk].append(session)
+
+        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+            [track.pk for track in tracks]
+        )
+        return [
+            self._track_progress(
+                track,
+                sessions=sessions_by_track.get(track.pk, []),
+                manager_names=manager_names.get(track.pk, []),
             )
-            accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
-            accepted_count = len(accepted)
-            scheduled_count = sum(1 for s in accepted if s.is_scheduled)
-            pending_count = sum(
-                1 for s in sessions if s.status == SessionStatus.PENDING
-            )
-            on_hold_count = sum(
-                1 for s in sessions if s.status == SessionStatus.ON_HOLD
-            )
-            rejected_count = sum(
+            for track in tracks
+        ]
+
+    @staticmethod
+    def _track_progress(
+        track: TrackDTO, *, sessions: list[SessionListItemDTO], manager_names: list[str]
+    ) -> TrackProgressDTO:
+        accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
+        accepted_count = len(accepted)
+        scheduled_count = sum(1 for s in accepted if s.is_scheduled)
+        pending_count = sum(1 for s in sessions if s.status == SessionStatus.PENDING)
+        # Progress is measured against the active pool (everything not
+        # rejected / on hold), so pending proposals still awaiting a
+        # decision count as unscheduled program to place.
+        active_count = pending_count + accepted_count
+        return TrackProgressDTO(
+            track_pk=track.pk,
+            track_name=track.name,
+            manager_names=manager_names,
+            accepted_count=accepted_count,
+            scheduled_count=scheduled_count,
+            pending_count=pending_count,
+            on_hold_count=sum(1 for s in sessions if s.status == SessionStatus.ON_HOLD),
+            rejected_count=sum(
                 1 for s in sessions if s.status == SessionStatus.REJECTED
-            )
-            # Progress is measured against the active pool (everything not
-            # rejected / on hold), so pending proposals still awaiting a
-            # decision count as unscheduled program to place.
-            active_count = pending_count + accepted_count
-            progress_pct = (
+            ),
+            progress_pct=(
                 round(scheduled_count * 100 / active_count) if active_count else 0
-            )
-            manager_names = self._uow.tracks.list_manager_names(track.pk)
-            result.append(
-                TrackProgressDTO(
-                    track_pk=track.pk,
-                    track_name=track.name,
-                    manager_names=manager_names,
-                    accepted_count=accepted_count,
-                    scheduled_count=scheduled_count,
-                    pending_count=pending_count,
-                    on_hold_count=on_hold_count,
-                    rejected_count=rejected_count,
-                    progress_pct=progress_pct,
-                )
-            )
-        return result
+            ),
+        )
 
     def capacity_hours(self, event_pk: int) -> CapacityHoursDTO:
         # Capacity = one program slot per room: every room is bookable for the

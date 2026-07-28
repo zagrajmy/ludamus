@@ -940,7 +940,9 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
     @staticmethod
-    def list_manager_names(track_pk: int) -> list[str]: ...
+    def list_track_pks_by_sessions(
+        session_pks: Iterable[int],
+    ) -> dict[int, list[int]]: ...
     @staticmethod
     def list_manager_names_by_tracks(
         track_pks: Iterable[int],

@@ -6,13 +6,19 @@ from datetime import timedelta
 import pytest
 from django.conf import settings
 
-from ludamus.links.db.django.models import AgendaItem, Connection, Facilitator
+from ludamus.links.db.django.models import AgendaItem, Connection, Facilitator, Track
 from ludamus.links.encryption import FernetEncryptor
-from tests.integration.conftest import SessionFactory, SpaceFactory, TimeSlotFactory
+from tests.integration.conftest import (
+    SessionFactory,
+    SpaceFactory,
+    TimeSlotFactory,
+    UserFactory,
+)
 
 SCALE_ROOMS = 12
 SCALE_HOURS = 6
 SCALE_FACILITATORS = 8
+SCALE_TRACKS = 10
 SCALE_SCHEDULED = 60
 SCALE_UNSCHEDULED = 30
 
@@ -38,9 +44,19 @@ def connection_with_secret_fixture(sphere):
 @pytest.fixture(name="timetable_scale_data")
 def timetable_scale_data_fixture(event, proposal_category):
     # Sized so that a per-item query in conflict detection or slot-violation
-    # attribution blows the query bounds below by an order of magnitude, while
-    # the fixture itself stays cheap to build.
+    # attribution -- or a per-track query in the overview's block progress --
+    # blows the query bounds below by an order of magnitude, while the fixture
+    # itself stays cheap to build.
     spaces = [SpaceFactory(event=event, capacity=10) for _ in range(SCALE_ROOMS)]
+    tracks = []
+    for index in range(SCALE_TRACKS):
+        track = Track.objects.create(
+            event=event, name=f"Block {index}", slug=f"scale-track-{index}"
+        )
+        # A manager each, so per-track manager lookups show up in the counts.
+        track.managers.add(UserFactory())
+        track.spaces.add(spaces[index % len(spaces)])
+        tracks.append(track)
     facilitators = [
         Facilitator.objects.create(
             event=event, display_name=f"Facilitator {index}", slug=f"scale-fac-{index}"
@@ -70,6 +86,7 @@ def timetable_scale_data_fixture(event, proposal_category):
         # Facilitators are shared, so sessions clash across rooms as well.
         session.facilitators.add(facilitators[index % len(facilitators)])
         session.time_slots.add(slots[index % len(slots)])
+        session.tracks.add(tracks[index % len(tracks)])
 
     for index, session in enumerate(sessions[:SCALE_SCHEDULED]):
         start = event.start_time + timedelta(hours=index % SCALE_HOURS)
