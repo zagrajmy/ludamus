@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-28 16:17+0200\n"
+"POT-Creation-Date: 2026-07-28 19:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4159,13 +4159,6 @@ msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/_personal_data_fields.html
-msgid "semicolon separated"
-msgstr "po średniku"
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
@@ -4658,6 +4651,10 @@ msgstr "Widoczne na publicznej karcie punktu programu"
 #: src/ludamus/templates/components/visibility-legend.html
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
+
+#: src/ludamus/templates/components/write-in-hint.html
+msgid "semicolon separated"
+msgstr "po średniku"
 
 #: src/ludamus/templates/crowd/claim.html
 msgid "Claim your profile"

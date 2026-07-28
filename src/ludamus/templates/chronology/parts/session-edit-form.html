@@ -119,7 +119,7 @@
                             <label class="block text-sm font-medium text-foreground-secondary"
                                    for="id_sf_{{ field.slug }}">{{ field.name }}</label>
                             {% if field.allow_custom and field.is_multiple %}
-                                <span class="text-xs text-foreground-muted">{% translate "semicolon separated" %}</span>
+                                {% include "components/write-in-hint.html" %}
                             {% endif %}
                         </div>
                     {% endif %}
