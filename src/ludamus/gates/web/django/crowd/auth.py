@@ -71,17 +71,17 @@ class Auth0LoginActionView(View):
             next_path, root_domain, require_https=request.is_secure()
         ):
             next_path = None
+        # Auth0 opens the signup screen instead of login when asked to.
+        wants_signup = request.GET.get("screen_hint") == "signup"
+        hint = {"screen_hint": "signup"} if wants_signup else {}
         if request.get_host() != root_domain:
             if next_path:
                 next_path = request.build_absolute_uri(next_path)
             login_url = (
                 f"{request.scheme}://{root_domain}{reverse('web:crowd:auth0:login')}"
             )
-            url = (
-                f"{login_url}?{urlencode({'next': next_path})}"
-                if next_path
-                else login_url
-            )
+            params = {"next": next_path, **hint} if next_path else hint
+            url = f"{login_url}?{urlencode(params)}" if params else login_url
             raise RedirectError(url)
 
         # Generate a secure state token
@@ -99,6 +99,7 @@ class Auth0LoginActionView(View):
             request,
             request.build_absolute_uri(reverse("web:crowd:auth0:login-callback")),
             state=state_token,
+            **hint,
         )
 
 
