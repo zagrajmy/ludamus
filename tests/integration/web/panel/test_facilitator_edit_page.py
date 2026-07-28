@@ -413,7 +413,7 @@ class TestFacilitatorEditPageView:
             field=field, label="English", value="en", order=0
         )
 
-        authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event),
             data={
                 "display_name": "Alice",
@@ -422,6 +422,15 @@ class TestFacilitatorEditPageView:
             },
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator updated successfully.")],
+            url=reverse(
+                "panel:facilitator-detail",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+        )
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == ["en", "śląski, ale tylko trochę"]
 

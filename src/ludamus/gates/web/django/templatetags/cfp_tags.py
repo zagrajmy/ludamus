@@ -181,11 +181,8 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
 def custom_values(
     value: FieldAnswer | None, field: SessionFieldDTO | PersonalDataFieldDTO
 ) -> str:
-    """Write-in part of a stored answer: what matches no configured option.
-
-    Returns:
-        Semicolon-separated values, ready for the companion custom input.
-    """
+    # Write-in part of a stored answer — what matches no configured option —
+    # joined for the companion custom input.
     _chosen, custom = split_stored(
         stored=value,
         known={option.value for option in field.options},
