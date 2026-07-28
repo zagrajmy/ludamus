@@ -112,12 +112,14 @@
                         <span>{% translate "All clear" %}</span>
                     {% endif %}
                 </summary>
+                {# Rendered inline -- the page already ran conflict detection, so
+                   fetching the same list again on load would sweep the event twice. #}
                 <div id="conflict-panel"
                      class="mt-2"
                      hx-get="{% url 'panel:timetable-conflicts-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}"
                      hx-swap="innerHTML"
-                     hx-trigger="load, timetableChanged from:body">
-                    <div class="text-xs text-foreground-muted">{% translate "Loading…" %}</div>
+                     hx-trigger="timetableChanged from:body">
+                    {% include "panel/parts/timetable-conflict-panel.html" %}
                 </div>
             </details>
         </div>

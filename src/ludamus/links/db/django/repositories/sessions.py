@@ -604,6 +604,32 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         SessionFieldValue.objects.filter(session_id=session_id).delete()
 
     @staticmethod
+    def read_facilitators_by_sessions(
+        session_ids: Iterable[int],
+    ) -> dict[int, list[FacilitatorDTO]]:
+        if not (ids := list(session_ids)):
+            return {}
+        rows = (
+            Session.facilitators.through.objects.filter(session_id__in=ids)
+            .select_related("facilitator")
+            .order_by("facilitator__display_name")
+        )
+        result: dict[int, list[FacilitatorDTO]] = {sid: [] for sid in ids}
+        for row in rows:
+            result[row.session_id].append(
+                FacilitatorDTO.model_validate(row.facilitator)
+            )
+        return result
+
+    @staticmethod
+    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
+        if not (ids := list(session_ids)):
+            return {}
+        return dict(
+            Session.objects.filter(pk__in=ids).values_list("pk", "participants_limit")
+        )
+
+    @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
         try:
             session = Session.objects.get(pk=session_id)
