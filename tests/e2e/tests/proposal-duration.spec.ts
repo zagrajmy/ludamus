@@ -18,6 +18,9 @@ test.describe("Proposal duration", () => {
 
     const hours = page.getByLabel("Hours");
     const duration = page.getByLabel("Duration", { exact: true });
+    // Changing the category swaps #proposal-session-fields over HTMX; wait for
+    // that category's preset to land or the swap resets the select mid-test.
+    await expect(duration.locator("option[value='PT1H']")).toBeAttached();
     await expect(hours).toBeHidden();
 
     // The reveal is CSS-only, keyed on "Custom" being the last option.
