@@ -4697,6 +4697,35 @@ msgstr "Widoczne tylko dla organizatorów"
 msgid "semicolon separated"
 msgstr "po średniku"
 
+# Auth error page
+#: src/ludamus/templates/crowd/auth_error.html
+msgid "Login failed"
+msgstr "Logowanie nie powiodło się"
+
+#: src/ludamus/templates/crowd/auth_error.html
+msgid ""
+"Something interrupted the login. This can happen after going back to an old "
+"login page, waiting too long, or when your browser blocks cookies. Trying "
+"again usually helps."
+msgstr ""
+"Coś przerwało logowanie. Tak się dzieje po powrocie do starej strony "
+"logowania, po zbyt długim oczekiwaniu albo gdy przeglądarka blokuje pliki "
+"cookie. Zwykle wystarczy spróbować ponownie."
+
+#: src/ludamus/templates/crowd/auth_error.html
+msgid "Log in again"
+msgstr "Zaloguj się ponownie"
+
+#: src/ludamus/templates/crowd/auth_error.html
+#: src/ludamus/templates/crowd/login_required.html
+#: src/ludamus/templates/flatpages/default.html
+msgid "Back to Home"
+msgstr "Powrót do strony głównej"
+
+#: src/ludamus/templates/crowd/auth_error.html
+msgid "Error ID"
+msgstr "Identyfikator błędu"
+
 #: src/ludamus/templates/crowd/claim.html
 msgid "Claim your profile"
 msgstr "Przejmij swój profil"
@@ -4728,11 +4757,6 @@ msgstr "Wymagane logowanie"
 #: src/ludamus/templates/crowd/login_required.html
 msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
-
-#: src/ludamus/templates/crowd/login_required.html
-#: src/ludamus/templates/flatpages/default.html
-msgid "Back to Home"
-msgstr "Powrót do strony głównej"
 
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-create.html
