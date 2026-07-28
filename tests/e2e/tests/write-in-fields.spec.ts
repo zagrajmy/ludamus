@@ -9,7 +9,7 @@ test.describe("Write-in answers", () => {
 
     const wizard = page.locator('[id="wizard-content"]');
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
-    await expect(wizard.getByText("comma separated")).toBeVisible();
+    await expect(wizard.getByText("semicolon separated")).toBeVisible();
 
     await page.getByLabel(/title/i).fill("Nocna sesja");
     await page.getByLabel(/description/i).fill("A one-shot with content to flag.");
@@ -17,7 +17,7 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page.getByLabel(/duration/i).selectOption("PT1H");
     await page.getByRole("checkbox", { name: "Horror" }).check();
-    await page.locator('input[name="session_triggers_custom"]').fill("krew, przemoc");
+    await page.getByLabel("Or type a custom value").fill("krew; przemoc");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
@@ -35,7 +35,7 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page.getByLabel(/duration/i).selectOption("PT1H");
     await page.getByRole("checkbox", { name: "Horror" }).check();
-    await page.locator('input[name="session_triggers_custom"]').fill("krew");
+    await page.getByLabel("Or type a custom value").fill("krew");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     const wizard = page.locator('[id="wizard-content"]');
@@ -43,7 +43,7 @@ test.describe("Write-in answers", () => {
     await page.getByRole("button", { name: /Back/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
-    await expect(page.locator('input[name="session_triggers_custom"]')).toHaveValue("krew");
+    await expect(page.getByLabel("Or type a custom value")).toHaveValue("krew");
     await expect(page.getByRole("checkbox", { name: "Horror" })).toBeChecked();
   });
 });

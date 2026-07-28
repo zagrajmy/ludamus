@@ -1899,7 +1899,7 @@ class TestProposeSessionPageView:
                 "description": "A test session",
                 "participants_limit": "6",
                 "session_triggers": ["horror"],
-                "session_triggers_custom": "krew, przemoc",
+                "session_triggers_custom": "krew; przemoc",
             },
         )
 
