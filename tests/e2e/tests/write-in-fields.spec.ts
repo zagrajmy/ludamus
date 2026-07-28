@@ -6,6 +6,12 @@ import { expect, test } from "./helpers/fixtures";
 const customValue = (page: Page, question: string) =>
   page.getByLabel(`Custom value for: ${question}`, { exact: true });
 
+// By role, not by label: a required field's label carries "(required)" and a
+// non-public one "organizers only", and getByLabel does not normalize the
+// markup's whitespace for a regex. The accessible name is normalized, and
+// anchoring keeps the companion's "Custom value for: …" out.
+const systemInput = (page: Page) => page.getByRole("textbox", { name: /^Which system\?/ });
+
 test.describe("Write-in answers", () => {
   test("carries a write-in alongside the picked options", async ({ page }) => {
     await page.goto("/event/open-mic/session/propose/");
@@ -26,7 +32,7 @@ test.describe("Write-in answers", () => {
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
-    await page.getByLabel("Which system?", { exact: true }).fill("Fate");
+    await systemInput(page).fill("Fate");
     await page
       .getByRole("group", { name: /Any trigger warnings\?/ })
       .getByRole("checkbox", { name: "Horror" })
@@ -52,7 +58,7 @@ test.describe("Write-in answers", () => {
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
-    await page.getByLabel("Which system?", { exact: true }).fill("Fate");
+    await systemInput(page).fill("Fate");
     await page
       .getByRole("group", { name: /Any trigger warnings\?/ })
       .getByRole("checkbox", { name: "Horror" })
