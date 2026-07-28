@@ -338,7 +338,7 @@ run = [
     { task = "lint:mypy" },
     { task = "lint:pylint", args = ["src"] },
     { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
-    { task = "test:py", args = ["-xvv"] },
+    { task = "test:py", args = ["-xvv"]}
 ]
 
 [tasks.fullcheck]
@@ -405,6 +405,10 @@ run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -
 [tasks.ts-check]
 description = "Type-check frontend TypeScript"
 run = "aubr -C src/ludamus/client typecheck"
+
+[tasks."ts-check:ios"]
+description = "Type-check the iOS regression scripts"
+run = "aube exec tsc -p scripts/ios-regressions/tsconfig.json"
 
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"

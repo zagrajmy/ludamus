@@ -46,7 +46,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.legacy import parse_uploaded_file, resolve_cover_image
+from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
 from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
@@ -907,7 +907,7 @@ class ProposalFormPageView(_ProposalFormBase):
             "min_age": form.cleaned_data.get("min_age") or 0,
             "duration": form.cleaned_data.get("duration") or "",
         }
-        cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
+        cover = resolve_uploaded_file_field(form.cleaned_data.get("cover_image"))
         if cover is not None:
             update_data["cover_image"] = cover
         remove_field_ids = self._collect_remove_field_ids(

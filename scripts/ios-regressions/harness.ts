@@ -7,10 +7,7 @@ import type {
 } from "agent-device";
 
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 
-type AgentDeviceModule = typeof import("agent-device");
 type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
 
 const env = process.env;
@@ -32,32 +29,9 @@ export type Rect = { x: number; y: number; width: number; height: number };
 // `deviceName` below, because the workflow picks a UDID and passes it in.
 const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
 
-const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
+const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
-
-const importAgentDevice = async (): Promise<AgentDeviceModule> => {
-  try {
-    return await import("agent-device");
-  } catch (error) {
-    const candidates: string[] = [];
-    try {
-      const npmRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
-      candidates.push(`${npmRoot}/agent-device/dist/src/index.js`);
-    } catch {}
-    if (env.HOME) {
-      candidates.push(
-        `${env.HOME}/.bun/install/global/node_modules/agent-device/dist/src/index.js`,
-      );
-    }
-    for (const candidate of candidates) {
-      if (existsSync(candidate)) {
-        return (await import(pathToFileURL(candidate).href)) as AgentDeviceModule;
-      }
-    }
-    throw error;
-  }
-};
 
 export type IosHarness = {
   client: AgentDeviceClient;
@@ -75,7 +49,7 @@ export type IosHarness = {
 };
 
 export const createIosHarness = async (session: string): Promise<IosHarness> => {
-  const { createAgentDeviceClient, isAgentDeviceError } = await importAgentDevice();
+  const { createAgentDeviceClient, isAgentDeviceError } = await import("agent-device");
   const client: AgentDeviceClient = createAgentDeviceClient({ session });
 
   const deviceOptions: IosDeviceOptions = providedUdid

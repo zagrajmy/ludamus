@@ -1,6 +1,6 @@
 {% load i18n %}
 {% load markdown_tags %}
-{% load tessera django_vite %}
+{% load tessera %}
 <div id="wizard-content">
     {% include "chronology/propose/parts/_proposal_description.html" %}
     {% include "chronology/propose/parts/_stepper.html" %}
@@ -247,6 +247,3 @@
         <p class="text-sm text-foreground-muted">{% translate "Session details saved. Next step coming soon." %}</p>
     {% endif %}
 </div>
-{% if image_form %}
-    {% vite_asset 'src/encounter-form.ts' %}
-{% endif %}

@@ -1,11 +1,7 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from ludamus.links.db.django.repositories import SessionRepository, delete_stored_file
+from ludamus.links.db.django.repositories import SessionRepository
 from tests.integration.conftest import PNG_BYTES
-
-
-def test_delete_stored_file_noop_without_storage():
-    delete_stored_file(object(), "orphan/path.png")
 
 
 class TestSessionRepositoryCoverUpdate:

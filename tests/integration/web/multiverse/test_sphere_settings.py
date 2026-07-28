@@ -292,6 +292,24 @@ class TestSphereSettingsPageView:
             url=self.url,
         )
 
+    def test_post_with_clear_checkbox_removes_logo(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        sphere.logo = "spheres/drop-me.png"
+        sphere.save()
+
+        response = authenticated_client.post(self.url, data={"logo-clear": "on"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert not sphere.logo
+
     def test_post_without_logo_keeps_existing(
         self, authenticated_client, active_user, sphere
     ):

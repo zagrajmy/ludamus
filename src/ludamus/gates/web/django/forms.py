@@ -183,7 +183,9 @@ def _logo_field() -> forms.FileField:
         help_text=_(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": LOGO_ACCEPT}),
+        widget=forms.ClearableFileInput(
+            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
+        ),
     )
 
 
@@ -770,6 +772,12 @@ class FacilitatorForm(forms.Form):
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
+    )
+    assign_me = forms.BooleanField(
+        initial=True,
+        required=False,
+        label=_("Assign me as organizer"),
+        help_text=_("You handle this facilitator until you step down."),
     )
 
     def clean_accreditation_type(self) -> str:

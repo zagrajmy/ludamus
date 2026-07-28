@@ -180,6 +180,42 @@ class TestFacilitatorCreatePageView:
         facilitator = Facilitator.objects.get(event=event, display_name="Bob")
         assert facilitator.accreditation_type == "none"
 
+    def test_post_assigns_the_creator_as_organizer_when_checked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"display_name": "Bob", "assign_me": "on"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator created successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator = Facilitator.objects.get(event=event, display_name="Bob")
+        assert facilitator.organizer_id == active_user.pk
+
+    def test_post_leaves_facilitator_unassigned_when_unchecked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"display_name": "Bob"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator created successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator = Facilitator.objects.get(event=event, display_name="Bob")
+        assert facilitator.organizer_id is None
+
     def test_post_creates_facilitator_with_chosen_accreditation(
         self, authenticated_client, active_user, sphere, event
     ):
