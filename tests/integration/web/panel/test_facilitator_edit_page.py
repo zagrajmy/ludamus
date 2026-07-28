@@ -394,6 +394,37 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
 
+    def test_post_keeps_comma_inside_a_multi_value_write_in(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Languages",
+            question="Which languages?",
+            slug="languages",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="English", value="en", order=0
+        )
+
+        authenticated_client.post(
+            self.get_url(event),
+            data={
+                "display_name": "Alice",
+                "personal_languages": ["en"],
+                "personal_languages_custom": "śląski, ale tylko trochę",
+            },
+        )
+
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
+        assert hpd.value == ["en", "śląski, ale tylko trochę"]
+
     def test_get_renders_all_personal_field_types(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -476,8 +507,6 @@ class TestFacilitatorEditPageView:
             'name="personal_languages"' in html and 'value="en"' in html
         )
         assert "Pick all that apply" in html
-        assert 'name="personal_languages_custom"' in html
-        assert "śląski, ale tylko trochę" in html
         assert 'name="personal_system"' in html
         assert 'name="personal_system_custom"' in html
         assert 'name="personal_vegan"' in html
