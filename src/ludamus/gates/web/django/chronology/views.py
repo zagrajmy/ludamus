@@ -311,7 +311,7 @@ def _personal_context(
         "category": category,
         "form": form,
         "field_descriptors": field_descriptors(
-            "personal", requirement_fields(requirements), form
+            prefix="personal", fields=requirement_fields(requirements), form=form
         ),
         "current_step": "personal",
         "wizard_steps": _wizard_steps(service, category, has_category=has_category),
@@ -406,7 +406,7 @@ def _render_details(
             "image_form": _wizard_image_form(wizard),
             "durations": category.durations,
             "field_descriptors": field_descriptors(
-                "session", requirement_fields(requirements), form
+                prefix="session", fields=requirement_fields(requirements), form=form
             ),
             "public_tracks": public_tracks,
             "selected_track_pks": selected_track_pks,
@@ -675,7 +675,9 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
                 "category": category,
                 "form": form,
                 "field_descriptors": field_descriptors(
-                    "personal", requirement_fields(requirements), form
+                    prefix="personal",
+                    fields=requirement_fields(requirements),
+                    form=form,
                 ),
                 "current_step": "personal",
                 "wizard_steps": _wizard_steps(
@@ -800,7 +802,9 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                     "image_form": display_image_form,
                     "durations": category.durations,
                     "field_descriptors": field_descriptors(
-                        "session", requirement_fields(requirements), form
+                        prefix="session",
+                        fields=requirement_fields(requirements),
+                        form=form,
                     ),
                     "current_step": "details",
                     "wizard_steps": _wizard_steps(
@@ -901,7 +905,9 @@ def _collect_session_field_values(
         SessionFieldValueData(
             session_id=session_id,
             field_id=field.pk,
-            value=answered_value(_SESSION_FIELD_PREFIX, field, form),
+            value=answered_value(
+                prefix=_SESSION_FIELD_PREFIX, field_def=field, form=form
+            ),
         )
         for field, _required in _session_field_pairs(ctx)
     ]
@@ -941,7 +947,10 @@ class SessionEditView(LoginRequiredMixin, View):
             for field, current in ctx.session_fields
         }
         return dynamic_fields_form(
-            _SESSION_FIELD_PREFIX, _session_field_pairs(ctx), data, initial=initial
+            prefix=_SESSION_FIELD_PREFIX,
+            fields=_session_field_pairs(ctx),
+            data=data,
+            initial=initial,
         )
 
     def get(
@@ -1028,7 +1037,9 @@ class SessionEditView(LoginRequiredMixin, View):
                 "session": ctx.session,
                 "form": form,
                 "field_descriptors": field_descriptors(
-                    _SESSION_FIELD_PREFIX, _session_field_pairs(ctx), fields_form
+                    prefix=_SESSION_FIELD_PREFIX,
+                    fields=_session_field_pairs(ctx),
+                    form=fields_form,
                 ),
                 "post_url": post_url,
                 "saved": saved,

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-28 06:58+0200\n"
+"POT-Creation-Date: 2026-07-28 18:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4469,6 +4469,11 @@ msgstr "Potwierdź"
 #: src/ludamus/templates/panel/session-fields.html
 msgid "required"
 msgstr "wymagane"
+
+#: src/ludamus/templates/components/dynamic-field.html
+#, python-format
+msgid "Custom value for: %(question)s"
+msgstr "Własna wartość dla: %(question)s"
 
 #: src/ludamus/templates/components/dynamic-field.html
 msgid "comma separated"

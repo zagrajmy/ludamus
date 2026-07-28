@@ -77,25 +77,27 @@ def _facilitator_prefix(facilitator_id: int) -> str:
 
 
 def _facilitator_fields_form(
+    *,
     prefix: str,
     fields: Sequence[OrganizerFieldDTO],
     data: QueryDict | None = None,
-    *,
     values: Mapping[str, FieldValue] | None = None,
 ) -> forms.Form:
     stored = values or {}
     return dynamic_fields_form(
-        prefix,
-        [(field, False) for field in fields],
-        data,
+        prefix=prefix,
+        fields=[(field, False) for field in fields],
+        data=data,
         initial={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
     )
 
 
 def _descriptors(
-    prefix: str, fields: Sequence[OrganizerFieldDTO], form: forms.Form
+    *, prefix: str, fields: Sequence[OrganizerFieldDTO], form: forms.Form
 ) -> list[FieldDescriptor]:
-    return field_descriptors(prefix, [(field, False) for field in fields], form)
+    return field_descriptors(
+        prefix=prefix, fields=[(field, False) for field in fields], form=form
+    )
 
 
 class _HasPk(Protocol):
@@ -498,7 +500,9 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
         current_event = context["current_event"]
         session = prepared.session
         context["field_descriptors"] = field_descriptors(
-            "session", requirement_fields(prepared.requirements), prepared.form
+            prefix="session",
+            fields=requirement_fields(prepared.requirements),
+            form=prepared.form,
         )
         context["orphan_values"] = self._orphan_values(
             current_event.pk, requirements=prepared.requirements, session=session
@@ -605,8 +609,14 @@ class ProposalFormPageView(_ProposalFormBase):
                 facilitator.pk, event_pk
             )
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(prefix, fields, values=values)
-            result.append((facilitator, prefix, _descriptors(prefix, fields, form)))
+            form = _facilitator_fields_form(prefix=prefix, fields=fields, values=values)
+            result.append(
+                (
+                    facilitator,
+                    prefix,
+                    _descriptors(prefix=prefix, fields=fields, form=form),
+                )
+            )
         return result
 
     def _get_facilitator_personal_data_post(
@@ -619,8 +629,16 @@ class ProposalFormPageView(_ProposalFormBase):
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(prefix, fields, self.request.POST)
-            result.append((facilitator, prefix, _descriptors(prefix, fields, form)))
+            form = _facilitator_fields_form(
+                prefix=prefix, fields=fields, data=self.request.POST
+            )
+            result.append(
+                (
+                    facilitator,
+                    prefix,
+                    _descriptors(prefix=prefix, fields=fields, form=form),
+                )
+            )
         return result
 
     def _personal_data_forms(
@@ -638,7 +656,9 @@ class ProposalFormPageView(_ProposalFormBase):
         fields = self.request.di.uow.personal_data_fields.list_by_event(event_pk)
         return fields, {
             facilitator_id: _facilitator_fields_form(
-                _facilitator_prefix(facilitator_id), fields, self.request.POST
+                prefix=_facilitator_prefix(facilitator_id),
+                fields=fields,
+                data=self.request.POST,
             )
             for facilitator_id in submitted_ids & valid_pks
         }
@@ -662,7 +682,9 @@ class ProposalFormPageView(_ProposalFormBase):
                     event_id=event_pk,
                     field_id=field.pk,
                     value=answered_value(
-                        _facilitator_prefix(facilitator_id), field, form
+                        prefix=_facilitator_prefix(facilitator_id),
+                        field_def=field,
+                        form=form,
                     ),
                 )
                 for field in fields

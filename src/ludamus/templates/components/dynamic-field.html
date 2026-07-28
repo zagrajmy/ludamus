@@ -33,7 +33,15 @@
         {% include "components/text-field.html" with name=name id=input_id value=text_value maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by only %}
     {% endif %}
     {% if offers_custom %}
-        {% include "components/text-field.html" with name=custom_name id=custom_id value=custom_value placeholder=custom_placeholder maxlength=field.max_length aria_label=custom_placeholder only %}
+        {# A page can offer several write-ins, so the accessible name carries #}
+        {# the question — "or type a custom value" alone names them all alike. #}
+        {% blocktranslate asvar custom_label with question=label %}Custom value for: {{ question }}{% endblocktranslate %}
+        {% include "components/text-field.html" with name=custom_name id=custom_id value=custom_value placeholder=custom_placeholder maxlength=field.max_length aria_label=custom_label has_errors=custom_errors aria_describedby=custom_described_by only %}
+        {% if custom_errors %}
+            <div id="{{ custom_error_id }}">
+                {% for error in custom_errors %}<p class="text-sm text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
         {% if field.is_multiple %}
             <p class="text-xs text-foreground-muted">{% translate "comma separated" %}</p>
         {% endif %}

@@ -143,3 +143,38 @@ class TestLabelling:
         )
 
         assert context["custom_value"] == "Something else"
+
+
+class TestTheWriteIn:
+    def test_its_errors_get_their_own_id_and_description(self) -> None:
+        context = field_context(
+            _field(allow_custom=True, help_text="Pick one."),
+            name_prefix="session",
+            answer=FieldAnswer(custom_errors=["Too long."]),
+        )
+
+        assert context["custom_errors"] == ["Too long."]
+        assert context["custom_error_id"] == "id_session_tags_custom_error"
+        assert (
+            context["custom_described_by"]
+            == "id_session_tags_help id_session_tags_custom_error"
+        )
+
+    def test_a_failing_control_does_not_mark_the_write_in(self) -> None:
+        context = field_context(
+            _field(allow_custom=True),
+            name_prefix="session",
+            answer=FieldAnswer(errors=["Pick an option or type your own."]),
+        )
+
+        assert context["custom_errors"] == []
+        assert not context["custom_error_id"]
+
+    def test_a_checkbox_is_offered_no_write_in(self) -> None:
+        context = field_context(
+            _field(field_type="checkbox", allow_custom=True, options=[]),
+            name_prefix="session",
+            answer=FieldAnswer(),
+        )
+
+        assert context["offers_custom"] is False

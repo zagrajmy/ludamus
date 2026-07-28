@@ -1,4 +1,10 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
+
+// A page can offer several write-ins, so each is named after its own question.
+const customValue = (page: Page, question: string) =>
+  page.getByLabel(`Custom value for: ${question}`, { exact: true });
 
 test.describe("Write-in answers", () => {
   test("carries a write-in alongside the picked options", async ({ page }) => {
@@ -20,12 +26,12 @@ test.describe("Write-in answers", () => {
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
-    await page.locator("#id_session_system").fill("Fate");
+    await page.getByLabel("Which system?", { exact: true }).fill("Fate");
     await page
       .getByRole("group", { name: /Any trigger warnings\?/ })
       .getByRole("checkbox", { name: "Horror" })
       .check();
-    await page.locator('input[name="session_triggers_custom"]').fill("krew, przemoc");
+    await customValue(page, "Any trigger warnings?").fill("krew, przemoc");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
@@ -46,12 +52,12 @@ test.describe("Write-in answers", () => {
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })
       .check();
-    await page.locator("#id_session_system").fill("Fate");
+    await page.getByLabel("Which system?", { exact: true }).fill("Fate");
     await page
       .getByRole("group", { name: /Any trigger warnings\?/ })
       .getByRole("checkbox", { name: "Horror" })
       .check();
-    await page.locator('input[name="session_triggers_custom"]').fill("krew");
+    await customValue(page, "Any trigger warnings?").fill("krew");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     const wizard = page.locator('[id="wizard-content"]');
@@ -59,7 +65,7 @@ test.describe("Write-in answers", () => {
     await page.getByRole("button", { name: /Back/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
-    await expect(page.locator('input[name="session_triggers_custom"]')).toHaveValue("krew");
+    await expect(customValue(page, "Any trigger warnings?")).toHaveValue("krew");
     await expect(
       page
         .getByRole("group", { name: /Any trigger warnings\?/ })

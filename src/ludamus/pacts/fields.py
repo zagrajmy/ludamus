@@ -16,6 +16,9 @@ from pydantic import BaseModel, ConfigDict
 
 FieldValue = str | list[str] | bool | None
 
+# The empty option offered above a single-select's real ones.
+BLANK_CHOICE = ("", "—")
+
 
 class OrganizerFieldOptionDTO(BaseModel):
     """One choice offered by a select-type field."""
@@ -26,6 +29,10 @@ class OrganizerFieldOptionDTO(BaseModel):
     order: int
     pk: int
     value: str
+
+
+def _option_order(option: OrganizerFieldOptionDTO) -> tuple[int, str]:
+    return option.order, option.label
 
 
 class OrganizerFieldDTO(BaseModel):
@@ -48,6 +55,39 @@ class OrganizerFieldDTO(BaseModel):
     question: str
     slug: str
 
+    # What the field looks like once configured. The form builds its widgets
+    # from these and the tag renders from the same answers, so a select can't
+    # validate against one option list and offer another.
+
+    @property
+    def offers_custom_input(self) -> bool:
+        # A checkbox has nothing to customise; every other type with
+        # allow_custom gets the companion write-in.
+        return self.allow_custom and self.field_type != "checkbox"
+
+    @property
+    def sorted_options(self) -> list[OrganizerFieldOptionDTO]:
+        # The organizer's order; label breaks ties so the list stays stable.
+        return sorted(self.options, key=_option_order)
+
+    @property
+    def choices(self) -> list[tuple[str, str]]:
+        # Blank first — multi-selects drop it, having no empty state to pick.
+        return [
+            BLANK_CHOICE,
+            *((option.value, option.label) for option in self.sorted_options),
+        ]
+
+    @property
+    def length_limit(self) -> int | None:
+        # Organizers spell "no limit" as 0; Django spells it None.
+        return self.max_length or None
+
+    def control_required(self, *, is_required: bool) -> bool:
+        # A write-in can stand in for a choice, so the control alone can no
+        # longer enforce the requirement — the form checks the pair instead.
+        return is_required and not self.offers_custom_input
+
 
 @dataclass(frozen=True, slots=True)
 class FieldAnswer:
@@ -56,6 +96,7 @@ class FieldAnswer:
     value: FieldValue = None
     custom_value: str = ""
     errors: list[str] = dataclass_field(default_factory=list)
+    custom_errors: list[str] = dataclass_field(default_factory=list)
     is_required: bool = False
 
 

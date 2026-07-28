@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import operator
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
@@ -42,17 +41,11 @@ class CustomAnswerFormMixin(forms.Form):
         return self.cleaned_data
 
 
-def offers_custom_input(field: OrganizerFieldDTO) -> bool:
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion write-in.
-    return field.allow_custom and field.field_type != "checkbox"
-
-
 def build_field(
+    *,
     fields: dict[str, forms.Field],
     field_key: str,
     field_def: OrganizerFieldDTO,
-    *,
     is_required: bool,
 ) -> None:
     # Shared by the proposal wizard, the organizer panel and every other page
@@ -61,22 +54,15 @@ def build_field(
     # question — the wording the proposer is actually asked.
     label = field_def.question
     help_text = field_def.help_text
-    offers_custom = offers_custom_input(field_def)
-    max_len = field_def.max_length if field_def.max_length > 0 else None
-    # A write-in can stand in for a choice, so the control alone can no longer
-    # enforce the requirement — CustomAnswerFormMixin checks the pair instead.
-    control_required = is_required and not offers_custom
+    max_len = field_def.length_limit
+    control_required = field_def.control_required(is_required=is_required)
 
     if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
-
         if field_def.is_multiple:
             fields[field_key] = forms.MultipleChoiceField(
                 label=label,
                 help_text=help_text,
-                choices=choices[1:],  # no blank for multi
+                choices=field_def.choices[1:],  # no blank for multi
                 required=control_required,
                 widget=forms.CheckboxSelectMultiple,
             )
@@ -84,7 +70,7 @@ def build_field(
             fields[field_key] = forms.ChoiceField(
                 label=label,
                 help_text=help_text,
-                choices=choices,
+                choices=field_def.choices,
                 required=control_required,
             )
 
@@ -101,7 +87,7 @@ def build_field(
             max_length=max_len,
         )
 
-    if offers_custom:
+    if field_def.offers_custom_input:
         fields[f"{field_key}_custom"] = forms.CharField(
             label=_("Or type a custom value"), required=False, max_length=max_len
         )
@@ -114,12 +100,15 @@ def build_dynamic_fields(
     # enforce, for CustomAnswerFormMixin to check as a pair.
     for req in requirements:
         build_field(
-            fields, f"{prefix}_{req.field.slug}", req.field, is_required=req.is_required
+            fields=fields,
+            field_key=f"{prefix}_{req.field.slug}",
+            field_def=req.field,
+            is_required=req.is_required,
         )
     return tuple(
         f"{prefix}_{req.field.slug}"
         for req in requirements
-        if req.is_required and offers_custom_input(req.field)
+        if req.is_required and req.field.offers_custom_input
     )
 
 
@@ -130,10 +119,10 @@ def requirement_fields(
 
 
 def dynamic_fields_form(
+    *,
     prefix: str,
     fields: Sequence[tuple[OrganizerFieldDTO, bool]],
     data: QueryDict | None = None,
-    *,
     initial: Mapping[str, FieldValue] | None = None,
 ) -> forms.Form:
     # Every page offering organizer-defined fields validates them through a
@@ -142,9 +131,9 @@ def dynamic_fields_form(
     form_fields: dict[str, forms.Field] = {}
     for field_def, is_required in fields:
         build_field(
-            form_fields,
-            f"{prefix}_{field_def.slug}",
-            field_def,
+            fields=form_fields,
+            field_key=f"{prefix}_{field_def.slug}",
+            field_def=field_def,
             is_required=is_required,
         )
     form_class: type[forms.Form] = type(
@@ -155,7 +144,7 @@ def dynamic_fields_form(
             "custom_required_keys": tuple(
                 f"{prefix}_{field_def.slug}"
                 for field_def, is_required in fields
-                if is_required and offers_custom_input(field_def)
+                if is_required and field_def.offers_custom_input
             ),
         },
     )
@@ -163,14 +152,14 @@ def dynamic_fields_form(
 
 
 def answered_value(
-    prefix: str, field_def: OrganizerFieldDTO, form: forms.Form
+    *, prefix: str, field_def: OrganizerFieldDTO, form: forms.Form
 ) -> str | list[str] | bool:
     # The companion input stands in for the main control when the organizer
     # allows a value outside the offered options; for a multi-value field it
     # adds to the chosen options rather than replacing them.
     key = f"{prefix}_{field_def.slug}"
     value = form.cleaned_data.get(key)
-    if not offers_custom_input(field_def):
+    if not field_def.offers_custom_input:
         return value if value is not None else ""
     return merge_custom(
         chosen=value,
@@ -180,7 +169,7 @@ def answered_value(
 
 
 def field_descriptors(
-    prefix: str, fields: Sequence[tuple[OrganizerFieldDTO, bool]], form: forms.Form
+    *, prefix: str, fields: Sequence[tuple[OrganizerFieldDTO, bool]], form: forms.Form
 ) -> list[FieldDescriptor]:
     # Template-facing view of a page's fields. Everything the markup needs
     # comes off the DTO, so every page hands this straight to the
@@ -188,17 +177,23 @@ def field_descriptors(
     descriptors: list[FieldDescriptor] = []
     for field_def, is_required in fields:
         field_key = f"{prefix}_{field_def.slug}"
+        # Checkboxes get no companion input even with allow_custom.
         custom_key = f"{field_key}_custom"
+        has_custom = custom_key in form.fields
         descriptor: FieldDescriptor = {
             "field": field_def,
             "name_prefix": prefix,
             "answer": FieldAnswer(
                 value=form[field_key].value(),
-                # Checkboxes get no companion input even with allow_custom.
-                custom_value=(
-                    form[custom_key].value() or "" if custom_key in form.fields else ""
-                ),
+                custom_value=(form[custom_key].value() or "" if has_custom else ""),
                 errors=[str(error) for error in form[field_key].errors],
+                # Kept apart from the control's own errors: a write-in that
+                # fails needs the message beside the input that holds it.
+                custom_errors=(
+                    [str(error) for error in form[custom_key].errors]
+                    if has_custom
+                    else []
+                ),
                 is_required=is_required,
             ),
         }
@@ -239,7 +234,7 @@ def fold_custom_answers(
     companions = {
         f"{prefix}_{req.field.slug}_custom"
         for req in requirements
-        if offers_custom_input(req.field)
+        if req.field.offers_custom_input
     } - keys
     folded: WizardData = {
         key: value for key, value in cleaned.items() if key not in companions

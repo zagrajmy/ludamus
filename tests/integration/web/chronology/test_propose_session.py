@@ -1887,6 +1887,39 @@ class TestProposeSessionPageView:
             "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
         )
 
+    def test_details_reports_a_write_in_that_is_too_long(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = self._multi_custom_field(event, proposal_category)
+        field.max_length = 10
+        field.save()
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers_custom": "a" * 11,
+            },
+        )
+
+        descriptor = next(
+            desc
+            for desc in response.context["field_descriptors"]
+            if desc["field"].slug == "triggers"
+        )
+        assert descriptor["answer"].errors == []
+        assert descriptor["answer"].custom_errors == [
+            "Ensure this value has at most 10 characters (it has 11)."
+        ]
+        assert (
+            "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
+        )
+
     def test_details_keeps_write_ins_next_to_the_chosen_options(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):

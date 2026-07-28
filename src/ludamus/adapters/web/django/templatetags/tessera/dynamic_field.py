@@ -35,15 +35,12 @@ def field_context(
     # render so the derivation can be checked without going through a template.
     name = f"{name_prefix}_{field.slug}"
     input_id = f"id_{name}"
+    custom_id = f"{input_id}_custom"
     selected = _selected(answer.value)
-    # Order is the organizer's; label breaks ties so the list stays stable.
-    options = sorted(field.options, key=lambda o: (o.order, o.label))
+    options = field.sorted_options
     help_id = f"{input_id}_help" if field.help_text else ""
     error_id = f"{input_id}_error" if answer.errors else ""
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion write-in — and a write-in can answer the question, so
-    # the browser must not block the control on its own.
-    offers_custom = field.allow_custom and field.field_type != "checkbox"
+    custom_error_id = f"{custom_id}_error" if answer.custom_errors else ""
     return {
         "field": field,
         "label": field.question,
@@ -51,10 +48,10 @@ def field_context(
         "name": name,
         "input_id": input_id,
         "is_required": answer.is_required,
-        "control_required": answer.is_required and not offers_custom,
-        "offers_custom": offers_custom,
+        "control_required": field.control_required(is_required=answer.is_required),
+        "offers_custom": field.offers_custom_input,
         "errors": answer.errors,
-        "choices": [("", "—"), *((o.value, o.label) for o in options)],
+        "choices": field.choices,
         "options": [
             (o.value, o.label, o.value in selected, f"{input_id}_{i}")
             for i, o in enumerate(options)
@@ -62,8 +59,15 @@ def field_context(
         "text_value": selected[0] if selected else "",
         "is_checked": bool(answer.value),
         "custom_name": f"{name}_custom",
-        "custom_id": f"{input_id}_custom",
+        "custom_id": custom_id,
         "custom_value": answer.custom_value,
+        "custom_errors": answer.custom_errors,
+        "custom_error_id": custom_error_id,
+        # The write-in's help lives on the control it stands in for, so the
+        # companion points at the same help text and at its own errors.
+        "custom_described_by": " ".join(
+            part for part in (help_id, custom_error_id) if part
+        ),
         "help_id": help_id,
         "error_id": error_id,
         "described_by": " ".join(part for part in (help_id, error_id) if part),
