@@ -138,9 +138,7 @@ class TimetableService:
         )
         total_minutes = grid_end_minute - grid_start_minute
         day_range_starts = [
-            datetime.combine(
-                day, datetime.min.time(), tzinfo=windows_by_date[day][0][0].tzinfo
-            )
+            datetime.combine(day, datetime.min.time(), tzinfo=tz)
             + timedelta(minutes=grid_start_minute)
             for day in dates_to_render
         ]
@@ -163,13 +161,8 @@ class TimetableService:
                 )
             )
         time_labels: list[TimeLabelDTO] = []
-        if dates_to_render:
-            first_date = dates_to_render[0]
-            first_window_start = windows_by_date[first_date][0][0]
-            first_midnight = datetime.combine(
-                first_date, datetime.min.time(), tzinfo=first_window_start.tzinfo
-            )
-            label_start = first_midnight + timedelta(minutes=grid_start_minute)
+        if day_range_starts:
+            label_start = day_range_starts[0]
             slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
             time_labels = [
                 TimeLabelDTO(
