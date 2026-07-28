@@ -217,3 +217,11 @@ If you fix a papercut, remove it.
 - 2026-07-27: mise run check (format+lint) omits messages-check, so a stale PL
   catalog passes locally and only fails in CI; after any edit that reorders
   translated strings, run 'mise run messages-check' separately.
+- 2026-07-28: Investigated login in the web sandbox: mise run start fails
+  because .env.local lacks
+  SECRET_KEY/AUTH0_CLIENT_SECRET/CREDENTIALS_ENCRYPTION_KEY values; had to hand-
+  generate dummies before the server would boot.
+- 2026-07-28: auth0-simulator stays disabled in the sandbox until you hand-roll
+  ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
+  keyUsage=keyCertSign, so the first cert attempt failed with
+  CERTIFICATE_VERIFY_FAILED.
