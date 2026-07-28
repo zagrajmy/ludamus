@@ -3738,10 +3738,49 @@ class TestEventPageView:
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
-    def test_unpublished_event_visible_for_manager(
+    def test_unpublished_event_visible_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, sphere
+    ):
+        event = EventFactory(sphere=sphere, publication_time=None)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "pending_review_visible": True,
+                "pending_sessions": [],
+                "pending_wizard_view": panel_access_user.is_superuser,
+                "own_pending_proposals": [],
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+        )
+
+    def test_superuser_who_manages_sphere_gets_manager_view(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
+        active_user.is_superuser = True
+        active_user.save()
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self._get_url(event.slug))

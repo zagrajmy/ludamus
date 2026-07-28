@@ -31,7 +31,7 @@ django = "~6.0.6"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
-google-auth = "^2.56.0"
+google-auth = "^2.56.2"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
@@ -45,6 +45,7 @@ whitenoise = "^6.12.0"
 django-storages = { extras = ["google"], version = "^1.14.6" }
 dbos = ">=2.23.0,<3"
 unidecode = "^1.4.0"
+lxml = "^6.1.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -68,12 +69,12 @@ pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
-ruff = "^0.15.17"
-types-authlib = "^1.5.0.20250516"
+ruff = "^0.16.0"
+types-authlib = "^1.7.2.20260724"
 types-requests = "^2.32.4.20250809"
 
 # BLACK
-diff-cover = "^10.3.0"
+diff-cover = "^10.4.1"
 import-linter = "^2.11"
 vulture = "^2.16"
 pytest-gremlins = "^1.8.1"
@@ -82,7 +83,7 @@ yamllint = "1.38.0"
 taplo = "^0.9.3"
 tingle = "^0.4.0"
 pytest-xdist = "^3.8.0"
-defusedxml = "^0.7.1"
+lxml-stubs = "^0.5.1"
 
 [tool.black]
 line-length = 88
@@ -96,7 +97,8 @@ target-version = ['py314']
 skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,zagrajmy-landing-notes.md,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
-ignore-words-list = 'fallow,adres'
+# 'afterall' is bun:test's afterAll hook.
+ignore-words-list = 'fallow,adres,afterall'
 
 # COVERAGE
 
@@ -184,6 +186,10 @@ django_settings_module = "ludamus.edges.settings"
 
 [[tool.mypy.overrides]]
 module = ["debug_toolbar.toolbar"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["django_vite.templatetags.django_vite"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -444,6 +450,7 @@ ignore_names = [
     "list_filter",
     "Meta",
     "ordering",
+    "ready",
     # Used in settings
     "__call__",
     "*Middleware",

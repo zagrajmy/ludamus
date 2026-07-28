@@ -3,7 +3,7 @@
 **Status:** ✅ complete — full re-audit 2026-07-05 (branch
 `claude/panel-idor-scoping`) found **no unscoped ids** anywhere in the panel
 surface; remaining gaps were regression tests only, now added.
-**Tracked in:** `docs/features/CHECKLIST.md` (project-specific item)
+**Tracked in:** `CLAUDE.md` (Rules — object-scope authorization)
 
 ## Re-audit 2026-07-05 — result
 
@@ -41,7 +41,7 @@ caller. An organiser of event A can otherwise pass event B's space, manager,
 field, time-slot or category pk in a form body and mutate it. The access mixin
 does not catch this because the pk is data, not the route the mixin guards.
 
-## The rule (from CHECKLIST.md)
+## The rule
 
 For every such view, check **both**:
 
@@ -99,4 +99,4 @@ nothing.
 - Every panel view that consumes a request-supplied id is audited and scoped.
 - Each has a regression test proving a foreign id is rejected without side
   effects.
-- The CHECKLIST item can be walked clean by against new panel stories.
+- The CLAUDE.md rule can be walked clean against new panel work.

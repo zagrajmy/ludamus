@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         SphereDTO,
         SphereRepositoryProtocol,
         SphereUpdateData,
+        UploadedFileProtocol,
     )
     from ludamus.pacts.multiverse import (
         AnnouncementData,
@@ -154,13 +155,12 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
-        logo: str | None = None,
+        logo: UploadedFileProtocol | str | None = None,
     ) -> None:
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit
         }
-        # Only overwrite the logo when a new file was uploaded, so saving the
-        # form without re-picking a file keeps the existing logo.
+        # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
         with self._transaction.atomic():
@@ -178,9 +178,6 @@ class SitesService:
 
     def read(self, sphere_id: int) -> SphereDTO:
         return self._spheres.read(sphere_id)
-
-    def is_manager(self, sphere_id: int, user_slug: str) -> bool:
-        return self._spheres.is_manager(sphere_id, user_slug)
 
     def list_spheres(self) -> list[SphereListItemDTO]:
         return self._directory.list_all()

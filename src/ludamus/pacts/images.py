@@ -21,3 +21,8 @@ IMAGE_FORMATS = (
 ALLOWED_IMAGE_FORMATS = frozenset(f.pil_name for f in IMAGE_FORMATS)
 IMAGE_ACCEPT = ",".join(f.mime for f in IMAGE_FORMATS)
 IMAGE_SUFFIXES = frozenset(s for f in IMAGE_FORMATS for s in f.suffixes)
+
+SVG_MIME = "image/svg+xml"
+SVG_SUFFIX = ".svg"
+LOGO_ACCEPT = f"{IMAGE_ACCEPT},{SVG_MIME}"
+UPLOAD_SUFFIXES = IMAGE_SUFFIXES | {SVG_SUFFIX}

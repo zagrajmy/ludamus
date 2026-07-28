@@ -16,11 +16,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-    settings_tab_urls,
 )
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
+from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
-from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -57,12 +57,10 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         ),
         "use_participants_label": bool(cd.get("use_participants_label")),
     }
-    if (cover := resolve_cover_image(cd.get("cover_image"))) is not None:
+    if (cover := resolve_uploaded_file_field(cd.get("cover_image"))) is not None:
         data["cover_image"] = cover
-    # Only overwrite the logo when a new file was uploaded, so saving the
-    # settings form without re-picking a file keeps the existing logo.
-    if cd.get("logo"):
-        data["logo"] = cd["logo"]
+    if (logo := resolve_uploaded_file_field(cd.get("logo"))) is not None:
+        data["logo"] = logo
     return data
 
 

@@ -14,6 +14,7 @@ from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
@@ -81,17 +82,6 @@ MATERIAL_SPECS = (
 MATERIAL_SPECS_BY_VALUE = {spec.value: spec for spec in MATERIAL_SPECS}
 
 
-def _is_manager(request: RootRequest) -> bool:
-    user_slug = request.context.current_user_slug
-    return (
-        request.user.is_authenticated
-        and user_slug is not None
-        and request.services.sphere_panel.is_manager(
-            request.context.current_sphere_id, user_slug
-        )
-    )
-
-
 def _available_materials(
     *, session_list_available: bool, tracks_available: bool
 ) -> tuple[MaterialSpec, ...]:
@@ -151,7 +141,7 @@ class PublicEventPrintView(View):
             raise Http404 from exc
 
         published = is_event_published(event)
-        if not published and not _is_manager(request):
+        if not published and not has_panel_access(request):
             raise Http404
 
         scope_pk = _scope_pk(request.GET.get("scope"))

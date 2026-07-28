@@ -288,7 +288,7 @@ class Sphere(models.Model):
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
     # Branding fallback — used on printables when an event has no logo of its own
-    logo = models.ImageField(upload_to=unique_upload_to, blank=True)
+    logo = models.FileField(upload_to=unique_upload_to, blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -320,7 +320,7 @@ class Event(models.Model):
     description = models.TextField(default="", blank=True)
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     # Branding — shown on printables (the public /print page)
-    logo = models.ImageField(upload_to=unique_upload_to, blank=True)
+    logo = models.FileField(upload_to=unique_upload_to, blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()

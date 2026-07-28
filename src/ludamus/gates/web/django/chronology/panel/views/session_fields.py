@@ -21,11 +21,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_field_form_data,
-    parse_field_requirements,
     read_field_or_redirect,
-    scoped_requirements,
 )
 from ludamus.gates.web.django.forms import SessionFieldForm
+from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.mills import PanelService
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, FieldUsageSummary, NotFoundError
 
@@ -108,9 +107,9 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
             context["categories"] = (
                 self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
             )
-            cat_reqs, _order = parse_field_requirements(
-                self.request.POST, "category_", "category_order"
-            )
+            cat_reqs = parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            ).requirements
             context["required_category_pks"] = {
                 pk for pk, is_req in cat_reqs.items() if is_req
             }
@@ -123,20 +122,13 @@ class SessionFieldCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
         parsed = parse_field_form_data(form)
 
-        field = self.request.di.uow.session_fields.create(
-            current_event.pk, {**parsed, "icon": form.cleaned_data.get("icon") or ""}
+        self.request.services.session_fields.create(
+            event_pk=current_event.pk,
+            data={**parsed, "icon": form.cleaned_data.get("icon") or ""},
+            category_requirements=parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            ),
         )
-
-        category_requirements, _order = scoped_requirements(
-            self.request.POST,
-            "category_",
-            "category_order",
-            self.request.di.uow.proposal_categories.list_by_event(current_event.pk),
-        )
-        if category_requirements:
-            self.request.di.uow.proposal_categories.add_session_field_to_categories(
-                field.pk, category_requirements
-            )
 
         messages.success(self.request, _("Session field created successfully."))
         return redirect("panel:session-fields", slug=slug)
@@ -180,6 +172,8 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         }
         if field.field_type == "select":
             initial["options"] = "\n".join(o.label for o in field.options)
+            initial["is_multiple"] = field.is_multiple
+            initial["allow_custom"] = field.allow_custom
         context["form"] = SessionFieldForm(initial=initial)
         context["categories"] = self.request.di.uow.proposal_categories.list_by_event(
             current_event.pk
@@ -226,9 +220,9 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["categories"] = (
                 self.request.di.uow.proposal_categories.list_by_event(current_event.pk)
             )
-            cat_reqs, _order = parse_field_requirements(
-                self.request.POST, "category_", "category_order"
-            )
+            cat_reqs = parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            ).requirements
             context["required_category_pks"] = {
                 pk for pk, is_req in cat_reqs.items() if is_req
             }
@@ -247,28 +241,24 @@ class SessionFieldEditPageView(PanelAccessMixin, EventContextMixin, View):
         options: list[str] | None = None
         if field.field_type == "select":
             options = [o.strip() for o in options_text.split("\n") if o.strip()] or []
-        cat_reqs, _order = scoped_requirements(
-            self.request.POST,
-            "category_",
-            "category_order",
-            self.request.di.uow.proposal_categories.list_by_event(current_event.pk),
+        self.request.services.session_fields.update(
+            event_pk=current_event.pk,
+            field_slug=field_slug,
+            data={
+                "name": name,
+                "question": question,
+                "max_length": max_length,
+                "help_text": help_text,
+                "icon": form.cleaned_data.get("icon") or "",
+                "is_public": form.cleaned_data.get("is_public", False),
+                "options": options,
+                "is_multiple": form.cleaned_data.get("is_multiple") or False,
+                "allow_custom": form.cleaned_data.get("allow_custom") or False,
+            },
+            category_requirements=parse_requirement_selection(
+                self.request.POST, prefix="category_", order_key="category_order"
+            ),
         )
-        with self.request.di.uow.atomic():
-            self.request.di.uow.session_fields.update(
-                field.pk,
-                {
-                    "name": name,
-                    "question": question,
-                    "max_length": max_length,
-                    "help_text": help_text,
-                    "icon": form.cleaned_data.get("icon") or "",
-                    "is_public": form.cleaned_data.get("is_public", False),
-                    "options": options,
-                },
-            )
-            self.request.di.uow.proposal_categories.set_session_field_categories(
-                field.pk, cat_reqs
-            )
 
         messages.success(self.request, _("Session field updated successfully."))
         return redirect("panel:session-fields", slug=slug)

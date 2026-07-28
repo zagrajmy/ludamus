@@ -34,41 +34,58 @@
             {% endif %}
         </div>
     {% endif %}
+    {% translate "Column width" as t_column_width %}
+    {% translate "Drag, or use the arrow keys, to resize every column. Double-click to reset." as t_column_width_hint %}
     <div class="timetable-calendar overflow-auto overscroll-contain border border-border rounded-lg select-none"
          data-timetable-days
-         style="--grid-extent: {{ grid.total_minutes }}">
-        <div class="timetable-day-strip sticky top-0 z-20 flex min-w-full w-max items-stretch border-b border-neutral-700 pr-px">
-            <div class="sticky left-0 z-40 flex w-16 flex-none items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
+         style="--grid-extent: {{ grid.total_minutes }};
+                --total-columns: {{ grid.total_columns }};
+                --columns-per-day: {{ grid.spaces|length }}">
+        <div class="timetable-day-strip timetable-day-strip-header sticky top-0 z-20 border-b border-neutral-700">
+            <div class="timetable-corner sticky left-0 z-40 flex items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
             {% for day in grid.days %}
-                <div class="timetable-day-header flex flex-col border-l border-neutral-700"
-                     style="--column-count: {{ day.columns|length }}">
+                <div class="timetable-day-header">
                     {% if grid.days|length > 1 %}
                         <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
-                            class="flex h-9 items-center border-b border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
+                            class="timetable-day-title flex h-9 items-center border-b border-l border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
                     {% endif %}
-                    <div class="flex border-b border-neutral-700 bg-neutral-900">
-                        {% for group in grid.groups %}
-                            <div class="timetable-header-cell border-l border-neutral-700 bg-neutral-900 px-3 py-1 text-center first:border-l-0"
-                                 style="--columns: {{ group.span }}">
-                                <div class="text-xs font-semibold text-white uppercase tracking-wide">{{ group.parent_name|default:"—" }}</div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    <div class="flex flex-1 bg-neutral-800">
-                        {% for col in day.columns %}
-                            <div class="flex min-w-36 flex-1 flex-col justify-center border-l border-neutral-700 px-3 py-2 text-center first:border-l-0">
-                                <div class="text-sm font-medium text-white wrap-anywhere">{{ col.space.name }}</div>
-                                {% if col.space.capacity %}
-                                    <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
+                    {% for group in grid.groups %}
+                        <div class="timetable-header-cell border-b border-l border-neutral-700 bg-neutral-900 px-3 py-1 text-center"
+                             style="--columns: {{ group.span }}">
+                            <div class="text-xs font-semibold text-white uppercase tracking-wide">{{ group.parent_name|default:"—" }}</div>
+                        </div>
+                    {% endfor %}
+                    {% for col in day.columns %}
+                        <div class="timetable-room-cell flex flex-col justify-center border-l border-neutral-700 bg-neutral-800 px-3 py-2 text-center">
+                            <div class="text-sm font-medium text-white wrap-anywhere">{{ col.space.name }}</div>
+                            {% if col.space.capacity %}
+                                <div class="text-xs text-neutral-400">{{ col.space.capacity }} cap.</div>
+                            {% endif %}
+                            {% comment %}
+                            Every room border is a drag grip (a hit-testable ::after, so the pointer
+                            path costs no nodes). All columns share one width, so one control is the
+                            whole story -- this is it, carrying focus and the ARIA contract.
+                            {% endcomment %}
+                            {% if forloop.first and forloop.parentloop.first %}
+                                {% comment %}
+                                Focusable only once timetable.ts has added tabindex and the
+                                aria-value* range: resizing is script-only, so without it this is a
+                                static separator rather than a dead tab stop. The bounds stay in one
+                                place, the script.
+                                {% endcomment %}
+                                <div class="timetable-column-resizer"
+                                     role="separator"
+                                     aria-orientation="vertical"
+                                     aria-label="{{ t_column_width }}"
+                                     title="{{ t_column_width_hint }}"></div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
                 </div>
             {% endfor %}
         </div>
-        <div class="timetable-day-strip flex min-w-full w-max items-start">
-            <div class="timetable-time-axis sticky left-0 z-10 w-16 flex-none border-r border-border bg-bg-secondary shadow-sm">
+        <div class="timetable-day-strip">
+            <div class="timetable-time-axis sticky left-0 z-10 bg-bg-secondary shadow-sm">
                 {% for label in grid.time_labels %}
                     <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
                          style="--offset: {{ label.offset_minutes }}">
@@ -77,7 +94,7 @@
                 {% endfor %}
             </div>
             {% for day in grid.days %}
-                <section class="timetable-day-grid {% if not forloop.first %}border-l border-border{% endif %}"
+                <section class="timetable-day-grid bg-bg-secondary"
                          style="--column-count: {{ day.columns|length }}"
                          data-timetable-day="{{ day.date|date:'Y-m-d' }}"
                          data-date="{{ day.date|date:'Y-m-d' }}"
