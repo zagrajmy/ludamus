@@ -1,12 +1,11 @@
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.urls import reverse
 
 from tests.integration.utils import assert_response
 
 
-class TestLoginRequiredPageView:
+class TestLoginRequiredPage:
     URL = reverse("web:crowd:login-required")
 
     def test_ok(self, client):
@@ -15,14 +14,8 @@ class TestLoginRequiredPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name=["crowd/login_required.html"],
-            context_data={
-                "view": ANY,
-                "next": "",
-                "show_icon": True,
-                "text": "",
-                "extra_class": "",
-            },
+            template_name="crowd/login_required.html",
+            context_data={"next": "", "show_icon": True, "text": "", "extra_class": ""},
         )
 
     def test_ok_with_next_url(self, client):
@@ -32,9 +25,8 @@ class TestLoginRequiredPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name=["crowd/login_required.html"],
+            template_name="crowd/login_required.html",
             context_data={
-                "view": ANY,
                 "next": "/event/test-event",
                 "show_icon": True,
                 "text": "",

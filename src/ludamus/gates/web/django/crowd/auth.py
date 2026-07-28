@@ -19,7 +19,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
-from django.views.generic.base import RedirectView, TemplateView, View
+from django.views.generic.base import RedirectView, View
 from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError as PydanticValidationError
 
@@ -58,32 +58,6 @@ def _is_safe_login_redirect(url: str, root_domain: str, *, require_https: bool) 
 
 def _login_user(request: RootRequest, user_slug: str) -> None:
     django_login(request, get_user_model().objects.get(slug=user_slug))
-
-
-class LoginRequiredPageView(TemplateView):
-    template_name = "crowd/login_required.html"
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["next"] = self.request.GET.get("next", "")
-        # Variables for login_button.html component
-        context["show_icon"] = True
-        context["text"] = ""
-        context["extra_class"] = ""
-        return context
-
-
-class AuthErrorPageView(TemplateView):
-    template_name = "crowd/auth_error.html"
-
-    TRACKING_MAX_LENGTH = 64
-
-    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-        context["tracking"] = self.request.GET.get("tracking", "")[
-            : self.TRACKING_MAX_LENGTH
-        ]
-        return context
 
 
 class Auth0LoginActionView(View):

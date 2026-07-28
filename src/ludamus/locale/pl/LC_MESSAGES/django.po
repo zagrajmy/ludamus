@@ -4659,7 +4659,7 @@ msgstr "Widoczne na publicznej karcie punktu programu"
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
 
-# Login Required Page
+# Auth error page
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Login failed"
 msgstr "Logowanie nie powiodło się"

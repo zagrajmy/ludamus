@@ -1,10 +1,10 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
-from ludamus.gates.web.django.crowd.auth import AuthErrorPageView
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
@@ -70,7 +70,7 @@ urlpatterns = [
     path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
     # The Auth0 tenant's error page setting points here; the path must stay
     # /auth-error to match it.
-    path("auth-error/", AuthErrorPageView.as_view(), name="auth-error"),
+    path("auth-error/", auth_error_page, name="auth-error"),
     path(
         "",
         include(
