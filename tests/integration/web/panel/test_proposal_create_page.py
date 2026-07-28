@@ -1312,4 +1312,46 @@ class TestProposalCreateCategoryFields:
         )
         form = response.context["form"]
         assert form.errors["duration"] == ["Enter how long the session lasts."]
+
+    def test_post_rejects_out_of_range_steppers(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Too Long",
+                "display_name": "Test Host",
+                "duration_hours": 99,
+                "duration_minutes": 99,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [_facilitator_dto(facilitator)],
+                "assigned_facilitator_pks": {facilitator.pk},
+            },
+        )
+        form = response.context["form"]
+        assert form.errors["duration_hours"] == [
+            f"Ensure this value is less than or equal to {MAX_DURATION_HOURS}."
+        ]
+        assert form.errors["duration_minutes"] == [
+            f"Ensure this value is less than or equal to {MAX_DURATION_MINUTES}."
+        ]
         assert not Session.objects.filter(title="Empty Custom").exists()
