@@ -66,6 +66,7 @@ export default defineConfig({
         "tab-scroll": resolve(rootDir, "src/tab-scroll.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
+        "write-in-chips": resolve(rootDir, "src/write-in-chips.ts"),
       },
     },
     sourcemap: true,

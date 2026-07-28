@@ -111,6 +111,7 @@
                                    aria-label="{% translate "Or type a custom value" %}"
                                    placeholder="{% translate "Or type a custom value" %}"
                                    {% if desc.max_length %}maxlength="{{ desc.max_length }}"{% endif %}
+                                   {% if desc.is_multiple %}data-write-in-chips data-chips-remove-label="{% translate "Remove" %}"{% endif %}
                                    class="w-full px-4 py-2 text-sm rounded-lg border border-border bg-bg-secondary text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-primary">
                         </div>
                     {% endif %}

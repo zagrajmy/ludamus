@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-28 19:18+0200\n"
+"POT-Creation-Date: 2026-07-29 00:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4200,6 +4200,17 @@ msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/panel/_personal_data_fields.html
+#: src/ludamus/templates/panel/bans.html
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Remove"
+msgstr "Usuń"
+
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
@@ -4942,13 +4953,6 @@ msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Delete party"
 msgstr "Usuń drużynę"
-
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/panel/bans.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/parts/proposal-session-fields.html
-msgid "Remove"
-msgstr "Usuń"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
@@ -8476,6 +8480,7 @@ msgstr "Brak przechwyconych e-maili."
 #, python-format
 #~ msgid "Release %(name)s"
 #~ msgstr "Zwolnij twórcę %(name)s"
+
 #, python-format
 #~ msgid ""
 #~ "Programme and sign-ups for %(sphere)s. Every item shows its time, room "

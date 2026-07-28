@@ -36,6 +36,8 @@ Renders personal-data field inputs. Caller passes:
                            value="{{ current_value|custom_values:field }}"
                            aria-label="{% translate "Or type a custom value" %}"
                            placeholder="{% translate "Or type a custom value" %}"
+                           data-write-in-chips
+                           data-chips-remove-label="{% translate "Remove" %}"
                            class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                 {% endif %}
             {% elif field.field_type == "select" %}
@@ -77,6 +79,7 @@ Renders personal-data field inputs. Caller passes:
                            name="{{ name_prefix }}_{{ field.slug }}_custom"
                            aria-label="{% translate "Or type a custom value" %}"
                            placeholder="{% translate "Or type a custom value" %}"
+                           {% if field.is_multiple %}data-write-in-chips data-chips-remove-label="{% translate "Remove" %}"{% endif %}
                            class="mt-2 w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                 {% endif %}
             {% endif %}

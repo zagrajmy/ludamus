@@ -43,8 +43,44 @@ test.describe("Write-in answers", () => {
     await page.getByRole("button", { name: /Back/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
-    await expect(page.getByLabel("Or type a custom value")).toHaveValue("krew");
+    // The saved write-in comes back as a removable chip; the input is empty.
+    await expect(page.getByRole("button", { name: "Remove: krew" })).toBeVisible();
+    await expect(page.getByLabel("Or type a custom value")).toHaveValue("");
     await expect(page.getByRole("checkbox", { name: "Horror" })).toBeChecked();
+  });
+
+  test("commits chips on Enter, removes them, and submits the joined value", async ({ page }) => {
+    await page.goto("/event/open-mic/session/propose/");
+
+    await page.getByLabel(/contact email/i).fill("write-in-chips@example.com");
+    await page.getByRole("button", { name: /Continue/ }).click();
+
+    const wizard = page.locator('[id="wizard-content"]');
+    await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
+
+    const writeIn = page.getByLabel("Or type a custom value");
+    await writeIn.fill("krew");
+    await writeIn.press("Enter");
+    // Enter committed a chip instead of submitting the step.
+    await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Remove: krew" })).toBeVisible();
+    await expect(writeIn).toHaveValue("");
+
+    await writeIn.fill("przemoc");
+    await writeIn.press("Enter");
+    await page.getByRole("button", { name: "Remove: przemoc" }).click();
+    await expect(page.getByRole("button", { name: "Remove: przemoc" })).toBeHidden();
+
+    await page.getByLabel(/title/i).fill("Sesja z chipsami");
+    await page.getByLabel(/description/i).fill("Chips keep the stored value canonical.");
+    await page.getByLabel(/max participants/i).fill("5");
+    await page.getByLabel(/presenter name/i).fill("Mystery GM");
+    await page.getByLabel(/duration/i).selectOption("PT1H");
+    await page.getByRole("checkbox", { name: "Horror" }).check();
+    await page.getByRole("button", { name: /Continue/ }).click();
+
+    await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
+    await expect(page.getByText("Horror, krew")).toBeVisible();
   });
 });
 
