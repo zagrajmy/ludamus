@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
+
+import { expect, test } from "./helpers/fixtures";
 
 // Proves the enforcing CSP (script-src 'self' 'nonce-…', no unsafe-inline,
 // no unsafe-eval — see plan 019 and settings.CSP_POLICY) doesn't block any
