@@ -57,3 +57,20 @@ class TestAuthErrorPage:
             template_name="crowd/auth_error.html",
             context_data={"tracking": ""},
         )
+
+    def test_logs_vetted_params_and_blanks_junk(self, client, caplog):
+        with caplog.at_level("WARNING", logger="ludamus.gates.web.django.auth_pages"):
+            client.get(
+                self.URL,
+                {"error": "invalid request!", "tracking": "d9bd4fc6d133caf8b064"},
+            )
+
+        assert "Auth0 error redirect: error=- tracking=d9bd4fc6d133caf8b064" in (
+            caplog.text
+        )
+
+    def test_param_less_visit_logs_nothing(self, client, caplog):
+        with caplog.at_level("WARNING", logger="ludamus.gates.web.django.auth_pages"):
+            client.get(self.URL)
+
+        assert "Auth0 error redirect" not in caplog.text
