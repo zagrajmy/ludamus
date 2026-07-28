@@ -57,7 +57,9 @@ def _render_field_input(field: BoundField) -> str:
 
 
 @register.simple_tag
-def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
+def tessera_field(
+    field: BoundField, *, layout: str = "vertical", required: bool | None = None
+) -> str:
     """Render a single form field.
 
     Returns:
@@ -66,6 +68,9 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
     Usage:
         {% tessera_field form.email %}
         {% tessera_field form.name layout="horizontal" %}
+
+    A field whose requirement is enforced elsewhere — a select answerable by
+    its companion write-in — passes `required` to keep the marker.
     """
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
@@ -91,7 +96,7 @@ def tessera_field(field: BoundField, *, layout: str = "vertical") -> str:
     else:
         if layout == "horizontal":
             parts.append('<div class="sm:w-1/3 sm:pt-2">')
-        parts.append(render_label(field))
+        parts.append(render_label(field, required=required))
         if layout == "horizontal":
             parts.extend(("</div>", '<div class="sm:w-2/3">'))
 

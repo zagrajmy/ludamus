@@ -22,7 +22,13 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     format_field_value,
 )
-from ludamus.gates.web.django.forms import create_proposal_form, field_descriptors
+from ludamus.gates.web.django.dynamic_fields import (
+    field_descriptors,
+    fold_custom_answers,
+    unfold_custom_answers,
+)
+from ludamus.gates.web.django.forms import create_proposal_form
+from ludamus.gates.web.django.helpers import parse_dynamic_field_value
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -32,7 +38,7 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
-from ludamus.pacts.legacy import parse_uploaded_file, resolve_cover_image
+from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
 from ludamus.pacts.panel import ProposalDraft
 from ludamus.pacts.services import DatabaseConstraintError
 
@@ -102,13 +108,13 @@ def collect_session_field_inputs(
 ) -> dict[int, str | list[str] | bool]:
     # Only the category's own fields are read back; a value the category no
     # longer asks for is left untouched rather than blanked.
+    folded = fold_custom_answers(
+        cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+    )
     inputs: dict[int, str | list[str] | bool] = {}
     for req in requirements:
-        key = f"session_{req.field.slug}"
-        value = form.cleaned_data.get(key)
-        if req.field.allow_custom and not value:
-            value = form.cleaned_data.get(f"{key}_custom", "")
-        inputs[req.field.pk] = value if value is not None else ""
+        value = folded.get(f"session_{req.field.slug}")
+        inputs[req.field.pk] = value if isinstance(value, str | list | bool) else ""
     return inputs
 
 
@@ -234,9 +240,15 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             fv.field_id: fv.value
             for fv in self.request.di.uow.sessions.read_field_values(session.pk)
         }
-        for req in requirements:
-            if req.field.pk in stored:
-                initial[f"session_{req.field.slug}"] = stored[req.field.pk]
+        initial |= unfold_custom_answers(
+            stored={
+                f"session_{req.field.slug}": stored[req.field.pk]
+                for req in requirements
+                if req.field.pk in stored
+            },
+            requirements=requirements,
+            prefix="session",
+        )
         return form_class(initial=initial)
 
     def _field_context(
@@ -364,19 +376,6 @@ class ProposalFormPageView(_ProposalFormBase):
             )
         return result
 
-    def _read_post_field_value(
-        self, prefix: str, field: PersonalDataFieldDTO
-    ) -> str | list[str] | bool:
-        key = f"{prefix}_{field.slug}"
-        if field.field_type == "checkbox":
-            return self.request.POST.get(key) == "true"
-        if field.is_multiple:
-            return self.request.POST.getlist(key)
-        value = self.request.POST.get(key, "")
-        if field.allow_custom and not value:
-            value = self.request.POST.get(f"{key}_custom", "")
-        return value
-
     def _get_facilitator_personal_data_post(
         self, event_pk: int, proposal_id: int
     ) -> FacilitatorPersonalData:
@@ -388,7 +387,13 @@ class ProposalFormPageView(_ProposalFormBase):
         for facilitator in assigned:
             prefix = f"facilitator_{facilitator.pk}_personal"
             items: PersonalFieldItems = [
-                (field, self._read_post_field_value(prefix, field)) for field in fields
+                (
+                    field,
+                    parse_dynamic_field_value(
+                        request=self.request, field=field, key=f"{prefix}_{field.slug}"
+                    ),
+                )
+                for field in fields
             ]
             result.append((facilitator, prefix, items))
         return result
@@ -412,7 +417,9 @@ class ProposalFormPageView(_ProposalFormBase):
                     facilitator_id=facilitator_id,
                     event_id=event_pk,
                     field_id=field.pk,
-                    value=self._read_post_field_value(prefix, field),
+                    value=parse_dynamic_field_value(
+                        request=self.request, field=field, key=f"{prefix}_{field.slug}"
+                    ),
                 )
                 for field in fields
             ]
@@ -660,7 +667,7 @@ class ProposalFormPageView(_ProposalFormBase):
             "min_age": form.cleaned_data.get("min_age") or 0,
             "duration": form.cleaned_data.get("duration") or "",
         }
-        cover = resolve_cover_image(form.cleaned_data.get("cover_image"))
+        cover = resolve_uploaded_file_field(form.cleaned_data.get("cover_image"))
         if cover is not None:
             update_data["cover_image"] = cover
         remove_field_ids = self._collect_remove_field_ids(

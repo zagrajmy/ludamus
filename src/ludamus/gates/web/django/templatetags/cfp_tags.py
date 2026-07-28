@@ -8,9 +8,11 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.mills.field_values import split_stored
 
 if TYPE_CHECKING:
-    from ludamus.pacts import SessionDTO
+    from ludamus.mills.field_values import FieldAnswer
+    from ludamus.pacts import PersonalDataFieldDTO, SessionDTO, SessionFieldDTO
 
 register = template.Library()
 
@@ -152,6 +154,23 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
     if isinstance(value, bool):
         return _("Yes") if value else _("No")
     return str(value)
+
+
+@register.filter
+def custom_values(
+    value: FieldAnswer | None, field: SessionFieldDTO | PersonalDataFieldDTO
+) -> str:
+    """Write-in part of a stored answer: what matches no configured option.
+
+    Returns:
+        Comma-separated values, ready for the companion custom input.
+    """
+    _chosen, custom = split_stored(
+        stored=value,
+        known={option.value for option in field.options},
+        is_multiple=field.is_multiple,
+    )
+    return custom
 
 
 @register.filter

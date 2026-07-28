@@ -81,6 +81,11 @@ jobs:
       # errors and zero warnings before the build is considered green.
       - name: Lint frontend TypeScript (oxlint)
         run: mise run lint-client
+      # The iOS specs consume `IosHarness` by destructuring it. Unchecked, a
+      # typo there only surfaces as a TypeError deep inside a macOS job that
+      # takes 20+ minutes.
+      - name: Type-check the iOS regression scripts
+        run: mise run ts-check:ios
       # Non-blocking: fallow surfaces dead code, duplication, and
       # complexity hotspots as a report without failing the build.
       - name: Analyze frontend TypeScript (fallow)

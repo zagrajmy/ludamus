@@ -1,7 +1,6 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% load django_vite %}
 {% block title_prefix %}
     {% if proposal %}
         {% translate "Edit Proposal" %} -
@@ -174,6 +173,5 @@
                 {% endif %}
             </div>
         </form>
-        {% vite_asset 'src/encounter-form.ts' %}
     {% endif %}
 {% endblock content %}

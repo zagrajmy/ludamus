@@ -49,6 +49,9 @@ from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at
     Notification,
     ProposalCategory,
     Session,
+    SessionField,
+    SessionFieldOption,
+    SessionFieldRequirement,
     SessionParticipation,
     Space,
     Sphere,
@@ -431,13 +434,36 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
         proposals_open=True,
         allow_anonymous_proposals=True,
     )
-    ProposalCategory.objects.create(
+    category = ProposalCategory.objects.create(
         event=event,
         name="Open Mic",
         slug="open-mic",
         min_participants_limit=1,
         max_participants_limit=6,
         durations=["PT1H"],
+    )
+    # Open-ended by nature, so the proposer answers it by writing in: the
+    # write-in flow and the comma hint are exercised here.
+    triggers = SessionField.objects.create(
+        event=event,
+        name="Trigger warnings",
+        question="Any trigger warnings?",
+        slug="triggers",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        is_public=True,
+        icon="exclamation-triangle",
+        order=1,
+    )
+    for order, (value, label) in enumerate(
+        (("violence", "Violence"), ("horror", "Horror"))
+    ):
+        SessionFieldOption.objects.create(
+            field=triggers, value=value, label=label, order=order
+        )
+    SessionFieldRequirement.objects.create(
+        category=category, field=triggers, is_required=False
     )
     return event
 
