@@ -33,9 +33,7 @@ class BookmarkRepository(BookmarkRepositoryProtocol):
         )
 
     @staticmethod
-    def bookmarked_session_ids(
-        *, user_id: UserId, event_id: EventId
-    ) -> set[SessionId]:
+    def bookmarked_session_ids(*, user_id: UserId, event_id: EventId) -> set[SessionId]:
         return {
             SessionId(pk)
             for pk in SessionBookmark.objects.filter(
@@ -47,10 +45,10 @@ class BookmarkRepository(BookmarkRepositoryProtocol):
     def bookmark_counts(*, event_id: EventId) -> dict[SessionId, int]:
         return {
             SessionId(sid): count
-            for sid, count in SessionBookmark.objects.filter(
-                session__event_id=event_id
+            for sid, count in (
+                SessionBookmark.objects.filter(session__event_id=event_id)
+                .values("session_id")
+                .annotate(count=Count("id"))
+                .values_list("session_id", "count")
             )
-            .values("session_id")
-            .annotate(count=Count("id"))
-            .values_list("session_id", "count")
         }
