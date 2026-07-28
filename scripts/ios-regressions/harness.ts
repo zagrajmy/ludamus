@@ -6,6 +6,7 @@ import type {
   SnapshotNode,
 } from "agent-device";
 
+import { createAgentDeviceClient, isAgentDeviceError } from "agent-device";
 import { execFileSync } from "node:child_process";
 
 type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
@@ -49,7 +50,6 @@ export type IosHarness = {
 };
 
 export const createIosHarness = async (session: string): Promise<IosHarness> => {
-  const { createAgentDeviceClient, isAgentDeviceError } = await import("agent-device");
   const client: AgentDeviceClient = createAgentDeviceClient({ session });
 
   const deviceOptions: IosDeviceOptions = providedUdid

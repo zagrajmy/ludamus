@@ -69,6 +69,7 @@ jobs:
           UDID=$(python - <<'PY'
           import json
           import subprocess
+          import sys
 
           output = subprocess.check_output([
               "xcrun",
@@ -86,6 +87,7 @@ jobs:
           ]
           preferred = next((d for d in devices if d["name"] == "iPhone 17 Pro"), None)
           selected = preferred or devices[0]
+          print(selected["name"], file=sys.stderr)
           print(selected["udid"])
           PY
           )
