@@ -1,12 +1,25 @@
-from ludamus.mills.field_values import merge_custom, split_answers, split_stored
+from ludamus.mills.field_values import (
+    merge_custom,
+    split_imported_answers,
+    split_stored,
+)
 
 
-class TestSplitAnswers:
+class TestSplitImportedAnswers:
     def test_strips_blanks_and_duplicates(self):
-        assert split_answers(" krew , przemoc,, krew ") == ["krew", "przemoc"]
+        assert split_imported_answers(" krew , przemoc,, krew ", ()) == [
+            "krew",
+            "przemoc",
+        ]
 
     def test_empty_input_is_no_values(self):
-        assert not split_answers("  ")
+        assert not split_imported_answers("  ", ())
+
+    def test_a_known_option_keeps_its_comma(self):
+        assert split_imported_answers(
+            "przyciemnione światło, ściszone dźwięki, krew",
+            {"przyciemnione światło, ściszone dźwięki"},
+        ) == ["przyciemnione światło, ściszone dźwięki", "krew"]
 
 
 class TestMergeCustom:

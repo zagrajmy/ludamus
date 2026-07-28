@@ -9,8 +9,10 @@ if TYPE_CHECKING:
 
 type FieldAnswer = str | list[str] | bool
 
+WRITE_IN_SEPARATOR = ";"
 
-def split_answers(raw: str, known: Collection[str] = ()) -> list[str]:
+
+def split_imported_answers(raw: str, known: Collection[str]) -> list[str]:
     # A Forms response cell joins a checkbox question's answers with ", ", and
     # an option may contain a comma itself — a run of parts that can still grow
     # into a configured option is held back until it either matches one or
@@ -41,9 +43,7 @@ def merge_custom(
         if isinstance(chosen, list)
         else []
     )
-    # The write-in input splits on semicolons, not commas: free-text answers
-    # ("dim lights, quiet sound") contain commas far more often than semicolons.
-    for part in (part.strip() for part in custom.split(";")):
+    for part in (part.strip() for part in custom.split(WRITE_IN_SEPARATOR)):
         if part and part not in values:
             values.append(part)
     return values
@@ -60,7 +60,9 @@ def split_stored(
         else [stored]
     )
     chosen = [value for value in values if value in known]
-    custom = "; ".join(value for value in values if value not in known)
+    custom = f"{WRITE_IN_SEPARATOR} ".join(
+        value for value in values if value not in known
+    )
     if is_multiple:
         return chosen, custom
     return (chosen[0] if chosen else ""), custom

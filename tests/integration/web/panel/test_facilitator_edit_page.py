@@ -379,6 +379,7 @@ class TestFacilitatorEditPageView:
             slug="languages",
             field_type="select",
             is_multiple=True,
+            allow_custom=True,
             help_text="Pick all that apply",
             order=0,
         )
@@ -424,7 +425,10 @@ class TestFacilitatorEditPageView:
         )
 
         PersonalDataFieldValue.objects.create(
-            facilitator=facilitator, event=event, field=languages, value=["en"]
+            facilitator=facilitator,
+            event=event,
+            field=languages,
+            value=["en", "śląski, ale tylko trochę"],
         )
         PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=system, value="dnd"
