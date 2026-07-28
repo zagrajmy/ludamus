@@ -24,20 +24,24 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.forms import SessionEditForm, field_descriptors
+from ludamus.gates.web.django.dynamic_fields import (
+    WizardData,
+    field_descriptors,
+    fold_custom_answers,
+    unfold_custom_answers,
+)
+from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import (
     get_client_ip,
     is_event_published,
     parse_dynamic_field_value,
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.mills import (
-    ProposeSessionService,
-    check_proposal_rate_limit,
-    is_proposal_active,
-)
+from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
 from ludamus.mills.chronology import SessionEditNotAllowedError
+from ludamus.mills.event import is_proposal_active
 from ludamus.pacts import (
     NotFoundError,
     RedirectError,
@@ -288,12 +292,13 @@ def _personal_context(
     requirements = service.get_personal_requirements(category.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial: dict[str, str | list[str] | bool] = {}
-    if saved_personal := wizard.get("personal_data"):
-        initial = saved_personal
-    else:
-        saved = service.get_saved_personal_data(event.pk)
-        initial = {f"personal_{slug}": value for slug, value in saved.items()}
+    stored: WizardData = wizard.get("personal_data") or {
+        f"personal_{slug}": value
+        for slug, value in service.get_saved_personal_data(event.pk).items()
+    }
+    initial = unfold_custom_answers(
+        stored=stored, requirements=requirements, prefix="personal"
+    )
 
     initial["contact_email"] = wizard.get(
         "contact_email", getattr(request.user, "email", "")
@@ -373,7 +378,11 @@ def _render_details(
     public_tracks = service.get_public_tracks(event.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial = wizard.get("session_data", {})
+    initial = unfold_custom_answers(
+        stored=wizard.get("session_data", {}),
+        requirements=requirements,
+        prefix="session",
+    )
     if "display_name" not in initial:
         initial["display_name"] = getattr(request.user, "name", "")
 
@@ -677,9 +686,12 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
             )
 
         wizard = request.session.get(_session_key(event_slug), {})
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="personal"
+        )
         wizard["personal_data"] = {
             key: value
-            for key, value in form.cleaned_data.items()
+            for key, value in folded.items()
             if key != "contact_email" and value
         }
 
@@ -805,9 +817,10 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             if tid in valid_track_ids
         ]
 
-        wizard["session_data"] = {
-            key: value for key, value in form.cleaned_data.items() if value
-        }
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+        )
+        wizard["session_data"] = {key: value for key, value in folded.items() if value}
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 
@@ -1038,15 +1051,9 @@ class SessionModalComponentView(View):
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        if not is_event_published(event) and not self._is_manager():
+        if not is_event_published(event) and not has_panel_access(self.request):
             raise Http404
         return event
-
-    def _is_manager(self) -> bool:
-        slug = self.request.context.current_user_slug
-        return slug is not None and self.request.services.sites.is_manager(
-            self.request.context.current_sphere_id, slug
-        )
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[int], set[int], bool]:
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -1116,6 +1123,8 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 session_id=context.session.pk,
                 space_id=form.cleaned_data["space"],
                 time_slot_id=form.cleaned_data["time_slot"],
+                user_slug=request.context.current_user_slug,
+                sphere_id=request.context.current_sphere_id,
             )
         except SpaceTimeConflictError:
             form.add_error(
