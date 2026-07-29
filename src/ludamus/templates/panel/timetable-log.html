@@ -45,7 +45,7 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for log in logs %}
-                        <tr class="hover:bg-neutral-50">
+                        <tr class="hover:bg-bg-tertiary">
                             <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
                             <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
                             <td class="py-2 pr-4">
