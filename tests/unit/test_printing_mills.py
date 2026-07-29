@@ -80,13 +80,19 @@ class _ListByEvent:
     def list_by_event(self, _event_pk):
         return list(self._rows)
 
+    def list_by_track(self, _track_pk):
+        return list(self._rows)
+
 
 class _Tracks:
+    def __init__(self, space_pks=()):
+        self._space_pks = list(space_pks)
+
     def list_public_by_event(self, _event_pk):
         return []
 
     def list_space_pks(self, _track_pk):
-        return []
+        return list(self._space_pks)
 
 
 def _service(*, spaces, items, slots, tracks=None):
@@ -310,6 +316,33 @@ class TestBuildTimetable:
         assert [(r.start_time.hour, r.end_time.hour) for r in first.rows] == [(9, 10)]
         assert [(r.start_time.hour, r.end_time.hour) for r in second.rows] == [(10, 12)]
 
+    def test_time_range_clips_sessions_and_completeness(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="Morning", confirmed=True),
+            _item(2, 1, 15, 16, title="Afternoon", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = _timetable(
+            service,
+            time_range=(
+                datetime(2026, 6, 1, 8, 0, tzinfo=UTC),
+                datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+            ),
+        )
+
+        titles = [
+            s.title
+            for page in document.pages
+            for row in page.rows
+            for cell in row.cells
+            for s in cell.sessions
+        ]
+        assert titles == ["Morning"]
+        # A time-clipped print is a subset, never "the whole program".
+        assert document.is_complete is False
+
     def test_documents_carry_event_description(self):
         service = _service(spaces=[_space(1, "Alfa", 0)], items=[], slots=[])
 
@@ -428,6 +461,22 @@ class TestBuildAreaSchedule:
         document = _area_schedule(service, window, confirmed_only=True)
 
         assert document.spaces[0].sessions == []
+
+    def test_track_scopes_spaces(self):
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [_item(1, 1, 10, 11, title="Tracked", confirmed=True)]
+        service = _service(
+            spaces=spaces, items=items, slots=[], tracks=_Tracks(space_pks=[1])
+        )
+        window = (
+            datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+            datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
+        )
+
+        document = _area_schedule(service, window, track_pk=7)
+
+        assert [s.space_name for s in document.spaces] == ["Alfa"]
+        assert [s.title for s in document.spaces[0].sessions] == ["Tracked"]
 
     def test_carries_range_bounds(self):
         spaces = [_space(1, "Alfa", 0)]

@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     type _LazyStr = str | _StrPromise
 
 
-DocumentKind = Literal["area_schedule", "session_list", "timetable"]
+DocumentKind = Literal["session_list", "timetable"]
 ScopeKind = Literal["event", "scope", "track"]
 
 
@@ -52,13 +52,18 @@ class MaterialSpec:
     def show_track_control(self) -> bool:
         return self.scope_kind == "track"
 
+    # Timetables take a time range and a "with descriptions" toggle (which
+    # swaps the grid for a per-space list); the session list takes neither.
     @property
     def show_range_controls(self) -> bool:
-        return self.document_kind == "area_schedule"
+        return self.document_kind == "timetable"
+
+    @property
+    def show_descriptions_control(self) -> bool:
+        return self.document_kind == "timetable"
 
 
 TIMETABLE = "timetable"
-TIMETABLE_DESCRIPTIONS = "timetable-descriptions"
 TRACK_TIMETABLE = "track-timetable"
 SESSION_LIST = "session-list"
 # One timetable material, scopable to any space-tree node (a single room, a
@@ -66,12 +71,6 @@ SESSION_LIST = "session-list"
 # picker covers every level, so there is no separate venue/area/space material.
 MATERIAL_SPECS = (
     MaterialSpec(TIMETABLE, _("Timetable"), "timetable", scope_kind="scope"),
-    MaterialSpec(
-        TIMETABLE_DESCRIPTIONS,
-        _("Timetable with descriptions"),
-        "area_schedule",
-        scope_kind="scope",
-    ),
     MaterialSpec(
         TRACK_TIMETABLE, _("Track timetable"), "timetable", scope_kind="track"
     ),
@@ -151,8 +150,17 @@ class PublicEventPrintView(View):
             raise Http404 from exc
 
         tz = get_current_timezone()
-        range_start, range_hours = self._resolve_range(event, tz)
-        range_end = range_start + timedelta(hours=range_hours)
+        range_start, range_hours, range_explicit = self._resolve_range(event, tz)
+        # No explicit hours means "until the event ends"; the fallback keeps
+        # the window non-empty when a start past the event end is requested.
+        range_end = (
+            range_start + timedelta(hours=range_hours)
+            if range_hours is not None
+            else max(
+                event.end_time, range_start + timedelta(hours=self.DEFAULT_RANGE_HOURS)
+            )
+        )
+        descriptions = request.GET.get("descriptions") == "1"
 
         service = request.services.print_materials
         tracks = service.list_tracks(event.pk)
@@ -169,18 +177,23 @@ class PublicEventPrintView(View):
         timetable = None
         area_schedule = None
         session_list = None
-        if material_spec.document_kind == "area_schedule":
+        if material_spec.document_kind == "session_list":
+            session_list = session_list_candidate
+        elif descriptions:
             area_schedule = service.build_area_schedule(
                 AreaScheduleQueryDTO(
                     event_pk=event.pk,
                     time_range=(range_start, range_end),
-                    scope_space_pks=scope.space_pks,
-                    scope_name=scope.scope_name,
+                    scope_space_pks=_timetable_scope_pks(
+                        material_spec, scope.space_pks
+                    ),
+                    track_pk=_track_pk(material_spec, selected_track),
+                    scope_name=_timetable_scope_name(
+                        material_spec, scope.scope_name, selected_track
+                    ),
                     confirmed_only=True,
                 )
             )
-        elif material_spec.document_kind == "session_list":
-            session_list = session_list_candidate
         else:
             timetable = service.build_timetable(
                 PrintTimetableQueryDTO(
@@ -194,6 +207,7 @@ class PublicEventPrintView(View):
                         material_spec, scope.scope_name, selected_track
                     ),
                     confirmed_only=True,
+                    time_range=((range_start, range_end) if range_explicit else None),
                 )
             )
 
@@ -219,6 +233,8 @@ class PublicEventPrintView(View):
                 "show_scope_control": material_spec.show_scope_control,
                 "show_track_control": material_spec.show_track_control,
                 "show_range_controls": material_spec.show_range_controls,
+                "show_descriptions_control": material_spec.show_descriptions_control,
+                "descriptions": descriptions,
                 "selected_scope": str(scope_pk) if scope_pk is not None else "",
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
@@ -244,18 +260,25 @@ class PublicEventPrintView(View):
             return material
         return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
 
-    def _resolve_range(self, event: EventDTO, tz: tzinfo) -> tuple[datetime, int]:
-        hours = self.DEFAULT_RANGE_HOURS
-        with suppress(ValueError, TypeError):
-            hours = int(self.request.GET.get("hours", self.DEFAULT_RANGE_HOURS))
-        hours = max(1, min(hours, self.MAX_RANGE_HOURS))
+    def _resolve_range(
+        self, event: EventDTO, tz: tzinfo
+    ) -> tuple[datetime, int | None, bool]:
+        # Both params are optional: no start means the event start, no hours
+        # means until the event ends. The bool says whether the user narrowed
+        # the range at all — an untouched range must not clip the timetable.
+        hours: int | None = None
+        if raw_hours := self.request.GET.get("hours"):
+            with suppress(ValueError):
+                hours = max(1, min(int(raw_hours), self.MAX_RANGE_HOURS))
+        explicit = hours is not None
 
         start = localtime(event.start_time, tz)
         if raw_start := self.request.GET.get("start"):
             with suppress(ValueError):
                 if (parsed := parse_datetime(raw_start)) is not None:
                     start = parsed if parsed.tzinfo else make_aware(parsed, tz)
-        return start, hours
+                    explicit = True
+        return start, hours, explicit
 
     def _selected_track(self, tracks: list[PrintOptionDTO]) -> PrintOptionDTO | None:
         if slug := self.request.GET.get("track") or "":

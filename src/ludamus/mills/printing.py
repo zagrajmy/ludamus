@@ -193,6 +193,10 @@ class PrintMaterialsService:
             if query.track_pk is not None
             else self._agenda_items.list_by_event(query.event_pk)
         )
+        if query.time_range is not None:
+            all_items = [
+                item for item in all_items if _overlaps(item, *query.time_range)
+            ]
         grouped = self._group_by_space(all_items, confirmed_only=query.confirmed_only)
         items_by_space = {space.pk: grouped.get(space.pk, []) for space in spaces}
 
@@ -245,11 +249,13 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (one space subtree) is a subset by construction, so
-            # it is never "the whole program"; completeness only applies unscoped.
+            # A scoped print (space subtree, track, or time range) is a subset
+            # by construction, so it is never "the whole program"; completeness
+            # only applies unscoped.
             is_complete=(
                 query.scope_space_pks is None
                 and query.track_pk is None
+                and query.time_range is None
                 and _is_complete(all_items)
             ),
             pages=pages,
@@ -260,11 +266,15 @@ class PrintMaterialsService:
     ) -> AreaScheduleDocumentDTO:
         range_start, range_end = query.time_range
         event = self._events.read(query.event_pk)
-        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
-        grouped = self._group_by_space(
-            self._agenda_items.list_by_event(query.event_pk),
-            confirmed_only=query.confirmed_only,
+        spaces = self._scoped_spaces(
+            query.event_pk, query.scope_space_pks, query.track_pk
         )
+        items = (
+            self._agenda_items.list_by_track(query.track_pk)
+            if query.track_pk is not None
+            else self._agenda_items.list_by_event(query.event_pk)
+        )
+        grouped = self._group_by_space(items, confirmed_only=query.confirmed_only)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []
         for space in spaces:

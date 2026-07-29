@@ -33,6 +33,7 @@ class PrintTimetableQueryDTO:
     track_pk: int | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
+    time_range: tuple[datetime, datetime] | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,7 @@ class AreaScheduleQueryDTO:
     event_pk: int
     time_range: tuple[datetime, datetime]
     scope_space_pks: frozenset[int] | None = None
+    track_pk: int | None = None
     scope_name: str | None = None
     confirmed_only: bool = False
 
