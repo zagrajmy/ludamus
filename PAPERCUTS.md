@@ -225,3 +225,8 @@ If you fix a papercut, remove it.
   ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
   keyUsage=keyCertSign, so the first cert attempt failed with
   CERTIFICATE_VERIFY_FAILED.
+- 2026-07-29: ran mise run shots -- '/event/x/print/?material=timetable' — task
+  warned 'not reachable' although the server was up; $usage_targets keeps the
+  shell quotes around each arg, so the URL becomes
+  <http://localhost:8000'/event/>...'. Worked around by calling aubx agent-browser
+  directly.

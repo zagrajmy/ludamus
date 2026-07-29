@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-29 07:25+0200\n"
+"POT-Creation-Date: 2026-07-29 21:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4330,10 +4330,6 @@ msgid "Start"
 msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Apply"
-msgstr "Zastosuj"
-
-#: src/ludamus/templates/chronology/print.html
 msgid "Table of contents"
 msgstr "Spis treści"
 
@@ -8474,6 +8470,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Apply"
+#~ msgstr "Zastosuj"
 
 #~ msgid "comma separated"
 #~ msgstr "oddzielone przecinkami"
