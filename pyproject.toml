@@ -460,6 +460,9 @@ ignore_names = [
     "get_navbar",
     # Pydantic
     "model_config",
+    # Dead since panel_time_slots service owns deletion; remove from
+    # mills/legacy.py (with this entry) once the PRs editing that file land
+    "delete_time_slot",
     # Unused but stays
     "deleted_at",
     "modification_time",
