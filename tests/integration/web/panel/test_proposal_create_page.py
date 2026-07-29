@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
+from ludamus.gates.web.django.forms import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from ludamus.links.db.django.models import (
     Facilitator,
     ProposalCategory,
@@ -26,6 +27,7 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+CATEGORY_B_MAX_PARTICIPANTS = 9
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
     b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
@@ -945,6 +947,61 @@ class TestProposalCreateCategoryFields:
             not_contains='name="session_only-a"',
         )
 
+    def test_get_fields_component_follows_the_category_derived_controls(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        ProposalCategory.objects.create(
+            event=event,
+            name="A",
+            slug="a",
+            durations=["PT1H"],
+            max_participants_limit=4,
+        )
+        category_b = ProposalCategory.objects.create(
+            event=event,
+            name="B",
+            slug="b",
+            durations=["PT3H"],
+            max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
+        )
+
+        response = authenticated_client.get(
+            self.get_fields_url(event), data={"category_id": category_b.pk}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/proposal-session-fields.html",
+            context_data={
+                "current_event": EventDTO.model_validate(event),
+                "events": [EventDTO.model_validate(event)],
+                "is_proposal_active": False,
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 0,
+                    "total_sessions": 0,
+                },
+                "field_descriptors": [],
+                "form": ANY,
+                "orphan_values": [],
+                "fields_url": self.get_fields_url(event),
+            },
+        )
+        form = response.context["form"]
+        assert form.fields["duration"].choices == [
+            ("", "---"),
+            ("PT3H", "3h"),
+            ("custom", "Custom"),
+        ]
+        assert (
+            form.fields["participants_limit"].max_value == CATEGORY_B_MAX_PARTICIPANTS
+        )
+
     def test_get_renders_checkbox_field_with_allow_custom_without_companion(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1108,10 +1165,15 @@ class TestProposalCreateCategoryFields:
         response = authenticated_client.get(self.get_url(event))
 
         duration = response.context["form"].fields["duration"]
-        assert duration.choices == [("", "---"), ("PT1H", "1h"), ("PT2H", "2h")]
+        assert duration.choices == [
+            ("", "---"),
+            ("PT1H", "1h"),
+            ("PT2H", "2h"),
+            ("custom", "Custom"),
+        ]
         assert 'value="PT1H"' in response.content.decode()
 
-    def test_get_keeps_free_text_duration_without_configured_durations(
+    def test_get_drops_the_duration_picker_without_configured_durations(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -1119,6 +1181,205 @@ class TestProposalCreateCategoryFields:
 
         response = authenticated_client.get(self.get_url(event))
 
-        duration = response.context["form"].fields["duration"]
-        assert not hasattr(duration, "choices")
-        assert 'name="duration"' in response.content.decode()
+        # No presets to pick from, so the hour/minute steppers are the whole
+        # control — no picker, and no free-text ISO field either.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+            },
+        )
+        fields = response.context["form"].fields
+        assert "duration" not in fields
+        assert fields["duration_hours"].max_value == MAX_DURATION_HOURS
+        assert fields["duration_minutes"].max_value == MAX_DURATION_MINUTES
+
+    def test_post_stores_a_preset_duration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG", slug="rpg", durations=["PT1H", "PT2H"]
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Preset",
+                "display_name": "Test Host",
+                "duration": "PT2H",
+            },
+        )
+
+        new_session = Session.objects.get(title="Preset")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert new_session.duration == "PT2H"
+
+    def test_post_stores_a_custom_duration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG", slug="rpg", durations=["PT1H"]
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Custom",
+                "display_name": "Test Host",
+                "duration": "custom",
+                "duration_hours": 1,
+                "duration_minutes": 45,
+            },
+        )
+
+        new_session = Session.objects.get(title="Custom")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert new_session.duration == "PT1H45M"
+
+    def test_post_stores_steppers_when_the_category_has_no_durations(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Steppers",
+                "display_name": "Test Host",
+                "duration_minutes": 45,
+            },
+        )
+
+        new_session = Session.objects.get(title="Steppers")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert new_session.duration == "PT45M"
+
+    def test_post_rejects_a_custom_duration_left_empty(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG", slug="rpg", durations=["PT1H"]
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Empty Custom",
+                "display_name": "Test Host",
+                "duration": "custom",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [_facilitator_dto(facilitator)],
+                "assigned_facilitator_pks": {facilitator.pk},
+            },
+        )
+        form = response.context["form"]
+        assert form.errors["duration"] == ["Enter how long the session lasts."]
+
+    def test_post_rejects_out_of_range_steppers(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Too Long",
+                "display_name": "Test Host",
+                "duration_hours": 99,
+                "duration_minutes": 99,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [_facilitator_dto(facilitator)],
+                "assigned_facilitator_pks": {facilitator.pk},
+            },
+        )
+        form = response.context["form"]
+        assert form.errors["duration_hours"] == [
+            f"Ensure this value is less than or equal to {MAX_DURATION_HOURS}."
+        ]
+        assert form.errors["duration_minutes"] == [
+            f"Ensure this value is less than or equal to {MAX_DURATION_MINUTES}."
+        ]
+        assert not Session.objects.filter(title="Empty Custom").exists()

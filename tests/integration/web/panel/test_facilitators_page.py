@@ -15,7 +15,7 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, OrganizerFieldDTO
 from ludamus.pacts.submissions import FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
@@ -56,7 +56,7 @@ def _event_context(event, active_tab="list"):
 
 
 def _field_dto(field):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type=field.field_type,
         is_multiple=field.is_multiple,
         name=field.name,

@@ -43,8 +43,8 @@ from ludamus.pacts import (
     EventStatsData,
     FacilitatorDTO,
     NotFoundError,
+    OrganizerFieldDTO,
     PanelStatsDTO,
-    PersonalDataFieldDTO,
     PersonalDataFieldValueData,
     ProposalCategoryDTO,
     RequestContext,
@@ -77,7 +77,7 @@ def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text",
         max_length=50,
         name=name,
@@ -3643,7 +3643,7 @@ class TestDedupIdent:
 
 
 def _session_field_dto(pk=99):
-    return SessionFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text", name="Genre", order=pk, pk=pk, question="Q", slug="genre"
     )
 

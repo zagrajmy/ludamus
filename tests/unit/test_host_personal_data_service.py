@@ -6,7 +6,7 @@ from ludamus.mills.submissions.personal_data_fields import PersonalDataFieldValu
 from ludamus.pacts import (
     FacilitatorDTO,
     NotFoundError,
-    PersonalDataFieldDTO,
+    OrganizerFieldDTO,
     PersonalDataFieldValueData,
 )
 
@@ -81,7 +81,7 @@ def _facilitator(pk=1, event_id=10, accreditation_type="none"):
 
 
 def _field(pk=5, slug="vegan"):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type="checkbox", name="Vegan", order=0, pk=pk, question="?", slug=slug
     )
 
