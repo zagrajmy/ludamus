@@ -865,6 +865,7 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/panel/parts/proposal-duration.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Duration"
 msgstr "Czas trwania"
@@ -2494,12 +2495,32 @@ msgid "Minimum Age"
 msgstr "Minimalny Wiek"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Enter how long the session lasts."
+msgstr "Podaj, ile trwa punkt programu."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Custom"
+msgstr "Własne"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "— Select category —"
 msgstr "— Wybierz kategorię —"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Invalid category selection."
 msgstr "Nieprawidłowy wybór kategorii."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Hours"
+msgstr "Godziny"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Minutes"
+msgstr "Minuty"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Standard"
@@ -4308,11 +4329,6 @@ msgstr "Całe wydarzenie"
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Start"
 msgstr "Początek"
-
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Hours"
-msgstr "Godziny"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Apply"
@@ -7321,6 +7337,14 @@ msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
 msgid "Print door cards"
 msgstr "Drukuj tabliczki na drzwi"
 
+#: src/ludamus/templates/panel/parts/proposal-duration.html
+msgid "Custom duration"
+msgstr "Własny czas trwania"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Participants and duration"
+msgstr "Uczestnicy i czas trwania"
+
 #: src/ludamus/templates/panel/parts/proposal-session-fields.html
 msgid "Answers outside this category"
 msgstr "Odpowiedzi spoza tej kategorii"
@@ -7685,11 +7709,6 @@ msgstr "Użycie"
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Multiple"
 msgstr "Wielokrotny"
-
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Custom"
-msgstr "Własne"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
