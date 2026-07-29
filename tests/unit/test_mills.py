@@ -48,7 +48,6 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
     ProposalCategoryDTO,
     RequestContext,
-    SessionFieldDTO,
     SessionFieldValueData,
     SessionStatus,
 )
@@ -737,7 +736,7 @@ class TestProposeSessionService:
         expected_session_id = 99
         mock_uow.sessions.create.return_value = expected_session_id
         mock_uow.session_fields.read_by_slug.side_effect = lambda _event_id, slug: (
-            SessionFieldDTO(
+            OrganizerFieldDTO(
                 field_type="text",
                 name=slug,
                 order=0,
