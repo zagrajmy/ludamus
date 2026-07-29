@@ -1295,23 +1295,22 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return self._policies[session.pk]
 
     @staticmethod
-    def _session_wide_policy(session: Session) -> EnrollmentPolicy:
-        return EnrollmentPolicy.for_actor(
-            session.event.get_eligible_enrollment_configs(session),
-            is_configured_user=True,
-        )
-
-    @staticmethod
     def _restricts_unconfigured(session: Session) -> bool:
         return restricts_everyone(
             session.event.get_eligible_enrollment_configs(session)
         )
 
-    def _available_slots(self, session: Session, *, freed: int = 0) -> int:
-        return self._actor_policy(session).available_slots(
+    @staticmethod
+    def _spots(
+        enrollment_policy: EnrollmentPolicy, session: Session, *, freed: int
+    ) -> int:
+        return enrollment_policy.available_slots(
             participants_limit=session.participants_limit,
             enrolled_count=session.enrolled_count - freed,
         )
+
+    def _available_slots(self, session: Session, *, freed: int = 0) -> int:
+        return self._spots(self._actor_policy(session), session, freed=freed)
 
     def _route_wants_in(
         self,
@@ -1323,7 +1322,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> list[EnrollmentRequest]:
         # Fill confirmed seats first (viewer, then companions, then members — the
         # household order), overflow to the waiting list. Counting matches
-        # _is_capacity_invalid so the capacity net never rejects this routing.
         available = self._available_slots(session, freed=freed)
         routed: list[EnrollmentRequest] = []
         for member in wants_in:
@@ -1638,35 +1636,40 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        member_spots = self._available_slots(session, freed=freed_spots)
-        available_spots = freed_spots + self._session_wide_policy(
-            session
-        ).available_slots(
-            participants_limit=session.participants_limit,
-            enrolled_count=session.enrolled_count,
+        session_policy = EnrollmentPolicy.for_actor(
+            session.event.get_eligible_enrollment_configs(session),
+            is_configured_user=True,
         )
+        available_spots = (
+            self._spots(session_policy, session, freed=freed_spots)
+            if session_policy.can_enroll
+            else freed_spots
+        )
+        member_spots = self._available_slots(session, freed=freed_spots)
         if member_count > member_spots:
-            requested, available, blamed_guests = member_count, member_spots, False
-        elif enroll_count > available_spots:
-            requested, available = enroll_count, available_spots
-            blamed_guests = bool(guest_seats_needed)
-        else:
-            return False
+            self._report_overflow(member_count, member_spots, blame_guests=False)
+            return True
+        if enroll_count > available_spots:
+            self._report_overflow(enroll_count, available_spots, blame_guests=True)
+            return True
+        return False
 
+    def _report_overflow(
+        self, requested: int, available: int, *, blame_guests: bool
+    ) -> None:
         message = (
             _(
                 "Not enough spots available. {} spots requested, {} available. "
                 "Bring fewer guests or use the waiting list for account "
                 "holders."
             )
-            if blamed_guests
+            if blame_guests
             else _(
                 "Not enough spots available. {} spots requested, {} available. "
                 "Please use waiting list for some users."
             )
         )
         messages.error(self.request, str(message).format(requested, available))
-        return True
 
     def _manage_enrollments(
         self,

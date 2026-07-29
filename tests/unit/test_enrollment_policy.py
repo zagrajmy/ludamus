@@ -174,6 +174,30 @@ class TestSlotAllowance:
         assert policy.requires_slot_allowance is True
 
 
+class TestSeatingWindowTieBreak:
+    def test_equal_width_windows_seat_from_the_open_one(self) -> None:
+        policy = _policy(
+            _Window(
+                percentage_slots=_RESTRICTED_PERCENT, restrict_to_configured_users=True
+            ),
+            _Window(percentage_slots=_RESTRICTED_PERCENT),
+            is_configured_user=True,
+        )
+
+        assert policy.requires_slot_allowance is False
+
+    def test_the_tie_break_does_not_depend_on_window_order(self) -> None:
+        restricted = _Window(
+            percentage_slots=_RESTRICTED_PERCENT, restrict_to_configured_users=True
+        )
+        open_window = _Window(percentage_slots=_RESTRICTED_PERCENT)
+
+        assert (
+            _policy(restricted, open_window, is_configured_user=True).seating_window
+            is _policy(open_window, restricted, is_configured_user=True).seating_window
+        )
+
+
 class TestRestrictsEveryone:
     def test_open_window_leaves_the_event_unrestricted(self) -> None:
         windows = [_Window(restrict_to_configured_users=True), _Window()]

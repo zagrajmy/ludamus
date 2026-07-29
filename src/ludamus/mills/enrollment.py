@@ -101,8 +101,9 @@ def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
 
 def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
     listed = list(windows)
-    return bool(listed) and all(
-        window.restrict_to_configured_users for window in listed
+    return (
+        bool(listed)
+        and not EnrollmentPolicy.for_actor(listed, is_configured_user=False).can_enroll
     )
 
 
