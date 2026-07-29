@@ -98,19 +98,20 @@ def _has_no_actionable_choices(choices: list[tuple[str, str]]) -> bool:
 
 
 def _build_fallback_choices(
-    *, restricted_out: bool, is_configured_user: bool, user: UserDTO
+    *, restricted_out: bool, user: UserDTO
 ) -> tuple[list[tuple[str, str]], str]:
+    # restricted_out already means no window admits this viewer, so the only
+    # open question is whether they lack an address or the access itself.
     if restricted_out:
         if not user.email:
             return (
                 [("", _("No enrollment options (email required)"))],
                 _("Email address required for enrollment"),
             )
-        if not is_configured_user:
-            return (
-                [("", _("No enrollment options (access required)"))],
-                _("Enrollment access permission required"),
-            )
+        return (
+            [("", _("No enrollment options (access required)"))],
+            _("Enrollment access permission required"),
+        )
     return [("", _("No change"))], _("No enrollment options available")
 
 
@@ -128,14 +129,12 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
         *,
         user_obj: UserDTO,
         restricted_out: bool,
-        is_configured_user: bool,
         user_can_enroll: bool,
         current_user: UserDTO,
         **kwargs: Any,
     ) -> None:
         self.user_obj = user_obj
         self._restricted_out = restricted_out
-        self._is_configured_user = is_configured_user
         self._user_can_enroll = user_can_enroll
         self._current_user = current_user
         super().__init__(**kwargs)
@@ -174,12 +173,11 @@ class _UserEnrollmentChoiceField(forms.ChoiceField):
                     _("%(user)s cannot enroll: email address required")
                     % {"user": user_name}
                 )
-            if not self._is_configured_user:
-                raise ValidationError(
-                    _("%(user)s cannot enroll: enrollment access permission required")
-                    % {"user": user_name}
-                )
-        elif not self._user_can_enroll:
+            raise ValidationError(
+                _("%(user)s cannot enroll: enrollment access permission required")
+                % {"user": user_name}
+            )
+        if not self._user_can_enroll:
             raise ValidationError(
                 _("%(user)s cannot enroll: enrollment not available")
                 % {"user": user_name}
@@ -418,16 +416,13 @@ def create_enrollment_form(
             )
             if _has_no_actionable_choices(choices) and not has_conflict:
                 choices, help_text = _build_fallback_choices(
-                    restricted_out=restricted_out,
-                    is_configured_user=is_configured_user,
-                    user=user,
+                    restricted_out=restricted_out, user=user
                 )
 
         field_name = f"user_{user.pk}"
         form_fields[field_name] = _UserEnrollmentChoiceField(
             user_obj=user,
             restricted_out=restricted_out,
-            is_configured_user=is_configured_user,
             user_can_enroll=user_can_enroll,
             current_user=current_user,
             choices=choices,
