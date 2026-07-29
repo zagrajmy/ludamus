@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Connection, Discount, Facilitator
 from ludamus.links.db.django.repositories import ConnectionsRepository
+from ludamus.links.retry import bounded_timeout
 from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
@@ -850,7 +851,7 @@ class TestDiscountExportPageView:
                     ["Alice", "Guest", "Percent", "15.00", "VIP"],
                 ]
             },
-            timeout=30,
+            timeout=bounded_timeout(30),
         )
 
     def test_post_shows_error_when_google_rejects_the_write(
