@@ -14,12 +14,18 @@ test.describe("Proposal duration", () => {
     // The page defaults to the alphabetically first category, and panel.spec
     // adds more to this event as it runs — so name the seeded one that has a
     // configured duration. Changing it swaps the duration control over HTMX.
+    // Changing the category swaps #proposal-session-fields over HTMX. Mark the
+    // node we're replacing: waiting on the new markup alone is racy, because
+    // the pre-swap category may already offer the same duration options.
+    const fields = page.locator("#proposal-session-fields");
+    await fields.evaluate((element: HTMLElement) => {
+      element.dataset.stale = "1";
+    });
     await page.getByLabel("Category").selectOption({ label: "RPG Proposals" });
+    await expect(page.locator("#proposal-session-fields[data-stale]")).toHaveCount(0);
 
     const hours = page.getByLabel("Hours");
     const duration = page.getByLabel("Duration", { exact: true });
-    // Changing the category swaps #proposal-session-fields over HTMX; wait for
-    // that category's preset to land or the swap resets the select mid-test.
     await expect(duration.locator("option[value='PT1H']")).toBeAttached();
     await expect(hours).toBeHidden();
 
