@@ -21,7 +21,7 @@ test.describe("Write-in answers", () => {
 
     const wizard = page.locator('[id="wizard-content"]');
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
-    await expect(wizard.getByText("comma separated")).toBeVisible();
+    await expect(wizard.getByText("semicolon separated")).toBeVisible();
 
     await page.getByLabel(/title/i).fill("Nocna sesja");
     await page.getByLabel(/description/i).fill("A one-shot with content to flag.");
@@ -37,7 +37,7 @@ test.describe("Write-in answers", () => {
       .getByRole("group", { name: /Any trigger warnings\?/ })
       .getByRole("checkbox", { name: "Horror" })
       .check();
-    await customValue(page, "Any trigger warnings?").fill("krew, przemoc");
+    await customValue(page, "Any trigger warnings?").fill("krew; przemoc");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();

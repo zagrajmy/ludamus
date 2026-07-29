@@ -32,7 +32,8 @@ from ludamus.gates.web.django.dynamic_fields import (
     requirement_fields,
     unfold_custom_answers,
 )
-from ludamus.gates.web.django.forms import create_proposal_form
+from ludamus.gates.web.django.forms import CUSTOM_DURATION, create_proposal_form
+from ludamus.gates.web.django.templatetags.cfp_tags import parse_duration
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -137,6 +138,30 @@ def _display_field_value(
     if isinstance(raw, list):
         return ", ".join(labels.get(v) or v for v in raw)
     return labels.get(raw) or raw
+
+
+@dataclass(frozen=True)
+class _DurationInitial:
+    selected: str
+    hours: int | None
+    minutes: int | None
+
+
+def _duration_initial(
+    duration: str, category: ProposalCategoryDTO | None
+) -> _DurationInitial:
+    # A stored duration the category doesn't offer (imported, or set before the
+    # category changed) still has to come back editable, so it preselects the
+    # custom option with its hours and minutes filled in.
+    presets = category.durations if category else []
+    if duration and duration in presets:
+        return _DurationInitial(selected=duration, hours=None, minutes=None)
+    hours, minutes = parse_duration(duration)
+    return _DurationInitial(
+        selected=CUSTOM_DURATION if duration else "",
+        hours=hours or None,
+        minutes=minutes or None,
+    )
 
 
 def session_field_requirements(
@@ -467,6 +492,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             return form_class(
                 initial={"category_id": category.pk} if category else None
             )
+        duration = _duration_initial(session.duration, category)
         initial: dict[str, Any] = {
             "title": session.title,
             "display_name": session.display_name,
@@ -477,9 +503,11 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             # the proposal uneditable.
             "participants_limit": session.participants_limit or None,
             "min_age": session.min_age,
-            "duration": session.duration,
             "category_id": session.category_id,
             "cover_image": session.cover_image_url or None,
+            "duration": duration.selected,
+            "duration_hours": duration.hours,
+            "duration_minutes": duration.minutes,
         }
         stored = {
             fv.field_id: fv.value

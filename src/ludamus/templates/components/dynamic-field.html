@@ -43,7 +43,7 @@
             </div>
         {% endif %}
         {% if field.is_multiple %}
-            <p class="text-xs text-foreground-muted">{% translate "comma separated" %}</p>
+            {% include "components/write-in-hint.html" %}
         {% endif %}
     {% endif %}
     {% if field.help_text %}
