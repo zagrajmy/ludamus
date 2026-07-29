@@ -696,6 +696,9 @@ test.describe("Timetable", () => {
     await expect(page.locator("#conflict-panel")).toContainText(/All clear|conflict/, {
       timeout: 10000,
     });
+    // A multi-line {# #} is not a comment to Django — it leaks into the fold
+    // as literal text, and the status match above still passes.
+    await expect(page.locator("#conflicts-fold")).not.toContainText("{#");
   });
 
   // --- Activity Log ---
