@@ -78,10 +78,11 @@ def _scoped_facilitator(
     *, request: PanelRequest, event_pk: int, facilitator_id: int
 ) -> FacilitatorDTO | None:
     try:
-        facilitator = request.di.uow.facilitators.read(facilitator_id)
+        return request.services.facilitator_roster.read_scoped(
+            event_pk=event_pk, facilitator_id=facilitator_id
+        )
     except NotFoundError:
         return None
-    return facilitator if facilitator.event_id == event_pk else None
 
 
 def _discounts_context(
@@ -91,7 +92,7 @@ def _discounts_context(
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
 ) -> _DiscountsContext:
-    facilitators = request.di.uow.facilitators.list_by_event(event_pk)
+    facilitators = request.services.facilitator_roster.list_by_event(event_pk)
     discounts_by_facilitator = {
         discount.facilitator_id: discount
         for discount in request.services.discounts.list_by_event(event_pk)

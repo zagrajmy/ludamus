@@ -41,6 +41,7 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.event import EventPanelService
+from ludamus.mills.facilitator_roster import FacilitatorRosterService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -51,6 +52,7 @@ from ludamus.mills.multiverse import (
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
@@ -356,6 +358,16 @@ class Services:
     @cached_property
     def discounts(self) -> DiscountsService:
         return DiscountsService(self._transaction, self._repos.discounts)
+
+    @cached_property
+    def proposal_categories(self) -> ProposalCategoriesService:
+        return ProposalCategoriesService(
+            self._transaction, self._repos.proposal_categories
+        )
+
+    @cached_property
+    def facilitator_roster(self) -> FacilitatorRosterService:
+        return FacilitatorRosterService(self._repos.facilitators)
 
     @cached_property
     def discounts_export(self) -> DiscountsExportService:
