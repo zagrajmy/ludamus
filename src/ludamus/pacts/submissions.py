@@ -12,13 +12,8 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import (
-    PersonalDataFieldDTO,
-    PromotionMode,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -329,10 +324,25 @@ class PersonalDataFieldFormContextDTO:
 class PersonalDataFieldEditContextDTO:
     """Read aggregate for the personal-data-field edit form."""
 
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
+
+
+class OrganizerActionRefusal(StrEnum):
+    ALREADY_TAKEN = "already_taken"
+    ALREADY_YOURS = "already_yours"
+    ALREADY_FREE = "already_free"
+    NOT_ORGANIZER = "not_organizer"
+
+
+class FacilitatorActionError(Exception):
+    """Raised when a facilitator action cannot apply, with the reason why."""
+
+    def __init__(self, refusal: OrganizerActionRefusal) -> None:
+        super().__init__(refusal.value)
+        self.refusal = refusal
 
 
 class FacilitatorListFilters(TypedDict, total=False):
@@ -340,6 +350,8 @@ class FacilitatorListFilters(TypedDict, total=False):
     accreditation: str | None
     flagged: bool | None
     field_filters: dict[int, str | bool] | None
+    organizer_id: int | None
+    organizer_unassigned: bool | None
     sort: str | None
 
 
@@ -380,10 +392,10 @@ class ProposalCategorySettingsData(BaseModel):
 
 class ProposalCategoryEditContextDTO(BaseModel):
     category: ProposalCategoryDTO
-    available_fields: list[PersonalDataFieldDTO]
+    available_fields: list[OrganizerFieldDTO]
     field_requirements: dict[int, bool]
     field_order: list[int]
-    available_session_fields: list[SessionFieldDTO]
+    available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
     available_time_slots: list[TimeSlotDTO]
@@ -430,7 +442,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         event_pk: int,
         data: SessionFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,
@@ -455,7 +467,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,

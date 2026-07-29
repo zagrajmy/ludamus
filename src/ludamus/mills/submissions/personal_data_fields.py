@@ -7,14 +7,15 @@ from ludamus.pacts import (
     FacilitatorUpdateData,
     FieldUsageSummary,
     NotFoundError,
+    OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     PersonalDataFieldCreateData,
-    PersonalDataFieldDTO,
     PersonalDataFieldUpdateData,
 )
 from ludamus.pacts.submissions import (
+    CFPPersonalDataFieldServiceProtocol,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
 )
@@ -52,8 +53,9 @@ def log_facilitator_changes(
 
 class CFPPersonalDataFieldService(
     CFPFieldCategoryService[
-        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, PersonalDataFieldDTO
-    ]
+        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO
+    ],
+    CFPPersonalDataFieldServiceProtocol,
 ):
     """Backoffice operations for an event's personal-data fields."""
 
@@ -109,7 +111,7 @@ def _is_blank(*, value: str | list[str] | bool | None) -> bool:
 def diff_personal_data(
     *,
     old_by_slug: dict[str, str | list[str] | bool],
-    fields_by_id: dict[int, PersonalDataFieldDTO],
+    fields_by_id: dict[int, OrganizerFieldDTO],
     entries: list[PersonalDataFieldValueData],
 ) -> list[ContentFieldChange]:
     changes: list[ContentFieldChange] = []

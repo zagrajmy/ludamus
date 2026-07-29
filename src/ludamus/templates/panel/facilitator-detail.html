@@ -66,6 +66,19 @@
                         </dd>
                     </div>
                     <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Organizer" %}</dt>
+                        <dd class="text-foreground">
+                            {% if facilitator.organizer_name %}
+                                {{ facilitator.organizer_name }}
+                            {% else %}
+                                <span class="text-foreground-muted">—</span>
+                            {% endif %}
+                        </dd>
+                        <p class="mt-1 text-xs text-foreground-muted">
+                            {% translate "The organizer handling this facilitator. Take them on from the facilitator list." %}
+                        </p>
+                    </div>
+                    <div>
                         <dt class="text-xs text-foreground-muted">{% translate "Slug" %}</dt>
                         <dd class="font-mono text-sm text-foreground-muted select-all">
                             {{ facilitator.slug }}

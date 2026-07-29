@@ -24,7 +24,11 @@ from ludamus.pacts.panel import (
     FacilitatorPanelServiceProtocol,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.submissions import (
+    AccreditationType,
+    FacilitatorActionError,
+    OrganizerActionRefusal,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -36,7 +40,7 @@ if TYPE_CHECKING:
         FacilitatorDTO,
         FacilitatorListItemDTO,
         FacilitatorUpdateData,
-        PersonalDataFieldDTO,
+        OrganizerFieldDTO,
     )
     from ludamus.pacts.panel import (
         FacilitatorCreateData,
@@ -98,12 +102,12 @@ def accreditation_reconcile(
 def field_reconcile(
     merge_context: FacilitatorMergeContextDTO,
 ) -> tuple[
-    list[tuple[PersonalDataFieldDTO, list[tuple[int, _FieldValue, str, bool]]]],
+    list[tuple[OrganizerFieldDTO, list[tuple[int, _FieldValue, str, bool]]]],
     list[tuple[int, int]],
 ]:
     target_pk = merge_context.facilitators[0].pk
     conflicts: list[
-        tuple[PersonalDataFieldDTO, list[tuple[int, _FieldValue, str, bool]]]
+        tuple[OrganizerFieldDTO, list[tuple[int, _FieldValue, str, bool]]]
     ] = []
     unanimous: list[tuple[int, int]] = []
     for field in merge_context.fields:
@@ -149,7 +153,7 @@ def field_reconcile(
 
 def kept_field_values(
     *,
-    fields: Sequence[PersonalDataFieldDTO],
+    fields: Sequence[OrganizerFieldDTO],
     values_by_holder: Mapping[int, Mapping[str, _FieldValue]],
     target_pk: int,
     choices: Mapping[int, int],
@@ -187,6 +191,24 @@ def _unique_values(values: Iterable[_FieldValue]) -> list[_FieldValue]:
     return unique
 
 
+def _inherited_organizer(
+    target: FacilitatorDTO, sources: Sequence[FacilitatorDTO]
+) -> int | None:
+    """Decide which organizer the merge writes onto the target.
+
+    Returns:
+        A source's organizer id when the target is unheld and the sources
+        agree on one. Whoever holds the target keeps it — a merge never takes
+        a facilitator away from its organizer — and disagreeing sources cancel
+        out, so the merged row stays unassigned for someone to claim
+        deliberately.
+    """
+    if target.organizer_id is not None:
+        return None
+    ids = {f.organizer_id for f in sources if f.organizer_id is not None}
+    return ids.pop() if len(ids) == 1 else None
+
+
 MIN_MERGE_FACILITATORS = 2
 
 
@@ -201,7 +223,7 @@ class _MergeRecord:
 
 
 def _resolve_field_filters(
-    *, filterable_fields: list[PersonalDataFieldDTO], raw: dict[int, str]
+    *, filterable_fields: list[OrganizerFieldDTO], raw: dict[int, str]
 ) -> dict[int, str | bool]:
     # Only fields of this event, only filterable types: a tampered `field_<pk>`
     # naming a foreign or free-text field is dropped, not queried.
@@ -252,6 +274,10 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             "accreditation": query.accreditation or None,
             "flagged": query.flagged or None,
             "field_filters": field_filters or None,
+            "organizer_id": (
+                query.current_user_id if query.organizer == "mine" else None
+            ),
+            "organizer_unassigned": query.organizer == "unassigned" or None,
             "sort": query.sort or None,
         }
         settings = self._repos.panel_settings.read_or_create(event_id)
@@ -281,7 +307,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             return []
         return self._repos.facilitators.list_by_event(event_id, {"search": search})
 
-    def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]:
+    def list_fields(self, event_id: int) -> list[OrganizerFieldDTO]:
         return self._repos.personal_data_fields.list_by_event(event_id)
 
     def detail_context(
@@ -322,6 +348,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                     accreditation_type=data.accreditation_type,
                     display_name=data.display_name,
                     event_id=event_id,
+                    organizer_id=data.organizer_id,
                     slug=slug,
                     user_id=None,
                 )
@@ -466,6 +493,8 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 # The lone linked account rides along to the target instead of
                 # vanishing with its deleted source.
                 update["user_id"] = linked[0].user_id
+            if (inherited := _inherited_organizer(target, sources)) is not None:
+                update["organizer_id"] = inherited
             self._repos.facilitators.update(target.pk, update)
             if entries:
                 self._repos.personal_data_field_values.save(entries)
@@ -494,7 +523,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         record: _MergeRecord,
         data: FacilitatorMergeData,
         user_id: int | None,
-        fields: Sequence[PersonalDataFieldDTO],
+        fields: Sequence[OrganizerFieldDTO],
     ) -> None:
         # A merge deletes facilitators and rewrites the survivor's answers, so
         # it leaves the same trail an edit does — plus who it absorbed.
@@ -545,7 +574,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         *,
         event_id: int,
         target_pk: int,
-        fields: Sequence[PersonalDataFieldDTO],
+        fields: Sequence[OrganizerFieldDTO],
         values_by_holder: Mapping[int, Mapping[str, _FieldValue]],
         choices: Mapping[int, int],
     ) -> list[PersonalDataFieldValueData]:
@@ -603,6 +632,37 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             event_id, facilitator_slug
         )
         self._repos.facilitators.set_flag(facilitator.pk, flagged=flagged)
+
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> None:
+        facilitator = self._repos.facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        if self._repos.facilitators.claim(facilitator.pk, organizer_id):
+            return
+        # The conditional update refuses either way; the row we read says which
+        # of the two it was, so the organizer gets the real reason.
+        raise FacilitatorActionError(
+            OrganizerActionRefusal.ALREADY_YOURS
+            if facilitator.organizer_id == organizer_id
+            else OrganizerActionRefusal.ALREADY_TAKEN
+        )
+
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
+    ) -> None:
+        # Only the organizer holding it can let go — `force` is the superuser
+        # escape, so a departed organizer never locks a facilitator forever.
+        facilitator = self._repos.facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        if facilitator.organizer_id is None:
+            raise FacilitatorActionError(OrganizerActionRefusal.ALREADY_FREE)
+        if not self._repos.facilitators.release(
+            facilitator.pk, organizer_id=None if force else organizer_id
+        ):
+            raise FacilitatorActionError(OrganizerActionRefusal.NOT_ORGANIZER)
 
     def set_accreditation(
         self,

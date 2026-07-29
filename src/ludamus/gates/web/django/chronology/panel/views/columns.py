@@ -111,6 +111,9 @@ FACILITATOR_COLUMNS: dict[str, BuiltinColumn[FacilitatorListItemDTO]] = builtin_
                 ACCREDITATION_TYPE_LABELS[AccreditationType(f.accreditation_type)]
             ),
         ),
+        "organizer": BuiltinColumn(
+            label=gettext_lazy("Organizer"), cell=lambda f: f.organizer_name or "—"
+        ),
     },
 )
 

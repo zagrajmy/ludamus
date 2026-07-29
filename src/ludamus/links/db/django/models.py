@@ -753,6 +753,16 @@ class Facilitator(models.Model):
         choices=[(t.value, t.name.title()) for t in AccreditationType],
         default=AccreditationType.NONE,
     )
+    # The organizer who took this facilitator on as their default contact
+    # person. Claimed by the organizer themselves and released before anyone
+    # else can take over, so it never silently changes hands.
+    organizer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="organized_facilitators",
+    )
     # Reversible triage marker: organizers flag likely duplicates/removals, then
     # act on them (merge or delete) as a separate deliberate step.
     flagged_for_deletion = models.BooleanField(default=False)

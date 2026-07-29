@@ -8,20 +8,19 @@ from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
         FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
-        PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         SessionData,
         SessionDTO,
-        SessionFieldDTO,
         SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
@@ -141,7 +140,7 @@ class ProposalListContextDTO:
     """
 
     proposals: list[SessionListItemDTO]
-    filterable_fields: list[SessionFieldDTO]
+    filterable_fields: list[OrganizerFieldDTO]
     categories: list[ProposalCategoryDTO]
     category_pk: int | None
     status: str | None
@@ -203,6 +202,11 @@ class FacilitatorListQuery:
     search: str = ""
     accreditation: str = ""
     flagged: bool = False
+    # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
+    # nobody" can never both be asked for. `current_user_id` is who "mine"
+    # means, not a filter of its own.
+    organizer: str = ""
+    current_user_id: int | None = None
     sort: str = ""
     raw_field_filters: dict[int, str] = field(default_factory=dict)
 
@@ -212,7 +216,7 @@ class FacilitatorListContextDTO:
     """Read aggregate for the panel's facilitator list."""
 
     facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[PersonalDataFieldDTO]
+    filterable_fields: list[OrganizerFieldDTO]
     field_filters: dict[int, str | bool]
     columns: list[PanelColumnDTO]
 
@@ -228,6 +232,7 @@ class FacilitatorCreateData:
     display_name: str
     base_slug: str
     accreditation_type: str
+    organizer_id: int | None = None
     values: dict[int, str | list[str] | bool] = field(default_factory=dict)
 
 
@@ -236,9 +241,7 @@ class FacilitatorDetailContextDTO:
     """Read aggregate for one facilitator's detail page."""
 
     facilitator: FacilitatorDTO
-    personal_data_items: list[
-        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
-    ]
+    personal_data_items: list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
     linked_user: UserDTO | None
     sessions: list[SessionListItemDTO]
 
@@ -266,7 +269,7 @@ class FacilitatorMergeContextDTO:
     """
 
     facilitators: list[FacilitatorDTO]
-    fields: list[PersonalDataFieldDTO]
+    fields: list[OrganizerFieldDTO]
     values: dict[int, dict[str, str | list[str] | bool]]
 
 
@@ -280,7 +283,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def search_candidates(
         self, *, event_id: int, search: str
     ) -> list[FacilitatorListItemDTO]: ...
-    def list_fields(self, event_id: int) -> list[PersonalDataFieldDTO]: ...
+    def list_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def detail_context(
         self, *, event_id: int, facilitator_slug: str
     ) -> FacilitatorDetailContextDTO: ...
@@ -307,6 +310,12 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
+    ) -> None: ...
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> None: ...
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
     ) -> None: ...
     def set_accreditation(
         self,

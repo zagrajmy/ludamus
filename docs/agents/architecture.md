@@ -110,7 +110,7 @@ class CFPPersonalDataFieldService:
         self._fields = fields
         self._categories = categories
 
-    def create(self, event_pk: int, data, requirements) -> PersonalDataFieldDTO:
+    def create(self, event_pk: int, data, requirements) -> OrganizerFieldDTO:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
             if requirements:
@@ -406,11 +406,14 @@ accounts.
 Auth0 OAuth login/logout. State token management and JWT validation;
 user upsert on callback.
 
-- **URLs:** `/crowd/auth0/` (namespace `auth0`)
+- **URLs:** `/crowd/auth0/` (namespace `auth0`), `/crowd/login-required/`,
+  `/auth-error/` (the Auth0 tenant's error page setting points at it)
 - **Views:** `gates/web/django/crowd/auth.py` — `Auth0LoginActionView`,
   `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
-  `Auth0LogoutRedirectActionView`, `LoginRequiredPageView`
-- **Templates:** `templates/crowd/login_required.html`
+  `Auth0LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
+  `login_required_page`, `auth_error_page`
+- **Templates:** `templates/crowd/login_required.html`,
+  `templates/crowd/auth_error.html`
 - **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — user
   provisioning on callback, identity sync, sphere-domain checks
 - **External integration:** Auth0 PKCE/state OAuth flow

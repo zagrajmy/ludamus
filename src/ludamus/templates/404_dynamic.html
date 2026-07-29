@@ -9,14 +9,7 @@
 {% block body %}
     <div class="flex-1 flex items-center justify-center">
         <div class="max-w-screen-sm xl:min-w-[600px] mx-auto px-4">
-            <div class="mb-6 flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl flex items-center justify-center bg-white dark:bg-neutral-900">
-                    {% icon "question-mark-circle" class="w-8 h-8 text-warning" %}
-                </div>
-                <span class="text-6xl font-bold text-foreground-muted">{{ error_code }}</span>
-            </div>
-            <h1 class="text-2xl font-bold mb-3">{{ title }}</h1>
-            <p class="mb-2 text-foreground-muted">{{ message }}</p>
+            {% include "components/status_hero.html" with icon="question-mark-circle" icon_color="text-warning" error_code=error_code heading=title lead=message only %}
             <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
             <p class="mb-6 text-foreground">{{ guidance }}</p>
             <div class="flex flex-col sm:flex-row gap-3">

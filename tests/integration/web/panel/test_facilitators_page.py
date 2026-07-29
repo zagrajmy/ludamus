@@ -16,8 +16,8 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, PersonalDataFieldDTO
-from tests.integration.conftest import EventFactory
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, OrganizerFieldDTO
+from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
 
 _PAGE_SIZES = [10, 20, 50, 100]
@@ -60,7 +60,7 @@ def _event_context(event, active_tab="list"):
 
 
 def _field_dto(field):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type=field.field_type,
         is_multiple=field.is_multiple,
         name=field.name,
@@ -72,12 +72,13 @@ def _field_dto(field):
     )
 
 
-_DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation"]
+_DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation", "organizer"]
 _BUILTIN_LABELS = {
     "name": "Display Name",
     "linked": "Linked User",
     "sessions": "Sessions",
     "accreditation": "Accreditation",
+    "organizer": "Organizer",
 }
 _DEFAULT_COLUMNS = [
     PanelColumnView(key=key, label=_BUILTIN_LABELS[key], kind="text")
@@ -103,6 +104,7 @@ def _column_values(facilitators, extra=None):
                     AccreditationType(facilitator.accreditation_type)
                 ]
             ),
+            "organizer": facilitator.organizer_name or "—",
             **extra.get(facilitator.pk, {}),
         }
         for facilitator in facilitators
@@ -115,6 +117,7 @@ def _base_context(event):
         "filter_search": "",
         "filter_accreditation": None,
         "filter_flagged": False,
+        "filter_organizer": "",
         "filter_sort": "name",
         "filters_active": False,
         "accreditation_types": [
@@ -201,6 +204,45 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_organizer_column_shows_the_organizer_name(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Alice",
+            slug="alice",
+            user=None,
+            organizer=active_user,
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                organizer_id=active_user.pk,
+                organizer_name=active_user.name,
                 pk=response.context["facilitators"][0].pk,
                 slug="alice",
                 user_id=None,
@@ -465,6 +507,134 @@ class TestFacilitatorsPageView:
                 "page_sizes": _PAGE_SIZES,
                 "filter_flagged": True,
                 "filters_active": True,
+            },
+        )
+
+    def test_mine_filter_keeps_only_my_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other = UserFactory(username="other", name="Other Organizer")
+        Facilitator.objects.create(
+            event=event,
+            display_name="Mine",
+            slug="mine",
+            user=None,
+            organizer=active_user,
+        )
+        Facilitator.objects.create(
+            event=event,
+            display_name="Theirs",
+            slug="theirs",
+            user=None,
+            organizer=other,
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"organizer": "mine"})
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Mine",
+                organizer_id=active_user.pk,
+                organizer_name=active_user.name,
+                pk=response.context["facilitators"][0].pk,
+                slug="mine",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+                "filter_organizer": "mine",
+                "filters_active": True,
+            },
+        )
+
+    def test_unassigned_filter_keeps_only_unclaimed_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Taken",
+            slug="taken",
+            user=None,
+            organizer=active_user,
+        )
+        Facilitator.objects.create(
+            event=event, display_name="Free", slug="free", user=None
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"organizer": "unassigned"}
+        )
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Free",
+                pk=response.context["facilitators"][0].pk,
+                slug="free",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+                "filter_organizer": "unassigned",
+                "filters_active": True,
+            },
+        )
+
+    def test_tampered_organizer_filter_falls_back_to_all(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"organizer": "everyone"}
+        )
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=response.context["facilitators"][0].pk,
+                slug="alice",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -921,6 +1091,8 @@ class TestFacilitatorActions:
         "panel:facilitator-flag",
         "panel:facilitator-unflag",
         "panel:facilitator-mark-guest",
+        "panel:facilitator-assign-organizer",
+        "panel:facilitator-unassign-organizer",
     )
 
     @pytest.mark.parametrize("name", _ACTION_NAMES)
@@ -1032,6 +1204,146 @@ class TestFacilitatorActions:
         )
 
         assert not FacilitatorChangeLog.objects.filter(facilitator=facilitator).exists()
+
+    def test_assign_organizer(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-assign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "You now handle this facilitator.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == active_user.pk
+
+    def test_assign_organizer_twice_says_it_is_already_yours(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event, organizer=active_user)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-assign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "You already handle this facilitator.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == active_user.pk
+
+    def test_assign_organizer_refuses_a_taken_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other = UserFactory(username="other", name="Other Organizer")
+        facilitator = self._facilitator(event, organizer=other)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-assign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "Someone else already handles this facilitator.")
+            ],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == other.pk
+
+    def test_unassign_organizer(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event, organizer=active_user)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Stepped down.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id is None
+
+    def test_unassign_organizer_twice_says_nobody_handles_it(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Nobody handles this facilitator.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id is None
+
+    def test_unassign_organizer_refuses_someone_elses(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        other = UserFactory(username="other", name="Other Organizer")
+        facilitator = self._facilitator(event, organizer=other)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "Only the person handling this facilitator can step down.",
+                )
+            ],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id == other.pk
+
+    def test_superuser_releases_someone_elses(
+        self, authenticated_client, active_user, event
+    ):
+        active_user.is_superuser = True
+        active_user.save()
+        other = UserFactory(username="other", name="Other Organizer")
+        facilitator = self._facilitator(event, organizer=other)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-unassign-organizer", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Stepped down.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.organizer_id is None
 
     def test_flag_preserves_next(
         self, authenticated_client, active_user, sphere, event

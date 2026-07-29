@@ -42,13 +42,11 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import FacilitatorDTO, PersonalDataFieldDTO, SessionListItemDTO
+    from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO, SessionListItemDTO
     from ludamus.pacts.chronology import ProposalStatusServiceProtocol
     from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
 
-    PersonalFieldItems = list[
-        tuple[PersonalDataFieldDTO, str | list[str] | bool | None]
-    ]
+    PersonalFieldItems = list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
     FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, PersonalFieldItems]]
 
 

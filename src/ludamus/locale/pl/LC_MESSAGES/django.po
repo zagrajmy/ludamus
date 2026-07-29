@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-27 20:50+0200\n"
+"POT-Creation-Date: 2026-07-29 16:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -866,6 +866,7 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/panel/parts/proposal-duration.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Duration"
 msgstr "Czas trwania"
@@ -1058,6 +1059,13 @@ msgid "Accreditation"
 msgstr "Akredytacja"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Organizer"
+msgstr "Przypisany do"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/propose/parts/_stepper.html
@@ -1202,6 +1210,24 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Someone else already handles this facilitator."
+msgstr "Ten twórca programu jest już przypisany do kogoś innego."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "You already handle this facilitator."
+msgstr "Ten twórca programu jest już przypisany do Ciebie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Nobody handles this facilitator."
+msgstr "Ten twórca programu nie jest do nikogo przypisany."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Only the person handling this facilitator can step down."
+msgstr ""
+"Przypisanie może usunąć tylko osoba, do której twórca programu jest "
+"przypisany."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
 
@@ -1264,6 +1290,14 @@ msgstr "Usunięto oznaczenie do usunięcia."
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator marked as guest."
 msgstr "Twórca programu oznaczony jako gość."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "You now handle this facilitator."
+msgstr "Ten twórca programu jest teraz przypisany do Ciebie."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Stepped down."
+msgstr "Przypisanie usunięte."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
@@ -2173,10 +2207,7 @@ msgid "Pick an option or type your own."
 msgstr "Wybierz opcję lub wpisz własną."
 
 #: src/ludamus/gates/web/django/dynamic_fields.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/_personal_data_fields.html
+#: src/ludamus/templates/components/dynamic-field.html
 msgid "Or type a custom value"
 msgstr "Lub wpisz własną wartość"
 
@@ -2568,12 +2599,32 @@ msgid "Minimum Age"
 msgstr "Minimalny Wiek"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Enter how long the session lasts."
+msgstr "Podaj, ile trwa punkt programu."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Custom"
+msgstr "Własne"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "— Select category —"
 msgstr "— Wybierz kategorię —"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Invalid category selection."
 msgstr "Nieprawidłowy wybór kategorii."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/print-controls.html
+msgid "Hours"
+msgstr "Godziny"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Minutes"
+msgstr "Minuty"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Standard"
@@ -2590,6 +2641,14 @@ msgstr "Honorowa"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
 msgstr "Nazwa wyświetlana jest za długa (maks. 255 znaków)."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Assign me as organizer"
+msgstr "Zajmę się tym twórcą programu"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "You handle this facilitator until you step down."
+msgstr "Zajmujesz się tym twórcą programu, dopóki nie zrezygnujesz."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -3137,10 +3196,12 @@ msgid "Page Not Found"
 msgstr "Strona nie została znaleziona."
 
 #: src/ludamus/templates/404_dynamic.html
+#: src/ludamus/templates/500_dynamic.html
 msgid "Go Back"
 msgstr "Wróć"
 
 #: src/ludamus/templates/404_dynamic.html
+#: src/ludamus/templates/500_dynamic.html
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
 
@@ -4225,13 +4286,6 @@ msgid "Markdown supported."
 msgstr "Obsługuje Markdown."
 
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/panel/_personal_data_fields.html
-msgid "comma separated"
-msgstr "po przecinku"
-
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Save changes"
 msgstr "Zapisz zmiany"
@@ -4342,11 +4396,6 @@ msgid "Start"
 msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Hours"
-msgstr "Godziny"
-
-#: src/ludamus/templates/chronology/print.html
 msgid "Apply"
 msgstr "Zastosuj"
 
@@ -4455,12 +4504,6 @@ msgstr ""
 msgid "Select the tracks your session belongs to."
 msgstr "Wybierz bloki programowe dla tego punktu programu."
 
-# Login Required Page
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-msgid "(required)"
-msgstr "(wymagane)"
-
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
@@ -4483,6 +4526,11 @@ msgstr "Twoje dane"
 msgid "Your details — private by default. An 👁 marks what attendees will see."
 msgstr ""
 "Twoje dane — domyślnie prywatne. 👁 oznacza pola widoczne dla uczestników."
+
+# Login Required Page
+#: src/ludamus/templates/chronology/propose/parts/personal.html
+msgid "(required)"
+msgstr "(wymagane)"
 
 #: src/ludamus/templates/chronology/propose/parts/personal.html
 msgid "Email address for notifications about this proposal"
@@ -4538,6 +4586,19 @@ msgstr "%(name_value)s (oznaczony)"
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
+
+# Login Required Page
+#: src/ludamus/templates/components/dynamic-field-label.html
+#: src/ludamus/templates/components/label.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "required"
+msgstr "wymagane"
+
+#: src/ludamus/templates/components/dynamic-field.html
+#, python-format
+msgid "Custom value for: %(question)s"
+msgstr "Własna wartość dla: %(question)s"
 
 #: src/ludamus/templates/components/encounter_card.html
 msgid "You organize"
@@ -4602,13 +4663,6 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
-
-# Login Required Page
-#: src/ludamus/templates/components/label.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "required"
-msgstr "wymagane"
 
 #: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
@@ -4717,13 +4771,46 @@ msgstr "Dla organizatorów"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
-msgid "Shown on public session card"
-msgstr "Widoczne na publicznej karcie punktu programu"
+msgid "Shown publicly"
+msgstr "Widoczne publicznie"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
 msgid "Visible to organizers only"
 msgstr "Widoczne tylko dla organizatorów"
+
+#: src/ludamus/templates/components/write-in-hint.html
+msgid "semicolon separated"
+msgstr "po średniku"
+
+# Auth error page
+#: src/ludamus/templates/crowd/auth_error.html
+msgid "Login failed"
+msgstr "Logowanie nie powiodło się"
+
+#: src/ludamus/templates/crowd/auth_error.html
+msgid ""
+"Something interrupted the login. This can happen after going back to an old "
+"login page, waiting too long, or when your browser blocks cookies. Trying "
+"again usually helps."
+msgstr ""
+"Coś przerwało logowanie. Tak się dzieje po powrocie do starej strony "
+"logowania, po zbyt długim oczekiwaniu albo gdy przeglądarka blokuje pliki "
+"cookie. Zwykle wystarczy spróbować ponownie."
+
+#: src/ludamus/templates/crowd/auth_error.html
+msgid "Log in again"
+msgstr "Zaloguj się ponownie"
+
+#: src/ludamus/templates/crowd/auth_error.html
+#: src/ludamus/templates/crowd/login_required.html
+#: src/ludamus/templates/flatpages/default.html
+msgid "Back to Home"
+msgstr "Powrót do strony głównej"
+
+#: src/ludamus/templates/crowd/auth_error.html
+msgid "Error ID"
+msgstr "Identyfikator błędu"
 
 #: src/ludamus/templates/crowd/claim.html
 msgid "Claim your profile"
@@ -4756,11 +4843,6 @@ msgstr "Wymagane logowanie"
 #: src/ludamus/templates/crowd/login_required.html
 msgid "You need to be logged in to access this page."
 msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
-
-#: src/ludamus/templates/crowd/login_required.html
-#: src/ludamus/templates/flatpages/default.html
-msgid "Back to Home"
-msgstr "Powrót do strony głównej"
 
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 #: src/ludamus/templates/panel/facilitator-create.html
@@ -6579,6 +6661,15 @@ msgstr ""
 "wyświetlana zgłoszenia."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid ""
+"The organizer handling this facilitator. Take them on from the facilitator "
+"list."
+msgstr ""
+"Organizator, do którego przypisany jest ten twórca programu. Możesz "
+"przypisać go sobie z listy twórców programu."
+
+#: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Slug"
@@ -6671,6 +6762,18 @@ msgid "All accreditations"
 msgstr "Wszystkie akredytacje"
 
 #: src/ludamus/templates/panel/facilitators.html
+msgid "All organizers"
+msgstr "Wszyscy"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Mine"
+msgstr "Moi"
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Nobody"
+msgstr "Nikt"
+
+#: src/ludamus/templates/panel/facilitators.html
 msgid "Flagged for deletion only"
 msgstr "Tylko oznaczeni do usunięcia"
 
@@ -6723,6 +6826,37 @@ msgstr "Zaznacz %(name)s"
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Flagged"
 msgstr "Oznaczony"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Take %(name)s on? You handle them until you step down."
+msgstr ""
+"Przypisać sobie twórcę %(name)s? Będzie przypisany do Ciebie, dopóki nie "
+"usuniesz przypisania."
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Assign to me"
+msgstr "Przypisz do mnie"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Become the organizer of %(name)s"
+msgstr "Przypisz sobie twórcę %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Step down from %(name)s? Anyone can take them on afterwards."
+msgstr ""
+"Usunąć przypisanie twórcy %(name)s? Potem może go przypisać sobie ktoś inny."
+
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Step down"
+msgstr "Usuń przypisanie"
+
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Step down from %(name)s"
+msgstr "Usuń przypisanie twórcy %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -7333,6 +7467,14 @@ msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
 msgid "Print door cards"
 msgstr "Drukuj tabliczki na drzwi"
 
+#: src/ludamus/templates/panel/parts/proposal-duration.html
+msgid "Custom duration"
+msgstr "Własny czas trwania"
+
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Participants and duration"
+msgstr "Uczestnicy i czas trwania"
+
 #: src/ludamus/templates/panel/parts/proposal-session-fields.html
 msgid "Answers outside this category"
 msgstr "Odpowiedzi spoza tej kategorii"
@@ -7697,11 +7839,6 @@ msgstr "Użycie"
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Multiple"
 msgstr "Wielokrotny"
-
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Custom"
-msgstr "Własne"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -8529,6 +8666,37 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Create Session"
 #~ msgstr "Utwórz punkt programu"
+
+#~ msgid "comma separated"
+#~ msgstr "oddzielone przecinkami"
+
+#~ msgid "Shown on public session card"
+#~ msgstr "Widoczne na publicznej karcie punktu programu"
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
+
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
+
+#~ msgid "Default contact person. Assign yourself from the facilitator list."
+#~ msgstr ""
+#~ "Domyślna osoba kontaktowa. Przypisz siebie z listy twórców programu."
+
+#, python-format
+#~ msgid ""
+#~ "Become the organizer of %(name)s? You stay their contact person until you "
+#~ "release them."
+#~ msgstr ""
+#~ "Zostać opiekunem twórcy %(name)s? Pozostaniesz osobą kontaktową, dopóki "
+#~ "go nie zwolnisz."
+
+#~ msgid "Release"
+#~ msgstr "Zwolnij"
+
+#, python-format
+#~ msgid "Release %(name)s"
+#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""

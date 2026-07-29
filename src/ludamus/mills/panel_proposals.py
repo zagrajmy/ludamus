@@ -23,9 +23,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.pacts import (
+        OrganizerFieldDTO,
         SessionData,
         SessionDTO,
-        SessionFieldDTO,
         SessionListItemDTO,
     )
     from ludamus.pacts.panel import (
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
-def _resolve_sort(sort: str, fields: Sequence[SessionFieldDTO]) -> str:
+def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
     # A sort key naming a built-in column or one of this event's own fields is
     # passed to the repo; anything else is dropped, so a tampered `sort` falls
     # back to the default order instead of reaching the query.

@@ -20,7 +20,7 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     FacilitatorListItemDTO,
-    PersonalDataFieldDTO,
+    OrganizerFieldDTO,
 )
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
@@ -97,7 +97,7 @@ def _accreditation_choice(value, sources, checked):
 
 
 def _field_dto(field):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type=field.field_type,
         is_multiple=field.is_multiple,
         name=field.name,
@@ -447,6 +447,120 @@ class TestFacilitatorMergeConfirm:
         assert not Facilitator.objects.filter(slug="jan-wysocki").exists()
         value = PersonalDataFieldValue.objects.get(facilitator=adam, field=field)
         assert value.value == "Vegan"
+
+    def _merge_alice(self, client, event):
+        return client.post(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["alice", "alice-dup"],
+                "target_slug": "alice",
+                "display_name": "Alice",
+                "accreditation_type": "none",
+            },
+        )
+
+    def test_post_keeps_the_only_organizer_among_merged(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(username="organizer", email="organizer@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        Facilitator.objects.filter(pk=source.pk).update(organizer=organizer)
+
+        response = self._merge_alice(authenticated_client, event)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == organizer.pk
+
+    def test_post_keeps_the_targets_organizer_over_a_disagreeing_source(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        one = UserFactory(username="organizer-one", email="organizer1@example.com")
+        two = UserFactory(username="organizer-two", email="organizer2@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        Facilitator.objects.filter(pk=target.pk).update(organizer=one)
+        Facilitator.objects.filter(pk=source.pk).update(organizer=two)
+
+        response = self._merge_alice(authenticated_client, event)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == one.pk
+
+    def test_post_clears_disagreeing_organizers_of_an_unheld_target(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        one = UserFactory(username="organizer-one", email="organizer1@example.com")
+        two = UserFactory(username="organizer-two", email="organizer2@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        first = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        second = _make_facilitator(event, display_name="Alice Copy", slug="alice-copy")
+        Facilitator.objects.filter(pk=first.pk).update(organizer=one)
+        Facilitator.objects.filter(pk=second.pk).update(organizer=two)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["alice", "alice-dup", "alice-copy"],
+                "target_slug": "alice",
+                "display_name": "Alice",
+                "accreditation_type": "none",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id is None
+
+    def test_post_keeps_a_shared_organizer(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(username="organizer", email="organizer@example.com")
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        source = _make_facilitator(
+            event, display_name="Alice Duplicate", slug="alice-dup"
+        )
+        Facilitator.objects.filter(pk__in=[target.pk, source.pk]).update(
+            organizer=organizer
+        )
+
+        response = self._merge_alice(authenticated_client, event)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.organizer_id == organizer.pk
 
     def test_confirm_with_too_small_basket_falls_back_to_search(
         self, authenticated_client, active_user, sphere, event

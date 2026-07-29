@@ -13,8 +13,8 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import (
     EventDTO,
+    OrganizerFieldDTO,
     ProposalCategoryDTO,
-    SessionFieldDTO,
     SessionListItemDTO,
     SessionStatus,
 )
@@ -51,7 +51,7 @@ _DEFAULT_COLUMNS = [_builtin_column(key) for key in _DEFAULT_KEYS]
 
 
 def _field_dto(field):
-    return SessionFieldDTO(
+    return OrganizerFieldDTO(
         pk=field.pk,
         name=field.name,
         question=field.question,
