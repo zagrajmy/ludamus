@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-29 21:18+0200\n"
+"POT-Creation-Date: 2026-07-29 21:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -889,8 +889,6 @@ msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/print/timetable.html
 msgid "Time slot"
 msgstr "Przedział czasowy"
 
@@ -3558,8 +3556,10 @@ msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/print/timetable.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Time"
 msgstr "Czas"
