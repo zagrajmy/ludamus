@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
 from django.urls import reverse
@@ -17,7 +18,7 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
-from ludamus.links.db.django.models import Notification
+from ludamus.links.db.django.models import Event, Notification, Session
 from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
 
@@ -30,6 +31,29 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.printing import PrintablesReadyNotification
     from ludamus.pacts.safety import ShadowbanSignupNotification
+
+
+def _email_link(notification: Notification) -> str:
+    if notification.url.startswith("http"):
+        return notification.url
+    domain = _sphere_domain(notification) or settings.ROOT_DOMAIN
+    return f"https://{domain}{notification.url}"
+
+
+def _sphere_domain(notification: Notification) -> str | None:
+    if session_id := notification.payload.get("session_id"):
+        return (
+            Session.objects.filter(pk=session_id)
+            .values_list("event__sphere__site__domain", flat=True)
+            .first()
+        )
+    if event_slug := notification.payload.get("event_slug"):
+        return (
+            Event.objects.filter(slug=event_slug)
+            .values_list("sphere__site__domain", flat=True)
+            .first()
+        )
+    return None
 
 
 class DjangoUserNotifier:
@@ -282,10 +306,12 @@ class DjangoUserNotifier:
         if not email:
             return
 
+        link = _email_link(notification)
+
         def _send_email() -> None:
             send_mail(
                 subject=notification.title,
-                message=f"{notification.body}\n\n{notification.url}",
+                message=f"{notification.body}\n\n{link}",
                 from_email=None,
                 recipient_list=[email],
                 fail_silently=True,
