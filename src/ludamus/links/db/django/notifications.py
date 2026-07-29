@@ -7,6 +7,7 @@ send time and links each notification to the relevant page.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -33,32 +34,43 @@ if TYPE_CHECKING:
     from ludamus.pacts.safety import ShadowbanSignupNotification
 
 
-def _email_link(notification: Notification) -> str:
-    domain = _sphere_domain(notification) or settings.ROOT_DOMAIN
-    return f"https://{domain}{notification.url}"
+logger = logging.getLogger(__name__)
 
 
-def _sphere_domain(notification: Notification) -> str | None:
-    if domain := notification.payload.get("sphere_domain"):
-        return str(domain)
-    if session_id := notification.payload.get("session_id"):
-        return (
-            Session.objects.filter(pk=session_id)
-            .values_list("event__sphere__site__domain", flat=True)
-            .first()
+def _absolute(path: str, *, domain: str) -> str:
+    scheme = "http" if settings.ENV == "development" else "https"
+    return f"{scheme}://{domain}{path}"
+
+
+def _session_enrollment_url(event_slug: str, session_id: int) -> str:
+    return _absolute(
+        reverse(
+            "web:chronology:session-enrollment",
+            kwargs={"event_slug": event_slug, "session_id": session_id},
+        ),
+        domain=_session_host(session_id),
+    )
+
+
+def _session_host(session_id: int) -> str:
+    domain = (
+        Session.objects.filter(pk=session_id)
+        .values_list("event__sphere__site__domain", flat=True)
+        .first()
+    )
+    if not domain:
+        logger.warning(
+            "No sphere host for session %s; linking to %s",
+            session_id,
+            settings.ROOT_DOMAIN,
         )
-    return None
+        return str(settings.ROOT_DOMAIN)
+    return domain
 
 
 class DjangoUserNotifier:
     def notify_promoted(self, notification: PromotionNotification) -> None:
-        url = reverse(
-            "web:chronology:session-enrollment",
-            kwargs={
-                "event_slug": notification.event_slug,
-                "session_id": notification.session_id,
-            },
-        )
+        url = _session_enrollment_url(notification.event_slug, notification.session_id)
         title = _("You're in: a spot opened in %(session)s") % {
             "session": notification.session_title
         }
@@ -76,8 +88,11 @@ class DjangoUserNotifier:
         )
 
     def notify_offered(self, notification: OfferNotification) -> None:
-        url = reverse(
-            "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
+        url = _absolute(
+            reverse(
+                "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
+            ),
+            domain=_session_host(notification.session_id),
         )
         deadline = date_format(
             localtime(notification.offer_expires_at), "DATETIME_FORMAT"
@@ -122,12 +137,8 @@ class DjangoUserNotifier:
                 kind=NotificationKind.OFFER_EXPIRED.value,
                 title=title,
                 body=body,
-                url=reverse(
-                    "web:chronology:session-enrollment",
-                    kwargs={
-                        "event_slug": notification.event_slug,
-                        "session_id": notification.session_id,
-                    },
+                url=_session_enrollment_url(
+                    notification.event_slug, notification.session_id
                 ),
                 payload={"session_id": notification.session_id},
             ),
@@ -151,20 +162,16 @@ class DjangoUserNotifier:
                 kind=NotificationKind.PARTY_INVITE.value,
                 title=title,
                 body=body,
-                url=reverse("web:crowd:profile-parties"),
+                url=_absolute(
+                    reverse("web:crowd:profile-parties"), domain=settings.ROOT_DOMAIN
+                ),
                 payload={},
             ),
             notification.recipient_email,
         )
 
     def notify_party_enrolled(self, notification: PartyEnrolledNotification) -> None:
-        url = reverse(
-            "web:chronology:session-enrollment",
-            kwargs={
-                "event_slug": notification.event_slug,
-                "session_id": notification.session_id,
-            },
-        )
+        url = _session_enrollment_url(notification.event_slug, notification.session_id)
         title = _("%(leader)s enrolled you in %(session)s") % {
             "leader": notification.actor_name,
             "session": notification.session_title,
@@ -186,8 +193,11 @@ class DjangoUserNotifier:
         )
 
     def notify_seat_held(self, notification: HeldSeatNotification) -> None:
-        url = reverse(
-            "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
+        url = _absolute(
+            reverse(
+                "web:chronology:offer-claim", kwargs={"token": notification.claim_token}
+            ),
+            domain=_session_host(notification.session_id),
         )
         deadline = date_format(
             localtime(notification.offer_expires_at), "DATETIME_FORMAT"
@@ -219,8 +229,9 @@ class DjangoUserNotifier:
     def notify_printables_ready(
         self, notification: PrintablesReadyNotification
     ) -> None:
-        path = reverse(
-            "panel:print-materials", kwargs={"slug": notification.event_slug}
+        url = _absolute(
+            reverse("panel:print-materials", kwargs={"slug": notification.event_slug}),
+            domain=notification.sphere_domain,
         )
         title = _("Print your materials for %(event)s") % {
             "event": notification.event_name
@@ -235,11 +246,8 @@ class DjangoUserNotifier:
                 kind=NotificationKind.PRINTABLES_READY.value,
                 title=title,
                 body=body,
-                url=path,
-                payload={
-                    "event_slug": notification.event_slug,
-                    "sphere_domain": notification.sphere_domain,
-                },
+                url=url,
+                payload={"event_slug": notification.event_slug},
             ),
             notification.recipient_email,
         )
@@ -282,13 +290,13 @@ class DjangoUserNotifier:
                 kind=NotificationKind.SHADOWBANNED_SIGNUP.value,
                 title=title,
                 body=body,
-                url=reverse(
-                    "web:chronology:event", kwargs={"slug": notification.event_slug}
+                url=_absolute(
+                    reverse(
+                        "web:chronology:event", kwargs={"slug": notification.event_slug}
+                    ),
+                    domain=notification.sphere_domain,
                 ),
-                payload={
-                    "event_slug": notification.event_slug,
-                    "sphere_domain": notification.sphere_domain,
-                },
+                payload={"event_slug": notification.event_slug},
             ),
             notification.recipient_email,
         )
@@ -307,7 +315,7 @@ class DjangoUserNotifier:
         def _send_email() -> None:
             send_mail(
                 subject=notification.title,
-                message=f"{notification.body}\n\n{_email_link(notification)}",
+                message=f"{notification.body}\n\n{notification.url}",
                 from_email=None,
                 recipient_list=[email],
                 fail_silently=True,

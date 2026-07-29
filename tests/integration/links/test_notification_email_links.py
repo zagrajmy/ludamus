@@ -4,6 +4,7 @@ from django.core import mail
 from django.test import override_settings
 from django.urls import reverse
 
+from ludamus.links.db.django.models import Notification
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.pacts.enrollment import OfferNotification
 from ludamus.pacts.party import PartyInviteNotification
@@ -36,7 +37,9 @@ class TestEmailLink:
             )
 
         path = reverse("web:chronology:offer-claim", kwargs={"token": "tok-123"})
-        assert _mailed_link() == f"https://skytower.example.net{path}"
+        link = f"https://skytower.example.net{path}"
+        assert _mailed_link() == link
+        assert Notification.objects.get().url == link
 
     def test_link_prefers_the_domain_the_notification_carries(
         self, django_capture_on_commit_callbacks, active_user
