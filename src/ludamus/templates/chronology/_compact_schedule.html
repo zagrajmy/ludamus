@@ -26,11 +26,9 @@
                                  id="slot-{{ hour.start|date:'Ymd-H' }}"
                                  data-slot-hour="{{ hour.start|date:'Ymd-H' }}">
                                 <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">{{ hour.start|time:"H:i" }}</div>
-                                {# Not divide-y: it borders every :not(:last-child), and the filters #}
-                                {# (session-filters.ts) hide rows with display:none, so the last #}
-                                {# visible row of a filtered grid kept a stray bottom border. A row #}
-                                {# draws its own top divider only when a visible row precedes it. #}
-                                <div class="session-grid [&>:not([style*='display:_none'])~:not([style*='display:_none'])]:border-t [&>:not([style*='display:_none'])~:not([style*='display:_none'])]:border-border/60">
+                                {# Not divide-y: it draws a stray divider under the last visible #}
+                                {# row when session-filters.ts hides the rows after it (index.css). #}
+                                <div class="session-grid divide-y-visible">
                                     {% for data in hour.sessions %}
                                         {% include "chronology/_compact_session_row.html" %}
                                     {% endfor %}
