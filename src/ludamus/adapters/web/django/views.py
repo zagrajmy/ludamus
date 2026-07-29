@@ -68,7 +68,11 @@ from ludamus.links.db.django.repositories.sessions import (
     field_value_dto,
     with_session_card_relations,
 )
-from ludamus.mills.enrollment import EnrollmentPolicy, get_user_enrollment_config
+from ludamus.mills.enrollment import (
+    EnrollmentPolicy,
+    get_user_enrollment_config,
+    restricts_everyone,
+)
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
@@ -825,6 +829,7 @@ _status_by_choice = {
 
 class SessionEnrollPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
+    _policies: dict[int, EnrollmentPolicy] | None = None
 
     def get(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
@@ -1277,24 +1282,35 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         )
 
     def _actor_policy(self, session: Session) -> EnrollmentPolicy:
-        viewer = self.request.services.enrollment.read_viewer(
-            self.request.context.current_user_slug
-        )
+        if self._policies is None:
+            self._policies = {}
+        if session.pk not in self._policies:
+            viewer = self.request.services.enrollment.read_viewer(
+                self.request.context.current_user_slug
+            )
+            self._policies[session.pk] = EnrollmentPolicy.for_actor(
+                session.event.get_eligible_enrollment_configs(session),
+                is_configured_user=self._member_has_access(session, viewer),
+            )
+        return self._policies[session.pk]
+
+    @staticmethod
+    def _session_wide_policy(session: Session) -> EnrollmentPolicy:
         return EnrollmentPolicy.for_actor(
             session.event.get_eligible_enrollment_configs(session),
-            is_configured_user=self._member_has_access(session, viewer),
+            is_configured_user=True,
         )
 
     @staticmethod
     def _restricts_unconfigured(session: Session) -> bool:
-        return EnrollmentPolicy(
-            tuple(session.event.get_eligible_enrollment_configs(session))
-        ).restricts_everyone
+        return restricts_everyone(
+            session.event.get_eligible_enrollment_configs(session)
+        )
 
-    def _available_slots(self, session: Session) -> int:
+    def _available_slots(self, session: Session, *, freed: int = 0) -> int:
         return self._actor_policy(session).available_slots(
             participants_limit=session.participants_limit,
-            enrolled_count=session.enrolled_count,
+            enrolled_count=session.enrolled_count - freed,
         )
 
     def _route_wants_in(
@@ -1308,7 +1324,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Fill confirmed seats first (viewer, then companions, then members — the
         # household order), overflow to the waiting list. Counting matches
         # _is_capacity_invalid so the capacity net never rejects this routing.
-        available = freed + self._available_slots(session)
+        available = self._available_slots(session, freed=freed)
         routed: list[EnrollmentRequest] = []
         for member in wants_in:
             user = member.user
@@ -1622,15 +1638,18 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        session_wide = session.event.get_most_liberal_config(session)
-        available_spots = freed_spots + (
-            session_wide.get_available_slots(session) if session_wide else 0
+        member_spots = self._available_slots(session, freed=freed_spots)
+        available_spots = freed_spots + self._session_wide_policy(
+            session
+        ).available_slots(
+            participants_limit=session.participants_limit,
+            enrolled_count=session.enrolled_count,
         )
-        member_spots = freed_spots + self._available_slots(session)
         if member_count > member_spots:
-            requested, available = member_count, member_spots
+            requested, available, blamed_guests = member_count, member_spots, False
         elif enroll_count > available_spots:
             requested, available = enroll_count, available_spots
+            blamed_guests = bool(guest_seats_needed)
         else:
             return False
 
@@ -1640,7 +1659,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "Bring fewer guests or use the waiting list for account "
                 "holders."
             )
-            if guest_seats_needed
+            if blamed_guests
             else _(
                 "Not enough spots available. {} spots requested, {} available. "
                 "Please use waiting list for some users."

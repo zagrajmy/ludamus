@@ -95,8 +95,15 @@ class EnrollmentWindowLike(Protocol):
     restrict_to_configured_users: bool
 
 
-def _percentage_slots(window: EnrollmentWindowLike) -> int:
-    return window.percentage_slots
+def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
+    return (window.percentage_slots, not window.restrict_to_configured_users)
+
+
+def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
+    listed = list(windows)
+    return bool(listed) and all(
+        window.restrict_to_configured_users for window in listed
+    )
 
 
 @dataclass(frozen=True)
@@ -130,7 +137,7 @@ class EnrollmentPolicy:
     def seating_window(self) -> EnrollmentWindowLike | None:
         if not self.windows:
             return None
-        return max(self.windows, key=_percentage_slots)
+        return max(self.windows, key=_seating_rank)
 
     @property
     def percentage_slots(self) -> int:
@@ -139,12 +146,6 @@ class EnrollmentPolicy:
     @property
     def max_waitlist_sessions(self) -> int:
         return max((window.max_waitlist_sessions for window in self.windows), default=0)
-
-    @property
-    def restricts_everyone(self) -> bool:
-        return bool(self.windows) and all(
-            window.restrict_to_configured_users for window in self.windows
-        )
 
     @property
     def requires_slot_allowance(self) -> bool:

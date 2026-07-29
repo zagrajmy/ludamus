@@ -1265,6 +1265,51 @@ class TestSessionEnrollPageView:
             status=SessionParticipationStatus.CONFIRMED,
         ).exists()
 
+    def test_post_a_freed_seat_does_not_invent_headroom_past_the_open_window(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        for _seat in range(4):
+            SessionParticipation.objects.create(
+                user=UserFactory(),
+                session=agenda_item.session,
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+
+        response = staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{companion.id}": "cancel", f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Not enough spots available. 1 spots requested, 0 available. "
+                        "Please use waiting list for some users."
+                    ),
+                )
+            ],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+
     def test_post_restricted_pool_still_costs_a_slot_beside_an_open_window(
         self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
     ):

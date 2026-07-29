@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ludamus.mills.enrollment import EnrollmentPolicy
+from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
 
 
 @dataclass
@@ -176,21 +176,17 @@ class TestSlotAllowance:
 
 class TestRestrictsEveryone:
     def test_open_window_leaves_the_event_unrestricted(self) -> None:
-        policy = EnrollmentPolicy(
-            (_Window(restrict_to_configured_users=True), _Window())
-        )
+        windows = [_Window(restrict_to_configured_users=True), _Window()]
 
-        assert policy.restricts_everyone is False
+        assert restricts_everyone(windows) is False
 
     def test_every_window_restricting_restricts_the_event(self) -> None:
-        policy = EnrollmentPolicy(
-            (
-                _Window(restrict_to_configured_users=True),
-                _Window(restrict_to_configured_users=True),
-            )
-        )
+        windows = [
+            _Window(restrict_to_configured_users=True),
+            _Window(restrict_to_configured_users=True),
+        ]
 
-        assert policy.restricts_everyone is True
+        assert restricts_everyone(windows) is True
 
     def test_no_windows_restricts_nobody(self) -> None:
-        assert EnrollmentPolicy(()).restricts_everyone is False
+        assert restricts_everyone([]) is False
