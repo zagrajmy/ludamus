@@ -1992,10 +1992,7 @@ class TestSessionEnrollPageView:
             messages=[
                 (
                     messages.ERROR,
-                    (
-                        "Select a valid choice. "
-                        "enroll is not one of the available choices."
-                    ),
+                    "Test User cannot enroll: enrollment access permission required",
                 ),
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
@@ -2107,8 +2104,8 @@ class TestSessionEnrollPageView:
                 (
                     messages.ERROR,
                     (
-                        "Select a valid choice. "
-                        "enroll is not one of the available choices."
+                        f"{companion.name} cannot enroll: enrollment access "
+                        "permission required"
                     ),
                 ),
                 (messages.WARNING, "Please review the enrollment options below."),
