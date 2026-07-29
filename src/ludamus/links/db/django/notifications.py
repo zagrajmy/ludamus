@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 def _absolute(path: str, *, domain: str) -> str:
-    scheme = "http" if settings.ENV == "development" else "https"
+    scheme = "http" if "localhost" in domain else "https"
     return f"{scheme}://{domain}{path}"
 
 
