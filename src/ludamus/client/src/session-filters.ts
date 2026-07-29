@@ -235,6 +235,9 @@ const initSessionFilters = (): void => {
       }
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
+      // The ledger's divider CSS (_compact_schedule.html) selects on the
+      // serialized `style="display: none"` attribute this write produces, so
+      // the hiding mechanism can't change without updating that template.
       if (cardContainer) cardContainer.style.display = show ? "" : "none";
     }
 
