@@ -18,7 +18,7 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
-from ludamus.links.db.django.models import Event, Notification, Session
+from ludamus.links.db.django.models import Notification, Session
 from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
 
@@ -34,23 +34,17 @@ if TYPE_CHECKING:
 
 
 def _email_link(notification: Notification) -> str:
-    if notification.url.startswith("http"):
-        return notification.url
     domain = _sphere_domain(notification) or settings.ROOT_DOMAIN
     return f"https://{domain}{notification.url}"
 
 
 def _sphere_domain(notification: Notification) -> str | None:
+    if domain := notification.payload.get("sphere_domain"):
+        return str(domain)
     if session_id := notification.payload.get("session_id"):
         return (
             Session.objects.filter(pk=session_id)
             .values_list("event__sphere__site__domain", flat=True)
-            .first()
-        )
-    if event_slug := notification.payload.get("event_slug"):
-        return (
-            Event.objects.filter(slug=event_slug)
-            .values_list("sphere__site__domain", flat=True)
             .first()
         )
     return None
@@ -241,10 +235,11 @@ class DjangoUserNotifier:
                 kind=NotificationKind.PRINTABLES_READY.value,
                 title=title,
                 body=body,
-                # Absolute, unlike sibling notifications: reminders go out by
-                # email and each sphere's site lives on its own domain.
-                url=f"https://{notification.sphere_domain}{path}",
-                payload={"event_slug": notification.event_slug},
+                url=path,
+                payload={
+                    "event_slug": notification.event_slug,
+                    "sphere_domain": notification.sphere_domain,
+                },
             ),
             notification.recipient_email,
         )
@@ -290,7 +285,10 @@ class DjangoUserNotifier:
                 url=reverse(
                     "web:chronology:event", kwargs={"slug": notification.event_slug}
                 ),
-                payload={"event_slug": notification.event_slug},
+                payload={
+                    "event_slug": notification.event_slug,
+                    "sphere_domain": notification.sphere_domain,
+                },
             ),
             notification.recipient_email,
         )
@@ -306,12 +304,10 @@ class DjangoUserNotifier:
         if not email:
             return
 
-        link = _email_link(notification)
-
         def _send_email() -> None:
             send_mail(
                 subject=notification.title,
-                message=f"{notification.body}\n\n{link}",
+                message=f"{notification.body}\n\n{_email_link(notification)}",
                 from_email=None,
                 recipient_list=[email],
                 fail_silently=True,
