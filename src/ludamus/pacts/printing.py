@@ -49,7 +49,8 @@ class DoorCardsQueryDTO:
 @dataclass(frozen=True)
 class AreaScheduleQueryDTO:
     event_pk: int
-    time_range: tuple[datetime, datetime]
+    # None means the whole event; the mill defaults to the event bounds.
+    time_range: tuple[datetime, datetime] | None = None
     scope_space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None

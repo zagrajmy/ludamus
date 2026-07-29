@@ -95,8 +95,7 @@ def _assert_print_ok(
             "material": material,
             "show_scope_control": show_scope_control,
             "show_track_control": show_track_control,
-            "show_range_controls": is_timetable,
-            "show_descriptions_control": is_timetable,
+            "show_timetable_controls": is_timetable,
             "descriptions": descriptions,
             "selected_scope": selected_scope,
             "selected_track": selected_track,
@@ -146,6 +145,57 @@ class TestPublicEventPrintView:
         assert session.title in content
         assert session.description in content
         assert 'id="area-space-1"' in content
+
+    def test_track_descriptions_list_is_scoped_to_the_selected_track(
+        self, client, event, session, space, active_user
+    ):
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        session.tracks.add(track)
+        space.tracks.add(track)
+        _confirmed_item(event, session, space)
+        untracked_space = SpaceFactory(event=event, name="Untracked Room")
+        untracked = SessionFactory(
+            presenter=active_user, event=event, participants_limit=10
+        )
+        AgendaItemFactory(
+            session=untracked,
+            space=untracked_space,
+            session_confirmed=True,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = client.get(
+            self._url(event.slug),
+            {"material": "track-timetable", "track": track.slug, "descriptions": "1"},
+        )
+
+        _assert_print_ok(
+            response,
+            material="track-timetable",
+            descriptions=True,
+            tracks_available=True,
+            print_scopes=list(response.context_data["print_scopes"]),
+        )
+        schedule = response.context_data["area_schedule"]
+        assert schedule.scope_name == track.name
+        assert [s.space_name for s in schedule.spaces] == [space.name]
+        assert [x.title for s in schedule.spaces for x in s.sessions] == [session.title]
+
+    def test_legacy_descriptions_material_maps_to_the_checkbox(
+        self, client, event, session, space
+    ):
+        _confirmed_item(event, session, space)
+
+        response = client.get(
+            self._url(event.slug), {"material": "timetable-descriptions"}
+        )
+
+        _assert_print_ok(response, descriptions=True, print_scopes=[_scope(space)])
+        assert response.context_data["area_schedule"] is not None
+        assert response.context_data["timetable"] is None
 
     def test_unconfirmed_session_is_hidden(self, client, event, session, space):
         AgendaItemFactory(
@@ -420,9 +470,8 @@ class TestPublicEventPrintView:
                 "selected_scope": "",
                 "selected_track": "focused-track",
                 "session_list": None,
-                "show_descriptions_control": True,
-                "show_range_controls": True,
                 "show_scope_control": False,
+                "show_timetable_controls": True,
                 "show_track_control": True,
                 "timetable": PrintTimetableDocumentDTO(
                     event_name=event.name,
@@ -465,9 +514,8 @@ class TestPublicEventPrintView:
                 "selected_scope": str(space.pk),
                 "selected_track": "",
                 "session_list": None,
-                "show_descriptions_control": True,
-                "show_range_controls": True,
                 "show_scope_control": True,
+                "show_timetable_controls": True,
                 "show_track_control": False,
                 "timetable": PrintTimetableDocumentDTO(
                     event_name=event.name,
@@ -539,9 +587,8 @@ class TestPublicEventPrintView:
                 "selected_scope": "",
                 "selected_track": "main-track",
                 "session_list": None,
-                "show_descriptions_control": True,
-                "show_range_controls": True,
                 "show_scope_control": False,
+                "show_timetable_controls": True,
                 "show_track_control": True,
                 "timetable": PrintTimetableDocumentDTO(
                     event_name=event.name,

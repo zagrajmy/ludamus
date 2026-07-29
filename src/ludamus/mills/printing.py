@@ -38,6 +38,7 @@ from ludamus.pacts.printing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import date, datetime, tzinfo
 
     from ludamus.pacts import (
@@ -99,17 +100,16 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
 
 
 def _timetable_rows_by_date(
-    items_by_space: dict[int, list[AgendaItemDTO]], tz: tzinfo
+    items: Iterable[AgendaItemDTO], tz: tzinfo
 ) -> dict[date, list[tuple[datetime, datetime]]]:
     # Rows are the distinct (start, end) times of the scheduled sessions, so
     # the grid prints real session times. Time slots are proposer availability
     # windows, not display units (see mills/timeslots.py), so they play no
     # part here.
     rows: dict[date, set[tuple[datetime, datetime]]] = defaultdict(set)
-    for items in items_by_space.values():
-        for item in items:
-            day = item.start_time.astimezone(tz).date()
-            rows[day].add((item.start_time, item.end_time))
+    for item in items:
+        day = item.start_time.astimezone(tz).date()
+        rows[day].add((item.start_time, item.end_time))
     return {day: sorted(intervals) for day, intervals in rows.items()}
 
 
@@ -207,7 +207,8 @@ class PrintMaterialsService:
             (
                 space_chunk,
                 _timetable_rows_by_date(
-                    {s.pk: items_by_space.get(s.pk, []) for s in space_chunk}, query.tz
+                    [item for s in space_chunk for item in items_by_space[s.pk]],
+                    query.tz,
                 ),
             )
             for space_chunk in _space_chunks(spaces)
@@ -264,8 +265,8 @@ class PrintMaterialsService:
     def build_area_schedule(
         self, query: AreaScheduleQueryDTO
     ) -> AreaScheduleDocumentDTO:
-        range_start, range_end = query.time_range
         event = self._events.read(query.event_pk)
+        range_start, range_end = query.time_range or (event.start_time, event.end_time)
         spaces = self._scoped_spaces(
             query.event_pk, query.scope_space_pks, query.track_pk
         )

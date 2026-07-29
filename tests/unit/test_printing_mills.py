@@ -462,6 +462,17 @@ class TestBuildAreaSchedule:
 
         assert document.spaces[0].sessions == []
 
+    def test_no_range_defaults_to_event_bounds(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [_item(1, 1, 10, 11, title="RPG", confirmed=True)]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_area_schedule(AreaScheduleQueryDTO(event_pk=1))
+
+        assert document.range_start == _event().start_time
+        assert document.range_end == _event().end_time
+        assert [s.title for s in document.spaces[0].sessions] == ["RPG"]
+
     def test_track_scopes_spaces(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [_item(1, 1, 10, 11, title="Tracked", confirmed=True)]
