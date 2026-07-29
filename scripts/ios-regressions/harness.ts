@@ -7,10 +7,7 @@ import type {
 } from "agent-device";
 
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 
-type AgentDeviceModule = typeof import("agent-device");
 type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
 
 const env = process.env;
@@ -19,39 +16,29 @@ export const baseUrl = env.BASE_URL ?? "http://localhost:8000";
 
 export const sessionName = (role: string): string =>
   env.SESSION ? `${env.SESSION}-${role}` : `zagrajmy-ios-${role}-local`;
+
+// The workflow sets this per attempt. The default only applies to local runs,
+// where nothing has paid the 194-240s cold runner attach yet -- run
+// `bun run scripts/ios-regressions/warmup.ts` first, or raise it.
 export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
 
-const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 16";
+export type Rect = { x: number; y: number; width: number; height: number };
+
+// Only reached when a snapshot comes back without a root rect. Sized for the
+// iPhone 17 Pro the macOS runner image actually provides -- CI ignores
+// `deviceName` below, because the workflow picks a UDID and passes it in.
+const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
+
+const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
-
-const importAgentDevice = async (): Promise<AgentDeviceModule> => {
-  try {
-    return await import("agent-device");
-  } catch (error) {
-    const candidates: string[] = [];
-    try {
-      const npmRoot = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
-      candidates.push(`${npmRoot}/agent-device/dist/src/index.js`);
-    } catch {}
-    if (env.HOME) {
-      candidates.push(
-        `${env.HOME}/.bun/install/global/node_modules/agent-device/dist/src/index.js`,
-      );
-    }
-    for (const candidate of candidates) {
-      if (existsSync(candidate)) {
-        return (await import(pathToFileURL(candidate).href)) as AgentDeviceModule;
-      }
-    }
-    throw error;
-  }
-};
 
 export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
   takeSnapshot: () => Promise<CaptureSnapshotResult>;
+  viewportOf: (snapshot: CaptureSnapshotResult) => Rect;
+  viewportRect: () => Promise<Rect>;
   close: () => Promise<void>;
   snapshotLabels: () => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
@@ -62,7 +49,7 @@ export type IosHarness = {
 };
 
 export const createIosHarness = async (session: string): Promise<IosHarness> => {
-  const { createAgentDeviceClient, isAgentDeviceError } = await importAgentDevice();
+  const { createAgentDeviceClient, isAgentDeviceError } = await import("agent-device");
   const client: AgentDeviceClient = createAgentDeviceClient({ session });
 
   const deviceOptions: IosDeviceOptions = providedUdid
@@ -76,6 +63,11 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
     const snapshot = await takeSnapshot();
     return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
   };
+
+  const viewportOf = (snapshot: CaptureSnapshotResult): Rect =>
+    snapshot.nodes[0]?.rect ?? FALLBACK_VIEWPORT;
+
+  const viewportRect = async (): Promise<Rect> => viewportOf(await takeSnapshot());
 
   const close = async (): Promise<void> => {
     try {
@@ -214,6 +206,8 @@ export const createIosHarness = async (session: string): Promise<IosHarness> => 
     client,
     deviceOptions,
     takeSnapshot,
+    viewportOf,
+    viewportRect,
     close,
     snapshotLabels,
     findNodeByLabel,

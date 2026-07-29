@@ -12,13 +12,8 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import (
-    PersonalDataFieldDTO,
-    PromotionMode,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -331,10 +326,25 @@ class PersonalDataFieldFormContextDTO:
 class PersonalDataFieldEditContextDTO:
     """Read aggregate for the personal-data-field edit form."""
 
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
+
+
+class OrganizerActionRefusal(StrEnum):
+    ALREADY_TAKEN = "already_taken"
+    ALREADY_YOURS = "already_yours"
+    ALREADY_FREE = "already_free"
+    NOT_ORGANIZER = "not_organizer"
+
+
+class FacilitatorActionError(Exception):
+    """Raised when a facilitator action cannot apply, with the reason why."""
+
+    def __init__(self, refusal: OrganizerActionRefusal) -> None:
+        super().__init__(refusal.value)
+        self.refusal = refusal
 
 
 class FacilitatorListFilters(TypedDict, total=False):
@@ -342,6 +352,8 @@ class FacilitatorListFilters(TypedDict, total=False):
     accreditation: str | None
     flagged: bool | None
     field_filters: dict[int, str | bool] | None
+    organizer_id: int | None
+    organizer_unassigned: bool | None
     sort: str | None
 
 
@@ -384,6 +396,11 @@ class FacilitatorListQuery:
     search: str = ""
     accreditation: str = ""
     flagged: bool = False
+    # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
+    # nobody" can never both be asked for. `current_user_id` is who "mine"
+    # means, not a filter of its own.
+    organizer: str = ""
+    current_user_id: int | None = None
     sort: str = ""
     raw_field_filters: dict[int, str] = field(default_factory=dict)
 
@@ -399,7 +416,7 @@ class FacilitatorColumnDTO:
     """
 
     key: str
-    field: PersonalDataFieldDTO | None = None
+    field: OrganizerFieldDTO | None = None
 
 
 @dataclass
@@ -407,7 +424,7 @@ class FacilitatorListContextDTO:
     """Read aggregate for the panel's facilitator list."""
 
     facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[PersonalDataFieldDTO]
+    filterable_fields: list[OrganizerFieldDTO]
     field_filters: dict[int, str | bool]
     columns: list[FacilitatorColumnDTO]
 
@@ -431,6 +448,12 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
+    ) -> None: ...
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> None: ...
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
     ) -> None: ...
     def set_accreditation(
         self,
@@ -479,10 +502,10 @@ class ProposalCategorySettingsData(BaseModel):
 
 class ProposalCategoryEditContextDTO(BaseModel):
     category: ProposalCategoryDTO
-    available_fields: list[PersonalDataFieldDTO]
+    available_fields: list[OrganizerFieldDTO]
     field_requirements: dict[int, bool]
     field_order: list[int]
-    available_session_fields: list[SessionFieldDTO]
+    available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
     available_time_slots: list[TimeSlotDTO]
@@ -529,7 +552,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         event_pk: int,
         data: SessionFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,
@@ -554,7 +577,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,

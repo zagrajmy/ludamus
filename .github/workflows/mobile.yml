@@ -17,7 +17,7 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup + 7 warm-up + 26 tests + 1.5 teardown and upload, leaving the
+    # 6.5 setup + 7 warm-up + 28 tests + 1.5 teardown and upload, leaving the
     # step timeouts to bind first.
     timeout-minutes: 46
     env:
@@ -35,10 +35,22 @@ jobs:
       AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
-      IOS_DEVICE_NAME: iPhone 16
       SESSION: ios-regressions
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the iOS spec budget
+        run: |
+          shopt -s nullglob
+          files=(scripts/ios-regressions/*.test.ts)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no iOS regression test files found"
+            exit 1
+          fi
+          if [ ${#files[@]} -gt 2 ]; then
+            echo "::error::${#files[@]} iOS specs found; the budget is sized for 2. Raise timeout-minutes on the test step and the job, and the 2 in this guard."
+            exit 1
+          fi
 
       - uses: jdx/mise-action@v2
         with:
@@ -51,9 +63,6 @@ jobs:
 
       - run: mise install
       - run: mise exec -- poetry install
-
-      - name: Install agent-device
-        run: bun install -g agent-device@0.14.7
 
       - name: Prepare iOS simulator
         run: |
@@ -75,7 +84,7 @@ jobs:
               for device in runtime_devices
               if device.get("isAvailable") and "iPhone" in device.get("name", "")
           ]
-          preferred = next((device for device in devices if device["name"] == "iPhone 16"), None)
+          preferred = next((d for d in devices if d["name"] == "iPhone 17 Pro"), None)
           selected = preferred or devices[0]
           print(selected["udid"])
           PY
@@ -113,22 +122,26 @@ jobs:
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
-        # 2 files x 2 attempts x ~370s = 24.7min worst case, so this binds only
-        # on a genuine hang.
-        timeout-minutes: 26
+        # A worst-case attempt is the 360s hook plus the 30s afterAll and bun's
+        # own start and teardown, so ~13.2min per discovered spec at two
+        # attempts each. Raise this and the job cap when adding a third.
+        timeout-minutes: 28
         env:
           # Per-attempt cap, sized so four attempts fit the step budget above.
-          # The slowest healthy hook measures 289s.
+          # The slowest healthy hook measures 316s.
           IOS_HOOK_TIMEOUT_MS: 360000
         run: |
+          shopt -s nullglob
+          files=(scripts/ios-regressions/*.test.ts)
+
           # Per file rather than per suite, so a retry re-runs only what failed.
           # Two attempts each is what fits the step budget above.
           run_file() {
             for attempt in 1 2; do
-              if bun test "scripts/ios-regressions/$1.test.ts"; then
+              if bun test "$1"; then
                 return 0
               fi
-              echo "::warning::$1 attempt ${attempt}/2 failed"
+              echo "::warning::$(basename "$1") attempt ${attempt}/2 failed"
               # Retrying into a Safari left mid-gesture wastes the second
               # attempt.
               xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
@@ -137,7 +150,7 @@ jobs:
           }
 
           status=0
-          for file in scrubber-longpress modal; do
+          for file in "${files[@]}"; do
             run_file "$file" || status=1
           done
           exit "$status"

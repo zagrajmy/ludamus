@@ -26,6 +26,7 @@ from ludamus.mills.submissions.mapping import (
     decode_response,
     dedup_ident,
     extract_identity,
+    field_answer,
     field_setup,
     generate_unique_slug,
     locate_row,
@@ -40,13 +41,12 @@ from ludamus.pacts import (
     EventStatsData,
     FacilitatorDTO,
     NotFoundError,
+    OrganizerFieldDTO,
     PanelStatsDTO,
-    PersonalDataFieldDTO,
     ProposalCategoryDTO,
     RequestContext,
     SessionStatus,
 )
-from ludamus.pacts.legacy import SessionFieldDTO
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
@@ -72,7 +72,7 @@ def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text",
         max_length=50,
         name=name,
@@ -2661,6 +2661,92 @@ class TestMappingHelpers:
 
         assert builtins.description == "Hello"
 
+    def test_answer_splits_a_multi_value_cell_into_a_list(self):
+        settings = ImportSettings(
+            questions={"Triggers": QuestionTarget(to="field.triggers")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "triggers": FieldDefinition(
+                        name="Triggers", type="select", multiple=True
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Triggers": "krew, przemoc"}),
+            header="Triggers",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["krew", "przemoc"]
+
+    def test_answer_keeps_an_option_that_contains_a_comma(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele"]
+
+    def test_answer_keeps_a_comma_bearing_option_beside_another(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele, Prelekcja"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele", "Prelekcja"]
+
+    def test_answer_keeps_a_single_value_cell_as_text(self):
+        settings = ImportSettings(
+            questions={"System": QuestionTarget(to="field.system")},
+            definitions=FieldDefinitions(
+                session_fields={"system": FieldDefinition(name="System")}
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"System": "D&D, 5e"}),
+            header="System",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == "D&D, 5e"
+
     def test_cell_reads_value_despite_trailing_space_in_recipe_key(self):
         target = QuestionTarget(to="track")
         row = ImportRow({"Block": "RPG"})
@@ -2821,7 +2907,7 @@ class TestDedupIdent:
 
 
 def _session_field_dto(pk=99):
-    return SessionFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text", name="Genre", order=pk, pk=pk, question="Q", slug="genre"
     )
 

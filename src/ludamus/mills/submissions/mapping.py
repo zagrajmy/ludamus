@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal, Never
 from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
+from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.submissions import (
     DuplicateValueError,
@@ -240,6 +241,22 @@ def cell(*, target: QuestionTarget | None, row: ImportRow, header: str) -> str:
     return target.overrides.get(raw, raw)
 
 
+def field_answer(
+    *,
+    settings: ImportSettings,
+    row: ImportRow,
+    header: str,
+    definitions: dict[str, FieldDefinition],
+) -> str | list[str]:
+    target = settings.questions.get(header)
+    raw = cell(target=target, row=row, header=header)
+    slug = (target.to or "").split(".", 1)[-1] if target else ""
+    definition = definitions.get(slug)
+    if definition is None or not definition.multiple:
+        return raw
+    return split_imported_answers(raw, definition.options)
+
+
 def session_field_values(
     *,
     field_ids: dict[str, int],
@@ -251,7 +268,12 @@ def session_field_values(
         SessionFieldValueData(
             session_id=session_id,
             field_id=field_id,
-            value=cell(target=settings.questions.get(header), row=row, header=header),
+            value=field_answer(
+                settings=settings,
+                row=row,
+                header=header,
+                definitions=settings.definitions.session_fields,
+            ),
         )
         for header, field_id in field_ids.items()
     ]
@@ -270,7 +292,12 @@ def build_personal_data_field_values(
             facilitator_id=facilitator_id,
             event_id=event_id,
             field_id=field_id,
-            value=cell(target=settings.questions.get(header), row=row, header=header),
+            value=field_answer(
+                settings=settings,
+                row=row,
+                header=header,
+                definitions=settings.definitions.personal_fields,
+            ),
         )
         for header, field_id in field_ids.items()
     ]

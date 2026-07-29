@@ -20,6 +20,8 @@ const {
   deviceOptions,
   takeSnapshot,
   snapshotLabels,
+  viewportOf,
+  viewportRect,
   close,
   wait,
   openUrl,
@@ -27,17 +29,10 @@ const {
   assertPageReady,
 } = await createIosHarness(session);
 
-type Rect = { x: number; y: number; width: number; height: number };
-
-const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
-
-const viewportRect = async (): Promise<Rect> =>
-  (await takeSnapshot()).nodes[0]?.rect ?? FALLBACK_VIEWPORT;
-
 const scrollScheduleIntoView = async (): Promise<void> => {
   for (let attempt = 0; attempt < 14; attempt += 1) {
     const snapshot = await takeSnapshot();
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? FALLBACK_VIEWPORT.height;
+    const viewportHeight = viewportOf(snapshot).height;
     const sessionOnScreen = snapshot.nodes.some(
       (node) =>
         (node.label ?? "").startsWith("Open details for") &&

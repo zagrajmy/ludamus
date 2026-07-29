@@ -3,10 +3,12 @@
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.submissions import (
+    FacilitatorActionError,
     FacilitatorColumnDTO,
     FacilitatorColumnsContextDTO,
     FacilitatorListContextDTO,
     FacilitatorPanelServiceProtocol,
+    OrganizerActionRefusal,
 )
 
 if TYPE_CHECKING:
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
         ContentFieldChange,
         FacilitatorChangeLogData,
         FacilitatorUpdateData,
-        PersonalDataFieldDTO,
+        OrganizerFieldDTO,
     )
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import (
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
     )
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
-_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation")
+_BUILTIN_COLUMN_KEYS = ("name", "linked", "sessions", "accreditation", "organizer")
 # What an event shows until an organizer chooses otherwise — the columns the
 # list hardcoded before they became configurable.
 _DEFAULT_COLUMN_KEYS = _BUILTIN_COLUMN_KEYS
@@ -32,7 +34,7 @@ _FIELD_KEY_PREFIX = "field_"
 
 
 def _resolve_field_filters(
-    *, filterable_fields: list[PersonalDataFieldDTO], raw: dict[int, str]
+    *, filterable_fields: list[OrganizerFieldDTO], raw: dict[int, str]
 ) -> dict[int, str | bool]:
     # Only fields of this event, only filterable types: a tampered `field_<pk>`
     # naming a foreign or free-text field is dropped, not queried.
@@ -49,15 +51,15 @@ def _resolve_field_filters(
     return resolved
 
 
-def _column_order(field: PersonalDataFieldDTO) -> tuple[int, str]:
+def _column_order(field: OrganizerFieldDTO) -> tuple[int, str]:
     return (field.order, field.name)
 
 
-def _field_key(field: PersonalDataFieldDTO) -> str:
+def _field_key(field: OrganizerFieldDTO) -> str:
     return f"{_FIELD_KEY_PREFIX}{field.pk}"
 
 
-def _all_columns(fields: list[PersonalDataFieldDTO]) -> list[FacilitatorColumnDTO]:
+def _all_columns(fields: list[OrganizerFieldDTO]) -> list[FacilitatorColumnDTO]:
     return [
         *(FacilitatorColumnDTO(key=key) for key in _BUILTIN_COLUMN_KEYS),
         *(
@@ -68,7 +70,7 @@ def _all_columns(fields: list[PersonalDataFieldDTO]) -> list[FacilitatorColumnDT
 
 
 def _resolve_columns(
-    *, keys: list[str], fields: list[PersonalDataFieldDTO]
+    *, keys: list[str], fields: list[OrganizerFieldDTO]
 ) -> list[FacilitatorColumnDTO]:
     # Keys naming a field that has since been deleted (or never belonged to
     # this event) resolve to nothing: the column drops, the list still renders.
@@ -116,6 +118,10 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             "accreditation": query.accreditation or None,
             "flagged": query.flagged or None,
             "field_filters": field_filters or None,
+            "organizer_id": (
+                query.current_user_id if query.organizer == "mine" else None
+            ),
+            "organizer_unassigned": query.organizer == "unassigned" or None,
             "sort": query.sort or None,
         }
         settings = self._panel_settings.read_or_create(event_id)
@@ -164,6 +170,37 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             if key in valid_keys and key not in chosen:
                 chosen.append(key)
         self._panel_settings.update_facilitator_columns(event_id, chosen)
+
+    def assign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int
+    ) -> None:
+        facilitator = self._facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        if self._facilitators.claim(facilitator.pk, organizer_id):
+            return
+        # The conditional update refuses either way; the row we read says which
+        # of the two it was, so the organizer gets the real reason.
+        raise FacilitatorActionError(
+            OrganizerActionRefusal.ALREADY_YOURS
+            if facilitator.organizer_id == organizer_id
+            else OrganizerActionRefusal.ALREADY_TAKEN
+        )
+
+    def unassign_organizer(
+        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
+    ) -> None:
+        # Only the organizer holding it can let go — `force` is the superuser
+        # escape, so a departed organizer never locks a facilitator forever.
+        facilitator = self._facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        if facilitator.organizer_id is None:
+            raise FacilitatorActionError(OrganizerActionRefusal.ALREADY_FREE)
+        if not self._facilitators.release(
+            facilitator.pk, organizer_id=None if force else organizer_id
+        ):
+            raise FacilitatorActionError(OrganizerActionRefusal.NOT_ORGANIZER)
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._facilitators.read_by_event_and_slug(
