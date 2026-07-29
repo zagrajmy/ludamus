@@ -76,6 +76,40 @@ test.describe("Timetable", () => {
     expect(Math.abs(rightEdges.gridRight - rightEdges.calendarRight)).toBeLessThanOrEqual(2);
   });
 
+  test("calendar is a capped scroller that never contains vertical scroll", async ({ page }) => {
+    // Narrow enough that the calendar overflows horizontally — the shape in
+    // which overscroll-y containment used to trap wheel input over the grid.
+    await page.setViewportSize({ width: 1100, height: 700 });
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const calendar = page.locator(".timetable-calendar");
+    await expect(calendar).toBeVisible();
+
+    // The shipped contract: the calendar caps itself to the viewport (so a
+    // 24h-scale grid scrolls internally under its sticky header) and never
+    // contains vertical overscroll (so the page scrolls when it cannot).
+    const contract = await calendar.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { maxHeight: style.maxHeight, overscrollY: style.overscrollBehaviorY };
+    });
+    expect(contract.overscrollY).toBe("auto");
+    expect(contract.maxHeight).not.toBe("none");
+    expect(Number.parseFloat(contract.maxHeight)).toBeLessThanOrEqual(700);
+
+    // And wheel input over the grid must reach something scrollable.
+    await calendar.hover({ position: { x: 100, y: 50 } });
+    await page.mouse.wheel(0, 600);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const app = document.getElementById("app-scroll");
+          const cal = document.querySelector(".timetable-calendar");
+          return (app?.scrollTop ?? 0) + (cal?.scrollTop ?? 0);
+        }),
+      )
+      .toBeGreaterThan(0);
+  });
+
   test("all days stay side-by-side and assign into the selected day", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
 

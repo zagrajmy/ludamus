@@ -1,0 +1,11 @@
+{% load i18n tessera %}
+{# Label innards for one organizer-defined field: icon, question, required marker, #}
+{# visibility badge. Shared by the <label>, the <legend> and the checkbox's <span>. #}
+{% if icon_name %}
+    {% icon icon_name class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+{% endif %}
+{{ label }}
+{% if is_required %}
+    <span class="text-danger" aria-hidden="true">*</span><span class="sr-only">({% translate "required" %})</span>
+{% endif %}
+{% include "components/visibility-icon.html" with is_public=is_public only %}

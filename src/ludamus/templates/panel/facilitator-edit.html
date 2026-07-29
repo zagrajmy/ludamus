@@ -36,16 +36,29 @@
                             {% translate "Cached name from the submission wizard — edit the proposal's display name to change the byline." %}
                         </p>
                     </div>
+                    <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Organizer" %}</dt>
+                        <dd class="text-foreground">
+                            {% if facilitator.organizer_name %}
+                                {{ facilitator.organizer_name }}
+                            {% else %}
+                                <span class="text-foreground-muted">—</span>
+                            {% endif %}
+                        </dd>
+                        <p class="mt-1 text-xs text-foreground-muted">
+                            {% translate "The organizer handling this facilitator. Take them on from the facilitator list." %}
+                        </p>
+                    </div>
                     {% tessera_field form.accreditation_type %}
                     {% tessera_field form.internal_comment %}
                 </div>
             </div>
         </div>
-        {% if personal_fields %}
+        {% if field_descriptors %}
             <div class="card mb-6">
                 <div class="card-body">
                     <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
-                    {% include "panel/_personal_data_fields.html" with fields=personal_fields name_prefix="personal" %}
+                    {% include "panel/_personal_data_fields.html" with descriptors=field_descriptors %}
                 </div>
             </div>
         {% endif %}

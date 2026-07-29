@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal, Never
 from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
-from ludamus.mills.field_values import split_answers
+from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
 from ludamus.pacts.submissions import (
     DuplicateValueError,
@@ -254,7 +254,7 @@ def field_answer(
     definition = definitions.get(slug)
     if definition is None or not definition.multiple:
         return raw
-    return split_answers(raw, definition.options)
+    return split_imported_answers(raw, definition.options)
 
 
 def session_field_values(

@@ -1,13 +1,16 @@
 {# Radio button or checkbox group. #}
 {# Variables: input_type ("radio"|"checkbox"), name, options (list of (value, label, checked, id)) #}
-<div class="mt-2 space-y-2">
+{# Optional: has_errors (red border + aria-invalid on the group), aria_describedby #}
+<div class="mt-2 space-y-2"
+     {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+     {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
     {% for value, label, checked, input_id in options %}
         <label class="flex items-center cursor-pointer">
             <input type="{{ input_type }}"
                    id="{{ input_id }}"
                    name="{{ name }}"
                    value="{{ value }}"
-                   class="w-4 h-4 rounded border border-border accent-primary focus:ring-1 focus:ring-offset-0"
+                   class="w-4 h-4 rounded border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} accent-primary focus:ring-1 focus:ring-offset-0"
                    {% if checked %}checked{% endif %}>
             <span class="ml-2 text-sm text-foreground">{{ label }}</span>
         </label>
