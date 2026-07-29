@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-28 19:18+0200\n"
+"POT-Creation-Date: 2026-07-29 00:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3126,10 +3126,12 @@ msgid "Page Not Found"
 msgstr "Strona nie została znaleziona."
 
 #: src/ludamus/templates/404_dynamic.html
+#: src/ludamus/templates/500_dynamic.html
 msgid "Go Back"
 msgstr "Wróć"
 
 #: src/ludamus/templates/404_dynamic.html
+#: src/ludamus/templates/500_dynamic.html
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
 
@@ -8495,6 +8497,7 @@ msgstr "Brak przechwyconych e-maili."
 #, python-format
 #~ msgid "Release %(name)s"
 #~ msgstr "Zwolnij twórcę %(name)s"
+
 #, python-format
 #~ msgid ""
 #~ "Programme and sign-ups for %(sphere)s. Every item shows its time, room "
