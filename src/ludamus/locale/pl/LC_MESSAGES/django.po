@@ -3123,10 +3123,12 @@ msgid "Page Not Found"
 msgstr "Strona nie została znaleziona."
 
 #: src/ludamus/templates/404_dynamic.html
+#: src/ludamus/templates/500_dynamic.html
 msgid "Go Back"
 msgstr "Wróć"
 
 #: src/ludamus/templates/404_dynamic.html
+#: src/ludamus/templates/500_dynamic.html
 msgid "Go to Home"
 msgstr "Przejdź do strony głównej"
 
