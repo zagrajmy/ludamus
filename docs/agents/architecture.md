@@ -110,7 +110,7 @@ class CFPPersonalDataFieldService:
         self._fields = fields
         self._categories = categories
 
-    def create(self, event_pk: int, data, requirements) -> PersonalDataFieldDTO:
+    def create(self, event_pk: int, data, requirements) -> OrganizerFieldDTO:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
             if requirements:

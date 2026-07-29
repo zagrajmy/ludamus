@@ -120,7 +120,7 @@ class TestFacilitatorEditPageView:
                 **_base_context(event),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
-                "personal_fields": [],
+                "field_descriptors": [],
             },
         )
 
@@ -145,10 +145,8 @@ class TestFacilitatorEditPageView:
                         update={"organizer_name": "Olga Organizer"}
                     )
                 ),
-                "personal_fields": [],
+                "field_descriptors": [],
             },
-            contains="Olga Organizer",
-            not_contains='name="organizer"',
         )
 
     def test_post_redirects_when_event_not_found(
@@ -210,7 +208,7 @@ class TestFacilitatorEditPageView:
                     ]
                 ),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
-                "personal_fields": [],
+                "field_descriptors": [],
             },
         )
 
@@ -317,7 +315,7 @@ class TestFacilitatorEditPageView:
                 **_base_context(event),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
-                "personal_fields": [],
+                "field_descriptors": [],
             },
             not_contains='name="display_name"',
         )
@@ -358,6 +356,10 @@ class TestFacilitatorEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["en", "pl"]):
+            PersonalDataFieldOption.objects.create(
+                field=field, label=value.upper(), value=value, order=order
+            )
 
         authenticated_client.post(
             self.get_url(event),

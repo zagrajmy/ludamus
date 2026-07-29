@@ -7,6 +7,7 @@
        name="{{ name }}"
        {% if value|default:"" %}value="{{ value }}"{% endif %}
        {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}
+       {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
        {% if checked|default:False or value in checked_values %}checked{% endif %}
        {% if disabled|default:False %}disabled{% endif %}
        {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}

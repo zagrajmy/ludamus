@@ -18,10 +18,9 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import (
     EventDTO,
-    PersonalDataFieldDTO,
+    OrganizerFieldDTO,
     PromotionMode,
     ProposalCategoryDTO,
-    SessionFieldDTO,
     TimeSlotDTO,
 )
 from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
@@ -576,7 +575,7 @@ class TestProposalCategorySettingsPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -585,7 +584,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -650,7 +649,7 @@ class TestProposalCategorySettingsPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -659,7 +658,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -715,7 +714,7 @@ class TestProposalCategorySettingsPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1178,7 +1177,7 @@ class TestProposalCategorySettingsPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1187,7 +1186,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1255,7 +1254,7 @@ class TestProposalCategorySettingsPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1264,7 +1263,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1323,7 +1322,7 @@ class TestProposalCategorySettingsPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1533,7 +1532,7 @@ class TestProposalCategorySettingsPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -1542,7 +1541,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1609,7 +1608,7 @@ class TestProposalCategorySettingsPageView:
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1618,7 +1617,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -1772,7 +1771,7 @@ class TestProposalCategorySettingsPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1781,7 +1780,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1853,7 +1852,7 @@ class TestProposalCategorySettingsPageView:
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1862,7 +1861,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",

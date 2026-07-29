@@ -12,13 +12,8 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import (
-    PersonalDataFieldDTO,
-    PromotionMode,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -331,7 +326,7 @@ class PersonalDataFieldFormContextDTO:
 class PersonalDataFieldEditContextDTO:
     """Read aggregate for the personal-data-field edit form."""
 
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
@@ -421,7 +416,7 @@ class FacilitatorColumnDTO:
     """
 
     key: str
-    field: PersonalDataFieldDTO | None = None
+    field: OrganizerFieldDTO | None = None
 
 
 @dataclass
@@ -429,7 +424,7 @@ class FacilitatorListContextDTO:
     """Read aggregate for the panel's facilitator list."""
 
     facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[PersonalDataFieldDTO]
+    filterable_fields: list[OrganizerFieldDTO]
     field_filters: dict[int, str | bool]
     columns: list[FacilitatorColumnDTO]
 
@@ -507,10 +502,10 @@ class ProposalCategorySettingsData(BaseModel):
 
 class ProposalCategoryEditContextDTO(BaseModel):
     category: ProposalCategoryDTO
-    available_fields: list[PersonalDataFieldDTO]
+    available_fields: list[OrganizerFieldDTO]
     field_requirements: dict[int, bool]
     field_order: list[int]
-    available_session_fields: list[SessionFieldDTO]
+    available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
     available_time_slots: list[TimeSlotDTO]
@@ -557,7 +552,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         event_pk: int,
         data: SessionFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,
@@ -582,7 +577,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,

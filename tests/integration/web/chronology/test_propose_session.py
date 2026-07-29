@@ -404,7 +404,10 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
         assert len(response.context["field_descriptors"]) == 1
-        assert response.context["field_descriptors"][0]["name"] == "What is your phone?"
+        assert (
+            response.context["field_descriptors"][0]["field"].question
+            == "What is your phone?"
+        )
 
     def test_post_category_shows_personal_step_even_without_fields(
         self, authenticated_client, event, faker, time_zone
@@ -872,7 +875,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert len(response.context["field_descriptors"]) == 1
         assert (
-            response.context["field_descriptors"][0]["name"]
+            response.context["field_descriptors"][0]["field"].question
             == "What RPG system will you use?"
         )
 
@@ -1396,7 +1399,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert "custom_bound_field" in descriptors[0]
+        assert descriptors[0]["field"].allow_custom is True
 
     def test_post_session_field_with_allow_custom(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1423,7 +1426,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert "custom_bound_field" in descriptors[0]
+        assert descriptors[0]["field"].allow_custom is True
 
     def test_submit_without_title_redirects(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1724,7 +1727,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert descriptors[0]["is_multiple"] is True
+        assert descriptors[0]["field"].is_multiple is True
 
     def test_post_personal_multi_value_write_in_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1753,8 +1756,8 @@ class TestProposeSessionPageView:
         )
 
         descriptor = response.context["field_descriptors"][0]
-        assert descriptor["custom_bound_field"] is not None
-        assert descriptor["offers_custom"] is True
+        assert descriptor["field"].allow_custom is True
+        assert descriptor["field"].field_type == "select"
 
     def test_post_session_multiple_select_field(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1784,7 +1787,7 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         descriptors = response.context["field_descriptors"]
         assert len(descriptors) == 1
-        assert descriptors[0]["is_multiple"] is True
+        assert descriptors[0]["field"].is_multiple is True
 
     def _multi_custom_field(self, event, proposal_category, *, is_required=False):
         field = SessionField.objects.create(
@@ -1841,9 +1844,9 @@ class TestProposeSessionPageView:
         descriptor = next(
             desc
             for desc in response.context["field_descriptors"]
-            if desc["slug"] == "triggers"
+            if desc["field"].slug == "triggers"
         )
-        assert descriptor["offers_custom"] is True
+        assert descriptor["field"].allow_custom is True
 
         authenticated_client.post(
             self._get_details_url(event.slug),
@@ -1880,6 +1883,39 @@ class TestProposeSessionPageView:
 
         form = response.context["form"]
         assert form.errors["session_triggers"] == ["Pick an option or type your own."]
+        assert (
+            "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
+        )
+
+    def test_details_reports_a_write_in_that_is_too_long(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = self._multi_custom_field(event, proposal_category)
+        field.max_length = 10
+        field.save()
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "session_triggers_custom": "a" * 11,
+            },
+        )
+
+        descriptor = next(
+            desc
+            for desc in response.context["field_descriptors"]
+            if desc["field"].slug == "triggers"
+        )
+        assert descriptor["answer"].errors == []
+        assert descriptor["answer"].custom_errors == [
+            "Ensure this value has at most 10 characters (it has 11)."
+        ]
         assert (
             "session_data" not in authenticated_client.session[f"propose_{event.slug}"]
         )

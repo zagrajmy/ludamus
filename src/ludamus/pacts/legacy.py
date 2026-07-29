@@ -12,6 +12,8 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.fields import OrganizerFieldDTO
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
@@ -453,7 +455,7 @@ class SphereUpdateData(TypedDict, total=False):
 class SessionSelfEditContext:
     session: SessionDTO
     event: EventDTO
-    session_fields: list[tuple[SessionFieldDTO, str | list[str] | bool | None]]
+    session_fields: list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
     facilitators: list[FacilitatorDTO]
 
 
@@ -596,67 +598,6 @@ class CategoryStats(TypedDict):
     accepted_count: int
 
 
-class PersonalDataFieldOptionDTO(BaseModel):
-    """An option for a select-type personal data field."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    label: str
-    order: int
-    pk: int
-    value: str
-
-
-class PersonalDataFieldDTO(BaseModel):
-    """Personal data field definition for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    allow_custom: bool = False
-    field_type: Literal["text", "select", "checkbox"]
-    help_text: str = ""
-    is_multiple: bool = False
-    is_public: bool = False
-    max_length: int = 50
-    name: str
-    options: list[PersonalDataFieldOptionDTO] = []
-    order: int
-    pk: int
-    question: str
-    slug: str
-
-
-class SessionFieldOptionDTO(BaseModel):
-    """An option for a select-type session field."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    label: str
-    order: int
-    pk: int
-    value: str
-
-
-class SessionFieldDTO(BaseModel):
-    """Session field definition for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    allow_custom: bool = False
-    field_type: Literal["text", "select", "checkbox"]
-    help_text: str = ""
-    icon: str = ""
-    is_multiple: bool = False
-    is_public: bool = False
-    max_length: int = 50
-    name: str
-    options: list[SessionFieldOptionDTO] = []
-    order: int
-    pk: int
-    question: str
-    slug: str
-
-
 class EventProposalSettingsDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -697,20 +638,20 @@ class EventUpdateData(TypedDict, total=False):
 class FieldUsageSummary:
     """A field DTO bundled with its usage counts across categories."""
 
-    field: PersonalDataFieldDTO | SessionFieldDTO
+    field: OrganizerFieldDTO
     required_count: int
     optional_count: int
 
 
 class PersonalFieldRequirementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     is_required: bool
 
 
 class SessionFieldRequirementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    field: SessionFieldDTO
+    field: OrganizerFieldDTO
     is_required: bool
 
 
@@ -1132,7 +1073,7 @@ class SessionFieldUpdateData(TypedDict):
 class PersonalDataFieldRepositoryProtocol(Protocol):
     def create(
         self, event_id: int, data: PersonalDataFieldCreateData
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1141,17 +1082,17 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
-    def list_by_event(self, event_id: int) -> list[PersonalDataFieldDTO]: ...
-    def read_by_slug(self, event_id: int, slug: str) -> PersonalDataFieldDTO: ...
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(
         self, pk: int, data: PersonalDataFieldUpdateData
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
 
 
 class SessionFieldRepositoryProtocol(Protocol):
     def create(
         self, event_id: int, data: SessionFieldCreateData
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1160,9 +1101,9 @@ class SessionFieldRepositoryProtocol(Protocol):
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
-    def list_by_event(self, event_id: int) -> list[SessionFieldDTO]: ...
-    def read_by_slug(self, event_id: int, slug: str) -> SessionFieldDTO: ...
-    def update(self, pk: int, data: SessionFieldUpdateData) -> SessionFieldDTO: ...
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
 
 
 class TimeSlotRepositoryProtocol(Protocol):
