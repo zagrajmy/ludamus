@@ -27,7 +27,7 @@
     </head>
     <body class="min-h-screen font-sans antialiased flex items-center justify-center bg-background text-foreground">
         <div class="max-w-screen-sm xl:min-w-[600px] mx-auto px-4">
-            {% include "components/status_hero.html" with icon="exclamation-triangle" icon_class="w-8 h-8 text-danger" error_code=error_code heading=title lead=message only %}
+            {% include "components/status_hero.html" with icon="exclamation-triangle" icon_color="text-danger" error_code=error_code heading=title lead=message only %}
             <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
             <p class="mb-2 text-foreground">{{ guidance }}</p>
             <p class="mb-6 text-sm text-foreground-muted">

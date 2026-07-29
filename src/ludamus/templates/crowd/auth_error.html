@@ -11,7 +11,7 @@
         <div class="max-w-md mx-auto px-4">
             {% translate "Login failed" as heading %}
             {% translate "Something interrupted the login. This can happen after going back to an old login page, waiting too long, or when your browser blocks cookies. Trying again usually helps." as lead %}
-            {% include "components/status_hero.html" with icon="exclamation-triangle" icon_class="w-8 h-8 text-primary" error_code="" heading=heading lead=lead only %}
+            {% include "components/status_hero.html" with icon="exclamation-triangle" icon_color="text-primary" error_code="" heading=heading lead=lead only %}
             <div class="flex flex-col sm:flex-row items-start gap-3">
                 {% url 'web:index' as home_url %}
                 {% translate "Log in again" as login_again %}

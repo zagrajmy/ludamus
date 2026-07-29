@@ -8,7 +8,7 @@ pages add below. Action buttons stay at the call site — they differ
 structurally per page.{% endcomment %}
 <div class="mb-6{% if error_code %} flex items-center gap-4{% endif %}">
     <div class="w-16 h-16 rounded-2xl flex items-center justify-center bg-white dark:bg-neutral-900">
-        {% icon icon class=icon_class %}
+        {% icon icon class="w-8 h-8 "|add:icon_color %}
     </div>
     {% if error_code %}
         <span class="text-6xl font-bold text-foreground-muted">{{ error_code }}</span>
