@@ -1,11 +1,8 @@
-"""Performance tests for timetable views — bounded query counts at scale.
-
-The bounds are deliberately close to the real counts. Conflict detection and
-preferred-slot attribution both used to run one query per scheduled item, and
-the overview's block progress one per track; at this fixture's size that lands
-in the hundreds. A limit generous enough to absorb it hides the regression it
-exists to catch.
-"""
+# The bounds below are deliberately close to the real counts. Conflict
+# detection and preferred-slot attribution both used to run one query per
+# scheduled item, and the overview's block progress one per track; at this
+# fixture's size that lands in the hundreds. A limit generous enough to absorb
+# it hides the regression it exists to catch.
 
 from http import HTTPStatus
 
@@ -24,6 +21,8 @@ _OVERVIEW_QUERY_LIMIT = 40
 def _query_count(client, url):
     with CaptureQueriesContext(connection) as ctx:
         response = client.get(url)
+    # Status only -- these tests make no claim about the rendered context, so
+    # assert_response would force a context_data=ANY that asserts nothing.
     assert response.status_code == HTTPStatus.OK, response.status_code
     return len(ctx.captured_queries)
 
@@ -79,7 +78,7 @@ class TestTimetableQueryBounds:
     def test_overview_bounded_queries(
         self, authenticated_client, active_user, sphere, timetable_scale_data
     ):
-        """Overview page should not double-run conflict detection."""
+        # The overview must not double-run conflict detection.
         event = timetable_scale_data["event"]
         sphere.managers.add(active_user)
 

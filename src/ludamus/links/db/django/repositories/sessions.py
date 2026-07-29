@@ -607,8 +607,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
     def read_facilitators_by_sessions(
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:
-        if not (ids := list(session_ids)):
-            return {}
+        ids = list(session_ids)
         rows = (
             Session.facilitators.through.objects.filter(session_id__in=ids)
             .select_related("facilitator")
@@ -623,10 +622,10 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
 
     @staticmethod
     def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
-        if not (ids := list(session_ids)):
-            return {}
         return dict(
-            Session.objects.filter(pk__in=ids).values_list("pk", "participants_limit")
+            Session.objects.filter(pk__in=session_ids).values_list(
+                "pk", "participants_limit"
+            )
         )
 
     @staticmethod

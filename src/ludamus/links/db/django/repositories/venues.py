@@ -489,8 +489,7 @@ class TrackRepository(TrackRepositoryProtocol):
 
     @staticmethod
     def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]:
-        if not (pks := list(session_pks)):
-            return {}
+        pks = list(session_pks)
         sessions = Session.objects.filter(pk__in=pks).prefetch_related(
             Prefetch("tracks", queryset=Track.objects.order_by("name"))
         )
@@ -504,10 +503,8 @@ class TrackRepository(TrackRepositoryProtocol):
     @staticmethod
     def list_track_pks_by_sessions(session_pks: Iterable[int]) -> dict[int, list[int]]:
         # Membership only -- no model hydration, unlike list_by_sessions.
-        if not (pks := list(session_pks)):
-            return {}
         result: dict[int, list[int]] = defaultdict(list)
-        rows = Track.objects.filter(sessions__pk__in=pks).values_list(
+        rows = Track.objects.filter(sessions__pk__in=session_pks).values_list(
             "sessions__pk", "pk"
         )
         for session_pk, track_pk in rows:
@@ -516,8 +513,7 @@ class TrackRepository(TrackRepositoryProtocol):
 
     @staticmethod
     def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:
-        if not (pks := list(track_pks)):
-            return {}
+        pks = list(track_pks)
         rows = (
             Track.managers.through.objects.filter(track_id__in=pks)
             .select_related("user")

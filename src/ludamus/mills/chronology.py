@@ -439,7 +439,9 @@ class ConflictDetectionService:
         if not scheduled:
             return []
 
-        index = self._build_conflict_index(event_pk, scheduled, track_pk=track_pk)
+        index = self._build_conflict_index(
+            event_pk=event_pk, scheduled=scheduled, track_pk=track_pk
+        )
 
         all_conflicts: list[ConflictDTO] = []
         seen: set[tuple[int, int]] = set()
@@ -466,7 +468,7 @@ class ConflictDetectionService:
         ]
 
     def _build_conflict_index(
-        self, event_pk: int, scheduled: list[AgendaItemDTO], *, track_pk: int | None
+        self, *, event_pk: int, scheduled: list[AgendaItemDTO], track_pk: int | None
     ) -> _ConflictIndex:
         # A track-filtered view still has to see clashes with items outside the
         # track, so overlap candidates are always the whole event.
@@ -753,7 +755,7 @@ class TimetableOverviewService:
         )
         return [
             self._track_progress(
-                track,
+                track=track,
                 sessions=sessions_by_track.get(track.pk, []),
                 manager_names=manager_names.get(track.pk, []),
             )
@@ -762,7 +764,7 @@ class TimetableOverviewService:
 
     @staticmethod
     def _track_progress(
-        track: TrackDTO, *, sessions: list[SessionListItemDTO], manager_names: list[str]
+        *, track: TrackDTO, sessions: list[SessionListItemDTO], manager_names: list[str]
     ) -> TrackProgressDTO:
         accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
         accepted_count = len(accepted)
