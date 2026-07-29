@@ -230,3 +230,7 @@ If you fix a papercut, remove it.
   shell quotes around each arg, so the URL becomes
   <http://localhost:8000'/event/>...'. Worked around by calling aubx agent-browser
   directly.
+- 2026-07-29: rebuilt the vite client while test:e2e:serve was running —
+  django_vite's cached manifest kept serving deleted hashed JS, pages silently
+  lost their scripts until a manual server restart. Fixed test:e2e:serve to
+  watch manifest.json and bounce itself.
