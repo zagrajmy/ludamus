@@ -49,7 +49,7 @@ export type IosHarness = {
   assertPageReady: (url: URL, contains: string) => Promise<void>;
 };
 
-export const createIosHarness = async (session: string): Promise<IosHarness> => {
+export const createIosHarness = (session: string): IosHarness => {
   const client: AgentDeviceClient = createAgentDeviceClient({ session });
 
   const deviceOptions: IosDeviceOptions = providedUdid
