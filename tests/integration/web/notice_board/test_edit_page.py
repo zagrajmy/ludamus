@@ -43,6 +43,24 @@ class TestEncounterEditPageView:
 
         assert_response_404(response)
 
+    def test_not_creator_post_has_no_side_effects(
+        self, authenticated_client, encounter
+    ):
+        before = EncounterDTO.model_validate(encounter)
+
+        response = authenticated_client.post(
+            self._url(encounter.pk),
+            {
+                "title": "Updated Title",
+                "start_time": "2026-06-01T14:00",
+                "max_participants": 5,
+            },
+        )
+
+        assert_response_404(response)
+        encounter.refresh_from_db()
+        assert EncounterDTO.model_validate(encounter) == before
+
     def test_ok_post(self, authenticated_client, user, sphere):
         encounter = EncounterFactory(creator=user, sphere=sphere)
 
