@@ -11,6 +11,7 @@ from ludamus.pacts import EventDTO, FacilitatorListItemDTO
 from ludamus.pacts.submissions import AccreditationType, FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -45,18 +46,7 @@ def _column_values(facilitators):
 
 def _base_context(event):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
+        **panel_context(event, active_nav="facilitators"),
         "active_tab": "merge",
         "columns": _DEFAULT_COLUMNS,
         "tab_urls": {

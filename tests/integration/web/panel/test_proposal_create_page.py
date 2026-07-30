@@ -25,6 +25,7 @@ from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO, TrackDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 CATEGORY_B_MAX_PARTICIPANTS = 9
@@ -61,18 +62,7 @@ def _facilitator_dto(facilitator, *, session_count=0):
 
 def _base_context(event):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "proposals",
+        **panel_context(event, active_nav="proposals"),
         "cancel_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
         "proposal": None,
         "all_facilitators": [],

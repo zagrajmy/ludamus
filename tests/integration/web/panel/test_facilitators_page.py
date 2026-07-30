@@ -15,10 +15,11 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, OrganizerFieldDTO
+from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
 from ludamus.pacts.submissions import FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -38,18 +39,7 @@ def _tab_urls(event):
 
 def _event_context(event, active_tab="list"):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
+        **panel_context(event, active_nav="facilitators"),
         "active_tab": active_tab,
         "tab_urls": _tab_urls(event),
     }

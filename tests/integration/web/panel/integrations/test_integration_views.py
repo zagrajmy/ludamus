@@ -13,7 +13,6 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
-from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -21,19 +20,12 @@ from ludamus.pacts.chronology import (
 )
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 CONFIG = {"sheet_id": "sheet-1", "form_id": "form-1"}
 CONFIG_JSON = json.dumps(CONFIG)
-EMPTY_STATS = {
-    "hosts_count": 0,
-    "pending_proposals": 0,
-    "rooms_count": 0,
-    "scheduled_sessions": 0,
-    "total_proposals": 0,
-    "total_sessions": 0,
-}
 
 
 def _settings_url(event) -> str:
@@ -62,16 +54,6 @@ def _check_url(event) -> str:
 
 def _missing_url(name: str, **kwargs) -> str:
     return reverse(name, kwargs={"slug": "missing", **kwargs})
-
-
-def _event_context(event) -> dict[str, object]:
-    # The shared `get_event_context` slice every panel page carries.
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": EMPTY_STATS,
-    }
 
 
 def _make_integration(event, connection, *, display_name: str) -> EventIntegration:
@@ -147,7 +129,7 @@ class TestEventIntegrationSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/integration-settings.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "settings",
                 "active_tab": "integrations",
@@ -168,7 +150,7 @@ class TestEventIntegrationSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/integration-settings.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "settings",
                 "active_tab": "integrations",
@@ -208,8 +190,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
 
     def test_get_redirects_on_unknown_event(
@@ -289,8 +270,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert not EventIntegration.objects.filter(
             event=event, display_name="No check"
@@ -316,8 +296,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "config_json" in response.context["form"].errors
 
@@ -341,8 +320,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "config_json" in response.context["form"].errors
 
@@ -367,8 +345,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         form = response.context["form"]
         assert "config_json" in form.errors
@@ -396,8 +373,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "display_name" in response.context["form"].errors
 
@@ -421,8 +397,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "implementation" in response.context["form"].errors
 
@@ -446,8 +421,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "connection" in response.context["form"].errors
 
@@ -473,8 +447,7 @@ class TestIntegrationCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/create.html",
-            context_data=_event_context(event)
-            | {"active_nav": "settings", "form": ANY},
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
         assert "display_name" in response.context["form"].errors
 
@@ -493,7 +466,7 @@ class TestIntegrationEditPageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/edit.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {"active_nav": "settings", "form": ANY, "integration": _dto(integration)},
         )
 
@@ -611,7 +584,7 @@ class TestIntegrationEditPageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/edit.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {"active_nav": "settings", "form": ANY, "integration": _dto(integration)},
         )
         assert "display_name" in response.context["form"].errors
@@ -647,7 +620,7 @@ class TestIntegrationDeletePageView:
             response,
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/delete.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {"active_nav": "settings", "integration": _dto(integration)},
         )
 

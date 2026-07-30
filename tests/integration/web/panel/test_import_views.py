@@ -34,7 +34,6 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -48,18 +47,11 @@ from ludamus.pacts.submissions import (
 )
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 CONFIG_JSON = json.dumps({"sheet_id": "sheet-1", "form_id": "form-1"})
-EMPTY_STATS = {
-    "hosts_count": 0,
-    "pending_proposals": 0,
-    "rooms_count": 0,
-    "scheduled_sessions": 0,
-    "total_proposals": 0,
-    "total_sessions": 0,
-}
 
 
 def _import_url(event) -> str:
@@ -124,15 +116,6 @@ def _json_url(event, integration) -> str:
     return reverse(
         "panel:import-json", kwargs={"slug": event.slug, "pk": integration.pk}
     )
-
-
-def _event_context(event) -> dict[str, object]:
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": EMPTY_STATS,
-    }
 
 
 def _make_import_integration(event, connection, *, display_name: str):
@@ -211,7 +194,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {"active_nav": "import", "active_integration": None},
         )
 
@@ -236,7 +219,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -275,7 +258,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -853,7 +836,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-review.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {"active_nav": "import", "active_integration": None},
             contains="No import integrations yet.",
         )
@@ -879,7 +862,7 @@ class TestEventImportProposalView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-review.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -1999,7 +1982,7 @@ class TestEventImportJsonView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-json.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {"active_nav": "import", "active_integration": None},
             contains="No import integrations yet.",
         )
@@ -2023,7 +2006,7 @@ class TestEventImportJsonView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-json.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -2141,7 +2124,7 @@ class TestEventImportJsonView:
             HTTPStatus.OK,
             template_name="panel/import-json.html",
             messages=[(messages.ERROR, "Invalid import settings JSON.")],
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -2182,7 +2165,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -2243,7 +2226,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),
@@ -2298,7 +2281,7 @@ class TestEventImportRunPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/import-run.html",
-            context_data=_event_context(event)
+            context_data=panel_context(event)
             | {
                 "active_nav": "import",
                 "active_integration": _dto(integration),

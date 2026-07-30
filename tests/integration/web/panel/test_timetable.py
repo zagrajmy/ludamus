@@ -8,7 +8,6 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import TimetableGridDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
@@ -23,6 +22,7 @@ from tests.integration.conftest import (
     TimeSlotFactory,
 )
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -46,18 +46,7 @@ def _empty_grid():
 
 def _base_context(event):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "timetable",
+        **panel_context(event, active_nav="timetable"),
         "all_tracks": [],
         "managed_track_pks": set(),
         "filter_track_pk": None,
