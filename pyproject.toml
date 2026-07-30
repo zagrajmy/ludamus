@@ -224,6 +224,10 @@ disallow_any_explicit = false
 module = ["ludamus.inits.dbos_scheduler"]
 disallow_any_expr = false
 
+[[tool.mypy.overrides]]
+module = ["ludamus.edges.email"]
+disallow_any_expr = false
+
 # pydantic's model_json_schema() returns dict[str, Any]; relaxed only for the
 # registry module that embeds tool schemas into MCP responses.
 [[tool.mypy.overrides]]
@@ -415,6 +419,7 @@ exclude = [
     "*/context_processors.py",
 ]
 ignore_names = [
+    "email_config",
     # Used in templates
     "bookmark_count",
     "filter_categories",

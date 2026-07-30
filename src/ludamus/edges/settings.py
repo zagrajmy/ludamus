@@ -17,6 +17,8 @@ import environ
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
+from ludamus.edges.email import email_config
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -430,13 +432,14 @@ else:
 # Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
 # for the local inbox UI, smtp://… in production). Wired the same way in every
 # environment so prod only needs the env var set.
-_EMAIL_CONFIG = env.email_url("EMAIL_URL")
+_EMAIL_CONFIG = email_config(env("EMAIL_URL"))
 EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
 EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")
 EMAIL_PORT = _EMAIL_CONFIG.get("EMAIL_PORT", 25)
 EMAIL_HOST_USER = _EMAIL_CONFIG.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = _EMAIL_CONFIG.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = _EMAIL_CONFIG.get("EMAIL_USE_TLS", False)
+EMAIL_USE_SSL = _EMAIL_CONFIG.get("EMAIL_USE_SSL", False)
 # Set only by the filemail:// (file-based) dev transport; ignored otherwise.
 EMAIL_FILE_PATH = _EMAIL_CONFIG.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")

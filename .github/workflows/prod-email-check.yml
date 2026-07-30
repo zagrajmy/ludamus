@@ -33,17 +33,18 @@ jobs:
         run: |
           mise exec -- poetry run python - <<'PY'
           import os, sys
-          import environ
           from django.core.exceptions import ImproperlyConfigured
+
+          from ludamus.edges.email import email_config
 
           url = os.environ.get("EMAIL_URL", "")
           if not url:
               sys.exit("PROBLEM: EMAIL_URL is empty, so the deploy omits it and Django falls back to consolemail://")
 
           try:
-              config = environ.Env.email_url_config(url)
+              config = email_config(url)
           except (ImproperlyConfigured, ValueError) as error:
-              sys.exit(f"PROBLEM: EMAIL_URL does not parse ({type(error).__name__})")
+              sys.exit(f"PROBLEM: EMAIL_URL is rejected: {error}")
 
           password = config.get("EMAIL_HOST_PASSWORD") or ""
           host = config.get("EMAIL_HOST") or ""
@@ -58,7 +59,6 @@ jobs:
           print("tls:", tls, "ssl:", ssl)
           print("user:", user or "(empty)")
           print("password: length", len(password), "resend-shaped:", password.startswith("re_"))
-          print("option names:", sorted(config.get("OPTIONS") or {}))
 
           problems = []
           if backend != "smtp":
