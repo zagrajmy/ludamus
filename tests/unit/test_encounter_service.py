@@ -180,7 +180,9 @@ class TestEncounterService:
         assert result.spots_remaining is None
         rsvps.user_has_rsvpd.assert_not_called()
 
-    def test_create_runs_in_transaction(self, service, transaction, encounters):
+    def test_create_delegates_single_insert_without_transaction(
+        self, service, transaction, encounters
+    ):
         created = _encounter(7)
         encounters.create.return_value = created
         data = {"title": "New", "share_code": "CODE7"}
@@ -189,7 +191,7 @@ class TestEncounterService:
 
         assert result == created
         encounters.create.assert_called_once_with(data)
-        transaction.atomic.assert_called_once_with()
+        transaction.atomic.assert_not_called()
 
     def test_read_owned_returns_own_encounter(self, service, encounters):
         encounter = _encounter(1)
@@ -209,12 +211,16 @@ class TestEncounterService:
     def test_update_owned_updates_after_ownership_check(
         self, service, transaction, encounters
     ):
-        encounters.read.return_value = _encounter(1)
+        before = _encounter(1)
+        after = _encounter(1)
+        encounters.read.side_effect = [before, after]
         data = {"title": "Renamed"}
 
-        service.update_owned(pk=1, user_id=CREATOR_ID, data=data)
+        result = service.update_owned(pk=1, user_id=CREATOR_ID, data=data)
 
+        assert result == after
         encounters.update.assert_called_once_with(1, data)
+        assert encounters.read.call_args_list == [call(1), call(1)]
         transaction.atomic.assert_called_once_with()
 
     def test_update_owned_foreign_encounter_has_no_side_effects(
@@ -318,7 +324,7 @@ class TestEncounterService:
 
         rsvps.create.assert_not_called()
 
-    def test_cancel_rsvp_deletes_signup_in_transaction(
+    def test_cancel_rsvp_deletes_signup_without_transaction(
         self, service, transaction, encounters, rsvps
     ):
         encounter = _encounter(1)
@@ -327,7 +333,7 @@ class TestEncounterService:
         service.cancel_rsvp(share_code=encounter.share_code, user_id=OTHER_USER_ID)
 
         rsvps.delete_by_user.assert_called_once_with(encounter.pk, OTHER_USER_ID)
-        transaction.atomic.assert_called_once_with()
+        transaction.atomic.assert_not_called()
 
     def test_cancel_rsvp_propagates_unknown_share_code(
         self, service, encounters, rsvps

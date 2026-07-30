@@ -236,13 +236,12 @@ class EncounterEditPageView(LoginRequiredMixin, View):
         )
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        encounter = self._get_encounter(pk)
         form = EncounterForm(request.POST, request.FILES)
         if not form.is_valid():
             return TemplateResponse(
                 request,
                 "notice_board/edit.html",
-                {"form": form, "encounter": encounter},
+                {"form": form, "encounter": self._get_encounter(pk)},
             )
 
         data = EncounterData(
@@ -258,9 +257,12 @@ class EncounterEditPageView(LoginRequiredMixin, View):
         if header is not None:
             data["header_image"] = header
 
-        request.services.encounters.update_owned(
-            pk=pk, user_id=request.context.current_user_id, data=data
-        )
+        try:
+            encounter = request.services.encounters.update_owned(
+                pk=pk, user_id=request.context.current_user_id, data=data
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
         messages.success(request, _("Encounter updated."))
         return redirect(
             reverse(
@@ -293,7 +295,7 @@ class EncounterDetailPageView(View):
                 "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
             )
         )
-        current_user_id = request.user.pk if request.user.is_authenticated else None
+        current_user_id = request.context.current_user_id
 
         try:
             result = request.services.encounters.build_detail(

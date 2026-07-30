@@ -21,6 +21,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+# TODO(hasparus): the UoW-based EncounterService + EncounterDetailResult in
+# mills/legacy.py are dead after this migration, but `from ludamus.mills
+# import EncounterService` still resolves to the legacy class through the
+# mills/__init__.py star-import facade. Delete both from mills/legacy.py as
+# soon as the open PRs holding that file (#625/#626) land.
 class EncounterService(EncounterServiceProtocol):
     def __init__(
         self,
@@ -36,46 +41,41 @@ class EncounterService(EncounterServiceProtocol):
         self._users = users
 
     def build_index(self, *, sphere_id: int, user_id: int) -> EncounterIndexResult:
-        my_upcoming = self._encounters.list_upcoming_by_creator(sphere_id, user_id)
-        rsvpd = self._encounters.list_upcoming_rsvpd(sphere_id, user_id)
-        my_ids = {e.pk for e in my_upcoming}
-
-        upcoming = [
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._rsvps.count_by_encounter(e.pk),
-                is_mine=True,
-                organizer_name="",
-            )
-            for e in my_upcoming
+        mine = self._encounters.list_upcoming_by_creator(sphere_id, user_id)
+        my_ids = {encounter.pk for encounter in mine}
+        rsvpd = [
+            encounter
+            for encounter in self._encounters.list_upcoming_rsvpd(sphere_id, user_id)
+            if encounter.pk not in my_ids
         ]
-        upcoming.extend(
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._rsvps.count_by_encounter(e.pk),
-                is_mine=False,
-                organizer_name=self._resolve_creator_name(e.creator_id),
-            )
-            for e in rsvpd
-            if e.pk not in my_ids
+        upcoming = self._index_items([*mine, *rsvpd], user_id=user_id)
+        upcoming.sort(key=lambda item: item.encounter.start_time)
+        return EncounterIndexResult(
+            upcoming=upcoming,
+            past=self._index_items(
+                self._encounters.list_past(sphere_id, user_id), user_id=user_id
+            ),
         )
-        upcoming.sort(key=lambda x: x.encounter.start_time)
 
-        past = [
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._rsvps.count_by_encounter(e.pk),
-                is_mine=e.creator_id == user_id,
-                organizer_name=(
-                    ""
-                    if e.creator_id == user_id
-                    else self._resolve_creator_name(e.creator_id)
-                ),
+    def _index_items(
+        self, encounters: list[EncounterDTO], *, user_id: int
+    ) -> list[EncounterIndexItem]:
+        items: list[EncounterIndexItem] = []
+        for encounter in encounters:
+            is_mine = encounter.creator_id == user_id
+            items.append(
+                EncounterIndexItem(
+                    encounter=encounter,
+                    rsvp_count=self._rsvps.count_by_encounter(encounter.pk),
+                    is_mine=is_mine,
+                    organizer_name=(
+                        ""
+                        if is_mine
+                        else self._resolve_creator_name(encounter.creator_id)
+                    ),
+                )
             )
-            for e in self._encounters.list_past(sphere_id, user_id)
-        ]
-
-        return EncounterIndexResult(upcoming=upcoming, past=past)
+        return items
 
     def build_detail(
         self, *, share_code: str, current_user_id: int | None
@@ -87,7 +87,6 @@ class EncounterService(EncounterServiceProtocol):
         for rsvp in rsvps:
             with suppress(NotFoundError):
                 attendees.append(self._users.read_by_id(rsvp.user_id))
-        rsvp_count = len(rsvps)
         user_has_rsvpd = current_user_id is not None and self._rsvps.user_has_rsvpd(
             encounter.pk, current_user_id
         )
@@ -95,16 +94,7 @@ class EncounterService(EncounterServiceProtocol):
             encounter=encounter,
             creator=creator,
             attendees=attendees,
-            rsvp_count=rsvp_count,
-            is_full=(
-                encounter.max_participants > 0
-                and rsvp_count >= encounter.max_participants
-            ),
-            spots_remaining=(
-                max(0, encounter.max_participants - rsvp_count)
-                if encounter.max_participants > 0
-                else None
-            ),
+            rsvp_count=len(rsvps),
             is_creator=current_user_id == encounter.creator_id,
             user_has_rsvpd=user_has_rsvpd,
         )
@@ -113,8 +103,7 @@ class EncounterService(EncounterServiceProtocol):
         return self._encounters.read_by_share_code(share_code)
 
     def create(self, data: EncounterData) -> EncounterDTO:
-        with self._transaction.atomic():
-            return self._encounters.create(data)
+        return self._encounters.create(data)
 
     def read_owned(self, *, pk: int, user_id: int) -> EncounterDTO:
         encounter = self._encounters.read(pk)
@@ -122,10 +111,13 @@ class EncounterService(EncounterServiceProtocol):
             raise NotFoundError
         return encounter
 
-    def update_owned(self, *, pk: int, user_id: int, data: EncounterData) -> None:
+    def update_owned(
+        self, *, pk: int, user_id: int, data: EncounterData
+    ) -> EncounterDTO:
         with self._transaction.atomic():
             self.read_owned(pk=pk, user_id=user_id)
             self._encounters.update(pk, data)
+            return self._encounters.read(pk)
 
     def delete_owned(self, *, pk: int, user_id: int) -> None:
         with self._transaction.atomic():
@@ -133,22 +125,29 @@ class EncounterService(EncounterServiceProtocol):
             self._encounters.delete(pk)
 
     def rsvp(self, *, share_code: str, user_id: int, ip_address: str) -> RSVPOutcome:
-        encounter = self._encounters.read_by_share_code(share_code)
-        rsvp_count = self._rsvps.count_by_encounter(encounter.pk)
-        if encounter.max_participants > 0 and rsvp_count >= encounter.max_participants:
-            return RSVPOutcome.FULL
-        if self._rsvps.recent_rsvp_exists(ip_address):
-            return RSVPOutcome.THROTTLED
-        if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
-            return RSVPOutcome.ALREADY_SIGNED_UP
+        # atomic() groups the checks and the insert in one transaction but
+        # does not serialize concurrent signups: two requests can both pass
+        # the capacity check and overshoot max_participants. Full enforcement
+        # needs a row lock (select_for_update) on the encounter, which needs
+        # a repo method in pacts/legacy.py — held by open PRs.
         with self._transaction.atomic():
+            encounter = self._encounters.read_by_share_code(share_code)
+            rsvp_count = self._rsvps.count_by_encounter(encounter.pk)
+            if (
+                encounter.max_participants > 0
+                and rsvp_count >= encounter.max_participants
+            ):
+                return RSVPOutcome.FULL
+            if self._rsvps.recent_rsvp_exists(ip_address):
+                return RSVPOutcome.THROTTLED
+            if self._rsvps.user_has_rsvpd(encounter.pk, user_id):
+                return RSVPOutcome.ALREADY_SIGNED_UP
             self._rsvps.create(encounter.pk, ip_address, user_id)
-        return RSVPOutcome.CREATED
+            return RSVPOutcome.CREATED
 
     def cancel_rsvp(self, *, share_code: str, user_id: int) -> None:
         encounter = self._encounters.read_by_share_code(share_code)
-        with self._transaction.atomic():
-            self._rsvps.delete_by_user(encounter.pk, user_id)
+        self._rsvps.delete_by_user(encounter.pk, user_id)
 
     def _resolve_creator_name(self, creator_id: int) -> str:
         try:
