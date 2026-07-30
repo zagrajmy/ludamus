@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-29 22:37+0200\n"
+"POT-Creation-Date: 2026-07-30 20:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1196,6 +1196,7 @@ msgstr "Przedziały czasowe"
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track"
 msgstr "Blok programowy"
@@ -2863,6 +2864,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-form.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Facilitators"
 msgstr "Twórcy programu"
 
@@ -2898,6 +2900,7 @@ msgstr "Akredytacja"
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Organizer"
 msgstr "Przypisany do"
 
@@ -4002,6 +4005,7 @@ msgstr "Wszystkie godziny"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
 #: src/ludamus/templates/panel/timetable.html
 msgid "All tracks"
 msgstr "Wszystkie bloki"
@@ -5946,6 +5950,11 @@ msgstr "Przegląd harmonogramu"
 msgid "Problems"
 msgstr "Problemy"
 
+#: src/ludamus/templates/panel/_timetable_tabs.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "Confirmations"
+msgstr "Potwierdzenia"
+
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/base.html
 msgid "Bans"
 msgstr "Bany"
@@ -7141,6 +7150,7 @@ msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/parts/timetable-day-grid.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
 
@@ -7442,6 +7452,7 @@ msgid "%(name)s facilitates simultaneously: %(title)s"
 msgstr "%(name)s prowadzi równocześnie: %(title)s"
 
 #: src/ludamus/templates/panel/parts/timetable-conflict-panel.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
 #: src/ludamus/templates/panel/timetable-problems.html
 #: src/ludamus/templates/panel/timetable.html
 msgid "Track:"
@@ -8245,6 +8256,77 @@ msgstr ""
 "Nie zdefiniowano przedziałów czasowych. Dodaj przedziały czasowe, aby "
 "skonfigurować harmonogram wydarzenia."
 
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "confirmed program items"
+msgstr "potwierdzonych punktów programu"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "confirmation progress"
+msgstr "postęp potwierdzeń"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "facilitators taken on"
+msgstr "twórców programu pod opieką"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "facilitators nobody handles"
+msgstr "twórców programu bez opiekuna"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "By organizer"
+msgstr "Według organizatora"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Progress"
+msgstr "Postęp"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "Nobody yet"
+msgstr "Jeszcze nikt"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "No facilitators yet — they appear once proposals come in."
+msgstr "Nie ma jeszcze twórców programu — pojawią się wraz ze zgłoszeniami."
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "By track"
+msgstr "Według bloku"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Managed by"
+msgstr "Zarządza"
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "No tracks yet — create one to split the program into blocks."
+msgstr "Nie ma jeszcze bloków — utwórz blok, aby podzielić program."
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+#, python-format
+msgid ""
+"%(count)s scheduled program item has no facilitator, so it cannot appear on "
+"any list here."
+msgid_plural ""
+"%(count)s scheduled program items have no facilitator, so they cannot appear "
+"on any list here."
+msgstr[0] ""
+"%(count)s punkt programu w harmonogramie nie ma twórcy programu, więc nie "
+"pojawi się na żadnej liście poniżej."
+msgstr[1] ""
+"%(count)s punkty programu w harmonogramie nie mają twórcy programu, więc nie "
+"pojawią się na żadnej liście poniżej."
+msgstr[2] ""
+"%(count)s punktów programu w harmonogramie nie ma twórcy programu, więc nie "
+"pojawią się na żadnej liście poniżej."
+msgstr[3] ""
+"%(count)s punktu programu w harmonogramie nie ma twórcy programu, więc nie "
+"pojawi się na żadnej liście poniżej."
+
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "Open the schedule"
+msgstr "Otwórz harmonogram"
+
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
@@ -8295,14 +8377,6 @@ msgstr "Konflikt"
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Track progress"
 msgstr "Postęp bloków"
-
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Managed by"
-msgstr "Zarządza"
-
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Progress"
-msgstr "Postęp"
 
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Unassigned"

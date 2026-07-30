@@ -1,0 +1,147 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title_prefix %}
+    {% translate "Confirmations" %} —
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Confirmations" %}
+{% endblock page_title %}
+{% block content %}
+    {% tab_shell "panel/_timetable_tabs.html" %}
+    {% tab_shell_body %}
+    <div class="mb-5 flex flex-wrap items-center gap-3">
+        {% if all_tracks %}
+            <form method="get"
+                  action="{% url 'panel:timetable-confirmations' slug=current_event.slug %}"
+                  class="flex items-center gap-2">
+                <label for="confirmations-track" class="text-sm text-foreground-muted">{% translate "Track:" %}</label>
+                {% select id="confirmations-track" name="track" onchange="this.form.submit()" class="h-9 sm:w-56" %}
+                    <option value="">{% translate "All tracks" %}</option>
+                    {% for track in all_tracks %}
+                        <option value="{{ track.pk }}"
+                                {% if filter_track_pk == track.pk %}selected{% endif %}>
+                            {% if track.pk in managed_track_pks %}★{% endif %}
+                            {{ track.name }}
+                        </option>
+                    {% endfor %}
+                {% end_select %}
+            </form>
+        {% endif %}
+    </div>
+    <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="rounded-xl border border-border bg-bg-tertiary p-3">
+            <div class="text-2xl font-semibold tabular-nums">{{ dashboard.confirmed_count }}/{{ dashboard.scheduled_count }}</div>
+            <div class="mt-0.5 text-xs text-foreground-muted">{% translate "confirmed program items" %}</div>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-tertiary p-3">
+            <div class="text-2xl font-semibold tabular-nums">{{ dashboard.progress_pct }}%</div>
+            <div class="mt-0.5 text-xs text-foreground-muted">{% translate "confirmation progress" %}</div>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-tertiary p-3">
+            <div class="text-2xl font-semibold tabular-nums">{{ dashboard.claimed_facilitator_count }}</div>
+            <div class="mt-0.5 text-xs text-foreground-muted">{% translate "facilitators taken on" %}</div>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-tertiary p-3">
+            <div class="text-2xl font-semibold tabular-nums">{{ dashboard.unclaimed_facilitator_count }}</div>
+            <div class="mt-0.5 text-xs text-foreground-muted">{% translate "facilitators nobody handles" %}</div>
+        </div>
+    </div>
+    <section class="mb-8">
+        <h2 class="mb-3 text-base font-semibold">{% translate "By organizer" %}</h2>
+        {% if dashboard.organizers %}
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-border text-left">
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Organizer" %}</th>
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Facilitators" %}</th>
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Confirmed" %}</th>
+                            <th class="py-2 font-medium text-foreground-secondary">{% translate "Progress" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {% for row in dashboard.organizers %}
+                            <tr class="hover:bg-bg-tertiary">
+                                <td class="py-2 pr-4">
+                                    {% if row.organizer_id %}
+                                        <span class="font-medium">{{ row.organizer_name }}</span>
+                                    {% else %}
+                                        <span class="text-warning-text">{% translate "Nobody yet" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-2 pr-4 tabular-nums">{{ row.facilitator_count }}</td>
+                                <td class="py-2 pr-4 tabular-nums">{{ row.confirmed_count }}/{{ row.scheduled_count }}</td>
+                                <td class="py-2">{% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-sm text-foreground-muted">
+                {% translate "No facilitators yet — they appear once proposals come in." %}
+            </p>
+        {% endif %}
+    </section>
+    <section>
+        <h2 class="mb-3 text-base font-semibold">{% translate "By track" %}</h2>
+        {% if dashboard.tracks %}
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-border text-left">
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Track" %}</th>
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Managed by" %}</th>
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Facilitators" %}</th>
+                            <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Confirmed" %}</th>
+                            <th class="py-2 font-medium text-foreground-secondary">{% translate "Progress" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {% for row in dashboard.tracks %}
+                            <tr class="hover:bg-bg-tertiary">
+                                <td class="py-2 pr-4">
+                                    <a class="font-medium text-primary hover:underline"
+                                       href="{% url 'panel:timetable-confirmations' slug=current_event.slug %}?track={{ row.track_pk }}">
+                                        {{ row.track_name }}
+                                    </a>
+                                </td>
+                                <td class="py-2 pr-4 text-foreground-muted">
+                                    {% if row.manager_names %}
+                                        {{ row.manager_names|join:", " }}
+                                    {% else %}
+                                        <span class="text-xs text-warning-text">{% translate "Nobody yet" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-2 pr-4 tabular-nums">{{ row.facilitator_count }}</td>
+                                <td class="py-2 pr-4 tabular-nums">{{ row.confirmed_count }}/{{ row.scheduled_count }}</td>
+                                <td class="py-2">{% include "panel/parts/confirmation-progress-bar.html" with pct=row.progress_pct %}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-sm text-foreground-muted">
+                {% translate "No tracks yet — create one to split the program into blocks." %}
+            </p>
+        {% endif %}
+    </section>
+    {% if dashboard.without_facilitator_count %}
+        <div class="mt-6 flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-bg p-3 text-sm text-warning-text">
+            {% icon "exclamation-triangle" class="mt-0.5 size-4 shrink-0" %}
+            <span>
+                {% blocktranslate count count=dashboard.without_facilitator_count trimmed %}
+                    {{ count }} scheduled program item has no facilitator, so it cannot appear on any list here.
+                {% plural %}
+                    {{ count }} scheduled program items have no facilitator, so they cannot appear on any list here.
+                {% endblocktranslate %}
+                <a class="font-semibold underline underline-offset-2"
+                   href="{% url 'panel:timetable' slug=current_event.slug %}">{% translate "Open the schedule" %}</a>
+            </span>
+        </div>
+    {% endif %}
+{% end_tab_shell_body %}
+{% end_tab_shell %}
+{% endblock content %}

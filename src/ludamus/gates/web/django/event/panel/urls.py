@@ -21,6 +21,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
 )
 from ludamus.gates.web.django.chronology.panel.views import print as print_views
 from ludamus.gates.web.django.event.panel.views import (
+    confirmations,
     enrollment_settings,
     proposal_category_settings,
 )
@@ -90,6 +91,11 @@ _timetable_urlpatterns = [
         "do/confirm-block/",
         timetable.TimetableConfirmBlockView.as_view(),
         name="timetable-confirm-block",
+    ),
+    path(
+        "confirmations/",
+        confirmations.ConfirmationsPageView.as_view(),
+        name="timetable-confirmations",
     ),
     path(
         "print/timetable/",

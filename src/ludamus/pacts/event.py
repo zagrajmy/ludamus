@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
 
@@ -24,6 +24,48 @@ class EventPanelContextDTO(BaseModel):
 
 class EventPanelServiceProtocol(Protocol):
     def load_context(self, sphere_id: int, slug: str) -> EventPanelContextDTO: ...
+
+
+class ConfirmationOrganizerRowDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    organizer_id: int | None
+    organizer_name: str
+    facilitator_count: int
+    scheduled_count: int
+    confirmed_count: int
+    progress_pct: int
+
+
+class ConfirmationTrackRowDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    track_pk: int
+    track_name: str
+    manager_names: list[str]
+    facilitator_count: int
+    scheduled_count: int
+    confirmed_count: int
+    progress_pct: int
+
+
+class ConfirmationDashboardDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    organizers: list[ConfirmationOrganizerRowDTO]
+    tracks: list[ConfirmationTrackRowDTO]
+    scheduled_count: int
+    confirmed_count: int
+    progress_pct: int
+    claimed_facilitator_count: int
+    unclaimed_facilitator_count: int
+    # Scheduled sessions nobody facilitates: they cannot show up in a
+    # facilitator-keyed list, so the dashboard counts them out loud.
+    without_facilitator_count: int
+
+
+class EventConfirmationsServiceProtocol(Protocol):
+    def dashboard(self, event_pk: int) -> ConfirmationDashboardDTO: ...
 
 
 class PanelTimeSlotsServiceProtocol(Protocol):

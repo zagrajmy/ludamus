@@ -498,3 +498,17 @@ class TrackRepository(TrackRepositoryProtocol):
             .order_by("name")
             .values_list("name", flat=True)
         )
+
+    @staticmethod
+    def list_manager_names_by_event(event_pk: int) -> dict[int, list[str]]:
+        # Every track's managers in one query — the per-track call above turns
+        # into N+1 the moment a page lists tracks.
+        names: dict[int, list[str]] = {}
+        rows = (
+            Track.objects.filter(event_id=event_pk, managers__isnull=False)
+            .order_by("managers__name")
+            .values_list("pk", "managers__name")
+        )
+        for track_pk, name in rows:
+            names.setdefault(track_pk, []).append(name)
+        return names

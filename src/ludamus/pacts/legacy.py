@@ -886,6 +886,22 @@ class TrackRepositoryProtocol(Protocol):
     def list_by_session(session_pk: int) -> list[TrackDTO]: ...
     @staticmethod
     def list_manager_names(track_pk: int) -> list[str]: ...
+    @staticmethod
+    def list_manager_names_by_event(event_pk: int) -> dict[int, list[str]]: ...
+
+
+class ConfirmationCountsRow(TypedDict):
+    """One aggregate row: who or what, and its confirmed-of-scheduled counts.
+
+    `key` is the grouping id — organizer id (None when nobody claimed the
+    facilitators) or track pk.
+    """
+
+    key: int | None
+    name: str
+    facilitator_count: int
+    scheduled_count: int
+    confirmed_count: int
 
 
 class AgendaItemRepositoryProtocol(Protocol):
@@ -919,6 +935,10 @@ class AgendaItemRepositoryProtocol(Protocol):
     def confirm_all_by_event(event_pk: int) -> None: ...
     @staticmethod
     def confirm_all_by_track(track_pk: int) -> None: ...
+    @staticmethod
+    def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
+    @staticmethod
+    def count_without_facilitator(event_pk: int) -> int: ...
     @staticmethod
     def delete(pk: int) -> None: ...
 
@@ -1230,6 +1250,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     def claim(pk: int, organizer_id: int) -> bool: ...
     @staticmethod
     def release(pk: int, *, organizer_id: int | None) -> bool: ...
+    @staticmethod
+    def count_confirmations_by_organizer(
+        event_pk: int,
+    ) -> list[ConfirmationCountsRow]: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

@@ -5,6 +5,10 @@ from django.db.models import Count, F, Max, OuterRef, Prefetch, Q, QuerySet, Sub
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
+from ludamus.links.db.django.agenda_item import (
+    confirmed_item_count,
+    scheduled_item_count,
+)
 from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
@@ -50,6 +54,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TimeSlotRequirementDTO,
 )
+from ludamus.pacts.legacy import ConfirmationCountsRow
 from ludamus.pacts.submissions import (
     FacilitatorListFilters,
     ImportLogEntryCreateData,
@@ -906,6 +911,31 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
         ordered = _order_facilitators(qs, filters.get("sort") or "name")
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
+
+    @staticmethod
+    def count_confirmations_by_organizer(event_pk: int) -> list[ConfirmationCountsRow]:
+        # Grouping by organizer folds every unclaimed facilitator into a single
+        # `organizer_id=None` row — the backlog nobody took on.
+        rows = (
+            Facilitator.objects.filter(event_id=event_pk)
+            .values("organizer_id", "organizer__name")
+            .annotate(
+                facilitator_count=Count("pk", distinct=True),
+                scheduled_count=scheduled_item_count(),
+                confirmed_count=confirmed_item_count(),
+            )
+            .order_by("organizer__name")
+        )
+        return [
+            ConfirmationCountsRow(
+                key=row["organizer_id"],
+                name=row["organizer__name"] or "",
+                facilitator_count=row["facilitator_count"],
+                scheduled_count=row["scheduled_count"],
+                confirmed_count=row["confirmed_count"],
+            )
+            for row in rows
+        ]
 
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None:

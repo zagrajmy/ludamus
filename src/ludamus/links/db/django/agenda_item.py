@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.links.db.django.models import AgendaItem
+from django.db.models import Count, Q
+
+from ludamus.links.db.django.models import AgendaItem, Track
 from ludamus.pacts import (
     AgendaItemData,
     AgendaItemDTO,
@@ -11,11 +13,26 @@ from ludamus.pacts import (
     NotFoundError,
     SessionStatus,
 )
+from ludamus.pacts.legacy import ConfirmationCountsRow
 
 if TYPE_CHECKING:
     from datetime import datetime
 
 _SELECT_RELATED = ("session", "session__category", "space")
+
+
+# Confirmation counts for any model holding a `sessions` relation (Track,
+# Facilitator). Distinct, because the joins they ride on multiply rows.
+def scheduled_item_count() -> Count:
+    return Count("sessions__agenda_item", distinct=True)
+
+
+def confirmed_item_count() -> Count:
+    return Count(
+        "sessions__agenda_item",
+        filter=Q(sessions__agenda_item__session_confirmed=True),
+        distinct=True,
+    )
 
 
 def _to_dto(item: AgendaItem) -> AgendaItemDTO:
@@ -121,6 +138,40 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         AgendaItem.objects.filter(session__tracks__pk=track_pk).update(
             session_confirmed=True
         )
+
+    @staticmethod
+    def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]:
+        # One query for the whole table. Every Count is distinct because the
+        # three m2m joins (sessions, their facilitators, their agenda items)
+        # multiply rows against each other.
+        # ponytail: single wide join; split into per-metric queries only if the
+        # row product starts to hurt at event scale.
+        rows = (
+            Track.objects.filter(event_id=event_pk)
+            .values("pk", "name")
+            .annotate(
+                facilitator_count=Count("sessions__facilitators", distinct=True),
+                scheduled_count=scheduled_item_count(),
+                confirmed_count=confirmed_item_count(),
+            )
+            .order_by("name")
+        )
+        return [
+            ConfirmationCountsRow(
+                key=row["pk"],
+                name=row["name"],
+                facilitator_count=row["facilitator_count"],
+                scheduled_count=row["scheduled_count"],
+                confirmed_count=row["confirmed_count"],
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def count_without_facilitator(event_pk: int) -> int:
+        return AgendaItem.objects.filter(
+            session__event_id=event_pk, session__facilitators__isnull=True
+        ).count()
 
     @staticmethod
     def delete(pk: int) -> None:
