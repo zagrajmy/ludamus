@@ -2,7 +2,7 @@
 
 > Dwa gobliny, dwie jaskinie. Nie mieszać.
 
-**Status:** 🟡 draft — homes and Goblin's runtime decided, no code yet
+**Status:** 🟡 draft — homes decided, Buzz as the room, brain deferred
 **Adds:** two named agents with separate trust tiers and separate substrates
 **Touches:** `gates/mcp/` (tool surface), the sphere panel (WebMCP, later);
 nothing in `mills`/`links`
@@ -115,65 +115,68 @@ material lives. From Ludamus it wants maintainer-tier **read**: how many
 spheres are live, which events are filling, what's trending. It writes nothing
 here. Anything that changes a sphere goes through Kobold or a human.
 
-### Substrate
+### The room and the brain
 
-This is the only place the runtime question applies at all, because Goblin is
-the only one of the two that needs to be always-on, remembered, and reachable
-from a phone.
+These are two decisions, and conflating them is what made this section churn.
 
-**Decided: Goblin is
-[Vellum Assistant](https://github.com/vellum-ai/vellum-assistant)** (MIT,
-TypeScript/Bun), with
-[Executor](https://github.com/RhysSullivan/executor) underneath as the tool
-catalog and approval gate — the role `mcp.md` already assigns it.
+- **The room** — where humans and agents meet, who each agent *is*, and what it
+  is allowed to touch.
+- **The brain** — what makes an agent remember, wake on a schedule, and act.
 
-Why Vellum for this role specifically:
+**Decided: the room is [Buzz](https://github.com/block/buzz)** (Block, Apache
+2.0). The brain is **deferred**, and Buzz is what makes deferring it cheap —
+plug a runtime in later as another member, swap it without moving anything
+else. [Hermes Agent](https://github.com/NousResearch/hermes-agent) is the
+likely candidate when we get there.
 
-- **Proactive by design.** It re-reads its own notes hourly and reaches out
-  unprompted. Goblin's entire job is noticing a deadline before we do; an
-  agent that only speaks when spoken to is the wrong shape for it.
-- **The surfaces match the work.** iOS, voice, email, Slack, Telegram. GTM
-  happens away from a terminal, which is where the CLI-first alternatives lose.
-- **Credentials stay out of the model.** A separate Credential Executor process
-  holds the keys. Goblin is the agent holding calendar, mail, and whatever GTM
-  material we point it at — this is the one place in our stack where that
-  isolation earns its keep.
-- **Patchable by us.** TypeScript, not a language we'd be visiting.
+Why Buzz for the room:
 
-Considered and rejected: **Hermes Agent** — more mature by a wide margin and
-better at always-on remote, but CLI/VPS-shaped and Python. It optimizes for the
-operator sitting in a terminal, which is the Kobold audience we already decided
-not to serve this way, and not the Goblin one.
+- **Identity is structural.** Every participant, human or agent, gets its own
+  Nostr keypair and scoped permissions. Kobold and Goblin become different
+  cryptographic principals — the separation this RFC argues for on paper stops
+  being a config choice we could quietly get wrong.
+- **The audit trail is the chat log.** Agents post, review, and run workflows
+  as members rather than as webhooks firing somewhere off-screen.
+- **Self-hosted on a relay we own**, Linux desktop app included. Runs on the
+  homelab; nothing to reconcile with the hosting question.
 
-### Where Goblin runs
+What Buzz is **not** is a runtime. It won't make Goblin proactive, won't give
+it memory, won't run a cron. That is exactly why "Buzz first, connect a brain
+later" is the right order and not a dodge.
 
-**The homelab.** Vellum's `docker` target starts the assistant, gateway and
-credential service in containers; run that on a box that is already always-on
-and we get the deployment without needing the `custom` remote-provisioning
-target, which is still stubbed ("recognized but not yet implemented"). That
-target only automates *provisioning from a laptop to a remote host* — with
-shell on the box, it is not in the way.
+Note against [mcp.md](../agents/mcp.md), which names Executor as the
+recommended client-side control plane: Buzz covers part of that ground —
+identity, permission scope, audit — but not the tool catalog. The two aren't
+mutually exclusive and this RFC doesn't retire that recommendation; it just
+stops being the only answer. Revisit once we know what connecting a brain to
+Buzz actually looks like (O-5).
 
-This is also the better answer than Vellum Cloud on the merits, not just the
-cheaper one: Goblin accumulates Zagrajmy's institutional context and holds
-calendar and mail credentials. That staying on our own hardware is worth more
-than a managed runtime.
+This supersedes the earlier **Goblin is Vellum** decision. Vellum's case rested
+on proactive multi-surface reach — iOS, voice, email. Once the conversation
+happens in Buzz, most of that argument is spent, and Vellum's app-centric shape
+fits a chat workspace worse than Hermes' gateway model does. Flipping back is
+consistent with the new room, not churn.
 
-Two things to verify on day one, because the docs don't answer them and both
-are load-bearing (see O-5):
+Eyes open: Buzz is **v0.4.21, published July 2026**. Block put it out early
+rather than polished, and the issue count shows it. Fine for our own internal
+room, where the downside is a bad afternoon. It is not a thing to put between
+organizers and their event — another reason Kobold does not live here.
 
-1. **Linux.** The desktop app is macOS-only and the install docs never mention
-   Linux. The README does scope the CLI to "advanced users, contributors, and
-   non-macOS environments", which reads like the intended path — but intended
-   is not verified.
-2. **Whether the surfaces reach a self-hosted runtime.** The docs say signing
-   up for Vellum is required to use the web or desktop app, and never explain
-   how clients connect to a runtime we host. The proactive multi-surface reach
-   is *the* reason Goblin is Vellum; if those surfaces only talk to Vellum
-   Cloud, self-hosting gets us the runtime without the point of it.
+### Where it runs
 
-Neither is a reason to revisit the choice — they are a reason to spike it on
-the homelab before building anything on top. An afternoon answers both.
+**The homelab.** Self-hosting was already the right answer — Goblin accumulates
+Zagrajmy's institutional context and will hold calendar and mail credentials,
+and that belongs on our own hardware rather than someone's managed runtime.
+Buzz is built to be self-hosted on a relay you own, so this stops being a
+compromise.
+
+Worth sizing honestly before the first evening: a Buzz relay wants Postgres,
+Redis, and S3/MinIO. That is a heavier footprint than "a container or two",
+and it is the sort of thing that is fine on a homelab and miserable on a
+$5 VPS. Good thing we have the former.
+
+Goblin's Ludamus access stays **maintainer read** regardless of room (O-3).
+Nothing about adopting Buzz changes what the agent is allowed to touch here.
 
 ## Not agents
 
@@ -195,9 +198,11 @@ the homelab before building anything on top. An afternoon answers both.
 - **O-4** — Every `tools/call` is audit-logged with arguments verbatim. Kobold
   read verbs over `claims` touch personal data; redaction lands *before* those
   tools, not after.
-- **O-5** — What survives self-hosting? Three sub-questions, all undocumented,
-  all answerable by a homelab spike: (a) does managed OAuth still broker
-  locally, or through Vellum's servers; (b) do the iOS/web/voice surfaces
-  connect to a runtime we host, and if so how — direct, LAN, tunnel; (c) does
-  the CLI + `docker` path run on Linux. (b) is the one that would hurt: it is
-  the reason we picked Vellum.
+- **O-5** — How does a brain attach to a Buzz member? Whatever we connect later
+  has to drive an agent identity that Buzz issues — worth confirming the seam
+  exists and is documented *before* we assume Hermes drops in. If it doesn't,
+  "Buzz first, brain later" becomes "Buzz, then a bridge we write".
+- **O-6** — Buzz agents hold Nostr keypairs. Where do those live, who can
+  rotate them, and what happens when one leaks? Cryptographic identity is only
+  an improvement over shared config if the key handling is better than the
+  config handling was.
