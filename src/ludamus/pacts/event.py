@@ -1,12 +1,10 @@
+from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class TimeSlotValidationError(StrEnum):
@@ -64,8 +62,74 @@ class ConfirmationDashboardDTO(BaseModel):
     without_facilitator_count: int
 
 
+class ConfirmationSessionDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    session_pk: int
+    title: str
+    category_name: str
+    room_name: str
+    start_time: datetime | None
+    end_time: datetime | None
+    # Only a scheduled item can be confirmed, so only a scheduled item carries
+    # an agenda item pk — the template hangs the checkbox off it.
+    agenda_item_pk: int | None
+    is_confirmed: bool
+    co_facilitator_names: list[str]
+    other_track_names: list[str]
+
+
+class ConfirmationStatusGroupDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    sessions: list[ConfirmationSessionDTO]
+
+
+class ConfirmationEmailGroupDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    contact_email: str
+    status_groups: list[ConfirmationStatusGroupDTO]
+    confirmable_count: int
+
+
+class ConfirmationFacilitatorDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    display_name: str
+    organizer_name: str
+    organizer_id: int | None
+    pk: int
+    slug: str
+    email_groups: list[ConfirmationEmailGroupDTO]
+    scheduled_count: int
+    confirmed_count: int
+    # Decided but not placed, and still awaiting a decision: counted, never
+    # listed — there is nothing to tick on either.
+    unplaced_count: int
+    pending_count: int
+    is_fully_confirmed: bool
+
+
+class ConfirmationTrackViewDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    facilitators: list[ConfirmationFacilitatorDTO]
+    facilitator_count: int
+    unclaimed_facilitator_count: int
+    # Counted over this track only, while a facilitator's own counter spans the
+    # whole event.
+    scheduled_count: int
+    confirmed_count: int
+    progress_pct: int
+
+
 class EventConfirmationsServiceProtocol(Protocol):
     def dashboard(self, event_pk: int) -> ConfirmationDashboardDTO: ...
+    def track_view(
+        self, *, event_pk: int, track_pk: int
+    ) -> ConfirmationTrackViewDTO: ...
 
 
 class PanelTimeSlotsServiceProtocol(Protocol):

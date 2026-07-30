@@ -1,9 +1,15 @@
+from collections import defaultdict
 from datetime import UTC, datetime
 
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
+    ConfirmationEmailGroupDTO,
+    ConfirmationFacilitatorDTO,
     ConfirmationOrganizerRowDTO,
+    ConfirmationSessionDTO,
+    ConfirmationStatusGroupDTO,
     ConfirmationTrackRowDTO,
+    ConfirmationTrackViewDTO,
     EventConfirmationsServiceProtocol,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
@@ -11,13 +17,18 @@ from ludamus.pacts.event import (
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
     ConfirmationCountsRow,
+    ConfirmationFacilitatorRow,
+    ConfirmationSessionRow,
     EventDTO,
     EventRepositoryProtocol,
     EventStatsData,
     FacilitatorRepositoryProtocol,
     PanelStatsDTO,
+    SessionRepositoryProtocol,
+    SessionStatus,
     TrackRepositoryProtocol,
 )
+from ludamus.specs.confirmations import SCHEDULED_STATUS, STATUS_ORDER
 
 
 def is_proposal_active(event: EventDTO) -> bool:
@@ -55,10 +66,72 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         facilitators: FacilitatorRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         tracks: TrackRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
     ) -> None:
         self._facilitators = facilitators
         self._agenda_items = agenda_items
         self._tracks = tracks
+        self._sessions = sessions
+
+    def track_view(self, *, event_pk: int, track_pk: int) -> ConfirmationTrackViewDTO:
+        facilitator_rows = self._facilitators.list_with_scheduled_session_in_track(
+            event_pk, track_pk
+        )
+        if not facilitator_rows:
+            return ConfirmationTrackViewDTO(
+                facilitators=[],
+                facilitator_count=0,
+                unclaimed_facilitator_count=0,
+                scheduled_count=0,
+                confirmed_count=0,
+                progress_pct=0,
+            )
+
+        session_rows = self._sessions.list_confirmation_rows(
+            event_pk, [row["pk"] for row in facilitator_rows]
+        )
+        session_pks = [row["session_pk"] for row in session_rows]
+        track_names = self._sessions.list_track_names_by_session(session_pks)
+        facilitator_names = self._sessions.list_facilitator_names_by_session(
+            session_pks
+        )
+
+        by_facilitator: dict[int, list[ConfirmationSessionRow]] = defaultdict(list)
+        for row in session_rows:
+            by_facilitator[row["facilitator_pk"]].append(row)
+
+        facilitators = [
+            _facilitator(
+                row=row,
+                sessions=by_facilitator.get(row["pk"], []),
+                track_names=track_names,
+                facilitator_names=facilitator_names,
+                track_pk=track_pk,
+            )
+            for row in facilitator_rows
+        ]
+        # What still needs a call goes on top; the rest keeps its name order.
+        facilitators.sort(key=lambda f: (f.is_fully_confirmed, f.display_name, f.pk))
+
+        # The strip counts the block, not the facilitators' whole programs.
+        in_track = [
+            row
+            for row in session_rows
+            if row["agenda_item_pk"] is not None
+            and track_pk in track_names.get(row["session_pk"], {})
+        ]
+        scheduled = len({row["session_pk"] for row in in_track})
+        confirmed = len({row["session_pk"] for row in in_track if row["is_confirmed"]})
+        return ConfirmationTrackViewDTO(
+            facilitators=facilitators,
+            facilitator_count=len(facilitators),
+            unclaimed_facilitator_count=sum(
+                1 for f in facilitators if f.organizer_id is None
+            ),
+            scheduled_count=scheduled,
+            confirmed_count=confirmed,
+            progress_pct=_progress_pct(confirmed=confirmed, scheduled=scheduled),
+        )
 
     def dashboard(self, event_pk: int) -> ConfirmationDashboardDTO:
         organizer_rows = self._facilitators.count_confirmations_by_organizer(event_pk)
@@ -87,6 +160,131 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             ),
             without_facilitator_count=without_facilitator,
         )
+
+
+def _session_dto(
+    *,
+    row: ConfirmationSessionRow,
+    track_names: dict[int, dict[int, str]],
+    facilitator_names: dict[int, dict[int, str]],
+    track_pk: int,
+) -> ConfirmationSessionDTO:
+    others = track_names.get(row["session_pk"], {})
+    co_facilitators = facilitator_names.get(row["session_pk"], {})
+    return ConfirmationSessionDTO(
+        session_pk=row["session_pk"],
+        title=row["title"],
+        category_name=row["category_name"],
+        room_name=row["room_name"],
+        start_time=row["start_time"],
+        end_time=row["end_time"],
+        agenda_item_pk=row["agenda_item_pk"],
+        is_confirmed=row["is_confirmed"],
+        co_facilitator_names=[
+            name for pk, name in co_facilitators.items() if pk != row["facilitator_pk"]
+        ],
+        other_track_names=[name for pk, name in others.items() if pk != track_pk],
+    )
+
+
+def _status_key(row: ConfirmationSessionRow) -> str:
+    # Grouping runs on status alone. Confirmation is a checkbox on the row, so
+    # ticking one never moves it into another group.
+    if row["agenda_item_pk"] is not None:
+        return SCHEDULED_STATUS
+    return str(row["status"])
+
+
+def _email_group(
+    *,
+    contact_email: str,
+    rows: list[ConfirmationSessionRow],
+    track_names: dict[int, dict[int, str]],
+    facilitator_names: dict[int, dict[int, str]],
+    track_pk: int,
+) -> ConfirmationEmailGroupDTO:
+    by_status: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
+    for row in rows:
+        by_status[_status_key(row)].append(row)
+    return ConfirmationEmailGroupDTO(
+        contact_email=contact_email,
+        status_groups=[
+            ConfirmationStatusGroupDTO(
+                status=status,
+                sessions=[
+                    _session_dto(
+                        row=row,
+                        track_names=track_names,
+                        facilitator_names=facilitator_names,
+                        track_pk=track_pk,
+                    )
+                    for row in by_status[status]
+                ],
+            )
+            for status in STATUS_ORDER
+            if by_status.get(status)
+        ],
+        confirmable_count=len(by_status.get(SCHEDULED_STATUS, [])),
+    )
+
+
+def _email_sort_key(email: str) -> tuple[bool, str]:
+    return (not email, email)
+
+
+def _sorted_emails(groups: dict[str, list[ConfirmationSessionRow]]) -> list[str]:
+    return sorted(groups, key=_email_sort_key)
+
+
+def _facilitator(
+    *,
+    row: ConfirmationFacilitatorRow,
+    sessions: list[ConfirmationSessionRow],
+    track_names: dict[int, dict[int, str]],
+    facilitator_names: dict[int, dict[int, str]],
+    track_pk: int,
+) -> ConfirmationFacilitatorDTO:
+    # Only a placed session can be confirmed. Accepted-but-unplaced and pending
+    # sessions become counts: there is nothing to tick, and pending detail may
+    # still change before a decision.
+    listed: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
+    unplaced = pending = 0
+    for session in sessions:
+        if session["agenda_item_pk"] is not None:
+            listed[session["contact_email"]].append(session)
+        elif session["status"] == SessionStatus.PENDING:
+            pending += 1
+        elif session["status"] == SessionStatus.ACCEPTED:
+            unplaced += 1
+        else:
+            listed[session["contact_email"]].append(session)
+
+    scheduled_count = sum(1 for s in sessions if s["agenda_item_pk"] is not None)
+    confirmed_count = sum(1 for s in sessions if s["is_confirmed"])
+    return ConfirmationFacilitatorDTO(
+        pk=row["pk"],
+        display_name=row["display_name"],
+        slug=row["slug"],
+        organizer_id=row["organizer_id"],
+        organizer_name=row["organizer_name"],
+        email_groups=[
+            _email_group(
+                contact_email=email,
+                rows=listed[email],
+                track_names=track_names,
+                facilitator_names=facilitator_names,
+                track_pk=track_pk,
+            )
+            # An address-less group sorts last: it is the one needing a fix,
+            # not the one to start reading from.
+            for email in _sorted_emails(listed)
+        ],
+        scheduled_count=scheduled_count,
+        confirmed_count=confirmed_count,
+        unplaced_count=unplaced,
+        pending_count=pending,
+        is_fully_confirmed=bool(scheduled_count) and confirmed_count == scheduled_count,
+    )
 
 
 def _organizer_row(row: ConfirmationCountsRow) -> ConfirmationOrganizerRowDTO:

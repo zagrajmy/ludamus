@@ -201,6 +201,7 @@ class Services:
             facilitators=self._repos.facilitators,
             agenda_items=self._repos.agenda_items,
             tracks=self._repos.tracks,
+            sessions=self._repos.sessions,
         )
 
     @cached_property

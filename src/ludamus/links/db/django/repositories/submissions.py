@@ -54,7 +54,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TimeSlotRequirementDTO,
 )
-from ludamus.pacts.legacy import ConfirmationCountsRow
+from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationFacilitatorRow
 from ludamus.pacts.submissions import (
     FacilitatorListFilters,
     ImportLogEntryCreateData,
@@ -933,6 +933,33 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
                 facilitator_count=row["facilitator_count"],
                 scheduled_count=row["scheduled_count"],
                 confirmed_count=row["confirmed_count"],
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def list_with_scheduled_session_in_track(
+        event_pk: int, track_pk: int
+    ) -> list[ConfirmationFacilitatorRow]:
+        # Who the block makes this organizer responsible for: at least one
+        # session of theirs is both in the block and placed in the timetable.
+        rows = (
+            Facilitator.objects.filter(
+                event_id=event_pk,
+                sessions__tracks=track_pk,
+                sessions__agenda_item__isnull=False,
+            )
+            .values("pk", "display_name", "slug", "organizer_id", "organizer__name")
+            .distinct()
+            .order_by("display_name", "pk")
+        )
+        return [
+            ConfirmationFacilitatorRow(
+                pk=row["pk"],
+                display_name=row["display_name"],
+                slug=row["slug"],
+                organizer_id=row["organizer_id"],
+                organizer_name=row["organizer__name"] or "",
             )
             for row in rows
         ]

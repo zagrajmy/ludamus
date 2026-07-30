@@ -79,7 +79,10 @@ def _service(
     agenda_items = FakeAgendaItems(track_rows or [], without_facilitator)
     tracks = FakeTracks(manager_names or {})
     service = EventConfirmationsService(
-        facilitators=facilitators, agenda_items=agenda_items, tracks=tracks
+        facilitators=facilitators,
+        agenda_items=agenda_items,
+        tracks=tracks,
+        sessions=None,
     )
     return service, facilitators, agenda_items, tracks
 

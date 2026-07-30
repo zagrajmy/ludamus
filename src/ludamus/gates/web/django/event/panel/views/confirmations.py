@@ -37,8 +37,19 @@ class ConfirmationsPageView(PanelAccessMixin, EventContextMixin, View):
         context["all_tracks"] = sorted_tracks
         context["managed_track_pks"] = managed_pks
         context["filter_track_pk"] = filter_track_pk
-        context["dashboard"] = self.request.services.confirmations.dashboard(
-            current_event.pk
+        # No block chosen: the event-wide dashboard answers "where do I start".
+        # A block chosen: the facilitators of that block, ready to work through.
+        context["dashboard"] = (
+            None
+            if filter_track_pk
+            else self.request.services.confirmations.dashboard(current_event.pk)
+        )
+        context["track_view"] = (
+            self.request.services.confirmations.track_view(
+                event_pk=current_event.pk, track_pk=filter_track_pk
+            )
+            if filter_track_pk
+            else None
         )
         context["slug"] = slug
         context["tab_urls"] = timetable_tab_urls(slug)

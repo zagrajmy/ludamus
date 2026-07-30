@@ -111,6 +111,7 @@ class TestConfirmationsPageView:
                     unclaimed_facilitator_count=0,
                     without_facilitator_count=0,
                 ),
+                "track_view": None,
                 "slug": event.slug,
                 "tab_urls": _tab_urls(event),
                 "active_tab": "confirmations",
@@ -137,7 +138,9 @@ class TestConfirmationsPageView:
             session.tracks.add(track)
             AgendaItemFactory(session=session, session_confirmed=confirmed)
 
-        response = authenticated_client.get(self.get_url(event))
+        # `?track=` empty keeps the event-wide dashboard: a manager of exactly
+        # one track would otherwise land straight on that track's list.
+        response = authenticated_client.get(f"{self.get_url(event)}?track=")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["dashboard"] == ConfirmationDashboardDTO(
@@ -218,6 +221,99 @@ class TestConfirmationsPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["filter_track_pk"] == track.pk
         assert response.context["managed_track_pks"] == {track.pk}
+
+    def test_track_view_lists_only_facilitators_scheduled_in_that_track(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="RPG", slug="rpg", is_public=True
+        )
+        other = Track.objects.create(
+            event=event, name="Talks", slug="talks", is_public=True
+        )
+        listed = Facilitator.objects.create(event=event, display_name="Ada", slug="ada")
+        elsewhere = Facilitator.objects.create(
+            event=event, display_name="Ben", slug="ben"
+        )
+        for facilitator, session_track in ((listed, track), (elsewhere, other)):
+            session = SessionFactory(category=proposal_category, status="accepted")
+            session.facilitators.add(facilitator)
+            session.tracks.add(session_track)
+            AgendaItemFactory(session=session)
+
+        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["dashboard"] is None
+        track_view = response.context["track_view"]
+        assert [f.display_name for f in track_view.facilitators] == ["Ada"]
+        assert track_view.scheduled_count == 1
+        assert track_view.confirmed_count == 0
+
+    def test_track_view_groups_a_facilitators_program(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="RPG", slug="rpg", is_public=True
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Ada", slug="ada", organizer=active_user
+        )
+        scheduled = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            title="Dragons",
+            contact_email="ada@example.com",
+        )
+        scheduled.facilitators.add(facilitator)
+        scheduled.tracks.add(track)
+        AgendaItemFactory(session=scheduled, session_confirmed=True)
+        for title, status in (("Later", "accepted"), ("Idea", "pending")):
+            counted = SessionFactory(
+                category=proposal_category,
+                status=status,
+                title=title,
+                contact_email="ada@example.com",
+            )
+            counted.facilitators.add(facilitator)
+            counted.tracks.add(track)
+        on_hold = SessionFactory(
+            category=proposal_category,
+            status="on_hold",
+            title="Maybe",
+            contact_email="ada@example.com",
+        )
+        on_hold.facilitators.add(facilitator)
+        on_hold.tracks.add(track)
+
+        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+
+        assert response.status_code == HTTPStatus.OK
+        card = response.context["track_view"].facilitators[0]
+        assert card.organizer_name == active_user.name
+        assert card.unplaced_count == 1
+        assert card.pending_count == 1
+        assert card.is_fully_confirmed
+        groups = card.email_groups[0].status_groups
+        assert [group.status for group in groups] == ["scheduled", "on_hold"]
+        assert [s.title for s in groups[0].sessions] == ["Dragons"]
+        assert [s.title for s in groups[1].sessions] == ["Maybe"]
+
+    def test_track_view_is_empty_when_nothing_is_scheduled_in_the_track(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="RPG", slug="rpg", is_public=True
+        )
+
+        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["track_view"].facilitators == []
+        assert response.context["track_view"].progress_pct == 0
 
     def test_unconfirmed_agenda_item_is_not_counted_as_confirmed(
         self, authenticated_client, active_user, sphere, event, proposal_category

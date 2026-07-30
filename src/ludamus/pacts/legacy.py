@@ -778,6 +778,18 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read_presenter(session_id: int) -> UserDTO | None: ...
     @staticmethod
+    def list_confirmation_rows(
+        event_pk: int, facilitator_pks: list[int]
+    ) -> list[ConfirmationSessionRow]: ...
+    @staticmethod
+    def list_track_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]: ...
+    @staticmethod
+    def list_facilitator_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]: ...
+    @staticmethod
     def lock(pk: int) -> None: ...
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
@@ -902,6 +914,33 @@ class ConfirmationCountsRow(TypedDict):
     facilitator_count: int
     scheduled_count: int
     confirmed_count: int
+
+
+class ConfirmationFacilitatorRow(TypedDict):
+    pk: int
+    display_name: str
+    slug: str
+    organizer_id: int | None
+    organizer_name: str
+
+
+class ConfirmationSessionRow(TypedDict):
+    """One (facilitator, session) pair, flattened for the confirmations page.
+
+    Agenda-item columns are None for a session with no place in the timetable.
+    """
+
+    facilitator_pk: int
+    session_pk: int
+    title: str
+    status: SessionStatus
+    contact_email: str
+    category_name: str
+    agenda_item_pk: int | None
+    is_confirmed: bool
+    start_time: datetime | None
+    end_time: datetime | None
+    room_name: str
 
 
 class AgendaItemRepositoryProtocol(Protocol):
@@ -1254,6 +1293,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     def count_confirmations_by_organizer(
         event_pk: int,
     ) -> list[ConfirmationCountsRow]: ...
+    @staticmethod
+    def list_with_scheduled_session_in_track(
+        event_pk: int, track_pk: int
+    ) -> list[ConfirmationFacilitatorRow]: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

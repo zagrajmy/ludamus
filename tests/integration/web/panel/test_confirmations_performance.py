@@ -10,6 +10,9 @@ from django.urls import reverse
 # the panel chrome. The point of the test is that this does not grow with the
 # number of facilitators, sessions or tracks.
 _DASHBOARD_QUERY_LIMIT = 25
+# Four reads (facilitators of the block, their session rows, track names,
+# co-facilitator names) plus the panel chrome.
+_TRACK_VIEW_QUERY_LIMIT = 25
 
 
 class TestConfirmationsQueryBounds:
@@ -28,6 +31,47 @@ class TestConfirmationsQueryBounds:
         assert (
             count <= _DASHBOARD_QUERY_LIMIT
         ), f"Dashboard used {count} queries, expected ≤ {_DASHBOARD_QUERY_LIMIT}"
+
+    def test_track_view_bounded_queries(
+        self, authenticated_client, active_user, sphere, confirmations_scale_data
+    ):
+        event = confirmations_scale_data["event"]
+        track = confirmations_scale_data["tracks"][0]
+        sphere.managers.add(active_user)
+        url = reverse("panel:timetable-confirmations", kwargs={"slug": event.slug})
+
+        with CaptureQueriesContext(connection) as ctx:
+            response = authenticated_client.get(f"{url}?track={track.pk}")
+
+        assert response.status_code == HTTPStatus.OK
+        count = len(ctx.captured_queries)
+        assert (
+            count <= _TRACK_VIEW_QUERY_LIMIT
+        ), f"Track view used {count} queries, expected ≤ {_TRACK_VIEW_QUERY_LIMIT}"
+
+    def test_track_view_query_count_does_not_grow_with_the_data(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        confirmations_scale_data,
+        grow_confirmations_data,
+    ):
+        event = confirmations_scale_data["event"]
+        track = confirmations_scale_data["tracks"][0]
+        sphere.managers.add(active_user)
+        url = reverse("panel:timetable-confirmations", kwargs={"slug": event.slug})
+        track_url = f"{url}?track={track.pk}"
+
+        with CaptureQueriesContext(connection) as before:
+            authenticated_client.get(track_url)
+        grow_confirmations_data(confirmations_scale_data)
+        with CaptureQueriesContext(connection) as after:
+            response = authenticated_client.get(track_url)
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["track_view"].facilitators
+        assert len(after.captured_queries) == len(before.captured_queries)
 
     def test_dashboard_query_count_does_not_grow_with_the_data(
         self,
