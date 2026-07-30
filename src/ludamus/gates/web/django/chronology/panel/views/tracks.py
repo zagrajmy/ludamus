@@ -1,4 +1,5 @@
 # pylint: disable=duplicate-code
+# TODO(fancysnake): Extract common view boilerplate
 """Track views (configurable lanes spanning spaces and managers)."""
 
 from __future__ import annotations
