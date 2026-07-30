@@ -27,12 +27,10 @@ def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
     return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
 
 
-def _submitted_track_data(
-    *, request: PanelRequest, form: TrackForm, default_is_public: bool
-) -> TrackUpdateData:
+def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackUpdateData:
     return TrackUpdateData(
         name=form.cleaned_data["name"],
-        is_public=form.cleaned_data.get("is_public", default_is_public),
+        is_public=form.cleaned_data["is_public"],
         space_pks=_submitted_pks(request, "space_pks"),
         manager_pks=_submitted_pks(request, "manager_pks"),
     )
@@ -102,9 +100,7 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         service.create(
             event_pk=current_event.pk,
             sphere_id=sphere_id,
-            data=_submitted_track_data(
-                request=self.request, form=form, default_is_public=True
-            ),
+            data=_submitted_track_data(request=self.request, form=form),
         )
         messages.success(self.request, _("Track created successfully."))
         return redirect("panel:tracks", slug=slug)
@@ -178,9 +174,7 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 sphere_id=sphere_id,
                 track_slug=track_slug,
-                data=_submitted_track_data(
-                    request=self.request, form=form, default_is_public=False
-                ),
+                data=_submitted_track_data(request=self.request, form=form),
             )
         except NotFoundError:
             messages.error(self.request, _("Track not found."))
