@@ -8,5 +8,6 @@ want a written argument and a decision trail before code. Distinct from
 | # | RFC | Status |
 | - | --- | ------ |
 | [0001](0001-party.md) | Party (drużyna) — replace "Connected users" with a membership model (claim flow landed) | 🟡 draft |
+| [0002](0002-kobold-and-goblin.md) | Kobold i Goblin — two agents, two trust tiers, two homes | 🟡 draft |
 
 Legend: 🟢 accepted/active · 🟡 draft, under discussion · 🔴 rejected/superseded.
