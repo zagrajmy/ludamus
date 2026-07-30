@@ -23,7 +23,7 @@ const {
   openUrl,
   prepareDevice,
   assertPageReady,
-} = await createIosHarness(session);
+} = createIosHarness(session);
 
 const hasVisibleText = async (text: string): Promise<boolean> => {
   const labels = await snapshotLabels();

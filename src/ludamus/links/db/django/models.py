@@ -403,14 +403,17 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
-    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        eligible_configs = [
+    def get_eligible_enrollment_configs(
+        self, session: Session
+    ) -> list[EnrollmentConfig]:
+        return [
             config
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
 
-        if not eligible_configs:
+    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
+        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
             return None
 
         return max(eligible_configs, key=lambda c: c.percentage_slots)
