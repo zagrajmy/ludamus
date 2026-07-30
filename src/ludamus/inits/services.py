@@ -33,6 +33,7 @@ from ludamus.mills.crowd import (
     ProfileService,
 )
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
+from ludamus.mills.encounter import EncounterService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
@@ -373,6 +374,15 @@ class Services:
             connections=self._repos.connections,
             decryptor=FernetDecryptor(key),
             sheet_writer=GoogleSheetsWriter(),
+        )
+
+    @cached_property
+    def encounters(self) -> EncounterService:
+        return EncounterService(
+            transaction=self._transaction,
+            encounters=self._repos.encounters,
+            rsvps=self._repos.encounter_rsvps,
+            users=self._repos.active_users,
         )
 
     @cached_property

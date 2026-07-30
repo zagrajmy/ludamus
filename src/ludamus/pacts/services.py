@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
     )
+    from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
@@ -172,3 +173,5 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
+    @property
+    def encounters(self) -> EncounterServiceProtocol: ...
