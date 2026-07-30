@@ -1,5 +1,6 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
@@ -15,9 +16,17 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.enrollment import AnonymousSessionContextDTO
+from ludamus.pacts.enrollment import (
+    AnonymousEnrollmentWindowSnapshot,
+    AnonymousSessionContextDTO,
+)
 from ludamus.pacts.legacy import NotificationKind
-from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    EnrollmentConfigFactory,
+    EventFactory,
+    SessionFactory,
+)
 from tests.integration.utils import assert_response
 
 
@@ -39,13 +48,19 @@ def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
     enrollment_config.save()
 
 
-def _expected_session_dto(agenda_item) -> AnonymousSessionContextDTO:
+def _expected_session_dto(agenda_item, enrollment_config) -> AnonymousSessionContextDTO:
     session = agenda_item.session
+    eligible_windows = [
+        AnonymousEnrollmentWindowSnapshot.model_validate(enrollment_config)
+    ]
+    participants_limit = session.participants_limit
     return AnonymousSessionContextDTO(
         session_id=session.id,
         event_id=session.event.id,
         event_slug=session.event.slug,
         has_agenda_item=True,
+        participants_limit=participants_limit,
+        eligible_windows=eligible_windows,
         allows_anonymous_enrollment=True,
         title=session.title,
         display_name=session.display_name,
@@ -53,7 +68,7 @@ def _expected_session_dto(agenda_item) -> AnonymousSessionContextDTO:
         min_age=session.min_age,
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
-        effective_participants_limit=session.effective_participants_limit,
+        effective_participants_limit=participants_limit,
         space_name=agenda_item.space.name,
         start_time=agenda_item.start_time,
         end_time=agenda_item.end_time,
@@ -198,7 +213,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "session": _expected_session_dto(agenda_item),
+                "session": _expected_session_dto(agenda_item, enrollment_config),
                 "event_slug": agenda_item.session.event.slug,
                 "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
@@ -234,7 +249,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "session": _expected_session_dto(agenda_item),
+                "session": _expected_session_dto(agenda_item, enrollment_config),
                 "event_slug": agenda_item.session.event.slug,
                 "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
@@ -979,4 +994,62 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url="/",
+        )
+
+    def test_post_waitlists_when_open_window_capacity_is_exhausted(
+        self, agenda_item, anonymous_user_factory, client, sphere
+    ):
+        event = agenda_item.session.event
+        now = datetime.now(UTC)
+        EnrollmentConfigFactory(
+            event=event,
+            start_time=now - timedelta(hours=1),
+            end_time=now + timedelta(hours=1),
+            percentage_slots=100,
+            restrict_to_configured_users=True,
+            allow_anonymous_enrollment=False,
+        )
+        EnrollmentConfigFactory(
+            event=event,
+            start_time=now - timedelta(hours=1),
+            end_time=now + timedelta(hours=1),
+            percentage_slots=20,
+            restrict_to_configured_users=False,
+            allow_anonymous_enrollment=True,
+        )
+        session = agenda_item.session
+        session.participants_limit = 100
+        session.save()
+        for _ in range(20):
+            SessionParticipation.objects.create(
+                session=session,
+                user=anonymous_user_factory(),
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+        user = anonymous_user_factory()
+        _activate_anonymous_client(
+            client, sphere=sphere, event=event, user_code=_anonymous_user_code(user)
+        )
+
+        response = client.post(
+            self.get_url(session.id, session.event.slug), data={"name": "late"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Session is full. You have been added to the waiting list for: "
+                        f"{session.title}"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert (
+            SessionParticipation.objects.get(session=session, user=user).status
+            == SessionParticipationStatus.WAITING
         )

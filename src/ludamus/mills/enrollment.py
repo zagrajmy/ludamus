@@ -32,7 +32,10 @@ from ludamus.pacts.enrollment import (
     AnonymousEnrollOutcome,
     AnonymousEnrollPageDTO,
     AnonymousEnrollResultDTO,
+    AnonymousEventDTO,
     AnonymousLoadDTO,
+    AnonymousSeatingDTO,
+    AnonymousSessionContextDTO,
     ClaimResult,
     EnrollmentServiceProtocol,
     EnrollmentSettingsServiceProtocol,
@@ -67,7 +70,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentRepositoryProtocol,
         AnonymousEnrollmentRequestDTO,
-        AnonymousSessionContextDTO,
         EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
         EnrollmentWindowData,
@@ -90,6 +92,7 @@ _NAVBAR_NOTIFICATION_LIMIT = 10
 
 
 class EnrollmentWindowLike(Protocol):
+    allow_anonymous_enrollment: bool
     max_waitlist_sessions: int
     percentage_slots: int
     restrict_to_configured_users: bool
@@ -145,6 +148,10 @@ class EnrollmentPolicy:
         return self.seating_window.percentage_slots if self.seating_window else 0
 
     @property
+    def allows_anonymous_enrollment(self) -> bool:
+        return any(window.allow_anonymous_enrollment for window in self.windows)
+
+    @property
     def max_waitlist_sessions(self) -> int:
         return max((window.max_waitlist_sessions for window in self.windows), default=0)
 
@@ -152,6 +159,18 @@ class EnrollmentPolicy:
     def requires_slot_allowance(self) -> bool:
         return bool(
             self.seating_window and self.seating_window.restrict_to_configured_users
+        )
+
+    def effective_participants_limit(self, *, participants_limit: int) -> int:
+        if not self.windows or participants_limit == 0:
+            return 0
+        return math.ceil(participants_limit * self.percentage_slots / 100)
+
+    def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
+        if participants_limit == 0:
+            return False
+        return enrolled_count >= self.effective_participants_limit(
+            participants_limit=participants_limit
         )
 
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
@@ -488,7 +507,7 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
             ) from None
-        if not event.allows_anonymous_enrollment:
+        if not self._event_allows_anonymous(event):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT,
                 event_slug=event.slug,
@@ -538,7 +557,7 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             )
         with self._transaction.atomic():
             seating = self._enrollment_repository.lock_seating(session.session_id)
-            if seating.is_full:
+            if self._seating_is_full(seating):
                 self._enrollment_repository.create_waiting(
                     session_id=session.session_id, user_id=user.pk
                 )
@@ -598,10 +617,12 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
     ) -> tuple[AnonymousSessionContextDTO, UserDTO]:
         request = enrollment_request
         try:
-            session = self._enrollment_repository.read_session(
-                session_id=request.session_id,
-                event_slug=request.event_slug,
-                site_id=request.site_id,
+            session = self._with_anonymous_session_policy(
+                self._enrollment_repository.read_session(
+                    session_id=request.session_id,
+                    event_slug=request.event_slug,
+                    site_id=request.site_id,
+                )
             )
         except NotFoundError:
             raise AnonymousEnrollmentError(
@@ -651,6 +672,32 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             self._user_repository.update(user.slug, UserData(name=name))
         if not user.name:
             raise AnonymousEnrollmentError(AnonymousEnrollmentErrorCode.NAME_REQUIRED)
+
+    @staticmethod
+    def _anonymous_policy(windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
+        return EnrollmentPolicy.for_actor(windows, is_configured_user=False)
+
+    def _event_allows_anonymous(self, event: AnonymousEventDTO) -> bool:
+        return self._anonymous_policy(event.active_windows).allows_anonymous_enrollment
+
+    def _with_anonymous_session_policy(
+        self, session: AnonymousSessionContextDTO
+    ) -> AnonymousSessionContextDTO:
+        policy = self._anonymous_policy(session.eligible_windows)
+        with_policy = session.model_copy()
+        with_policy.allows_anonymous_enrollment = (
+            session.has_agenda_item and policy.allows_anonymous_enrollment
+        )
+        with_policy.effective_participants_limit = policy.effective_participants_limit(
+            participants_limit=session.participants_limit
+        )
+        return with_policy
+
+    def _seating_is_full(self, seating: AnonymousSeatingDTO) -> bool:
+        return self._anonymous_policy(seating.eligible_windows).is_full(
+            participants_limit=seating.participants_limit,
+            enrolled_count=seating.enrolled_count,
+        )
 
 
 def _refresh_user_config_from_api(

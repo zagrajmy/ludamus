@@ -8,6 +8,7 @@ class _Window:
     percentage_slots: int = 100
     max_waitlist_sessions: int = 0
     restrict_to_configured_users: bool = False
+    allow_anonymous_enrollment: bool = False
 
 
 _OPEN_PERCENT = 20
@@ -113,6 +114,46 @@ class TestCapacityStaysInsideUsableWindows:
 
         assert (
             policy.available_slots(participants_limit=0, enrolled_count=99) > _UNLIMITED
+        )
+
+
+class TestAnonymousCapacity:
+    def test_allows_anonymous_when_an_open_window_permits_it(self) -> None:
+        policy = _policy(_Window(allow_anonymous_enrollment=True))
+
+        assert policy.allows_anonymous_enrollment is True
+
+    def test_ignores_anonymous_on_a_restricted_window_the_actor_cannot_use(
+        self,
+    ) -> None:
+        policy = _policy(
+            _Window(
+                percentage_slots=_RESTRICTED_PERCENT,
+                restrict_to_configured_users=True,
+                allow_anonymous_enrollment=True,
+            ),
+            _Window(percentage_slots=_OPEN_PERCENT, allow_anonymous_enrollment=True),
+        )
+
+        assert policy.allows_anonymous_enrollment is True
+        assert (
+            policy.effective_participants_limit(participants_limit=_SESSION_LIMIT)
+            == _SEATS_AT_OPEN_PERCENT
+        )
+
+    def test_is_full_uses_the_open_window_capacity(self) -> None:
+        policy = _policy(
+            _Window(
+                percentage_slots=_RESTRICTED_PERCENT, restrict_to_configured_users=True
+            ),
+            _Window(percentage_slots=_OPEN_PERCENT),
+        )
+
+        assert policy.is_full(
+            participants_limit=_SESSION_LIMIT, enrolled_count=_SEATS_AT_OPEN_PERCENT
+        )
+        assert not policy.is_full(
+            participants_limit=_SESSION_LIMIT, enrolled_count=_SEATS_AT_OPEN_PERCENT - 1
         )
 
 

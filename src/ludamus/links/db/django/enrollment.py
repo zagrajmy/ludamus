@@ -29,6 +29,7 @@ from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     AnonymousEnrollmentRepositoryProtocol,
+    AnonymousEnrollmentWindowSnapshot,
     AnonymousEventDTO,
     AnonymousLoadDTO,
     AnonymousSeatingDTO,
@@ -420,6 +421,14 @@ class ParticipationPromotionRepository:
         ).delete()
 
 
+def _enrollment_window_snapshots(
+    configs: list[EnrollmentConfig],
+) -> list[AnonymousEnrollmentWindowSnapshot]:
+    return [
+        AnonymousEnrollmentWindowSnapshot.model_validate(config) for config in configs
+    ]
+
+
 class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO:
@@ -430,9 +439,8 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
         return AnonymousEventDTO(
             event_id=event.pk,
             slug=event.slug,
-            allows_anonymous_enrollment=any(
-                config.allow_anonymous_enrollment
-                for config in event.get_active_enrollment_configs()
+            active_windows=_enrollment_window_snapshots(
+                event.get_active_enrollment_configs()
             ),
         )
 
@@ -457,11 +465,9 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             event_id=event.pk,
             event_slug=event.slug,
             has_agenda_item=has_agenda_item,
-            allows_anonymous_enrollment=has_agenda_item
-            and any(
-                config.allow_anonymous_enrollment
-                and config.is_session_eligible(session)
-                for config in event.get_active_enrollment_configs()
+            participants_limit=session.participants_limit,
+            eligible_windows=_enrollment_window_snapshots(
+                event.get_eligible_enrollment_configs(session)
             ),
             title=session.title,
             display_name=session.display_name,
@@ -469,7 +475,6 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             min_age=session.min_age,
             enrolled_count=session.enrolled_count,
             waiting_count=session.waiting_count,
-            effective_participants_limit=session.effective_participants_limit,
             space_name=session.agenda_item.space.name if has_agenda_item else None,
             start_time=session.agenda_item.start_time if has_agenda_item else None,
             end_time=session.agenda_item.end_time if has_agenda_item else None,
@@ -493,8 +498,19 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
 
     @staticmethod
     def lock_seating(session_id: int) -> AnonymousSeatingDTO:
-        session = Session.objects.select_for_update(of=("self",)).get(id=session_id)
-        return AnonymousSeatingDTO(is_full=session.is_full, title=session.title)
+        session = (
+            Session.objects.select_for_update(of=("self",))
+            .select_related("event")
+            .get(id=session_id)
+        )
+        return AnonymousSeatingDTO(
+            title=session.title,
+            participants_limit=session.participants_limit,
+            enrolled_count=session.enrolled_count,
+            eligible_windows=_enrollment_window_snapshots(
+                session.event.get_eligible_enrollment_configs(session)
+            ),
+        )
 
     @staticmethod
     def create_or_confirm(*, session_id: int, user_id: int) -> None:

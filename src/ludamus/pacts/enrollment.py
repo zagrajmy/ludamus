@@ -406,10 +406,19 @@ class AnonymousEnrollmentError(Exception):
         self.event_slug = event_slug
 
 
+class AnonymousEnrollmentWindowSnapshot(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    percentage_slots: int
+    max_waitlist_sessions: int = 0
+    restrict_to_configured_users: bool = False
+    allow_anonymous_enrollment: bool = False
+
+
 class AnonymousEventDTO(BaseModel):
     event_id: int
     slug: str
-    allows_anonymous_enrollment: bool
+    active_windows: list[AnonymousEnrollmentWindowSnapshot]
 
 
 class AnonymousSessionContextDTO(BaseModel):
@@ -417,16 +426,17 @@ class AnonymousSessionContextDTO(BaseModel):
     event_id: int
     event_slug: str
     has_agenda_item: bool
-    # An active enrollment config allows anonymous enrollment and covers this
-    # session right now.
-    allows_anonymous_enrollment: bool
+    participants_limit: int
+    eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
+    # Filled by AnonymousEnrollmentService from eligible_windows.
+    allows_anonymous_enrollment: bool = False
     title: str
     display_name: str
     description: str
     min_age: int
     enrolled_count: int
     waiting_count: int
-    effective_participants_limit: int
+    effective_participants_limit: int = 0
     # None when the session has no agenda item (nowhere assigned yet).
     space_name: str | None
     start_time: datetime | None
@@ -434,8 +444,10 @@ class AnonymousSessionContextDTO(BaseModel):
 
 
 class AnonymousSeatingDTO(BaseModel):
-    is_full: bool
     title: str
+    participants_limit: int
+    enrolled_count: int
+    eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
 
 
 class AnonymousActivationDTO(BaseModel):
