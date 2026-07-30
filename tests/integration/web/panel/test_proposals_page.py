@@ -12,7 +12,6 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts import (
-    EventDTO,
     OrganizerFieldDTO,
     ProposalCategoryDTO,
     SessionDTO,
@@ -29,6 +28,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -56,23 +56,6 @@ _PAGE_SIZE = 50
 _SEED_COUNT = 60
 _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
 _TOTAL_PAGES = 2
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "proposals",
-    }
 
 
 class TestProposalsPageView:
@@ -129,7 +112,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [],
@@ -230,7 +213,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -379,7 +362,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -443,7 +426,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -506,7 +489,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -581,7 +564,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -665,7 +648,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -747,7 +730,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -824,7 +807,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
@@ -870,7 +853,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -907,7 +890,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -952,7 +935,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -990,7 +973,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 "proposals": [],
                 "session_fields": [],
@@ -1084,7 +1067,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 "categories": [],
@@ -1368,7 +1351,7 @@ class TestProposalDetailPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 1,
@@ -1417,7 +1400,7 @@ class TestProposalDetailPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 1,

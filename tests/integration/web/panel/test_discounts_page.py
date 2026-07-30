@@ -9,15 +9,11 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Connection, Discount, Facilitator
 from ludamus.links.db.django.repositories import ConnectionsRepository
-from ludamus.pacts import (
-    EventDTO,
-    FacilitatorDTO,
-    FacilitatorListItemDTO,
-    NotFoundError,
-)
+from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO, NotFoundError
 from ludamus.pacts.discounts import DiscountDTO
 from tests.integration.conftest import EventFactory, SphereFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -54,23 +50,6 @@ def _facilitator_dto(facilitator):
         slug=facilitator.slug,
         user_id=None,
     )
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "discounts",
-    }
 
 
 class TestDiscountsPageView:
@@ -123,7 +102,11 @@ class TestDiscountsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
-            context_data={**_base_context(event), "assignments": [], "rows": []},
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "assignments": [],
+                "rows": [],
+            },
         )
 
     def test_list_shows_discount_and_accreditation(
@@ -142,7 +125,7 @@ class TestDiscountsPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [],
                 "rows": [
                     {
@@ -168,7 +151,7 @@ class TestDiscountsPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -205,7 +188,7 @@ class TestDiscountsPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [],
                 "rows": [
                     {
@@ -322,7 +305,7 @@ class TestDiscountCreatePageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -355,7 +338,7 @@ class TestDiscountCreatePageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -385,7 +368,7 @@ class TestDiscountCreatePageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -415,7 +398,7 @@ class TestDiscountCreatePageView:
             HTTPStatus.OK,
             template_name="panel/discounts/list.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "assignments": [
                     {"facilitator": _facilitator_list_dto(facilitator), "form": ANY}
                 ],
@@ -507,7 +490,7 @@ class TestDiscountEditPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "discount": DiscountDTO.model_validate(discount),
                 "form": ANY,
             },
@@ -625,7 +608,7 @@ class TestDiscountEditPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "discount": DiscountDTO.model_validate(discount),
                 "form": ANY,
             },
@@ -788,7 +771,11 @@ class TestDiscountExportPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/export.html",
-            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "form": ANY,
+                "has_connections": True,
+            },
             contains=[connection.display_name, "Export"],
         )
 
@@ -804,7 +791,7 @@ class TestDiscountExportPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/export.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": False,
             },
@@ -879,7 +866,11 @@ class TestDiscountExportPageView:
                     ),
                 )
             ],
-            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "form": ANY,
+                "has_connections": True,
+            },
         )
         session.post.assert_not_called()
 
@@ -902,7 +893,11 @@ class TestDiscountExportPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/export.html",
             messages=[(messages.ERROR, "Connection not found.")],
-            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "form": ANY,
+                "has_connections": True,
+            },
         )
         session.put.assert_not_called()
 
@@ -923,7 +918,7 @@ class TestDiscountExportPageView:
             HTTPStatus.OK,
             template_name="panel/discounts/export.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": False,
             },
@@ -945,7 +940,11 @@ class TestDiscountExportPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/discounts/export.html",
-            context_data={**_base_context(event), "form": ANY, "has_connections": True},
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "form": ANY,
+                "has_connections": True,
+            },
         )
         assert response.context["form"].errors == {
             "spreadsheet": ["Enter a Google Sheets link or a spreadsheet ID."]

@@ -6,27 +6,11 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts import EventDTO, TrackListItemDTO
+from ludamus.pacts import TrackListItemDTO
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _base_context(event, *, rooms=0):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": rooms,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "tracks",
-    }
 
 
 class TestTracksPageView:
@@ -79,7 +63,7 @@ class TestTracksPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/tracks.html",
-            context_data={**_base_context(event), "tracks": []},
+            context_data={**panel_context(event, active_nav="tracks"), "tracks": []},
         )
 
     def test_get_shows_tracks_in_context(
@@ -97,7 +81,7 @@ class TestTracksPageView:
             HTTPStatus.OK,
             template_name="panel/tracks.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="tracks"),
                 "tracks": [
                     TrackListItemDTO(
                         pk=track.pk,
@@ -129,7 +113,7 @@ class TestTracksPageView:
             HTTPStatus.OK,
             template_name="panel/tracks.html",
             context_data={
-                **_base_context(event, rooms=1),
+                **panel_context(event, active_nav="tracks", rooms_count=1),
                 "tracks": [
                     TrackListItemDTO(
                         pk=track.pk,

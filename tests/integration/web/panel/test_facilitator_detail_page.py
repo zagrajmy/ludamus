@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     Session,
 )
 from ludamus.pacts import (
-    EventDTO,
     FacilitatorDTO,
     OrganizerFieldDTO,
     SessionListItemDTO,
@@ -23,6 +22,7 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -43,23 +43,6 @@ def _make_personal_data_field(event, **kwargs):
     }
     defaults.update(kwargs)
     return PersonalDataField.objects.create(event=event, **defaults)
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
-    }
 
 
 class TestFacilitatorDetailPageView:
@@ -87,7 +70,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -126,7 +109,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -173,7 +156,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": UserDTO.model_validate(linked),
                 "accreditation_type_display": "None",
@@ -198,7 +181,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "facilitator": (
                     FacilitatorDTO.model_validate(facilitator).model_copy(
                         update={"organizer_name": "Olga Organizer"}
@@ -227,7 +210,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -301,7 +284,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -347,7 +330,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",

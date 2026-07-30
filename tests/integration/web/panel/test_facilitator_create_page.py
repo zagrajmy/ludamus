@@ -11,8 +11,9 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FieldAnswer, OrganizerFieldDTO
+from ludamus.pacts import FieldAnswer, OrganizerFieldDTO
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -28,23 +29,6 @@ def _field_dto(field):
         question=field.question,
         slug=field.slug,
     )
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
-    }
 
 
 class TestFacilitatorCreatePageView:
@@ -99,7 +83,11 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "field_descriptors": [],
+            },
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
@@ -166,7 +154,11 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "field_descriptors": [],
+            },
         )
         assert response.context["form"].errors
 
@@ -243,7 +235,11 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "field_descriptors": [],
+            },
         )
         assert response.context["form"].errors["accreditation_type"]
         assert response.context["form"].errors["accreditation_type"][0] in (
@@ -270,7 +266,7 @@ class TestFacilitatorCreatePageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": ANY,
                 "field_descriptors": [
                     {

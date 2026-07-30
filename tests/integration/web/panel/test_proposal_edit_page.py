@@ -48,6 +48,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 CUSTOM_DURATION_MINUTES = 45
@@ -109,7 +110,7 @@ def _edit_page_response(event, session):
     return {
         "template_name": "panel/proposal-form.html",
         "context_data": {
-            **_base_context(event),
+            **panel_context(event, active_nav="proposals"),
             "stats": {
                 "hosts_count": 0,
                 "pending_proposals": 1,
@@ -132,23 +133,6 @@ def _edit_page_response(event, session):
             "assigned_time_slot_pks": set(),
             "facilitator_personal_data": [],
         },
-    }
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "proposals",
     }
 
 
@@ -277,7 +261,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -315,7 +299,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -488,7 +472,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -575,7 +559,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "events": [
                     EventDTO.model_validate(other_event),
                     EventDTO.model_validate(event),
@@ -996,7 +980,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1329,7 +1313,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1528,7 +1512,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1645,7 +1629,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1705,7 +1689,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1766,7 +1750,7 @@ class TestProposalEditPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,

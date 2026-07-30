@@ -7,29 +7,13 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts import EventDTO, TrackDTO
+from ludamus.pacts import TrackDTO
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "tracks",
-    }
 
 
 class TestTrackEditPageView:
@@ -119,7 +103,7 @@ class TestTrackEditPageView:
             HTTPStatus.OK,
             template_name="panel/track-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="tracks"),
                 "track": TrackDTO.model_validate(track),
                 "form": ANY,
                 "spaces": [],
@@ -219,7 +203,7 @@ class TestTrackEditPageView:
             HTTPStatus.OK,
             template_name="panel/track-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="tracks"),
                 "track": TrackDTO.model_validate(track),
                 "form": ANY,
                 "spaces": [],
