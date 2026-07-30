@@ -5,6 +5,7 @@ import pytest
 
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.pacts import EventDTO, NotFoundError, TimeSlotDTO
+from ludamus.pacts.event import TimeSlotValidationError
 
 _EVENT_ID = 42
 
@@ -90,7 +91,7 @@ class TestPanelTimeSlotsService:
 
         errors = service.create(event=_event(), start_time=start, end_time=end)
 
-        assert errors == ["Time slot overlaps with an existing slot."]
+        assert errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
         time_slots.create.assert_not_called()
 
     def test_update_persists_valid_slot_scoped_to_event(
@@ -130,7 +131,7 @@ class TestPanelTimeSlotsService:
 
         errors = service.update(event=_event(), pk=1, start_time=start, end_time=end)
 
-        assert errors == ["Start must be before end."]
+        assert errors == [TimeSlotValidationError.START_NOT_BEFORE_END]
         time_slots.update.assert_not_called()
 
     def test_update_foreign_pk_raises_without_side_effects(self, service, time_slots):

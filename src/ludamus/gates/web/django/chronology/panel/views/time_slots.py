@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, assert_never
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -24,6 +24,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import TimeSlotForm
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.event import TimeSlotValidationError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -47,9 +48,21 @@ class _TimeSlotsContext(TypedDict):
     create_form: TimeSlotForm
 
 
-def _add_slot_errors(form: TimeSlotForm, errors: list[str]) -> None:
+def _slot_error_message(error: TimeSlotValidationError) -> str:
+    match error:
+        case TimeSlotValidationError.START_NOT_BEFORE_END:
+            return _("Start must be before end.")
+        case TimeSlotValidationError.OUTSIDE_EVENT_DATES:
+            return _("Time slot must be within event dates.")
+        case TimeSlotValidationError.OVERLAPS_EXISTING_SLOT:
+            return _("Time slot overlaps with an existing slot.")
+        case _:
+            assert_never(error)
+
+
+def _add_slot_errors(form: TimeSlotForm, errors: list[TimeSlotValidationError]) -> None:
     for error in errors:
-        form.add_error(None, _(error))
+        form.add_error(None, _slot_error_message(error))
 
 
 def _slot_times(form: TimeSlotForm) -> tuple[datetime, datetime]:

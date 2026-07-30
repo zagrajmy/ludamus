@@ -463,6 +463,10 @@ ignore_names = [
     # Dead since panel_time_slots service owns deletion; remove from
     # mills/legacy.py (with this entry) once the PRs editing that file land
     "delete_time_slot",
+    # Dead since panel_time_slots owns validation (typed-enum copy lives
+    # there); remove from mills/legacy.py (with this entry) alongside
+    # delete_time_slot
+    "validate_time_slot",
     # Unused but stays
     "deleted_at",
     "modification_time",
