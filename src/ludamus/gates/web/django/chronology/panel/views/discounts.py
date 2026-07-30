@@ -68,17 +68,16 @@ def _scoped_discount(
     *, request: PanelRequest, event_pk: int, pk: int
 ) -> DiscountDTO | None:
     try:
-        discount = request.services.discounts.get(pk)
+        return request.services.discounts.read_scoped(event_pk=event_pk, pk=pk)
     except NotFoundError:
         return None
-    return discount if discount.event_id == event_pk else None
 
 
 def _scoped_facilitator(
     *, request: PanelRequest, event_pk: int, facilitator_id: int
 ) -> FacilitatorDTO | None:
     try:
-        return request.services.facilitator_roster.read_scoped(
+        return request.services.discounts.read_scoped_facilitator(
             event_pk=event_pk, facilitator_id=facilitator_id
         )
     except NotFoundError:
@@ -92,25 +91,20 @@ def _discounts_context(
     assign_facilitator_id: int | None = None,
     assign_form: DiscountForm | None = None,
 ) -> _DiscountsContext:
-    facilitators = request.services.facilitator_roster.list_by_event(event_pk)
-    discounts_by_facilitator = {
-        discount.facilitator_id: discount
-        for discount in request.services.discounts.list_by_event(event_pk)
-    }
     rows: list[_DiscountRow] = []
     assignments: list[_DiscountAssignment] = []
-    for facilitator in facilitators:
-        discount = discounts_by_facilitator.get(facilitator.pk)
+    for entry in request.services.discounts.list_roster(event_pk):
+        facilitator = entry.facilitator
         rows.append(
             {
                 "facilitator": facilitator,
                 "accreditation_type_display": ACCREDITATION_TYPE_LABELS[
                     AccreditationType(facilitator.accreditation_type)
                 ],
-                "discount": discount,
+                "discount": entry.discount,
             }
         )
-        if discount is None:
+        if entry.discount is None:
             form = (
                 assign_form
                 if facilitator.pk == assign_facilitator_id and assign_form is not None

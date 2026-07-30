@@ -1,6 +1,11 @@
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.discounts import DiscountsExportServiceProtocol
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.discounts import (
+    DiscountRosterEntryDTO,
+    DiscountsExportServiceProtocol,
+    DiscountsServiceProtocol,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts.discounts import (
@@ -10,7 +15,7 @@ if TYPE_CHECKING:
         DiscountRepositoryProtocol,
         SheetWriterProtocol,
     )
-    from ludamus.pacts.legacy import FacilitatorRepositoryProtocol
+    from ludamus.pacts.legacy import FacilitatorDTO, FacilitatorRepositoryProtocol
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
@@ -18,18 +23,44 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
-class DiscountsService:
+class DiscountsService(DiscountsServiceProtocol):
     def __init__(
-        self, transaction: TransactionProtocol, discounts: DiscountRepositoryProtocol
+        self,
+        *,
+        transaction: TransactionProtocol,
+        discounts: DiscountRepositoryProtocol,
+        facilitators: FacilitatorRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._discounts = discounts
+        self._facilitators = facilitators
 
-    def list_by_event(self, event_pk: int) -> list[DiscountDTO]:
-        return self._discounts.list_by_event(event_pk)
+    def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]:
+        discounts_by_facilitator = {
+            discount.facilitator_id: discount
+            for discount in self._discounts.list_by_event(event_pk)
+        }
+        return [
+            DiscountRosterEntryDTO(
+                facilitator=facilitator,
+                discount=discounts_by_facilitator.get(facilitator.pk),
+            )
+            for facilitator in self._facilitators.list_by_event(event_pk)
+        ]
 
-    def get(self, pk: int) -> DiscountDTO:
-        return self._discounts.get(pk)
+    def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO:
+        discount = self._discounts.get(pk)
+        if discount.event_id != event_pk:
+            raise NotFoundError
+        return discount
+
+    def read_scoped_facilitator(
+        self, *, event_pk: int, facilitator_id: int
+    ) -> FacilitatorDTO:
+        facilitator = self._facilitators.read(facilitator_id)
+        if facilitator.event_id != event_pk:
+            raise NotFoundError
+        return facilitator
 
     def create(self, event_pk: int, data: DiscountData) -> DiscountDTO:
         with self._transaction.atomic():

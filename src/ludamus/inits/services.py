@@ -41,7 +41,6 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.event import EventPanelService
-from ludamus.mills.facilitator_roster import FacilitatorRosterService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -357,17 +356,17 @@ class Services:
 
     @cached_property
     def discounts(self) -> DiscountsService:
-        return DiscountsService(self._transaction, self._repos.discounts)
+        return DiscountsService(
+            transaction=self._transaction,
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+        )
 
     @cached_property
     def proposal_categories(self) -> ProposalCategoriesService:
         return ProposalCategoriesService(
             self._transaction, self._repos.proposal_categories
         )
-
-    @cached_property
-    def facilitator_roster(self) -> FacilitatorRosterService:
-        return FacilitatorRosterService(self._repos.facilitators)
 
     @cached_property
     def discounts_export(self) -> DiscountsExportService:

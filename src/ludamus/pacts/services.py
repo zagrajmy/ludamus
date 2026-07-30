@@ -40,7 +40,6 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.event import EventPanelServiceProtocol
-    from ludamus.pacts.facilitator_roster import FacilitatorRosterServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -171,5 +170,3 @@ class ServicesProtocol(Protocol):
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
     def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
-    @property
-    def facilitator_roster(self) -> FacilitatorRosterServiceProtocol: ...
