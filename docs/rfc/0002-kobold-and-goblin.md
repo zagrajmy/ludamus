@@ -145,12 +145,35 @@ better at always-on remote, but CLI/VPS-shaped and Python. It optimizes for the
 operator sitting in a terminal, which is the Kobold audience we already decided
 not to serve this way, and not the Goblin one.
 
-Known rough edge, going in with eyes open: Vellum's remote self-host is stubbed
-(`custom` provisioning target is "recognized but not yet implemented", and the
-docs list user-hosted remote as coming soon). Today that means Vellum Cloud, or
-the `docker` target on a box we keep awake ourselves. Not a blocker for an
-agent that holds no Ludamus write access — but it is the reason Goblin gets
-maintainer **read** and nothing more (O-3).
+### Where Goblin runs
+
+**The homelab.** Vellum's `docker` target starts the assistant, gateway and
+credential service in containers; run that on a box that is already always-on
+and we get the deployment without needing the `custom` remote-provisioning
+target, which is still stubbed ("recognized but not yet implemented"). That
+target only automates *provisioning from a laptop to a remote host* — with
+shell on the box, it is not in the way.
+
+This is also the better answer than Vellum Cloud on the merits, not just the
+cheaper one: Goblin accumulates Zagrajmy's institutional context and holds
+calendar and mail credentials. That staying on our own hardware is worth more
+than a managed runtime.
+
+Two things to verify on day one, because the docs don't answer them and both
+are load-bearing (see O-5):
+
+1. **Linux.** The desktop app is macOS-only and the install docs never mention
+   Linux. The README does scope the CLI to "advanced users, contributors, and
+   non-macOS environments", which reads like the intended path — but intended
+   is not verified.
+2. **Whether the surfaces reach a self-hosted runtime.** The docs say signing
+   up for Vellum is required to use the web or desktop app, and never explain
+   how clients connect to a runtime we host. The proactive multi-surface reach
+   is *the* reason Goblin is Vellum; if those surfaces only talk to Vellum
+   Cloud, self-hosting gets us the runtime without the point of it.
+
+Neither is a reason to revisit the choice — they are a reason to spike it on
+the homelab before building anything on top. An afternoon answers both.
 
 ## Not agents
 
@@ -172,8 +195,9 @@ maintainer **read** and nothing more (O-3).
 - **O-4** — Every `tools/call` is audit-logged with arguments verbatim. Kobold
   read verbs over `claims` touch personal data; redaction lands *before* those
   tools, not after.
-- **O-5** — Does Vellum's managed OAuth (50+ services, keys held in the
-  Credential Executor) still work when self-hosted, or does the brokering run
-  on Vellum's servers? Undocumented either way. It is the main thing Vellum
-  gives Goblin over the alternatives, so worth asking them directly before we
-  commit to a hosting shape.
+- **O-5** — What survives self-hosting? Three sub-questions, all undocumented,
+  all answerable by a homelab spike: (a) does managed OAuth still broker
+  locally, or through Vellum's servers; (b) do the iOS/web/voice surfaces
+  connect to a runtime we host, and if so how — direct, LAN, tunnel; (c) does
+  the CLI + `docker` path run on Linux. (b) is the one that would hurt: it is
+  the reason we picked Vellum.
