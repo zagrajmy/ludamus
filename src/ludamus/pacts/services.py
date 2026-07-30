@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
     )
+    from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
@@ -39,7 +40,10 @@ if TYPE_CHECKING:
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
-    from ludamus.pacts.event import EventPanelServiceProtocol
+    from ludamus.pacts.event import (
+        EventPanelServiceProtocol,
+        PanelTimeSlotsServiceProtocol,
+    )
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -119,6 +123,8 @@ class ServicesProtocol(Protocol):
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
     @property
+    def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
+    @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
     def sites(self) -> SitesServiceProtocol: ...
@@ -172,3 +178,5 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
+    @property
+    def encounters(self) -> EncounterServiceProtocol: ...
