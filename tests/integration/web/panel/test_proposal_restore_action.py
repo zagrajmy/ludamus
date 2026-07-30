@@ -5,34 +5,20 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import ProposalCategory, Session
+from ludamus.links.db.django.models import Session
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    assert_proposal_not_found,
+    make_proposal,
 )
 
 
-def _make_session(event, **kwargs):
-    category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-    defaults = {
-        "category": category,
-        "presenter": None,
-        "display_name": "Test Host",
-        "title": "Test Session",
-        "slug": "test-session",
-        "event": event,
-        "participants_limit": 5,
-        "status": "pending",
-    }
-    defaults.update(kwargs)
-    return Session.objects.create(**defaults)
-
-
 def _make_deleted_session(event, **kwargs):
-    session = _make_session(event, **kwargs)
+    session = make_proposal(event, **kwargs)
     session.soft_delete()
     return session
 
@@ -85,16 +71,11 @@ class TestProposalRestoreActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event)
+        session = make_proposal(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
         self, authenticated_client, active_user, sphere, event
@@ -105,12 +86,7 @@ class TestProposalRestoreActionView:
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
         session.refresh_from_db()
         assert session.deleted_at is not None
 

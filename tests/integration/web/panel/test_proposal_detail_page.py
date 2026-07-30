@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -40,7 +39,7 @@ from tests.integration.conftest import (
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import panel_context
+from tests.integration.web.panel.helpers import assert_proposal_not_found, panel_context
 
 
 class TestProposalDetailPageView:
@@ -75,12 +74,7 @@ class TestProposalDetailPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_ok_when_session_has_no_presenter(
         self, authenticated_client, active_user, sphere, event

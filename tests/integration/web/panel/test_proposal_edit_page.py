@@ -52,6 +52,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    assert_proposal_not_found,
     panel_context,
 )
 
@@ -216,12 +217,7 @@ class TestProposalEditPageView:
 
         response = authenticated_client.get(self.get_url(event, 99999))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_get_redirects_when_proposal_belongs_to_different_event(
         self, authenticated_client, active_user, sphere, event
@@ -233,12 +229,7 @@ class TestProposalEditPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -355,12 +346,7 @@ class TestProposalEditPageView:
 
         response = authenticated_client.post(self.get_url(event, 99999), data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
         self, authenticated_client, active_user, sphere, event
@@ -374,12 +360,7 @@ class TestProposalEditPageView:
             data={"title": "Updated", "display_name": "Host"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_updates_session_and_redirects(
         self, authenticated_client, active_user, sphere, event
@@ -2010,12 +1991,7 @@ class TestProposalEditFieldsComponentView:
 
         response = authenticated_client.get(_fields_url(event, 99999))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_get_redirects_when_proposal_belongs_to_different_event(
         self, authenticated_client, active_user, sphere, event
@@ -2026,12 +2002,7 @@ class TestProposalEditFieldsComponentView:
 
         response = authenticated_client.get(_fields_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_get_renders_fields_for_requested_category(
         self, authenticated_client, active_user, sphere, event

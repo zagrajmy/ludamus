@@ -5,7 +5,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Facilitator, ProposalCategory, Session
+from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
@@ -13,23 +13,9 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    assert_proposal_not_found,
+    make_proposal,
 )
-
-
-def _make_session(event, **kwargs):
-    category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-    defaults = {
-        "event": event,
-        "category": category,
-        "presenter": None,
-        "display_name": "Host",
-        "title": "Test Session",
-        "slug": "test-session",
-        "participants_limit": 0,
-        "status": "pending",
-    }
-    defaults.update(kwargs)
-    return Session.objects.create(**defaults)
 
 
 def _base_context(event):
@@ -38,6 +24,11 @@ def _base_context(event):
         "events": [EventDTO.model_validate(event)],
         "is_proposal_active": False,
     }
+
+
+def _make_session(event, **kwargs):
+    defaults = {"display_name": "Host", "participants_limit": 0}
+    return make_proposal(event, **(defaults | kwargs))
 
 
 class TestProposalSetFacilitatorsActionView:
@@ -158,12 +149,7 @@ class TestProposalSetFacilitatorsActionView:
 
         response = authenticated_client.post(self.get_url(event, 99999), data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
         self, authenticated_client, active_user, sphere, event
@@ -174,9 +160,4 @@ class TestProposalSetFacilitatorsActionView:
 
         response = authenticated_client.post(self.get_url(event, session.pk), data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)

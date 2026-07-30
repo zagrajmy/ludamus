@@ -6,34 +6,19 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import ProposalCategory, Session
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
+    SCHEDULED_ERROR,
     assert_login_required,
     assert_not_a_manager,
-)
-
-SCHEDULED_ERROR = (
-    "This session is scheduled and can only be accepted. "
-    "Remove it from the timetable to change its status."
+    assert_proposal_not_found,
+    make_proposal,
 )
 
 
 def _make_session(event, **kwargs):
-    category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-    defaults = {
-        "event": event,
-        "category": category,
-        "presenter": None,
-        "display_name": "Test Host",
-        "title": "Test Session",
-        "slug": "test-session",
-        "participants_limit": 5,
-        "status": "on_hold",
-    }
-    defaults.update(kwargs)
-    return Session.objects.create(**defaults)
+    return make_proposal(event, **{"status": "on_hold", **kwargs})
 
 
 class TestProposalPendingActionView:
@@ -135,12 +120,7 @@ class TestProposalPendingActionView:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
         self, authenticated_client, active_user, sphere, event
@@ -151,11 +131,6 @@ class TestProposalPendingActionView:
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
         session.refresh_from_db()
         assert session.status == "on_hold"
