@@ -148,29 +148,15 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         sphere_id = self.request.context.current_sphere_id
         form = TrackForm(self.request.POST)
 
-        if not form.is_valid():
-            try:
-                edit_context = service.get_edit_context(
+        try:
+            if not form.is_valid():
+                return self._rerender_edit_form(
+                    context=context,
+                    form=form,
                     event_pk=current_event.pk,
                     sphere_id=sphere_id,
                     track_slug=track_slug,
                 )
-            except NotFoundError:
-                messages.error(self.request, _("Track not found."))
-                return redirect("panel:tracks", slug=slug)
-
-            context["active_nav"] = "tracks"
-            context["track"] = edit_context.track
-            context["form"] = form
-            context["spaces"] = edit_context.spaces
-            context["managers"] = edit_context.managers
-            context["selected_space_pks"] = _submitted_pks(self.request, "space_pks")
-            context["selected_manager_pks"] = _submitted_pks(
-                self.request, "manager_pks"
-            )
-            return TemplateResponse(self.request, "panel/track-edit.html", context)
-
-        try:
             service.update(
                 event_pk=current_event.pk,
                 sphere_id=sphere_id,
@@ -183,6 +169,27 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         messages.success(self.request, _("Track updated successfully."))
         return redirect("panel:tracks", slug=slug)
+
+    def _rerender_edit_form(
+        self,
+        *,
+        context: dict[str, object],
+        form: TrackForm,
+        event_pk: int,
+        sphere_id: int,
+        track_slug: str,
+    ) -> HttpResponse:
+        edit_context = self.request.services.tracks_panel.get_edit_form_context(
+            event_pk=event_pk, sphere_id=sphere_id, track_slug=track_slug
+        )
+        context["active_nav"] = "tracks"
+        context["track"] = edit_context.track
+        context["form"] = form
+        context["spaces"] = edit_context.spaces
+        context["managers"] = edit_context.managers
+        context["selected_space_pks"] = _submitted_pks(self.request, "space_pks")
+        context["selected_manager_pks"] = _submitted_pks(self.request, "manager_pks")
+        return TemplateResponse(self.request, "panel/track-edit.html", context)
 
 
 class TrackDeleteActionView(PanelAccessMixin, EventContextMixin, View):

@@ -24,12 +24,16 @@ class TrackFormContextDTO:
 
 
 @dataclass
-class TrackEditContextDTO:
-    # Read aggregate for the track edit form: the track, the pickers'
-    # choices, and the currently assigned pks.
+class TrackEditFormContextDTO(TrackFormContextDTO):
+    # The create-form choices plus the track under edit: what a failed POST
+    # needs to re-render the edit form (selected pks come from the submission).
     track: TrackDTO
-    spaces: list[SpaceDTO]
-    managers: list[UserDTO]
+
+
+@dataclass
+class TrackEditContextDTO(TrackEditFormContextDTO):
+    # The full edit-form read aggregate for the initial GET render: also the
+    # currently assigned pks.
     selected_space_pks: list[int]
     selected_manager_pks: list[int]
 
@@ -39,6 +43,9 @@ class TracksPanelServiceProtocol(Protocol):
     def get_form_context(
         self, *, event_pk: int, sphere_id: int
     ) -> TrackFormContextDTO: ...
+    def get_edit_form_context(
+        self, *, event_pk: int, sphere_id: int, track_slug: str
+    ) -> TrackEditFormContextDTO: ...
     def get_edit_context(
         self, *, event_pk: int, sphere_id: int, track_slug: str
     ) -> TrackEditContextDTO: ...

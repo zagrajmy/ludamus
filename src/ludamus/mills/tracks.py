@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from ludamus.pacts.legacy import TrackCreateData, TrackUpdateData
 from ludamus.pacts.tracks import (
     TrackEditContextDTO,
+    TrackEditFormContextDTO,
     TrackFormContextDTO,
     TrackFormData,
     TracksPanelServiceProtocol,
@@ -43,17 +44,27 @@ class TracksPanelService(TracksPanelServiceProtocol):
             managers=self._spheres.list_managers(sphere_id),
         )
 
+    def get_edit_form_context(
+        self, *, event_pk: int, sphere_id: int, track_slug: str
+    ) -> TrackEditFormContextDTO:
+        track = self._tracks.read_by_slug(event_pk, track_slug)
+        form_context = self.get_form_context(event_pk=event_pk, sphere_id=sphere_id)
+        return TrackEditFormContextDTO(
+            spaces=form_context.spaces, managers=form_context.managers, track=track
+        )
+
     def get_edit_context(
         self, *, event_pk: int, sphere_id: int, track_slug: str
     ) -> TrackEditContextDTO:
-        track = self._tracks.read_by_slug(event_pk, track_slug)
-        form_context = self.get_form_context(event_pk=event_pk, sphere_id=sphere_id)
+        form_context = self.get_edit_form_context(
+            event_pk=event_pk, sphere_id=sphere_id, track_slug=track_slug
+        )
         return TrackEditContextDTO(
-            track=track,
             spaces=form_context.spaces,
             managers=form_context.managers,
-            selected_space_pks=self._tracks.list_space_pks(track.pk),
-            selected_manager_pks=self._tracks.list_manager_pks(track.pk),
+            track=form_context.track,
+            selected_space_pks=self._tracks.list_space_pks(form_context.track.pk),
+            selected_manager_pks=self._tracks.list_manager_pks(form_context.track.pk),
         )
 
     def _scoped(

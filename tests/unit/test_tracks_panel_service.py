@@ -63,6 +63,37 @@ class TestTracksPanelService:
         spaces.list_by_event.assert_called_once_with(42)
         spheres.list_managers.assert_called_once_with(3)
 
+    def test_get_edit_form_context_skips_assignment_reads(
+        self, service, tracks, spaces, spheres
+    ):
+        track = MagicMock(pk=5)
+        event_spaces = [MagicMock(pk=1)]
+        sphere_managers = [MagicMock(pk=7)]
+        tracks.read_by_slug.return_value = track
+        spaces.list_by_event.return_value = event_spaces
+        spheres.list_managers.return_value = sphere_managers
+
+        context = service.get_edit_form_context(
+            event_pk=42, sphere_id=3, track_slug="alpha"
+        )
+
+        assert context.track is track
+        assert context.spaces == event_spaces
+        assert context.managers == sphere_managers
+        tracks.read_by_slug.assert_called_once_with(42, "alpha")
+        tracks.list_space_pks.assert_not_called()
+        tracks.list_manager_pks.assert_not_called()
+
+    def test_get_edit_form_context_foreign_track_slug_raises_not_found(
+        self, service, tracks
+    ):
+        tracks.read_by_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.get_edit_form_context(
+                event_pk=42, sphere_id=3, track_slug="foreign"
+            )
+
     def test_get_edit_context_reads_event_scoped_track_with_assignments(
         self, service, tracks, spaces, spheres
     ):
