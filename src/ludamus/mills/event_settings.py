@@ -8,6 +8,7 @@ from ludamus.pacts.event_settings import (
     EventSlugTakenError,
 )
 from ludamus.pacts.legacy import NotFoundError
+from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
     from ludamus.pacts.event_settings import (
@@ -29,21 +30,31 @@ class EventSettingsService(EventSettingsServiceProtocol):
         self, *, sphere_id: int, slug: str, data: EventUpdateData
     ) -> None:
         current_event = self._repos.events.read_by_slug(slug, sphere_id)
-        new_slug = data.get("slug")
-        if (
-            new_slug is not None
-            and new_slug != current_event.slug
-            and self._slug_taken(new_slug, sphere_id)
-        ):
-            raise EventSlugTakenError
-        self._repos.events.update(current_event.pk, data)
-
-    def _slug_taken(self, slug: str, sphere_id: int) -> bool:
+        # The unique (sphere, slug) index is the only authority on slug
+        # collisions: a pre-flight read loses the race against a concurrent
+        # rename and the write then fails anyway. Let it fail, then ask why.
         try:
-            self._repos.events.read_by_slug(slug, sphere_id)
+            with self._transaction.savepoint():
+                self._repos.events.update(current_event.pk, data)
+        except DatabaseConstraintError as exc:
+            # The same table also carries a date-range check constraint, so
+            # only re-label the failure when another event really holds the
+            # slug now; anything else keeps its own error.
+            if self._slug_held_by_other(
+                slug=data.get("slug"), sphere_id=sphere_id, event_pk=current_event.pk
+            ):
+                raise EventSlugTakenError from exc
+            raise
+
+    def _slug_held_by_other(
+        self, *, slug: str | None, sphere_id: int, event_pk: int
+    ) -> bool:
+        if slug is None:
+            return False
+        try:
+            return self._repos.events.read_by_slug(slug, sphere_id).pk != event_pk
         except NotFoundError:
             return False
-        return True
 
     def get_display_context(self, event_pk: int) -> EventDisplaySettingsContextDTO:
         public_fields = [

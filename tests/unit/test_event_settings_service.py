@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, call
 
@@ -17,8 +18,14 @@ from ludamus.pacts.legacy import (
     NotFoundError,
     ProposalCategoryDTO,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 
 SPHERE_ID = 10
+
+
+@contextmanager
+def _passthrough():
+    yield
 
 
 def _event(pk=1, slug="conf", sphere_id=SPHERE_ID):
@@ -85,7 +92,9 @@ class TestEventSettingsService:
 
     @pytest.fixture
     def transaction(self):
-        return MagicMock()
+        mock = MagicMock()
+        mock.savepoint.side_effect = _passthrough
+        return mock
 
     @pytest.fixture
     def service(
@@ -108,34 +117,24 @@ class TestEventSettingsService:
             ),
         )
 
-    def test_update_general_updates_event_when_slug_unchanged(self, service, events):
-        event = _event(pk=7, slug="conf")
-        events.read_by_slug.return_value = event
-        data = {"name": "Renamed", "slug": "conf"}
-
-        service.update_general(sphere_id=SPHERE_ID, slug="conf", data=data)
-
-        events.read_by_slug.assert_called_once_with("conf", SPHERE_ID)
-        events.update.assert_called_once_with(7, data)
-
-    def test_update_general_updates_event_when_new_slug_is_free(self, service, events):
-        event = _event(pk=7, slug="conf")
-        events.read_by_slug.side_effect = [event, NotFoundError]
+    def test_update_general_updates_event_in_a_savepoint(
+        self, service, transaction, events
+    ):
+        events.read_by_slug.return_value = _event(pk=7, slug="conf")
         data = {"name": "Renamed", "slug": "new-conf"}
 
         service.update_general(sphere_id=SPHERE_ID, slug="conf", data=data)
 
-        assert events.read_by_slug.call_args_list == [
-            call("conf", SPHERE_ID),
-            call("new-conf", SPHERE_ID),
-        ]
+        events.read_by_slug.assert_called_once_with("conf", SPHERE_ID)
+        transaction.savepoint.assert_called_once_with()
         events.update.assert_called_once_with(7, data)
 
-    def test_update_general_raises_when_new_slug_is_taken(self, service, events):
+    def test_update_general_raises_when_the_new_slug_is_taken(self, service, events):
         events.read_by_slug.side_effect = [
             _event(pk=7, slug="conf"),
             _event(pk=8, slug="new-conf"),
         ]
+        events.update.side_effect = DatabaseConstraintError("duplicate key")
 
         with pytest.raises(EventSlugTakenError):
             service.update_general(
@@ -144,7 +143,59 @@ class TestEventSettingsService:
                 data={"name": "Renamed", "slug": "new-conf"},
             )
 
-        events.update.assert_not_called()
+        assert events.read_by_slug.call_args_list == [
+            call("conf", SPHERE_ID),
+            call("new-conf", SPHERE_ID),
+        ]
+
+    def test_update_general_raises_when_a_concurrent_rename_takes_the_slug(
+        self, service, events
+    ):
+        # The pre-write read misses, then the loser of the race hits the
+        # unique (sphere, slug) index and finds the winner on the retry read.
+        events.read_by_slug.side_effect = [
+            _event(pk=7, slug="conf"),
+            _event(pk=8, slug="new-conf"),
+        ]
+        events.update.side_effect = DatabaseConstraintError("duplicate key")
+
+        with pytest.raises(EventSlugTakenError) as exc_info:
+            service.update_general(
+                sphere_id=SPHERE_ID,
+                slug="conf",
+                data={"name": "Renamed", "slug": "new-conf"},
+            )
+
+        assert isinstance(exc_info.value.__cause__, DatabaseConstraintError)
+
+    def test_update_general_propagates_non_slug_constraint_violations(
+        self, service, events
+    ):
+        events.read_by_slug.side_effect = [
+            _event(pk=7, slug="conf"),
+            _event(pk=7, slug="conf"),
+        ]
+        events.update.side_effect = DatabaseConstraintError("event_date_times")
+
+        with pytest.raises(DatabaseConstraintError):
+            service.update_general(
+                sphere_id=SPHERE_ID,
+                slug="conf",
+                data={"name": "Renamed", "slug": "conf"},
+            )
+
+    def test_update_general_propagates_constraint_error_when_slug_is_free(
+        self, service, events
+    ):
+        events.read_by_slug.side_effect = [_event(pk=7, slug="conf"), NotFoundError]
+        events.update.side_effect = DatabaseConstraintError("event_date_times")
+
+        with pytest.raises(DatabaseConstraintError):
+            service.update_general(
+                sphere_id=SPHERE_ID,
+                slug="conf",
+                data={"name": "Renamed", "slug": "new-conf"},
+            )
 
     def test_update_general_raises_for_event_outside_sphere(self, service, events):
         events.read_by_slug.side_effect = NotFoundError
