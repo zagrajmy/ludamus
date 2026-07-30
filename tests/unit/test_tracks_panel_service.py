@@ -3,11 +3,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.tracks import TracksPanelService
-from ludamus.pacts import NotFoundError, TrackUpdateData
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.tracks import TrackFormData
 
 
 def _data(*, name="Alpha", is_public=True, space_pks=(), manager_pks=()):
-    return TrackUpdateData(
+    return TrackFormData(
         name=name,
         is_public=is_public,
         space_pks=list(space_pks),

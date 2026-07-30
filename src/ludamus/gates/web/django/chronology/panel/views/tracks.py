@@ -17,7 +17,8 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.gates.web.django.forms import TrackForm
-from ludamus.pacts import NotFoundError, TrackUpdateData
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.tracks import TrackFormData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -27,8 +28,8 @@ def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
     return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
 
 
-def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackUpdateData:
-    return TrackUpdateData(
+def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackFormData:
+    return TrackFormData(
         name=form.cleaned_data["name"],
         is_public=form.cleaned_data["is_public"],
         space_pks=_submitted_pks(request, "space_pks"),
