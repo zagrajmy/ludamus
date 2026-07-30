@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
@@ -120,12 +121,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-
-        try:
-            current_event = self.request.di.uow.events.read_by_slug(slug, sphere_id)
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
+        if self.get_current_event(slug) is None:
             return redirect("panel:index")
 
         form = EventSettingsForm(self.request.POST, self.request.FILES)
@@ -133,22 +129,17 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             return self._render_with_form(slug, form)
 
         cd = form.cleaned_data
-
-        # Check slug uniqueness if changed
-        if (new_slug := cd["slug"]) != current_event.slug:
-            try:
-                self.request.di.uow.events.read_by_slug(new_slug, sphere_id)
-                messages.error(
-                    self.request, _("An event with this slug already exists.")
-                )
-                return redirect("panel:event-settings", slug=slug)
-            except NotFoundError:
-                pass  # Slug is available
-
-        data = _event_update_data(cd, new_slug)
+        new_slug = cd["slug"]
 
         try:
-            self.request.di.uow.events.update(current_event.pk, data)
+            self.request.services.event_settings.update_general(
+                sphere_id=self.request.context.current_sphere_id,
+                slug=slug,
+                data=_event_update_data(cd, new_slug),
+            )
+        except EventSlugTakenError:
+            messages.error(self.request, _("An event with this slug already exists."))
+            return redirect("panel:event-settings", slug=slug)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
             return redirect("panel:event-settings", slug=slug)
@@ -180,38 +171,28 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_tab"] = "display"
         context["tab_urls"] = settings_tab_urls(slug)
 
-        all_fields = self.request.di.uow.session_fields.list_by_event(current_event.pk)
-        settings_dto = self.request.di.uow.event_settings.read_or_create(
+        display = self.request.services.event_settings.get_display_context(
             current_event.pk
         )
-        context["fields"] = [f for f in all_fields if f.is_public]
-        context["filterable_field_ids"] = settings_dto.displayed_session_field_ids
+        context["fields"] = display.fields
+        context["filterable_field_ids"] = display.displayed_field_ids
 
         return TemplateResponse(self.request, "panel/display-settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-
-        try:
-            current_event = self.request.di.uow.events.read_by_slug(slug, sphere_id)
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
-            return redirect("panel:index")
-
         selected_ids = [
             int(pk) for pk in self.request.POST.getlist("displayed_session_fields")
         ]
-        # Validate against public session field PKs only
-        valid_pks = {
-            f.pk
-            for f in self.request.di.uow.session_fields.list_by_event(current_event.pk)
-            if f.is_public
-        }
-        filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
 
-        self.request.di.uow.event_settings.update_displayed_fields(
-            current_event.pk, filtered_ids
-        )
+        try:
+            self.request.services.event_settings.update_displayed_fields(
+                sphere_id=self.request.context.current_sphere_id,
+                slug=slug,
+                selected_ids=selected_ids,
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Event not found."))
+            return redirect("panel:index")
 
         messages.success(self.request, _("Display settings saved successfully."))
         return redirect("panel:event-display-settings", slug=slug)
@@ -230,10 +211,8 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "settings"
         context["active_tab"] = "proposals"
         context["tab_urls"] = settings_tab_urls(slug)
-        proposal_settings = (
-            self.request.di.uow.event_proposal_settings.read_or_create_by_event(
-                current_event.pk
-            )
+        proposal_settings = self.request.services.event_settings.get_proposal_settings(
+            current_event.pk
         )
         context["form"] = ProposalSettingsForm(
             initial={
@@ -256,14 +235,6 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/proposal-settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-
-        try:
-            current_event = self.request.di.uow.events.read_by_slug(slug, sphere_id)
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
-            return redirect("panel:index")
-
         form = ProposalSettingsForm(self.request.POST)
         if not form.is_valid():
             for field_errors in form.errors.values():
@@ -271,37 +242,21 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:event-proposal-settings", slug=slug)
 
         cd = form.cleaned_data
+        data: ProposalSettingsUpdateData = {
+            "description": cd.get("proposal_description") or "",
+            "proposal_start_time": cd.get("proposal_start_time"),
+            "proposal_end_time": cd.get("proposal_end_time"),
+            "allow_anonymous_proposals": bool(cd.get("allow_anonymous_proposals")),
+            "apply_dates_to_categories": bool(cd.get("apply_dates_to_categories")),
+        }
 
-        with self.request.di.uow.atomic():
-            # Save proposal description
-            self.request.di.uow.event_proposal_settings.update_description(
-                current_event.pk, cd.get("proposal_description") or ""
+        try:
+            self.request.services.event_settings.update_proposal_settings(
+                sphere_id=self.request.context.current_sphere_id, slug=slug, data=data
             )
-
-            # Save proposal dates
-            data: EventUpdateData = {
-                "proposal_start_time": cd.get("proposal_start_time"),
-                "proposal_end_time": cd.get("proposal_end_time"),
-            }
-            self.request.di.uow.events.update(current_event.pk, data)
-
-            self.request.di.uow.event_proposal_settings.update_allow_anonymous_proposals(
-                current_event.pk, allow=bool(cd.get("allow_anonymous_proposals"))
-            )
-
-            # Optionally apply dates to all categories
-            if cd.get("apply_dates_to_categories"):
-                categories = self.request.di.uow.proposal_categories.list_by_event(
-                    current_event.pk
-                )
-                for category in categories:
-                    self.request.di.uow.proposal_categories.update(
-                        category.pk,
-                        {
-                            "start_time": cd.get("proposal_start_time"),
-                            "end_time": cd.get("proposal_end_time"),
-                        },
-                    )
+        except NotFoundError:
+            messages.error(self.request, _("Event not found."))
+            return redirect("panel:index")
 
         messages.success(self.request, _("Proposal settings saved successfully."))
         return redirect("panel:event-proposal-settings", slug=slug)
