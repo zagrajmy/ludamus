@@ -208,8 +208,9 @@ class TestEventSettingsService:
         events.update.assert_not_called()
 
     def test_get_display_context_filters_out_non_public_fields(
-        self, service, event_settings, session_fields
+        self, service, events, event_settings, session_fields
     ):
+        events.read_by_slug.return_value = _event(pk=7)
         public_field = _session_field(pk=1, slug="public")
         session_fields.list_by_event.return_value = [
             public_field,
@@ -219,13 +220,25 @@ class TestEventSettingsService:
             displayed_session_field_ids=[1], pk=5
         )
 
-        context = service.get_display_context(event_pk=7)
+        context = service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
         assert context == EventDisplaySettingsContextDTO(
             fields=[public_field], displayed_field_ids=[1]
         )
+        events.read_by_slug.assert_called_once_with("conf", SPHERE_ID)
         session_fields.list_by_event.assert_called_once_with(7)
         event_settings.read_or_create.assert_called_once_with(7)
+
+    def test_get_display_context_raises_for_event_outside_sphere(
+        self, service, events, event_settings, session_fields
+    ):
+        events.read_by_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.get_display_context(sphere_id=SPHERE_ID, slug="foreign")
+
+        session_fields.list_by_event.assert_not_called()
+        event_settings.read_or_create.assert_not_called()
 
     def test_update_displayed_fields_keeps_only_public_field_ids(
         self, service, events, event_settings, session_fields
@@ -257,17 +270,29 @@ class TestEventSettingsService:
         event_settings.update_displayed_fields.assert_not_called()
 
     def test_get_proposal_settings_returns_repo_dto(
-        self, service, event_proposal_settings
+        self, service, events, event_proposal_settings
     ):
+        events.read_by_slug.return_value = _event(pk=7)
         dto = EventProposalSettingsDTO(
             allow_anonymous_proposals=False, description="d", pk=3
         )
         event_proposal_settings.read_or_create_by_event.return_value = dto
 
-        result = service.get_proposal_settings(event_pk=7)
+        result = service.get_proposal_settings(sphere_id=SPHERE_ID, slug="conf")
 
         assert result is dto
+        events.read_by_slug.assert_called_once_with("conf", SPHERE_ID)
         event_proposal_settings.read_or_create_by_event.assert_called_once_with(7)
+
+    def test_get_proposal_settings_raises_for_event_outside_sphere(
+        self, service, events, event_proposal_settings
+    ):
+        events.read_by_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.get_proposal_settings(sphere_id=SPHERE_ID, slug="foreign")
+
+        event_proposal_settings.read_or_create_by_event.assert_not_called()
 
     def test_update_proposal_settings_writes_all_settings_in_transaction(
         self, service, transaction, events, event_proposal_settings, proposal_categories

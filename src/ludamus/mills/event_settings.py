@@ -56,13 +56,16 @@ class EventSettingsService(EventSettingsServiceProtocol):
         except NotFoundError:
             return False
 
-    def get_display_context(self, event_pk: int) -> EventDisplaySettingsContextDTO:
+    def get_display_context(
+        self, *, sphere_id: int, slug: str
+    ) -> EventDisplaySettingsContextDTO:
+        event = self._repos.events.read_by_slug(slug, sphere_id)
         public_fields = [
             field
-            for field in self._repos.session_fields.list_by_event(event_pk)
+            for field in self._repos.session_fields.list_by_event(event.pk)
             if field.is_public
         ]
-        display_settings = self._repos.event_settings.read_or_create(event_pk)
+        display_settings = self._repos.event_settings.read_or_create(event.pk)
         return EventDisplaySettingsContextDTO(
             fields=public_fields,
             displayed_field_ids=display_settings.displayed_session_field_ids,
@@ -80,8 +83,11 @@ class EventSettingsService(EventSettingsServiceProtocol):
         filtered_ids = [pk for pk in selected_ids if pk in valid_pks]
         self._repos.event_settings.update_displayed_fields(event.pk, filtered_ids)
 
-    def get_proposal_settings(self, event_pk: int) -> EventProposalSettingsDTO:
-        return self._repos.event_proposal_settings.read_or_create_by_event(event_pk)
+    def get_proposal_settings(
+        self, *, sphere_id: int, slug: str
+    ) -> EventProposalSettingsDTO:
+        event = self._repos.events.read_by_slug(slug, sphere_id)
+        return self._repos.event_proposal_settings.read_or_create_by_event(event.pk)
 
     def update_proposal_settings(
         self, *, sphere_id: int, slug: str, data: ProposalSettingsUpdateData

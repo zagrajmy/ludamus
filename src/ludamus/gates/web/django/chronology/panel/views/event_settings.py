@@ -172,7 +172,7 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = settings_tab_urls(slug)
 
         display = self.request.services.event_settings.get_display_context(
-            current_event.pk
+            sphere_id=self.request.context.current_sphere_id, slug=slug
         )
         context["fields"] = display.fields
         context["filterable_field_ids"] = display.displayed_field_ids
@@ -212,7 +212,7 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_tab"] = "proposals"
         context["tab_urls"] = settings_tab_urls(slug)
         proposal_settings = self.request.services.event_settings.get_proposal_settings(
-            current_event.pk
+            sphere_id=self.request.context.current_sphere_id, slug=slug
         )
         context["form"] = ProposalSettingsForm(
             initial={
