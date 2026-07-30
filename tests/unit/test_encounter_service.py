@@ -63,20 +63,26 @@ def _rsvp(pk=1, *, encounter_id=1, user_id=OTHER_USER_ID):
 
 class TestEncounterService:
     @pytest.fixture
-    def transaction(self):
+    def collaborators(self):
+        # One parent so mock_calls records ordering across the collaborators,
+        # not just within each of them.
         return MagicMock()
 
     @pytest.fixture
-    def encounters(self):
-        return MagicMock()
+    def transaction(self, collaborators):
+        return collaborators.transaction
 
     @pytest.fixture
-    def rsvps(self):
-        return MagicMock()
+    def encounters(self, collaborators):
+        return collaborators.encounters
 
     @pytest.fixture
-    def users(self):
-        return MagicMock()
+    def rsvps(self, collaborators):
+        return collaborators.rsvps
+
+    @pytest.fixture
+    def users(self, collaborators):
+        return collaborators.users
 
     @pytest.fixture
     def service(self, transaction, encounters, rsvps, users):
@@ -254,7 +260,7 @@ class TestEncounterService:
         encounters.delete.assert_not_called()
 
     def test_rsvp_creates_signup_in_transaction(
-        self, service, transaction, encounters, rsvps
+        self, service, collaborators, encounters, rsvps
     ):
         encounter = _encounter(1, max_participants=4)
         encounters.read_by_share_code.return_value = encounter
@@ -270,7 +276,19 @@ class TestEncounterService:
 
         assert outcome == RSVPOutcome.CREATED
         assert rsvps.create.call_args == call(encounter.pk, "10.0.0.1", OTHER_USER_ID)
-        transaction.atomic.assert_called_once_with()
+        # Every read the capacity, throttle and duplicate checks depend on has
+        # to run between entering and exiting the transaction, or the checks
+        # race the insert. Moving any of them out reorders this list.
+        assert [name for name, _args, _kwargs in collaborators.mock_calls] == [
+            "transaction.atomic",
+            "transaction.atomic().__enter__",
+            "encounters.read_by_share_code",
+            "rsvps.count_by_encounter",
+            "rsvps.recent_rsvp_exists",
+            "rsvps.user_has_rsvpd",
+            "rsvps.create",
+            "transaction.atomic().__exit__",
+        ]
 
     def test_rsvp_full_encounter_has_no_side_effects(self, service, encounters, rsvps):
         encounter = _encounter(1, max_participants=2)
