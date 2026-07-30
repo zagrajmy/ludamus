@@ -2,7 +2,7 @@
 
 > Dwa gobliny, dwie jaskinie. Nie mieszać.
 
-**Status:** 🟡 draft — naming and homes proposed, no code yet
+**Status:** 🟡 draft — homes and Goblin's runtime decided, no code yet
 **Adds:** two named agents with separate trust tiers and separate substrates
 **Touches:** `gates/mcp/` (tool surface), the sphere panel (WebMCP, later);
 nothing in `mills`/`links`
@@ -117,28 +117,40 @@ here. Anything that changes a sphere goes through Kobold or a human.
 
 ### Substrate
 
-This is the only place the Vellum/Hermes question actually applies, because
-Goblin is the only one of the two that needs to be always-on, remembered, and
-reachable from a phone.
+This is the only place the runtime question applies at all, because Goblin is
+the only one of the two that needs to be always-on, remembered, and reachable
+from a phone.
 
-Recommendation: **don't pick a runtime yet.** Start Goblin as scheduled Claude
-Code runs with the maintainer token plus calendar/mail connectors. That covers
-deadlines, context, and drafting on day one with zero infrastructure. Graduate
-to a dedicated runtime when a concrete requirement bites — most likely "ping me
-on Telegram without me opening a laptop".
+**Decided: Goblin is
+[Vellum Assistant](https://github.com/vellum-ai/vellum-assistant)** (MIT,
+TypeScript/Bun), with
+[Executor](https://github.com/RhysSullivan/executor) underneath as the tool
+catalog and approval gate — the role `mcp.md` already assigns it.
 
-When that happens, the ranking (see also the note below):
+Why Vellum for this role specifically:
 
-- **[Executor](https://github.com/RhysSullivan/executor)** — TypeScript, MIT,
-  already this repo's named control plane. Catalog, policy, approval gates. No
-  cron, no channels — it is the layer *under* Goblin, not Goblin.
-- **[Vellum Assistant](https://github.com/vellum-ai/vellum-assistant)** —
-  TypeScript/Bun, so patchable. Credentials isolated in a separate process, so
-  the model never sees raw keys. Remote self-host is still stubbed (`custom`
-  target is "recognized but not yet implemented").
-- **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — the mature
-  one by a wide margin, and the only one where always-on remote is first-class
-  today. Mostly Python.
+- **Proactive by design.** It re-reads its own notes hourly and reaches out
+  unprompted. Goblin's entire job is noticing a deadline before we do; an
+  agent that only speaks when spoken to is the wrong shape for it.
+- **The surfaces match the work.** iOS, voice, email, Slack, Telegram. GTM
+  happens away from a terminal, which is where the CLI-first alternatives lose.
+- **Credentials stay out of the model.** A separate Credential Executor process
+  holds the keys. Goblin is the agent holding calendar, mail, and whatever GTM
+  material we point it at — this is the one place in our stack where that
+  isolation earns its keep.
+- **Patchable by us.** TypeScript, not a language we'd be visiting.
+
+Considered and rejected: **Hermes Agent** — more mature by a wide margin and
+better at always-on remote, but CLI/VPS-shaped and Python. It optimizes for the
+operator sitting in a terminal, which is the Kobold audience we already decided
+not to serve this way, and not the Goblin one.
+
+Known rough edge, going in with eyes open: Vellum's remote self-host is stubbed
+(`custom` provisioning target is "recognized but not yet implemented", and the
+docs list user-hosted remote as coming soon). Today that means Vellum Cloud, or
+the `docker` target on a box we keep awake ourselves. Not a blocker for an
+agent that holds no Ludamus write access — but it is the reason Goblin gets
+maintainer **read** and nothing more (O-3).
 
 ## Not agents
 
@@ -160,3 +172,8 @@ When that happens, the ranking (see also the note below):
 - **O-4** — Every `tools/call` is audit-logged with arguments verbatim. Kobold
   read verbs over `claims` touch personal data; redaction lands *before* those
   tools, not after.
+- **O-5** — Does Vellum's managed OAuth (50+ services, keys held in the
+  Credential Executor) still work when self-hosted, or does the brokering run
+  on Vellum's servers? Undocumented either way. It is the main thing Vellum
+  gives Goblin over the alternatives, so worth asking them directly before we
+  commit to a hosting shape.
