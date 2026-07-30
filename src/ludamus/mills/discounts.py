@@ -23,6 +23,25 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+def _roster(
+    *,
+    discounts: DiscountRepositoryProtocol,
+    facilitators: FacilitatorRepositoryProtocol,
+    event_pk: int,
+) -> list[DiscountRosterEntryDTO]:
+    discounts_by_facilitator = {
+        discount.facilitator_id: discount
+        for discount in discounts.list_by_event(event_pk)
+    }
+    return [
+        DiscountRosterEntryDTO(
+            facilitator=facilitator,
+            discount=discounts_by_facilitator.get(facilitator.pk),
+        )
+        for facilitator in facilitators.list_by_event(event_pk)
+    ]
+
+
 class DiscountsService(DiscountsServiceProtocol):
     def __init__(
         self,
@@ -36,17 +55,11 @@ class DiscountsService(DiscountsServiceProtocol):
         self._facilitators = facilitators
 
     def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]:
-        discounts_by_facilitator = {
-            discount.facilitator_id: discount
-            for discount in self._discounts.list_by_event(event_pk)
-        }
-        return [
-            DiscountRosterEntryDTO(
-                facilitator=facilitator,
-                discount=discounts_by_facilitator.get(facilitator.pk),
-            )
-            for facilitator in self._facilitators.list_by_event(event_pk)
-        ]
+        return _roster(
+            discounts=self._discounts,
+            facilitators=self._facilitators,
+            event_pk=event_pk,
+        )
 
     def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO:
         discount = self._discounts.get(pk)
@@ -105,14 +118,14 @@ class DiscountsExportService(DiscountsExportServiceProtocol):
         # credentials.
         blob = self._connections.read_secret(sphere_id, connection_id)
         secret = self._decryptor.decrypt(blob) if blob else b""
-        facilitators = self._facilitators.list_by_event(event_pk)
-        discounts = {
-            discount.facilitator_id: discount
-            for discount in self._discounts.list_by_event(event_pk)
-        }
+        entries = _roster(
+            discounts=self._discounts,
+            facilitators=self._facilitators,
+            event_pk=event_pk,
+        )
         rows = [list(labels.headers)]
-        for facilitator in facilitators:
-            discount = discounts.get(facilitator.pk)
+        for entry in entries:
+            facilitator, discount = entry.facilitator, entry.discount
             rows.append(
                 [
                     facilitator.display_name,
@@ -127,4 +140,4 @@ class DiscountsExportService(DiscountsExportServiceProtocol):
         self._sheet_writer.write_rows(
             secret=secret, spreadsheet_id=spreadsheet_id, rows=rows
         )
-        return len(facilitators)
+        return len(entries)
