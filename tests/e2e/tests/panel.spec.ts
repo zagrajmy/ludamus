@@ -1375,8 +1375,11 @@ test.describe("Backoffice Panel", () => {
   test("columns chooser refuses an empty selection", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/facilitators/columns/");
 
-    for (const label of ["Display Name", "Linked User", "Sessions", "Accreditation"]) {
-      await page.getByLabel(label, { exact: true }).uncheck();
+    // Whatever is shown right now — a hardcoded label list goes stale the next
+    // time a built-in column is added.
+    const shown = page.getByRole("list", { name: "Shown columns" });
+    for (const box of await shown.getByRole("checkbox").all()) {
+      await box.uncheck();
     }
     await page.getByRole("button", { name: "Save" }).click();
 
