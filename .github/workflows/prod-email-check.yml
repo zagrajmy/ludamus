@@ -1,7 +1,9 @@
 name: Prod email check
 
 on:
-  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/prod-email-check.yml
 
 permissions:
   contents: read
@@ -14,44 +16,64 @@ jobs:
       name: production
       url: https://zagrajmy.net
     steps:
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
-          python-version: '3.14'
-
-      - run: pip install django django-environ
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock', 'mise.toml') }}
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - name: Drop stale virtualenv
+        run: .venv/bin/python --version || rm -rf .venv
+      - run: mise exec -- poetry install
 
       - name: Resolve the secret the way settings.py does
         env:
           EMAIL_URL: ${{ secrets.EMAIL_URL }}
         run: |
-          python - <<'PY'
+          mise exec -- poetry run python - <<'PY'
           import os, sys
           import environ
+          from django.core.exceptions import ImproperlyConfigured
 
           url = os.environ.get("EMAIL_URL", "")
           if not url:
-              sys.exit("EMAIL_URL is empty: the deploy would omit it and Django would fall back to consolemail://")
+              sys.exit("PROBLEM: EMAIL_URL is empty, so the deploy omits it and Django falls back to consolemail://")
 
-          config = environ.Env.email_url_config(url)
+          try:
+              config = environ.Env.email_url_config(url)
+          except (ImproperlyConfigured, ValueError) as error:
+              sys.exit(f"PROBLEM: EMAIL_URL does not parse ({type(error).__name__})")
+
           password = config.get("EMAIL_HOST_PASSWORD") or ""
+          host = config.get("EMAIL_HOST") or ""
+          port = config.get("EMAIL_PORT") or ""
+          user = config.get("EMAIL_HOST_USER") or ""
           backend = config["EMAIL_BACKEND"].rsplit(".", 2)[-2]
           tls = bool(config.get("EMAIL_USE_TLS"))
           ssl = bool(config.get("EMAIL_USE_SSL"))
 
           print("backend:", backend)
-          print("host:", config.get("EMAIL_HOST"), "port:", config.get("EMAIL_PORT"))
+          print("host:", host or "(empty)", "port:", port or "(empty)")
           print("tls:", tls, "ssl:", ssl)
-          print("user:", config.get("EMAIL_HOST_USER"))
+          print("user:", user or "(empty)")
           print("password: length", len(password), "resend-shaped:", password.startswith("re_"))
-          print("options:", config.get("OPTIONS"))
+          print("option names:", sorted(config.get("OPTIONS") or {}))
 
           problems = []
           if backend != "smtp":
               problems.append(f"backend is {backend}, so mail is never delivered")
-          if not password:
-              problems.append("no password: the API key is missing from the URL")
-          if backend == "smtp" and not (tls or ssl):
-              problems.append("no TLS: use smtp+tls:// on 587 or smtp+ssl:// on 465, not smtp://")
+          else:
+              if not host:
+                  problems.append("no host: nothing to connect to")
+              if not port:
+                  problems.append("no port")
+              if not user:
+                  problems.append("no username")
+              if not password:
+                  problems.append("no password: the API key is missing from the URL")
+              if not (tls or ssl):
+                  problems.append("no TLS: use smtp+tls:// on 587 or smtp+ssl:// on 465, not smtp://")
           for problem in problems:
               print("PROBLEM:", problem)
           sys.exit(1 if problems else 0)
