@@ -21,8 +21,11 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import ScheduleChangeAction
 from tests.integration.conftest import EventFactory, SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 def _make_session(event, **kwargs):
@@ -68,9 +71,7 @@ class TestProposalDeleteActionView:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
         session.refresh_from_db()
         assert session.deleted_at is None
 
@@ -79,12 +80,7 @@ class TestProposalDeleteActionView:
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
         session.refresh_from_db()
         assert session.deleted_at is None
 
@@ -231,9 +227,4 @@ class TestProposalDeleteActionView:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)

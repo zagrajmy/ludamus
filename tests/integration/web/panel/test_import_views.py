@@ -47,9 +47,13 @@ from ludamus.pacts.submissions import (
 )
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import panel_context
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 CONFIG_JSON = json.dumps({"sheet_id": "sheet-1", "form_id": "form-1"})
 
@@ -169,19 +173,12 @@ class TestEventImportProposalView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager(self, authenticated_client, event):
         response = authenticated_client.get(_import_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_renders_empty_state_without_import_integrations(
         self, authenticated_client, active_user, sphere, event
@@ -891,12 +888,7 @@ class TestEventImportRowSaveView:
             data={"index": "0", "question_0": "Title", "target_0": "session.title"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_saves_a_session_field_and_marks_confirmed(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1289,12 +1281,7 @@ class TestEventImportRefetchView:
 
         response = authenticated_client.post(self._refetch_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_stores_snapshot_and_drops_confirmed(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1366,12 +1353,7 @@ class TestEventImportMissingFieldsView:
 
         response = authenticated_client.post(self._url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_adds_new_questions_and_keeps_existing_confirmations(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1468,12 +1450,7 @@ class TestEventImportRunActionView:
 
         response = authenticated_client.post(_run_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_creates_one_proposal_per_response(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1885,12 +1862,7 @@ class TestEventImportTestRowActionView:
 
         response = authenticated_client.post(_test_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_imports_exactly_one_random_row(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -1962,12 +1934,7 @@ class TestEventImportJsonView:
 
         response = authenticated_client.get(_json_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_renders_empty_state_without_an_integration(
         self, authenticated_client, active_user, sphere, event
@@ -2144,12 +2111,7 @@ class TestEventImportRunPageView:
 
         response = authenticated_client.get(_run_page_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_renders_the_run_actions(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -2312,12 +2274,7 @@ class TestEventImportSettingsSaveView:
 
         response = authenticated_client.post(self._save_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_saves_header_row_and_unique_keys_then_returns_to_run_tab(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -2378,12 +2335,7 @@ class TestEventImportLogPageView:
 
         response = authenticated_client.get(_log_url(event, integration))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_renders_empty_state_without_attempts(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -2830,12 +2782,7 @@ class TestEventImportApplyFieldLayoutView:
             _apply_field_layout_url(event, integration)
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_adds_new_field_values_drops_removed_and_prunes_orphans(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
@@ -3808,12 +3755,7 @@ class TestImportViewsEventNotFound:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=reverse("panel:index"),
-            messages=[(messages.ERROR, "Event not found.")],
-        )
+        assert_event_not_found(response)
 
     @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_POST)
     def test_post_actions_redirect_to_index_for_unknown_event(
@@ -3824,12 +3766,7 @@ class TestImportViewsEventNotFound:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=reverse("panel:index"),
-            messages=[(messages.ERROR, "Event not found.")],
-        )
+        assert_event_not_found(response)
 
 
 @pytest.mark.django_db

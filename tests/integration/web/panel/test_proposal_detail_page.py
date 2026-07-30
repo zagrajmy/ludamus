@@ -42,8 +42,6 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import panel_context
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
 
 class TestProposalDetailPageView:
     """Tests for /panel/event/<slug>/proposals/<proposal_id>/ page."""

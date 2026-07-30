@@ -1,6 +1,5 @@
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -12,9 +11,11 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
 )
 from tests.integration.conftest import SessionFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 def _make_session(proposal_category):
@@ -43,19 +44,12 @@ class TestContentLogPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -65,12 +59,7 @@ class TestContentLogPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_ok_renders_empty_log(
         self, authenticated_client, active_user, sphere, event

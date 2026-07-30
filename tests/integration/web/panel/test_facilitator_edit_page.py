@@ -16,9 +16,12 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import FacilitatorDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 def _make_facilitator(event, **kwargs):
@@ -42,19 +45,12 @@ class TestFacilitatorEditPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -67,12 +63,7 @@ class TestFacilitatorEditPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_when_facilitator_not_found(
         self, authenticated_client, active_user, sphere, event
@@ -144,12 +135,7 @@ class TestFacilitatorEditPageView:
 
         response = authenticated_client.post(url, data={"display_name": "Alice"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_when_facilitator_not_found(
         self, authenticated_client, active_user, sphere, event

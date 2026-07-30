@@ -11,8 +11,11 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import ProposalCategoryFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 class TestPersonalDataFieldCreatePageView:
@@ -29,19 +32,12 @@ class TestPersonalDataFieldCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -85,12 +81,7 @@ class TestPersonalDataFieldCreatePageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     # POST tests
 
@@ -101,9 +92,7 @@ class TestPersonalDataFieldCreatePageView:
             url, data={"name": "Email", "question": "What is your email?"}
         )
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
@@ -111,12 +100,7 @@ class TestPersonalDataFieldCreatePageView:
             data={"name": "Email", "question": "What is your email?"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_creates_field_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -212,12 +196,7 @@ class TestPersonalDataFieldCreatePageView:
             url, data={"name": "Email", "question": "What is your email?"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_creates_text_field_by_default(
         self, authenticated_client, active_user, sphere, event

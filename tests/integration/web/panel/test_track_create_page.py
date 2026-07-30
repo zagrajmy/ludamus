@@ -10,9 +10,12 @@ from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 class TestTrackCreatePageView:
@@ -29,19 +32,12 @@ class TestTrackCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -51,12 +47,7 @@ class TestTrackCreatePageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -86,21 +77,14 @@ class TestTrackCreatePageView:
 
         response = client.post(url, data={"name": "Alpha Track"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
             self.get_url(event), data={"name": "Alpha Track"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -110,12 +94,7 @@ class TestTrackCreatePageView:
 
         response = authenticated_client.post(url, data={"name": "Alpha Track"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_creates_track_and_redirects(
         self, authenticated_client, active_user, sphere, event

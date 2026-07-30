@@ -2,7 +2,6 @@ from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -24,8 +23,11 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 def _empty_grid():
@@ -57,9 +59,7 @@ class TestTimetableGridPartView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -69,12 +69,7 @@ class TestTimetableGridPartView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_room_page_invalid_value_defaults_to_one(
         self, authenticated_client, active_user, sphere, event
@@ -151,19 +146,12 @@ class TestTimetableAssignView:
 
         response = client.post(url, {})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(self.get_url(event), {})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -173,12 +161,7 @@ class TestTimetableAssignView:
 
         response = authenticated_client.post(url, {})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_returns_422_on_missing_params(
         self, authenticated_client, active_user, sphere, event
@@ -418,9 +401,7 @@ class TestTimetableUnassignView:
 
         response = client.post(url, {})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -430,12 +411,7 @@ class TestTimetableUnassignView:
 
         response = authenticated_client.post(url, {})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_returns_422_on_missing_params(
         self, authenticated_client, active_user, sphere, event

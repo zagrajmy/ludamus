@@ -13,9 +13,12 @@ from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO, NotFoundError
 from ludamus.pacts.discounts import DiscountDTO
 from tests.integration.conftest import EventFactory, SphereFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 def _make_facilitator(event, **kwargs):
@@ -62,19 +65,12 @@ class TestDiscountsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -84,12 +80,7 @@ class TestDiscountsPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -216,21 +207,14 @@ class TestDiscountCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         facilitator = _make_facilitator(event)
 
         response = authenticated_client.get(self.get_url(event, facilitator))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_to_table_modal_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -442,12 +426,7 @@ class TestDiscountCreatePageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -461,12 +440,7 @@ class TestDiscountCreatePageView:
             url, data={"kind": "percent", "value": "5"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
 
 class TestDiscountEditPageView:
@@ -548,12 +522,7 @@ class TestDiscountEditPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -565,12 +534,7 @@ class TestDiscountEditPageView:
             url, data={"kind": "percent", "value": "5"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_404_for_discount_in_other_event(
         self, authenticated_client, active_user, sphere, event
@@ -629,12 +593,7 @@ class TestDiscountDeleteActionView:
 
         response = authenticated_client.post(self.get_url(event, discount))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_soft_deletes_discount(
         self, authenticated_client, active_user, sphere, event
@@ -680,12 +639,7 @@ class TestDiscountDeleteActionView:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
 
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/target-sheet/edit#gid=0"
@@ -731,19 +685,12 @@ class TestDiscountExportPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -753,12 +700,7 @@ class TestDiscountExportPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_shows_form_when_a_connection_exists(
         self, authenticated_client, active_user, sphere, event, connection
@@ -958,9 +900,4 @@ class TestDiscountExportPageView:
 
         response = authenticated_client.post(url, data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)

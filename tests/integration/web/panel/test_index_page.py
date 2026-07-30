@@ -6,8 +6,11 @@ from django.urls import reverse
 
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 class TestPanelIndexRedirectView:
@@ -18,19 +21,12 @@ class TestPanelIndexRedirectView:
     def test_redirects_anonymous_user_to_login(self, client):
         response = client.get(self.URL)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.URL}"
-        )
+        assert_login_required(response, self.URL)
 
     def test_redirects_non_manager_user(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_redirects_to_first_event(
         self, authenticated_client, active_user, sphere, event
@@ -68,19 +64,12 @@ class TestEventIndexPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     @pytest.mark.usefixtures("panel_access_user")
     def test_ok_for_manager_and_superuser(self, authenticated_client, event):
@@ -179,12 +168,7 @@ class TestEventIndexPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_can_view_different_events(
         self, authenticated_client, active_user, sphere, event, faker

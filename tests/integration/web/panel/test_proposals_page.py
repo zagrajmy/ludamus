@@ -28,9 +28,12 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import PageMatcher, assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
 _STATUSES = [
     ("pending", "Pending"),
@@ -70,19 +73,12 @@ class TestProposalsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -93,12 +89,7 @@ class TestProposalsPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_ok_for_sphere_manager_empty(
         self, authenticated_client, active_user, sphere, event
@@ -1280,19 +1271,12 @@ class TestProposalDetailPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event, 999))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -1305,12 +1289,7 @@ class TestProposalDetailPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_redirects_for_missing_proposal(
         self, authenticated_client, active_user, sphere, event

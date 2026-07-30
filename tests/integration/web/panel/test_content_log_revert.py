@@ -16,8 +16,12 @@ from tests.integration.conftest import (
     SessionFactory,
 )
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 NOT_LATEST_ERROR = "Only the latest change for a session can be reverted."
 NOT_REVERTIBLE_ERROR = (
     "This change cannot be reverted: cover image and assignment "
@@ -88,19 +92,12 @@ class TestContentLogRevertActionView:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(self.get_url(event, 1))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -112,12 +109,7 @@ class TestContentLogRevertActionView:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_unknown_log_pk_shows_not_found(
         self, authenticated_client, active_user, sphere, event

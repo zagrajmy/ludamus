@@ -8,8 +8,12 @@ from django.urls import reverse
 from ludamus.links.db.django.models import EnrollmentConfig
 from tests.integration.conftest import EventFactory, SphereFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 EARLY_CAPACITY_PERCENT = 50
 FULL_CAPACITY_PERCENT = 100
 MAX_WAITLIST_SESSIONS = 3
@@ -64,19 +68,12 @@ class TestEventEnrollmentSettingsAccess:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager(self, authenticated_client, event):
         response = authenticated_client.get(_list_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_manager_cannot_access_another_spheres_event(
         self, authenticated_client, active_user, sphere, event
@@ -86,12 +83,7 @@ class TestEventEnrollmentSettingsAccess:
 
         response = authenticated_client.get(_list_url(other_event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_manager_cannot_delete_another_spheres_window(
         self, authenticated_client, active_user, sphere, event
@@ -102,12 +94,7 @@ class TestEventEnrollmentSettingsAccess:
 
         response = authenticated_client.post(_delete_url(other_event, other_window))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
         assert EnrollmentConfig.objects.filter(pk=other_window.pk).exists()
 
 

@@ -7,8 +7,11 @@ from django.urls import reverse
 from ludamus.links.db.django.models import EventBan
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 @pytest.mark.django_db
@@ -22,19 +25,12 @@ class TestBansPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_non_manager_redirected(self, authenticated_client, event):
         response = authenticated_client.get(self._url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_manager_gets_page(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
@@ -69,12 +65,7 @@ class TestBansPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -84,12 +75,7 @@ class TestBansPageView:
 
         response = authenticated_client.post(url, data={"identifier": "x"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="/panel/",
-            messages=[(messages.ERROR, "Event not found.")],
-        )
+        assert_event_not_found(response)
 
     def test_delete_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -99,12 +85,7 @@ class TestBansPageView:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="/panel/",
-            messages=[(messages.ERROR, "Event not found.")],
-        )
+        assert_event_not_found(response)
 
     def test_post_blank_identifier_reports_error(
         self, authenticated_client, active_user, sphere, event

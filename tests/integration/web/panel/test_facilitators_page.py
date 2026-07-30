@@ -19,9 +19,12 @@ from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
 from ludamus.pacts.submissions import FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
 _PAGE_SIZE = 50
 _SEED_COUNT = 60
@@ -114,19 +117,12 @@ class TestFacilitatorsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -136,12 +132,7 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -1051,9 +1042,7 @@ class TestFacilitatorActions:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     @pytest.mark.parametrize("name", _ACTION_NAMES)
     def test_redirects_non_manager_user(self, authenticated_client, event, name):
@@ -1061,12 +1050,7 @@ class TestFacilitatorActions:
 
         response = authenticated_client.post(self._url(name, event, facilitator))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_flag(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
@@ -1326,12 +1310,7 @@ class TestFacilitatorActions:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_flag_missing_facilitator(
         self, authenticated_client, active_user, sphere, event
@@ -1415,20 +1394,13 @@ class TestFacilitatorColumns:
 
         response = getattr(client, method)(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     @pytest.mark.parametrize("method", ("get", "post"))
     def test_redirects_non_manager_user(self, authenticated_client, event, method):
         response = getattr(authenticated_client, method)(self._url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_offers_builtin_and_field_columns(
         self, authenticated_client, active_user, sphere, event
@@ -1481,12 +1453,7 @@ class TestFacilitatorColumns:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -1496,12 +1463,7 @@ class TestFacilitatorColumns:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_saves_chosen_columns_in_order(
         self, authenticated_client, active_user, sphere, event

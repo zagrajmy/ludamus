@@ -13,9 +13,11 @@ from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts.venues import SpaceNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 def _node(space, *, depth, is_leaf, children=None, track_names=None):
@@ -56,19 +58,12 @@ class TestSpacesTreePage:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_non_manager_redirected(self, authenticated_client, event):
         response = authenticated_client.get(_venues_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_empty_tree(self, manager_client, event):
         response = manager_client.get(_venues_url(event))

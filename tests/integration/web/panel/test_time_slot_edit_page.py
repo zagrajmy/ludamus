@@ -10,8 +10,11 @@ from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts import EventDTO, TimeSlotDTO
 from tests.integration.conftest import EventFactory, TimeSlotFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 class TestTimeSlotEditPageView:
@@ -28,21 +31,14 @@ class TestTimeSlotEditPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(
         self, authenticated_client, event, time_slot
     ):
         response = authenticated_client.get(self.get_url(event, time_slot))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event, time_slot
@@ -192,12 +188,7 @@ class TestTimeSlotEditPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -211,12 +202,7 @@ class TestTimeSlotEditPageView:
             url, {"date": "2026-03-10", "start_time": "10:00", "end_time": "12:00"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_on_invalid_pk(
         self, authenticated_client, active_user, sphere, event

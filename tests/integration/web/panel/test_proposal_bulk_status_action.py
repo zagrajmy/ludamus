@@ -9,8 +9,11 @@ from django.urls import reverse
 from ludamus.links.db.django.models import ProposalCategory, Session
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import (
+    assert_login_required,
+    assert_not_a_manager,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 SCHEDULED_SKIPPED = (
     "1 scheduled proposal was skipped; remove it from the timetable to "
     "change its status."
@@ -47,19 +50,12 @@ class TestProposalBulkStatusActionView:
 
         response = client.post(url, {"action": "accept"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(self.get_url(event), {"action": "accept"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_accepts_multiple_and_redirects_to_list(
         self, authenticated_client, active_user, sphere, event

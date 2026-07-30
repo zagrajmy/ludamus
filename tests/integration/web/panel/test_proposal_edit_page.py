@@ -48,9 +48,13 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, checkbox_tag
-from tests.integration.web.panel.helpers import panel_context
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 CUSTOM_DURATION_MINUTES = 45
 
 
@@ -154,21 +158,14 @@ class TestProposalEditPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         session = _make_session(event)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -180,12 +177,7 @@ class TestProposalEditPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_preselects_a_stored_preset_duration(
         self, authenticated_client, active_user, sphere, event
@@ -332,9 +324,7 @@ class TestProposalEditPageView:
 
         response = client.post(url, data={"title": "New Title", "display_name": "Host"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         session = _make_session(event)
@@ -344,12 +334,7 @@ class TestProposalEditPageView:
             data={"title": "New Title", "display_name": "Host"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -361,12 +346,7 @@ class TestProposalEditPageView:
 
         response = authenticated_client.post(url, data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
@@ -2021,12 +2001,7 @@ class TestProposalEditFieldsComponentView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event

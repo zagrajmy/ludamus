@@ -20,9 +20,13 @@ from ludamus.pacts.chronology import (
 )
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import panel_context
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+    panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 CONFIG = {"sheet_id": "sheet-1", "form_id": "form-1"}
 CONFIG_JSON = json.dumps(CONFIG)
@@ -88,19 +92,12 @@ class TestEventIntegrationSettingsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager(self, authenticated_client, event):
         response = authenticated_client.get(_settings_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_on_unknown_event(
         self, authenticated_client, active_user, sphere
@@ -111,12 +108,7 @@ class TestEventIntegrationSettingsPageView:
             _missing_url("panel:event-integration-settings")
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_renders_empty_settings_page(
         self, authenticated_client, active_user, sphere, event
@@ -167,19 +159,12 @@ class TestIntegrationCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager(self, authenticated_client, event):
         response = authenticated_client.get(_create_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_renders_form(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
@@ -200,12 +185,7 @@ class TestIntegrationCreatePageView:
 
         response = authenticated_client.get(_missing_url("panel:integration-create"))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_on_unknown_event(
         self, authenticated_client, active_user, sphere
@@ -216,12 +196,7 @@ class TestIntegrationCreatePageView:
             _missing_url("panel:integration-create"), data={}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_creates_integration_when_check_signature_matches(
         self, authenticated_client, active_user, sphere, event, connection
@@ -505,12 +480,7 @@ class TestIntegrationEditPageView:
             _missing_url("panel:integration-edit", pk=1)
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_on_unknown_integration(
         self, authenticated_client, active_user, sphere, event
@@ -537,12 +507,7 @@ class TestIntegrationEditPageView:
         response = authenticated_client.post(
             _missing_url("panel:integration-edit", pk=1), data={}
         )
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_on_integration_from_other_event(
         self, authenticated_client, active_user, sphere, event, connection
@@ -633,12 +598,7 @@ class TestIntegrationDeletePageView:
             _missing_url("panel:integration-delete", pk=1)
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_on_unknown_integration(
         self, authenticated_client, active_user, sphere, event
@@ -666,12 +626,7 @@ class TestIntegrationDeletePageView:
             _missing_url("panel:integration-delete", pk=1), data={}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_ignores_integration_from_other_event(
         self, authenticated_client, active_user, sphere, event, connection

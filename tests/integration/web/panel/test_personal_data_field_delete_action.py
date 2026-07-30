@@ -9,8 +9,11 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
 )
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 class TestPersonalDataFieldDeleteActionView:
@@ -31,9 +34,7 @@ class TestPersonalDataFieldDeleteActionView:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         field = PersonalDataField.objects.create(
@@ -42,12 +43,7 @@ class TestPersonalDataFieldDeleteActionView:
 
         response = authenticated_client.post(self.get_url(event, field))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_deletes_field_for_manager(
         self, authenticated_client, active_user, sphere, event
@@ -81,12 +77,7 @@ class TestPersonalDataFieldDeleteActionView:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_on_invalid_field_slug(
         self, authenticated_client, active_user, sphere, event

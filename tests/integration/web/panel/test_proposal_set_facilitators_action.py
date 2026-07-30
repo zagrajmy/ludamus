@@ -9,8 +9,11 @@ from ludamus.links.db.django.models import Facilitator, ProposalCategory, Sessio
 from ludamus.pacts import EventDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 def _make_session(event, **kwargs):
@@ -53,21 +56,14 @@ class TestProposalSetFacilitatorsActionView:
 
         response = client.post(url, data={})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         session = _make_session(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk), data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_redirects_when_event_not_found(
         self, authenticated_client, active_user, sphere
@@ -80,12 +76,7 @@ class TestProposalSetFacilitatorsActionView:
 
         response = authenticated_client.post(url, data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
     def test_post_sets_facilitators_and_redirects(
         self, authenticated_client, active_user, sphere, event

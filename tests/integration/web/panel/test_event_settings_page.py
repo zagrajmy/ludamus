@@ -11,11 +11,15 @@ from PIL import Image
 from ludamus.pacts import EventDTO, NotFoundError
 from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 # The settings page renders a cover image and a logo dropzone.
 DROPZONE_COUNT = 2
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
     "010000080400010404003b"
@@ -32,19 +36,12 @@ class TestEventSettingsPageViewGet:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -204,12 +201,7 @@ class TestEventSettingsPageViewGet:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     @pytest.mark.usefixtures("event")
     def test_can_view_different_events(
@@ -285,21 +277,14 @@ class TestEventSettingsPageViewPost:
 
         response = client.post(url, data=self._post_data(event, name="New Name"))
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
             self.get_url(event), data=self._post_data(event, name="New Name")
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -309,12 +294,7 @@ class TestEventSettingsPageViewPost:
 
         response = authenticated_client.post(url, data={"name": "New Name"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_updates_event_name(
         self, authenticated_client, active_user, sphere, event, faker

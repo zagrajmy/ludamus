@@ -1,14 +1,14 @@
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.test import override_settings
 from django.urls import reverse
 
-from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import (
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 URL = reverse("panel:icon-preview")
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
 class TestIconPreviewPartView:
@@ -64,16 +64,9 @@ class TestIconPreviewPartView:
     def test_redirects_anonymous_user(self, client):
         response = client.get(URL)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={URL}"
-        )
+        assert_login_required(response, URL)
 
     def test_redirects_non_manager_user(self, authenticated_client):
         response = authenticated_client.get(URL)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)

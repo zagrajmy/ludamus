@@ -25,8 +25,11 @@ from ludamus.pacts import (
 )
 from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_login_required,
+    assert_not_a_manager,
+)
 
 
 class TestProposalCategorySettingsPageView:
@@ -49,9 +52,7 @@ class TestProposalCategorySettingsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         category = ProposalCategory.objects.create(
@@ -60,12 +61,7 @@ class TestProposalCategorySettingsPageView:
 
         response = authenticated_client.get(self.get_url(event, category))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -121,12 +117,7 @@ class TestProposalCategorySettingsPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_get_redirects_on_invalid_category_slug(
         self, authenticated_client, active_user, sphere, event
@@ -156,9 +147,7 @@ class TestProposalCategorySettingsPageView:
 
         response = client.post(url, data={"name": "Workshops"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         category = ProposalCategory.objects.create(
@@ -169,12 +158,7 @@ class TestProposalCategorySettingsPageView:
             self.get_url(event, category), data={"name": "Workshops"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_post_updates_category_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -314,12 +298,7 @@ class TestProposalCategorySettingsPageView:
 
         response = authenticated_client.post(url, data={"name": "Workshops"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     def test_post_redirects_on_invalid_category_slug(
         self, authenticated_client, active_user, sphere, event
