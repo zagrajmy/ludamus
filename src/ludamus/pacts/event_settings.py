@@ -1,3 +1,9 @@
+# TODO(hasparus): Fold this module into pacts/event.py, and
+# mills/event_settings.py into mills/event.py, once #625, #626, #719 and #726
+# have merged. GLIMPSE slices pacts and mills by noun then verb, and
+# `event_settings` is an entity cut of the `event` noun, not a verb; folded in,
+# both files stay far below the ~1000-line threshold that would justify the
+# split. It exists only to keep this branch off files those PRs are rewriting.
 from __future__ import annotations
 
 from dataclasses import dataclass
