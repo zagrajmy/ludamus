@@ -78,6 +78,18 @@ def assert_proposal_not_found(response: HttpResponse, event) -> None:
     )
 
 
+def assert_scheduled_proposal_refused(response: HttpResponse, event, session) -> None:
+    assert_response(
+        response,
+        HTTPStatus.FOUND,
+        messages=[(messages.ERROR, SCHEDULED_ERROR)],
+        url=reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        ),
+    )
+
+
 def make_proposal(event, **kwargs):
     # The pending RPG proposal the panel action tests all start from.
     category, _ = ProposalCategory.objects.get_or_create(

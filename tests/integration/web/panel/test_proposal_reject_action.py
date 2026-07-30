@@ -9,11 +9,11 @@ from django.urls import reverse
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
-    SCHEDULED_ERROR,
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
     assert_proposal_not_found,
+    assert_scheduled_proposal_refused,
     make_proposal,
 )
 
@@ -112,14 +112,6 @@ class TestProposalRejectActionView:
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, SCHEDULED_ERROR)],
-            url=reverse(
-                "panel:proposal-detail",
-                kwargs={"slug": event.slug, "proposal_id": session.pk},
-            ),
-        )
+        assert_scheduled_proposal_refused(response, event, session)
         session.refresh_from_db()
         assert session.status == "accepted"
