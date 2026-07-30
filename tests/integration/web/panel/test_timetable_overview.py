@@ -4,7 +4,6 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import CapacityHoursDTO, HeatmapDTO, TrackProgressDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_response
@@ -12,6 +11,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    panel_context,
 )
 
 
@@ -71,18 +71,7 @@ class TestTimetableOverviewPageView:
             HTTPStatus.OK,
             template_name="panel/timetable-overview.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "timetable",
+                **panel_context(event, active_nav="timetable"),
                 "heatmap": _empty_heatmap(),
                 "track_progress": [],
                 "capacity_hours": _empty_capacity_hours(),
@@ -158,18 +147,14 @@ class TestTimetableOverviewPageView:
                 'title="On hold"',
             ],
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 3,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 3 + 3 + 1 + 1,
-                    "total_sessions": 3 + 0,  # pending + scheduled
-                },
-                "active_nav": "timetable",
+                **panel_context(
+                    event,
+                    active_nav="timetable",
+                    hosts_count=1,
+                    pending_proposals=3,
+                    total_proposals=3 + 3 + 1 + 1,
+                    total_sessions=3 + 0,
+                ),
                 "heatmap": _empty_heatmap(),
                 "track_progress": [
                     TrackProgressDTO(

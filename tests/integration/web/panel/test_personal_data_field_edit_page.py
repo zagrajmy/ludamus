@@ -9,13 +9,13 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
 )
-from ludamus.pacts import EventDTO
 from tests.integration.conftest import ProposalCategoryFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    panel_context,
 )
 
 
@@ -68,18 +68,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
                 "categories": [],
@@ -252,18 +241,7 @@ class TestPersonalDataFieldEditPageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "field": context_field,
                 "form": ANY,
                 "categories": [],

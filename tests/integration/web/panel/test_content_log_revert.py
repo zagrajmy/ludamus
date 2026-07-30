@@ -9,7 +9,7 @@ from ludamus.links.db.django.models import (
     SessionFieldRequirement,
     SessionFieldValue,
 )
-from ludamus.pacts import ContentChangeLogDTO, EventDTO
+from ludamus.pacts import ContentChangeLogDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -20,6 +20,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    panel_context,
 )
 
 NOT_LATEST_ERROR = "Only the latest change for a session can be reverted."
@@ -320,18 +321,14 @@ class TestContentLogRevertButton:
             HTTPStatus.OK,
             template_name="panel/content-log.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
-                "active_nav": "proposals",
+                **panel_context(
+                    event,
+                    active_nav="proposals",
+                    hosts_count=1,
+                    pending_proposals=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
                 "slug": event.slug,
                 "logs": [_log_dto(latest_log), _log_dto(first_log)],
                 "field_names": {},

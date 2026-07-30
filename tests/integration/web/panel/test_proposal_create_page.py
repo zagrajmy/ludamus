@@ -897,17 +897,7 @@ class TestProposalCreateCategoryFields:
             # field_descriptors carry BoundFields, which don't compare usefully.
             # The component renders without page chrome, so no active_nav.
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
+                **panel_context(event),
                 "field_descriptors": ANY,
                 "form": ANY,
                 "orphan_values": [],
@@ -945,17 +935,7 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
+                **panel_context(event),
                 "field_descriptors": [],
                 "form": ANY,
                 "orphan_values": [],
@@ -1019,17 +999,7 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
+                **panel_context(event),
                 "field_descriptors": [],
                 "form": ANY,
                 "orphan_values": [],
