@@ -1,0 +1,58 @@
+name: Prod email check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Report how EMAIL_URL resolves
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://zagrajmy.net
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - run: pip install django django-environ
+
+      - name: Resolve the secret the way settings.py does
+        env:
+          EMAIL_URL: ${{ secrets.EMAIL_URL }}
+        run: |
+          python - <<'PY'
+          import os, sys
+          import environ
+
+          url = os.environ.get("EMAIL_URL", "")
+          if not url:
+              sys.exit("EMAIL_URL is empty: the deploy would omit it and Django would fall back to consolemail://")
+
+          config = environ.Env.email_url_config(url)
+          password = config.get("EMAIL_HOST_PASSWORD") or ""
+          backend = config["EMAIL_BACKEND"].rsplit(".", 2)[-2]
+          tls = bool(config.get("EMAIL_USE_TLS"))
+          ssl = bool(config.get("EMAIL_USE_SSL"))
+
+          print("backend:", backend)
+          print("host:", config.get("EMAIL_HOST"), "port:", config.get("EMAIL_PORT"))
+          print("tls:", tls, "ssl:", ssl)
+          print("user:", config.get("EMAIL_HOST_USER"))
+          print("password: length", len(password), "resend-shaped:", password.startswith("re_"))
+          print("options:", config.get("OPTIONS"))
+
+          problems = []
+          if backend != "smtp":
+              problems.append(f"backend is {backend}, so mail is never delivered")
+          if not password:
+              problems.append("no password: the API key is missing from the URL")
+          if backend == "smtp" and not (tls or ssl):
+              problems.append("no TLS: use smtp+tls:// on 587 or smtp+ssl:// on 465, not smtp://")
+          for problem in problems:
+              print("PROBLEM:", problem)
+          sys.exit(1 if problems else 0)
+          PY
