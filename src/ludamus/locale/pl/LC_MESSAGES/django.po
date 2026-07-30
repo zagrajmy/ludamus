@@ -1643,6 +1643,18 @@ msgid "Session field deleted successfully."
 msgstr "Pole punktu programu zostało usunięte."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Start must be before end."
+msgstr "Początek musi być przed końcem."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot must be within event dates."
+msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot overlaps with an existing slot."
+msgstr "Przedział czasowy nakłada się na istniejący przedział."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot created successfully."
 msgstr "Przedział czasowy został utworzony."
 

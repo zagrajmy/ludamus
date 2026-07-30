@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, assert_never
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -23,8 +23,8 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.forms import TimeSlotForm
-from ludamus.mills import PanelService
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.event import TimeSlotValidationError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -48,17 +48,34 @@ class _TimeSlotsContext(TypedDict):
     create_form: TimeSlotForm
 
 
-def _validate_time_slot(
-    form: TimeSlotForm,
-    start: datetime,
-    end: datetime,
-    event: EventDTO,
-    existing: list[TimeSlotDTO],
-) -> bool:
-    errors = PanelService.validate_time_slot(start, end, event, existing)
+def _slot_error_message(error: TimeSlotValidationError) -> str:
+    match error:
+        case TimeSlotValidationError.START_NOT_BEFORE_END:
+            return _("Start must be before end.")
+        case TimeSlotValidationError.OUTSIDE_EVENT_DATES:
+            return _("Time slot must be within event dates.")
+        case TimeSlotValidationError.OVERLAPS_EXISTING_SLOT:
+            return _("Time slot overlaps with an existing slot.")
+        case _:
+            assert_never(error)
+
+
+def _add_slot_errors(form: TimeSlotForm, errors: list[TimeSlotValidationError]) -> None:
     for error in errors:
-        form.add_error(None, _(error))
-    return not errors
+        form.add_error(None, _slot_error_message(error))
+
+
+def _slot_times(form: TimeSlotForm) -> tuple[datetime, datetime]:
+    start_date = form.cleaned_data["date"]
+    end_date = form.cleaned_data["end_date"]
+    tz = get_current_timezone()
+    start_time = datetime.combine(
+        start_date, form.cleaned_data["start_time"], tzinfo=tz
+    )
+    end_time = datetime.combine(end_date, form.cleaned_data["end_time"], tzinfo=tz)
+    if end_time < start_time and end_date == start_date:
+        end_time += timedelta(days=1)
+    return start_time, end_time
 
 
 def _date_initial(raw_date: str | None) -> dict[str, str]:
@@ -90,7 +107,7 @@ def _time_slots_context(
     start_idx = page * days_per_page
     visible_days = all_days[start_idx : start_idx + days_per_page]
 
-    time_slots = request.di.uow.time_slots.list_by_event(event.pk)
+    time_slots = request.services.panel_time_slots.list_for_event(event.pk)
 
     event_start = localtime(event.start_time).date()
     event_end = localtime(event.end_time).date()
@@ -179,26 +196,18 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 
-        start_date = form.cleaned_data["date"]
-        end_date = form.cleaned_data["end_date"]
-        tz = get_current_timezone()
-        start_time = datetime.combine(
-            start_date, form.cleaned_data["start_time"], tzinfo=tz
+        start_time, end_time = _slot_times(form)
+        errors = self.request.services.panel_time_slots.create(
+            event=current_event, start_time=start_time, end_time=end_time
         )
-        end_time = datetime.combine(end_date, form.cleaned_data["end_time"], tzinfo=tz)
-        if end_time < start_time and end_date == start_date:
-            end_time += timedelta(days=1)
-
-        existing = self.request.di.uow.time_slots.list_by_event(current_event.pk)
-        if not _validate_time_slot(form, start_time, end_time, current_event, existing):
+        if errors:
+            _add_slot_errors(form, errors)
             context.update(
                 _time_slots_context(
                     request=self.request, event=current_event, create_form=form
                 )
             )
             return TemplateResponse(self.request, "panel/time-slots.html", context)
-
-        self.request.di.uow.time_slots.create(current_event.pk, start_time, end_time)
 
         messages.success(self.request, _("Time slot created successfully."))
         return redirect("panel:time-slots", slug=slug)
@@ -215,8 +224,8 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            time_slot = self.request.di.uow.time_slots.read_by_event(
-                current_event.pk, pk
+            time_slot = self.request.services.panel_time_slots.read(
+                event_id=current_event.pk, pk=pk
             )
         except NotFoundError:
             messages.error(self.request, _("Time slot not found."))
@@ -242,8 +251,8 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            time_slot = self.request.di.uow.time_slots.read_by_event(
-                current_event.pk, pk
+            time_slot = self.request.services.panel_time_slots.read(
+                event_id=current_event.pk, pk=pk
             )
         except NotFoundError:
             messages.error(self.request, _("Time slot not found."))
@@ -256,28 +265,16 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
 
-        start_date = form.cleaned_data["date"]
-        end_date = form.cleaned_data["end_date"]
-        tz = get_current_timezone()
-        start_time = datetime.combine(
-            start_date, form.cleaned_data["start_time"], tzinfo=tz
+        start_time, end_time = _slot_times(form)
+        errors = self.request.services.panel_time_slots.update(
+            event=current_event, pk=pk, start_time=start_time, end_time=end_time
         )
-        end_time = datetime.combine(end_date, form.cleaned_data["end_time"], tzinfo=tz)
-        if end_time < start_time and end_date == start_date:
-            end_time += timedelta(days=1)
-
-        existing = [
-            ts
-            for ts in self.request.di.uow.time_slots.list_by_event(current_event.pk)
-            if ts.pk != pk
-        ]
-        if not _validate_time_slot(form, start_time, end_time, current_event, existing):
+        if errors:
+            _add_slot_errors(form, errors)
             context["active_nav"] = "cfp"
             context["time_slot"] = time_slot
             context["form"] = form
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
-
-        self.request.di.uow.time_slots.update(pk, start_time, end_time)
 
         messages.success(self.request, _("Time slot updated successfully."))
         return redirect("panel:time-slots", slug=slug)
@@ -295,13 +292,14 @@ class TimeSlotDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            self.request.di.uow.time_slots.read_by_event(current_event.pk, pk)
+            deleted = self.request.services.panel_time_slots.delete(
+                event_id=current_event.pk, pk=pk
+            )
         except NotFoundError:
             messages.error(self.request, _("Time slot not found."))
             return redirect("panel:time-slots", slug=slug)
 
-        service = PanelService(self.request.di.uow)
-        if not service.delete_time_slot(pk):
+        if not deleted:
             messages.error(
                 self.request, _("Cannot delete time slot used in proposals.")
             )
