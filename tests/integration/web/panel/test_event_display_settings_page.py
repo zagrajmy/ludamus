@@ -173,6 +173,28 @@ class TestEventDisplaySettingsPageViewPost:
         response = authenticated_client.get(self.get_url(event))
         assert set(response.context["filterable_field_ids"]) == {field1.pk, field2.pk}
 
+    def test_rejects_non_numeric_field_ids(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = _create_session_field(event)
+        settings, _ = EventSettings.objects.get_or_create(event=event)
+        settings.displayed_session_fields.set([field.pk])
+
+        response = authenticated_client.post(
+            self.get_url(event), data={"displayed_session_fields": ["abc"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Invalid field selection.")],
+            url=f"/panel/event/{event.slug}/settings/display/",
+        )
+        assert list(settings.displayed_session_fields.values_list("pk", flat=True)) == [
+            field.pk
+        ]
+
     def test_clears_filterable_fields(
         self, authenticated_client, active_user, sphere, event
     ):

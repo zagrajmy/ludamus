@@ -121,12 +121,16 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        if self.get_current_event(slug) is None:
+        # The invalid-form path re-renders panel/settings.html, which needs the
+        # event context — resolve it up front so a bad slug redirects instead of
+        # rendering the page empty, and so the render path reuses the same read.
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
             return redirect("panel:index")
 
         form = EventSettingsForm(self.request.POST, self.request.FILES)
         if not form.is_valid():
-            return self._render_with_form(slug, form)
+            return self._render_with_form(context=context, slug=slug, form=form)
 
         cd = form.cleaned_data
         new_slug = cd["slug"]
@@ -142,13 +146,14 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:event-settings", slug=slug)
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
-            return redirect("panel:event-settings", slug=slug)
+            return redirect("panel:index")
 
         messages.success(self.request, _("Event settings saved successfully."))
         return redirect("panel:event-settings", slug=new_slug)
 
-    def _render_with_form(self, slug: str, form: EventSettingsForm) -> HttpResponse:
-        context, _current_event = self.get_event_context(slug)
+    def _render_with_form(
+        self, *, context: dict[str, object], slug: str, form: EventSettingsForm
+    ) -> HttpResponse:
         context["active_nav"] = "settings"
         context["active_tab"] = "general"
         context["tab_urls"] = settings_tab_urls(slug)
@@ -180,9 +185,11 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/display-settings.html", context)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        selected_ids = [
-            int(pk) for pk in self.request.POST.getlist("displayed_session_fields")
-        ]
+        raw_ids = self.request.POST.getlist("displayed_session_fields")
+        if not all(raw_pk.isdigit() for raw_pk in raw_ids):
+            messages.error(self.request, _("Invalid field selection."))
+            return redirect("panel:event-display-settings", slug=slug)
+        selected_ids = [int(raw_pk) for raw_pk in raw_ids]
 
         try:
             self.request.services.event_settings.update_displayed_fields(
