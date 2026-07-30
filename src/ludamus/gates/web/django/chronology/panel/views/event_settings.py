@@ -186,7 +186,7 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         raw_ids = self.request.POST.getlist("displayed_session_fields")
-        if not all(raw_pk.isdigit() for raw_pk in raw_ids):
+        if not all(raw_pk.isdecimal() for raw_pk in raw_ids):
             messages.error(self.request, _("Invalid field selection."))
             return redirect("panel:event-display-settings", slug=slug)
         selected_ids = [int(raw_pk) for raw_pk in raw_ids]
