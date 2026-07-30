@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n tessera %}
+{% load django_vite i18n tessera %}
 {% block title %}
     {{ event.name }} — {% translate "Print" %}
 {% endblock title %}
@@ -35,11 +35,14 @@
         <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
             <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
                 <div>
-                    <form method="get" class="flex flex-col gap-4">
+                    {# Not a form: each control rewrites its own query param and #}
+                    {# reloads (src/print-controls.ts), so there is nothing to #}
+                    {# submit or apply. #}
+                    <div id="print-controls" class="flex flex-col gap-4">
                         <div class="flex flex-col gap-1">
                             <label class="text-sm font-semibold text-foreground-secondary"
                                    for="id_material">{% translate "Printable" %}</label>
-                            {% select id="id_material" name="material" onchange="this.form.submit()" %}
+                            {% select id="id_material" name="material" %}
                                 {% for option in material_options %}
                                     <option value="{{ option.value }}"
                                             {% if material == option.value %}selected{% endif %}>
@@ -48,27 +51,21 @@
                                 {% endfor %}
                             {% end_select %}
                         </div>
-                        {% if print_scopes %}
-                            {% if show_scope_control %}
-                                <div class="flex flex-col gap-1">
-                                    <label class="text-sm font-semibold text-foreground-secondary"
-                                           for="scope-select">{% translate "Scope" %}</label>
-                                    {% select id="scope-select" aria_label=aria_scope onchange="if(this.value!==null){window.location.search=this.value;}" %}
-                                        <option value="?material={{ material|urlencode }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                {% if not selected_scope %}selected{% endif %}>
-                                            {% translate "Whole event" %}
+                        {% if print_scopes and show_scope_control %}
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-semibold text-foreground-secondary"
+                                       for="scope-select">{% translate "Scope" %}</label>
+                                {% select id="scope-select" name="scope" aria_label=aria_scope %}
+                                    <option value="" {% if not selected_scope %}selected{% endif %}>{% translate "Whole event" %}</option>
+                                    {% for scope in print_scopes %}
+                                        <option value="{{ scope.pk }}"
+                                                {% if selected_scope == scope.pk|stringformat:'s' %}selected{% endif %}>
+                                            {{ scope.name }}
                                         </option>
-                                        {% for scope in print_scopes %}
-                                            <option value="?material={{ material|urlencode }}&scope={{ scope.pk }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                    {% if selected_scope == scope.pk|stringformat:'s' %}selected{% endif %}>
-                                                {{ scope.name }}
-                                            </option>
-                                        {% endfor %}
-                                    {% end_select %}
-                                </div>
-                            {% endif %}
+                                    {% endfor %}
+                                {% end_select %}
+                            </div>
                         {% endif %}
-                        <input type="hidden" name="scope" value="{{ selected_scope }}">
                         {% if tracks and show_track_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
@@ -83,7 +80,9 @@
                                 {% end_select %}
                             </div>
                         {% endif %}
-                        {% if show_range_controls %}
+                        {% if show_timetable_controls %}
+                            {% translate "With descriptions" as t_descriptions %}
+                            {% include "components/checkbox-field.html" with name="descriptions" id="id_descriptions" label=t_descriptions value="1" checked=descriptions %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_start">{% translate "Start" %}</label>
@@ -101,17 +100,16 @@
                                        name="hours"
                                        min="1"
                                        max="72"
-                                       value="{{ range_hours }}"
+                                       value="{{ range_hours|default_if_none:'' }}"
+                                       placeholder="{% translate "until event end" %}"
                                        class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
                             </div>
                         {% endif %}
                         <div class="grid gap-2">
-                            {% translate "Apply" as t_apply %}
                             {% translate "Print" as t_print %}
-                            {% tessera_button t_apply variant="secondary" icon="arrow-path" %}
                             {% tessera_button t_print button_type="button" icon="printer" onclick="window.print()" %}
                         </div>
-                    </form>
+                    </div>
                     <nav class="mt-4" aria-label="{% translate "Table of contents" %}">
                         <div class="text-sm font-semibold text-foreground-secondary">{% translate "Table of contents" %}</div>
                         <div class="mt-2 grid gap-1 text-sm max-[900px]:max-h-56 max-[900px]:overflow-auto">
@@ -167,7 +165,7 @@
                                     <table class="w-full table-fixed border-collapse text-[7pt]">
                                         <thead>
                                             <tr>
-                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time slot" %}</th>
+                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time" %}</th>
                                                 {% for name in page.space_names %}
                                                     <th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>
                                                 {% endfor %}
@@ -210,7 +208,11 @@
                                         {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
                                         <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
                                         <p class="mb-[4mm] text-[9pt] text-neutral-500">
-                                            {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                            {% if area_schedule.range_start|date:"Y-m-d" == area_schedule.range_end|date:"Y-m-d" %}
+                                                {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                            {% else %}
+                                                {{ area_schedule.range_start|date:"j E Y H:i" }}–{{ area_schedule.range_end|date:"j E Y H:i" }}
+                                            {% endif %}
                                         </p>
                                         <div>
                                             <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
@@ -262,3 +264,6 @@
         </div>
     </main>
 {% endblock main_region %}
+{% block extra_scripts %}
+    {% vite_asset 'src/print-controls.ts' %}
+{% endblock extra_scripts %}

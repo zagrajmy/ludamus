@@ -1,4 +1,9 @@
-"""Shared time-slot helpers for the chronology and printing mills."""
+"""Shared time-slot helpers for the chronology and printing mills.
+
+Time slots are proposer availability windows ("when could you run your
+session?"), not schedule display units — rendered timetables show the real
+session start and end times instead.
+"""
 
 from __future__ import annotations
 
