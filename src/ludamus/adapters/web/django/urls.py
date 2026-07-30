@@ -6,6 +6,7 @@ from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -14,7 +15,6 @@ from ludamus.gates.web.django.notice_board.urls import (
 )
 
 from . import views
-from .print_views import PublicEventPrintView
 
 app_name = "web"  # pylint: disable=invalid-name
 

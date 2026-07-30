@@ -14,7 +14,6 @@ from collections import defaultdict
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
-from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts.printing import (
     AreaScheduleDocumentDTO,
     AreaScheduleQueryDTO,
@@ -39,6 +38,7 @@ from ludamus.pacts.printing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import date, datetime, tzinfo
 
     from ludamus.pacts import (
@@ -100,25 +100,16 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
 
 
 def _timetable_rows_by_date(
-    windows_by_date: dict[date, list[tuple[datetime, datetime]]],
-    items_by_space: dict[int, list[AgendaItemDTO]],
-    tz: tzinfo,
+    items: Iterable[AgendaItemDTO], tz: tzinfo
 ) -> dict[date, list[tuple[datetime, datetime]]]:
-    # Rows are the event's time slots, plus a fallback row for any scheduled
-    # session that overlaps no slot — so a session placed outside the defined
-    # slots (or an event with no slots at all) never silently drops off the
-    # grid the way it would if rows came from slots alone.
+    # Rows are the distinct (start, end) times of the scheduled sessions, so
+    # the grid prints real session times. Time slots are proposer availability
+    # windows, not display units (see mills/timeslots.py), so they play no
+    # part here.
     rows: dict[date, set[tuple[datetime, datetime]]] = defaultdict(set)
-    for day, windows in windows_by_date.items():
-        rows[day].update(windows)
-
-    all_windows = [w for windows in windows_by_date.values() for w in windows]
-    for items in items_by_space.values():
-        for item in items:
-            if not any(_overlaps(item, ws, we) for ws, we in all_windows):
-                day = item.start_time.astimezone(tz).date()
-                rows[day].add((item.start_time, item.end_time))
-
+    for item in items:
+        day = item.start_time.astimezone(tz).date()
+        rows[day].add((item.start_time, item.end_time))
     return {day: sorted(intervals) for day, intervals in rows.items()}
 
 
@@ -202,31 +193,46 @@ class PrintMaterialsService:
             if query.track_pk is not None
             else self._agenda_items.list_by_event(query.event_pk)
         )
+        if query.time_range is not None:
+            all_items = [
+                item for item in all_items if _overlaps(item, *query.time_range)
+            ]
         grouped = self._group_by_space(all_items, confirmed_only=query.confirmed_only)
         items_by_space = {space.pk: grouped.get(space.pk, []) for space in spaces}
-        windows_by_date = slot_windows_by_local_date(
-            self._time_slots.list_by_event(query.event_pk), query.tz
-        )
-        rows_by_date = _timetable_rows_by_date(
-            windows_by_date, items_by_space, query.tz
-        )
+
+        # Rows are computed per page chunk so a page only lists the times of
+        # its own spaces' sessions; a chunk with nothing scheduled on a day
+        # produces no page for it.
+        chunked_rows = [
+            (
+                space_chunk,
+                _timetable_rows_by_date(
+                    [item for s in space_chunk for item in items_by_space[s.pk]],
+                    query.tz,
+                ),
+            )
+            for space_chunk in _space_chunks(spaces)
+        ]
 
         pages: list[PrintTimetablePageDTO] = []
-        for day in sorted(rows_by_date):
-            for space_chunk in _space_chunks(spaces):
+        all_days = sorted({day for _, by_date in chunked_rows for day in by_date})
+        for day in all_days:
+            for space_chunk, rows_by_date in chunked_rows:
+                if not (intervals := rows_by_date.get(day)):
+                    continue
                 rows: list[PrintTimetableRowDTO] = []
-                for window_start, window_end in rows_by_date[day]:
+                for row_start, row_end in intervals:
                     cells: list[PrintTimetableCellDTO] = []
                     for space in space_chunk:
                         sessions = [
                             _to_session(item)
                             for item in items_by_space.get(space.pk, [])
-                            if _overlaps(item, window_start, window_end)
+                            if item.start_time == row_start and item.end_time == row_end
                         ]
                         cells.append(PrintTimetableCellDTO(sessions=sessions))
                     rows.append(
                         PrintTimetableRowDTO(
-                            start_time=window_start, end_time=window_end, cells=cells
+                            start_time=row_start, end_time=row_end, cells=cells
                         )
                     )
                 pages.append(
@@ -244,11 +250,13 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (one space subtree) is a subset by construction, so
-            # it is never "the whole program"; completeness only applies unscoped.
+            # A scoped print (space subtree, track, or time range) is a subset
+            # by construction, so it is never "the whole program"; completeness
+            # only applies unscoped.
             is_complete=(
                 query.scope_space_pks is None
                 and query.track_pk is None
+                and query.time_range is None
                 and _is_complete(all_items)
             ),
             pages=pages,
@@ -257,13 +265,17 @@ class PrintMaterialsService:
     def build_area_schedule(
         self, query: AreaScheduleQueryDTO
     ) -> AreaScheduleDocumentDTO:
-        range_start, range_end = query.time_range
         event = self._events.read(query.event_pk)
-        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
-        grouped = self._group_by_space(
-            self._agenda_items.list_by_event(query.event_pk),
-            confirmed_only=query.confirmed_only,
+        range_start, range_end = query.time_range or (event.start_time, event.end_time)
+        spaces = self._scoped_spaces(
+            query.event_pk, query.scope_space_pks, query.track_pk
         )
+        items = (
+            self._agenda_items.list_by_track(query.track_pk)
+            if query.track_pk is not None
+            else self._agenda_items.list_by_event(query.event_pk)
+        )
+        grouped = self._group_by_space(items, confirmed_only=query.confirmed_only)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []
         for space in spaces:
