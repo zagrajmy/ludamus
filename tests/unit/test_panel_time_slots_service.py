@@ -94,6 +94,31 @@ class TestPanelTimeSlotsService:
         assert errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
         time_slots.create.assert_not_called()
 
+    def test_create_returns_outside_event_dates_for_slot_before_event(
+        self, service, time_slots
+    ):
+        time_slots.list_by_event.return_value = [_slot(pk=1)]
+        start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
+        end = datetime(2026, 6, 1, 9, 30, tzinfo=UTC)
+
+        errors = service.create(event=_event(), start_time=start, end_time=end)
+
+        assert errors == [TimeSlotValidationError.OUTSIDE_EVENT_DATES]
+        time_slots.create.assert_not_called()
+
+    def test_create_accumulates_every_broken_rule(self, service, time_slots):
+        time_slots.list_by_event.return_value = [_slot(pk=1)]
+        start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
+        end = datetime(2026, 6, 1, 7, 0, tzinfo=UTC)
+
+        errors = service.create(event=_event(), start_time=start, end_time=end)
+
+        assert errors == [
+            TimeSlotValidationError.START_NOT_BEFORE_END,
+            TimeSlotValidationError.OUTSIDE_EVENT_DATES,
+        ]
+        time_slots.create.assert_not_called()
+
     def test_update_persists_valid_slot_scoped_to_event(
         self, service, transaction, time_slots
     ):
