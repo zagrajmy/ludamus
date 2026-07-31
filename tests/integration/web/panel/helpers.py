@@ -113,6 +113,27 @@ def assert_scheduled_proposal_refused(response: HttpResponse, event, session) ->
     )
 
 
+def assert_proposal_status_applied(
+    response: HttpResponse, event, session, *, message: str, status: str
+) -> None:
+    assert_response(
+        response,
+        HTTPStatus.FOUND,
+        messages=[(messages.SUCCESS, message)],
+        url=reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        ),
+    )
+    session.refresh_from_db()
+    assert session.status == status, session.status
+
+
+def assert_proposal_status_unchanged(session, status: str) -> None:
+    session.refresh_from_db()
+    assert session.status == status, session.status
+
+
 def make_facilitator(event, **kwargs):
     defaults = {"display_name": "Alice", "slug": "alice", "user": None}
     return Facilitator.objects.create(event=event, **(defaults | kwargs))
