@@ -17,7 +17,9 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_overlapping_sessions,
     make_timetable_session,
+    schedule_session,
 )
 
 ONE_SCHEDULED_SESSION_STATS = {
@@ -113,17 +115,7 @@ class TestTimetableProblemsPageView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        space = SpaceFactory(event=event)
-        session_a = make_timetable_session(proposal_category)
-        session_b = make_timetable_session(proposal_category)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(
-            session=session_a, space=space, start_time=start, end_time=end
-        )
-        AgendaItemFactory(
-            session=session_b, space=space, start_time=start, end_time=end
-        )
+        _, (session_a, session_b) = make_overlapping_sessions(event, proposal_category)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -169,9 +161,7 @@ class TestTimetableProblemsPageView:
             end_time=event.start_time + timedelta(hours=6),
         )
         session.time_slots.add(preferred_slot)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        agenda_item = schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -187,8 +177,8 @@ class TestTimetableProblemsPageView:
                     PreferredSlotViolationDTO(
                         session_pk=session.pk,
                         session_title=session.title,
-                        scheduled_start=start,
-                        scheduled_end=end,
+                        scheduled_start=agenda_item.start_time,
+                        scheduled_end=agenda_item.end_time,
                         preferred_slots=[
                             PreferredSlotRangeDTO(
                                 start_time=preferred_slot.start_time,
@@ -214,9 +204,7 @@ class TestTimetableProblemsPageView:
             end_time=event.start_time + timedelta(hours=2),
         )
         session.time_slots.add(preferred_slot)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -328,9 +316,7 @@ class TestTimetableProblemsPageView:
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 

@@ -1,12 +1,11 @@
 """Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/pending."""
 
-from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
+from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_login_required,
@@ -14,6 +13,7 @@ from tests.integration.web.panel.helpers import (
     assert_proposal_not_found,
     assert_scheduled_proposal_refused,
     make_proposal,
+    make_scheduled_proposal,
 )
 
 
@@ -90,13 +90,7 @@ class TestProposalPendingActionView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        session = _make_session(event, status="accepted")
-        AgendaItemFactory(
-            session=session,
-            space=SpaceFactory(event=event),
-            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
-            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
-        )
+        session = make_scheduled_proposal(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 

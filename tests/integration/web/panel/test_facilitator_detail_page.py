@@ -6,7 +6,6 @@ from unittest.mock import ANY
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
-    Facilitator,
     PersonalDataField,
     PersonalDataFieldValue,
     ProposalCategory,
@@ -26,14 +25,9 @@ from tests.integration.web.panel.helpers import (
     assert_facilitator_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_facilitator,
     panel_context,
 )
-
-
-def _make_facilitator(event, **kwargs):
-    defaults = {"display_name": "Alice", "slug": "alice", "user": None}
-    defaults.update(kwargs)
-    return Facilitator.objects.create(event=event, **defaults)
 
 
 def _make_personal_data_field(event, **kwargs):
@@ -62,7 +56,7 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(
+        facilitator = make_facilitator(
             event, internal_comment="Possible duplicate of Bob"
         )
 
@@ -88,7 +82,7 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -150,7 +144,7 @@ class TestFacilitatorDetailPageView:
     ):
         sphere.managers.add(active_user)
         linked = UserFactory(name="Bob Builder", email="bob@example.com")
-        facilitator = _make_facilitator(event, user=linked)
+        facilitator = make_facilitator(event, user=linked)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -175,7 +169,7 @@ class TestFacilitatorDetailPageView:
     ):
         sphere.managers.add(active_user)
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
-        facilitator = _make_facilitator(event, organizer=organizer)
+        facilitator = make_facilitator(event, organizer=organizer)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -204,7 +198,7 @@ class TestFacilitatorDetailPageView:
     ):
         sphere.managers.add(active_user)
         connected = UserFactory(name="Ghost", user_type="connected")
-        facilitator = _make_facilitator(event, user=connected)
+        facilitator = make_facilitator(event, user=connected)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -261,7 +255,7 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -284,7 +278,7 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, accreditation_type="honorary")
+        make_facilitator(event, accreditation_type="honorary")
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -297,7 +291,7 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = _make_personal_data_field(event)
 
         response = authenticated_client.get(self.get_url(event))
@@ -330,7 +324,7 @@ class TestFacilitatorDetailPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         values = [
             ("Consent", "consent", "checkbox", True),
             ("Declined", "declined", "checkbox", False),

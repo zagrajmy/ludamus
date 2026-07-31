@@ -7,14 +7,13 @@ from ludamus.links.db.django.models import (
     Facilitator,
     FacilitatorChangeLog,
     PersonalDataField,
-    SessionField,
-    SessionFieldRequirement,
 )
 from tests.integration.conftest import SessionFactory
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_optional_session_field,
 )
 
 
@@ -279,17 +278,7 @@ class TestContentLogRecordsEdits:
     ):
         sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        field = SessionField.objects.create(
-            event=event,
-            name="System",
-            question="Which system?",
-            slug="system",
-            field_type="text",
-            order=0,
-        )
-        SessionFieldRequirement.objects.create(
-            category=proposal_category, field=field, is_required=False, order=0
-        )
+        field = make_optional_session_field(event, proposal_category)
 
         authenticated_client.post(
             reverse(

@@ -1,13 +1,21 @@
 """Shared arrange/assert helpers for panel integration tests."""
 
 import json
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import EventIntegration, ProposalCategory, Session
+from ludamus.links.db.django.models import (
+    EventIntegration,
+    Facilitator,
+    ProposalCategory,
+    Session,
+    SessionField,
+    SessionFieldRequirement,
+)
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
@@ -17,7 +25,12 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
-from tests.integration.conftest import SessionFactory
+from tests.integration.conftest import (
+    AgendaItemFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    SpaceFactory,
+)
 from tests.integration.utils import assert_response
 
 if TYPE_CHECKING:
@@ -98,6 +111,50 @@ def assert_scheduled_proposal_refused(response: HttpResponse, event, session) ->
             kwargs={"slug": event.slug, "proposal_id": session.pk},
         ),
     )
+
+
+def make_facilitator(event, **kwargs):
+    defaults = {"display_name": "Alice", "slug": "alice", "user": None}
+    return Facilitator.objects.create(event=event, **(defaults | kwargs))
+
+
+def make_workshop_and_talk(event):
+    # The two categories the field-create pages offer for assignment.
+    return (
+        ProposalCategoryFactory(event=event, name="Workshop"),
+        ProposalCategoryFactory(event=event, name="Talk"),
+    )
+
+
+def make_scheduled_proposal(event):
+    # An accepted proposal already on the timetable — the state every status
+    # action refuses to change.
+    session = make_proposal(event, status="accepted")
+    AgendaItemFactory(
+        session=session,
+        space=SpaceFactory(event=event),
+        start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+        end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+    )
+    return session
+
+
+def schedule_session(session, space, start, *, hours=1):
+    return AgendaItemFactory(
+        session=session,
+        space=space,
+        start_time=start,
+        end_time=start + timedelta(hours=hours),
+    )
+
+
+def make_overlapping_sessions(event, category):
+    # Two sessions in the same room at the same hour: the minimal conflict.
+    space = SpaceFactory(event=event)
+    sessions = [make_timetable_session(category) for _ in range(2)]
+    for session in sessions:
+        schedule_session(session, space, event.start_time)
+    return space, sessions
 
 
 def make_timetable_session(category, *, status="pending", participants_limit=5):
@@ -188,6 +245,21 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
         slug=facilitator.slug,
         user_id=facilitator.user_id,
     )
+
+
+def make_optional_session_field(event, category, *, slug="system", name="System"):
+    field = SessionField.objects.create(
+        event=event,
+        name=name,
+        question="Which system?",
+        slug=slug,
+        field_type="text",
+        order=0,
+    )
+    SessionFieldRequirement.objects.create(
+        category=category, field=field, is_required=False, order=0
+    )
+    return field
 
 
 IMPORT_IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER

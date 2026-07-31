@@ -3,12 +3,7 @@ from http import HTTPStatus
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import (
-    ContentChangeLog,
-    SessionField,
-    SessionFieldRequirement,
-    SessionFieldValue,
-)
+from ludamus.links.db.django.models import ContentChangeLog, SessionFieldValue
 from ludamus.pacts import ContentChangeLogDTO
 from tests.integration.conftest import (
     EventFactory,
@@ -20,6 +15,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_optional_session_field,
     panel_context,
 )
 
@@ -131,17 +127,7 @@ class TestContentLogRevertActionView:
     ):
         sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        field = SessionField.objects.create(
-            event=event,
-            name="System",
-            question="Which system?",
-            slug="system",
-            field_type="text",
-            order=0,
-        )
-        SessionFieldRequirement.objects.create(
-            category=proposal_category, field=field, is_required=False, order=0
-        )
+        field = make_optional_session_field(event, proposal_category)
         _edit(
             authenticated_client,
             event,

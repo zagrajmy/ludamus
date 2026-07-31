@@ -22,6 +22,7 @@ from tests.integration.web.panel.helpers import (
     empty_grid,
     make_timetable_session,
     panel_context,
+    schedule_session,
 )
 
 
@@ -132,9 +133,7 @@ class TestTimetablePageView:
         time_slot,
     ):
         sphere.managers.add(active_user)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -241,9 +240,7 @@ class TestTimetablePageView:
         time_slot,
     ):
         sphere.managers.add(active_user)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -366,9 +363,7 @@ class TestTimetablePageView:
             end_time=event.start_time + timedelta(hours=6),
         )
         session.time_slots.add(preferred)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 

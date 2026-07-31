@@ -13,6 +13,7 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     make_timetable_session,
     panel_context,
+    schedule_session,
 )
 
 
@@ -233,9 +234,7 @@ class TestTimetableOverviewPageView:
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         response = authenticated_client.get(self.get_url(event))
 

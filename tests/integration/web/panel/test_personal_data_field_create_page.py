@@ -14,6 +14,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_workshop_and_talk,
     panel_context,
 )
 
@@ -352,8 +353,7 @@ class TestPersonalDataFieldCreatePageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        ProposalCategoryFactory(event=event, name="Workshop")
-        ProposalCategoryFactory(event=event, name="Talk")
+        make_workshop_and_talk(event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -363,8 +363,7 @@ class TestPersonalDataFieldCreatePageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        cat1 = ProposalCategoryFactory(event=event, name="Workshop")
-        cat2 = ProposalCategoryFactory(event=event, name="Talk")
+        cat1, cat2 = make_workshop_and_talk(event)
 
         authenticated_client.post(
             self.get_url(event),

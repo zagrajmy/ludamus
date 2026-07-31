@@ -7,7 +7,6 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
-    Facilitator,
     FacilitatorChangeLog,
     PersonalDataField,
     PersonalDataFieldOption,
@@ -21,14 +20,9 @@ from tests.integration.web.panel.helpers import (
     assert_facilitator_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_facilitator,
     panel_context,
 )
-
-
-def _make_facilitator(event, **kwargs):
-    defaults = {"display_name": "Alice", "slug": "alice", "user": None}
-    defaults.update(kwargs)
-    return Facilitator.objects.create(event=event, **defaults)
 
 
 class TestFacilitatorEditPageView:
@@ -79,7 +73,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -100,7 +94,7 @@ class TestFacilitatorEditPageView:
     ):
         sphere.managers.add(active_user)
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
-        facilitator = _make_facilitator(event, organizer=organizer)
+        facilitator = make_facilitator(event, organizer=organizer)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -148,7 +142,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         response = authenticated_client.post(
             self.get_url(event), data={"accreditation_type": "bogus"}
@@ -177,7 +171,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         response = authenticated_client.post(
             self.get_url(event), data={"accreditation_type": "none"}
@@ -200,7 +194,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         authenticated_client.post(
             self.get_url(event), data={"display_name": "Hacked Name"}
@@ -213,7 +207,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event, accreditation_type="none")
+        facilitator = make_facilitator(event, accreditation_type="none")
 
         authenticated_client.post(
             self.get_url(event),
@@ -227,7 +221,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         authenticated_client.post(
             self.get_url(event),
@@ -254,7 +248,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _make_facilitator(event, accreditation_type="guest")
+        make_facilitator(event, accreditation_type="guest")
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -264,7 +258,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -285,7 +279,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Vegan",
@@ -307,7 +301,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -334,7 +328,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="System",
@@ -361,7 +355,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -401,7 +395,7 @@ class TestFacilitatorEditPageView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
         languages = PersonalDataField.objects.create(
             event=event,

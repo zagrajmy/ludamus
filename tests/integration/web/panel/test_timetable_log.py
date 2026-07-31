@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, SpaceFactory
+from tests.integration.conftest import SpaceFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -11,6 +11,7 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     make_timetable_session,
     panel_context,
+    schedule_session,
 )
 
 
@@ -121,9 +122,7 @@ class TestTimetableLogPageView:
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        schedule_session(session, space, event.start_time)
 
         authenticated_client.post(
             reverse("panel:timetable-unassign", kwargs={"slug": event.slug}),
