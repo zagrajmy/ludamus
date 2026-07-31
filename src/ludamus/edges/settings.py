@@ -53,7 +53,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
     # local Mailpit inbox, filemail:///path for file capture, or
-    # smtp://user:pass@host:587/?tls=True in production.
+    # smtp+tls://user:pass@host:587 in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
@@ -71,6 +71,8 @@ env = environ.Env(
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
+    # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
+    ZEAL_RAISE=(bool, False),
 )
 
 
@@ -145,6 +147,29 @@ MIDDLEWARE = [
 if DEBUG:
     INSTALLED_APPS.append("django_browser_reload")
     MIDDLEWARE.append("django_browser_reload.middleware.BrowserReloadMiddleware")
+
+# django-zeal flags every N+1 as it happens (a related-field lazy load
+# repeated across a loop). Active everywhere except production: the dev
+# server and pytest raise so a regression cannot land unnoticed; the e2e
+# server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
+# the UI shows up in server output without failing unrelated UI tests.
+if DEBUG or IN_TESTS:
+    INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
+    MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
+    ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
+    ZEAL_SHOW_ALL_CALLERS = False
+    # Repositories fetch DTOs with `Model.objects.get(...)` per read, so two
+    # unrelated reads of the same model in one request trip zeal's repeated-
+    # get() heuristic constantly (sphere by domain + sphere by id, session +
+    # its event, ...). Those are constant per request, not per-row; keep zeal
+    # focused on the real N+1 shape — related-field lazy loads in loops.
+    # Space.parent: model validation climbs the ancestor chain on every save
+    # (same-event, cycle, and depth checks), bounded by SPACE_MAX_DEPTH — a
+    # deliberate walk, not an unbounded per-row leak.
+    ZEAL_ALLOWLIST = [
+        {"model": "*", "field": "get()"},
+        {"model": "db_main.Space", "field": "parent"},
+    ]
 
 if DEBUG and env.bool("DEBUG_TOOLBAR", default=False):
     INSTALLED_APPS.append("debug_toolbar")
@@ -458,8 +483,8 @@ else:
     }
 
 # Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
-# for the local inbox UI, smtp://… in production). Wired the same way in every
-# environment so prod only needs the env var set.
+# for the local inbox UI, smtp+tls://… in production). Wired the same way in
+# every environment so prod only needs the env var set.
 _EMAIL_CONFIG = env.email_url("EMAIL_URL")
 EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
 EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-29 22:37+0200\n"
+"POT-Creation-Date: 2026-07-31 18:15+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1087,6 +1087,10 @@ msgstr "Wydarzenie o tym slugu już istnieje."
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Event settings saved successfully."
 msgstr "Ustawienia wydarzenia zostały zapisane."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Invalid field selection."
+msgstr "Nieprawidłowy wybór pola."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Display settings saved successfully."
@@ -6004,6 +6008,10 @@ msgid "Nobody is banned from this event"
 msgstr "Nikt nie jest zbanowany na tym wydarzeniu"
 
 #: src/ludamus/templates/panel/base.html
+msgid "Page loading"
+msgstr "Ładowanie strony"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Close navigation"
 msgstr "Zamknij nawigację"
 
@@ -7404,7 +7412,6 @@ msgid "Search…"
 msgstr "Szukaj…"
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
-#: src/ludamus/templates/panel/timetable.html
 msgid "Loading…"
 msgstr "Ładowanie…"
 
