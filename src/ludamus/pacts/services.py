@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
     )
+    from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
@@ -39,7 +40,11 @@ if TYPE_CHECKING:
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
-    from ludamus.pacts.event import EventPanelServiceProtocol
+    from ludamus.pacts.event import (
+        EventPanelServiceProtocol,
+        PanelTimeSlotsServiceProtocol,
+    )
+    from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -52,6 +57,7 @@ if TYPE_CHECKING:
         PrintablesReminderServiceProtocol,
         PrintMaterialsServiceProtocol,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -63,6 +69,7 @@ if TYPE_CHECKING:
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
+    from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
@@ -116,6 +123,10 @@ class ServicesProtocol(Protocol):
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
     @property
+    def event_settings(self) -> EventSettingsServiceProtocol: ...
+    @property
+    def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
+    @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
     def sites(self) -> SitesServiceProtocol: ...
@@ -167,3 +178,9 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
+    @property
+    def tracks_panel(self) -> TracksPanelServiceProtocol: ...
+    @property
+    def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...

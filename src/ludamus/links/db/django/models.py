@@ -403,14 +403,17 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
-    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        eligible_configs = [
+    def get_eligible_enrollment_configs(
+        self, session: Session
+    ) -> list[EnrollmentConfig]:
+        return [
             config
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
 
-        if not eligible_configs:
+    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
+        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
             return None
 
         return max(eligible_configs, key=lambda c: c.percentage_slots)
@@ -752,6 +755,16 @@ class Facilitator(models.Model):
         max_length=20,
         choices=[(t.value, t.name.title()) for t in AccreditationType],
         default=AccreditationType.NONE,
+    )
+    # The organizer who took this facilitator on as their default contact
+    # person. Claimed by the organizer themselves and released before anyone
+    # else can take over, so it never silently changes hands.
+    organizer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="organized_facilitators",
     )
     # Reversible triage marker: organizers flag likely duplicates/removals, then
     # act on them (merge or delete) as a separate deliberate step.

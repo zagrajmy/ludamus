@@ -41,13 +41,12 @@ from ludamus.pacts import (
     EventStatsData,
     FacilitatorDTO,
     NotFoundError,
+    OrganizerFieldDTO,
     PanelStatsDTO,
-    PersonalDataFieldDTO,
     ProposalCategoryDTO,
     RequestContext,
     SessionStatus,
 )
-from ludamus.pacts.legacy import SessionFieldDTO
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import (
@@ -73,7 +72,7 @@ def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text",
         max_length=50,
         name=name,
@@ -2908,7 +2907,7 @@ class TestDedupIdent:
 
 
 def _session_field_dto(pk=99):
-    return SessionFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text", name="Genre", order=pk, pk=pk, question="Q", slug="genre"
     )
 

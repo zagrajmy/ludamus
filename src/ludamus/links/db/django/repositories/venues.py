@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
@@ -33,6 +33,7 @@ from ludamus.pacts.venues import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import datetime
 
     from ludamus.links.db.django.models import User
@@ -487,14 +488,38 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
     @staticmethod
-    def list_by_session(session_pk: int) -> list[TrackDTO]:
-        tracks = Track.objects.filter(sessions__pk=session_pk).order_by("name")
-        return [TrackDTO.model_validate(t) for t in tracks]
+    def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]:
+        pks = list(session_pks)
+        sessions = Session.objects.filter(pk__in=pks).prefetch_related(
+            Prefetch("tracks", queryset=Track.objects.order_by("name"))
+        )
+        result: dict[int, list[TrackDTO]] = {pk: [] for pk in pks}
+        for session in sessions:
+            result[session.pk] = [
+                TrackDTO.model_validate(track) for track in session.tracks.all()
+            ]
+        return result
 
     @staticmethod
-    def list_manager_names(track_pk: int) -> list[str]:
-        return list(
-            User.objects.filter(managed_tracks__pk=track_pk)
-            .order_by("name")
-            .values_list("name", flat=True)
+    def list_track_pks_by_sessions(session_pks: Iterable[int]) -> dict[int, list[int]]:
+        # Membership only -- no model hydration, unlike list_by_sessions.
+        result: dict[int, list[int]] = defaultdict(list)
+        rows = Track.objects.filter(sessions__pk__in=session_pks).values_list(
+            "sessions__pk", "pk"
         )
+        for session_pk, track_pk in rows:
+            result[session_pk].append(track_pk)
+        return dict(result)
+
+    @staticmethod
+    def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:
+        pks = list(track_pks)
+        rows = (
+            Track.managers.through.objects.filter(track_id__in=pks)
+            .select_related("user")
+            .order_by("user__name")
+        )
+        result: dict[int, list[str]] = {pk: [] for pk in pks}
+        for row in rows:
+            result[row.track_id].append(row.user.name)
+        return result
