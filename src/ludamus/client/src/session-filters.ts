@@ -235,28 +235,29 @@ const initSessionFilters = (): void => {
       }
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
-      if (cardContainer) cardContainer.style.display = show ? "" : "none";
+      // divide-y-visible (index.css) selects on the [hidden] attribute this
+      // write toggles, so the hiding mechanism can't change without updating
+      // that utility.
+      if (cardContainer) cardContainer.hidden = !show;
     }
 
     // Hide empty time slot sections. The card and ledger layouts nest their
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid") ?? section;
-      let visibleCards = cardGrid.querySelectorAll(
-        '.session-wrapper:not([style*="display: none"])',
-      );
+      let visibleCards = cardGrid.querySelectorAll(".session-wrapper:not([hidden])");
       if (visibleCards.length === 0 && section.dataset.slotHour) {
         visibleCards = document.querySelectorAll(
-          `.session-wrapper[data-slot-hour="${CSS.escape(section.dataset.slotHour)}"]:not([style*="display: none"])`,
+          `.session-wrapper[data-slot-hour="${CSS.escape(section.dataset.slotHour)}"]:not([hidden])`,
         );
       }
-      section.style.display = visibleCards.length > 0 ? "" : "none";
+      section.hidden = visibleCards.length === 0;
     }
 
     // Compact schedule groups slots under day headers; hide a day whose every
     // slot is now empty so the header doesn't dangle. No-op on the card layout.
     for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
-      const visibleSlots = day.querySelectorAll('.time-slot-section:not([style*="display: none"])');
-      day.style.display = visibleSlots.length > 0 ? "" : "none";
+      const visibleSlots = day.querySelectorAll(".time-slot-section:not([hidden])");
+      day.hidden = visibleSlots.length === 0;
     }
 
     updateFilterUI();
@@ -279,13 +280,13 @@ const initSessionFilters = (): void => {
     }
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
-      section.style.display = "";
+      section.hidden = false;
     }
     for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
-      day.style.display = "";
+      day.hidden = false;
     }
     for (const cardContainer of document.querySelectorAll<HTMLElement>(".session-wrapper")) {
-      cardContainer.style.display = "";
+      cardContainer.hidden = false;
     }
 
     filterSessions();
@@ -358,13 +359,14 @@ const initSessionFilters = (): void => {
       filterChipsBar.classList.remove("has-chips");
     }
 
-    const visibleCards = document.querySelectorAll(
-      '.session-wrapper:not([style*="display: none"])',
-    );
+    const visibleCards = document.querySelectorAll(".session-wrapper:not([hidden])");
     const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {
-      filterNoResults.style.display =
-        anyFilterActive && visibleCards.length === 0 && sessionCards.length > 0 ? "" : "none";
+      filterNoResults.hidden = !(
+        anyFilterActive &&
+        visibleCards.length === 0 &&
+        sessionCards.length > 0
+      );
     }
   }
 

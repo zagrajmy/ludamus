@@ -28,15 +28,20 @@ const WEB_COMMAND =
 const isCI = !!process.env.CI;
 const skipIos = !!process.env.E2E_SKIP_IOS;
 
+// Set before webServerEnv is built, so the runner and the server it starts
+// agree on whether this run measures coverage.
+process.env.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
+
 const webServerEnv: Record<string, string> = Object.fromEntries(
   Object.entries(process.env).filter(
     (entry): entry is [string, string] => typeof entry[1] === "string",
   ),
 );
-webServerEnv.COVERAGE_FILE ??= path.join(repoRoot, ".coverage.e2e");
 
 export default defineConfig({
   testDir: "./tests",
+  globalSetup: "./global-setup.ts",
+  globalTeardown: "./global-teardown.ts",
   outputDir: "test-results",
   /* Timeout per test */
   timeout: 120 * 1000,
@@ -80,7 +85,14 @@ export default defineConfig({
         /panel-crud\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
+        /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
+        /proposal-delete-restore\.spec\.ts/,
+        /write-in-fields\.spec\.ts/,
+        // Read-only but chains several full navigations of the heavy print
+        // preview; Firefox's slow loads make it time out where Chromium fits
+        // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
+        /print-flow\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },
     },

@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     Facilitator,
     Notification,
     PersonalDataField,
+    PersonalDataFieldOption,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
@@ -32,8 +33,11 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     FacilitatorListItemDTO,
-    PersonalDataFieldDTO,
+    FieldAnswer,
+    OrganizerFieldDTO,
     SessionDTO,
+    TimeSlotDTO,
+    TrackDTO,
 )
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
@@ -46,6 +50,7 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+CUSTOM_DURATION_MINUTES = 45
 
 
 def _make_session(event, **kwargs):
@@ -79,6 +84,55 @@ def _fields_url(event, proposal_id):
         "panel:proposal-edit-fields",
         kwargs={"slug": event.slug, "proposal_id": proposal_id},
     )
+
+
+def _cancel_url(event, proposal_id):
+    return reverse(
+        "panel:proposal-detail", kwargs={"slug": event.slug, "proposal_id": proposal_id}
+    )
+
+
+def _facilitator_dto(facilitator, *, session_count=0):
+    return FacilitatorListItemDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        pk=facilitator.pk,
+        session_count=session_count,
+        slug=facilitator.slug,
+        user_id=None,
+    )
+
+
+def _edit_page_response(event, session):
+    # The whole rendered-page expectation for an edit GET of one pending
+    # session, so a test can focus on the form values it cares about.
+    return {
+        "template_name": "panel/proposal-form.html",
+        "context_data": {
+            **_base_context(event),
+            "stats": {
+                "hosts_count": 0,
+                "pending_proposals": 1,
+                "rooms_count": 0,
+                "scheduled_sessions": 0,
+                "total_proposals": 1,
+                "total_sessions": 1,
+            },
+            "proposal": SessionDTO.model_validate(session),
+            "form": ANY,
+            "all_facilitators": [],
+            "assigned_facilitator_pks": set(),
+            "field_descriptors": [],
+            "orphan_values": [],
+            "fields_url": _fields_url(event, session.pk),
+            "cancel_url": _cancel_url(event, session.pk),
+            "all_tracks": [],
+            "assigned_track_pks": set(),
+            "all_time_slots": [],
+            "assigned_time_slot_pks": set(),
+            "facilitator_personal_data": [],
+        },
+    }
 
 
 def _base_context(event):
@@ -149,6 +203,36 @@ class TestProposalEditPageView:
             url=reverse("panel:index"),
         )
 
+    def test_get_preselects_a_stored_preset_duration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, duration="PT1H")
+        session.category.durations = ["PT1H", "PT2H"]
+        session.category.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
+        form = response.context["form"]
+        assert form.initial["duration"] == "PT1H"
+
+    def test_get_preselects_custom_for_a_duration_outside_the_presets(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, duration="PT1H45M")
+        session.category.durations = ["PT1H"]
+        session.category.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
+        initial = response.context["form"].initial
+        assert initial["duration"] == "custom"
+        assert initial["duration_hours"] == 1
+        assert initial["duration_minutes"] == CUSTOM_DURATION_MINUTES
+
     def test_get_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -191,7 +275,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -209,6 +293,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -228,7 +313,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -246,6 +331,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -349,7 +435,8 @@ class TestProposalEditPageView:
                 "contact_email": "",
                 "participants_limit": new_limit,
                 "min_age": new_min_age,
-                "duration": "2h",
+                "duration_hours": 2,
+                "duration_minutes": 30,
             },
         )
 
@@ -368,7 +455,7 @@ class TestProposalEditPageView:
         assert session.description == "Updated description"
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
-        assert session.duration == "2h"
+        assert session.duration == "PT2H30M"
 
     def test_post_surfaces_db_error_as_form_error(
         self, authenticated_client, active_user, sphere, event, monkeypatch
@@ -399,7 +486,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -410,6 +497,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
+                "cancel_url": _cancel_url(event, session.pk),
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [],
@@ -485,7 +573,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "events": [
@@ -507,6 +595,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -545,7 +634,7 @@ class TestProposalEditPageView:
                 "contact_email": "",
                 "participants_limit": raised_limit,
                 "min_age": 0,
-                "duration": "2h",
+                "duration_hours": 2,
             },
         )
 
@@ -905,7 +994,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -932,6 +1021,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -941,8 +1031,8 @@ class TestProposalEditPageView:
                         FacilitatorDTO.model_validate(facilitator),
                         f"facilitator_{facilitator.pk}_personal",
                         [
-                            (
-                                PersonalDataFieldDTO(
+                            {
+                                "field": OrganizerFieldDTO(
                                     allow_custom=False,
                                     field_type="text",
                                     help_text="",
@@ -956,13 +1046,13 @@ class TestProposalEditPageView:
                                     question="Your nickname?",
                                     slug="nick",
                                 ),
-                                None,
-                            )
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(),
+                            }
                         ],
                     )
                 ],
             },
-            contains=["Alice", f'name="facilitator_{facilitator.pk}_personal_nick"'],
         )
 
     def test_post_saves_facilitator_personal_data(
@@ -1018,6 +1108,10 @@ class TestProposalEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["vegan", "gluten-free"]):
+            PersonalDataFieldOption.objects.create(
+                field=field, label=value, value=value, order=order
+            )
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1073,6 +1167,117 @@ class TestProposalEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Peanuts"
 
+    def test_post_keeps_a_write_in_the_form_hands_back(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator,
+            event=event,
+            field=field,
+            value=["vegan", "no peanuts"],
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_diet": ["vegan"],
+                f"facilitator_{facilitator.pk}_personal_diet_custom": "no peanuts",
+            },
+        )
+
+        stored = PersonalDataFieldValue.objects.get(
+            facilitator=facilitator, field=field
+        )
+        assert stored.value == ["vegan", "no peanuts"]
+
+    def test_invalid_post_preserves_submitted_personal_data(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=50,
+            order=0,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert response.context["form"].errors
+        assert response.context["facilitator_personal_data"] == [
+            (
+                FacilitatorDTO.model_validate(facilitator),
+                f"facilitator_{facilitator.pk}_personal",
+                [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=False,
+                            field_type="text",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="Allergy",
+                            options=[],
+                            order=0,
+                            pk=field.pk,
+                            question="Any allergy?",
+                            slug="allergy",
+                        ),
+                        "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                        "answer": FieldAnswer(value="Peanuts"),
+                    }
+                ],
+            )
+        ]
+        assert not PersonalDataFieldValue.objects.exists()
+
     def test_post_ignores_personal_data_for_facilitator_from_other_event(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1122,7 +1327,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -1140,6 +1345,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1320,8 +1526,32 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                # Holds the form's BoundFields, so it can't be compared by value.
+                "field_descriptors": ANY,
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             contains=[
                 'name="session_genres"',
                 "Pick all that apply",
@@ -1413,8 +1643,31 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "assigned_track_pks": {track.pk},
+                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "assigned_time_slot_pks": {slot.pk},
+                "facilitator_personal_data": [],
+            },
             contains=[
                 'name="tracks_submitted"',
                 'name="track_ids"',
@@ -1450,8 +1703,34 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    _facilitator_dto(assigned, session_count=1),
+                    _facilitator_dto(unassigned),
+                ],
+                "assigned_facilitator_pks": {assigned.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             contains=['id="facilitator-search"', "Alice", "Bob"],
         )
         html = response.content.decode()
@@ -1459,7 +1738,7 @@ class TestProposalEditPageView:
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
         # Search-first picker: unassigned facilitators start hidden.
         assert (
-            "facilitator-row flex items-center text-sm py-3 rounded-md"
+            "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
             " hover:bg-foreground/5 hidden" in html
         )
 
@@ -1485,7 +1764,7 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
                 **_base_context(event),
                 "stats": {
@@ -1512,6 +1791,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],

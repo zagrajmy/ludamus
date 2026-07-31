@@ -5,87 +5,38 @@ from __future__ import annotations
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, Any
 
-from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import HttpRequest, HttpResponseRedirect
-from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.text import slugify
-from django.utils.translation import gettext as _
 
-from ludamus.gates.web.django.access import has_panel_access
-from ludamus.mills import PanelService, is_proposal_active
-from ludamus.pacts import DependencyInjectorProtocol, NotFoundError
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventContextMixin as EventPanelContextMixin,
+)
+from ludamus.gates.web.django.event.panel.views.base import (
+    EventPanelAccessMixin,
+    EventPanelRequest,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from ludamus.pacts import AuthenticatedRequestContext, EventDTO
-    from ludamus.pacts.services import ServicesProtocol
+    from ludamus.pacts import DependencyInjectorProtocol
     from ludamus.pacts.venues import PrintScopeOptionDTO
 
 
-class PanelRequest(HttpRequest):
+class PanelRequest(EventPanelRequest):
     """Request type for panel views with UoW and context."""
 
-    context: AuthenticatedRequestContext
     di: DependencyInjectorProtocol
-    services: ServicesProtocol
 
 
-class PanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
+class PanelAccessMixin(EventPanelAccessMixin):
     request: PanelRequest
 
-    def test_func(self) -> bool:
-        return has_panel_access(self.request)
 
-    def handle_no_permission(self) -> HttpResponseRedirect:
-        """Handle no permission based on authentication status.
-
-        Returns:
-            Redirect response to login page for anonymous users,
-            or to web:index with error message for authenticated users.
-        """
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-
-        messages.error(
-            self.request, _("You don't have permission to access the backoffice panel.")
-        )
-        return redirect("web:index")
-
-
-class EventContextMixin:
-    """Mixin providing common event context for panel views."""
+class EventContextMixin(EventPanelContextMixin):
+    """Adds the legacy UoW-backed helpers to the shared event context mixin."""
 
     request: PanelRequest
-
-    def get_event_context(self, slug: str) -> tuple[dict[str, Any], EventDTO | None]:
-        """Build common context for event pages.
-
-        Returns:
-            Tuple of (context dict, current_event or None if not found).
-        """
-        sphere_id = self.request.context.current_sphere_id
-        events = self.request.di.uow.events.list_by_sphere(sphere_id)
-
-        try:
-            current_event = self.request.di.uow.events.read_by_slug(slug, sphere_id)
-        except NotFoundError:
-            messages.error(self.request, _("Event not found."))
-            return {}, None
-
-        panel_service = PanelService(self.request.di.uow)
-        stats = panel_service.get_event_stats(current_event.pk)
-
-        context: dict[str, Any] = {
-            "events": events,
-            "current_event": current_event,
-            "is_proposal_active": is_proposal_active(current_event),
-            "stats": stats.model_dump(),
-        }
-
-        return context, current_event
 
     def get_track_filter_context(
         self, event_pk: int
@@ -119,17 +70,6 @@ class EventContextMixin:
     def get_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]:
         # Non-leaf tree nodes selectable as print scopes.
         return self.request.services.venues.list_print_scopes(event_pk)
-
-
-def settings_tab_urls(slug: str) -> dict[str, str]:
-    return {
-        "general": reverse("panel:event-settings", kwargs={"slug": slug}),
-        "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
-        "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
-        "integrations": reverse(
-            "panel:event-integration-settings", kwargs={"slug": slug}
-        ),
-    }
 
 
 def cfp_tab_urls(slug: str) -> dict[str, str]:

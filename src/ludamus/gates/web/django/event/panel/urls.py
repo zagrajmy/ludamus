@@ -1,4 +1,4 @@
-"""URL patterns for the chronology panel bounded context."""
+"""URL patterns for the event-scoped Panel."""
 
 from django.urls import include, path
 
@@ -20,6 +20,10 @@ from ludamus.gates.web.django.chronology.panel.views import (
     venues,
 )
 from ludamus.gates.web.django.chronology.panel.views import print as print_views
+from ludamus.gates.web.django.event.panel.views import (
+    enrollment_settings,
+    proposal_category_settings,
+)
 
 app_name = "panel"  # pylint: disable=invalid-name
 
@@ -113,6 +117,26 @@ urlpatterns = [
         name="event-proposal-settings",
     ),
     path(
+        "event/<slug:slug>/settings/enrollment/",
+        enrollment_settings.EventEnrollmentSettingsPageView.as_view(),
+        name="event-enrollment-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/create/",
+        enrollment_settings.EnrollmentWindowCreatePageView.as_view(),
+        name="enrollment-window-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/<int:pk>/edit/",
+        enrollment_settings.EnrollmentWindowEditPageView.as_view(),
+        name="enrollment-window-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/enrollment/<int:pk>/do/delete",
+        enrollment_settings.EnrollmentWindowDeleteActionView.as_view(),
+        name="enrollment-window-delete",
+    ),
+    path(
         "event/<slug:slug>/settings/display/",
         event_settings.EventDisplaySettingsPageView.as_view(),
         name="event-display-settings",
@@ -191,12 +215,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/create/",
-        proposals.ProposalCreatePageView.as_view(),
+        proposals.ProposalFormPageView.as_view(),
         name="proposal-create",
     ),
     path(
         "event/<slug:slug>/proposals/create/fields/",
-        proposals.ProposalCreateFieldsComponentView.as_view(),
+        proposals.ProposalFormFieldsComponentView.as_view(),
         name="proposal-create-fields",
     ),
     path(
@@ -216,12 +240,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
-        proposals.ProposalEditPageView.as_view(),
+        proposals.ProposalFormPageView.as_view(),
         name="proposal-edit",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
-        proposals.ProposalEditFieldsComponentView.as_view(),
+        proposals.ProposalFormFieldsComponentView.as_view(),
         name="proposal-edit-fields",
     ),
     path(
@@ -312,7 +336,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:event_slug>/cfp/<str:category_slug>/",
-        cfp.CFPEditPageView.as_view(),
+        proposal_category_settings.ProposalCategorySettingsPageView.as_view(),
         name="cfp-edit",
     ),
     path(
@@ -385,6 +409,16 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",
         facilitators.FacilitatorMarkGuestActionView.as_view(),
         name="facilitator-mark-guest",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/assign-organizer",
+        facilitators.FacilitatorAssignOrganizerActionView.as_view(),
+        name="facilitator-assign-organizer",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unassign-organizer",
+        facilitators.FacilitatorUnassignOrganizerActionView.as_view(),
+        name="facilitator-unassign-organizer",
     ),
     path(
         "event/<slug:slug>/discounts/",

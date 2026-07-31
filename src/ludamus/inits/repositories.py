@@ -13,6 +13,7 @@ from ludamus.links.db.django.crowd import (
 from ludamus.links.db.django.enrollment import (
     AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
+    EnrollmentWindowRepository,
     ParticipationPromotionRepository,
 )
 from ludamus.links.db.django.facilitator_change_log import (
@@ -108,6 +109,10 @@ class Repositories:
         return repositories.EnrollmentConfigRepository()
 
     @cached_property
+    def enrollment_windows(self) -> EnrollmentWindowRepository:
+        return EnrollmentWindowRepository()
+
+    @cached_property
     def active_users(self) -> UserRepository:
         return UserRepository(user_type=UserType.ACTIVE)
 
@@ -182,3 +187,11 @@ class Repositories:
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:
         return repositories.DiscountRepository()
+
+    @cached_property
+    def encounters(self) -> repositories.EncounterRepository:
+        return repositories.EncounterRepository()
+
+    @cached_property
+    def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
+        return repositories.EncounterRSVPRepository()

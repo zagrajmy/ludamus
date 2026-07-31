@@ -16,12 +16,11 @@ from ludamus.pacts import (
     EncounterIndexItem,
     EncounterIndexResult,
     EventDTO,
-    EventStatsData,
     FacilitatorData,
     FacilitatorDTO,
     FacilitatorMergeError,
+    FacilitatorUpdateData,
     NotFoundError,
-    PanelStatsDTO,
     PersonalDataFieldValueData,
     PersonalFieldRequirementDTO,
     ProposalCategoryDTO,
@@ -233,22 +232,6 @@ class EncounterService:
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-
-
-def is_proposal_active(event: EventDTO) -> bool:
-    """Check if proposals are currently open for an event.
-
-    Returns:
-        True if the event is published and current time is within
-        the proposal submission window.
-        False if the event is unpublished or proposal times are not set.
-    """
-    now = datetime.now(tz=UTC)
-    if event.publication_time is None or event.publication_time > now:
-        return False
-    if event.proposal_start_time is None or event.proposal_end_time is None:
-        return False
-    return event.proposal_start_time <= now <= event.proposal_end_time
 
 
 class ProposeSessionService:
@@ -503,28 +486,6 @@ class PanelService:
         self._uow.time_slots.delete(time_slot_pk)
         return True
 
-    def get_event_stats(self, event_id: int) -> PanelStatsDTO:
-        """Calculate panel statistics for an event.
-
-        Args:
-            event_id: The event ID to get stats for.
-
-        Returns:
-            PanelStatsDTO with computed statistics.
-        """
-        stats_data: EventStatsData = self._uow.events.get_stats_data(event_id)
-
-        total_sessions = stats_data.pending_proposals + stats_data.scheduled_sessions
-
-        return PanelStatsDTO(
-            total_sessions=total_sessions,
-            scheduled_sessions=stats_data.scheduled_sessions,
-            pending_proposals=stats_data.pending_proposals,
-            hosts_count=len(stats_data.unique_host_ids),
-            rooms_count=stats_data.rooms_count,
-            total_proposals=stats_data.total_proposals,
-        )
-
     @staticmethod
     def validate_time_slot(
         start: datetime,
@@ -560,16 +521,30 @@ class FacilitatorMergeService:
             msg = "Target cannot be among source facilitators"
             raise FacilitatorMergeError(msg)
 
-        all_ids = [target_id, *source_ids]
-        linked_count = sum(
-            1 for fid in all_ids if self._uow.facilitators.read(fid).user_id is not None
-        )
-        if linked_count > 1:
+        target = self._uow.facilitators.read(target_id)
+        sources = [self._uow.facilitators.read(fid) for fid in source_ids]
+        merged = [target, *sources]
+        if sum(1 for f in merged if f.user_id is not None) > 1:
             msg = "Cannot merge facilitators that each have a linked user account."
             raise FacilitatorMergeError(msg)
+
+        # Whoever holds the target keeps it — a merge never takes a facilitator
+        # away from its organizer. An unheld target inherits a unanimous
+        # organizer from the sources; sources that disagree cancel out, so the
+        # merged row stays unassigned for someone to claim deliberately.
+        source_organizer_ids = {
+            f.organizer_id for f in sources if f.organizer_id is not None
+        }
+        organizer_id = target.organizer_id or (
+            source_organizer_ids.pop() if len(source_organizer_ids) == 1 else None
+        )
 
         with self._uow.atomic():
             self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
             self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
             for source_id in source_ids:
                 self._uow.facilitators.delete(source_id)
+            if organizer_id != target.organizer_id:
+                self._uow.facilitators.update(
+                    target_id, FacilitatorUpdateData(organizer_id=organizer_id)
+                )

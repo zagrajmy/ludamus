@@ -17,7 +17,7 @@ from ludamus.links.db.django.models import (
     Space,
     UserEnrollmentConfig,
 )
-from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     DomainEnrollmentConfigDTO,
@@ -272,14 +272,7 @@ class EventRepository(EventRepositoryProtocol):
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
 
-        old_cover = event.cover_image.name if "cover_image" in data else None
-
-        for key, value in data.items():
-            setattr(event, key, value)
-        event.save(update_fields=list(data.keys()))
-
-        if old_cover and old_cover != event.cover_image.name:
-            delete_stored_file(event.cover_image, old_cover)
+        save_replacing_files(event, data)
 
 
 class EventSettingsRepository(EventSettingsRepositoryProtocol):

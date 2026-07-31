@@ -165,5 +165,72 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: Committed from a new git worktree → hook startup failed because
+  the copied mise.toml was untrusted; trust was required before hooks could run.
+- 2026-07-24: Used agent-browser find role link with an exact Log in name → it
+  reported no element despite the snapshot listing matching links; clicking the
+  snapshot ref worked.
+- 2026-07-24: Created a fresh Playwriter session → the CLI returned an ID but
+  immediately reported that session as missing; reused the user-authorized
+  existing session and created a dedicated page there.
+- 2026-07-24: Ran format:djlint on newly added templates → it reformatted them
+  cleanly but still exited nonzero, requiring a second identical run.
+- 2026-07-24: Passed focused test paths to mise run test:unit after -- → the
+  task still ran the entire tests/unit suite instead of only those paths.
+- 2026-07-24: Ran the documented messages task in a fresh worktree → varlock
+  rejected missing development secrets instead of loading the repository test
+  environment.
+- 2026-07-24: Ran focused pytest directly without loading .env.test, so Django
+  settings rejected the missing ENV variable; focused-test invocation depends on
+  an easy-to-miss environment-loading step.
+- 2026-07-24: Translation extraction previously run from the parent checkout
+  embedded worktrees/prod-email-testing prefixes in every PO source reference,
+  creating thousands of noisy changes and making messages-check fail when run
+  from the worktree root.
+- 2026-07-24: While carving enrollment views out of event_settings.py, removing
+  a shared timezone import also broke pre-existing settings code; Ruff caught
+  the cross-section import coupling before commit.
+- 2026-07-24: Uploading required PR screenshots to Catbox returned HTTP 412 for
+  every PNG, so the documented image-upload path could not publish the evidence.
 - 2026-07-24: playwriter 'session new' printed a fresh id but the relay 404'd it
   (Session 14 not found); had to reuse an old session id from session list
+- 2026-07-25: mise run papercut (and mise exec) in a web sandbox first tries to
+  install pipx:shellcheck-py==0.11.0 and hadolint-py==2.14.0; uv can't find
+  those versions on the first PyPI index and mise errors out, so the papercut
+  task itself never runs. Appended by hand.
+- 2026-07-25: Web sandbox session started with an empty .venv (no pytest, no
+  django) and mise still wedged on pipx:shellcheck-py/hadolint-py, so no mise
+  task could bootstrap it; ran poetry install by hand and invoked pytest as
+  .venv/bin/python -m pytest with PYTHONPATH=src plus .env.test sourced
+  manually.
+- 2026-07-25: /opt/pw-browsers held chromium_headless_shell-1208 as an empty
+  directory, so every e2e test failed with "Executable doesn't exist" until
+  npx playwright install chromium refetched it.
+- 2026-07-25: Iterated on timetable CSS/TS against a `.env.e2e` server, where
+  `ENV="test"` turns django_vite `dev_mode` off, so each edit needed
+  `aubr build` plus a restart (`--noreload` caches the manifest, and the
+  rebuild deletes the hashed files it points at - the page then renders with
+  no CSS and reads as a layout bug). For an edit loop against the e2e seed,
+  export `ENV=development` and `VITE_PORT`, run the vite dev server, and keep
+  the rest of `.env.e2e`: assets come from vite with HMR, no build, no
+  restart. Build only before handing the page to Playwright.
+- 2026-07-27: mise run check (format+lint) omits messages-check, so a stale PL
+  catalog passes locally and only fails in CI; after any edit that reorders
+  translated strings, run 'mise run messages-check' separately.
+- 2026-07-28: Investigated login in the web sandbox: mise run start failed on
+  varlock validation because the session's .env.local existed but was
+  incomplete, and bootstrap's `if [ ! -f .env.local ]` guard never repairs an
+  existing file; `rm .env.local && mise run bootstrap` regenerates it properly.
+- 2026-07-28: auth0-simulator stays disabled in the sandbox until you hand-roll
+  ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
+  keyUsage=keyCertSign, so the first cert attempt failed with
+  CERTIFICATE_VERIFY_FAILED.
+- 2026-07-29: ran mise run shots -- '/event/x/print/?material=timetable' — task
+  warned 'not reachable' although the server was up; $usage_targets keeps the
+  shell quotes around each arg, so the URL becomes
+  <http://localhost:8000'/event/>...'. Worked around by calling aubx agent-browser
+  directly.
+- 2026-07-29: rebuilt the vite client while test:e2e:serve was running —
+  django_vite's cached manifest kept serving deleted hashed JS, pages silently
+  lost their scripts until a manual server restart. Fixed test:e2e:serve to
+  watch manifest.json and bounce itself.

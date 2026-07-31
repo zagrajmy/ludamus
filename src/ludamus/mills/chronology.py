@@ -24,7 +24,6 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
-    TIMETABLE_SLOT_MINUTES,
     CapacityHoursDTO,
     CheckOutcome,
     CheckResult,
@@ -57,9 +56,10 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
     TrackProgressDTO,
 )
-from ludamus.pacts.legacy import resolve_cover_image
+from ludamus.pacts.legacy import resolve_uploaded_file_field
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
 from ludamus.specs.chronology import resolve_facilitator_session_edit
+from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
@@ -1111,7 +1111,9 @@ class SessionSelfEditService:
             "min_age": _int("min_age"),
             "duration": _str("duration"),
         }
-        if (cover := resolve_cover_image(cleaned_data.get("cover_image"))) is not None:
+        if (
+            cover := resolve_uploaded_file_field(cleaned_data.get("cover_image"))
+        ) is not None:
             update["cover_image"] = cover
         self._content_edit.apply(
             session_id=session_id,
