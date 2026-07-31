@@ -54,6 +54,7 @@ from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
@@ -379,7 +380,17 @@ class Services:
 
     @cached_property
     def discounts(self) -> DiscountsService:
-        return DiscountsService(self._transaction, self._repos.discounts)
+        return DiscountsService(
+            transaction=self._transaction,
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+        )
+
+    @cached_property
+    def proposal_categories(self) -> ProposalCategoriesService:
+        return ProposalCategoriesService(
+            self._transaction, self._repos.proposal_categories
+        )
 
     @cached_property
     def discounts_export(self) -> DiscountsExportService:

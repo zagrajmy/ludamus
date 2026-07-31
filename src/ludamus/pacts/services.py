@@ -57,6 +57,7 @@ if TYPE_CHECKING:
         PrintablesReminderServiceProtocol,
         PrintMaterialsServiceProtocol,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -181,3 +182,5 @@ class ServicesProtocol(Protocol):
     def tracks_panel(self) -> TracksPanelServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
