@@ -53,6 +53,14 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi
 
+# Some sandbox images ship without mise. The standalone installer at mise.run
+# is reachable through the egress proxy (unlike GitHub releases), so grab it
+# from there; everything below assumes `mise` resolves.
+if ! command -v mise > /dev/null 2>&1; then
+  curl -fsSL https://mise.run | MISE_INSTALL_PATH="$HOME/.local/bin/mise" sh \
+    || echo "WARN: mise self-install failed; most tooling below will be unavailable"
+fi
+
 # python3.14 and pipx come from apt: mise.sandbox.toml disables the (blocked)
 # mise-managed python, the sandbox image preconfigures the deadsnakes PPA, and
 # `_.python.venv` then creates .venv from this interpreter. pipx serves the

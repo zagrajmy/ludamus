@@ -225,3 +225,7 @@ If you fix a papercut, remove it.
   ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
   keyUsage=keyCertSign, so the first cert attempt failed with
   CERTIFICATE_VERIFY_FAILED.
+- 2026-07-30: Web-sandbox image shipped without mise entirely; session-start.sh
+  assumed the binary exists, so every provisioning step warned-and-skipped and
+  the session looked half-provisioned. Installed it from mise.run (reachable
+  through the proxy) and added a self-install step to the hook.
