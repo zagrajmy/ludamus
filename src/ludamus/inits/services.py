@@ -67,6 +67,7 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
@@ -432,6 +433,15 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def tracks_panel(self) -> TracksPanelService:
+        return TracksPanelService(
+            transaction=self._transaction,
+            tracks=self._repos.tracks,
+            spaces=self._repos.spaces,
+            spheres=self._repos.spheres,
         )
 
     @cached_property
