@@ -442,20 +442,6 @@ class PanelService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
 
-    def delete_category(self, category_pk: int) -> bool:
-        """Delete a proposal category if it has no proposals.
-
-        Args:
-            category_pk: The category primary key.
-
-        Returns:
-            True if deleted, False if category has proposals.
-        """
-        if self._uow.proposal_categories.has_proposals(category_pk):
-            return False
-        self._uow.proposal_categories.delete(category_pk)
-        return True
-
     def delete_session_field(self, field_pk: int) -> bool:
         """Delete a session field if not used by session types.
 

@@ -6,6 +6,7 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
@@ -72,13 +73,16 @@ if TYPE_CHECKING:
         ContentChangeLogRepositoryProtocol,
         ContentFieldChange,
         ContentFieldValue,
+        FacilitatorDTO,
         ScheduleChangeLogRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
+        SessionListItemDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
         SphereRepositoryProtocol,
         TimeSlotDTO,
+        TrackDTO,
         TrackRepositoryProtocol,
         UnitOfWorkProtocol,
     )
@@ -338,6 +342,20 @@ class ProposalAcceptanceService:
             )
 
 
+def _overlaps(one: AgendaItemDTO, other: AgendaItemDTO) -> bool:
+    return one.start_time < other.end_time and one.end_time > other.start_time
+
+
+@dataclass(frozen=True)
+class _ConflictIndex:
+    # Everything the whole-event conflict sweep needs, loaded once up front.
+    items_by_space: dict[int, list[AgendaItemDTO]]
+    items_by_facilitator: dict[int, list[AgendaItemDTO]]
+    facilitators_by_session: dict[int, list[FacilitatorDTO]]
+    participants_limit_by_session: dict[int, int]
+    capacity_by_space: dict[int, int | None]
+
+
 class ConflictDetectionService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -418,40 +436,156 @@ class ConflictDetectionService:
             if track_pk is None
             else self._uow.agenda_items.list_by_track(track_pk)
         )
+        if not scheduled:
+            return []
+
+        index = self._build_conflict_index(
+            event_pk=event_pk, scheduled=scheduled, track_pk=track_pk
+        )
 
         all_conflicts: list[ConflictDTO] = []
         seen: set[tuple[int, int]] = set()
         for item in scheduled:
-            conflicts = self.detect_for_assignment(
-                session_pk=item.session_id,
-                placement=SessionPlacement(
-                    space_pk=item.space_id,
-                    start_time=item.start_time,
-                    end_time=item.end_time,
-                ),
-            )
+            conflicts = self._conflicts_for_item(item, index)
             for conflict in conflicts:
                 key = (item.session_id, conflict.session_pk)
                 reverse_key = (conflict.session_pk, item.session_id)
                 if key not in seen and reverse_key not in seen:
                     seen.add(key)
-                    all_conflicts.append(
-                        self._add_track_attribution(conflict, track_pk)
-                    )
+                    all_conflicts.append(conflict)
 
-        return all_conflicts
+        attribution = self._track_attribution(
+            session_pks={
+                conflict.session_pk
+                for conflict in all_conflicts
+                if conflict.type == ConflictType.FACILITATOR_OVERLAP
+            },
+            current_track_pk=track_pk,
+        )
+        return [
+            self._add_track_attribution(conflict, attribution)
+            for conflict in all_conflicts
+        ]
 
+    def _build_conflict_index(
+        self, *, event_pk: int, scheduled: list[AgendaItemDTO], track_pk: int | None
+    ) -> _ConflictIndex:
+        # A track-filtered view still has to see clashes with items outside the
+        # track, so overlap candidates are always the whole event.
+        candidates = (
+            scheduled
+            if track_pk is None
+            else self._uow.agenda_items.list_by_event(event_pk)
+        )
+        facilitators_by_session = self._uow.sessions.read_facilitators_by_sessions(
+            {item.session_id for item in candidates}
+        )
+
+        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_facilitator: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        for item in candidates:
+            items_by_space[item.space_id].append(item)
+            for facilitator in facilitators_by_session.get(item.session_id, []):
+                items_by_facilitator[facilitator.pk].append(item)
+
+        return _ConflictIndex(
+            items_by_space=items_by_space,
+            items_by_facilitator=items_by_facilitator,
+            facilitators_by_session=facilitators_by_session,
+            participants_limit_by_session=self._uow.sessions.read_participants_limits(
+                {item.session_id for item in scheduled}
+            ),
+            capacity_by_space={
+                space.pk: space.capacity
+                for space in self._uow.spaces.list_by_event(event_pk)
+            },
+        )
+
+    @staticmethod
+    def _conflicts_for_item(
+        item: AgendaItemDTO, index: _ConflictIndex
+    ) -> list[ConflictDTO]:
+        # ponytail: linear scan per bucket -- items per space and per
+        # facilitator stay in the dozens. Sort into a sweep line if a room ever
+        # holds thousands of items.
+        conflicts = [
+            ConflictDTO(
+                type=ConflictType.SPACE_OVERLAP,
+                severity=ConflictSeverity.ERROR,
+                subject_session_title=item.session_title,
+                subject_session_pk=item.session_id,
+                session_title=other.session_title,
+                session_pk=other.session_id,
+            )
+            for other in index.items_by_space.get(item.space_id, [])
+            if other.session_id != item.session_id and _overlaps(item, other)
+        ]
+
+        capacity = index.capacity_by_space.get(item.space_id)
+        limit = index.participants_limit_by_session.get(item.session_id, 0)
+        if capacity is not None and capacity < limit:
+            conflicts.append(
+                ConflictDTO(
+                    type=ConflictType.CAPACITY_EXCEEDED,
+                    severity=ConflictSeverity.WARNING,
+                    subject_session_title=item.session_title,
+                    subject_session_pk=item.session_id,
+                    session_title=item.session_title,
+                    session_pk=item.session_id,
+                    space_capacity=capacity,
+                    session_limit=limit,
+                )
+            )
+
+        for facilitator in index.facilitators_by_session.get(item.session_id, []):
+            conflicts.extend(
+                ConflictDTO(
+                    type=ConflictType.FACILITATOR_OVERLAP,
+                    severity=ConflictSeverity.ERROR,
+                    subject_session_title=item.session_title,
+                    subject_session_pk=item.session_id,
+                    session_title=other.session_title,
+                    session_pk=other.session_id,
+                    facilitator_name=facilitator.display_name,
+                )
+                for other in index.items_by_facilitator.get(facilitator.pk, [])
+                if other.session_id != item.session_id and _overlaps(item, other)
+            )
+
+        return conflicts
+
+    def _track_attribution(
+        self, *, session_pks: set[int], current_track_pk: int | None
+    ) -> dict[int, tuple[str, list[str]]]:
+        # The owning track of each session, plus its managers, in two queries —
+        # attributing one session at a time is an N+1 over every finding.
+        tracks_by_session = self._uow.tracks.list_by_sessions(session_pks)
+        owner_by_session: dict[int, TrackDTO] = {}
+        for session_pk, tracks in tracks_by_session.items():
+            others = [
+                track
+                for track in tracks
+                if current_track_pk is None or track.pk != current_track_pk
+            ]
+            if others:
+                owner_by_session[session_pk] = others[0]
+        managers = self._uow.tracks.list_manager_names_by_tracks(
+            {track.pk for track in owner_by_session.values()}
+        )
+        return {
+            session_pk: (track.name, managers.get(track.pk, []))
+            for session_pk, track in owner_by_session.items()
+        }
+
+    @staticmethod
     def _add_track_attribution(
-        self, conflict: ConflictDTO, current_track_pk: int | None
+        conflict: ConflictDTO, attribution: dict[int, tuple[str, list[str]]]
     ) -> ConflictDTO:
         if conflict.type != ConflictType.FACILITATOR_OVERLAP:
             return conflict
-        other_tracks = self._uow.tracks.list_by_session(conflict.session_pk)
-        if current_track_pk is not None:
-            other_tracks = [t for t in other_tracks if t.pk != current_track_pk]
-        if not other_tracks:
+        if (attributed := attribution.get(conflict.session_pk)) is None:
             return conflict
-        track = other_tracks[0]
+        track_name, manager_names = attributed
         return ConflictDTO(
             type=conflict.type,
             severity=conflict.severity,
@@ -460,8 +594,8 @@ class ConflictDetectionService:
             session_title=conflict.session_title,
             session_pk=conflict.session_pk,
             facilitator_name=conflict.facilitator_name,
-            track_name=track.name,
-            manager_names=self._uow.tracks.list_manager_names(track.pk),
+            track_name=track_name,
+            manager_names=manager_names,
         )
 
     def list_preferred_slot_violations(
@@ -479,18 +613,24 @@ class ConflictDetectionService:
             {item.session_id for item in scheduled}
         )
 
-        violations: list[PreferredSlotViolationDTO] = []
-        for item in scheduled:
-            if not (preferred := preferred_by_session.get(item.session_id, [])):
-                continue
-            if any(
+        violating = [
+            item
+            for item in scheduled
+            if (preferred := preferred_by_session.get(item.session_id, []))
+            and not any(
                 start <= item.start_time and end >= item.end_time
                 for start, end in _merged_slot_ranges(preferred)
-            ):
-                continue
-            track_name, manager_names = self._slot_violation_track_attribution(
-                item.session_id, track_pk
             )
+        ]
+        attribution = self._track_attribution(
+            session_pks={item.session_id for item in violating},
+            current_track_pk=track_pk,
+        )
+
+        violations: list[PreferredSlotViolationDTO] = []
+        for item in violating:
+            preferred = preferred_by_session[item.session_id]
+            track_name, manager_names = attribution.get(item.session_id, (None, []))
             violations.append(
                 PreferredSlotViolationDTO(
                     session_pk=item.session_id,
@@ -509,17 +649,6 @@ class ConflictDetectionService:
             )
 
         return violations
-
-    def _slot_violation_track_attribution(
-        self, session_pk: int, current_track_pk: int | None
-    ) -> tuple[str | None, list[str]]:
-        tracks = self._uow.tracks.list_by_session(session_pk)
-        if current_track_pk is not None:
-            tracks = [t for t in tracks if t.pk != current_track_pk]
-        if not tracks:
-            return None, []
-        track = tracks[0]
-        return track.name, self._uow.tracks.list_manager_names(track.pk)
 
 
 class TimetableOverviewService:
@@ -607,46 +736,59 @@ class TimetableOverviewService:
         return grouped
 
     def track_progress(self, event_pk: int) -> list[TrackProgressDTO]:
-        tracks = self._uow.tracks.list_by_event(event_pk)
-        result = []
-        for track in tracks:
-            sessions = self._uow.sessions.list_sessions_by_event(
-                event_pk, {"track_pk": track.pk}
+        if not (tracks := self._uow.tracks.list_by_event(event_pk)):
+            return []
+
+        # One pass over the event's sessions, bucketed by track -- querying per
+        # track re-scanned the whole proposal pool once for every block.
+        sessions = self._uow.sessions.list_sessions_by_event(event_pk)
+        track_pks_by_session = self._uow.tracks.list_track_pks_by_sessions(
+            [session.pk for session in sessions]
+        )
+        sessions_by_track: dict[int, list[SessionListItemDTO]] = defaultdict(list)
+        for session in sessions:
+            for track_pk in track_pks_by_session.get(session.pk, []):
+                sessions_by_track[track_pk].append(session)
+
+        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+            [track.pk for track in tracks]
+        )
+        return [
+            self._track_progress(
+                track=track,
+                sessions=sessions_by_track.get(track.pk, []),
+                manager_names=manager_names.get(track.pk, []),
             )
-            accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
-            accepted_count = len(accepted)
-            scheduled_count = sum(1 for s in accepted if s.is_scheduled)
-            pending_count = sum(
-                1 for s in sessions if s.status == SessionStatus.PENDING
-            )
-            on_hold_count = sum(
-                1 for s in sessions if s.status == SessionStatus.ON_HOLD
-            )
-            rejected_count = sum(
+            for track in tracks
+        ]
+
+    @staticmethod
+    def _track_progress(
+        *, track: TrackDTO, sessions: list[SessionListItemDTO], manager_names: list[str]
+    ) -> TrackProgressDTO:
+        accepted = [s for s in sessions if s.status == SessionStatus.ACCEPTED]
+        accepted_count = len(accepted)
+        scheduled_count = sum(1 for s in accepted if s.is_scheduled)
+        pending_count = sum(1 for s in sessions if s.status == SessionStatus.PENDING)
+        # Progress is measured against the active pool (everything not
+        # rejected / on hold), so pending proposals still awaiting a
+        # decision count as unscheduled program to place.
+        active_count = pending_count + accepted_count
+        return TrackProgressDTO(
+            track_pk=track.pk,
+            track_name=track.name,
+            manager_names=manager_names,
+            accepted_count=accepted_count,
+            scheduled_count=scheduled_count,
+            pending_count=pending_count,
+            on_hold_count=sum(1 for s in sessions if s.status == SessionStatus.ON_HOLD),
+            rejected_count=sum(
                 1 for s in sessions if s.status == SessionStatus.REJECTED
-            )
-            # Progress is measured against the active pool (everything not
-            # rejected / on hold), so pending proposals still awaiting a
-            # decision count as unscheduled program to place.
-            active_count = pending_count + accepted_count
-            progress_pct = (
+            ),
+            progress_pct=(
                 round(scheduled_count * 100 / active_count) if active_count else 0
-            )
-            manager_names = self._uow.tracks.list_manager_names(track.pk)
-            result.append(
-                TrackProgressDTO(
-                    track_pk=track.pk,
-                    track_name=track.name,
-                    manager_names=manager_names,
-                    accepted_count=accepted_count,
-                    scheduled_count=scheduled_count,
-                    pending_count=pending_count,
-                    on_hold_count=on_hold_count,
-                    rejected_count=rejected_count,
-                    progress_pct=progress_pct,
-                )
-            )
-        return result
+            ),
+        )
 
     def capacity_hours(self, event_pk: int) -> CapacityHoursDTO:
         # Capacity = one program slot per room: every room is bookable for the
