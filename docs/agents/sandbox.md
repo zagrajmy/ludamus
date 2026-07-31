@@ -29,17 +29,21 @@ are kept as is.
 PyPI wrapper packages add one more failure mode: they append a packaging
 revision to the upstream version (shellcheck-py 0.11.0.1 wraps shellcheck
 0.11.0), and mise passes a full `X.Y.Z` pin to uv verbatim as `==X.Y.Z`,
-which matches nothing. The hook's last resort covers it: any aliased tool
-still shimless after the reinstall is retried with its mise.toml pin trimmed
-one segment (`shellcheck@0.11`), which mise prefix-resolves to the wrapper's
-version and links back to the pinned one. Bumping a pin in `mise.toml` needs
-no sandbox-side edit.
+which matches nothing — `mise install` then fails outright and takes every
+`mise run` down with it. `mise.sandbox.toml` carries a minor-version pin for
+those two tools (`shellcheck = "0.11"`), which mise prefix-resolves to the
+newest wrapper rev of that upstream release. They are the only pins besides
+dockerfmt's that are duplicated outside `mise.toml`, and they only need
+touching when `mise.toml` moves off that minor version.
 
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
-`@playwright/test` pin, so the hook runs `mise run test:e2e:install`; when its
-`--with-deps` apt step breaks (image PPA metadata drift), it falls back to a
-plain `playwright install` — the Playwright CDN is reachable through the
-proxy and the image already ships Chromium's OS libs.
+`@playwright/test` pin, and Playwright launches only the pinned build, so the
+hook's `mise run test:e2e:install` is load-bearing rather than a no-op. When
+its `--with-deps` apt step breaks (image PPA metadata drift), the hook retries
+one browser at a time — the image ships Chromium's and Firefox's OS libs but
+not WebKit's, so a single bare `playwright install` downloads all three and
+then exits non-zero on WebKit's host-library check, throwing away the two that
+did work. Per-browser, only WebKit is reported unavailable.
 
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
 runs as the pre-commit hook. Laptops never load `mise.sandbox.toml` — nothing

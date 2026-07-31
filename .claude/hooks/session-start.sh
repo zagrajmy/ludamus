@@ -105,28 +105,6 @@ if [ -n "$purged" ]; then
     || echo "WARN: 'mise install' retry failed; broken tools:$purged"
 fi
 
-# A pipx-aliased tool can survive both installs broken when its PyPI wrapper
-# appends a packaging revision to the upstream version: shellcheck-py 0.11.0.1
-# wraps shellcheck 0.11.0, hadolint-py does the same. mise passes a full X.Y.Z
-# pin to uv verbatim as ==X.Y.Z, which matches nothing on PyPI. A shorter pin
-# makes mise resolve against the registry instead (shellcheck@0.11 picks
-# 0.11.0.1) and link a 0.11.0 alias dir that satisfies the mise.toml pin, so
-# retry each still-shimless aliased tool with its pin trimmed one segment.
-# Versions stay pinned in mise.toml alone; this survives future bumps.
-for tool in $purged; do
-  [ -e "$HOME/.local/share/mise/shims/$tool" ] && continue
-  pin="$(sed -n "s/^${tool}[[:space:]]*=[[:space:]]*\"\([^\"]*\)\".*/\1/p" \
-    mise.toml)"
-  prefix="${pin%.*}"
-  case "$prefix" in
-    *.*)
-      echo "Retrying $tool@$prefix (wrapper may add a revision to $pin)"
-      mise install "$tool@$prefix" \
-        || echo "WARN: 'mise install $tool@$prefix' failed; $tool unavailable"
-      ;;
-  esac
-done
-
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"
 
@@ -137,10 +115,20 @@ mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may
 mise exec -- hk install --mise || echo "WARN: 'hk install' failed; git hooks not installed"
 
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
-# share the Chromium it provisions. The task's `--with-deps` needs apt, which
-# breaks whenever an image PPA changes its metadata; the image already ships
-# every OS lib Chromium needs, so fall back to a dependency-less browser
-# download (the Playwright CDN is reachable through the egress proxy).
-mise run test:e2e:install \
-  || mise exec -- aube exec -C tests/e2e playwright install \
-  || echo "WARN: Playwright install failed; e2e suite and agent-browser screenshots unavailable"
+# share the Chromium it provisions. The image pre-bakes /opt/pw-browsers, but it
+# lags whenever @playwright/test moves, and the pinned build is the only one
+# Playwright will launch — so this step is load-bearing, not a no-op.
+#
+# The task's `--with-deps` needs apt, which breaks whenever an image PPA changes
+# its metadata. Don't fall back to one bare `playwright install`: the image
+# ships Chromium's and Firefox's OS libs but not WebKit's, so that run downloads
+# all three and *then* exits non-zero on WebKit's host-library check, losing the
+# two browsers it just fetched. Install per browser instead and name the ones
+# that are genuinely unavailable (the Playwright CDN is reachable through the
+# egress proxy).
+if ! mise run test:e2e:install; then
+  for browser in chromium firefox webkit; do
+    mise exec -- aube exec -C tests/e2e playwright install "$browser" \
+      || echo "WARN: Playwright $browser unavailable; specs on it will fail"
+  done
+fi

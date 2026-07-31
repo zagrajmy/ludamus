@@ -14,14 +14,20 @@ disable_tools = ["python", "pipx", "github:reteps/dockerfmt"]
 
 [tool_alias]
 hk = "cargo:hk"
-# The pipx wrappers version as <upstream>.<wrapper-rev> (0.11.0.1 wraps
-# 0.11.0), so mise.toml's exact pins never match PyPI; session-start.sh
-# retries shimless aliased tools with the pin trimmed one segment.
 shellcheck = "pipx:shellcheck-py"
 actionlint = "go:github.com/rhysd/actionlint/cmd/actionlint"
 hadolint = "pipx:hadolint-py"
 
 # dockerfmt can't be aliased (its mise.toml key is already a full backend
 # spec), so it keeps the one duplicated pin in this file.
+#
+# The two pipx wrappers need a pin here for a different reason: they version as
+# <upstream>.<wrapper-rev> (shellcheck-py 0.11.0.1 wraps shellcheck 0.11.0), and
+# mise hands a full X.Y.Z pin to uv verbatim as ==X.Y.Z, which matches nothing on
+# PyPI. `mise install` then fails outright and takes every `mise run` down with
+# it. A minor-version prefix resolves to the newest wrapper rev of that upstream
+# release, so these only need touching when mise.toml moves off 0.11 / 2.14.
 [tools]
 "go:github.com/reteps/dockerfmt" = "v0.5.2"
+shellcheck = "0.11"
+hadolint = "2.14"
