@@ -350,6 +350,7 @@ class TestTimetableAssignView:
 
     def test_returns_204_when_placement_vanishes_before_conflict_sweep(
         self,
+        *,
         authenticated_client,
         active_user,
         sphere,
