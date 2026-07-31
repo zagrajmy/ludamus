@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class PrintScopeOptionDTO(BaseModel):
@@ -23,6 +23,8 @@ class PrintScopeDTO(BaseModel):
 class SpaceNodeDTO(BaseModel):
     # One node of the Space tree. Roots have parent_id None; capacity/description
     # are meaningful only on leaves (is_leaf). depth: root = 1.
+    model_config = ConfigDict(from_attributes=True)
+
     pk: int
     event_id: int
     parent_id: int | None
@@ -32,10 +34,19 @@ class SpaceNodeDTO(BaseModel):
     description: str
     location: str = ""
     order: int
-    depth: int
-    is_leaf: bool
+    # Position in the tree, which a single Space cannot know on its own: whoever
+    # walks the tree fills these in. The defaults describe a childless root.
+    depth: int = 1
+    is_leaf: bool = True
     track_names: list[str] = []
     children: list[SpaceNodeDTO] = []
+
+    @field_validator("children", mode="before")
+    @classmethod
+    def _drop_related_manager(cls, value: object) -> object:
+        # A Space has a "children" relation of its own, which building from
+        # attributes would otherwise hand us instead of the nodes to render.
+        return value if isinstance(value, list) else []
 
 
 class SpaceInputDTO(BaseModel):

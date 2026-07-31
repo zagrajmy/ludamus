@@ -83,21 +83,16 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             children_by_parent[space.parent_id].append(space)
 
         def build(space: Space, depth: int) -> SpaceNodeDTO:
+            # The tree fields come from the sibling map built above, so nothing
+            # here goes back to the database.
             kids = children_by_parent.get(space.pk, [])
-            return SpaceNodeDTO(
-                pk=space.pk,
-                event_id=space.event_id,
-                parent_id=space.parent_id,
-                name=space.name,
-                slug=space.slug,
-                capacity=space.capacity,
-                description=space.description,
-                location=space.location,
-                order=space.order,
-                depth=depth,
-                is_leaf=not kids,
-                track_names=sorted(t.name for t in space.tracks.all()),
-                children=[build(kid, depth + 1) for kid in kids],
+            return SpaceNodeDTO.model_validate(space).model_copy(
+                update={
+                    "depth": depth,
+                    "is_leaf": not kids,
+                    "track_names": sorted(t.name for t in space.tracks.all()),
+                    "children": [build(kid, depth + 1) for kid in kids],
+                }
             )
 
         return [build(root, 1) for root in children_by_parent.get(None, [])]
@@ -279,20 +274,13 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
     @staticmethod
     def _node(space: Space) -> SpaceNodeDTO:
-        return SpaceNodeDTO(
-            pk=space.pk,
-            event_id=space.event_id,
-            parent_id=space.parent_id,
-            name=space.name,
-            slug=space.slug,
-            capacity=space.capacity,
-            description=space.description,
-            location=space.location,
-            order=space.order,
-            depth=1 + sum(1 for _ in space.iter_ancestors()),
-            is_leaf=not space.children.exists(),
-            track_names=sorted(t.name for t in space.tracks.all()),
-            children=[],
+        # One space on its own, so depth and is_leaf each cost a query.
+        return SpaceNodeDTO.model_validate(space).model_copy(
+            update={
+                "depth": 1 + sum(1 for _ in space.iter_ancestors()),
+                "is_leaf": not space.children.exists(),
+                "track_names": sorted(t.name for t in space.tracks.all()),
+            }
         )
 
 
