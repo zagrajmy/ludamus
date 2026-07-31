@@ -12,6 +12,8 @@
 @plugin "@tailwindcss/typography";
 @plugin "@hasparus/tailwind/scrollview-fade";
 
+@import "shadow-plugin";
+
 @source "../../**/*.{html,py,js}";
 
 @custom-variant dark (&:where(.dark, .dark *));

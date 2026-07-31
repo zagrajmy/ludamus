@@ -58,4 +58,12 @@ visibility badges, …). Prefer including those over re-creating their markup.
   `var(--theme-…)` is blocked by `rules/no-inline-color-var.yml` /
   `rules/no-inline-theme-var.yml`.
 - Spacing/sizing comes from the Tailwind scale; don't invent magic pixel values.
+- **Elevated surfaces: `smooth-shadow-ring-{size}`, never `border` + `shadow`.**
+  Pairing them draws a double edge (hard 1px stroke, then the shadow next to
+  it). The [shadow-plugin](https://shadow.floriankiem.com) utilities bake a
+  hairline ring into the shadow's final layer instead: `border shadow-md` →
+  `smooth-shadow-ring-md`; no edge wanted → plain `smooth-shadow-{size}`.
+  Don't add a `border`/`ring` on top — the ring is already in there. Tint via
+  `shadow-{color}` (shadow) and `smooth-ring-{color}` (ring); dark mode is
+  handled automatically.
 - One brand font (Outfit) by design — don't add a second.

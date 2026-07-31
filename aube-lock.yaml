@@ -84,6 +84,9 @@ importers:
       postcss-nested:
         specifier: 7.0.2
         version: 7.0.2(postcss@8.5.15)
+      shadow-plugin:
+        specifier: 1.2.4
+        version: 1.2.4
       tailwindcss:
         specifier: 4.1.16
         version: 4.1.16
@@ -1694,6 +1697,9 @@ packages:
 
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
+
+  shadow-plugin@1.2.4:
+    resolution: {integrity: sha512-A+Xuns08CYWNAfrAEEKok53Jy+emqo/6FdvGWfk6X4AF6vEJ9NAJ7EAlvPdfNNnabP/DC4Q4kofrdehvgY5Mug==}
 
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
@@ -3431,6 +3437,8 @@ snapshots:
       send: 1.2.1(supports-color@9.4.0)
 
   setprototypeof@1.2.0: {}
+
+  shadow-plugin@1.2.4: {}
 
   shebang-command@2.0.0:
     dependencies:
