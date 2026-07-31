@@ -238,3 +238,16 @@ If you fix a papercut, remove it.
   assumed the binary exists, so every provisioning step warned-and-skipped and
   the session looked half-provisioned. Installed it from mise.run (reachable
   through the proxy) and added a self-install step to the hook.
+- 2026-07-31: sandbox: 'mise install' wedges on pipx:shellcheck-py@0.11.0 /
+  hadolint-py@2.14.0 (PyPI only ships .0.1 wrapper revs) and session-start.sh's
+  trim-retry did not self-heal, so every 'mise run' aborted until I exported
+  MISE_DISABLE_TOOLS=shellcheck,hadolint.
+- 2026-07-31: sandbox: /opt/pw-browsers lags the pinned @playwright/test 1.58.2
+  (has chromium-1194, needs 1208 / webkit-2248), and session-start.sh reported
+  'Playwright install failed'. The whole e2e suite fails with "Executable
+  doesn't exist" until you run npx playwright install --with-deps chromium
+  firefox webkit by hand.
+- 2026-07-31: 'mise run test:py' resolves pytest from PATH, so a uv-installed
+  ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
+  ModuleNotFoundError: No module named 'django'. Took a while to spot because
+  the traceback points at tests/conftest.py, not at the wrong interpreter.
