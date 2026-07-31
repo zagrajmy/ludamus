@@ -14,6 +14,10 @@ const FAILSAFE_MS = 30_000;
 
 const reducedMotion = globalThis.matchMedia("(prefers-reduced-motion: reduce)");
 
+// Elements htmx drives itself — they report through htmx:beforeRequest, so
+// the click/submit listeners must not also start the bar for them.
+const HX_DRIVEN = "[hx-get],[hx-post],[hx-put],[hx-patch],[hx-delete],[hx-boost]";
+
 let bar: HTMLElement | null = null;
 let pending = 0;
 let progress = 0;
@@ -28,6 +32,7 @@ const render = (): void => {
 const show = (): void => {
   bar = document.createElement("div");
   bar.setAttribute("aria-hidden", "true");
+  bar.dataset.navProgress = "";
   Object.assign(bar.style, {
     background: "var(--color-primary)",
     height: "3px",
@@ -100,8 +105,7 @@ document.addEventListener("click", (event) => {
   const link = target.closest("a[href]");
   if (!(link instanceof HTMLAnchorElement)) return;
   if ((link.target && link.target !== "_self") || link.hasAttribute("download")) return;
-  // htmx-driven links report through htmx:beforeRequest instead.
-  if (link.closest("[hx-get],[hx-post],[hx-boost]")) return;
+  if (link.closest(HX_DRIVEN)) return;
   const url = new URL(link.href, globalThis.location.href);
   if (url.origin !== globalThis.location.origin) return;
   const samePage =
@@ -115,7 +119,7 @@ document.addEventListener("submit", (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement)) return;
   if (form.target && form.target !== "_self") return;
-  if (form.closest("[hx-get],[hx-post],[hx-put],[hx-patch],[hx-delete],[hx-boost]")) return;
+  if (form.closest(HX_DRIVEN)) return;
   start();
 });
 

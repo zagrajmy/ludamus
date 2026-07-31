@@ -44,7 +44,7 @@ from ludamus.pacts import (
     SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
-    TrackStatusCountDTO,
+    TrackSessionCountsDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
@@ -639,26 +639,40 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         )
 
     @staticmethod
-    def count_by_track_and_status(event_id: int) -> list[TrackStatusCountDTO]:
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
         rows = (
             Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
-            .values("tracks__pk", "status")
+            .values("tracks__pk")
             .annotate(
-                total=Count("pk", distinct=True),
+                pending=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.PENDING)
+                ),
+                accepted=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ACCEPTED)
+                ),
                 scheduled=Count(
-                    "pk", filter=Q(agenda_item__isnull=False), distinct=True
+                    "pk",
+                    distinct=True,
+                    filter=Q(status=SessionStatus.ACCEPTED, agenda_item__isnull=False),
+                ),
+                on_hold=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ON_HOLD)
+                ),
+                rejected=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.REJECTED)
                 ),
             )
         )
-        return [
-            TrackStatusCountDTO(
-                track_pk=row["tracks__pk"],
-                status=SessionStatus(row["status"]),
-                total=row["total"],
+        return {
+            row["tracks__pk"]: TrackSessionCountsDTO(
+                pending=row["pending"],
+                accepted=row["accepted"],
                 scheduled=row["scheduled"],
+                on_hold=row["on_hold"],
+                rejected=row["rejected"],
             )
             for row in rows
-        ]
+        }
 
     @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:

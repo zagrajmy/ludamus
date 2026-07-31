@@ -1,12 +1,12 @@
 import { expect, test } from "./helpers/fixtures";
 
 // The panel shows a thin top-edge progress bar while a request is in flight
-// (nav-progress.ts). Real navigations finish too fast to observe reliably, so
-// the specs drive the same htmx events the bar listens to and assert on what
-// the user perceives: a bar that appears during a slow request and goes away
-// when the response lands.
+// (nav-progress.ts). The link-click test slows the next navigation down with
+// a routed delay so the bar's appearance is deterministic; the htmx tests
+// drive the events the bar listens to directly. Assertions are on what the
+// user perceives: a bar during a slow request, none once the response lands.
 
-const BAR_SELECTOR = 'div[aria-hidden="true"][style*="position: fixed"]';
+const BAR = "[data-nav-progress]";
 
 test.describe("panel navigation progress bar", () => {
   test.beforeEach(async ({ page }) => {
@@ -18,19 +18,35 @@ test.describe("panel navigation progress bar", () => {
     await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
   });
 
-  test("appears while a request is pending and hides when it completes", async ({ page }) => {
+  test("appears while a slow full-page navigation is pending", async ({ page }) => {
+    // Hold the proposals page response long enough for the bar to pass its
+    // anti-flicker delay while the old page is still on screen.
+    await page.route("**/proposals/", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.continue();
+    });
+
+    await page.getByRole("link", { name: "Proposals", exact: true }).click();
+    await expect(page.locator(BAR)).toBeVisible();
+
+    // The new document replaces the old one, bar included.
+    await expect(page).toHaveURL(/\/proposals\//);
+    await expect(page.locator(BAR)).toHaveCount(0);
+  });
+
+  test("appears while an htmx request is pending and hides when it completes", async ({ page }) => {
     await page.evaluate(() => {
       document.dispatchEvent(new CustomEvent("htmx:beforeRequest", { detail: {} }));
     });
 
     // Becomes visible only after the anti-flicker delay (180ms).
-    await expect(page.locator(BAR_SELECTOR)).toBeVisible();
+    await expect(page.locator(BAR)).toBeVisible();
 
     await page.evaluate(() => {
       document.dispatchEvent(new CustomEvent("htmx:afterRequest", { detail: {} }));
     });
 
-    await expect(page.locator(BAR_SELECTOR)).toHaveCount(0);
+    await expect(page.locator(BAR)).toHaveCount(0);
   });
 
   test("never shows for a request that finishes quickly", async ({ page }) => {
@@ -41,6 +57,6 @@ test.describe("panel navigation progress bar", () => {
 
     // Give the show-delay a chance to (wrongly) fire before asserting.
     await page.waitForTimeout(400);
-    await expect(page.locator(BAR_SELECTOR)).toHaveCount(0);
+    await expect(page.locator(BAR)).toHaveCount(0);
   });
 });

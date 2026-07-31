@@ -357,14 +357,15 @@ class TrackListItemDTO(BaseModel):
     manager_names: list[str]
 
 
-class TrackStatusCountDTO(BaseModel):
-    # One aggregate row of the sessions-per-track breakdown: how many sessions
-    # of a track hold a given status, and how many of those are placed on the
-    # agenda. Feeds the overview progress bars without loading session rows.
-    track_pk: int
-    status: SessionStatus
-    total: int
-    scheduled: int
+class TrackSessionCountsDTO(BaseModel):
+    # A track's sessions-per-status breakdown, plus how many accepted ones are
+    # placed on the agenda. Feeds the overview progress bars without loading
+    # session rows.
+    pending: int = 0
+    accepted: int = 0
+    scheduled: int = 0
+    on_hold: int = 0
+    rejected: int = 0
 
 
 class TrackCreateData(TypedDict):
@@ -862,7 +863,7 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]: ...
     @staticmethod
-    def count_by_track_and_status(event_id: int) -> list[TrackStatusCountDTO]: ...
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]: ...
     @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None: ...
     @staticmethod
@@ -901,11 +902,7 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]: ...
     @staticmethod
-    def list_by_session(session_pk: int) -> list[TrackDTO]: ...
-    @staticmethod
     def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
-    @staticmethod
-    def list_manager_names(track_pk: int) -> list[str]: ...
     @staticmethod
     def list_manager_names_by_tracks(
         track_pks: Iterable[int],

@@ -10,6 +10,7 @@ from ludamus.pacts import (
     ScheduleChangeAction,
     ScheduleChangeLogData,
     SessionStatus,
+    TrackSessionCountsDTO,
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
@@ -40,13 +41,7 @@ from ludamus.specs.timetable import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import (
-        FacilitatorDTO,
-        SpaceDTO,
-        TimeSlotDTO,
-        TrackStatusCountDTO,
-        UnitOfWorkProtocol,
-    )
+    from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
 _WINDOWS_ACROSS_ONE_MIDNIGHT = 2
 
@@ -486,27 +481,20 @@ class ConflictDetectionService:
         self._uow = uow
 
     def detect_for_assignment(
-        self, *, event_pk: int, session_pk: int, placement: SessionPlacement
+        self, event_pk: int, session_pk: int
     ) -> list[ConflictDTO]:
-        # One synthetic subject run through the same in-memory detection as
-        # the full listing, so every conflict shape has exactly one
-        # definition. Called after the assignment commits: the placement's
-        # own agenda item is already in the context and self-excludes via
-        # the session-id guard.
-        session = self._uow.sessions.read(session_pk)
-        subject = AgendaItemDTO(
-            pk=0,
-            session_id=session_pk,
-            session_title=session.title,
-            space_id=placement.space_pk,
-            start_time=placement.start_time,
-            end_time=placement.end_time,
-            session_confirmed=False,
+        # Runs after the assignment commits, so the session's own agenda item
+        # is already in the event context — detect on the real row through the
+        # same in-memory engine as the full listing, so every conflict shape
+        # has exactly one definition.
+        context = self._load_event_context(event_pk)
+        subject = next(
+            (item for item in context.items if item.session_id == session_pk), None
         )
-        context = self._load_event_context(event_pk, extra_session_ids={session_pk})
-        return self._detect(
-            subject, context, limits={session_pk: session.participants_limit}
-        )
+        if subject is None:
+            raise NotFoundError
+        limits = self._uow.sessions.read_participants_limits({session_pk})
+        return self._detect(subject, context, limits=limits)
 
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
@@ -539,13 +527,10 @@ class ConflictDetectionService:
 
         return self._add_track_attribution(all_conflicts, track_pk)
 
-    def _load_event_context(
-        self, event_pk: int, extra_session_ids: set[int] | None = None
-    ) -> _EventConflictContext:
+    def _load_event_context(self, event_pk: int) -> _EventConflictContext:
         items = self._uow.agenda_items.list_by_event(event_pk)
-        session_ids = {item.session_id for item in items} | (extra_session_ids or set())
         facilitators_by_session = self._uow.sessions.read_facilitators_by_sessions(
-            session_ids
+            {item.session_id for item in items}
         )
         items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
         items_by_facilitator: dict[int, list[AgendaItemDTO]] = defaultdict(list)
@@ -750,13 +735,6 @@ def _duration_hours(start: datetime, end: datetime) -> float:
     return max((end - start).total_seconds() / 3600, 0.0)
 
 
-def _status_total(
-    counts: dict[SessionStatus, TrackStatusCountDTO], status: SessionStatus
-) -> int:
-    row = counts.get(status)
-    return row.total if row else 0
-
-
 class TimetableOverviewService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -847,39 +825,32 @@ class TimetableOverviewService:
         # full-table queries.
         if not (tracks := self._uow.tracks.list_by_event(event_pk)):
             return []
-        counts_by_track: dict[int, dict[SessionStatus, TrackStatusCountDTO]] = (
-            defaultdict(dict)
-        )
-        for row in self._uow.sessions.count_by_track_and_status(event_pk):
-            counts_by_track[row.track_pk][row.status] = row
+        counts_by_track = self._uow.sessions.count_by_track(event_pk)
         manager_names = self._uow.tracks.list_manager_names_by_tracks(
             {track.pk for track in tracks}
         )
 
         result = []
+        no_sessions = TrackSessionCountsDTO()
         for track in tracks:
-            counts = counts_by_track.get(track.pk, {})
-            accepted = counts.get(SessionStatus.ACCEPTED)
-            accepted_count = accepted.total if accepted else 0
-            scheduled_count = accepted.scheduled if accepted else 0
-            pending_count = _status_total(counts, SessionStatus.PENDING)
+            counts = counts_by_track.get(track.pk, no_sessions)
             # Progress is measured against the active pool (everything not
             # rejected / on hold), so pending proposals still awaiting a
             # decision count as unscheduled program to place.
-            active_count = pending_count + accepted_count
+            active_count = counts.pending + counts.accepted
             progress_pct = (
-                round(scheduled_count * 100 / active_count) if active_count else 0
+                round(counts.scheduled * 100 / active_count) if active_count else 0
             )
             result.append(
                 TrackProgressDTO(
                     track_pk=track.pk,
                     track_name=track.name,
                     manager_names=manager_names.get(track.pk, []),
-                    accepted_count=accepted_count,
-                    scheduled_count=scheduled_count,
-                    pending_count=pending_count,
-                    on_hold_count=_status_total(counts, SessionStatus.ON_HOLD),
-                    rejected_count=_status_total(counts, SessionStatus.REJECTED),
+                    accepted_count=counts.accepted,
+                    scheduled_count=counts.scheduled,
+                    pending_count=counts.pending,
+                    on_hold_count=counts.on_hold,
+                    rejected_count=counts.rejected,
                     progress_pct=progress_pct,
                 )
             )

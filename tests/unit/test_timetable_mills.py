@@ -16,7 +16,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpaceDTO,
     TimeSlotDTO,
-    TrackStatusCountDTO,
+    TrackSessionCountsDTO,
 )
 from ludamus.pacts.chronology import CapacityHoursDTO, ConflictType, SessionPlacement
 
@@ -37,7 +37,7 @@ def _make_item(**overrides):
 
 class TestBuildGridOverlappingSessions:
     def test_overlapping_items_are_placed_side_by_side(self):
-        """Lines 56-57: overlapping items extend the group."""
+        # Overlapping items extend the lane group and share the column width.
         uow = MagicMock()
         event = MagicMock()
         event.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -305,7 +305,7 @@ class TestRevertChange:
         return TimetableService(mock_uow)
 
     def test_revert_rejects_non_latest_change(self, service, mock_uow):
-        """Only the most recent change for a session may be reverted."""
+        # Only the most recent change for a session may be reverted.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.ASSIGN
@@ -322,7 +322,7 @@ class TestRevertChange:
     def test_revert_raises_not_found_for_log_from_another_event(
         self, service, mock_uow
     ):
-        """A log belonging to another event is rejected before reverting."""
+        # A log belonging to another event is rejected before reverting.
         log = MagicMock()
         log.event_id = 2
         log.action = ScheduleChangeAction.ASSIGN
@@ -337,7 +337,7 @@ class TestRevertChange:
     def test_revert_assign_raises_not_found_when_no_agenda_item(
         self, service, mock_uow
     ):
-        """Line 210: agenda_item is None when reverting ASSIGN."""
+        # Reverting an ASSIGN whose agenda item is already gone is a no-op delete.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.ASSIGN
@@ -351,7 +351,7 @@ class TestRevertChange:
     def test_revert_unassign_raises_when_missing_placement_data(
         self, service, mock_uow
     ):
-        """Lines 221-222: missing original placement data."""
+        # An UNASSIGN log without its original placement cannot be reverted.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
@@ -365,7 +365,7 @@ class TestRevertChange:
             service.revert_change(log_pk=1, event_pk=1)
 
     def test_revert_unassign_raises_when_session_not_accepted(self, service, mock_uow):
-        """Session must be in ACCEPTED status to revert an unassign."""
+        # The session must still be ACCEPTED to revert an unassign.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
@@ -418,7 +418,7 @@ class TestRevertChange:
         )
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
-        """Lines 240-241: unknown action type."""
+        # An unknown action type is rejected instead of guessed at.
         log = MagicMock()
         log.event_id = 1
         log.action = "UNKNOWN_ACTION"
@@ -691,29 +691,28 @@ class TestListAllForTrack:
         uow.sessions.read_facilitators_by_sessions.assert_called_once()
 
     def test_detect_for_assignment_reuses_the_batched_engine(self):
-        # The just-assigned session's own agenda item is already committed;
-        # the synthetic subject must self-exclude it and still clash with a
-        # different session sharing the space.
+        # Runs post-commit: the session's own agenda item is in the context,
+        # self-excludes, and still clashes with another session in the space.
         own = _make_item(pk=1, session_id=10, space_id=1)
         other = _make_item(pk=2, session_id=20, space_id=1, session_title="Other")
         uow = self._uow(all_items=[own, other])
-        session = MagicMock()
-        session.title = "Subject"
-        session.participants_limit = 0
-        uow.sessions.read.return_value = session
 
         conflicts = ConflictDetectionService(uow).detect_for_assignment(
-            event_pk=1,
-            session_pk=10,
-            placement=SessionPlacement(
-                space_pk=1, start_time=own.start_time, end_time=own.end_time
-            ),
+            event_pk=1, session_pk=10
         )
 
         assert [(c.type, c.session_pk) for c in conflicts] == [
             (ConflictType.SPACE_OVERLAP, 20)
         ]
-        uow.sessions.read_facilitators_by_sessions.assert_called_once_with({10, 20})
+        uow.sessions.read.assert_not_called()
+
+    def test_detect_for_assignment_rejects_an_unscheduled_session(self):
+        uow = self._uow(all_items=[_make_item(pk=1, session_id=10, space_id=1)])
+
+        with pytest.raises(NotFoundError):
+            ConflictDetectionService(uow).detect_for_assignment(
+                event_pk=1, session_pk=99
+            )
 
 
 class TestTrackProgress:
@@ -724,20 +723,14 @@ class TestTrackProgress:
             _track_stub(1, "RPG"),
             _track_stub(2, "Board games"),
         ]
-        uow.sessions.count_by_track_and_status.return_value = [
-            TrackStatusCountDTO(
-                track_pk=1,
-                status=SessionStatus.ACCEPTED,
-                total=accepted,
+        uow.sessions.count_by_track.return_value = {
+            1: TrackSessionCountsDTO(
+                pending=pending,
+                accepted=accepted,
                 scheduled=scheduled,
-            ),
-            TrackStatusCountDTO(
-                track_pk=1, status=SessionStatus.PENDING, total=pending, scheduled=0
-            ),
-            TrackStatusCountDTO(
-                track_pk=1, status=SessionStatus.REJECTED, total=rejected, scheduled=0
-            ),
-        ]
+                rejected=rejected,
+            )
+        }
         uow.tracks.list_manager_names_by_tracks.return_value = {1: ["Ala"]}
 
         result = TimetableOverviewService(uow).track_progress(event_pk=1)
@@ -756,7 +749,6 @@ class TestTrackProgress:
         assert second.progress_pct == 0
         assert second.manager_names == []
         uow.sessions.list_sessions_by_event.assert_not_called()
-        uow.tracks.list_manager_names.assert_not_called()
 
     def test_no_tracks_short_circuits(self):
         uow = MagicMock()
@@ -764,7 +756,7 @@ class TestTrackProgress:
 
         assert TimetableOverviewService(uow).track_progress(event_pk=1) == []
 
-        uow.sessions.count_by_track_and_status.assert_not_called()
+        uow.sessions.count_by_track.assert_not_called()
 
 
 class TestTimetableOverviewServiceDefaults:
@@ -781,7 +773,7 @@ class TestTimetableOverviewServiceDefaults:
         return uow
 
     def test_build_heatmap_fetches_conflicts_when_none(self, mock_uow):
-        """Line 382: conflicts=None triggers self.get_all_conflicts."""
+        # conflicts=None makes build_heatmap fetch conflicts itself.
         svc = TimetableOverviewService(mock_uow)
         result = svc.build_heatmap(event_pk=1, tz=UTC, conflicts=None)
 
@@ -789,7 +781,7 @@ class TestTimetableOverviewServiceDefaults:
         assert not result.days
 
     def test_all_conflicts_grouped_fetches_conflicts_when_none(self, mock_uow):
-        """Line 423: conflicts=None triggers self.get_all_conflicts."""
+        # conflicts=None makes all_conflicts_grouped fetch conflicts itself.
         svc = TimetableOverviewService(mock_uow)
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
@@ -984,6 +976,3 @@ class TestTimetableOverviewCapacityHours:
             hours_to_fill=1.5,
             filled_pct=0,
         )
-
-
-# --- EventIntegrationsService ---
