@@ -4,9 +4,11 @@ import { expect, test } from "./helpers/fixtures";
 // (nav-progress.ts). The link-click test slows the next navigation down with
 // a routed delay so the bar's appearance is deterministic; the htmx tests
 // drive the events the bar listens to directly. Assertions are on what the
-// user perceives: a bar during a slow request, none once the response lands.
+// user perceives: a loading progressbar during a slow request, none once the
+// response lands.
 
-const BAR = "[data-nav-progress]";
+const bar = (page: import("@playwright/test").Page) =>
+  page.getByRole("progressbar", { name: /loading/i });
 
 test.describe("panel navigation progress bar", () => {
   test.beforeEach(async ({ page }) => {
@@ -27,11 +29,11 @@ test.describe("panel navigation progress bar", () => {
     });
 
     await page.getByRole("link", { name: "Proposals", exact: true }).click();
-    await expect(page.locator(BAR)).toBeVisible();
+    await expect(bar(page)).toBeVisible();
 
     // The new document replaces the old one, bar included.
     await expect(page).toHaveURL(/\/proposals\//);
-    await expect(page.locator(BAR)).toHaveCount(0);
+    await expect(bar(page)).toHaveCount(0);
   });
 
   test("appears while an htmx request is pending and hides when it completes", async ({ page }) => {
@@ -40,13 +42,13 @@ test.describe("panel navigation progress bar", () => {
     });
 
     // Becomes visible only after the anti-flicker delay (180ms).
-    await expect(page.locator(BAR)).toBeVisible();
+    await expect(bar(page)).toBeVisible();
 
     await page.evaluate(() => {
       document.dispatchEvent(new CustomEvent("htmx:afterRequest", { detail: {} }));
     });
 
-    await expect(page.locator(BAR)).toHaveCount(0);
+    await expect(bar(page)).toHaveCount(0);
   });
 
   test("never shows for a request that finishes quickly", async ({ page }) => {
@@ -57,6 +59,6 @@ test.describe("panel navigation progress bar", () => {
 
     // Give the show-delay a chance to (wrongly) fire before asserting.
     await page.waitForTimeout(400);
-    await expect(page.locator(BAR)).toHaveCount(0);
+    await expect(bar(page)).toHaveCount(0);
   });
 });

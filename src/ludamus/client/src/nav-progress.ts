@@ -31,8 +31,13 @@ const render = (): void => {
 
 const show = (): void => {
   bar = document.createElement("div");
-  bar.setAttribute("aria-hidden", "true");
-  bar.dataset.navProgress = "";
+  // An indeterminate progressbar (no aria-valuenow): assistive tech learns
+  // the page is loading instead of the bar hiding as decoration.
+  bar.setAttribute("role", "progressbar");
+  bar.setAttribute(
+    "aria-label",
+    document.documentElement.lang.startsWith("pl") ? "Ładowanie strony" : "Page loading",
+  );
   Object.assign(bar.style, {
     background: "var(--color-primary)",
     height: "3px",
