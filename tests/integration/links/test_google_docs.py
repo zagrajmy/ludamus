@@ -25,7 +25,6 @@ from ludamus.links.google_docs import (
     GoogleDocsProposalImporter,
     GoogleSheetsWriter,
 )
-from ludamus.links.retry import bounded_timeout
 from ludamus.pacts.chronology import CheckOutcome, SourceQuestion
 from ludamus.pacts.discounts import SheetExportError
 
@@ -136,10 +135,10 @@ class TestGoogleDocsProposalImporterProbe:
         assert not result.hint
         assert google.session.get.call_count == 1 + 1  # spreadsheet + form
         google.session.get.assert_any_call(
-            SHEETS_API_URL.format(sheet_id="sheet-1"), timeout=bounded_timeout(10)
+            SHEETS_API_URL.format(sheet_id="sheet-1"), timeout=10
         )
         google.session.get.assert_any_call(
-            FORMS_API_URL.format(form_id="form-1"), timeout=bounded_timeout(10)
+            FORMS_API_URL.format(form_id="form-1"), timeout=10
         )
 
     def test_form_probe_failure_after_sheet_ok(self, google):
@@ -161,7 +160,7 @@ class TestGoogleDocsProposalImporterProbe:
         assert result.outcome == CheckOutcome.AUTH_FAILED
         assert result.hint == "nope"
         google.session.get.assert_called_once_with(
-            SHEETS_API_URL.format(sheet_id="sheet-1"), timeout=bounded_timeout(10)
+            SHEETS_API_URL.format(sheet_id="sheet-1"), timeout=10
         )
 
     def test_forbidden(self, google):
@@ -587,13 +586,13 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
         assert [r.data for r in result] == [{"Timestamp": "t1", "Title": "My Talk"}]
         google.session.get.assert_any_call(
-            SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=bounded_timeout(10)
+            SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
         )
         # The values request names the tab (URL-encoded) instead of a fixed A:Z
         # window, so every column is read no matter how wide the form is.
         google.session.get.assert_any_call(
             SHEETS_VALUES_URL.format(sheet_id="sheet-1", range="Form%20Responses%201"),
-            timeout=bounded_timeout(30),
+            timeout=30,
         )
 
     def test_reads_columns_past_z(self, google):
@@ -629,8 +628,7 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
         assert [r.data for r in result] == [{"Title": "My Talk"}]
         google.session.get.assert_any_call(
-            SHEETS_VALUES_URL.format(sheet_id="sheet-1", range="First"),
-            timeout=bounded_timeout(30),
+            SHEETS_VALUES_URL.format(sheet_id="sheet-1", range="First"), timeout=30
         )
 
     def test_wrong_config_returns_empty(self):
@@ -770,7 +768,7 @@ class TestGoogleSheetsWriter:
             scopes=["https://www.googleapis.com/auth/spreadsheets"],
         )
         google.session.get.assert_any_call(
-            SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=bounded_timeout(10)
+            SHEETS_META_URL.format(sheet_id="sheet-1"), timeout=10
         )
         google.session.post.assert_not_called()
         google.session.put.assert_called_once_with(
@@ -778,7 +776,7 @@ class TestGoogleSheetsWriter:
                 sheet_id="sheet-1", range="%27Form%20Responses%201%27%21A1"
             ),
             json={"values": EXPORT_ROWS},
-            timeout=bounded_timeout(30),
+            timeout=30,
         )
 
     def test_pads_a_smaller_export_to_overwrite_the_old_extent(self, google):
@@ -804,7 +802,7 @@ class TestGoogleSheetsWriter:
                     ["", "", ""],
                 ]
             },
-            timeout=bounded_timeout(30),
+            timeout=30,
         )
 
     def test_quotes_tab_title_that_looks_like_a_cell_reference(self, google):
@@ -818,7 +816,7 @@ class TestGoogleSheetsWriter:
         google.session.put.assert_called_once_with(
             SHEETS_UPDATE_URL.format(sheet_id="sheet-1", range="%27A1%27%21A1"),
             json={"values": EXPORT_ROWS},
-            timeout=bounded_timeout(30),
+            timeout=30,
         )
 
     def test_quotes_apostrophe_in_tab_title(self, google):
@@ -832,7 +830,7 @@ class TestGoogleSheetsWriter:
         google.session.put.assert_called_once_with(
             SHEETS_UPDATE_URL.format(sheet_id="sheet-1", range="%27It%27%27s%27%21A1"),
             json={"values": EXPORT_ROWS},
-            timeout=bounded_timeout(30),
+            timeout=30,
         )
 
     def test_missing_secret_raises_without_any_request(self, google):

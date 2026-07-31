@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+from functools import cached_property
 
 import requests
 from django.conf import settings
 
-from ludamus.links.retry import bounded_timeout, mount_retries
+from ludamus.links.retry import mount_retries
 from ludamus.pacts import MembershipAPIError
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,14 @@ class MembershipApiClient:
         self.base_url = settings.MEMBERSHIP_API_BASE_URL
         self.token = settings.MEMBERSHIP_API_TOKEN
         self.timeout = settings.MEMBERSHIP_API_TIMEOUT
-        self.session = mount_retries(requests.Session())
+
+    @cached_property
+    def session(self) -> requests.Session:
+        # The injector builds this client per request, so the pooling a
+        # Session exists for never happens — but the unconfigured deployment
+        # (no MEMBERSHIP_API_BASE_URL) must not pay for adapters and pools it
+        # will never send through. Lazy keeps that path free.
+        return mount_retries(requests.Session())
 
     def fetch_membership_count(self, email: str) -> int:
         # The membership API is optional: when no base URL is configured there
@@ -36,7 +44,7 @@ class MembershipApiClient:
                 self.base_url,
                 params={"email": email},
                 headers={"Authorization": f"Token {self.token}"},
-                timeout=bounded_timeout(self.timeout),
+                timeout=self.timeout,
             )
             response.raise_for_status()
 
