@@ -931,13 +931,6 @@ class AgendaItemRepositoryProtocol(Protocol):
         exclude_session_pk: int | None = None,
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
-    def list_overlapping_by_facilitator(
-        facilitator_pk: int,
-        start_time: datetime,
-        end_time: datetime,
-        exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]: ...
-    @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
     @staticmethod
     def confirm_all_by_event(event_pk: int) -> None: ...

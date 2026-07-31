@@ -20,7 +20,6 @@ let progress = 0;
 let showTimer: ReturnType<typeof setTimeout> | undefined;
 let trickleTimer: ReturnType<typeof setInterval> | undefined;
 let failsafeTimer: ReturnType<typeof setTimeout> | undefined;
-let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
 const render = (): void => {
   if (bar) bar.style.transform = `scaleX(${progress})`;
@@ -59,7 +58,6 @@ const reset = (): void => {
   clearTimeout(showTimer);
   clearInterval(trickleTimer);
   clearTimeout(failsafeTimer);
-  clearTimeout(hideTimer);
   bar?.remove();
   bar = null;
   pending = 0;
@@ -76,19 +74,18 @@ const start = (): void => {
 const done = (): void => {
   pending = Math.max(0, pending - 1);
   if (pending > 0) return;
-  if (!bar) {
-    reset();
-    return;
-  }
   // Detach the finished bar before the fade so a navigation that starts
-  // mid-fade gets a fresh bar instead of having its own removed from under it.
+  // mid-fade gets a fresh bar instead of having its own removed from under
+  // it. The fade timers are local closures over the detached element — a
+  // later reset() clearing module timers must not cancel its cleanup.
   const finished = bar;
   bar = null;
   reset();
+  if (!finished) return;
   finished.style.transform = "scaleX(1)";
-  hideTimer = setTimeout(() => {
+  setTimeout(() => {
     finished.style.opacity = "0";
-    hideTimer = setTimeout(() => finished.remove(), 250);
+    setTimeout(() => finished.remove(), 250);
   }, 150);
 };
 

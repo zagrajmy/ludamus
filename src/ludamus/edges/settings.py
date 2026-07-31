@@ -71,6 +71,8 @@ env = environ.Env(
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
+    # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
+    ZEAL_RAISE=(bool, False),
 )
 
 
@@ -154,7 +156,7 @@ if DEBUG:
 if DEBUG or IN_TESTS:
     INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
     MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
-    ZEAL_RAISE = DEBUG or env("PYTEST_VERSION", default=None) is not None
+    ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
     ZEAL_SHOW_ALL_CALLERS = False
     # Repositories fetch DTOs with `Model.objects.get(...)` per read, so two
     # unrelated reads of the same model in one request trip zeal's repeated-

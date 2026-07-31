@@ -640,15 +640,13 @@ class SessionContentEditService:
         return {f.pk: f.name for f in self._session_fields.list_by_event(event_id)}
 
     def revertible_log_pks(
-        self, event_id: int, logs: list[ContentChangeLogDTO] | None = None
+        self, event_id: int, logs: list[ContentChangeLogDTO]
     ) -> set[int]:
         # Rows offered a Revert button: the newest change per session, and only
-        # if at least one of its entries can actually be restored. Pass the
-        # already-listed logs to spare re-fetching every row (with its JSON
-        # changes payload) a second time in the same request.
+        # if at least one of its entries can actually be restored. Takes the
+        # already-listed logs so every row (with its JSON changes payload) is
+        # fetched exactly once per request.
         latest = set(self._content_change_logs.latest_pks_by_session(event_id).values())
-        if logs is None:
-            logs = self._content_change_logs.list_by_event(event_id)
         return {
             log.pk
             for log in logs
