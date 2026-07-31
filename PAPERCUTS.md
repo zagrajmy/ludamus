@@ -217,3 +217,20 @@ If you fix a papercut, remove it.
 - 2026-07-27: mise run check (format+lint) omits messages-check, so a stale PL
   catalog passes locally and only fails in CI; after any edit that reorders
   translated strings, run 'mise run messages-check' separately.
+- 2026-07-28: Investigated login in the web sandbox: mise run start failed on
+  varlock validation because the session's .env.local existed but was
+  incomplete, and bootstrap's `if [ ! -f .env.local ]` guard never repairs an
+  existing file; `rm .env.local && mise run bootstrap` regenerates it properly.
+- 2026-07-28: auth0-simulator stays disabled in the sandbox until you hand-roll
+  ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
+  keyUsage=keyCertSign, so the first cert attempt failed with
+  CERTIFICATE_VERIFY_FAILED.
+- 2026-07-29: ran mise run shots -- '/event/x/print/?material=timetable' — task
+  warned 'not reachable' although the server was up; $usage_targets keeps the
+  shell quotes around each arg, so the URL becomes
+  <http://localhost:8000'/event/>...'. Worked around by calling aubx agent-browser
+  directly.
+- 2026-07-29: rebuilt the vite client while test:e2e:serve was running —
+  django_vite's cached manifest kept serving deleted hashed JS, pages silently
+  lost their scripts until a manual server restart. Fixed test:e2e:serve to
+  watch manifest.json and bounce itself.

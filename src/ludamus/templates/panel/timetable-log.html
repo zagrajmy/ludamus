@@ -34,7 +34,7 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-neutral-200 text-left">
+                    <tr class="border-b border-border text-left">
                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Time" %}</th>
                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "User" %}</th>
                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Action" %}</th>
@@ -45,7 +45,7 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for log in logs %}
-                        <tr class="hover:bg-neutral-50">
+                        <tr class="hover:bg-bg-tertiary">
                             <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
                             <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
                             <td class="py-2 pr-4">

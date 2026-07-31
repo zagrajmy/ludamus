@@ -65,6 +65,7 @@ class ShadowbanEventSignupDTO(BaseModel):
     event_slug: str
     event_name: str
     session_title: str
+    sphere_domain: str
     hits: list[ShadowbanHitDTO]
 
 
@@ -74,6 +75,7 @@ class ShadowbanSignupNotification(BaseModel):
     event_slug: str
     event_name: str
     session_title: str
+    sphere_domain: str
     player_names: list[str]
     session_player_names: list[str]
 

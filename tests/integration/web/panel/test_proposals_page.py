@@ -13,9 +13,9 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import (
     EventDTO,
+    OrganizerFieldDTO,
     ProposalCategoryDTO,
     SessionDTO,
-    SessionFieldDTO,
     SessionFieldValueDTO,
     SessionListItemDTO,
     SessionStatus,
@@ -605,7 +605,7 @@ class TestProposalsPageView:
                     )
                 ],
                 "session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=field.pk,
                         name="System",
                         question="What system?",
@@ -689,7 +689,7 @@ class TestProposalsPageView:
                     )
                 ],
                 "session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=field.pk,
                         name="Treści",
                         question="Treści?",
@@ -1090,7 +1090,7 @@ class TestProposalsPageView:
                 "categories": [],
                 "proposals": [],
                 "session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=select_field.pk,
                         name="Genre",
                         question="Pick genre",

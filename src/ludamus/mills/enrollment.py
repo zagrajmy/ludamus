@@ -9,10 +9,14 @@ the ticket API.
 
 from __future__ import annotations
 
+import logging
+import math
 import secrets
+import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from ludamus.pacts import (
     MembershipAPIError,
@@ -51,6 +55,8 @@ from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import is_valid_window_period, select_promotable_parties
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.pacts import (
         EnrollmentConfigDTO,
         EnrollmentConfigRepositoryProtocol,
@@ -82,6 +88,80 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 _NAVBAR_NOTIFICATION_LIMIT = 10
+
+
+class EnrollmentWindowLike(Protocol):
+    max_waitlist_sessions: int
+    percentage_slots: int
+    restrict_to_configured_users: bool
+
+
+def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
+    return (window.percentage_slots, not window.restrict_to_configured_users)
+
+
+def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
+    listed = list(windows)
+    return (
+        bool(listed)
+        and not EnrollmentPolicy.for_actor(listed, is_configured_user=False).can_enroll
+    )
+
+
+@dataclass(frozen=True)
+class EnrollmentPolicy:
+    """What one actor may do across the enrollment windows open to them.
+
+    A window grants access for its period, so the windows an actor can use are
+    unioned. Selecting first and aggregating second is what keeps capacity from
+    being drawn from a window the actor is not allowed into.
+    """
+
+    windows: tuple[EnrollmentWindowLike, ...]
+
+    @classmethod
+    def for_actor(
+        cls, windows: Iterable[EnrollmentWindowLike], *, is_configured_user: bool
+    ) -> EnrollmentPolicy:
+        return cls(
+            tuple(
+                window
+                for window in windows
+                if is_configured_user or not window.restrict_to_configured_users
+            )
+        )
+
+    @property
+    def can_enroll(self) -> bool:
+        return bool(self.windows)
+
+    @property
+    def seating_window(self) -> EnrollmentWindowLike | None:
+        if not self.windows:
+            return None
+        return max(self.windows, key=_seating_rank)
+
+    @property
+    def percentage_slots(self) -> int:
+        return self.seating_window.percentage_slots if self.seating_window else 0
+
+    @property
+    def max_waitlist_sessions(self) -> int:
+        return max((window.max_waitlist_sessions for window in self.windows), default=0)
+
+    @property
+    def requires_slot_allowance(self) -> bool:
+        return bool(
+            self.seating_window and self.seating_window.restrict_to_configured_users
+        )
+
+    def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
+        if not self.windows:
+            return 0
+        if participants_limit == 0:
+            return sys.maxsize
+        effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)
+        return max(0, effective_limit - enrolled_count)
 
 
 def _now() -> datetime:
@@ -137,6 +217,9 @@ class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
             raise InvalidEnrollmentWindowError
 
 
+logger = logging.getLogger(__name__)
+
+
 class WaitlistPromotionService:
     def __init__(
         self,
@@ -162,8 +245,20 @@ class WaitlistPromotionService:
 
         with self._transaction.atomic():
             if (state := self._participations.lock_and_read_state(session_id)) is None:
+                logger.info(
+                    "Session %s promotes nobody: it is gone, unscheduled, or "
+                    "outside every enrollment window",
+                    session_id,
+                )
                 return result
             if not (parties := select_promotable_parties(state)):
+                logger.info(
+                    "Session %s promotes nobody: %s seats free, %s waiting, mode %s",
+                    session_id,
+                    state.available_seats,
+                    len(state.waiting),
+                    state.promotion_mode.value,
+                )
                 return result
             if state.promotion_mode == PromotionMode.AUTO:
                 self._confirm(parties, state, result, promotions)

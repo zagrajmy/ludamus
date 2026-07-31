@@ -22,6 +22,7 @@ Usage:
 
 from ._registry import register
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
+from .dynamic_field import dynamic_field
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
 from .icon_toggle import tessera_icon_toggle
@@ -45,6 +46,7 @@ __all__ = [
     "do_tab",
     "do_tabs",
     "do_tessera_table",
+    "dynamic_field",
     "icon",
     "register",
     "tab_shell",

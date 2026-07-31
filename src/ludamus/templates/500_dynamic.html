@@ -1,6 +1,7 @@
 {% load static %}
 {% load django_vite %}
 {% load i18n %}
+{% load tessera %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -44,21 +45,7 @@
     </head>
     <body class="min-h-screen font-sans antialiased flex items-center justify-center bg-background text-foreground">
         <div class="max-w-screen-sm xl:min-w-[600px] mx-auto px-4">
-            <div class="mb-6 flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl flex items-center justify-center bg-white dark:bg-neutral-900">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         fill="none"
-                         viewBox="0 0 24 24"
-                         stroke-width="1.5"
-                         stroke="currentColor"
-                         class="w-8 h-8 text-danger">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                    </svg>
-                </div>
-                <span class="text-6xl font-bold text-foreground-muted">{{ error_code }}</span>
-            </div>
-            <h1 class="text-2xl font-bold mb-3">{{ title }}</h1>
-            <p class="mb-2 text-foreground-muted">{{ message }}</p>
+            {% include "components/status_hero.html" with icon="exclamation-triangle" icon_color="text-danger" error_code=error_code heading=title lead=message only %}
             <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
             <p class="mb-2 text-foreground">{{ guidance }}</p>
             <p class="mb-6 text-sm text-foreground-muted">
@@ -67,26 +54,12 @@
             </p>
             <div class="flex flex-col sm:flex-row gap-3">
                 <button id="history-back-btn" class="btn btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         fill="none"
-                         viewBox="0 0 24 24"
-                         stroke-width="1.5"
-                         stroke="currentColor"
-                         class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                    </svg>
-                    Go Back
+                    {% icon "arrow-left" class="w-5 h-5" %}
+                    {% translate "Go Back" %}
                 </button>
                 <a href="/" class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         fill="none"
-                         viewBox="0 0 24 24"
-                         stroke-width="1.5"
-                         stroke="currentColor"
-                         class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                    </svg>
-                    Go to Home
+                    {% icon "home" class="w-5 h-5" %}
+                    {% translate "Go to Home" %}
                 </a>
             </div>
         </div>

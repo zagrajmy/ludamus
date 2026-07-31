@@ -243,6 +243,7 @@ run = [
     "python tests/e2e/scripts/bootstrap_data.py",
     "python tests/e2e/scripts/bootstrap_facilitators.py",
     "python tests/e2e/scripts/bootstrap_timetable.py",
+    "python tests/e2e/scripts/bootstrap_dynamic_fields.py",
     # Inline, so the V8 coverage the run collects carries the map back to the
     # .ts sources with it.
     "aubr -C src/ludamus/client build -- --sourcemap inline",
@@ -254,8 +255,33 @@ description = "Kill the e2e dev server (Django on :8000)"
 run = "lsof -ti :8000 | xargs -r kill -9 2>/dev/null; echo 'E2E server killed'"
 
 [tasks."test:e2e:serve"]
-description = "Run the e2e dev server (assumes `test:e2e:prep` has run)"
-run = "coverage run --source=src -m django runserver --insecure --noreload localhost:8000"
+description = "Run the e2e dev server (assumes `test:e2e:prep` has run); restarts itself when a client rebuild replaces the Vite manifest"
+run = '''
+set -eu
+# django_vite parses the manifest once per process, so a `vite build` while
+# the server runs would leave it serving hashed asset URLs the rebuild just
+# deleted (pages silently lose their JS). Watch the manifest and bounce the
+# server when it changes; CI never rebuilds mid-run, so this only fires in
+# interactive sessions.
+manifest="src/ludamus/static/vite/manifest.json"
+mtime() { stat -c %Y "$manifest" 2>/dev/null || echo missing; }
+while true; do
+  seen=$(mtime)
+  coverage run --source=src -m django runserver --insecure --noreload localhost:8000 &
+  server=$!
+  trap 'kill "$server" 2>/dev/null; exit 0' INT TERM
+  while kill -0 "$server" 2>/dev/null && [ "$(mtime)" = "$seen" ]; do
+    sleep 2
+  done
+  if ! kill -0 "$server" 2>/dev/null; then
+    wait "$server"
+    exit $?
+  fi
+  echo "Vite manifest changed — restarting the e2e server with fresh assets"
+  kill "$server" 2>/dev/null
+  wait "$server" 2>/dev/null || true
+done
+'''
 env = { _.file = '.env.e2e', COVERAGE_FILE = "{{ config_root }}/.coverage.e2e" }
 
 [tasks."test:e2e:boot"]
@@ -338,7 +364,7 @@ run = [
     { task = "lint:mypy" },
     { task = "lint:pylint", args = ["src"] },
     { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
-    { task = "test:py", args = ["-xvv"] },
+    { task = "test:py", args = ["-xvv"]}
 ]
 
 [tasks.fullcheck]

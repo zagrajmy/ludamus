@@ -55,6 +55,7 @@ export default defineConfig({
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
+        "print-controls": resolve(rootDir, "src/print-controls.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
