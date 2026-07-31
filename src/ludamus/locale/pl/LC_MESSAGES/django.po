@@ -7408,7 +7408,6 @@ msgid "Search…"
 msgstr "Szukaj…"
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
-#: src/ludamus/templates/panel/timetable.html
 msgid "Loading…"
 msgstr "Ładowanie…"
 

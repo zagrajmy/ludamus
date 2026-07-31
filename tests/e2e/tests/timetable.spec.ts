@@ -689,13 +689,16 @@ test.describe("Timetable", () => {
   test("conflict panel loads and shows conflict status", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
-    // Wait for the conflict panel HTMX load — it shows either "All clear" or a
-    // conflict count. The fold only auto-opens when there ARE conflicts, so on
-    // a clean grid the status sits in a collapsed <details>; assert the panel
-    // loaded its status (textContent) rather than requiring it to be visible.
+    // The panel is server-rendered with the page and shows either "All clear"
+    // or a conflict count. The fold only auto-opens when there ARE conflicts,
+    // so on a clean grid the status sits in a collapsed <details>; assert the
+    // status text is present rather than requiring it to be visible.
     await expect(page.locator("#conflict-panel")).toContainText(/All clear|conflict/, {
       timeout: 10000,
     });
+    // A multi-line {# #} is not a comment to Django — it leaks into the fold
+    // as literal text, and the status match above still passes.
+    await expect(page.locator("#conflicts-fold")).not.toContainText("{#");
   });
 
   // --- Activity Log ---

@@ -608,25 +608,19 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         SessionFieldValue.objects.filter(session_id=session_id).delete()
 
     @staticmethod
-    def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
-        try:
-            session = Session.objects.get(pk=session_id)
-        except Session.DoesNotExist as err:
-            msg = f"Session with pk '{session_id}' not found"
-            raise NotFoundError(msg) from err
-        return [FacilitatorDTO.model_validate(f) for f in session.facilitators.all()]
-
-    @staticmethod
     def read_facilitators_by_sessions(
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:
-        links = Session.facilitators.through.objects.filter(
-            session_id__in=session_ids
-        ).select_related("facilitator")
-        result: dict[int, list[FacilitatorDTO]] = {}
-        for link in links:
-            result.setdefault(link.session_id, []).append(
-                FacilitatorDTO.model_validate(link.facilitator)
+        ids = list(session_ids)
+        rows = (
+            Session.facilitators.through.objects.filter(session_id__in=ids)
+            .select_related("facilitator")
+            .order_by("facilitator__display_name")
+        )
+        result: dict[int, list[FacilitatorDTO]] = {sid: [] for sid in ids}
+        for row in rows:
+            result[row.session_id].append(
+                FacilitatorDTO.model_validate(row.facilitator)
             )
         return result
 
@@ -637,6 +631,15 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
                 "pk", "participants_limit"
             )
         )
+
+    @staticmethod
+    def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
+        try:
+            session = Session.objects.get(pk=session_id)
+        except Session.DoesNotExist as err:
+            msg = f"Session with pk '{session_id}' not found"
+            raise NotFoundError(msg) from err
+        return [FacilitatorDTO.model_validate(f) for f in session.facilitators.all()]
 
     @staticmethod
     def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:

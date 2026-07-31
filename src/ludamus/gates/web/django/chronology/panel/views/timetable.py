@@ -119,6 +119,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_track_pk"] = filter_track_pk
         context["room_page"] = room_page
         context["grid"] = grid
+        context["conflicts"] = conflicts
         context["conflict_session_pks"] = {c.session_pk for c in conflicts}
         context["conflicts_count"] = len(conflicts)
         context["slot_violation_session_pks"] = {v.session_pk for v in slot_violations}
