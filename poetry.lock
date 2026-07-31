@@ -1046,6 +1046,18 @@ Django = ">=3.2"
 dev = ["black"]
 
 [[package]]
+name = "django-zeal"
+version = "2.2.2"
+description = "Detect N+1s in your Django app"
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "django_zeal-2.2.2-py3-none-any.whl", hash = "sha256:b59ca027d3198517fc38c6bcbe0649d90ec2656697d109a30d07b228932848ad"},
+    {file = "django_zeal-2.2.2.tar.gz", hash = "sha256:d87b0dd55641dbcd502d343e42eaf3c5ba7e400d0575beff3743431c93b7a68d"},
+]
+
+[[package]]
 name = "djlint"
 version = "1.40.10"
 description = "HTML Template Linter and Formatter"
@@ -4552,4 +4564,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "eeb1e14f77d67c20d0f98404eb3526039abb55b43bd81ac3de2d27c748f2b9e2"
+content-hash = "fa804af422b3e12859105841bbde0498d87c807745d4eb3a08d881d71f51a7fb"

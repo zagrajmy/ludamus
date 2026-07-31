@@ -84,6 +84,7 @@ taplo = "^0.9.3"
 tingle = "^0.4.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
+django-zeal = "^2.2.2"
 
 [tool.black]
 line-length = 88

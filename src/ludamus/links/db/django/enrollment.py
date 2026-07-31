@@ -124,6 +124,7 @@ class ParticipationPromotionRepository:
             session = (
                 Session.objects.select_for_update(of=("self",))
                 .select_related("category", "agenda_item", "event")
+                .prefetch_related("event__enrollment_configs")
                 .get(id=session_id)
             )
         except Session.DoesNotExist:
@@ -424,7 +425,9 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO:
         try:
-            event = Event.objects.get(slug=event_slug)
+            event = Event.objects.prefetch_related("enrollment_configs").get(
+                slug=event_slug
+            )
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
         return AnonymousEventDTO(
@@ -445,8 +448,14 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
         *, session_id: int, event_slug: str, site_id: int
     ) -> AnonymousSessionContextDTO:
         try:
-            session = Session.objects.select_related("event").get(
-                id=session_id, event__slug=event_slug, event__sphere__site_id=site_id
+            session = (
+                Session.objects.select_related("event", "agenda_item__space")
+                .prefetch_related("event__enrollment_configs")
+                .get(
+                    id=session_id,
+                    event__slug=event_slug,
+                    event__sphere__site_id=site_id,
+                )
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
