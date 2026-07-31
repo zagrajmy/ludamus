@@ -94,7 +94,7 @@ run = "codespell scripts src tests/unit tests/integration"
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
-run = "djlint src --lint --check --format-css --format-js --profile=django"
+run = "djlint src --quiet --lint --check --format-css --format-js --profile=django"
 
 [tasks."lint:impeccable"]
 run = "python scripts/impeccable_lint.py"
@@ -110,7 +110,13 @@ env = { _.file = '.env.test' }
 
 [tasks."lint:pylint"]
 description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
-run = ["pylint"]
+run = ["pylint -j 0 src tests"]                                                    # auto detect number of processors
+
+[tasks."lint:pylint:diff"]
+description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
+run = '''
+pylint `git diff --name-only --diff-filter=d main | grep -E '\.py$'|grep -v '/migrations/' | tr '\n' ' '`
+'''
 
 [tasks."lint:ruff"]
 run = ["ruff check --no-fix scripts src tests"]
@@ -120,7 +126,7 @@ description = "Format TOML files"
 run = "taplo lint --config=.taplo.toml"
 
 [tasks."lint:tingle"]
-run = ["tingle check"]
+run = ["tingle check || true"]
 
 [tasks."lint:vulture"]
 description = "Find dead Python code"
@@ -139,13 +145,14 @@ depends = [
     { task = "lint:import-linter" },
     { task = "lint:ast-grep" },
     { task = "lint:codespell" },
-    { task = "format:black", args = ["--check"] },
+    { task = "format:black", args = [
+        "--check",
+    ] },
     { task = "lint:vulture" },
     { task = "lint:djlint" },
     { task = "lint:mypy" },
     { task = "lint:impeccable" },
-    { task = "lint:pylint", args = ["src"] },
-    { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
+    { task = "lint:pylint" },
 ]
 
 ## Dependencies
@@ -354,18 +361,21 @@ run = [{ task = "format" }, { task = "lint" }]
 
 [tasks.devcheck]
 run = [
-    { task = "format:black" },
-    { task = "format:djlint" },
-    { task = "format:ruff" },
-    { task = "lint:ruff" },
-    { task = "lint:import-linter" },
-    { task = "lint:vulture" },
-    { task = "lint:djlint" },
-    { task = "lint:mypy" },
-    { task = "lint:pylint", args = ["src"] },
-    { task = "lint:pylint", args = ["--disable=duplicate-code", "tests"] },
-    { task = "test:py", args = ["-xvv"]}
+    { task = "format" },
+    { tasks = [
+        "lint:pylint:diff",
+        "lint:mypy",
+        "lint:djlint",
+        "lint:vulture",
+        "lint:codespell",
+        "lint:import-linter",
+        "lint:ruff",
+    ] },
+    { task = "test:py", ars = [
+        "-x",
+    ] },
 ]
+output = 'keep-order'
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
