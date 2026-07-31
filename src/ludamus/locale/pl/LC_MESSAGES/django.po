@@ -1089,6 +1089,10 @@ msgid "Event settings saved successfully."
 msgstr "Ustawienia wydarzenia zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+msgid "Invalid field selection."
+msgstr "Nieprawidłowy wybór pola."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 msgid "Display settings saved successfully."
 msgstr "Ustawienia wyświetlania zostały zapisane."
 
@@ -7416,7 +7420,6 @@ msgid "Search…"
 msgstr "Szukaj…"
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
-#: src/ludamus/templates/panel/timetable.html
 msgid "Loading…"
 msgstr "Ładowanie…"
 

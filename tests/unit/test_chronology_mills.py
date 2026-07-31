@@ -933,7 +933,8 @@ class TestSessionConfirmation:
 
 class TestListAllForTrackAttribution:
     def test_no_other_tracks_returns_conflict_unchanged(self):
-        """Lines 351, 353: filtering removes current track, leaving empty list."""
+        # The clashing session sits in the track being viewed, so there is no
+        # *other* track to attribute the conflict to.
         uow = MagicMock()
         current_track_pk = 5
 
@@ -941,39 +942,47 @@ class TestListAllForTrackAttribution:
             pk=1,
             session_id=10,
             space_id=1,
+            session_title="Subject",
             start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
         )
-        uow.agenda_items.list_by_track.return_value = [item]
-
-        session = MagicMock()
-        session.participants_limit = 5
-        session.title = "Subject"
-        uow.sessions.read.return_value = session
-
-        space = MagicMock()
-        space.capacity = None
-        uow.spaces.read.return_value = space
-
-        facilitator = MagicMock()
-        facilitator.pk = 1
-        facilitator.display_name = "Alice"
-        uow.sessions.read_facilitators.return_value = [facilitator]
-
+        # A different room, so the shared facilitator is the only clash.
         overlap_item = _make_item(
             pk=2,
             session_id=20,
-            space_id=1,
+            space_id=2,
             session_title="Other",
             start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
         )
-        uow.agenda_items.list_overlapping_in_space.return_value = []
-        uow.agenda_items.list_overlapping_by_facilitator.return_value = [overlap_item]
+        uow.agenda_items.list_by_track.return_value = [item]
+        uow.agenda_items.list_by_event.return_value = [item, overlap_item]
+
+        facilitator = MagicMock()
+        facilitator.pk = 1
+        facilitator.display_name = "Alice"
+        uow.sessions.read_facilitators_by_sessions.return_value = {
+            10: [facilitator],
+            20: [facilitator],
+        }
+        uow.sessions.read_participants_limits.return_value = {10: 5, 20: 5}
+        uow.spaces.list_by_event.return_value = [
+            SpaceDTO(
+                capacity=None,
+                creation_time=datetime(2026, 1, 1, tzinfo=UTC),
+                modification_time=datetime(2026, 1, 1, tzinfo=UTC),
+                name=f"Room {pk}",
+                order=pk,
+                pk=pk,
+                slug=f"room-{pk}",
+            )
+            for pk in (1, 2)
+        ]
 
         track = MagicMock()
         track.pk = current_track_pk
-        uow.tracks.list_by_session.return_value = [track]
+        uow.tracks.list_by_sessions.return_value = {20: [track]}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
 
         svc = ConflictDetectionService(uow)
         conflicts = svc.list_all_for_track(event_pk=1, track_pk=current_track_pk)
