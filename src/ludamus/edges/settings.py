@@ -53,7 +53,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
     # local Mailpit inbox, filemail:///path for file capture, or
-    # smtp://user:pass@host:587/?tls=True in production.
+    # smtp+tls://user:pass@host:587 in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
@@ -428,8 +428,8 @@ else:
     }
 
 # Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
-# for the local inbox UI, smtp://… in production). Wired the same way in every
-# environment so prod only needs the env var set.
+# for the local inbox UI, smtp+tls://… in production). Wired the same way in
+# every environment so prod only needs the env var set.
 _EMAIL_CONFIG = env.email_url("EMAIL_URL")
 EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
 EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")
