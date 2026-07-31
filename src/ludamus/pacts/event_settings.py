@@ -1,9 +1,11 @@
 # TODO(hasparus): Fold this module into pacts/event.py, and
-# mills/event_settings.py into mills/event.py, once #625, #626, #719 and #726
-# have merged. GLIMPSE slices pacts and mills by noun then verb, and
-# `event_settings` is an entity cut of the `event` noun, not a verb; folded in,
-# both files stay far below the ~1000-line threshold that would justify the
-# split. It exists only to keep this branch off files those PRs are rewriting.
+# mills/event_settings.py into mills/event.py, in a follow-up. GLIMPSE slices
+# pacts and mills by noun then verb, and `event_settings` is an entity cut of
+# the `event` noun, not a verb; folded in, both files stay far below the
+# ~1000-line threshold that would justify the split. The split existed only to
+# keep this branch off files #726 and #728 were rewriting; both have merged, so
+# neither fold target is contested any more and the move is now mechanical. It
+# is left out of this PR to keep the diff a pure request.services migration.
 from __future__ import annotations
 
 from dataclasses import dataclass
