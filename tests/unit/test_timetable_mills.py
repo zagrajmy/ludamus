@@ -598,7 +598,7 @@ class TestListAllForTrack:
             event_pk=1, track_pk=None
         )
 
-        assert conflicts == []
+        assert not conflicts
 
     def test_capacity_exceeded_uses_batched_limits(self):
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -754,7 +754,7 @@ class TestTrackProgress:
         uow = MagicMock()
         uow.tracks.list_by_event.return_value = []
 
-        assert TimetableOverviewService(uow).track_progress(event_pk=1) == []
+        assert not TimetableOverviewService(uow).track_progress(event_pk=1)
 
         uow.sessions.count_by_track.assert_not_called()
 
