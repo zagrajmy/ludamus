@@ -163,7 +163,13 @@ if DEBUG or IN_TESTS:
     # get() heuristic constantly (sphere by domain + sphere by id, session +
     # its event, ...). Those are constant per request, not per-row; keep zeal
     # focused on the real N+1 shape — related-field lazy loads in loops.
-    ZEAL_ALLOWLIST = [{"model": "*", "field": "get()"}]
+    # Space.parent: model validation climbs the ancestor chain on every save
+    # (same-event, cycle, and depth checks), bounded by SPACE_MAX_DEPTH — a
+    # deliberate walk, not an unbounded per-row leak.
+    ZEAL_ALLOWLIST = [
+        {"model": "*", "field": "get()"},
+        {"model": "db_main.Space", "field": "parent"},
+    ]
 
 if DEBUG and env.bool("DEBUG_TOOLBAR", default=False):
     INSTALLED_APPS.append("debug_toolbar")

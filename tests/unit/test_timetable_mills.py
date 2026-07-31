@@ -788,8 +788,8 @@ class TestTimetableOverviewServiceDefaults:
         assert not result
 
 
-def _space(pk):
-    return SimpleNamespace(pk=pk)
+def _space(pk, parent_id=None):
+    return SimpleNamespace(pk=pk, parent_id=parent_id)
 
 
 def _slot(start, end):
@@ -841,6 +841,29 @@ class TestTimetableOverviewCapacityHours:
             capacity_hours=8.0,
             scheduled_hours=0.0,
             hours_to_fill=8.0,
+            filled_pct=0,
+        )
+
+    def test_branch_spaces_are_not_bookable_rooms(self):
+        # A venue node with two rooms under it: only the leaves count, or the
+        # un-bookable branch would inflate capacity.
+        slots = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        spaces = [_space(1), _space(2, parent_id=1), _space(3, parent_id=1)]
+        uow = self._uow(spaces=spaces, slots=slots, items=[])
+
+        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+
+        assert result == CapacityHoursDTO(
+            room_count=2,
+            slot_hours=2.0,
+            capacity_hours=4.0,
+            scheduled_hours=0.0,
+            hours_to_fill=4.0,
             filled_pct=0,
         )
 
