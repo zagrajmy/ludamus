@@ -36,7 +36,8 @@ const show = (): void => {
   bar.setAttribute("role", "progressbar");
   bar.setAttribute(
     "aria-label",
-    document.documentElement.lang.startsWith("pl") ? "Ładowanie strony" : "Page loading",
+    document.querySelector('meta[name="nav-progress-label"]')?.getAttribute("content") ??
+      "Page loading",
   );
   Object.assign(bar.style, {
     background: "var(--color-primary)",

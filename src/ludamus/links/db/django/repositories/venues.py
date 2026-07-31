@@ -506,7 +506,7 @@ class TrackRepository(TrackRepositoryProtocol):
         )
         tracks = {
             track.pk: TrackDTO.model_validate(track)
-            for track in Track.objects.filter(sessions__pk__in=session_ids)
+            for track in Track.objects.filter(sessions__pk__in=session_ids).distinct()
         }
         result: dict[int, list[TrackDTO]] = {}
         for session_pk, track_pk in pairs:

@@ -11,6 +11,9 @@
 {% block title_suffix %}
 {% endblock title_suffix %}
 {% block extra_head %}
+    {# The nav progress bar builds its DOM in JS; ship its one label through #}
+    {# the translation catalog instead of hardcoding locale logic client-side. #}
+    <meta name="nav-progress-label" content="{% translate "Page loading" %}">
     <script>
         (function() {
             try {

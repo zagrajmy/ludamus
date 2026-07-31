@@ -493,7 +493,7 @@ class ConflictDetectionService:
         if subject is None:
             raise NotFoundError
         limits = self._uow.sessions.read_participants_limits({session_pk})
-        return self._detect(subject, context, limits=limits)
+        return self._detect(subject, context, limit=limits.get(session_pk, 0))
 
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
@@ -517,7 +517,9 @@ class ConflictDetectionService:
         all_conflicts: list[ConflictDTO] = []
         seen: set[tuple[int, int]] = set()
         for item in subjects:
-            for conflict in self._detect(item, context, limits=limits):
+            for conflict in self._detect(
+                item, context, limit=limits.get(item.session_id, 0)
+            ):
                 key = (item.session_id, conflict.session_pk)
                 reverse_key = (conflict.session_pk, item.session_id)
                 if key not in seen and reverse_key not in seen:
@@ -546,20 +548,14 @@ class ConflictDetectionService:
         )
 
     def _detect(
-        self,
-        item: AgendaItemDTO,
-        context: _EventConflictContext,
-        *,
-        limits: dict[int, int],
+        self, item: AgendaItemDTO, context: _EventConflictContext, *, limit: int
     ) -> list[ConflictDTO]:
         # The space->event invariant is enforced when assignments are created
         # but not by the database, so a stale row degrades to a skipped
         # capacity warning instead of a 500 on the whole grid.
         return [
             *self._space_conflicts(item, context.items_by_space),
-            *self._capacity_conflicts(
-                item, context.spaces.get(item.space_id), limits.get(item.session_id, 0)
-            ),
+            *self._capacity_conflicts(item, context.spaces.get(item.space_id), limit),
             *self._facilitator_conflicts(
                 item, context.facilitators_by_session, context.items_by_facilitator
             ),

@@ -2856,6 +2856,10 @@ msgstr "Aktywne"
 msgid "Participants limit"
 msgstr "Limit uczestników"
 
+#: src/ludamus/templates/panel/base.html
+msgid "Page loading"
+msgstr "Ładowanie strony"
+
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/facilitator-columns.html

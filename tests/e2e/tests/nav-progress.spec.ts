@@ -7,8 +7,9 @@ import { expect, test } from "./helpers/fixtures";
 // user perceives: a loading progressbar during a slow request, none once the
 // response lands.
 
-const bar = (page: import("@playwright/test").Page) =>
-  page.getByRole("progressbar", { name: /loading/i });
+// No name filter: the accessible label is localized, and the panel has only
+// one progressbar.
+const bar = (page: import("@playwright/test").Page) => page.getByRole("progressbar");
 
 test.describe("panel navigation progress bar", () => {
   test.beforeEach(async ({ page }) => {
