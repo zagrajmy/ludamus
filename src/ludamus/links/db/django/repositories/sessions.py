@@ -45,6 +45,7 @@ from ludamus.pacts import (
     SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
+    TrackSessionCountsDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
@@ -208,12 +209,15 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
+        # add(), not set(): the session is brand new, so there is nothing to
+        # diff against — set() would first read back the (empty) relation,
+        # which turns bulk imports into a query per created session.
         if time_slot_ids:
-            session.time_slots.set(time_slot_ids)
+            session.time_slots.add(*time_slot_ids)
         if facilitator_ids:
-            session.facilitators.set(facilitator_ids)
+            session.facilitators.add(*facilitator_ids)
         if track_ids:
-            session.tracks.set(track_ids)
+            session.tracks.add(*track_ids)
         return session.pk
 
     @staticmethod
@@ -673,6 +677,31 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         SessionFieldValue.objects.filter(session_id=session_id).delete()
 
     @staticmethod
+    def read_facilitators_by_sessions(
+        session_ids: Iterable[int],
+    ) -> dict[int, list[FacilitatorDTO]]:
+        ids = list(session_ids)
+        rows = (
+            Session.facilitators.through.objects.filter(session_id__in=ids)
+            .select_related("facilitator")
+            .order_by("facilitator__display_name")
+        )
+        result: dict[int, list[FacilitatorDTO]] = {sid: [] for sid in ids}
+        for row in rows:
+            result[row.session_id].append(
+                FacilitatorDTO.model_validate(row.facilitator)
+            )
+        return result
+
+    @staticmethod
+    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
+        return dict(
+            Session.objects.filter(pk__in=session_ids).values_list(
+                "pk", "participants_limit"
+            )
+        )
+
+    @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
         try:
             session = Session.objects.get(pk=session_id)
@@ -680,6 +709,42 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
         return [FacilitatorDTO.model_validate(f) for f in session.facilitators.all()]
+
+    @staticmethod
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
+        rows = (
+            Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
+            .values("tracks__pk")
+            .annotate(
+                pending=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.PENDING)
+                ),
+                accepted=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ACCEPTED)
+                ),
+                scheduled=Count(
+                    "pk",
+                    distinct=True,
+                    filter=Q(status=SessionStatus.ACCEPTED, agenda_item__isnull=False),
+                ),
+                on_hold=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ON_HOLD)
+                ),
+                rejected=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.REJECTED)
+                ),
+            )
+        )
+        return {
+            row["tracks__pk"]: TrackSessionCountsDTO(
+                pending=row["pending"],
+                accepted=row["accepted"],
+                scheduled=row["scheduled"],
+                on_hold=row["on_hold"],
+                rejected=row["rejected"],
+            )
+            for row in rows
+        }
 
     @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:

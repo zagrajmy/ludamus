@@ -11,6 +11,10 @@
 {% block title_suffix %}
 {% endblock title_suffix %}
 {% block extra_head %}
+    {# The nav progress bar builds its DOM in JS; ship its one label through #}
+    {# the translation catalog instead of hardcoding locale logic client-side. #}
+    {% translate "Page loading" as nav_progress_label %}
+    <meta name="nav-progress-label" content="{{ nav_progress_label }}">
     <script>
         (function() {
             try {
@@ -378,6 +382,7 @@
     </main>
 </div>
 {% vite_asset 'src/info-popover.ts' %}
+{% vite_asset 'src/nav-progress.ts' %}
 <script type="module">
     document.addEventListener('keydown', e => {
         if (e.key !== 'Escape') return;

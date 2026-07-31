@@ -42,6 +42,7 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.event import EventConfirmationsService, EventPanelService
+from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -53,6 +54,7 @@ from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
@@ -67,9 +69,11 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
+from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.submissions import (
     FacilitatorPanelRepos,
     ImportRepos,
@@ -203,6 +207,19 @@ class Services:
             agenda_items=self._repos.agenda_items,
             tracks=self._repos.tracks,
             sessions=self._repos.sessions,
+        )
+
+    @cached_property
+    def event_settings(self) -> EventSettingsService:
+        return EventSettingsService(
+            transaction=self._transaction,
+            repos=EventSettingsRepos(
+                events=self._repos.events,
+                event_settings=self._repos.event_settings,
+                event_proposal_settings=self._repos.event_proposal_settings,
+                proposal_categories=self._repos.proposal_categories,
+                session_fields=self._repos.session_fields,
+            ),
         )
 
     @cached_property
@@ -373,7 +390,17 @@ class Services:
 
     @cached_property
     def discounts(self) -> DiscountsService:
-        return DiscountsService(self._transaction, self._repos.discounts)
+        return DiscountsService(
+            transaction=self._transaction,
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+        )
+
+    @cached_property
+    def proposal_categories(self) -> ProposalCategoriesService:
+        return ProposalCategoriesService(
+            self._transaction, self._repos.proposal_categories
+        )
 
     @cached_property
     def discounts_export(self) -> DiscountsExportService:
@@ -442,6 +469,15 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def tracks_panel(self) -> TracksPanelService:
+        return TracksPanelService(
+            transaction=self._transaction,
+            tracks=self._repos.tracks,
+            spaces=self._repos.spaces,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

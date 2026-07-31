@@ -108,22 +108,6 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         return [_to_dto(item) for item in qs]
 
     @staticmethod
-    def list_overlapping_by_facilitator(
-        facilitator_pk: int,
-        start_time: datetime,
-        end_time: datetime,
-        exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]:
-        qs = AgendaItem.objects.filter(
-            session__facilitators__pk=facilitator_pk,
-            start_time__lt=end_time,
-            end_time__gt=start_time,
-        ).select_related(*_SELECT_RELATED)
-        if exclude_session_pk is not None:
-            qs = qs.exclude(session_id=exclude_session_pk)
-        return [_to_dto(item) for item in qs]
-
-    @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None:
         AgendaItem.objects.filter(pk=pk).update(**data)
 
