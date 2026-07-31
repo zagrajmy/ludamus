@@ -20,22 +20,28 @@ test.describe("panel navigation progress bar", () => {
     await expect(page).toHaveURL(/\/panel\/event\/[\w-]+\//);
   });
 
-  test("appears while a slow full-page navigation is pending", async ({ page }) => {
-    // Hold the proposals page response long enough for the bar to pass its
-    // anti-flicker delay while the old page is still on screen.
+  test("appears while a full-page navigation is pending", async ({ page }) => {
+    // Locator assertions wait out an in-flight navigation before they query
+    // the page, so the bar cannot be observed mid-flight. Cancel the
+    // navigation instead: the old document — and the bar the click started —
+    // survives a cancelled navigation, and only the 30s failsafe clears it.
     await page.route("**/proposals/", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await route.continue();
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.abort("aborted");
     });
 
-    // click() auto-waits for the navigation it triggers, and the bar lives
-    // only in the old document while that navigation is pending — so assert
-    // mid-flight and await the click after.
-    const navigation = page.getByRole("link", { name: "Proposals", exact: true }).click();
+    const navigation = page
+      .getByRole("link", { name: "Proposals", exact: true })
+      .click()
+      .catch(() => {
+        // The click's navigation wait may reject when the request aborts.
+      });
     await expect(bar(page)).toBeVisible();
     await navigation;
 
-    // The new document replaces the old one, bar included.
+    // A navigation that lands replaces the document, bar included.
+    await page.unroute("**/proposals/");
+    await page.getByRole("link", { name: "Proposals", exact: true }).click();
     await expect(page).toHaveURL(/\/proposals\//);
     await expect(bar(page)).toHaveCount(0);
   });
