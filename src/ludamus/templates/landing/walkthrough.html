@@ -40,7 +40,7 @@
         {% include "landing/_walkthrough_tab.html" with tab_id="wt-review" label=t_review number="2" conference_only=True %}
         {% translate "Schedule" as t_schedule %}
         {% include "landing/_walkthrough_tab.html" with tab_id="wt-schedule" label=t_schedule number="3" conference_only=True %}
-        {% translate "Publish" as t_publish %}
+        {% translate "Publish" context "landing walkthrough step" as t_publish %}
         {% include "landing/_walkthrough_tab.html" with tab_id="wt-publish" label=t_publish number="4" %}
         {% translate "Enrollment" as t_enroll %}
         {% include "landing/_walkthrough_tab.html" with tab_id="wt-enroll" label=t_enroll number="5" %}
