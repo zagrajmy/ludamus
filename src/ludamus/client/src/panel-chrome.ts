@@ -3,6 +3,8 @@
 // (htmx evaluates `hx-on:*` bodies via `Function`, which needs it). One
 // document-level listener per event type resolves `[data-action]` on the
 // clicked/changed element, so every control stays declarative markup.
+// Panel-only, loaded from panel/base.html: actions used by shared components
+// or public pages belong in actions.ts, which base.html always loads.
 // Model: src/copy.ts. htmx's ambient type lives in htmx.d.ts.
 
 const toggleSidebar = (): void => {
@@ -37,15 +39,6 @@ const switchEvent = (select: HTMLSelectElement): void => {
   if (url) globalThis.location.assign(url);
 };
 
-const syncExpandedRequired = (box: HTMLInputElement): void => {
-  box.setAttribute("aria-expanded", box.checked ? "true" : "false");
-  const id = box.dataset.requiredTarget;
-  const field = id ? document.getElementById(id) : null;
-  if (!field) return;
-  if (box.checked) field.setAttribute("aria-required", "true");
-  else field.removeAttribute("aria-required");
-};
-
 document.addEventListener("click", (e) => {
   const el = (e.target as Element | null)?.closest<HTMLElement>("[data-action]");
   if (!el) return;
@@ -70,9 +63,6 @@ document.addEventListener("change", (e) => {
   switch (el.dataset.action) {
     case "switch-event":
       switchEvent(el as HTMLSelectElement);
-      break;
-    case "sync-expanded-required":
-      syncExpandedRequired(el as HTMLInputElement);
       break;
     default:
       break;

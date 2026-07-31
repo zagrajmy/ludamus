@@ -35,6 +35,7 @@ export default defineConfig({
     outDir: resolve(rootDir, "../static/vite"),
     rollupOptions: {
       input: {
+        actions: resolve(rootDir, "src/actions.ts"),
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),

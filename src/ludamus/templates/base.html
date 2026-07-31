@@ -1,3 +1,4 @@
+{% load csp_tags %}
 {% load i18n %}
 {% load static %}
 {% load django_vite %}
@@ -60,20 +61,11 @@
         <link rel="alternate icon"
               type="image/x-icon"
               href="{% static 'favicon.ico' %}">
-        {% comment %}
-        Theme + favicon initialization (before CSS to prevent flash). This is
-        the first inline script on every page that extends base.html, so its
-        "is not None" guard (not a plain truthy guard) is what forces the
-        CSP nonce to actually generate: Django's LazyNonce is falsy until
-        read, so a plain truthy guard alone would never read it and the
-        nonce would never materialize. "is not None" still renders no
-        attribute when csp_nonce is absent entirely (e.g. a template
-        rendered outside the request/CSP-middleware context), but forces
-        generation the first time a real request's nonce placeholder is
-        checked — every later guarded script on the page then reuses that
-        same cached value.
-        {% endcomment %}
-        <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
+        {% comment %}Theme + favicon initialization (before CSS to prevent
+        flash). Also the first nonce tag on every page that extends base.html,
+        which is what generates the request's CSP nonce — every later script
+        reuses it.{% endcomment %}
+        <script{% nonce %}>
             (function() {
                 var theme = localStorage.getItem('theme');
                 if (theme === 'light') {
@@ -176,6 +168,7 @@
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
+        {% vite_asset 'src/actions.ts' %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         {% vite_asset 'src/sound.ts' %}

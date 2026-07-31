@@ -2,6 +2,7 @@ import re
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.urls import reverse
 
 from ludamus.adapters.web.django.views import EventsPageView
@@ -18,47 +19,50 @@ def _directive(*, header: str, name: str) -> str:
     return match.group(1)
 
 
-class TestCSPEnforceHeader:
+def _assert_body_nonce_matches_header(response) -> None:
+    script_src = _directive(header=response.headers[ENFORCE_HEADER], name="script-src")
+    assert "'unsafe-inline'" not in script_src
+    match = re.search(r"'nonce-([^']+)'", script_src)
+    assert match, f"no nonce token in script-src: {script_src!r}"
+    body_nonces = set(re.findall(r'nonce="([^"]+)"', response.content.decode()))
+    assert body_nonces == {match.group(1)}
+
+
+@pytest.fixture(name="enforced_header")
+def enforced_header_fixture(client, settings) -> str:
     # The middleware stamps every response, so the index redirect is the
     # simplest surface to assert headers on without replicating a rendered
     # page's full context.
-    URL = reverse("web:index")
+    settings.SECURE_CSP = CSP_POLICY
 
-    def test_header_sent_when_production_policy_active(self, client, settings):
-        settings.SECURE_CSP = CSP_POLICY
+    response = client.get(reverse("web:index"))
 
-        response = client.get(self.URL)
+    assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+    assert REPORT_ONLY_HEADER not in response.headers
+    return response.headers[ENFORCE_HEADER]
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
-        header = response.headers[ENFORCE_HEADER]
-        assert "default-src 'self'" in header
-        assert "unsafe-eval" not in header
-        assert "img-src 'self' data: https:" in header
-        assert "frame-ancestors 'none'" in header
-        assert REPORT_ONLY_HEADER not in response.headers
 
-    def test_style_src_keeps_unsafe_inline(self, client, settings):
-        settings.SECURE_CSP = CSP_POLICY
+class TestCSPEnforceHeader:
+    def test_header_sent_when_production_policy_active(self, enforced_header):
+        assert "default-src 'self'" in enforced_header
+        assert "unsafe-eval" not in enforced_header
+        assert "img-src 'self' data: https:" in enforced_header
+        assert "frame-ancestors 'none'" in enforced_header
 
-        response = client.get(self.URL)
+    def test_style_src_keeps_unsafe_inline(self, enforced_header):
+        assert "'unsafe-inline'" in _directive(header=enforced_header, name="style-src")
 
-        header = response.headers[ENFORCE_HEADER]
-        assert "'unsafe-inline'" in _directive(header=header, name="style-src")
-
-    def test_script_src_has_no_unsafe_inline(self, client, settings):
-        settings.SECURE_CSP = CSP_POLICY
-
-        response = client.get(self.URL)
-
-        header = response.headers[ENFORCE_HEADER]
+    def test_script_src_has_no_unsafe_inline(self, enforced_header):
         # No inline script rendered on this redirect (no nonce read yet), so
         # the CSP.NONCE sentinel is dropped rather than substituted — see
         # test_nonce_in_header_matches_nonce_rendered_in_page for the
         # nonce-carrying case. Either way, 'unsafe-inline' must never appear.
-        assert "'unsafe-inline'" not in _directive(header=header, name="script-src")
+        assert "'unsafe-inline'" not in _directive(
+            header=enforced_header, name="script-src"
+        )
 
     def test_no_csp_headers_by_default(self, client):
-        response = client.get(self.URL)
+        response = client.get(reverse("web:index"))
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
         assert REPORT_ONLY_HEADER not in response.headers
@@ -87,15 +91,7 @@ class TestCSPNonce:
             },
             template_name=["index.html"],
         )
-        header = response.headers[ENFORCE_HEADER]
-        script_src = _directive(header=header, name="script-src")
-        assert "'unsafe-inline'" not in script_src
-        header_nonce_match = re.search(r"'nonce-([^']+)'", script_src)
-        assert header_nonce_match, f"no nonce token in script-src: {script_src!r}"
-
-        body = response.content.decode()
-        body_nonces = set(re.findall(r'nonce="([^"]+)"', body))
-        assert body_nonces == {header_nonce_match.group(1)}
+        _assert_body_nonce_matches_header(response)
 
 
 class TestCSP500PageNonce:
@@ -138,11 +134,4 @@ class TestCSP500PageNonce:
             },
             template_name="500_dynamic.html",
         )
-        header = response.headers[ENFORCE_HEADER]
-        script_src = _directive(header=header, name="script-src")
-        header_nonce_match = re.search(r"'nonce-([^']+)'", script_src)
-        assert header_nonce_match, f"no nonce token in script-src: {script_src!r}"
-
-        body = response.content.decode()
-        body_nonces = set(re.findall(r'nonce="([^"]+)"', body))
-        assert body_nonces == {header_nonce_match.group(1)}
+        _assert_body_nonce_matches_header(response)

@@ -1,4 +1,5 @@
-<script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
+{% load csp_tags %}
+<script{% nonce %}>
     var MEDIA = '(prefers-color-scheme: dark)';
 
     function disableTransitions() {

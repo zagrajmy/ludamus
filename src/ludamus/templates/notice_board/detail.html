@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load csp_tags %}
 {% load i18n tessera date_tags %}
 {% load meta_tags %}
 {% block title %}
@@ -231,7 +232,7 @@
             {% endif %}
         </div>
     </div>
-    <script {% if csp_nonce is not None %} nonce="{{ csp_nonce }}"{% endif %}>
+    <script{% nonce %}>
         (function() {
             var el = document.getElementById('encounter-countdown');
             if (!el) return;

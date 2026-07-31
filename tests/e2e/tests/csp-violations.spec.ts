@@ -1,52 +1,36 @@
 import { type Page } from "@playwright/test";
 
+import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
 import { expect, test } from "./helpers/fixtures";
-
-// Proves the enforcing CSP (script-src 'self' 'nonce-…', no unsafe-inline,
-// no unsafe-eval — see plan 019 and settings.CSP_POLICY) doesn't block any
-// legitimate script on the pages that carry inline <script> tags or htmx
-// hx-on-turned-data-action behavior. .env.e2e sets ENABLE_CSP=true so this
-// server actually sends the same header production does, not report-only:
-// a report-only policy never blocks anything, so it couldn't catch a
-// regression here.
-//
-// Each page installs a collector for the `securitypolicyviolation` DOM
-// event before any script runs (via addInitScript, so it can't miss an
-// event fired during the very first paint), then asserts the collected
-// list is empty after the page has settled and, where relevant, after a
-// user interaction that exercises the page's inline script or delegated
-// panel-chrome.ts / htmx behavior.
-
-interface CollectedViolation {
-  blockedURI: string;
-  violatedDirective: string;
-  sourceFile: string;
-  lineNumber: number;
-}
 
 declare global {
   interface Window {
-    __cspViolations: CollectedViolation[];
+    __printCalls: number;
   }
 }
 
-const installCspViolationCollector = (page: Page): Promise<void> =>
+// Print buttons can't be clicked for real (a print dialog would block the run),
+// and a no-op stub also lets a test assert the handler actually fired.
+const stubPrint = (page: Page): Promise<void> =>
   page.addInitScript(() => {
-    window.__cspViolations = [];
-    document.addEventListener("securitypolicyviolation", (e) => {
-      window.__cspViolations.push({
-        blockedURI: e.blockedURI,
-        violatedDirective: e.violatedDirective,
-        sourceFile: e.sourceFile,
-        lineNumber: e.lineNumber,
-      });
-    });
+    window.__printCalls = 0;
+    window.print = () => {
+      window.__printCalls += 1;
+    };
   });
 
-const assertNoCspViolations = async (page: Page): Promise<void> => {
-  const violations = await page.evaluate(() => window.__cspViolations);
-  expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
-};
+// Proves the enforcing CSP (script-src 'self' 'nonce-…', no unsafe-inline,
+// no unsafe-eval — see plan 019 and settings.CSP_POLICY) doesn't block any
+// legitimate script on the pages that carry inline <script> tags or behavior
+// that used to live in an inline event-handler attribute (which a nonce can
+// never cover, so those became data-action/data-autosubmit + actions.ts).
+//
+// Each test installs the violation collector, then asserts the collected list
+// is empty after the page has settled and, where relevant, after a user
+// interaction that exercises the page's inline script or a delegated
+// actions.ts / panel-chrome.ts / htmx handler. Interactions matter: a blocked
+// handler leaves the markup intact and fails silently, so a load-only sweep
+// would miss it.
 
 test.describe("CSP enforcement doesn't break legitimate scripts", () => {
   test("public event list", async ({ page }) => {
@@ -55,6 +39,33 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     await page.goto("/events/");
     await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
 
+    await assertNoCspViolations(page);
+  });
+
+  test("dense event page, whose compact schedule ships its own inline script", async ({ page }) => {
+    await installCspViolationCollector(page);
+
+    // chronology/_compact_schedule.html renders only above
+    // COMPACT_SCHEDULE_MIN_SESSIONS, so the regular event detail test below
+    // takes the card branch and never loads this page's scroll-restore
+    // script.
+    await page.goto("/chronology/event/kapitularz-2025-anonymized/");
+    await expect(page.getByRole("navigation", { name: "Jump to time" })).toBeVisible();
+
+    await assertNoCspViolations(page);
+  });
+
+  test("public print page's Print button", async ({ page }) => {
+    await installCspViolationCollector(page);
+    await stubPrint(page);
+
+    await page.goto("/event/kapitularz-2025-anonymized/print/");
+    await page.getByRole("button", { name: "Print", exact: true }).click();
+
+    // Was onclick="window.print()" — an attribute no nonce can cover, so the
+    // button was inert under the enforcing header. Asserting the call, not
+    // just the absence of a violation: a dropped data-action would be silent.
+    expect(await page.evaluate(() => window.__printCalls)).toBe(1);
     await assertNoCspViolations(page);
   });
 
@@ -121,6 +132,76 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     await page.getByRole("button", { name: "Add" }).click();
     await expect(page.locator("#durations-list .duration-item")).not.toHaveCount(0);
 
+    await assertNoCspViolations(page);
+  });
+});
+
+// Panel pages whose behavior used to live in an inline event-handler
+// attribute. Each of these fails silently when blocked — the control is still
+// there, it just stops doing anything — so every test drives the control and
+// asserts the effect, not merely the absence of a violation.
+test.describe("CSP enforcement doesn't break converted inline handlers", () => {
+  test.beforeEach(async ({ page }) => {
+    await installCspViolationCollector(page);
+    await stubPrint(page);
+    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Username:").fill("e2e-manager");
+    await page.getByLabel("Password:").fill("e2e-manager-123");
+    await page.getByRole("button", { name: /Log in/i }).click();
+  });
+
+  test("proposals track filter submits its form", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/proposals/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    // "Multiple tracks" is a static option, so this doesn't depend on which
+    // tracks the fixtures seed.
+    await page.getByLabel("Track").selectOption("multi");
+
+    await expect(page).toHaveURL(/[?&]track=multi/);
+    await assertNoCspViolations(page);
+  });
+
+  test("timetable log room filter submits its form", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/log/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const room = page.getByLabel("Room");
+    const value = await room.locator("option").nth(1).getAttribute("value");
+    await room.selectOption(value);
+
+    await expect(page).toHaveURL(new RegExp(`[?&]space=${value}`));
+    await assertNoCspViolations(page);
+  });
+
+  test("print-scope picker opens the scoped printout in a new tab", async ({ page }) => {
+    await page.goto("/panel/event/kapitularz-2025-anonymized/print/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const scope = page.getByLabel("Print timetable for a venue or area");
+    const [popup] = await Promise.all([
+      page.waitForEvent("popup"),
+      scope.selectOption({ index: 1 }),
+    ]);
+
+    await expect(popup).toHaveURL(/[?&]scope=\d+/);
+    await popup.close();
+    // The picker resets itself so the same scope can be opened twice.
+    await expect(scope).toHaveValue("");
+    await assertNoCspViolations(page);
+  });
+
+  test("panel printout's Print button", async ({ page }) => {
+    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/timetable/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await page.getByRole("button", { name: "Print", exact: true }).click();
+
+    expect(await page.evaluate(() => window.__printCalls)).toBe(1);
     await assertNoCspViolations(page);
   });
 });
