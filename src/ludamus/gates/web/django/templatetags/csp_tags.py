@@ -1,5 +1,3 @@
-"""CSP nonce attribute for inline ``<script>`` tags."""
-
 from typing import TYPE_CHECKING
 
 from django import template
@@ -14,15 +12,7 @@ register = template.Library()
 
 @register.simple_tag(takes_context=True)
 def nonce(context: Context) -> SafeString:
-    """Render ``nonce="…"`` (with a leading space) for an inline script.
-
-    Returns:
-        The nonce attribute, or an empty string outside a CSP-middleware
-        request.
-
-    Usage:
-        <script{% nonce %}>
-    """
+    # Renders ` nonce="…"` (leading space) for `<script{% nonce %}>`.
     # Deliberately `is None`, not a truthy check. Django's LazyNonce is falsy
     # until it is read, and reading it is what generates the value the CSP
     # header ends up carrying. A truthy guard would therefore never read it:
