@@ -6,15 +6,17 @@ import pytest
 from pydantic import BaseModel
 
 from ludamus.mills.chronology import (
-    ConflictDetectionService,
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
     ProposalAcceptanceService,
     SessionConfirmationService,
     SessionContentEditService,
-    TimetableOverviewService,
 )
-from ludamus.mills.timetable import TimetableService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.pacts import (
     AgendaItemDTO,
     EventDTO,
@@ -26,6 +28,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpaceDTO,
     TimeSlotDTO,
+    TrackStatusCountDTO,
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
@@ -851,52 +854,140 @@ class TestSessionConfirmation:
         agenda_items.confirm_all_by_track.assert_not_called()
 
 
-class TestListAllForTrackAttribution:
-    def test_no_other_tracks_returns_conflict_unchanged(self):
-        """Lines 351, 353: filtering removes current track, leaving empty list."""
+def _facilitator(pk, display_name="Alice"):
+    facilitator = MagicMock()
+    facilitator.pk = pk
+    facilitator.display_name = display_name
+    return facilitator
+
+
+def _track_stub(pk, name="Track"):
+    track = MagicMock()
+    track.pk = pk
+    track.name = name
+    return track
+
+
+_SUBJECT_SESSION_PK = 10
+_OTHER_SESSION_PK = 20
+_ROOM_CAPACITY = 10
+_SESSION_LIMIT = 25
+
+
+class TestListAllForTrack:
+    """Batched conflict detection: repos are hit once, overlaps found in memory."""
+
+    @staticmethod
+    def _uow(*, all_items, subjects=None, spaces=(), limits=None, facilitators=None):
         uow = MagicMock()
-        current_track_pk = 5
-
-        item = _make_item(
-            pk=1,
-            session_id=10,
-            space_id=1,
-            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
-            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        uow.agenda_items.list_by_event.return_value = all_items
+        uow.agenda_items.list_by_track.return_value = (
+            all_items if subjects is None else subjects
         )
-        uow.agenda_items.list_by_track.return_value = [item]
+        uow.spaces.list_by_event.return_value = list(spaces)
+        uow.sessions.read_participants_limits.return_value = limits or {}
+        uow.sessions.read_facilitators_by_sessions.return_value = facilitators or {}
+        uow.tracks.list_by_sessions.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        return uow
 
-        session = MagicMock()
-        session.participants_limit = 5
-        session.title = "Subject"
-        uow.sessions.read.return_value = session
+    def test_space_overlap_detected_and_deduplicated(self):
+        first = _make_item(pk=1, session_id=10, space_id=1, session_title="First")
+        second = _make_item(pk=2, session_id=20, space_id=1, session_title="Second")
+        uow = self._uow(all_items=[first, second])
 
-        space = MagicMock()
-        space.capacity = None
-        uow.spaces.read.return_value = space
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=None
+        )
 
-        facilitator = MagicMock()
-        facilitator.pk = 1
-        facilitator.display_name = "Alice"
-        uow.sessions.read_facilitators.return_value = [facilitator]
+        # One conflict for the pair, not one per direction.
+        assert len(conflicts) == 1
+        assert conflicts[0].type == ConflictType.SPACE_OVERLAP
+        assert conflicts[0].subject_session_pk == _SUBJECT_SESSION_PK
+        assert conflicts[0].session_pk == _OTHER_SESSION_PK
 
-        overlap_item = _make_item(
+    def test_disjoint_times_in_same_space_do_not_conflict(self):
+        first = _make_item(pk=1, session_id=10, space_id=1)
+        second = _make_item(
             pk=2,
             session_id=20,
             space_id=1,
-            session_title="Other",
-            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
-            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            start_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
         )
-        uow.agenda_items.list_overlapping_in_space.return_value = []
-        uow.agenda_items.list_overlapping_by_facilitator.return_value = [overlap_item]
+        uow = self._uow(all_items=[first, second])
 
-        track = MagicMock()
-        track.pk = current_track_pk
-        uow.tracks.list_by_session.return_value = [track]
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=None
+        )
 
-        svc = ConflictDetectionService(uow)
-        conflicts = svc.list_all_for_track(event_pk=1, track_pk=current_track_pk)
+        assert conflicts == []
+
+    def test_capacity_exceeded_uses_batched_limits(self):
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=_ROOM_CAPACITY,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        item = _make_item(pk=1, session_id=10, space_id=1)
+        uow = self._uow(all_items=[item], spaces=[space], limits={10: _SESSION_LIMIT})
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=None
+        )
+
+        assert len(conflicts) == 1
+        assert conflicts[0].type == ConflictType.CAPACITY_EXCEEDED
+        assert conflicts[0].space_capacity == _ROOM_CAPACITY
+        assert conflicts[0].session_limit == _SESSION_LIMIT
+
+    def test_facilitator_overlap_across_tracks_gets_attribution(self):
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        shared = _facilitator(7)
+        uow = self._uow(
+            all_items=[subject, other],
+            subjects=[subject],
+            facilitators={10: [shared], 20: [shared]},
+        )
+        uow.tracks.list_by_sessions.return_value = {20: [_track_stub(6, "Board games")]}
+        uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=5
+        )
+
+        assert len(conflicts) == 1
+        conflict = conflicts[0]
+        assert conflict.type == ConflictType.FACILITATOR_OVERLAP
+        assert conflict.facilitator_name == "Alice"
+        assert conflict.track_name == "Board games"
+        assert conflict.manager_names == ["Basia"]
+        uow.tracks.list_by_sessions.assert_called_once_with({20})
+        uow.tracks.list_manager_names_by_tracks.assert_called_once_with({6})
+
+    def test_no_other_tracks_returns_conflict_unchanged(self):
+        # Attribution filtering removes the current track, leaving nothing to
+        # attribute the clash to.
+        current_track_pk = 5
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        shared = _facilitator(7)
+        uow = self._uow(
+            all_items=[subject, other],
+            subjects=[subject],
+            facilitators={10: [shared], 20: [shared]},
+        )
+        uow.tracks.list_by_sessions.return_value = {20: [_track_stub(current_track_pk)]}
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=current_track_pk
+        )
 
         facilitator_conflicts = [
             c for c in conflicts if c.type == ConflictType.FACILITATOR_OVERLAP
@@ -905,6 +996,74 @@ class TestListAllForTrackAttribution:
         for conflict in facilitator_conflicts:
             assert conflict.track_name is None
             assert conflict.manager_names == []
+
+    def test_no_per_item_repo_calls(self):
+        items = [
+            _make_item(pk=n, session_id=n * 10, space_id=n, session_title=f"S{n}")
+            for n in range(1, 6)
+        ]
+        uow = self._uow(all_items=items)
+
+        ConflictDetectionService(uow).list_all_for_track(event_pk=1, track_pk=None)
+
+        uow.sessions.read.assert_not_called()
+        uow.sessions.read_facilitators.assert_not_called()
+        uow.spaces.read.assert_not_called()
+        uow.agenda_items.list_overlapping_in_space.assert_not_called()
+        uow.agenda_items.list_overlapping_by_facilitator.assert_not_called()
+        uow.sessions.read_participants_limits.assert_called_once()
+        uow.sessions.read_facilitators_by_sessions.assert_called_once()
+
+
+class TestTrackProgress:
+    def test_counts_come_from_one_aggregate(self):
+        accepted, scheduled, pending, rejected = 4, 3, 2, 1
+        uow = MagicMock()
+        uow.tracks.list_by_event.return_value = [
+            _track_stub(1, "RPG"),
+            _track_stub(2, "Board games"),
+        ]
+        uow.sessions.count_by_track_and_status.return_value = [
+            TrackStatusCountDTO(
+                track_pk=1,
+                status=SessionStatus.ACCEPTED,
+                total=accepted,
+                scheduled=scheduled,
+            ),
+            TrackStatusCountDTO(
+                track_pk=1, status=SessionStatus.PENDING, total=pending, scheduled=0
+            ),
+            TrackStatusCountDTO(
+                track_pk=1, status=SessionStatus.REJECTED, total=rejected, scheduled=0
+            ),
+        ]
+        uow.tracks.list_manager_names_by_tracks.return_value = {1: ["Ala"]}
+
+        result = TimetableOverviewService(uow).track_progress(event_pk=1)
+
+        assert [r.track_pk for r in result] == [1, 2]
+        first = result[0]
+        assert first.accepted_count == accepted
+        assert first.scheduled_count == scheduled
+        assert first.pending_count == pending
+        assert first.rejected_count == rejected
+        assert first.on_hold_count == 0
+        assert first.progress_pct == round(scheduled * 100 / (pending + accepted))
+        assert first.manager_names == ["Ala"]
+        second = result[1]
+        assert second.accepted_count == 0
+        assert second.progress_pct == 0
+        assert second.manager_names == []
+        uow.sessions.list_sessions_by_event.assert_not_called()
+        uow.tracks.list_manager_names.assert_not_called()
+
+    def test_no_tracks_short_circuits(self):
+        uow = MagicMock()
+        uow.tracks.list_by_event.return_value = []
+
+        assert TimetableOverviewService(uow).track_progress(event_pk=1) == []
+
+        uow.sessions.count_by_track_and_status.assert_not_called()
 
 
 class TestTimetableOverviewServiceDefaults:

@@ -19,8 +19,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.mills.chronology import ConflictDetectionService, TimetableOverviewService
-from ludamus.mills.timetable import TimetableService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
     NotFoundError,

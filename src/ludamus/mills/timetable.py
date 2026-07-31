@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from ludamus.mills.timeslots import SlotWindow, slot_windows
+from ludamus.mills.timeslots import SlotWindow, slot_windows, slot_windows_by_local_date
 from ludamus.pacts import (
     NotFoundError,
     ScheduleChangeAction,
@@ -11,7 +11,18 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import (
+    CapacityHoursDTO,
+    ConflictDTO,
+    ConflictSeverity,
+    ConflictType,
     DateSelection,
+    HeatmapCellDTO,
+    HeatmapCellStatus,
+    HeatmapDayDTO,
+    HeatmapDTO,
+    HeatmapRowDTO,
+    PreferredSlotRangeDTO,
+    PreferredSlotViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
     SpaceColumnDTO,
@@ -19,6 +30,7 @@ from ludamus.pacts.chronology import (
     TimeLabelDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
+    TrackProgressDTO,
 )
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
@@ -27,7 +39,14 @@ from ludamus.specs.timetable import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import AgendaItemDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
+    from ludamus.pacts import (
+        AgendaItemDTO,
+        FacilitatorDTO,
+        SpaceDTO,
+        TimeSlotDTO,
+        TrackStatusCountDTO,
+        UnitOfWorkProtocol,
+    )
 
 _WINDOWS_ACROSS_ONE_MIDNIGHT = 2
 
@@ -432,3 +451,481 @@ class TimetableService:
                 revert_log["new_start_time"] = log.old_start_time
                 revert_log["new_end_time"] = log.old_end_time
             self._uow.schedule_change_logs.create(revert_log)
+
+
+def _slot_start(slot: TimeSlotDTO) -> datetime:
+    return slot.start_time
+
+
+def _merged_slot_ranges(slots: list[TimeSlotDTO]) -> list[tuple[datetime, datetime]]:
+    merged: list[tuple[datetime, datetime]] = []
+    for slot in sorted(slots, key=_slot_start):
+        if merged and slot.start_time <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], slot.end_time))
+        else:
+            merged.append((slot.start_time, slot.end_time))
+    return merged
+
+
+def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
+    return b.start_time < a.end_time and b.end_time > a.start_time
+
+
+class ConflictDetectionService:
+    def __init__(self, uow: UnitOfWorkProtocol) -> None:
+        self._uow = uow
+
+    def detect_for_assignment(
+        self, session_pk: int, placement: SessionPlacement
+    ) -> list[ConflictDTO]:
+        conflicts: list[ConflictDTO] = []
+        session = self._uow.sessions.read(session_pk)
+        space_pk = placement.space_pk
+        start_time = placement.start_time
+        end_time = placement.end_time
+
+        # Space overlap
+        overlapping_in_space = self._uow.agenda_items.list_overlapping_in_space(
+            space_pk, start_time, end_time, exclude_session_pk=session_pk
+        )
+        conflicts.extend(
+            [
+                ConflictDTO(
+                    type=ConflictType.SPACE_OVERLAP,
+                    severity=ConflictSeverity.ERROR,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
+                    session_title=item.session_title,
+                    session_pk=item.session_id,
+                )
+                for item in overlapping_in_space
+            ]
+        )
+
+        # Capacity exceeded
+        space = self._uow.spaces.read(space_pk)
+        if space.capacity is not None and space.capacity < session.participants_limit:
+            conflicts.append(
+                ConflictDTO(
+                    type=ConflictType.CAPACITY_EXCEEDED,
+                    severity=ConflictSeverity.WARNING,
+                    subject_session_title=session.title,
+                    subject_session_pk=session_pk,
+                    session_title=session.title,
+                    session_pk=session_pk,
+                    space_capacity=space.capacity,
+                    session_limit=session.participants_limit,
+                )
+            )
+
+        # Facilitator overlap
+        facilitators = self._uow.sessions.read_facilitators(session_pk)
+        for facilitator in facilitators:
+            overlapping_for_facilitator = (
+                self._uow.agenda_items.list_overlapping_by_facilitator(
+                    facilitator.pk, start_time, end_time, exclude_session_pk=session_pk
+                )
+            )
+            conflicts.extend(
+                [
+                    ConflictDTO(
+                        type=ConflictType.FACILITATOR_OVERLAP,
+                        severity=ConflictSeverity.ERROR,
+                        subject_session_title=session.title,
+                        subject_session_pk=session_pk,
+                        session_title=item.session_title,
+                        session_pk=item.session_id,
+                        facilitator_name=facilitator.display_name,
+                    )
+                    for item in overlapping_for_facilitator
+                ]
+            )
+
+        return conflicts
+
+    def list_all_for_track(
+        self, event_pk: int, track_pk: int | None
+    ) -> list[ConflictDTO]:
+        # Everything is loaded up front and overlaps are detected in memory:
+        # calling detect_for_assignment per item costs several queries per
+        # scheduled session, which at a big event turns one page load into
+        # thousands of queries. Overlaps are checked against every scheduled
+        # item in the event so a track page still surfaces cross-track clashes.
+        all_items = self._uow.agenda_items.list_by_event(event_pk)
+        subjects = (
+            all_items
+            if track_pk is None
+            else self._uow.agenda_items.list_by_track(track_pk)
+        )
+        if not subjects:
+            return []
+
+        limits = self._uow.sessions.read_participants_limits(
+            {item.session_id for item in subjects}
+        )
+        spaces = {s.pk: s for s in self._uow.spaces.list_by_event(event_pk)}
+        facilitators_by_session = self._uow.sessions.read_facilitators_by_sessions(
+            {item.session_id for item in all_items}
+        )
+
+        items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        items_by_facilitator: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        for item in all_items:
+            items_by_space[item.space_id].append(item)
+            for facilitator in facilitators_by_session.get(item.session_id, []):
+                items_by_facilitator[facilitator.pk].append(item)
+
+        all_conflicts: list[ConflictDTO] = []
+        seen: set[tuple[int, int]] = set()
+        for item in subjects:
+            conflicts = [
+                *self._space_conflicts(item, items_by_space),
+                *self._capacity_conflicts(item, spaces.get(item.space_id), limits),
+                *self._facilitator_conflicts(
+                    item, facilitators_by_session, items_by_facilitator
+                ),
+            ]
+            for conflict in conflicts:
+                key = (item.session_id, conflict.session_pk)
+                reverse_key = (conflict.session_pk, item.session_id)
+                if key not in seen and reverse_key not in seen:
+                    seen.add(key)
+                    all_conflicts.append(conflict)
+
+        return self._add_track_attribution(all_conflicts, track_pk)
+
+    @staticmethod
+    def _space_conflicts(
+        item: AgendaItemDTO, items_by_space: dict[int, list[AgendaItemDTO]]
+    ) -> list[ConflictDTO]:
+        return [
+            ConflictDTO(
+                type=ConflictType.SPACE_OVERLAP,
+                severity=ConflictSeverity.ERROR,
+                subject_session_title=item.session_title,
+                subject_session_pk=item.session_id,
+                session_title=other.session_title,
+                session_pk=other.session_id,
+            )
+            for other in items_by_space.get(item.space_id, [])
+            if other.session_id != item.session_id and _items_overlap(item, other)
+        ]
+
+    @staticmethod
+    def _capacity_conflicts(
+        item: AgendaItemDTO, space: SpaceDTO | None, limits: dict[int, int]
+    ) -> list[ConflictDTO]:
+        limit = limits.get(item.session_id, 0)
+        if space is None or space.capacity is None or space.capacity >= limit:
+            return []
+        return [
+            ConflictDTO(
+                type=ConflictType.CAPACITY_EXCEEDED,
+                severity=ConflictSeverity.WARNING,
+                subject_session_title=item.session_title,
+                subject_session_pk=item.session_id,
+                session_title=item.session_title,
+                session_pk=item.session_id,
+                space_capacity=space.capacity,
+                session_limit=limit,
+            )
+        ]
+
+    @staticmethod
+    def _facilitator_conflicts(
+        item: AgendaItemDTO,
+        facilitators_by_session: dict[int, list[FacilitatorDTO]],
+        items_by_facilitator: dict[int, list[AgendaItemDTO]],
+    ) -> list[ConflictDTO]:
+        return [
+            ConflictDTO(
+                type=ConflictType.FACILITATOR_OVERLAP,
+                severity=ConflictSeverity.ERROR,
+                subject_session_title=item.session_title,
+                subject_session_pk=item.session_id,
+                session_title=other.session_title,
+                session_pk=other.session_id,
+                facilitator_name=facilitator.display_name,
+            )
+            for facilitator in facilitators_by_session.get(item.session_id, [])
+            for other in items_by_facilitator.get(facilitator.pk, [])
+            if other.session_id != item.session_id and _items_overlap(item, other)
+        ]
+
+    def _add_track_attribution(
+        self, conflicts: list[ConflictDTO], current_track_pk: int | None
+    ) -> list[ConflictDTO]:
+        # A facilitator clash is often another track's doing; name that track
+        # and its managers so organizers know whom to talk to.
+        needing = {
+            c.session_pk
+            for c in conflicts
+            if c.type == ConflictType.FACILITATOR_OVERLAP
+        }
+        if not needing:
+            return conflicts
+        tracks_by_session = self._uow.tracks.list_by_sessions(needing)
+        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+            {t.pk for tracks in tracks_by_session.values() for t in tracks}
+        )
+
+        result: list[ConflictDTO] = []
+        for conflict in conflicts:
+            if conflict.type != ConflictType.FACILITATOR_OVERLAP:
+                result.append(conflict)
+                continue
+            other_tracks = tracks_by_session.get(conflict.session_pk, [])
+            if current_track_pk is not None:
+                other_tracks = [t for t in other_tracks if t.pk != current_track_pk]
+            if not other_tracks:
+                result.append(conflict)
+                continue
+            track = other_tracks[0]
+            result.append(
+                ConflictDTO(
+                    type=conflict.type,
+                    severity=conflict.severity,
+                    subject_session_title=conflict.subject_session_title,
+                    subject_session_pk=conflict.subject_session_pk,
+                    session_title=conflict.session_title,
+                    session_pk=conflict.session_pk,
+                    facilitator_name=conflict.facilitator_name,
+                    track_name=track.name,
+                    manager_names=manager_names.get(track.pk, []),
+                )
+            )
+        return result
+
+    def list_preferred_slot_violations(
+        self, event_pk: int, track_pk: int | None
+    ) -> list[PreferredSlotViolationDTO]:
+        scheduled = (
+            self._uow.agenda_items.list_by_event(event_pk)
+            if track_pk is None
+            else self._uow.agenda_items.list_by_track(track_pk)
+        )
+        if not scheduled:
+            return []
+
+        preferred_by_session = self._uow.sessions.read_preferred_time_slots_by_sessions(
+            {item.session_id for item in scheduled}
+        )
+
+        violating: list[tuple[AgendaItemDTO, list[TimeSlotDTO]]] = []
+        for item in scheduled:
+            if not (preferred := preferred_by_session.get(item.session_id, [])):
+                continue
+            if any(
+                start <= item.start_time and end >= item.end_time
+                for start, end in _merged_slot_ranges(preferred)
+            ):
+                continue
+            violating.append((item, preferred))
+        if not violating:
+            return []
+
+        # Attribution batched over all violations — per-session track lookups
+        # made this page O(violations) in queries.
+        tracks_by_session = self._uow.tracks.list_by_sessions(
+            {item.session_id for item, _ in violating}
+        )
+        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+            {t.pk for tracks in tracks_by_session.values() for t in tracks}
+        )
+
+        violations: list[PreferredSlotViolationDTO] = []
+        for item, preferred in violating:
+            tracks = tracks_by_session.get(item.session_id, [])
+            if track_pk is not None:
+                tracks = [t for t in tracks if t.pk != track_pk]
+            violations.append(
+                PreferredSlotViolationDTO(
+                    session_pk=item.session_id,
+                    session_title=item.session_title,
+                    scheduled_start=item.start_time,
+                    scheduled_end=item.end_time,
+                    preferred_slots=[
+                        PreferredSlotRangeDTO(
+                            start_time=slot.start_time, end_time=slot.end_time
+                        )
+                        for slot in preferred
+                    ],
+                    track_name=tracks[0].name if tracks else None,
+                    manager_names=(
+                        manager_names.get(tracks[0].pk, []) if tracks else []
+                    ),
+                )
+            )
+
+        return violations
+
+
+def _duration_hours(start: datetime, end: datetime) -> float:
+    return max((end - start).total_seconds() / 3600, 0.0)
+
+
+def _status_total(
+    counts: dict[SessionStatus, TrackStatusCountDTO], status: SessionStatus
+) -> int:
+    row = counts.get(status)
+    return row.total if row else 0
+
+
+class TimetableOverviewService:
+    def __init__(self, uow: UnitOfWorkProtocol) -> None:
+        self._uow = uow
+
+    def get_all_conflicts(self, event_pk: int) -> list[ConflictDTO]:
+        return ConflictDetectionService(self._uow).list_all_for_track(
+            event_pk, track_pk=None
+        )
+
+    def build_heatmap(
+        self, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
+    ) -> HeatmapDTO:
+        spaces = self._uow.spaces.list_by_event(event_pk)
+        all_items = self._uow.agenda_items.list_by_event(event_pk)
+        if conflicts is None:
+            conflicts = self.get_all_conflicts(event_pk)
+        conflict_session_pks = {c.session_pk for c in conflicts}
+
+        space_pk_set = {s.pk for s in spaces}
+        space_items: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        for item in all_items:
+            if item.space_id in space_pk_set:
+                space_items[item.space_id].append(item)
+
+        windows_by_date = slot_windows_by_local_date(
+            self._uow.time_slots.list_by_event(event_pk), tz
+        )
+
+        slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
+        days: list[HeatmapDayDTO] = []
+        all_rows: list[HeatmapRowDTO] = []
+
+        for day_date in sorted(windows_by_date.keys()):
+            day_windows = windows_by_date[day_date]
+            day_start = min(w[0] for w in day_windows).replace(
+                minute=0, second=0, microsecond=0
+            )
+            latest_end = max(w[1] for w in day_windows)
+            day_end = latest_end.replace(minute=0, second=0, microsecond=0)
+            if latest_end != day_end:
+                day_end += slot_delta
+
+            num_slots = int(
+                (day_end - day_start).total_seconds() / 60 / TIMETABLE_SLOT_MINUTES
+            )
+            day_rows: list[HeatmapRowDTO] = []
+            for i in range(num_slots):
+                slot_time = day_start + slot_delta * i
+                cells = []
+                for space in spaces:
+                    overlapping = next(
+                        (
+                            it
+                            for it in space_items.get(space.pk, [])
+                            if it.start_time <= slot_time < it.end_time
+                        ),
+                        None,
+                    )
+                    if overlapping is None:
+                        status = HeatmapCellStatus.EMPTY
+                    elif overlapping.session_id in conflict_session_pks:
+                        status = HeatmapCellStatus.CONFLICT
+                    else:
+                        status = HeatmapCellStatus.SCHEDULED
+                    cells.append(HeatmapCellDTO(space_pk=space.pk, status=status))
+                day_rows.append(HeatmapRowDTO(time=slot_time, cells=cells))
+
+            days.append(HeatmapDayDTO(date=day_date, rows=day_rows))
+            all_rows.extend(day_rows)
+
+        return HeatmapDTO(spaces=spaces, rows=all_rows, days=days)
+
+    def all_conflicts_grouped(
+        self, event_pk: int, conflicts: list[ConflictDTO] | None = None
+    ) -> dict[str, list[ConflictDTO]]:
+        if conflicts is None:
+            conflicts = self.get_all_conflicts(event_pk)
+        grouped: dict[str, list[ConflictDTO]] = {}
+        for conflict in conflicts:
+            if (key := conflict.type) not in grouped:
+                grouped[key] = []
+            grouped[key].append(conflict)
+        return grouped
+
+    def track_progress(self, event_pk: int) -> list[TrackProgressDTO]:
+        # Counts come from one aggregate query; loading every session row per
+        # track just to count statuses made the overview page O(tracks) in
+        # full-table queries.
+        if not (tracks := self._uow.tracks.list_by_event(event_pk)):
+            return []
+        counts_by_track: dict[int, dict[SessionStatus, TrackStatusCountDTO]] = (
+            defaultdict(dict)
+        )
+        for row in self._uow.sessions.count_by_track_and_status(event_pk):
+            counts_by_track[row.track_pk][row.status] = row
+        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+            {track.pk for track in tracks}
+        )
+
+        result = []
+        for track in tracks:
+            counts = counts_by_track.get(track.pk, {})
+            accepted = counts.get(SessionStatus.ACCEPTED)
+            accepted_count = accepted.total if accepted else 0
+            scheduled_count = accepted.scheduled if accepted else 0
+            pending_count = _status_total(counts, SessionStatus.PENDING)
+            # Progress is measured against the active pool (everything not
+            # rejected / on hold), so pending proposals still awaiting a
+            # decision count as unscheduled program to place.
+            active_count = pending_count + accepted_count
+            progress_pct = (
+                round(scheduled_count * 100 / active_count) if active_count else 0
+            )
+            result.append(
+                TrackProgressDTO(
+                    track_pk=track.pk,
+                    track_name=track.name,
+                    manager_names=manager_names.get(track.pk, []),
+                    accepted_count=accepted_count,
+                    scheduled_count=scheduled_count,
+                    pending_count=pending_count,
+                    on_hold_count=_status_total(counts, SessionStatus.ON_HOLD),
+                    rejected_count=_status_total(counts, SessionStatus.REJECTED),
+                    progress_pct=progress_pct,
+                )
+            )
+        return result
+
+    def capacity_hours(self, event_pk: int) -> CapacityHoursDTO:
+        # Capacity = one program slot per room: every room is bookable for the
+        # whole of each event time slot. Scheduled = hours already occupied by
+        # placed agenda items in those rooms. Hours-to-fill is the remainder.
+        spaces = self._uow.spaces.list_by_event(event_pk)
+        room_count = len(spaces)
+
+        slots = self._uow.time_slots.list_by_event(event_pk)
+        slot_hours = sum(_duration_hours(s.start_time, s.end_time) for s in slots)
+        capacity_hours = slot_hours * room_count
+
+        space_pk_set = {s.pk for s in spaces}
+        scheduled_hours = sum(
+            _duration_hours(item.start_time, item.end_time)
+            for item in self._uow.agenda_items.list_by_event(event_pk)
+            if item.space_id in space_pk_set
+        )
+
+        hours_to_fill = max(capacity_hours - scheduled_hours, 0.0)
+        filled_pct = (
+            round(scheduled_hours * 100 / capacity_hours) if capacity_hours else 0
+        )
+        return CapacityHoursDTO(
+            room_count=room_count,
+            slot_hours=round(slot_hours, 1),
+            capacity_hours=round(capacity_hours, 1),
+            scheduled_hours=round(scheduled_hours, 1),
+            hours_to_fill=round(hours_to_fill, 1),
+            filled_pct=filled_pct,
+        )

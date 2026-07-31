@@ -33,6 +33,7 @@ from ludamus.pacts.venues import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import datetime
 
     from ludamus.links.db.django.models import User
@@ -291,7 +292,12 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             order=space.order,
             depth=1 + sum(1 for _ in space.iter_ancestors()),
             is_leaf=not space.children.exists(),
-            track_names=sorted(t.name for t in space.tracks.all()),
+            # Explicit query, not `space.tracks.all()`: _node also runs on
+            # just-created instances where nothing is prefetched, and a view
+            # can build two nodes per request (parent + new child).
+            track_names=sorted(
+                Track.objects.filter(spaces__pk=space.pk).values_list("name", flat=True)
+            ),
             children=[],
         )
 
@@ -492,9 +498,40 @@ class TrackRepository(TrackRepositoryProtocol):
         return [TrackDTO.model_validate(t) for t in tracks]
 
     @staticmethod
+    def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]:
+        # Two constant queries: the session→track pairs, then the track rows.
+        # (`Session.tracks.through` would be one, but the lazy "Track" reference
+        # in the model leaves the through table untyped for mypy.)
+        pairs = (
+            Session.objects.filter(pk__in=session_ids, tracks__isnull=False)
+            .order_by("tracks__name")
+            .values_list("pk", "tracks__pk")
+        )
+        tracks = {
+            track.pk: TrackDTO.model_validate(track)
+            for track in Track.objects.filter(sessions__pk__in=session_ids)
+        }
+        result: dict[int, list[TrackDTO]] = {}
+        for session_pk, track_pk in pairs:
+            result.setdefault(session_pk, []).append(tracks[track_pk])
+        return result
+
+    @staticmethod
     def list_manager_names(track_pk: int) -> list[str]:
         return list(
             User.objects.filter(managed_tracks__pk=track_pk)
             .order_by("name")
             .values_list("name", flat=True)
         )
+
+    @staticmethod
+    def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:
+        rows = (
+            User.objects.filter(managed_tracks__pk__in=track_pks)
+            .order_by("name")
+            .values_list("managed_tracks__pk", "name")
+        )
+        result: dict[int, list[str]] = {}
+        for track_pk, name in rows:
+            result.setdefault(track_pk, []).append(name)
+        return result
