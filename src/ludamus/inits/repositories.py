@@ -195,3 +195,11 @@ class Repositories:
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:
         return repositories.DiscountRepository()
+
+    @cached_property
+    def encounters(self) -> repositories.EncounterRepository:
+        return repositories.EncounterRepository()
+
+    @cached_property
+    def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
+        return repositories.EncounterRSVPRepository()

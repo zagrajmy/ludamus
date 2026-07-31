@@ -33,6 +33,7 @@ from ludamus.mills.crowd import (
     ProfileService,
 )
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
+from ludamus.mills.encounter import EncounterService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
@@ -49,6 +50,7 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
@@ -66,6 +68,7 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
@@ -206,6 +209,12 @@ class Services:
                 proposal_categories=self._repos.proposal_categories,
                 session_fields=self._repos.session_fields,
             ),
+        )
+
+    @cached_property
+    def panel_time_slots(self) -> PanelTimeSlotsService:
+        return PanelTimeSlotsService(
+            transaction=self._transaction, time_slots=self._repos.time_slots
         )
 
     @cached_property
@@ -384,6 +393,15 @@ class Services:
         )
 
     @cached_property
+    def encounters(self) -> EncounterService:
+        return EncounterService(
+            transaction=self._transaction,
+            encounters=self._repos.encounters,
+            rsvps=self._repos.encounter_rsvps,
+            users=self._repos.active_users,
+        )
+
+    @cached_property
     def event_integrations(self) -> EventIntegrationsService:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
@@ -430,6 +448,15 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def tracks_panel(self) -> TracksPanelService:
+        return TracksPanelService(
+            transaction=self._transaction,
+            tracks=self._repos.tracks,
+            spaces=self._repos.spaces,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

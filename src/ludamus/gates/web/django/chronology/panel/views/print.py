@@ -92,8 +92,9 @@ class TimetablePrintView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def _time_range(self, tz: tzinfo) -> tuple[datetime, datetime] | None:
-        # No (or unparsable) start means the whole event, matching the public
-        # print page's convention of ``?start=…&hours=…`` query params.
+        # No (or unparsable) start means the whole event. The public print page
+        # reads the same ``?start=…&hours=…`` params but defaults differently:
+        # there, hours alone can clip, and missing hours means until event end.
         if not (raw_start := self.request.GET.get("start")):
             return None
         if (parsed := parse_datetime(raw_start)) is None:

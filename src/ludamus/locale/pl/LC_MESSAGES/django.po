@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-29 07:25+0200\n"
+"POT-Creation-Date: 2026-07-29 22:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -537,23 +537,6 @@ msgstr "Goście bez konta"
 msgid "Sphere not found"
 msgstr "Sfera nie została znaleziona."
 
-#: src/ludamus/adapters/web/django/print_views.py
-#: src/ludamus/templates/chronology/print.html
-msgid "Timetable"
-msgstr "Harmonogram"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Timetable with descriptions"
-msgstr "Harmonogram z opisami"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Track timetable"
-msgstr "Harmonogram bloku"
-
-#: src/ludamus/adapters/web/django/print_views.py
-msgid "Session list"
-msgstr "Lista punktów programu"
-
 #: src/ludamus/adapters/web/django/templatetags/enroll_tags.py
 msgid "Already enrolled"
 msgstr "Już zapisany"
@@ -889,8 +872,6 @@ msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/print/timetable.html
 msgid "Time slot"
 msgstr "Przedział czasowy"
 
@@ -1666,6 +1647,18 @@ msgid "Session field deleted successfully."
 msgstr "Pole punktu programu zostało usunięte."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Start must be before end."
+msgstr "Początek musi być przed końcem."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot must be within event dates."
+msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Time slot overlaps with an existing slot."
+msgstr "Przedział czasowy nakłada się na istniejący przedział."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot created successfully."
 msgstr "Przedział czasowy został utworzony."
 
@@ -2173,6 +2166,19 @@ msgstr "Usunięto okno zapisów."
 #: src/ludamus/gates/web/django/event/panel/views/proposal_category_settings.py
 msgid "Category updated successfully."
 msgstr "Kategoria została zaktualizowana."
+
+#: src/ludamus/gates/web/django/event/print.py
+#: src/ludamus/templates/chronology/print.html
+msgid "Timetable"
+msgstr "Harmonogram"
+
+#: src/ludamus/gates/web/django/event/print.py
+msgid "Track timetable"
+msgstr "Harmonogram bloku"
+
+#: src/ludamus/gates/web/django/event/print.py
+msgid "Session list"
+msgstr "Lista punktów programu"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
@@ -3562,8 +3568,10 @@ msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/print/timetable.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Time"
 msgstr "Czas"
@@ -4328,14 +4336,18 @@ msgid "Whole event"
 msgstr "Całe wydarzenie"
 
 #: src/ludamus/templates/chronology/print.html
+msgid "With descriptions"
+msgstr "Z opisami"
+
+#: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Start"
 msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Apply"
-msgstr "Zastosuj"
+msgid "until event end"
+msgstr "do końca wydarzenia"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Table of contents"
@@ -8478,6 +8490,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Apply"
+#~ msgstr "Zastosuj"
 
 #~ msgid "comma separated"
 #~ msgstr "oddzielone przecinkami"
