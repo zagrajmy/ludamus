@@ -55,7 +55,10 @@
                     <span class="shrink-0" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-10" %}
                     </span>
-                    <div class="flex items-center gap-3 flex-wrap min-w-0">
+                    {# flex-1 zeroes this group's flex basis so the outer row never #}
+                    {# wraps it whole — a long room path breaks inside the group, #}
+                    {# under the name, instead of orphaning the avatar on its own row. #}
+                    <div class="flex flex-1 items-center gap-3 flex-wrap min-w-0">
                         <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
                         {% if data.location_label %}
                             <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
