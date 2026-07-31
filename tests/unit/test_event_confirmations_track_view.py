@@ -71,6 +71,18 @@ class FakeFacilitators:
         return self._rows
 
 
+class FakeAgendaCounts:
+    def __init__(self, without_facilitator: int = 0) -> None:
+        self._without_facilitator = without_facilitator
+        self.calls: list[tuple[int, int | None]] = []
+
+    def count_without_facilitator(
+        self, event_pk: int, track_pk: int | None = None
+    ) -> int:
+        self.calls.append((event_pk, track_pk))
+        return self._without_facilitator
+
+
 class FakeSessions:
     def __init__(
         self,
@@ -108,6 +120,7 @@ def _service(
     sessions: list[ConfirmationSessionRow] | None = None,
     track_names: dict[int, dict[int, str]] | None = None,
     facilitator_names: dict[int, dict[int, str]] | None = None,
+    without_facilitator: int = 0,
 ) -> tuple[EventConfirmationsService, FakeFacilitators, FakeSessions]:
     facilitator_repo = FakeFacilitators(
         facilitators if facilitators is not None else [_facilitator()]
@@ -116,7 +129,7 @@ def _service(
     service = EventConfirmationsService(
         transaction=None,
         facilitators=facilitator_repo,
-        agenda_items=None,
+        agenda_items=FakeAgendaCounts(without_facilitator),
         tracks=None,
         sessions=session_repo,
     )
@@ -418,6 +431,15 @@ class TestTrackView:
 
         assert [f.display_name for f in view.facilitators] == ["Ben", "Ada"]
         assert view.facilitators[1].is_fully_confirmed
+
+    def test_reports_the_tracks_sessions_that_have_no_facilitator(self):
+        service, _, _ = _service(without_facilitator=2)
+
+        view = service.track_view(event_pk=1, track_pk=_RPG_TRACK)
+
+        # They cannot appear on any card, so the strip's totals would otherwise
+        # look wrong against the dashboard's per-track row.
+        assert view.without_facilitator_count == _EXPECTED_TWO
 
     def test_progress_counts_the_track_only(self):
         service, _, _ = _service(

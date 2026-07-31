@@ -61,6 +61,7 @@
                 {% tessera_button t_open_schedule href=tab_urls.timetable variant="primary" size="sm" %}
             </div>
         {% endif %}
+        {% include "panel/parts/confirmation-orphan-warning.html" with count=track_view.without_facilitator_count %}
     {% else %}
         <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-xl border border-border bg-bg-tertiary p-3">
@@ -161,20 +162,7 @@
                 </p>
             {% endif %}
         </section>
-        {% if dashboard.without_facilitator_count %}
-            <div class="mt-6 flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-bg p-3 text-sm text-warning-text">
-                {% icon "exclamation-triangle" class="mt-0.5 size-4 shrink-0" %}
-                <span>
-                    {% blocktranslate count count=dashboard.without_facilitator_count trimmed %}
-                        {{ count }} scheduled program item has no facilitator, so it cannot appear on any list here.
-                    {% plural %}
-                        {{ count }} scheduled program items have no facilitator, so they cannot appear on any list here.
-                    {% endblocktranslate %}
-                    <a class="font-semibold underline underline-offset-2"
-                       href="{% url 'panel:timetable' slug=current_event.slug %}">{% translate "Open the schedule" %}</a>
-                </span>
-            </div>
-        {% endif %}
+        {% include "panel/parts/confirmation-orphan-warning.html" with count=dashboard.without_facilitator_count %}
     {% endif %}
 {% end_tab_shell_body %}
 {% end_tab_shell %}

@@ -84,6 +84,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         facilitator_rows = self._facilitators.list_with_scheduled_session_in_track(
             event_pk, track_pk
         )
+        orphans = self._agenda_items.count_without_facilitator(event_pk, track_pk)
         if not facilitator_rows:
             return ConfirmationTrackViewDTO(
                 facilitators=[],
@@ -92,6 +93,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
                 scheduled_count=0,
                 confirmed_count=0,
                 progress_pct=0,
+                without_facilitator_count=orphans,
             )
 
         session_rows = self._sessions.list_confirmation_rows(
@@ -138,6 +140,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             scheduled_count=scheduled,
             confirmed_count=confirmed,
             progress_pct=_progress_pct(confirmed=confirmed, scheduled=scheduled),
+            without_facilitator_count=orphans,
         )
 
     def facilitator_card(

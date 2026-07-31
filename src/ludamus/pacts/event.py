@@ -123,6 +123,9 @@ class ConfirmationTrackViewDTO(BaseModel):
     scheduled_count: int
     confirmed_count: int
     progress_pct: int
+    # Placed in this track but facilitated by nobody, so absent from every card
+    # above — and from the counts. Reported so the two numbers reconcile.
+    without_facilitator_count: int
 
 
 class EventConfirmationsServiceProtocol(Protocol):

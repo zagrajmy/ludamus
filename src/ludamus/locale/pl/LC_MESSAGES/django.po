@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-31 06:44+0200\n"
+"POT-Creation-Date: 2026-07-31 07:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -7281,6 +7281,32 @@ msgstr[2] ""
 msgstr[3] ""
 "%(count)s zaakceptowanego punktu programu jeszcze bez miejsca w harmonogramie"
 
+#: src/ludamus/templates/panel/parts/confirmation-orphan-warning.html
+#, python-format
+msgid ""
+"%(count)s scheduled program item has no facilitator, so it cannot appear on "
+"any list here."
+msgid_plural ""
+"%(count)s scheduled program items have no facilitator, so they cannot appear "
+"on any list here."
+msgstr[0] ""
+"%(count)s punkt programu w harmonogramie nie ma twórcy programu, więc nie "
+"pojawi się na żadnej liście poniżej."
+msgstr[1] ""
+"%(count)s punkty programu w harmonogramie nie mają twórcy programu, więc nie "
+"pojawią się na żadnej liście poniżej."
+msgstr[2] ""
+"%(count)s punktów programu w harmonogramie nie ma twórcy programu, więc nie "
+"pojawią się na żadnej liście poniżej."
+msgstr[3] ""
+"%(count)s punktu programu w harmonogramie nie ma twórcy programu, więc nie "
+"pojawi się na żadnej liście poniżej."
+
+#: src/ludamus/templates/panel/parts/confirmation-orphan-warning.html
+#: src/ludamus/templates/panel/timetable-confirmations.html
+msgid "Open the schedule"
+msgstr "Otwórz harmonogram"
+
 #: src/ludamus/templates/panel/parts/facilitator-picker.html
 msgid "Search by name…"
 msgstr "Szukaj po nazwie…"
@@ -8352,10 +8378,6 @@ msgstr ""
 "Potwierdzenia pojawią się tutaj, kiedy ułożysz punkty programu tego bloku."
 
 #: src/ludamus/templates/panel/timetable-confirmations.html
-msgid "Open the schedule"
-msgstr "Otwórz harmonogram"
-
-#: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "confirmed program items"
 msgstr "potwierdzonych punktów programu"
 
@@ -8396,27 +8418,6 @@ msgstr "Zarządza"
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "No tracks yet — create one to split the program into blocks."
 msgstr "Nie ma jeszcze bloków — utwórz blok, aby podzielić program."
-
-#: src/ludamus/templates/panel/timetable-confirmations.html
-#, python-format
-msgid ""
-"%(count)s scheduled program item has no facilitator, so it cannot appear on "
-"any list here."
-msgid_plural ""
-"%(count)s scheduled program items have no facilitator, so they cannot appear "
-"on any list here."
-msgstr[0] ""
-"%(count)s punkt programu w harmonogramie nie ma twórcy programu, więc nie "
-"pojawi się na żadnej liście poniżej."
-msgstr[1] ""
-"%(count)s punkty programu w harmonogramie nie mają twórcy programu, więc nie "
-"pojawią się na żadnej liście poniżej."
-msgstr[2] ""
-"%(count)s punktów programu w harmonogramie nie ma twórcy programu, więc nie "
-"pojawią się na żadnej liście poniżej."
-msgstr[3] ""
-"%(count)s punktu programu w harmonogramie nie ma twórcy programu, więc nie "
-"pojawi się na żadnej liście poniżej."
 
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Schedule Activity Log"

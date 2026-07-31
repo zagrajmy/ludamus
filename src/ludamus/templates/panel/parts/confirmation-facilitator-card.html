@@ -1,6 +1,8 @@
 {% load i18n tessera confirmation_tags %}
-{# `next_url` comes from the view: on an HTMX re-render the request path is the
-   action endpoint, which would be a useless place to send a claim back to. #}
+{% comment %}
+`next_url` comes from the view: on an HTMX re-render the request path is the
+action endpoint, which would be a useless place to send a claim back to.
+{% endcomment %}
 {% url 'panel:timetable-confirmations-confirm' slug=current_event.slug as confirm_url %}
 <details id="facilitator-card-{{ facilitator.pk }}"
          class="card overflow-hidden {% if facilitator.is_fully_confirmed %}bg-bg-tertiary{% endif %}"

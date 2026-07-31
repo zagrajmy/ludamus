@@ -196,10 +196,13 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         return queryset.update(session_confirmed=confirmed)
 
     @staticmethod
-    def count_without_facilitator(event_pk: int) -> int:
-        return AgendaItem.objects.filter(
+    def count_without_facilitator(event_pk: int, track_pk: int | None = None) -> int:
+        queryset = AgendaItem.objects.filter(
             session__event_id=event_pk, session__facilitators__isnull=True
-        ).count()
+        )
+        if track_pk is not None:
+            queryset = queryset.filter(session__tracks=track_pk)
+        return queryset.count()
 
     @staticmethod
     def delete(pk: int) -> None:
