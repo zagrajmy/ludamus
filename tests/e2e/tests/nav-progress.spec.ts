@@ -24,12 +24,16 @@ test.describe("panel navigation progress bar", () => {
     // Hold the proposals page response long enough for the bar to pass its
     // anti-flicker delay while the old page is still on screen.
     await page.route("**/proposals/", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await route.continue();
     });
 
-    await page.getByRole("link", { name: "Proposals", exact: true }).click();
+    // click() auto-waits for the navigation it triggers, and the bar lives
+    // only in the old document while that navigation is pending — so assert
+    // mid-flight and await the click after.
+    const navigation = page.getByRole("link", { name: "Proposals", exact: true }).click();
     await expect(bar(page)).toBeVisible();
+    await navigation;
 
     // The new document replaces the old one, bar included.
     await expect(page).toHaveURL(/\/proposals\//);
