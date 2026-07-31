@@ -18,6 +18,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
 )
 
 
@@ -80,11 +81,8 @@ class TestTimetableSessionListPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
 
         response = authenticated_client.get(self.get_url(event))
@@ -97,23 +95,12 @@ class TestTimetableSessionListPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        accepted = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        accepted = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
-        pending = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
-        rejected = SessionFactory(
-            category=proposal_category,
-            status="rejected",
-            participants_limit=10,
-            min_age=0,
+        pending = make_timetable_session(proposal_category, participants_limit=10)
+        rejected = make_timetable_session(
+            proposal_category, status="rejected", participants_limit=10
         )
 
         response = authenticated_client.get(self.get_url(event))
@@ -129,11 +116,8 @@ class TestTimetableSessionListPartView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         AgendaItemFactory(
             session=session,
@@ -179,11 +163,8 @@ class TestTimetableSessionListPartView:
     ):
         sphere.managers.add(active_user)
         other_category = ProposalCategoryFactory(event=event)
-        matching = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        matching = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         other = SessionFactory(
             category=other_category, status="accepted", participants_limit=10, min_age=0
@@ -214,11 +195,8 @@ class TestTimetableSessionListPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
 
         response = authenticated_client.get(self.get_url(event))
@@ -237,25 +215,16 @@ class TestTimetableSessionListPartView:
         slot_day_two = TimeSlotFactory(
             event=event, start_time=event.start_time + timedelta(days=1)
         )
-        on_day_one = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        on_day_one = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         on_day_one.time_slots.add(slot_day_one)
-        on_day_two = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        on_day_two = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         on_day_two.time_slots.add(slot_day_two)
-        anytime = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        anytime = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
 
         response = authenticated_client.get(
@@ -272,11 +241,8 @@ class TestTimetableSessionListPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         session.time_slots.add(
             TimeSlotFactory(
@@ -294,11 +260,8 @@ class TestTimetableSessionListPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         session.time_slots.add(
             TimeSlotFactory(

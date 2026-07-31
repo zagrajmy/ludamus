@@ -17,6 +17,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
 )
 
 
@@ -69,12 +70,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
@@ -117,12 +113,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
 
         response = authenticated_client.get(
             self.get_url(event, session.pk),
@@ -184,12 +175,7 @@ class TestTimetableSessionDetailPartView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
         AgendaItemFactory(
             session=session,
             space=space,
@@ -207,12 +193,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
@@ -223,12 +204,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
         AgendaItemFactory(
             session=session,
             space=SpaceFactory(event=event),
@@ -247,12 +223,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
         agenda_item = AgendaItemFactory(
             session=session,
             space=SpaceFactory(event=event),
@@ -273,12 +244,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
         AgendaItemFactory(
             session=session,
             space=SpaceFactory(event=event),
@@ -296,12 +262,7 @@ class TestTimetableSessionDetailPartView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 

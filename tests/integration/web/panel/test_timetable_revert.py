@@ -14,6 +14,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
 )
 
 
@@ -120,12 +121,7 @@ class TestTimetableRevertView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
 
@@ -163,12 +159,7 @@ class TestTimetableRevertView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
@@ -200,12 +191,7 @@ class TestTimetableRevertView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
         authenticated_client.post(
@@ -237,12 +223,7 @@ class TestTimetableRevertView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
         authenticated_client.post(

@@ -4,12 +4,12 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import EventSettings, SessionField
-from ludamus.pacts import EventDTO
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    panel_context,
 )
 
 
@@ -53,18 +53,8 @@ class TestEventDisplaySettingsPageViewGet:
             HTTPStatus.OK,
             template_name="panel/display-settings.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
+                **panel_context(event, active_nav="settings"),
                 "is_proposal_active": response.context["is_proposal_active"],
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "settings",
                 "active_tab": "display",
                 "tab_urls": response.context["tab_urls"],
                 "fields": [],

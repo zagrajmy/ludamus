@@ -7,16 +7,10 @@ import pytest
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts.chronology import TimetableGridDTO
-from ludamus.specs.timetable import (
-    TIMETABLE_ROOM_PAGE_SIZE,
-    TIMETABLE_SLOT_MINUTES,
-    TIMETABLE_SNAP_MINUTES,
-)
+from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
-    SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
 )
@@ -25,25 +19,10 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    empty_grid,
+    make_timetable_session,
     panel_context,
 )
-
-
-def _empty_grid():
-    return TimetableGridDTO(
-        spaces=[],
-        groups=[],
-        days=[],
-        time_labels=[],
-        total_minutes=0,
-        slot_minutes=TIMETABLE_SLOT_MINUTES,
-        snap_minutes=TIMETABLE_SNAP_MINUTES,
-        page=1,
-        total_pages=1,
-        total_spaces=0,
-        total_columns=0,
-        available_dates=[],
-    )
 
 
 def _base_context(event):
@@ -98,7 +77,7 @@ class TestTimetablePageView:
             context_data={
                 **_base_context(event),
                 "room_page": 1,
-                "grid": _empty_grid(),
+                "grid": empty_grid(),
                 "conflict_session_pks": set(),
                 "conflicts_count": 0,
                 "categories": [],
@@ -380,12 +359,7 @@ class TestTimetablePageView:
         self, authenticated_client, active_user, sphere, event, proposal_category, space
     ):
         sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         preferred = TimeSlotFactory(
             event=event,
             start_time=event.start_time + timedelta(hours=4),

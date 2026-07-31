@@ -6,7 +6,8 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory
+from tests.integration.web.panel.helpers import assign_payload, make_timetable_session
 
 
 class TestConflictDetectionOnAssign:
@@ -21,23 +22,14 @@ class TestConflictDetectionOnAssign:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
         response = authenticated_client.post(
-            self.get_url(event),
-            {
-                "session_pk": session.pk,
-                "space_pk": space.pk,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
+            self.get_url(event), assign_payload(session, space, start_time, end_time)
         )
 
         assert response.status_code == HTTPStatus.NO_CONTENT
@@ -49,11 +41,8 @@ class TestConflictDetectionOnAssign:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        existing_session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        existing_session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
@@ -63,11 +52,8 @@ class TestConflictDetectionOnAssign:
             start_time=start_time,
             end_time=end_time,
         )
-        new_session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        new_session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
 
         response = authenticated_client.post(

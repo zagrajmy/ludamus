@@ -11,17 +11,13 @@ from ludamus.pacts.chronology import (
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
 )
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    SessionFactory,
-    SpaceFactory,
-    TimeSlotFactory,
-)
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory, TimeSlotFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
 )
 
 ONE_SCHEDULED_SESSION_STATS = {
@@ -118,18 +114,8 @@ class TestTimetableProblemsPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session_a = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
-        session_b = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session_a = make_timetable_session(proposal_category)
+        session_b = make_timetable_session(proposal_category)
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(
@@ -176,12 +162,7 @@ class TestTimetableProblemsPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         preferred_slot = TimeSlotFactory(
             event=event,
             start_time=event.start_time + timedelta(hours=4),
@@ -226,12 +207,7 @@ class TestTimetableProblemsPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         preferred_slot = TimeSlotFactory(
             event=event,
             start_time=event.start_time,
@@ -261,12 +237,7 @@ class TestTimetableProblemsPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         session.time_slots.add(
             TimeSlotFactory(
                 event=event,
@@ -302,12 +273,7 @@ class TestTimetableProblemsPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         early_slot = TimeSlotFactory(
             event=event,
             start_time=event.start_time,
@@ -361,12 +327,7 @@ class TestTimetableProblemsPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)

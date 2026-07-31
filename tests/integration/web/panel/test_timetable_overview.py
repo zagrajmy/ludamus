@@ -11,6 +11,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
     panel_context,
 )
 
@@ -198,12 +199,7 @@ class TestTimetableOverviewPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         start = event.start_time
         AgendaItemFactory(
             session=session,
@@ -236,12 +232,7 @@ class TestTimetableOverviewPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)

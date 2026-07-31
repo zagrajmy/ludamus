@@ -7,7 +7,6 @@ from django.urls import reverse
 from ludamus.links.db.django.models import Facilitator, Track
 from tests.integration.conftest import (
     AgendaItemFactory,
-    SessionFactory,
     SpaceFactory,
     TimeSlotFactory,
     UserFactory,
@@ -17,6 +16,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
 )
 
 User = get_user_model()
@@ -80,18 +80,8 @@ class TestTimetableConflictsPartView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session_a = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
-        session_b = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session_a = make_timetable_session(proposal_category)
+        session_b = make_timetable_session(proposal_category)
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(
@@ -112,12 +102,7 @@ class TestTimetableConflictsPartView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         preferred = TimeSlotFactory(
             event=event,
             start_time=event.start_time + timedelta(hours=4),
@@ -154,18 +139,8 @@ class TestTimetableConflictsPartView:
         space_a = SpaceFactory(event=event)
         space_b = SpaceFactory(event=event)
 
-        session_a = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
-        session_b = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session_a = make_timetable_session(proposal_category)
+        session_b = make_timetable_session(proposal_category)
 
         # Shared facilitator
         shared_facilitator = Facilitator.objects.create(

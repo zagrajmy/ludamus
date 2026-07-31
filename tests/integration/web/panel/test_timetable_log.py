@@ -3,12 +3,13 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    make_timetable_session,
     panel_context,
 )
 
@@ -91,12 +92,7 @@ class TestTimetableLogPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
 
@@ -124,12 +120,7 @@ class TestTimetableLogPageView:
     ):
         sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
@@ -153,18 +144,8 @@ class TestTimetableLogPageView:
         sphere.managers.add(active_user)
         space_a = SpaceFactory(event=event)
         space_b = SpaceFactory(event=event)
-        session_a = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
-        session_b = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=5,
-            min_age=0,
-        )
+        session_a = make_timetable_session(proposal_category, status="accepted")
+        session_b = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
 

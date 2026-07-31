@@ -11,6 +11,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    cfp_tab_urls,
     panel_context,
 )
 
@@ -48,18 +49,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [],
                 "category_stats": {},
             },
@@ -95,18 +85,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=cat1.pk,
@@ -152,18 +131,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [],
                 "category_stats": {},
             },
@@ -281,18 +249,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=category.pk,
@@ -363,18 +320,7 @@ class TestCFPPageView:
                     total_sessions=1 + 1,
                 ),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=category.pk,
@@ -451,18 +397,7 @@ class TestCFPPageView:
                     total_sessions=1 + 1,
                 ),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=category1.pk,

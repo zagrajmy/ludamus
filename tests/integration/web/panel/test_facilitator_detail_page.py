@@ -3,7 +3,6 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -24,6 +23,7 @@ from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
+    assert_facilitator_not_found,
     assert_login_required,
     assert_not_a_manager,
     panel_context,
@@ -255,12 +255,7 @@ class TestFacilitatorDetailPageView:
 
         response = authenticated_client.get(self.get_url(event, "nonexistent"))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
 
     def test_get_ok_with_no_personal_data_fields(
         self, authenticated_client, active_user, sphere, event

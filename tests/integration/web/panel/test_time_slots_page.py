@@ -12,6 +12,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    cfp_tab_urls,
     panel_context,
 )
 
@@ -57,18 +58,7 @@ class TestTimeSlotsPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "time_slots",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
                 "days": {day.isoformat(): []},
                 "orphaned_slots": [],
@@ -206,18 +196,7 @@ class TestTimeSlotsPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "time_slots",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
                 "days": {(start + timedelta(days=i)).isoformat(): [] for i in range(3)},
                 "orphaned_slots": [],
@@ -248,18 +227,7 @@ class TestTimeSlotsPageView:
             context_data={
                 **panel_context(event, active_nav="cfp"),
                 "active_tab": "time_slots",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
                 "days": {
                     (start + timedelta(days=i)).isoformat(): [] for i in range(3, 5)

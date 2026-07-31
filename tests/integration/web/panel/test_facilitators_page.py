@@ -21,6 +21,7 @@ from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
+    assert_facilitator_not_found,
     assert_login_required,
     assert_not_a_manager,
     panel_context,
@@ -1323,12 +1324,7 @@ class TestFacilitatorActions:
 
         response = authenticated_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
 
     @pytest.mark.parametrize(
         ("action", "flagged"),
@@ -1359,12 +1355,7 @@ class TestFacilitatorActions:
             )
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
         foreign.refresh_from_db()
         assert foreign.flagged_for_deletion is flagged
         assert foreign.accreditation_type == AccreditationType.STANDARD

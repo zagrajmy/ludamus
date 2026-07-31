@@ -18,6 +18,7 @@ from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
+    assert_facilitator_not_found,
     assert_login_required,
     assert_not_a_manager,
     panel_context,
@@ -72,12 +73,7 @@ class TestFacilitatorEditPageView:
 
         response = authenticated_client.get(self.get_url(event, "nonexistent"))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event
@@ -146,12 +142,7 @@ class TestFacilitatorEditPageView:
             self.get_url(event, "nonexistent"), data={"display_name": "Alice"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
 
     def test_post_invalid_accreditation_rerenders_form_with_error(
         self, authenticated_client, active_user, sphere, event
