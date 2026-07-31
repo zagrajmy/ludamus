@@ -24,6 +24,7 @@ from tests.integration.web.panel.helpers import (
     assert_facilitator_not_found,
     assert_login_required,
     assert_not_a_manager,
+    facilitator_list_item_dto,
     panel_context,
 )
 
@@ -614,16 +615,7 @@ class TestFacilitatorsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        expected = [
-            FacilitatorListItemDTO(
-                accreditation_type="none",
-                display_name="Alice",
-                pk=facilitator.pk,
-                slug="alice",
-                user_id=None,
-                session_count=0,
-            )
-        ]
+        expected = [facilitator_list_item_dto(facilitator)]
         assert_response(
             response,
             HTTPStatus.OK,

@@ -21,7 +21,6 @@ from ludamus.gates.web.django.chronology.panel.views.google_docs_import import (
     SESSION_COLUMNS,
 )
 from ludamus.links.db.django.models import (
-    EventIntegration,
     Facilitator,
     ImportLogEntry,
     PersonalDataField,
@@ -34,11 +33,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
-from ludamus.pacts.chronology import (
-    EventIntegrationDTO,
-    IntegrationImplementationId,
-    IntegrationKind,
-)
+from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.submissions import (
     EntityRef,
     ImportLogStatus,
@@ -51,6 +46,8 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    integration_dto,
+    make_integration,
     panel_context,
 )
 
@@ -122,32 +119,6 @@ def _json_url(event, integration) -> str:
     )
 
 
-def _make_import_integration(event, connection, *, display_name: str):
-    return EventIntegration.objects.create(
-        event=event,
-        kind=IntegrationKind.IMPORT.value,
-        implementation=IMPL.value,
-        connection=connection,
-        display_name=display_name,
-        config_json=CONFIG_JSON,
-    )
-
-
-def _dto(integration) -> EventIntegrationDTO:
-    return EventIntegrationDTO(
-        pk=integration.pk,
-        event_id=integration.event_id,
-        kind=IntegrationKind(integration.kind),
-        implementation=IntegrationImplementationId(integration.implementation),
-        connection_id=integration.connection_id,
-        connection_display_name=integration.connection.display_name,
-        display_name=integration.display_name,
-        config_json=integration.config_json,
-        settings_json=integration.settings_json,
-        questions_snapshot_json=integration.questions_snapshot_json or "[]",
-    )
-
-
 def _sheets_get(values, *, title="Form Responses 1"):
     # fetch_responses reads spreadsheet metadata (tab title) then the tab's
     # values; route each Google call by URL so call order/count is irrelevant.
@@ -199,7 +170,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -219,7 +190,7 @@ class TestEventImportProposalView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "proposal",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "summary_rows": [],
@@ -231,7 +202,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -258,7 +229,7 @@ class TestEventImportProposalView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "proposal",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "summary_rows": [
@@ -288,7 +259,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -357,7 +328,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -420,7 +391,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -479,7 +450,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.questions_snapshot_json = json.dumps(
@@ -505,7 +476,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -600,7 +571,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -652,7 +623,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -688,7 +659,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -726,7 +697,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -753,7 +724,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -782,7 +753,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -799,13 +770,15 @@ class TestEventImportProposalView:
             response = authenticated_client.get(_import_url(event))
 
         assert response.status_code == HTTPStatus.OK
-        assert response.context_data["active_integration"] == _dto(integration)
+        assert response.context_data["active_integration"] == integration_dto(
+            integration
+        )
 
     def test_get_unknown_integration_redirects_to_section(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        _make_import_integration(event, connection_with_secret, display_name="Puller")
+        make_integration(event, connection_with_secret, display_name="Puller")
 
         response = authenticated_client.get(
             reverse(
@@ -842,7 +815,7 @@ class TestEventImportProposalView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -862,7 +835,7 @@ class TestEventImportProposalView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "review",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "session_columns": SESSION_COLUMNS,
@@ -879,7 +852,7 @@ class TestEventImportRowSaveView:
     def test_post_redirects_non_manager(
         self, authenticated_client, event, connection_with_secret
     ):
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -894,7 +867,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -937,7 +910,7 @@ class TestEventImportRowSaveView:
         # stay on the same edit view after saving instead of jumping to the
         # next one.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -965,7 +938,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1019,7 +992,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1057,7 +1030,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1097,7 +1070,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1129,7 +1102,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1168,7 +1141,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1190,7 +1163,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.questions_snapshot_json = json.dumps(
@@ -1218,7 +1191,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.questions_snapshot_json = json.dumps(
@@ -1245,7 +1218,7 @@ class TestEventImportRowSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         before = integration.settings_json
@@ -1275,7 +1248,7 @@ class TestEventImportRefetchView:
     def test_post_redirects_non_manager(
         self, authenticated_client, event, connection_with_secret
     ):
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1287,7 +1260,7 @@ class TestEventImportRefetchView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1347,7 +1320,7 @@ class TestEventImportMissingFieldsView:
     def test_post_redirects_non_manager(
         self, authenticated_client, event, connection_with_secret
     ):
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1359,7 +1332,7 @@ class TestEventImportMissingFieldsView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1410,7 +1383,7 @@ class TestEventImportMissingFieldsView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1446,7 +1419,7 @@ class TestEventImportMissingFieldsView:
 @pytest.mark.django_db
 class TestEventImportRunActionView:
     def test_post_redirects_non_manager(self, authenticated_client, event, connection):
-        integration = _make_import_integration(event, connection, display_name="Puller")
+        integration = make_integration(event, connection, display_name="Puller")
 
         response = authenticated_client.post(_run_url(event, integration))
 
@@ -1456,7 +1429,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1492,7 +1465,7 @@ class TestEventImportRunActionView:
         # fails on an over-long title. The per-row savepoint must roll the whole
         # row back: no session, AND no orphaned facilitator or track.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1543,7 +1516,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1585,7 +1558,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1639,7 +1612,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1684,7 +1657,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1735,7 +1708,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1778,7 +1751,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1818,7 +1791,7 @@ class TestEventImportRunActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1858,7 +1831,7 @@ class TestEventImportRunActionView:
 @pytest.mark.django_db
 class TestEventImportTestRowActionView:
     def test_post_redirects_non_manager(self, authenticated_client, event, connection):
-        integration = _make_import_integration(event, connection, display_name="Puller")
+        integration = make_integration(event, connection, display_name="Puller")
 
         response = authenticated_client.post(_test_url(event, integration))
 
@@ -1868,7 +1841,7 @@ class TestEventImportTestRowActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -1907,7 +1880,7 @@ class TestEventImportTestRowActionView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -1930,7 +1903,7 @@ class TestEventImportTestRowActionView:
 @pytest.mark.django_db
 class TestEventImportJsonView:
     def test_get_redirects_non_manager(self, authenticated_client, event, connection):
-        integration = _make_import_integration(event, connection, display_name="Puller")
+        integration = make_integration(event, connection, display_name="Puller")
 
         response = authenticated_client.get(_json_url(event, integration))
 
@@ -1958,7 +1931,7 @@ class TestEventImportJsonView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         stored = json.dumps(
@@ -1976,7 +1949,7 @@ class TestEventImportJsonView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "json",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "settings_json": json.dumps(
@@ -1989,7 +1962,7 @@ class TestEventImportJsonView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         blob = '{"questions": {"Title": {"to": "session.title"}}}'
@@ -2011,7 +1984,7 @@ class TestEventImportJsonView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps({"header_row": 1})
@@ -2047,7 +2020,7 @@ class TestEventImportJsonView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps({"header_row": 1})
@@ -2077,7 +2050,7 @@ class TestEventImportJsonView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         before = integration.settings_json
@@ -2094,7 +2067,7 @@ class TestEventImportJsonView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "json",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "settings_json": "{not json",
@@ -2107,7 +2080,7 @@ class TestEventImportJsonView:
 @pytest.mark.django_db
 class TestEventImportRunPageView:
     def test_get_redirects_non_manager(self, authenticated_client, event, connection):
-        integration = _make_import_integration(event, connection, display_name="Puller")
+        integration = make_integration(event, connection, display_name="Puller")
 
         response = authenticated_client.get(_run_page_url(event, integration))
 
@@ -2117,7 +2090,7 @@ class TestEventImportRunPageView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -2130,7 +2103,7 @@ class TestEventImportRunPageView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
@@ -2148,7 +2121,7 @@ class TestEventImportRunPageView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.questions_snapshot_json = json.dumps(
@@ -2191,7 +2164,7 @@ class TestEventImportRunPageView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": header_row,
@@ -2212,7 +2185,7 @@ class TestEventImportRunPageView:
         # Email Address) that the form schema — and so the questions snapshot —
         # never sees. Those are exactly the columns a unique key wants.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.questions_snapshot_json = json.dumps(
@@ -2246,7 +2219,7 @@ class TestEventImportRunPageView:
             context_data=panel_context(event)
             | {
                 "active_nav": "import",
-                "active_integration": _dto(integration),
+                "active_integration": integration_dto(integration),
                 "active_tab": "run",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
@@ -2270,7 +2243,7 @@ class TestEventImportSettingsSaveView:
         )
 
     def test_post_redirects_non_manager(self, authenticated_client, event, connection):
-        integration = _make_import_integration(event, connection, display_name="Puller")
+        integration = make_integration(event, connection, display_name="Puller")
 
         response = authenticated_client.post(self._save_url(event, integration))
 
@@ -2280,7 +2253,7 @@ class TestEventImportSettingsSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         header_row = 3
@@ -2308,7 +2281,7 @@ class TestEventImportSettingsSaveView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -2329,7 +2302,7 @@ class TestEventImportLogPageView:
     def test_get_redirects_non_manager(
         self, authenticated_client, event, connection_with_secret
     ):
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -2341,7 +2314,7 @@ class TestEventImportLogPageView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -2354,7 +2327,7 @@ class TestEventImportLogPageView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -2386,7 +2359,7 @@ class TestEventImportLogPageView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -2440,7 +2413,7 @@ class TestEventImportLogPageView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -2461,11 +2434,11 @@ class TestEventImportLogPageView:
         # Object-scope auth: an entry belonging to another event must not be
         # actionable through this event's retry endpoint.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         other_event = EventFactory(sphere=sphere)
-        other_integration = _make_import_integration(
+        other_integration = make_integration(
             other_event, connection_with_secret, display_name="Other Puller"
         )
         foreign = ImportLogEntry.objects.create(
@@ -2520,7 +2493,7 @@ class TestEventImportLogFilters:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
@@ -2540,7 +2513,7 @@ class TestEventImportLogFilters:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
@@ -2565,7 +2538,7 @@ class TestEventImportLogFilters:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
@@ -2585,7 +2558,7 @@ class TestEventImportLogFilters:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
@@ -2604,7 +2577,7 @@ class TestEventImportLogFilters:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
@@ -2621,7 +2594,7 @@ class TestEventImportLogFilters:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
@@ -2640,7 +2613,7 @@ class TestEventImportLogReimport:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -2718,7 +2691,7 @@ class TestEventImportLogReimport:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -2774,7 +2747,7 @@ class TestEventImportApplyFieldLayoutView:
     def test_post_redirects_non_manager(
         self, authenticated_client, event, connection_with_secret
     ):
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -2794,7 +2767,7 @@ class TestEventImportApplyFieldLayoutView:
         # drop the system value, leave the genre value alone, and prune the
         # now-orphan "system" SessionField.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -2874,7 +2847,7 @@ class TestEventImportApplyFieldLayoutView:
         # field layout should fill the empty contact_email without touching
         # other built-in fields.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -2921,7 +2894,7 @@ class TestEventImportApplyFieldLayoutView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -2957,7 +2930,7 @@ class TestEventImportApplyFieldLayoutView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -2992,7 +2965,7 @@ class TestEventImportApplyFieldLayoutView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -3030,7 +3003,7 @@ class TestEventImportApplyFieldLayoutView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -3075,7 +3048,7 @@ class TestEventImportApplyFieldLayoutView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -3123,7 +3096,7 @@ class TestEventImportApplyFieldLayoutView:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -3181,7 +3154,7 @@ class TestImportSummaryLabels:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         _cache_snapshot(
@@ -3295,7 +3268,7 @@ class TestImportReviewRowBranches:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         _cache_snapshot(integration, ["PF", "PFnodef", "SF", "Ign"])
@@ -3361,7 +3334,7 @@ class TestImportRowSavePostHelpers:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -3387,7 +3360,7 @@ class TestImportRowSavePostHelpers:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -3414,7 +3387,7 @@ class TestImportRowSavePostHelpers:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -3442,7 +3415,7 @@ class TestImportRowSavePostHelpers:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -3470,7 +3443,7 @@ class TestImportRowSavePostHelpers:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -3498,7 +3471,7 @@ class TestImportRowSavePostHelpers:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
@@ -3529,7 +3502,7 @@ class TestImportJsonInvalidStored:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = "{not valid json"
@@ -3548,7 +3521,7 @@ class TestImportActionResultMessages:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -3596,7 +3569,7 @@ class TestImportActionResultMessages:
         # The re-run matches it by title + contact email, marks the row as a
         # duplicate, and backfills the ident so future runs match directly.
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -3644,7 +3617,7 @@ class TestImportActionResultMessages:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -3686,7 +3659,7 @@ class TestImportActionResultMessages:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = json.dumps(
@@ -3840,7 +3813,7 @@ class TestImportDistinctSessionsSameName:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         # English metadata names don't match the localized sheet headers, so
@@ -3873,7 +3846,7 @@ class TestImportDistinctSessionsSameName:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = self._settings(
@@ -3906,7 +3879,7 @@ class TestImportDistinctSessionsSameName:
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         sphere.managers.add(active_user)
-        integration = _make_import_integration(
+        integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = self._settings(_LOCALIZED_HEADER)

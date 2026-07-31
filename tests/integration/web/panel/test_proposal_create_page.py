@@ -22,13 +22,14 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO, TrackDTO
+from ludamus.pacts import EventDTO, TimeSlotDTO, TrackDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    facilitator_list_item_dto,
     panel_context,
 )
 
@@ -51,17 +52,6 @@ def _fields_context(event):
             "panel:proposal-create-fields", kwargs={"slug": event.slug}
         ),
     }
-
-
-def _facilitator_dto(facilitator, *, session_count=0):
-    return FacilitatorListItemDTO(
-        accreditation_type=facilitator.accreditation_type,
-        display_name=facilitator.display_name,
-        pk=facilitator.pk,
-        session_count=session_count,
-        slug=facilitator.slug,
-        user_id=None,
-    )
 
 
 def _base_context(event):
@@ -149,7 +139,7 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_facilitators": [_facilitator_dto(facilitator)],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
             },
             contains=[
                 'name="facilitator_ids"',
@@ -190,16 +180,7 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=facilitator.pk,
-                        session_count=0,
-                        slug="alice",
-                        user_id=None,
-                    )
-                ],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
                 "assigned_facilitator_pks": {facilitator.pk},
             },
         )
@@ -235,7 +216,7 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_facilitators": [_facilitator_dto(facilitator)],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
             },
             contains=[
                 'name="facilitator_ids"',
@@ -793,16 +774,7 @@ class TestProposalCreatePageView:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_facilitators": [
-                    FacilitatorListItemDTO(
-                        accreditation_type="none",
-                        display_name="Alice",
-                        pk=facilitator.pk,
-                        session_count=0,
-                        slug="alice",
-                        user_id=None,
-                    )
-                ],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
                 "assigned_facilitator_pks": {facilitator.pk},
             },
             messages=[
@@ -1241,7 +1213,7 @@ class TestProposalCreateCategoryFields:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_facilitators": [_facilitator_dto(facilitator)],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
                 "assigned_facilitator_pks": {facilitator.pk},
             },
         )
@@ -1278,7 +1250,7 @@ class TestProposalCreateCategoryFields:
                 **_base_context(event),
                 **_fields_context(event),
                 "form": ANY,
-                "all_facilitators": [_facilitator_dto(facilitator)],
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
                 "assigned_facilitator_pks": {facilitator.pk},
             },
         )

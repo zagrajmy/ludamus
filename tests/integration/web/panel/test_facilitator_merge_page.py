@@ -15,6 +15,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    facilitator_list_item_dto,
     panel_context,
 )
 
@@ -407,16 +408,7 @@ class TestFacilitatorMergePageView:
             data={"facilitator_ids": [facilitator.pk], "target_id": facilitator.pk},
         )
 
-        expected = [
-            FacilitatorListItemDTO(
-                accreditation_type="none",
-                display_name="Alice",
-                pk=facilitator.pk,
-                slug="alice",
-                user_id=None,
-                session_count=0,
-            )
-        ]
+        expected = [facilitator_list_item_dto(facilitator)]
         assert_response(
             response,
             HTTPStatus.OK,

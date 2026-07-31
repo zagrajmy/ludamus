@@ -53,6 +53,7 @@ from tests.integration.web.panel.helpers import (
     assert_login_required,
     assert_not_a_manager,
     assert_proposal_not_found,
+    facilitator_list_item_dto,
     panel_context,
 )
 
@@ -95,17 +96,6 @@ def _fields_url(event, proposal_id):
 def _cancel_url(event, proposal_id):
     return reverse(
         "panel:proposal-detail", kwargs={"slug": event.slug, "proposal_id": proposal_id}
-    )
-
-
-def _facilitator_dto(facilitator, *, session_count=0):
-    return FacilitatorListItemDTO(
-        accreditation_type=facilitator.accreditation_type,
-        display_name=facilitator.display_name,
-        pk=facilitator.pk,
-        session_count=session_count,
-        slug=facilitator.slug,
-        user_id=None,
     )
 
 
@@ -1662,8 +1652,8 @@ class TestProposalEditPageView:
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [
-                    _facilitator_dto(assigned, session_count=1),
-                    _facilitator_dto(unassigned),
+                    facilitator_list_item_dto(assigned, session_count=1),
+                    facilitator_list_item_dto(unassigned),
                 ],
                 "assigned_facilitator_pks": {assigned.pk},
                 "field_descriptors": [],

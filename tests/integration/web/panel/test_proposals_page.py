@@ -33,6 +33,7 @@ from tests.integration.web.panel.helpers import (
     assert_login_required,
     assert_not_a_manager,
     panel_context,
+    proposal_detail_context,
 )
 
 _STATUSES = [
@@ -1329,29 +1330,7 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data={
-                **panel_context(event, active_nav="proposals"),
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
-                "active_nav": "proposals",
-                "proposal": SessionDTO.model_validate(session),
-                "category_name": "RPG",
-                "proposal_tracks": [],
-                "agenda_item": None,
-                "schedule_logs": [],
-                "field_values": [],
-                "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
-                "preferred_time_slots": [],
-                "import_log_entry": None,
-                "import_log_integration": None,
-            },
+            context_data={**proposal_detail_context(event, session, active_user)},
         )
 
     def test_shows_field_values(self, authenticated_client, active_user, sphere, event):

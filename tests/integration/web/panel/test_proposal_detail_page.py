@@ -30,7 +30,6 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.submissions import ImportLogEntryDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -39,7 +38,11 @@ from tests.integration.conftest import (
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import assert_proposal_not_found, panel_context
+from tests.integration.web.panel.helpers import (
+    assert_proposal_not_found,
+    panel_context,
+    proposal_detail_context,
+)
 
 
 class TestProposalDetailPageView:
@@ -147,28 +150,7 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data={
-                **panel_context(event, active_nav="proposals"),
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
-                "proposal": SessionDTO.model_validate(session),
-                "category_name": "RPG",
-                "proposal_tracks": [],
-                "agenda_item": None,
-                "schedule_logs": [],
-                "field_values": [],
-                "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
-                "preferred_time_slots": [],
-                "import_log_entry": None,
-                "import_log_integration": None,
-            },
+            context_data={**proposal_detail_context(event, session, active_user)},
         )
         assert session.cover_image_url.encode() in response.content
 

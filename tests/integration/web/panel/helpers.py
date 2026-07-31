@@ -1,14 +1,21 @@
 """Shared arrange/assert helpers for panel integration tests."""
 
+import json
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import ProposalCategory, Session
-from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import TimetableGridDTO
+from ludamus.links.db.django.models import EventIntegration, ProposalCategory, Session
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionDTO
+from ludamus.pacts.chronology import (
+    EventIntegrationDTO,
+    IntegrationImplementationId,
+    IntegrationKind,
+    TimetableGridDTO,
+)
+from ludamus.pacts.crowd import UserDTO
 from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
 from tests.integration.conftest import SessionFactory
 from tests.integration.utils import assert_response
@@ -143,6 +150,73 @@ def assert_facilitator_not_found(response: HttpResponse, event) -> None:
         HTTPStatus.FOUND,
         messages=[(messages.ERROR, "Facilitator not found.")],
         url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+    )
+
+
+def proposal_detail_context(event, session, presenter) -> dict:
+    # One proposal by one host: the counts the sidebar derives from it are
+    # fixed, so they belong with the rest of the detail-page context.
+    return {
+        **panel_context(
+            event,
+            active_nav="proposals",
+            hosts_count=1,
+            pending_proposals=1,
+            total_proposals=1,
+            total_sessions=1,
+        ),
+        "proposal": SessionDTO.model_validate(session),
+        "category_name": "RPG",
+        "proposal_tracks": [],
+        "agenda_item": None,
+        "schedule_logs": [],
+        "field_values": [],
+        "facilitators": [],
+        "presenter": UserDTO.model_validate(presenter),
+        "preferred_time_slots": [],
+        "import_log_entry": None,
+        "import_log_integration": None,
+    }
+
+
+def facilitator_list_item_dto(facilitator, *, session_count=0):
+    return FacilitatorListItemDTO(
+        accreditation_type=facilitator.accreditation_type,
+        display_name=facilitator.display_name,
+        pk=facilitator.pk,
+        session_count=session_count,
+        slug=facilitator.slug,
+        user_id=facilitator.user_id,
+    )
+
+
+IMPORT_IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+IMPORT_CONFIG_JSON = json.dumps({"sheet_id": "sheet-1", "form_id": "form-1"})
+
+
+def make_integration(event, connection, *, display_name: str) -> EventIntegration:
+    return EventIntegration.objects.create(
+        event=event,
+        kind=IntegrationKind.IMPORT.value,
+        implementation=IMPORT_IMPL.value,
+        connection=connection,
+        display_name=display_name,
+        config_json=IMPORT_CONFIG_JSON,
+    )
+
+
+def integration_dto(integration: EventIntegration) -> EventIntegrationDTO:
+    return EventIntegrationDTO(
+        pk=integration.pk,
+        event_id=integration.event_id,
+        kind=IntegrationKind(integration.kind),
+        implementation=IntegrationImplementationId(integration.implementation),
+        connection_id=integration.connection_id,
+        connection_display_name=integration.connection.display_name,
+        display_name=integration.display_name,
+        config_json=integration.config_json,
+        settings_json=integration.settings_json,
+        questions_snapshot_json=integration.questions_snapshot_json or "[]",
     )
 
 

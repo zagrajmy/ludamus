@@ -13,17 +13,15 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
-from ludamus.pacts.chronology import (
-    EventIntegrationDTO,
-    IntegrationImplementationId,
-    IntegrationKind,
-)
+from ludamus.pacts.chronology import IntegrationImplementationId
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
     assert_not_a_manager,
+    integration_dto,
+    make_integration,
     panel_context,
 )
 
@@ -58,31 +56,6 @@ def _check_url(event) -> str:
 
 def _missing_url(name: str, **kwargs) -> str:
     return reverse(name, kwargs={"slug": "missing", **kwargs})
-
-
-def _make_integration(event, connection, *, display_name: str) -> EventIntegration:
-    return EventIntegration.objects.create(
-        event=event,
-        kind=IntegrationKind.IMPORT.value,
-        implementation=IMPL.value,
-        connection=connection,
-        display_name=display_name,
-        config_json=CONFIG_JSON,
-    )
-
-
-def _dto(integration: EventIntegration) -> EventIntegrationDTO:
-    return EventIntegrationDTO(
-        pk=integration.pk,
-        event_id=integration.event_id,
-        kind=IntegrationKind(integration.kind),
-        implementation=IntegrationImplementationId(integration.implementation),
-        connection_id=integration.connection_id,
-        connection_display_name=integration.connection.display_name,
-        display_name=integration.display_name,
-        config_json=integration.config_json,
-        settings_json=integration.settings_json,
-    )
 
 
 @pytest.mark.django_db
@@ -134,7 +107,7 @@ class TestEventIntegrationSettingsPageView:
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        integration = _make_integration(event, connection, display_name="Listed")
+        integration = make_integration(event, connection, display_name="Listed")
 
         response = authenticated_client.get(_settings_url(event))
 
@@ -147,7 +120,7 @@ class TestEventIntegrationSettingsPageView:
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
-                "integrations": [_dto(integration)],
+                "integrations": [integration_dto(integration)],
             },
         )
 
@@ -404,7 +377,7 @@ class TestIntegrationCreatePageView:
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        _make_integration(event, connection, display_name="Taken")
+        make_integration(event, connection, display_name="Taken")
         signature = integration_signature(connection.pk, CONFIG_JSON)
 
         response = authenticated_client.post(
@@ -433,7 +406,7 @@ class TestIntegrationEditPageView:
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        integration = _make_integration(event, connection, display_name="Existing")
+        integration = make_integration(event, connection, display_name="Existing")
 
         response = authenticated_client.get(_edit_url(event, integration))
 
@@ -442,14 +415,18 @@ class TestIntegrationEditPageView:
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/edit.html",
             context_data=panel_context(event)
-            | {"active_nav": "settings", "form": ANY, "integration": _dto(integration)},
+            | {
+                "active_nav": "settings",
+                "form": ANY,
+                "integration": integration_dto(integration),
+            },
         )
 
     def test_post_display_name_only_bypasses_check(
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        integration = _make_integration(event, connection, display_name="Old name")
+        integration = make_integration(event, connection, display_name="Old name")
 
         response = authenticated_client.post(
             _edit_url(event, integration),
@@ -514,7 +491,7 @@ class TestIntegrationEditPageView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        foreign = _make_integration(other_event, connection, display_name="Foreign")
+        foreign = make_integration(other_event, connection, display_name="Foreign")
         url = reverse(
             "panel:integration-edit", kwargs={"slug": event.slug, "pk": foreign.pk}
         )
@@ -532,7 +509,7 @@ class TestIntegrationEditPageView:
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        integration = _make_integration(event, connection, display_name="To edit")
+        integration = make_integration(event, connection, display_name="To edit")
 
         response = authenticated_client.post(
             _edit_url(event, integration),
@@ -550,7 +527,11 @@ class TestIntegrationEditPageView:
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/edit.html",
             context_data=panel_context(event)
-            | {"active_nav": "settings", "form": ANY, "integration": _dto(integration)},
+            | {
+                "active_nav": "settings",
+                "form": ANY,
+                "integration": integration_dto(integration),
+            },
         )
         assert "display_name" in response.context["form"].errors
 
@@ -561,7 +542,7 @@ class TestIntegrationDeletePageView:
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        integration = _make_integration(event, connection, display_name="Goodbye")
+        integration = make_integration(event, connection, display_name="Goodbye")
 
         response = authenticated_client.post(_delete_url(event, integration))
 
@@ -577,7 +558,7 @@ class TestIntegrationDeletePageView:
         self, authenticated_client, active_user, sphere, event, connection
     ):
         sphere.managers.add(active_user)
-        integration = _make_integration(event, connection, display_name="Confirm me")
+        integration = make_integration(event, connection, display_name="Confirm me")
 
         response = authenticated_client.get(_delete_url(event, integration))
 
@@ -586,7 +567,7 @@ class TestIntegrationDeletePageView:
             HTTPStatus.OK,
             template_name="chronology/panel/integrations/delete.html",
             context_data=panel_context(event)
-            | {"active_nav": "settings", "integration": _dto(integration)},
+            | {"active_nav": "settings", "integration": integration_dto(integration)},
         )
 
     def test_get_redirects_on_unknown_event(
@@ -633,7 +614,7 @@ class TestIntegrationDeletePageView:
     ):
         sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        foreign = _make_integration(other_event, connection, display_name="Foreign")
+        foreign = make_integration(other_event, connection, display_name="Foreign")
         url = reverse(
             "panel:integration-delete", kwargs={"slug": event.slug, "pk": foreign.pk}
         )
