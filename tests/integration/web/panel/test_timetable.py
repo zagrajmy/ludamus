@@ -72,6 +72,7 @@ class TestTimetablePageView:
                 **_base_context(event),
                 "room_page": 1,
                 "grid": empty_grid(),
+                "conflicts": [],
                 "conflict_session_pks": set(),
                 "conflicts_count": 0,
                 "categories": [],

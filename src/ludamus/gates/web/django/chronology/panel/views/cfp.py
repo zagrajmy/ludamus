@@ -17,7 +17,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.forms import ProposalCategoryForm
-from ludamus.mills import PanelService
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
@@ -42,12 +41,11 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "cfp"
         context["active_tab"] = "types"
         context["tab_urls"] = cfp_tab_urls(slug)
-        context["categories"] = self.request.di.uow.proposal_categories.list_by_event(
+        page = self.request.services.proposal_categories.get_page_context(
             current_event.pk
         )
-        context["category_stats"] = (
-            self.request.di.uow.proposal_categories.get_category_stats(current_event.pk)
-        )
+        context["categories"] = page.categories
+        context["category_stats"] = page.stats
         return TemplateResponse(self.request, "panel/cfp.html", context)
 
 
@@ -87,7 +85,7 @@ class CFPCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/cfp-create.html", context)
 
         name = form.cleaned_data["name"]
-        category = self.request.di.uow.proposal_categories.create(
+        category = self.request.services.proposal_categories.create(
             current_event.pk, name
         )
 
@@ -119,15 +117,14 @@ class CFPDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            category = self.request.di.uow.proposal_categories.read_by_slug(
+            deleted = self.request.services.proposal_categories.delete_by_slug(
                 current_event.pk, category_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Category not found."))
             return redirect("panel:cfp", slug=event_slug)
 
-        service = PanelService(self.request.di.uow)
-        if not service.delete_category(category.pk):
+        if not deleted:
             messages.error(
                 self.request, _("Cannot delete category with existing proposals.")
             )

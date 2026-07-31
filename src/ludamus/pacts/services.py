@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         EventPanelServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
+    from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -56,6 +57,7 @@ if TYPE_CHECKING:
         PrintablesReminderServiceProtocol,
         PrintMaterialsServiceProtocol,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -67,6 +69,7 @@ if TYPE_CHECKING:
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
+    from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
@@ -119,6 +122,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def event_settings(self) -> EventSettingsServiceProtocol: ...
     @property
     def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property
@@ -174,4 +179,8 @@ class ServicesProtocol(Protocol):
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
+    def tracks_panel(self) -> TracksPanelServiceProtocol: ...
+    @property
     def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
