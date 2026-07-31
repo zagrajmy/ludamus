@@ -27,7 +27,7 @@ const {
   openUrl,
   prepareDevice,
   assertPageReady,
-} = await createIosHarness(session);
+} = createIosHarness(session);
 
 const scrollScheduleIntoView = async (): Promise<void> => {
   for (let attempt = 0; attempt < 14; attempt += 1) {

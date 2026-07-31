@@ -51,7 +51,7 @@ Outgoing email is configured by the `EMAIL_URL` env var (django-environ):
   end-to-end testing of enrollment/offer notifications: point the server at a
   directory and assert on the written `.log` files.
 
-Production sets `EMAIL_URL=smtp://user:pass@host:587/?tls=True`.
+Production sets `EMAIL_URL=smtp+tls://user:pass@host:587`.
 
 ### Deployment
 

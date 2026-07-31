@@ -217,3 +217,33 @@ If you fix a papercut, remove it.
 - 2026-07-27: mise run check (format+lint) omits messages-check, so a stale PL
   catalog passes locally and only fails in CI; after any edit that reorders
   translated strings, run 'mise run messages-check' separately.
+- 2026-07-28: Investigated login in the web sandbox: mise run start failed on
+  varlock validation because the session's .env.local existed but was
+  incomplete, and bootstrap's `if [ ! -f .env.local ]` guard never repairs an
+  existing file; `rm .env.local && mise run bootstrap` regenerates it properly.
+- 2026-07-28: auth0-simulator stays disabled in the sandbox until you hand-roll
+  ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
+  keyUsage=keyCertSign, so the first cert attempt failed with
+  CERTIFICATE_VERIFY_FAILED.
+- 2026-07-29: ran mise run shots -- '/event/x/print/?material=timetable' — task
+  warned 'not reachable' although the server was up; $usage_targets keeps the
+  shell quotes around each arg, so the URL becomes
+  <http://localhost:8000'/event/>...'. Worked around by calling aubx agent-browser
+  directly.
+- 2026-07-29: rebuilt the vite client while test:e2e:serve was running —
+  django_vite's cached manifest kept serving deleted hashed JS, pages silently
+  lost their scripts until a manual server restart. Fixed test:e2e:serve to
+  watch manifest.json and bounce itself.
+- 2026-07-31: sandbox: 'mise install' wedges on pipx:shellcheck-py@0.11.0 /
+  hadolint-py@2.14.0 (PyPI only ships .0.1 wrapper revs) and session-start.sh's
+  trim-retry did not self-heal, so every 'mise run' aborted until I exported
+  MISE_DISABLE_TOOLS=shellcheck,hadolint.
+- 2026-07-31: sandbox: /opt/pw-browsers lags the pinned @playwright/test 1.58.2
+  (has chromium-1194, needs 1208 / webkit-2248), and session-start.sh reported
+  'Playwright install failed'. The whole e2e suite fails with "Executable
+  doesn't exist" until you run npx playwright install --with-deps chromium
+  firefox webkit by hand.
+- 2026-07-31: 'mise run test:py' resolves pytest from PATH, so a uv-installed
+  ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
+  ModuleNotFoundError: No module named 'django'. Took a while to spot because
+  the traceback points at tests/conftest.py, not at the wrong interpreter.

@@ -89,6 +89,10 @@ export default defineConfig({
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
+        // Read-only but chains several full navigations of the heavy print
+        // preview; Firefox's slow loads make it time out where Chromium fits
+        // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
+        /print-flow\.spec\.ts/,
       ],
       use: { ...devices["Desktop Firefox"] },
     },
