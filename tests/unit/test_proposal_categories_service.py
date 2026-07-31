@@ -7,7 +7,7 @@ from ludamus.pacts import NotFoundError, ProposalCategoryDTO
 from ludamus.pacts.proposal_categories import ProposalCategoriesPageDTO
 
 
-def _category(pk=1, name="Talk", slug="talk"):
+def _category(*, pk=1, name="Talk", slug="talk"):
     return ProposalCategoryDTO(
         description="",
         durations=[],
