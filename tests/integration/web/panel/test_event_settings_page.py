@@ -652,7 +652,7 @@ class TestEventSettingsPageViewPost:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Event not found.")],
-            url=f"/panel/event/{event.slug}/settings/",
+            url="/panel/",
         )
 
     def test_error_on_duplicate_slug(

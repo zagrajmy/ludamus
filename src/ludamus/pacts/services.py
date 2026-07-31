@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         EventPanelServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
+    from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -120,6 +121,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def event_settings(self) -> EventSettingsServiceProtocol: ...
     @property
     def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property

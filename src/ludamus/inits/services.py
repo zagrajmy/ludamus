@@ -42,6 +42,7 @@ from ludamus.mills.enrollment import (
     WaitlistPromotionService,
 )
 from ludamus.mills.event import EventPanelService
+from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -71,6 +72,7 @@ from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
+from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.submissions import (
     FacilitatorPanelRepos,
     ImportRepos,
@@ -195,6 +197,19 @@ class Services:
     @cached_property
     def event_panel(self) -> EventPanelService:
         return EventPanelService(self._repos.events)
+
+    @cached_property
+    def event_settings(self) -> EventSettingsService:
+        return EventSettingsService(
+            transaction=self._transaction,
+            repos=EventSettingsRepos(
+                events=self._repos.events,
+                event_settings=self._repos.event_settings,
+                event_proposal_settings=self._repos.event_proposal_settings,
+                proposal_categories=self._repos.proposal_categories,
+                session_fields=self._repos.session_fields,
+            ),
+        )
 
     @cached_property
     def panel_time_slots(self) -> PanelTimeSlotsService:
