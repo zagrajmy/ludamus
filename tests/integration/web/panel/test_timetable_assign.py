@@ -11,6 +11,8 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.mills.timetable import ConflictDetectionService
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import TimetableGridDTO
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
@@ -345,6 +347,49 @@ class TestTimetableAssignView:
         assert agenda_item.space_id == new_space.pk
         assert agenda_item.start_time == new_start
         assert agenda_item.end_time == new_end
+
+    def test_returns_204_when_placement_vanishes_before_conflict_sweep(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        proposal_category,
+        monkeypatch,
+    ):
+        # A concurrent unassign can remove the placement between the committed
+        # write and the advisory conflict sweep; the response must stay 204.
+        sphere.managers.add(active_user)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            participants_limit=10,
+            min_age=0,
+        )
+
+        def _vanished(*_args, **_kwargs):
+            raise NotFoundError("agenda item vanished")
+
+        monkeypatch.setattr(
+            ConflictDetectionService, "detect_for_assignment", _vanished
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            {
+                "session_pk": session.pk,
+                "space_pk": space.pk,
+                "start_time": event.start_time.isoformat(),
+                "end_time": (event.start_time + timedelta(hours=1)).isoformat(),
+            },
+        )
+
+        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert "timetableChanged" in response["HX-Trigger"]
+        assert "timetableConflicts" not in response["HX-Trigger"]
+        session.refresh_from_db()
+        assert session.agenda_item is not None
 
     def test_returns_422_for_session_from_another_event(
         self, authenticated_client, active_user, sphere, event

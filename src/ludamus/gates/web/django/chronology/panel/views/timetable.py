@@ -350,9 +350,15 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
-        conflicts = ConflictDetectionService(uow).detect_for_assignment(
-            event_pk=current_event.pk, session_pk=session_pk
-        )
+        try:
+            conflicts = ConflictDetectionService(uow).detect_for_assignment(
+                event_pk=current_event.pk, session_pk=session_pk
+            )
+        except NotFoundError:
+            # A concurrent unassign can remove the placement between the
+            # committed write and this advisory sweep; that is not a failure
+            # of the assignment, so report no conflicts.
+            conflicts = []
 
         trigger_data: dict[str, object] = {"timetableChanged": {}}
         if conflicts:

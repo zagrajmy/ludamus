@@ -467,8 +467,7 @@ def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
 
 
 class _EventConflictContext(NamedTuple):
-    """Everything conflict detection needs about an event, loaded once."""
-
+    # Everything conflict detection needs about an event, loaded once.
     items: list[AgendaItemDTO]
     items_by_space: dict[int, list[AgendaItemDTO]]
     items_by_facilitator: dict[int, list[AgendaItemDTO]]
@@ -559,7 +558,7 @@ class ConflictDetectionService:
         return [
             *self._space_conflicts(item, context.items_by_space),
             *self._capacity_conflicts(
-                item, context.spaces.get(item.space_id), limits[item.session_id]
+                item, context.spaces.get(item.space_id), limits.get(item.session_id, 0)
             ),
             *self._facilitator_conflicts(
                 item, context.facilitators_by_session, context.items_by_facilitator

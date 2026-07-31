@@ -1,5 +1,4 @@
 from datetime import UTC, date, datetime
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -623,6 +622,28 @@ class TestListAllForTrack:
         assert conflicts[0].space_capacity == _ROOM_CAPACITY
         assert conflicts[0].session_limit == _SESSION_LIMIT
 
+    def test_capacity_check_skips_a_session_missing_from_limits(self):
+        # A session absent from the limits map counts as limitless-free, not
+        # as a crash: the sweep must survive a repo answer that omits it.
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=_ROOM_CAPACITY,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        item = _make_item(pk=1, session_id=10, space_id=1)
+        uow = self._uow(all_items=[item], spaces=[space], limits={})
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=None
+        )
+
+        assert not conflicts
+
     def test_facilitator_overlap_across_tracks_gets_attribution(self):
         subject = _make_item(pk=1, session_id=10, space_id=1)
         other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
@@ -715,6 +736,69 @@ class TestListAllForTrack:
             )
 
 
+class TestListPreferredSlotViolations:
+    @staticmethod
+    def _uow(*, items, preferred):
+        uow = MagicMock()
+        uow.agenda_items.list_by_event.return_value = items
+        uow.agenda_items.list_by_track.return_value = items
+        uow.sessions.read_preferred_time_slots_by_sessions.return_value = preferred
+        uow.tracks.list_by_sessions.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+        return uow
+
+    def test_session_inside_its_preferred_range_is_not_a_violation(self):
+        item = _make_item(
+            pk=1,
+            session_id=10,
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+        slot = _slot(
+            datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        uow = self._uow(items=[item], preferred={10: [slot]})
+
+        violations = ConflictDetectionService(uow).list_preferred_slot_violations(
+            event_pk=1, track_pk=None
+        )
+
+        assert not violations
+
+    def test_session_outside_its_preferred_range_carries_foreign_attribution(self):
+        item = _make_item(
+            pk=1,
+            session_id=10,
+            session_title="Evening quiz",
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+        slot = _slot(
+            datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            datetime(2026, 1, 1, 13, 0, tzinfo=UTC),
+        )
+        uow = self._uow(items=[item], preferred={10: [slot]})
+        uow.tracks.list_by_sessions.return_value = {10: [_track_stub(6, "Board games")]}
+        uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
+
+        violations = ConflictDetectionService(uow).list_preferred_slot_violations(
+            event_pk=1, track_pk=5
+        )
+
+        assert len(violations) == 1
+        violation = violations[0]
+        assert violation.session_pk == _SUBJECT_SESSION_PK
+        assert violation.session_title == "Evening quiz"
+        assert violation.scheduled_start == item.start_time
+        assert violation.scheduled_end == item.end_time
+        assert [(r.start_time, r.end_time) for r in violation.preferred_slots] == [
+            (slot.start_time, slot.end_time)
+        ]
+        assert violation.track_name == "Board games"
+        assert violation.manager_names == ["Basia"]
+
+
 class TestTrackProgress:
     def test_counts_come_from_one_aggregate(self):
         accepted, scheduled, pending, rejected = 4, 3, 2, 1
@@ -789,11 +873,20 @@ class TestTimetableOverviewServiceDefaults:
 
 
 def _space(pk, parent_id=None):
-    return SimpleNamespace(pk=pk, parent_id=parent_id)
+    return SpaceDTO(
+        pk=pk,
+        parent_id=parent_id,
+        capacity=None,
+        creation_time=datetime(2026, 1, 1, tzinfo=UTC),
+        modification_time=datetime(2026, 1, 1, tzinfo=UTC),
+        name=f"Room {pk}",
+        order=pk,
+        slug=f"room-{pk}",
+    )
 
 
 def _slot(start, end):
-    return SimpleNamespace(start_time=start, end_time=end)
+    return TimeSlotDTO(pk=1, start_time=start, end_time=end)
 
 
 class TestTimetableOverviewCapacityHours:
