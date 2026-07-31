@@ -130,12 +130,18 @@
   animation-timing-function: var(--vt-morph-ease);
 }
 
-/* The title flies through the tab bar on its way to the header. Hold the bar
-   back until the title has cleared, so the two never render on top of one
-   another. */
+/* Static labels the title flies through on its way to the header. Hold each
+   back until the title has cleared it, so the two never render on top of one
+   another, and stagger them so the modal's chrome settles before its body
+   copy does. */
 ::view-transition-new(morph-tabs) {
   animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.5) var(--vt-morph-ease)
     calc(var(--vt-morph-duration) * 0.35) both;
+}
+
+::view-transition-new(morph-desc-label) {
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.4) var(--vt-morph-ease)
+    calc(var(--vt-morph-duration) * 0.5) both;
 }
 
 @keyframes vt-chrome-in {
@@ -266,6 +272,7 @@
   ::view-transition-old(morph-avatar),
   ::view-transition-new(morph-avatar),
   ::view-transition-new(morph-tabs),
+  ::view-transition-new(morph-desc-label),
   ::view-transition-new(morph-footer) {
     animation: none;
   }

@@ -79,7 +79,8 @@
                 {% if data.session.description %}
                     <!-- Description -->
                     <div class="mb-6">
-                        <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
+                        <h3 class="font-semibold mb-2 text-foreground-secondary"
+                            data-morph="desc-label">{% translate "About this session" %}</h3>
                         {# leading-5 matches the card excerpt's text-sm leading, so #}
                         {# the description keeps its rhythm across the morph. #}
                         <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
