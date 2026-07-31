@@ -71,6 +71,8 @@ env = environ.Env(
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
+    # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
+    ZEAL_RAISE=(bool, False),
 )
 
 
@@ -145,6 +147,29 @@ MIDDLEWARE = [
 if DEBUG:
     INSTALLED_APPS.append("django_browser_reload")
     MIDDLEWARE.append("django_browser_reload.middleware.BrowserReloadMiddleware")
+
+# django-zeal flags every N+1 as it happens (a related-field lazy load
+# repeated across a loop). Active everywhere except production: the dev
+# server and pytest raise so a regression cannot land unnoticed; the e2e
+# server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
+# the UI shows up in server output without failing unrelated UI tests.
+if DEBUG or IN_TESTS:
+    INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
+    MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
+    ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
+    ZEAL_SHOW_ALL_CALLERS = False
+    # Repositories fetch DTOs with `Model.objects.get(...)` per read, so two
+    # unrelated reads of the same model in one request trip zeal's repeated-
+    # get() heuristic constantly (sphere by domain + sphere by id, session +
+    # its event, ...). Those are constant per request, not per-row; keep zeal
+    # focused on the real N+1 shape — related-field lazy loads in loops.
+    # Space.parent: model validation climbs the ancestor chain on every save
+    # (same-event, cycle, and depth checks), bounded by SPACE_MAX_DEPTH — a
+    # deliberate walk, not an unbounded per-row leak.
+    ZEAL_ALLOWLIST = [
+        {"model": "*", "field": "get()"},
+        {"model": "db_main.Space", "field": "parent"},
+    ]
 
 if DEBUG and env.bool("DEBUG_TOOLBAR", default=False):
     INSTALLED_APPS.append("debug_toolbar")
