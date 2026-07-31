@@ -168,6 +168,34 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         ]
 
     @staticmethod
+    def set_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        agenda_item_pk: int | None = None,
+    ) -> int:
+        """Set the confirmation flag over one facilitator's placed items.
+
+        Scoping to agenda items is what keeps an unplaced or pending session
+        unconfirmable: it has no row here to update. `contact_email` narrows to
+        one address (including the empty one), `agenda_item_pk` to one item.
+
+        Returns:
+            How many agenda items the filter matched.
+        """
+        # One statement, whatever the scope — never a row-by-row save loop.
+        queryset = AgendaItem.objects.filter(
+            session__event_id=event_pk, session__facilitators__pk=facilitator_pk
+        )
+        if contact_email is not None:
+            queryset = queryset.filter(session__contact_email=contact_email)
+        if agenda_item_pk is not None:
+            queryset = queryset.filter(pk=agenda_item_pk)
+        return queryset.update(session_confirmed=confirmed)
+
+    @staticmethod
     def count_without_facilitator(event_pk: int) -> int:
         return AgendaItem.objects.filter(
             session__event_id=event_pk, session__facilitators__isnull=True

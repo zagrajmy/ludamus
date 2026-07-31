@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
@@ -23,12 +24,16 @@ from ludamus.pacts.legacy import (
     EventRepositoryProtocol,
     EventStatsData,
     FacilitatorRepositoryProtocol,
+    NotFoundError,
     PanelStatsDTO,
     SessionRepositoryProtocol,
     SessionStatus,
     TrackRepositoryProtocol,
 )
 from ludamus.specs.confirmations import SCHEDULED_STATUS, STATUS_ORDER
+
+if TYPE_CHECKING:
+    from ludamus.pacts.services import TransactionProtocol
 
 
 def is_proposal_active(event: EventDTO) -> bool:
@@ -63,11 +68,13 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
     def __init__(
         self,
         *,
+        transaction: TransactionProtocol,
         facilitators: FacilitatorRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         tracks: TrackRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
     ) -> None:
+        self._transaction = transaction
         self._facilitators = facilitators
         self._agenda_items = agenda_items
         self._tracks = tracks
@@ -131,6 +138,67 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             scheduled_count=scheduled,
             confirmed_count=confirmed,
             progress_pct=_progress_pct(confirmed=confirmed, scheduled=scheduled),
+        )
+
+    def facilitator_card(
+        self, *, event_pk: int, track_pk: int, facilitator_pk: int
+    ) -> ConfirmationFacilitatorDTO:
+        row = self._read_facilitator_in_event(
+            event_pk=event_pk, facilitator_pk=facilitator_pk
+        )
+        sessions = self._sessions.list_confirmation_rows(event_pk, [facilitator_pk])
+        session_pks = [session["session_pk"] for session in sessions]
+        return _facilitator(
+            row=row,
+            sessions=sessions,
+            track_names=self._sessions.list_track_names_by_session(session_pks),
+            facilitator_names=self._sessions.list_facilitator_names_by_session(
+                session_pks
+            ),
+            track_pk=track_pk,
+        )
+
+    def set_confirmed(
+        self,
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        agenda_item_pk: int | None = None,
+    ) -> None:
+        # Panel access proves this organizer manages the event, not that the
+        # ids in the request belong to it — resolve the facilitator inside the
+        # event first, so a foreign id cannot reach the update.
+        self._read_facilitator_in_event(
+            event_pk=event_pk, facilitator_pk=facilitator_pk
+        )
+        with self._transaction.atomic():
+            matched = self._agenda_items.set_confirmed_for_facilitator(
+                event_pk=event_pk,
+                facilitator_pk=facilitator_pk,
+                confirmed=confirmed,
+                contact_email=contact_email,
+                agenda_item_pk=agenda_item_pk,
+            )
+        # Naming one item and hitting nothing means the item is not this
+        # facilitator's (or not placed at all) — say so instead of reporting a
+        # write that never happened. A scope-wide call legitimately matches none.
+        if agenda_item_pk is not None and not matched:
+            raise NotFoundError
+
+    def _read_facilitator_in_event(
+        self, *, event_pk: int, facilitator_pk: int
+    ) -> ConfirmationFacilitatorRow:
+        facilitator = self._facilitators.read(facilitator_pk)
+        if facilitator.event_id != event_pk:
+            raise NotFoundError
+        return ConfirmationFacilitatorRow(
+            pk=facilitator.pk,
+            display_name=facilitator.display_name,
+            slug=facilitator.slug,
+            organizer_id=facilitator.organizer_id,
+            organizer_name=facilitator.organizer_name or "",
         )
 
     def dashboard(self, event_pk: int) -> ConfirmationDashboardDTO:

@@ -130,6 +130,18 @@ class EventConfirmationsServiceProtocol(Protocol):
     def track_view(
         self, *, event_pk: int, track_pk: int
     ) -> ConfirmationTrackViewDTO: ...
+    def facilitator_card(
+        self, *, event_pk: int, track_pk: int, facilitator_pk: int
+    ) -> ConfirmationFacilitatorDTO: ...
+    def set_confirmed(
+        self,
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        agenda_item_pk: int | None = None,
+    ) -> None: ...
 
 
 class PanelTimeSlotsServiceProtocol(Protocol):

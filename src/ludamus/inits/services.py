@@ -198,6 +198,7 @@ class Services:
     @cached_property
     def confirmations(self) -> EventConfirmationsService:
         return EventConfirmationsService(
+            transaction=self._transaction,
             facilitators=self._repos.facilitators,
             agenda_items=self._repos.agenda_items,
             tracks=self._repos.tracks,

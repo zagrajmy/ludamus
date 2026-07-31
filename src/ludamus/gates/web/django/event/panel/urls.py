@@ -98,6 +98,11 @@ _timetable_urlpatterns = [
         name="timetable-confirmations",
     ),
     path(
+        "confirmations/do/confirm",
+        confirmations.ConfirmationsConfirmActionView.as_view(),
+        name="timetable-confirmations-confirm",
+    ),
+    path(
         "print/timetable/",
         print_views.TimetablePrintView.as_view(material="timetable"),
         name="timetable-print",

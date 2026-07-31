@@ -977,6 +977,15 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
     @staticmethod
+    def set_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        agenda_item_pk: int | None = None,
+    ) -> int: ...
+    @staticmethod
     def count_without_facilitator(event_pk: int) -> int: ...
     @staticmethod
     def delete(pk: int) -> None: ...

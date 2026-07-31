@@ -1,5 +1,9 @@
 {% load i18n tessera confirmation_tags %}
-<details class="card overflow-hidden {% if facilitator.is_fully_confirmed %}bg-bg-tertiary{% endif %}"
+{# `next_url` comes from the view: on an HTMX re-render the request path is the
+   action endpoint, which would be a useless place to send a claim back to. #}
+{% url 'panel:timetable-confirmations-confirm' slug=current_event.slug as confirm_url %}
+<details id="facilitator-card-{{ facilitator.pk }}"
+         class="card overflow-hidden {% if facilitator.is_fully_confirmed %}bg-bg-tertiary{% endif %}"
          {% if not facilitator.is_fully_confirmed %}open{% endif %}>
     <summary class="flex cursor-pointer flex-wrap items-center gap-3 p-4">
         <span class="font-semibold">{{ facilitator.display_name }}</span>
@@ -11,8 +15,36 @@
                 <span class="text-foreground-secondary">
                     {% blocktranslate with name=facilitator.organizer_name %}Handled by {{ name }}{% endblocktranslate %}
                 </span>
+                <form method="post"
+                      action="{% url 'panel:facilitator-unassign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    {% translate "Step down" as t_step_down %}
+                    {% tessera_button t_step_down variant="secondary" button_type="submit" size="sm" %}
+                </form>
             {% else %}
                 <span class="text-warning-text">{% translate "Nobody handles this facilitator" %}</span>
+                <form method="post"
+                      action="{% url 'panel:facilitator-assign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    {% translate "Take this on" as t_take_on %}
+                    {% tessera_button t_take_on variant="primary" button_type="submit" size="sm" %}
+                </form>
+            {% endif %}
+            {% if facilitator.scheduled_count and not facilitator.is_fully_confirmed %}
+                <form hx-post="{{ confirm_url }}"
+                      hx-target="#facilitator-card-{{ facilitator.pk }}"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <input type="hidden" name="scope" value="facilitator">
+                    <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
+                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    <input type="hidden" name="confirmed" value="true">
+                    {% translate "Confirm everything" as t_confirm_all %}
+                    {% tessera_button t_confirm_all variant="secondary" button_type="submit" size="sm" %}
+                </form>
             {% endif %}
         </span>
     </summary>
@@ -26,13 +58,30 @@
                         <span class="text-sm italic text-warning-text">{% translate "No contact address" %}</span>
                     {% endif %}
                     {% if group.confirmable_count %}
-                        <span class="ml-auto">
+                        <span class="ml-auto flex items-center gap-2">
                             {% confirmation_copy_text group as copy_payload %}
                             {% translate "Copy details" as t_copy %}
                             {% tessera_copy copy_payload class="w-auto" %}
                             {% icon "clipboard-document" variant="solid" class="size-4" %}
                             {{ t_copy }}
                         {% endtessera_copy %}
+                        <form hx-post="{{ confirm_url }}"
+                              hx-target="#facilitator-card-{{ facilitator.pk }}"
+                              hx-swap="outerHTML">
+                            {% csrf_token %}
+                            <input type="hidden" name="scope" value="email">
+                            <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
+                            <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                            <input type="hidden" name="contact_email" value="{{ group.contact_email }}">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                            <input type="hidden" name="confirmed" value="true">
+                            {% blocktranslate count count=group.confirmable_count trimmed asvar t_confirm_group %}
+                                Confirm this one
+                            {% plural %}
+                                Confirm these {{ count }}
+                            {% endblocktranslate %}
+                            {% tessera_button t_confirm_group variant="secondary" button_type="submit" size="sm" %}
+                        </form>
                     </span>
                 {% endif %}
             </div>
@@ -43,6 +92,29 @@
                     </div>
                     {% for session in status_group.sessions %}
                         <div class="flex items-start gap-2.5 rounded-xl px-2.5 py-2 hover:bg-bg-tertiary">
+                            {% if session.agenda_item_pk %}
+                                <form class="flex"
+                                      hx-post="{{ confirm_url }}"
+                                      hx-trigger="change"
+                                      hx-target="#facilitator-card-{{ facilitator.pk }}"
+                                      hx-swap="outerHTML">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="session">
+                                    <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
+                                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                                    <input type="hidden"
+                                           name="agenda_item_pk"
+                                           value="{{ session.agenda_item_pk }}">
+                                    <input type="hidden" name="next" value="{{ next_url }}">
+                                    {# Unchecking sends no `confirmed` at all — that absence is the undo. #}
+                                    <input type="checkbox"
+                                           name="confirmed"
+                                           value="true"
+                                           class="mt-0.5 size-4 accent-primary"
+                                           aria-label="{% translate "Confirmed" %}"
+                                           {% if session.is_confirmed %}checked{% endif %}>
+                                </form>
+                            {% endif %}
                             <div class="min-w-0">
                                 <div class="font-medium">{{ session.title }}</div>
                                 <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-foreground-muted">

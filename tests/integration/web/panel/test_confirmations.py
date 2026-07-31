@@ -113,6 +113,9 @@ class TestConfirmationsPageView:
                 ),
                 "track_view": None,
                 "slug": event.slug,
+                "next_url": reverse(
+                    "panel:timetable-confirmations", kwargs={"slug": event.slug}
+                ),
                 "tab_urls": _tab_urls(event),
                 "active_tab": "confirmations",
             },

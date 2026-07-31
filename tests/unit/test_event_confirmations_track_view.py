@@ -1,9 +1,14 @@
+from contextlib import contextmanager
 from datetime import UTC, datetime
+
+import pytest
 
 from ludamus.mills.event import EventConfirmationsService
 from ludamus.pacts.legacy import (
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
+    FacilitatorDTO,
+    NotFoundError,
     SessionStatus,
 )
 
@@ -109,12 +114,124 @@ def _service(
     )
     session_repo = FakeSessions(sessions or [], track_names, facilitator_names)
     service = EventConfirmationsService(
+        transaction=None,
         facilitators=facilitator_repo,
         agenda_items=None,
         tracks=None,
         sessions=session_repo,
     )
     return service, facilitator_repo, session_repo
+
+
+_EVENT = 1
+_FOREIGN_EVENT = 2
+
+
+class FakeTransaction:
+    def __init__(self) -> None:
+        self.entered = 0
+
+    @contextmanager
+    def atomic(self):
+        self.entered += 1
+        yield
+
+
+class FakeFacilitatorReads:
+    def __init__(self, *, event_id: int | None) -> None:
+        self._event_id = event_id
+
+    def read(self, pk: int) -> FacilitatorDTO:
+        if self._event_id is None:
+            raise NotFoundError
+        return FacilitatorDTO(
+            accreditation_type="speaker",
+            display_name="Ada",
+            event_id=self._event_id,
+            organizer_id=None,
+            organizer_name=None,
+            pk=pk,
+            slug="ada",
+            user_id=None,
+        )
+
+
+class FakeAgendaWrites:
+    def __init__(self, matched: int = 1) -> None:
+        self._matched = matched
+        self.calls: list[dict[str, object]] = []
+
+    def set_confirmed_for_facilitator(self, **kwargs: object) -> int:
+        self.calls.append(kwargs)
+        return self._matched
+
+
+def _write_service(
+    *, event_id: int | None = _EVENT, matched: int = 1
+) -> tuple[EventConfirmationsService, FakeAgendaWrites, FakeTransaction]:
+    agenda_items = FakeAgendaWrites(matched)
+    transaction = FakeTransaction()
+    service = EventConfirmationsService(
+        transaction=transaction,
+        facilitators=FakeFacilitatorReads(event_id=event_id),
+        agenda_items=agenda_items,
+        tracks=None,
+        sessions=None,
+    )
+    return service, agenda_items, transaction
+
+
+class TestSetConfirmed:
+    def test_writes_the_named_scope_inside_a_transaction(self):
+        service, agenda_items, transaction = _write_service()
+
+        service.set_confirmed(
+            event_pk=_EVENT,
+            facilitator_pk=_ADA,
+            confirmed=True,
+            contact_email="ada@example.com",
+            agenda_item_pk=100,
+        )
+
+        assert agenda_items.calls == [
+            {
+                "event_pk": _EVENT,
+                "facilitator_pk": _ADA,
+                "confirmed": True,
+                "contact_email": "ada@example.com",
+                "agenda_item_pk": 100,
+            }
+        ]
+        assert transaction.entered == 1
+
+    def test_refuses_a_facilitator_from_another_event_without_writing(self):
+        service, agenda_items, _ = _write_service(event_id=_FOREIGN_EVENT)
+
+        with pytest.raises(NotFoundError):
+            service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
+
+        assert not agenda_items.calls
+
+    def test_refuses_an_unknown_facilitator_without_writing(self):
+        service, agenda_items, _ = _write_service(event_id=None)
+
+        with pytest.raises(NotFoundError):
+            service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
+
+        assert not agenda_items.calls
+
+    def test_naming_an_item_that_matches_nothing_is_an_error(self):
+        service, _, _ = _write_service(matched=0)
+
+        with pytest.raises(NotFoundError):
+            service.set_confirmed(
+                event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True, agenda_item_pk=100
+            )
+
+    def test_a_scope_wide_call_matching_nothing_is_fine(self):
+        service, _, _ = _write_service(matched=0)
+
+        service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
 
 
 class TestTrackView:

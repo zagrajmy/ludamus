@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-30 20:50+0200\n"
+"POT-Creation-Date: 2026-07-31 06:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6785,6 +6785,7 @@ msgstr ""
 "Usunąć przypisanie twórcy %(name)s? Potem może go przypisać sobie ktoś inny."
 
 #: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "Step down"
 msgstr "Usuń przypisanie"
 
@@ -7158,6 +7159,7 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 #: src/ludamus/templates/panel/parts/timetable-day-grid.html
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
@@ -7226,8 +7228,25 @@ msgid "Nobody handles this facilitator"
 msgstr "Bez opiekuna"
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
+msgid "Take this on"
+msgstr "Przypisz do mnie"
+
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
+msgid "Confirm everything"
+msgstr "Potwierdź wszystkie"
+
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "No contact address"
 msgstr "Brak adresu kontaktowego"
+
+#: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
+#, python-format
+msgid "Confirm this one"
+msgid_plural "Confirm these %(count)s"
+msgstr[0] "Potwierdź ten punkt"
+msgstr[1] "Potwierdź te %(count)s punkty"
+msgstr[2] "Potwierdź te %(count)s punktów"
+msgstr[3] "Potwierdź te %(count)s punktu"
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "no place in the schedule"
@@ -7252,10 +7271,13 @@ msgstr[3] "%(count)s punktu programu czeka na decyzję"
 msgid "%(count)s accepted program item has no place in the schedule yet"
 msgid_plural ""
 "%(count)s accepted program items have no place in the schedule yet"
-msgstr[0] "%(count)s zaakceptowany punkt programu jeszcze bez miejsca w harmonogramie"
-msgstr[1] "%(count)s zaakceptowane punkty programu jeszcze bez miejsca w harmonogramie"
+msgstr[0] ""
+"%(count)s zaakceptowany punkt programu jeszcze bez miejsca w harmonogramie"
+msgstr[1] ""
+"%(count)s zaakceptowane punkty programu jeszcze bez miejsca w harmonogramie"
 msgstr[2] ""
-"%(count)s zaakceptowanych punktów programu jeszcze bez miejsca w harmonogramie"
+"%(count)s zaakceptowanych punktów programu jeszcze bez miejsca w "
+"harmonogramie"
 msgstr[3] ""
 "%(count)s zaakceptowanego punktu programu jeszcze bez miejsca w harmonogramie"
 
