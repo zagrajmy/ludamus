@@ -23,7 +23,10 @@
         {% endif %}
         <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none **:pointer-events-none pt-4">
             <header>
-                <h3 class="text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
+                {# w-fit keeps the morph group's box on the title text rather than #}
+                {# the card column, so the modal title snapshot is not scaled up on #}
+                {# the transition's first frame. #}
+                <h3 class="w-fit text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
                     data-morph="title">{{ data.session.title }}</h3>
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-hidden">
                     <span class="shrink-0" data-morph="avatar">
@@ -50,9 +53,10 @@
                    data-morph="desc"
                    data-session-description>{{ data.session.description }}</p>
             {% endif %}
-            <div class="relative">{% include "chronology/session_tags.html" %}</div>
+            <div class="relative" data-morph="tags">{% include "chronology/session_tags.html" %}</div>
             <div class="flex-1"></div>
-            <div class="mt-auto pt-4 flex items-center justify-between gap-3 min-w-0">
+            <div class="mt-auto pt-4 flex items-center justify-between gap-3 min-w-0"
+                 data-morph="meta">
                 <div class="flex items-center gap-1.5 text-sm text-foreground-secondary min-w-0 overflow-hidden">
                     {% if data.location_label %}
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}

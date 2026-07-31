@@ -19,7 +19,12 @@
     <div class="flex-auto min-h-0 flex flex-col overflow-hidden"
          data-session-tabs="{{ data.session.pk }}">
         <!-- Tabs -->
-        <div class="tab-list shrink-0" role="tablist">
+        {# data-morph makes the bar its own view-transition group so it can fade #}
+        {# in after the card title has flown past it; bg-bg-secondary (the modal #}
+        {# surface colour, so no static change) keeps that group opaque. #}
+        <div class="tab-list shrink-0 bg-bg-secondary"
+             role="tablist"
+             data-morph="tabs">
             <button role="tab"
                     aria-selected="true"
                     aria-controls="info-{{ data.session.pk }}"
@@ -72,7 +77,9 @@
                     <!-- Description -->
                     <div class="mb-6">
                         <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
-                        <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground"
+                        {# leading-5 matches the card excerpt's text-sm leading, so #}
+                        {# the description keeps its rhythm across the morph. #}
+                        <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
                              data-morph="desc">{{ data.session.description|render_markdown }}</div>
                     </div>
                 {% endif %}
@@ -227,7 +234,11 @@
     {% endif %}
     {% if data.is_enrollment_available or data.can_edit %}
         <!-- Footer -->
-        <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0"
+        {# data-morph + the modal surface colour give the footer its own opaque #}
+        {# view-transition group, so the description no longer paints over the #}
+        {# enroll button while it grows into place. #}
+        <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
+             data-morph="footer"
              data-session-footer="{{ data.session.pk }}">
             <div>
                 {% if data.can_edit %}
