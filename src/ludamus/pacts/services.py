@@ -68,6 +68,7 @@ if TYPE_CHECKING:
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
+    from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
@@ -175,6 +176,8 @@ class ServicesProtocol(Protocol):
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
-    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...
+    def tracks_panel(self) -> TracksPanelServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...

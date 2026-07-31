@@ -10,6 +10,7 @@ reads and participation mutations.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -115,6 +116,9 @@ class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtoco
         )
 
 
+logger = logging.getLogger(__name__)
+
+
 class ParticipationPromotionRepository:
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         try:
@@ -127,13 +131,18 @@ class ParticipationPromotionRepository:
                 .get(id=session_id)
             )
         except Session.DoesNotExist:
+            logger.info("Session %s is gone, so nobody can be promoted", session_id)
             return None
         # Promotion only applies to scheduled sessions (those with an agenda item).
         if not hasattr(session, "agenda_item"):
+            logger.info("Session %s is not on the timetable yet", session_id)
             return None
         event = session.event
 
         if (config := event.get_most_liberal_config(session)) is None:
+            logger.info(
+                "Session %s sits outside every active enrollment window", session_id
+            )
             return None
 
         category = session.category
