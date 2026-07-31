@@ -46,6 +46,7 @@ django-storages = { extras = ["google"], version = "^1.14.6" }
 dbos = ">=2.23.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
+urllib3 = "^2.7.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
