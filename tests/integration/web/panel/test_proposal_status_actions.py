@@ -77,8 +77,10 @@ def _url(event, proposal_id, action):
     )
 
 
-@pytest.fixture(params=[ACCEPT, HOLD, REJECT, PENDING], ids=lambda a: a.name)
-def action(request):
+@pytest.fixture(
+    name="action", params=[ACCEPT, HOLD, REJECT, PENDING], ids=lambda a: a.name
+)
+def action_fixture(request):
     return request.param
 
 
