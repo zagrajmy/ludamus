@@ -86,6 +86,48 @@ test.describe("Event detail page", () => {
     await expect(card).not.toHaveClass(/session-suppressed/);
   });
 
+  // Whether the morph *feels* right is not assertable; that the modal's chrome
+  // still animates on its own delayed groups is. Losing those groups is what
+  // put the enroll footer under the growing description and crossed the tab bar
+  // with the flying title.
+  test("modal chrome morphs on its own groups, staggered behind the title", async ({ page }) => {
+    const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
+    test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
+
+    // Stretch the morph so its animations are readable while it runs.
+    await page.addStyleTag({
+      content: ":root { --vt-morph-duration: 5s; --vt-morph-exit-duration: 5s; }",
+    });
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+
+    const pseudoOf = (name: string) => `::view-transition-new(morph-${name})`;
+    await page.waitForFunction(
+      (pseudo) =>
+        document
+          .getAnimations()
+          .some((a) => (a.effect as KeyframeEffect | null)?.pseudoElement === pseudo),
+      pseudoOf("tabs"),
+    );
+
+    const delays = await page.evaluate(() => {
+      const entries: [string, number][] = [];
+      for (const animation of document.getAnimations()) {
+        const effect = animation.effect as KeyframeEffect | null;
+        const pseudo = effect?.pseudoElement;
+        if (effect && pseudo?.startsWith("::view-transition-new(morph-")) {
+          entries.push([pseudo, Number(effect.getComputedTiming().delay)]);
+        }
+      }
+      return Object.fromEntries(entries);
+    });
+
+    // The footer has to be opaque from the first frame to occlude the
+    // description; the labels the title flies past must not be.
+    expect(delays[pseudoOf("footer")]).toBe(0);
+    expect(delays[pseudoOf("tabs")]).toBeGreaterThan(0);
+    expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
+  });
+
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
     browser,
     browserName,
