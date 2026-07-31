@@ -44,8 +44,8 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     SpaceTimeConflictError,
 )
-from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.submissions import ImportSettings
+from tests.unit.dtos import user_dto
 
 
 def _make_item(**overrides):
@@ -1396,24 +1396,7 @@ def _event_dto(**overrides):
 
 
 def _user_dto(**overrides):
-    defaults = {
-        "avatar_url": "",
-        "date_joined": _NOW,
-        "discord_username": "",
-        "email": "",
-        "full_name": "",
-        "is_active": True,
-        "is_authenticated": True,
-        "is_staff": False,
-        "is_superuser": False,
-        "name": "",
-        "pk": 1,
-        "slug": "manager",
-        "use_gravatar": False,
-        "user_type": UserType.ACTIVE,
-        "username": "auth0|sub",
-    }
-    return UserDTO(**(defaults | overrides))
+    return user_dto(**{"date_joined": _NOW, **overrides})
 
 
 class TestProposalAcceptanceService:

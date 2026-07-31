@@ -7,23 +7,13 @@ from django.urls import reverse
 from ludamus.links.db.django.models import Connection, EventIntegration
 from ludamus.pacts.multiverse import ConnectionDTO
 from tests.integration.utils import assert_response
+from tests.integration.web.multiverse.helpers import (
+    assert_login_required,
+    assert_not_a_sphere_manager,
+    sphere_panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the sphere panel."
-
-TAB_URLS = {
-    "general": "/multiverse/panel/",
-    "connections": "/multiverse/panel/connections/",
-    "announcements": "/multiverse/panel/announcements/",
-    "mcp": "/multiverse/panel/mcp/",
-}
-CONNECTIONS_PANEL_CONTEXT = {
-    "events": [],
-    "current_event": None,
-    "is_proposal_active": False,
-    "active_nav": "sphere-settings",
-    "active_tab": "connections",
-    "tab_urls": TAB_URLS,
-}
+CONNECTIONS_PANEL_CONTEXT = sphere_panel_context(active_tab="connections")
 
 
 class TestConnectionsPageView:
@@ -34,19 +24,12 @@ class TestConnectionsPageView:
     def test_get_redirects_anonymous_user_to_login(self, client):
         response = client.get(self.url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.url}"
-        )
+        assert_login_required(response, self.url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client):
         response = authenticated_client.get(self.url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
 
     def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
@@ -103,19 +86,12 @@ class TestConnectionCreatePageView:
     def test_get_redirects_anonymous_user_to_login(self, client):
         response = client.get(self.url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.url}"
-        )
+        assert_login_required(response, self.url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client):
         response = authenticated_client.get(self.url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
 
     def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
@@ -132,19 +108,12 @@ class TestConnectionCreatePageView:
     def test_post_redirects_anonymous_user_to_login(self, client):
         response = client.post(self.url, data={"display_name": "X"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.url}"
-        )
+        assert_login_required(response, self.url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client):
         response = authenticated_client.post(self.url, data={"display_name": "X"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
 
     def test_post_rerenders_form_on_invalid_data(
         self, authenticated_client, active_user, sphere
@@ -236,21 +205,14 @@ class TestConnectionEditPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, sphere):
         connection = Connection.objects.create(sphere=sphere, display_name="X")
 
         response = authenticated_client.get(self.get_url(connection))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
 
     def test_get_ok_for_sphere_manager(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
@@ -467,21 +429,14 @@ class TestConnectionDeletePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, sphere):
         connection = Connection.objects.create(sphere=sphere, display_name="X")
 
         response = authenticated_client.get(self.get_url(connection))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
 
     def test_get_renders_confirm_page_for_sphere_manager(
         self, authenticated_client, active_user, sphere
