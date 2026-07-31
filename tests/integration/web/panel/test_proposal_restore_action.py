@@ -50,13 +50,10 @@ class TestProposalRestoreActionView:
         session.refresh_from_db()
         assert session.deleted_at is not None
 
-    def test_post_restores_session_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_restores_session_and_redirects(self, panel_client, event):
         session = _make_deleted_session(event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
@@ -67,45 +64,35 @@ class TestProposalRestoreActionView:
         restored = Session.objects.get(pk=session.pk)
         assert restored.deleted_at is None
 
-    def test_post_redirects_when_proposal_not_deleted(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_proposal_not_deleted(self, panel_client, event):
         session = make_proposal(event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         session = _make_deleted_session(other_event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_proposal_not_found(response, event)
         session.refresh_from_db()
         assert session.deleted_at is not None
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-restore", kwargs={"slug": "no-such-event", "proposal_id": 1}
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_proposals_page_renders_recently_deleted_section(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_proposals_page_renders_recently_deleted_section(self, panel_client, event):
         pending = _make_deleted_session(event, title="Lost Adventure")
         rejected = Session.objects.create(
             category=pending.category,
@@ -119,7 +106,7 @@ class TestProposalRestoreActionView:
         )
         rejected.soft_delete()
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:proposals", kwargs={"slug": event.slug})
         )
 

@@ -54,22 +54,15 @@ class TestTimetablePageView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_ok_for_sphere_manager_empty_grid(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager_empty_grid(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -107,11 +100,9 @@ class TestTimetablePageView:
         assert response.context["grid"].spaces == []
 
     def test_grid_shows_spaces_and_time_labels(
-        self, authenticated_client, active_user, sphere, event, space, time_slot
+        self, panel_client, event, space, time_slot
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         grid = response.context["grid"]
@@ -123,19 +114,11 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_grid_contains_scheduled_session(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, panel_client, event, session, space, time_slot
     ):
-        sphere.managers.add(active_user)
         schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         grid = response.context["grid"]
@@ -145,16 +128,15 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_all_days_render_side_by_side_with_canonical_url_state(
-        self, authenticated_client, active_user, sphere, event, space, time_slot
+        self, panel_client, event, space, time_slot
     ):
-        sphere.managers.add(active_user)
         second_slot = TimeSlotFactory(
             event=event,
             start_time=time_slot.start_time + timedelta(days=1),
             end_time=time_slot.end_time + timedelta(days=1),
         )
 
-        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+        response = panel_client.get(self.get_url(event), {"date": "all"})
 
         assert_response(
             response,
@@ -180,11 +162,8 @@ class TestTimetablePageView:
         assert [column.space.pk for column in grid.days[0].columns] == [space.pk]
 
     def test_grid_declares_one_track_per_room_per_day(
-        self, authenticated_client, active_user, sphere, event, space, time_slot
+        self, panel_client, event, space, time_slot
     ):
-        # Rooms and days differ, and differ from their product, so nothing but
-        # the track count itself can satisfy the assertions.
-        sphere.managers.add(active_user)
         room_count = 3
         day_count = 2
         for _ in range(room_count - 1):
@@ -195,7 +174,7 @@ class TestTimetablePageView:
             end_time=time_slot.end_time + timedelta(days=1),
         )
 
-        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+        response = panel_client.get(self.get_url(event), {"date": "all"})
 
         assert_response(
             response,
@@ -214,11 +193,9 @@ class TestTimetablePageView:
         assert space.pk in {column.space.pk for column in grid.days[0].columns}
 
     def test_single_schedule_day_hides_day_selector(
-        self, authenticated_client, active_user, sphere, event, time_slot
+        self, panel_client, event, time_slot
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -230,19 +207,11 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_grid_session_is_draggable_with_placement_data(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, panel_client, event, session, space, time_slot
     ):
-        sphere.managers.add(active_user)
         schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -253,16 +222,8 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_grid_marks_confirmed_session(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, panel_client, event, session, space, time_slot
     ):
-        sphere.managers.add(active_user)
         start = event.start_time
         end = start + timedelta(hours=1)
         AgendaItemFactory(
@@ -273,7 +234,7 @@ class TestTimetablePageView:
             session_confirmed=True,
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -281,19 +242,14 @@ class TestTimetablePageView:
         assert 'title="Confirmed"' in content
         assert time_slot is not None
 
-    def test_filters_by_track(
-        self, authenticated_client, active_user, sphere, event, space
-    ):
-        sphere.managers.add(active_user)
+    def test_filters_by_track(self, panel_client, event, space):
         track = Track.objects.create(
             event=event, name="My Track", slug="my-track", is_public=True
         )
         track.spaces.add(space)
         other_space = SpaceFactory(event=event)
 
-        response = authenticated_client.get(
-            self.get_url(event), {"track": str(track.pk)}
-        )
+        response = panel_client.get(self.get_url(event), {"track": str(track.pk)})
 
         assert response.status_code == HTTPStatus.OK
         grid = response.context["grid"]
@@ -302,9 +258,8 @@ class TestTimetablePageView:
         assert other_space.pk not in space_pks
 
     def test_auto_selects_single_managed_track(
-        self, authenticated_client, active_user, sphere, event, space
+        self, panel_client, active_user, event, space
     ):
-        sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="My Track", slug="my-track", is_public=True
         )
@@ -312,7 +267,7 @@ class TestTimetablePageView:
         track.managers.add(active_user)
         other_space = SpaceFactory(event=event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["filter_track_pk"] == track.pk
@@ -321,30 +276,21 @@ class TestTimetablePageView:
         assert other_space.pk not in space_pks
 
     @pytest.mark.parametrize("room_page", ("0", "-1", "abc", "999"))
-    def test_room_page_invalid_values_dont_raise(
-        self, authenticated_client, active_user, sphere, event, room_page
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            self.get_url(event), {"room_page": room_page}
-        )
+    def test_room_page_invalid_values_dont_raise(self, panel_client, event, room_page):
+        response = panel_client.get(self.get_url(event), {"room_page": room_page})
 
         assert response.status_code == HTTPStatus.OK
 
     def test_room_pagination_renders_prev_and_next_on_middle_page(
-        self, authenticated_client, active_user, sphere, event, time_slot
+        self, panel_client, event, time_slot
     ):
-        sphere.managers.add(active_user)
         room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1
         expected_pages = math.ceil(room_count / TIMETABLE_ROOM_PAGE_SIZE)
         middle_page = 2
         for _ in range(room_count):
             SpaceFactory(event=event)
 
-        response = authenticated_client.get(
-            self.get_url(event), {"room_page": middle_page}
-        )
+        response = panel_client.get(self.get_url(event), {"room_page": middle_page})
 
         assert response.status_code == HTTPStatus.OK
         grid = response.context["grid"]
@@ -353,9 +299,8 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_grid_marks_session_outside_preferred_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category, space
+        self, panel_client, event, proposal_category, space
     ):
-        sphere.managers.add(active_user)
         session = make_timetable_session(proposal_category)
         preferred = TimeSlotFactory(
             event=event,
@@ -365,7 +310,7 @@ class TestTimetablePageView:
         session.time_slots.add(preferred)
         schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["slot_violation_session_pks"] == {session.pk}
@@ -379,12 +324,8 @@ class TestPanelBaseHeader:
     def get_url(event):
         return reverse("panel:timetable", kwargs={"slug": event.slug})
 
-    def test_schedule_nav_label_renders_in_english(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_schedule_nav_label_renders_in_english(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -395,10 +336,7 @@ class TestPanelBaseHeader:
             not_contains="Harmonogram",
         )
 
-    def test_single_day_event_shows_one_date(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_single_day_event_shows_one_date(self, panel_client, sphere):
         event = EventFactory(
             sphere=sphere,
             slug="one-day",
@@ -406,7 +344,7 @@ class TestPanelBaseHeader:
             end_time=datetime(2026, 8, 6, 18, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -417,10 +355,7 @@ class TestPanelBaseHeader:
             not_contains="06 Aug - 06 Aug",
         )
 
-    def test_multi_day_event_shows_date_range(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_multi_day_event_shows_date_range(self, panel_client, sphere):
         event = EventFactory(
             sphere=sphere,
             slug="multi-day",
@@ -428,7 +363,7 @@ class TestPanelBaseHeader:
             end_time=datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,

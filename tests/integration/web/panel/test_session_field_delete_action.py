@@ -45,15 +45,12 @@ class TestSessionFieldDeleteActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_deletes_field_for_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_deletes_field_for_manager(self, panel_client, event):
         field = SessionField.objects.create(
             event=event, name="Genre", question="What genre?", slug="genre"
         )
 
-        response = authenticated_client.post(self.get_url(event, field))
+        response = panel_client.post(self.get_url(event, field))
 
         assert_response(
             response,
@@ -63,10 +60,7 @@ class TestSessionFieldDeleteActionView:
         )
         assert not SessionField.objects.filter(pk=field.pk).exists()
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client, event):
         field = SessionField.objects.create(
             event=event, name="Genre", question="What genre?", slug="genre"
         )
@@ -75,20 +69,17 @@ class TestSessionFieldDeleteActionView:
             kwargs={"slug": "nonexistent", "field_slug": field.slug},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_field_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_field_slug(self, panel_client, event):
         url = reverse(
             "panel:session-field-delete",
             kwargs={"slug": event.slug, "field_slug": "nonexistent"},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_response(
             response,
@@ -97,10 +88,7 @@ class TestSessionFieldDeleteActionView:
             url=f"/panel/event/{event.slug}/cfp/session-fields/",
         )
 
-    def test_post_error_when_field_used_in_category(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_error_when_field_used_in_category(self, panel_client, event):
         field = SessionField.objects.create(
             event=event, name="Genre", question="What genre?", slug="genre"
         )
@@ -111,7 +99,7 @@ class TestSessionFieldDeleteActionView:
             field=field, category=category, is_required=True
         )
 
-        response = authenticated_client.post(self.get_url(event, field))
+        response = panel_client.post(self.get_url(event, field))
 
         assert_response(
             response,
@@ -124,9 +112,8 @@ class TestSessionFieldDeleteActionView:
         assert SessionField.objects.filter(pk=field.pk).exists()
 
     def test_post_error_when_field_used_in_multiple_categories(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         field = SessionField.objects.create(
             event=event, name="Genre", question="What genre?", slug="genre"
         )
@@ -141,7 +128,7 @@ class TestSessionFieldDeleteActionView:
             field=field, category=category2, is_required=False
         )
 
-        response = authenticated_client.post(self.get_url(event, field))
+        response = panel_client.post(self.get_url(event, field))
 
         assert_response(
             response,

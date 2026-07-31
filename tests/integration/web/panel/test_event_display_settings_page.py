@@ -41,12 +41,8 @@ class TestEventDisplaySettingsPageViewGet:
 
         assert_not_a_manager(response)
 
-    def test_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -62,34 +58,27 @@ class TestEventDisplaySettingsPageViewGet:
             },
         )
 
-    def test_shows_session_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_session_fields(self, panel_client, event):
         field = _create_session_field(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert len(response.context["fields"]) == 1
         assert response.context["fields"][0].pk == field.pk
 
-    def test_excludes_non_public_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_excludes_non_public_fields(self, panel_client, event):
         _create_session_field(event, name="Public", slug="public", is_public=True)
         _create_session_field(event, name="Private", slug="private", is_public=False)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         field_names = [f.name for f in response.context["fields"]]
         assert field_names == ["Public"]
 
-    def test_redirects_on_invalid_slug(self, authenticated_client, active_user, sphere):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_slug(self, panel_client):
         url = reverse("panel:event-display-settings", kwargs={"slug": "bad-slug"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
@@ -111,22 +100,18 @@ class TestEventDisplaySettingsPageViewPost:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_slug(self, authenticated_client, active_user, sphere):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_slug(self, panel_client):
         url = reverse("panel:event-display-settings", kwargs={"slug": "bad-slug"})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_saves_filterable_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_saves_filterable_fields(self, panel_client, event):
         field1 = _create_session_field(event, name="Field 1", slug="field-1")
         field2 = _create_session_field(event, name="Field 2", slug="field-2")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"displayed_session_fields": [str(field1.pk), str(field2.pk)]},
         )
@@ -139,13 +124,10 @@ class TestEventDisplaySettingsPageViewPost:
         )
 
         # Verify saved — reload via GET
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
         assert set(response.context["filterable_field_ids"]) == {field1.pk, field2.pk}
 
-    def test_clears_filterable_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_clears_filterable_fields(self, panel_client, event):
         field = _create_session_field(event)
 
         # First set a field
@@ -153,7 +135,7 @@ class TestEventDisplaySettingsPageViewPost:
         settings.displayed_session_fields.set([field.pk])
 
         # Then clear via POST
-        response = authenticated_client.post(self.get_url(event), data={})
+        response = panel_client.post(self.get_url(event), data={})
 
         assert_response(
             response,
@@ -162,5 +144,5 @@ class TestEventDisplaySettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/display/",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
         assert response.context["filterable_field_ids"] == []

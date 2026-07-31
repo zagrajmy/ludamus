@@ -32,12 +32,8 @@ class TestPersonalDataFieldsPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -51,10 +47,7 @@ class TestPersonalDataFieldsPageView:
             },
         )
 
-    def test_get_returns_fields_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_returns_fields_in_context(self, panel_client, event):
         PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
@@ -62,7 +55,7 @@ class TestPersonalDataFieldsPageView:
             event=event, name="Phone", question="What is your phone?", slug="phone"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         # Verify fields are FieldUsageSummary instances
         fields = response.context["fields"]
@@ -81,12 +74,8 @@ class TestPersonalDataFieldsPageView:
             },
         )
 
-    def test_get_returns_empty_list_when_no_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_returns_empty_list_when_no_fields(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -100,20 +89,14 @@ class TestPersonalDataFieldsPageView:
             },
         )
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:personal-data-fields", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_returns_fields_ordered_by_order_then_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_returns_fields_ordered_by_order_then_name(self, panel_client, event):
         PersonalDataField.objects.create(
             event=event,
             name="Phone",
@@ -136,7 +119,7 @@ class TestPersonalDataFieldsPageView:
             order=1,
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         fields = response.context["fields"]
         assert len(fields) == 1 + 1 + 1  # Phone + Email + City
@@ -156,10 +139,7 @@ class TestPersonalDataFieldsPageView:
             },
         )
 
-    def test_get_returns_field_with_is_multiple_attribute(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_returns_field_with_is_multiple_attribute(self, panel_client, event):
         PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -177,7 +157,7 @@ class TestPersonalDataFieldsPageView:
             is_multiple=False,
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         fields = response.context["fields"]
         assert len(fields) == 1 + 1  # Languages + Country
@@ -187,10 +167,7 @@ class TestPersonalDataFieldsPageView:
         assert country_field.is_multiple is False
         assert languages_field.is_multiple is True
 
-    def test_get_returns_field_with_allow_custom_attribute(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_returns_field_with_allow_custom_attribute(self, panel_client, event):
         PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -208,7 +185,7 @@ class TestPersonalDataFieldsPageView:
             allow_custom=False,
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         fields = response.context["fields"]
         assert len(fields) == 1 + 1  # Country + City

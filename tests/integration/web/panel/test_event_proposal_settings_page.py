@@ -32,12 +32,8 @@ class TestEventProposalSettingsPageViewGet:
 
         assert_not_a_manager(response)
 
-    def test_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -52,11 +48,10 @@ class TestEventProposalSettingsPageViewGet:
             },
         )
 
-    def test_redirects_on_invalid_slug(self, authenticated_client, active_user, sphere):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_slug(self, panel_client):
         url = reverse("panel:event-proposal-settings", kwargs={"slug": "bad-slug"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
@@ -92,20 +87,15 @@ class TestEventProposalSettingsPageViewPost:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_slug(self, authenticated_client, active_user, sphere):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_slug(self, panel_client):
         url = reverse("panel:event-proposal-settings", kwargs={"slug": "bad-slug"})
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
         assert_event_not_found(response)
 
-    def test_error_on_invalid_datetime(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_error_on_invalid_datetime(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event), data={"proposal_start_time": "not-a-date"}
         )
 
@@ -116,12 +106,8 @@ class TestEventProposalSettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/proposals/",
         )
 
-    def test_saves_proposal_description(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_saves_proposal_description(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data=self._post_data(event, proposal_description="Welcome to our CFP!"),
         )
@@ -135,12 +121,8 @@ class TestEventProposalSettingsPageViewPost:
         settings = EventProposalSettings.objects.get(event=event)
         assert settings.description == "Welcome to our CFP!"
 
-    def test_saves_allow_anonymous_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_saves_allow_anonymous_proposals(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data=self._post_data(event, allow_anonymous_proposals="on"),
         )
@@ -155,14 +137,13 @@ class TestEventProposalSettingsPageViewPost:
         assert settings.allow_anonymous_proposals is True
 
     def test_unchecking_allow_anonymous_proposals_disables_it(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         EventProposalSettings.objects.create(
             event=event, allow_anonymous_proposals=True
         )
 
-        response = authenticated_client.post(self.get_url(event), data={})
+        response = panel_client.post(self.get_url(event), data={})
 
         assert_response(
             response,
@@ -173,12 +154,8 @@ class TestEventProposalSettingsPageViewPost:
         settings = EventProposalSettings.objects.get(event=event)
         assert settings.allow_anonymous_proposals is False
 
-    def test_saves_proposal_dates(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_saves_proposal_dates(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "proposal_start_time": "2026-04-01T10:00",
@@ -202,12 +179,8 @@ class TestEventProposalSettingsPageViewPost:
             == "2026-04-15T18:00"
         )
 
-    def test_clears_proposal_dates(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={})
+    def test_clears_proposal_dates(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={})
 
         assert_response(
             response,
@@ -219,16 +192,13 @@ class TestEventProposalSettingsPageViewPost:
         assert event.proposal_start_time is None
         assert event.proposal_end_time is None
 
-    def test_applies_dates_to_all_categories(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_applies_dates_to_all_categories(self, panel_client, event):
         cat1 = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         cat2 = ProposalCategory.objects.create(
             event=event, name="Board Games", slug="board-games"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "proposal_start_time": "2026-04-01T10:00",
@@ -254,13 +224,10 @@ class TestEventProposalSettingsPageViewPost:
         )
         assert localtime(cat2.end_time).strftime("%Y-%m-%dT%H:%M") == "2026-04-15T18:00"
 
-    def test_does_not_apply_dates_without_checkbox(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_does_not_apply_dates_without_checkbox(self, panel_client, event):
         cat = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "proposal_start_time": "2026-04-01T10:00",

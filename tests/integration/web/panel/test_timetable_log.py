@@ -34,22 +34,15 @@ class TestTimetableLogPageView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-log", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_ok_returns_log_template(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_returns_log_template(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -78,26 +71,19 @@ class TestTimetableLogPageView:
             },
         )
 
-    def test_empty_log_when_no_changes(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_empty_log_when_no_changes(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["logs"] == []
 
-    def test_assign_creates_log_entry(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_assign_creates_log_entry(self, panel_client, event, proposal_category):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse("panel:timetable-assign", kwargs={"slug": event.slug}),
             data={
                 "session_pk": session.pk,
@@ -107,7 +93,7 @@ class TestTimetableLogPageView:
             },
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         logs = response.context["logs"]
@@ -116,20 +102,17 @@ class TestTimetableLogPageView:
         assert logs[0].session_title == session.title
         assert logs[0].new_space_name == space.name
 
-    def test_unassign_creates_log_entry(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_unassign_creates_log_entry(self, panel_client, event, proposal_category):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         schedule_session(session, space, event.start_time)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse("panel:timetable-unassign", kwargs={"slug": event.slug}),
             data={"session_pk": session.pk},
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         logs = response.context["logs"]
@@ -138,9 +121,8 @@ class TestTimetableLogPageView:
         assert logs[0].old_space_name == space.name
 
     def test_space_filter_returns_only_matching_logs(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space_a = SpaceFactory(event=event)
         space_b = SpaceFactory(event=event)
         session_a = make_timetable_session(proposal_category, status="accepted")
@@ -149,7 +131,7 @@ class TestTimetableLogPageView:
         end = start + timedelta(hours=1)
 
         for session, space in ((session_a, space_a), (session_b, space_b)):
-            authenticated_client.post(
+            panel_client.post(
                 reverse("panel:timetable-assign", kwargs={"slug": event.slug}),
                 data={
                     "session_pk": session.pk,
@@ -159,9 +141,7 @@ class TestTimetableLogPageView:
                 },
             )
 
-        response = authenticated_client.get(
-            self.get_url(event), data={"space": space_a.pk}
-        )
+        response = panel_client.get(self.get_url(event), data={"space": space_a.pk})
 
         assert response.status_code == HTTPStatus.OK
         logs = response.context["logs"]

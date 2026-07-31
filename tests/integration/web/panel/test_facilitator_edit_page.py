@@ -47,35 +47,25 @@ class TestFacilitatorEditPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-edit",
             kwargs={"slug": "nonexistent", "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_redirects_when_facilitator_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event, "nonexistent"))
+    def test_get_redirects_when_facilitator_not_found(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, "nonexistent"))
 
         assert_facilitator_not_found(response, event)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
         facilitator = make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -89,14 +79,11 @@ class TestFacilitatorEditPageView:
             },
         )
 
-    def test_get_shows_the_organizer_read_only(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_the_organizer_read_only(self, panel_client, event):
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
         facilitator = make_facilitator(event, organizer=organizer)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -114,37 +101,29 @@ class TestFacilitatorEditPageView:
             },
         )
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-edit",
             kwargs={"slug": "nonexistent", "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.post(url, data={"display_name": "Alice"})
+        response = panel_client.post(url, data={"display_name": "Alice"})
 
         assert_event_not_found(response)
 
-    def test_post_redirects_when_facilitator_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_redirects_when_facilitator_not_found(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event, "nonexistent"), data={"display_name": "Alice"}
         )
 
         assert_facilitator_not_found(response, event)
 
     def test_post_invalid_accreditation_rerenders_form_with_error(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         facilitator = make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"accreditation_type": "bogus"}
         )
 
@@ -167,13 +146,10 @@ class TestFacilitatorEditPageView:
             },
         )
 
-    def test_post_redirects_and_keeps_cached_display_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_and_keeps_cached_display_name(self, panel_client, event):
         facilitator = make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"accreditation_type": "none"}
         )
 
@@ -190,26 +166,18 @@ class TestFacilitatorEditPageView:
         # display_name is a read-only cache: a posted value must not change it.
         assert facilitator.display_name == "Alice"
 
-    def test_post_ignores_submitted_display_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_submitted_display_name(self, panel_client, event):
         facilitator = make_facilitator(event)
 
-        authenticated_client.post(
-            self.get_url(event), data={"display_name": "Hacked Name"}
-        )
+        panel_client.post(self.get_url(event), data={"display_name": "Hacked Name"})
 
         facilitator.refresh_from_db()
         assert facilitator.display_name == "Alice"
 
-    def test_post_updates_accreditation_type(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_accreditation_type(self, panel_client, event):
         facilitator = make_facilitator(event, accreditation_type="none")
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Alice", "accreditation_type": "honorary"},
         )
@@ -217,13 +185,10 @@ class TestFacilitatorEditPageView:
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == "honorary"
 
-    def test_post_saves_internal_comment(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_internal_comment(self, panel_client, active_user, event):
         facilitator = make_facilitator(event)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "accreditation_type": "none",
@@ -244,23 +209,17 @@ class TestFacilitatorEditPageView:
             }
         ]
 
-    def test_get_preselects_current_accreditation_type(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_preselects_current_accreditation_type(self, panel_client, event):
         make_facilitator(event, accreditation_type="guest")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.context["form"].initial["accreditation_type"] == "guest"
 
-    def test_get_does_not_render_display_name_input(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_does_not_render_display_name_input(self, panel_client, event):
         facilitator = make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -275,10 +234,7 @@ class TestFacilitatorEditPageView:
             not_contains='name="display_name"',
         )
 
-    def test_post_saves_checkbox_personal_data_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_checkbox_personal_data_field(self, panel_client, event):
         facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
@@ -289,7 +245,7 @@ class TestFacilitatorEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Alice", "personal_vegan": "true"},
         )
@@ -297,10 +253,7 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
-    def test_post_saves_multiple_personal_data_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_multiple_personal_data_field(self, panel_client, event):
         facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
@@ -316,7 +269,7 @@ class TestFacilitatorEditPageView:
                 field=field, label=value.upper(), value=value, order=order
             )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Alice", "personal_languages": ["en", "pl"]},
         )
@@ -325,9 +278,8 @@ class TestFacilitatorEditPageView:
         assert hpd.value == ["en", "pl"]
 
     def test_post_saves_allow_custom_personal_data_field_from_custom_input(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
@@ -339,7 +291,7 @@ class TestFacilitatorEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "display_name": "Alice",
@@ -351,10 +303,7 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
 
-    def test_post_keeps_comma_inside_a_multi_value_write_in(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_keeps_comma_inside_a_multi_value_write_in(self, panel_client, event):
         facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
@@ -370,7 +319,7 @@ class TestFacilitatorEditPageView:
             field=field, label="English", value="en", order=0
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "display_name": "Alice",
@@ -391,10 +340,7 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == ["en", "śląski, ale tylko trochę"]
 
-    def test_get_renders_all_personal_field_types(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_all_personal_field_types(self, panel_client, event):
         facilitator = make_facilitator(event)
 
         languages = PersonalDataField.objects.create(
@@ -465,7 +411,7 @@ class TestFacilitatorEditPageView:
             facilitator=facilitator, event=event, field=nickname, value="Bob"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         html = response.content.decode()

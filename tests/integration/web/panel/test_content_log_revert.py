@@ -96,24 +96,17 @@ class TestContentLogRevertActionView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:content-log-revert", kwargs={"slug": "nonexistent", "pk": 1}
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_unknown_log_pk_shows_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event, 99999))
+    def test_unknown_log_pk_shows_not_found(self, panel_client, event):
+        response = panel_client.post(self.get_url(event, 99999))
 
         assert_response(
             response,
@@ -123,13 +116,12 @@ class TestContentLogRevertActionView:
         )
 
     def test_revert_restores_core_and_dynamic_field(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
         field = make_optional_session_field(event, proposal_category)
         _edit(
-            authenticated_client,
+            panel_client,
             event,
             session,
             title="Updated title",
@@ -137,7 +129,7 @@ class TestContentLogRevertActionView:
         )
         log = ContentChangeLog.objects.get(session=session)
 
-        response = authenticated_client.post(self.get_url(event, log.pk))
+        response = panel_client.post(self.get_url(event, log.pk))
 
         assert_response(
             response,
@@ -151,14 +143,13 @@ class TestContentLogRevertActionView:
         assert not value.value
 
     def test_revert_writes_its_own_log_row(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, active_user, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        _edit(authenticated_client, event, session, title="Updated title")
+        _edit(panel_client, event, session, title="Updated title")
         log = ContentChangeLog.objects.get(session=session)
 
-        authenticated_client.post(self.get_url(event, log.pk))
+        panel_client.post(self.get_url(event, log.pk))
 
         logs = list(ContentChangeLog.objects.filter(session=session).order_by("pk"))
         assert len(logs) == 1 + 1  # the edit + its revert
@@ -171,15 +162,14 @@ class TestContentLogRevertActionView:
         } in logs[1].changes
 
     def test_revert_non_latest_shows_error_and_mutates_nothing(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        _edit(authenticated_client, event, session, title="Second title")
+        _edit(panel_client, event, session, title="Second title")
         first_log = ContentChangeLog.objects.get(session=session)
-        _edit(authenticated_client, event, session, title="Third title")
+        _edit(panel_client, event, session, title="Third title")
 
-        response = authenticated_client.post(self.get_url(event, first_log.pk))
+        response = panel_client.post(self.get_url(event, first_log.pk))
 
         assert_response(
             response,
@@ -193,15 +183,14 @@ class TestContentLogRevertActionView:
         assert ContentChangeLog.objects.filter(session=session).count() == 1 + 1
 
     def test_revert_log_from_another_event_shows_not_found(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_session = _make_session(ProposalCategoryFactory(event=other_event))
-        _edit(authenticated_client, other_event, other_session, title="Updated title")
+        _edit(panel_client, other_event, other_session, title="Updated title")
         log = ContentChangeLog.objects.get(session=other_session)
 
-        response = authenticated_client.post(self.get_url(event, log.pk))
+        response = panel_client.post(self.get_url(event, log.pk))
 
         assert_response(
             response,
@@ -214,9 +203,8 @@ class TestContentLogRevertActionView:
         assert ContentChangeLog.objects.filter(session=other_session).count() == 1
 
     def test_revert_cover_only_change_shows_not_revertible(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, active_user, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
         log = ContentChangeLog.objects.create(
             event=event,
@@ -232,7 +220,7 @@ class TestContentLogRevertActionView:
             ],
         )
 
-        response = authenticated_client.post(self.get_url(event, log.pk))
+        response = panel_client.post(self.get_url(event, log.pk))
 
         assert_response(
             response,
@@ -245,14 +233,13 @@ class TestContentLogRevertActionView:
         assert ContentChangeLog.objects.filter(session=session).count() == 1
 
     def test_revert_of_revert_restores_the_edit(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        _edit(authenticated_client, event, session, title="Updated title")
+        _edit(panel_client, event, session, title="Updated title")
         first_log = ContentChangeLog.objects.get(session=session)
 
-        authenticated_client.post(self.get_url(event, first_log.pk), follow=True)
+        panel_client.post(self.get_url(event, first_log.pk), follow=True)
         session.refresh_from_db()
         assert session.title == "Original title"
 
@@ -261,7 +248,7 @@ class TestContentLogRevertActionView:
         )
         assert revert_log.pk != first_log.pk
 
-        response = authenticated_client.post(self.get_url(event, revert_log.pk))
+        response = panel_client.post(self.get_url(event, revert_log.pk))
 
         assert_response(
             response,
@@ -281,18 +268,17 @@ class TestContentLogRevertButton:
     """The Revert button renders only on the latest row per session."""
 
     def test_button_only_on_latest_row_per_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        _edit(authenticated_client, event, session, title="Second title")
+        _edit(panel_client, event, session, title="Second title")
         first_log = ContentChangeLog.objects.get(session=session)
-        _edit(authenticated_client, event, session, title="Third title")
+        _edit(panel_client, event, session, title="Third title")
         latest_log = (
             ContentChangeLog.objects.filter(session=session).order_by("-pk").first()
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:content-log", kwargs={"slug": event.slug})
         )
 

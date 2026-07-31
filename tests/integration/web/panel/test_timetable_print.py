@@ -45,16 +45,8 @@ class TestTimetablePrintView:
         assert_not_a_manager(response)
 
     def test_timetable_page_for_sphere_manager(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, panel_client, event, session, space, time_slot
     ):
-        sphere.managers.add(active_user)
         empty_space = SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
@@ -63,7 +55,7 @@ class TestTimetablePrintView:
             end_time=time_slot.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self.timetable_url(event))
+        response = panel_client.get(self.timetable_url(event))
 
         assert_response(
             response,
@@ -77,16 +69,8 @@ class TestTimetablePrintView:
         assert "—" in content  # its empty cell renders a visible gap marker
 
     def test_door_cards_page_for_sphere_manager(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, panel_client, event, session, space, time_slot
     ):
-        sphere.managers.add(active_user)
         empty_space = SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
@@ -95,7 +79,7 @@ class TestTimetablePrintView:
             end_time=time_slot.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self.door_cards_url(event))
+        response = panel_client.get(self.door_cards_url(event))
 
         assert_response(
             response,
@@ -110,16 +94,8 @@ class TestTimetablePrintView:
         assert "Free slot" not in content
 
     def test_door_cards_limited_to_time_window(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, panel_client, event, session, space, time_slot
     ):
-        sphere.managers.add(active_user)
         AgendaItemFactory(
             session=session,
             space=space,
@@ -134,7 +110,7 @@ class TestTimetablePrintView:
             end_time=time_slot.start_time + timedelta(hours=7),
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.door_cards_url(event),
             {"start": time_slot.start_time.isoformat(), "hours": "2"},
         )
@@ -177,21 +153,15 @@ class TestTimetablePrintView:
         )
         assert later_session.title not in response.content.decode()
 
-    def test_opening_print_page_marks_event_printed(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_opening_print_page_marks_event_printed(self, panel_client, event):
         assert event.printables_last_printed_at is None
 
-        authenticated_client.get(self.timetable_url(event))
+        panel_client.get(self.timetable_url(event))
 
         event.refresh_from_db()
         assert event.printables_last_printed_at is not None
 
-    def test_timetable_scoped_to_node(
-        self, authenticated_client, active_user, sphere, event, session, time_slot
-    ):
-        sphere.managers.add(active_user)
+    def test_timetable_scoped_to_node(self, panel_client, event, session, time_slot):
         parent = Space.objects.create(event=event, name="Hall", slug="hall")
         leaf = Space.objects.create(
             event=event, parent=parent, name="Room", slug="room"
@@ -203,9 +173,7 @@ class TestTimetablePrintView:
             end_time=time_slot.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(
-            self.timetable_url(event), {"scope": parent.pk}
-        )
+        response = panel_client.get(self.timetable_url(event), {"scope": parent.pk})
 
         assert_response(
             response,
@@ -217,14 +185,8 @@ class TestTimetablePrintView:
         assert "Hall" in content  # scope name in the header
         assert session.title in content
 
-    def test_unknown_scope_redirects_with_message(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            self.timetable_url(event), {"scope": "987654"}
-        )
+    def test_unknown_scope_redirects_with_message(self, panel_client, event):
+        response = panel_client.get(self.timetable_url(event), {"scope": "987654"})
 
         assert_response(
             response,
@@ -244,12 +206,8 @@ class TestPrintMaterialsPageView:
 
         assert_not_a_manager(response)
 
-    def test_renders_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.url(event))
+    def test_renders_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.url(event))
 
         assert_response(
             response,
@@ -276,14 +234,11 @@ class TestPrintMaterialsPageView:
         assert "Print door cards" in content
         assert response.context_data["active_nav"] == "print"
 
-    def test_scope_menu_lists_non_leaf_nodes(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_scope_menu_lists_non_leaf_nodes(self, panel_client, event):
         parent = Space.objects.create(event=event, name="Hall", slug="hall")
         Space.objects.create(event=event, parent=parent, name="Room", slug="room")
 
-        response = authenticated_client.get(self.url(event))
+        response = panel_client.get(self.url(event))
 
         content = response.content.decode()
         assert "Hall" in content  # scope option label (non-leaf node)

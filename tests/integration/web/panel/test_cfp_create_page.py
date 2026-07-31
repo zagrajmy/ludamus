@@ -35,12 +35,8 @@ class TestCFPCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -49,13 +45,10 @@ class TestCFPCreatePageView:
             context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
         )
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:cfp-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
@@ -75,14 +68,8 @@ class TestCFPCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_post_creates_category_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.get_url(event), data={"name": "RPG Sessions"}
-        )
+    def test_post_creates_category_for_sphere_manager(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={"name": "RPG Sessions"})
 
         assert_response(
             response,
@@ -95,11 +82,9 @@ class TestCFPCreatePageView:
         ).exists()
 
     def test_post_with_create_and_configure_redirects_to_edit_page(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"name": "RPG Sessions", "action": "create_and_configure"},
         )
@@ -112,24 +97,14 @@ class TestCFPCreatePageView:
             url=f"/panel/event/{event.slug}/cfp/{category.slug}/",
         )
 
-    def test_post_generates_slug_from_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
-            self.get_url(event), data={"name": "Board Games & Workshops"}
-        )
+    def test_post_generates_slug_from_name(self, panel_client, event):
+        panel_client.post(self.get_url(event), data={"name": "Board Games & Workshops"})
 
         category = ProposalCategory.objects.get(event=event)
         assert category.slug == "board-games-workshops"
 
-    def test_post_error_on_empty_name_rerenders_form(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={})
+    def test_post_error_on_empty_name_rerenders_form(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={})
 
         assert response.context["form"].errors
         assert_response(
@@ -140,27 +115,21 @@ class TestCFPCreatePageView:
         )
         assert not ProposalCategory.objects.filter(event=event).exists()
 
-    def test_post_generates_unique_slug_on_collision(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_generates_unique_slug_on_collision(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        authenticated_client.post(self.get_url(event), data={"name": "RPG Sessions"})
+        panel_client.post(self.get_url(event), data={"name": "RPG Sessions"})
 
         categories = ProposalCategory.objects.filter(event=event)
         assert categories.count() == 1 + 1  # existing + new
         new_category = categories.exclude(slug="rpg-sessions").first()
         assert new_category.slug.startswith("rpg-sessions-")
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:cfp-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"name": "RPG Sessions"})
+        response = panel_client.post(url, data={"name": "RPG Sessions"})
 
         assert_event_not_found(response)

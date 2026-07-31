@@ -35,12 +35,8 @@ class TestCFPPageView:
 
         assert_not_a_manager(response)
 
-    def test_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -55,20 +51,14 @@ class TestCFPPageView:
             },
         )
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:cfp", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_returns_categories_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_returns_categories_in_context(self, panel_client, event):
         cat1 = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg"
         )
@@ -76,7 +66,7 @@ class TestCFPPageView:
             event=event, name="Workshops", slug="workshops"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -117,12 +107,8 @@ class TestCFPPageView:
             },
         )
 
-    def test_returns_empty_categories_when_none_exist(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_returns_empty_categories_when_none_exist(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -139,21 +125,15 @@ class TestCFPPageView:
 
     # Status badge tests
 
-    def test_shows_not_set_status_when_no_times(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_not_set_status_when_no_times(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Not set" in response.content
 
     @freeze_time("2025-06-15 12:00:00")
-    def test_shows_closed_status_when_past(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_closed_status_when_past(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -162,15 +142,12 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Closed" in response.content
 
     @freeze_time("2025-04-15 12:00:00")
-    def test_shows_upcoming_status_when_future(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_upcoming_status_when_future(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -179,15 +156,12 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Upcoming" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
-    def test_shows_active_status_when_open(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_active_status_when_open(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -196,15 +170,12 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Active" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
-    def test_shows_active_status_when_only_start_time(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_active_status_when_only_start_time(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -212,15 +183,14 @@ class TestCFPPageView:
             start_time=datetime(2025, 5, 1, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Active" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
     def test_shows_not_set_status_when_only_end_time_in_future(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -228,19 +198,16 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Not set" in response.content
 
     # Stats display tests
 
-    def test_shows_zero_stats_when_no_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_zero_stats_when_no_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -270,10 +237,7 @@ class TestCFPPageView:
         )
         assert b"0 / 0" in response.content
 
-    def test_shows_proposal_stats(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_proposal_stats(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         # Create 3 sessions (2 pending, 1 accepted)
         Session.objects.create(
@@ -304,7 +268,7 @@ class TestCFPPageView:
             status="accepted",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -342,10 +306,7 @@ class TestCFPPageView:
         # Should show "1 / 3" (1 accepted out of 3 total)
         assert b"1 / 3" in response.content
 
-    def test_shows_stats_per_category(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_stats_per_category(self, panel_client, active_user, event):
         # Create two categories with different stats
         category1 = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         category2 = ProposalCategory.objects.create(
@@ -381,7 +342,7 @@ class TestCFPPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,

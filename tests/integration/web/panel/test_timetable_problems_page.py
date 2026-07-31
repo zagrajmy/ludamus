@@ -75,22 +75,15 @@ class TestTimetableProblemsPageView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-problems", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_ok_returns_problems_template(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_returns_problems_template(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -111,13 +104,10 @@ class TestTimetableProblemsPageView:
             ),
         )
 
-    def test_lists_space_overlap_conflict(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_lists_space_overlap_conflict(self, panel_client, event, proposal_category):
         _, (session_a, session_b) = make_overlapping_sessions(event, proposal_category)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -150,9 +140,8 @@ class TestTimetableProblemsPageView:
         )
 
     def test_lists_session_outside_preferred_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
         preferred_slot = TimeSlotFactory(
@@ -163,7 +152,7 @@ class TestTimetableProblemsPageView:
         session.time_slots.add(preferred_slot)
         agenda_item = schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -193,9 +182,8 @@ class TestTimetableProblemsPageView:
         )
 
     def test_skips_session_inside_preferred_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
         preferred_slot = TimeSlotFactory(
@@ -206,7 +194,7 @@ class TestTimetableProblemsPageView:
         session.time_slots.add(preferred_slot)
         schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -221,9 +209,8 @@ class TestTimetableProblemsPageView:
         )
 
     def test_skips_session_spanning_contiguous_preferred_slots(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
         session.time_slots.add(
@@ -242,7 +229,7 @@ class TestTimetableProblemsPageView:
         end = event.start_time + timedelta(hours=6)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -257,9 +244,8 @@ class TestTimetableProblemsPageView:
         )
 
     def test_lists_session_spanning_gap_between_preferred_slots(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
         early_slot = TimeSlotFactory(
@@ -277,7 +263,7 @@ class TestTimetableProblemsPageView:
         end = event.start_time + timedelta(hours=5)
         AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -311,14 +297,13 @@ class TestTimetableProblemsPageView:
         )
 
     def test_skips_session_with_no_preferred_slots(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
         schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,

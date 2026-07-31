@@ -52,15 +52,12 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
         )
 
-    def test_get_exposes_internal_comment(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_exposes_internal_comment(self, panel_client, event):
         facilitator = make_facilitator(
             event, internal_comment="Possible duplicate of Bob"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -78,10 +75,7 @@ class TestFacilitatorDetailPageView:
             contains="Possible duplicate of Bob",
         )
 
-    def test_get_renders_sessions_linking_to_proposal_detail(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_sessions_linking_to_proposal_detail(self, panel_client, event):
         facilitator = make_facilitator(event)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
@@ -99,7 +93,7 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "proposal_id": session.pk},
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -139,14 +133,11 @@ class TestFacilitatorDetailPageView:
             ],
         )
 
-    def test_get_shows_linked_user_name_and_email(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_linked_user_name_and_email(self, panel_client, event):
         linked = UserFactory(name="Bob Builder", email="bob@example.com")
         facilitator = make_facilitator(event, user=linked)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -164,14 +155,11 @@ class TestFacilitatorDetailPageView:
             contains=["Bob Builder", "bob@example.com"],
         )
 
-    def test_get_shows_the_organizer(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_the_organizer(self, panel_client, event):
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
         facilitator = make_facilitator(event, organizer=organizer)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -194,13 +182,12 @@ class TestFacilitatorDetailPageView:
         )
 
     def test_get_shows_no_linked_user_when_user_is_not_active(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         connected = UserFactory(name="Ghost", user_type="connected")
         facilitator = make_facilitator(event, user=connected)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -229,35 +216,25 @@ class TestFacilitatorDetailPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-detail",
             kwargs={"slug": "nonexistent", "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_redirects_when_facilitator_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event, "nonexistent"))
+    def test_get_redirects_when_facilitator_not_found(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, "nonexistent"))
 
         assert_facilitator_not_found(response, event)
 
-    def test_get_ok_with_no_personal_data_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_ok_with_no_personal_data_fields(self, panel_client, event):
         facilitator = make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -274,27 +251,21 @@ class TestFacilitatorDetailPageView:
             },
         )
 
-    def test_get_shows_accreditation_type(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_accreditation_type(self, panel_client, event):
         make_facilitator(event, accreditation_type="honorary")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         html = response.content.decode()
         assert "Accreditation type" in html
         assert "Honorary" in html
 
-    def test_get_shows_personal_data_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_personal_data_fields(self, panel_client, event):
         facilitator = make_facilitator(event)
         field = _make_personal_data_field(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         field_dto = OrganizerFieldDTO(
             pk=field.pk,
@@ -320,10 +291,7 @@ class TestFacilitatorDetailPageView:
             },
         )
 
-    def test_get_renders_personal_data_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_personal_data_values(self, panel_client, event):
         facilitator = make_facilitator(event)
         values = [
             ("Consent", "consent", "checkbox", True),
@@ -344,7 +312,7 @@ class TestFacilitatorDetailPageView:
                 facilitator=facilitator, event=event, field=field, value=value
             )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,

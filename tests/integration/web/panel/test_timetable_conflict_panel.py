@@ -43,22 +43,15 @@ class TestTimetableConflictsPartView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-conflicts-part", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_ok_returns_partial_template(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_returns_partial_template(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -67,32 +60,26 @@ class TestTimetableConflictsPartView:
             context_data={"conflicts": [], "slug": event.slug, "filter_track_pk": None},
         )
 
-    def test_empty_conflicts_when_no_sessions(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_empty_conflicts_when_no_sessions(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["conflicts"] == []
 
     def test_detects_space_overlap_conflict(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         make_overlapping_sessions(event, proposal_category)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         conflict_types = [c.type for c in response.context["conflicts"]]
         assert "space_overlap" in conflict_types
 
     def test_slot_violation_does_not_appear_in_conflicts(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
         preferred = TimeSlotFactory(
@@ -103,16 +90,14 @@ class TestTimetableConflictsPartView:
         session.time_slots.add(preferred)
         schedule_session(session, space, event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["conflicts"] == []
 
     def test_cross_track_facilitator_conflict_has_attribution(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
-
         manager_a = UserFactory()
         manager_b = UserFactory()
 
@@ -151,7 +136,7 @@ class TestTimetableConflictsPartView:
             session=session_b, space=space_b, start_time=start, end_time=end
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         conflicts = response.context["conflicts"]

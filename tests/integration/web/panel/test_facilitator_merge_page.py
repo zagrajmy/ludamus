@@ -82,22 +82,15 @@ class TestFacilitatorMergePageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitator-merge", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -112,16 +105,11 @@ class TestFacilitatorMergePageView:
             },
         )
 
-    def test_get_preselects_ids_from_query_params(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_preselects_ids_from_query_params(self, panel_client, event):
         f1 = _make_facilitator(event, "Alice", "alice")
         f2 = _make_facilitator(event, "Bob", "bob")
 
-        response = authenticated_client.get(
-            self.get_url(event), data={"ids": [f1.pk, f2.pk]}
-        )
+        response = panel_client.get(self.get_url(event), data={"ids": [f1.pk, f2.pk]})
 
         expected = [
             FacilitatorListItemDTO(
@@ -154,20 +142,14 @@ class TestFacilitatorMergePageView:
             },
         )
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitator-merge", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
         assert_event_not_found(response)
 
-    def test_post_merges_facilitators_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_merges_facilitators_and_redirects(self, panel_client, event):
         target = _make_facilitator(event, "Alice", "alice")
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -182,7 +164,7 @@ class TestFacilitatorMergePageView:
         )
         session.facilitators.add(source)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
@@ -197,16 +179,13 @@ class TestFacilitatorMergePageView:
         assert Facilitator.objects.filter(pk=target.pk).exists()
         assert list(session.facilitators.values_list("pk", flat=True)) == [target.pk]
 
-    def test_post_keeps_the_only_organizer_among_merged(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_keeps_the_only_organizer_among_merged(self, panel_client, event):
         organizer = UserFactory(username="organizer", email="organizer@example.com")
         target = _make_facilitator(event, "Alice", "alice")
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
         Facilitator.objects.filter(pk=source.pk).update(organizer=organizer)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
@@ -221,9 +200,8 @@ class TestFacilitatorMergePageView:
         assert target.organizer_id == organizer.pk
 
     def test_post_keeps_the_targets_organizer_over_a_disagreeing_source(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         one = UserFactory(username="organizer-one", email="organizer1@example.com")
         two = UserFactory(username="organizer-two", email="organizer2@example.com")
         target = _make_facilitator(event, "Alice", "alice")
@@ -231,7 +209,7 @@ class TestFacilitatorMergePageView:
         Facilitator.objects.filter(pk=target.pk).update(organizer=one)
         Facilitator.objects.filter(pk=source.pk).update(organizer=two)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
@@ -246,9 +224,8 @@ class TestFacilitatorMergePageView:
         assert target.organizer_id == one.pk
 
     def test_post_clears_disagreeing_organizers_of_an_unheld_target(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         one = UserFactory(username="organizer-one", email="organizer1@example.com")
         two = UserFactory(username="organizer-two", email="organizer2@example.com")
         target = _make_facilitator(event, "Alice", "alice")
@@ -257,7 +234,7 @@ class TestFacilitatorMergePageView:
         Facilitator.objects.filter(pk=first.pk).update(organizer=one)
         Facilitator.objects.filter(pk=second.pk).update(organizer=two)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitator_ids": [target.pk, first.pk, second.pk],
@@ -274,10 +251,7 @@ class TestFacilitatorMergePageView:
         target.refresh_from_db()
         assert target.organizer_id is None
 
-    def test_post_keeps_a_shared_organizer(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_keeps_a_shared_organizer(self, panel_client, event):
         organizer = UserFactory(username="organizer", email="organizer@example.com")
         target = _make_facilitator(event, "Alice", "alice")
         source = _make_facilitator(event, "Alice Duplicate", "alice-dup")
@@ -285,7 +259,7 @@ class TestFacilitatorMergePageView:
             organizer=organizer
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"facilitator_ids": [target.pk, source.pk], "target_id": target.pk},
         )
@@ -299,10 +273,7 @@ class TestFacilitatorMergePageView:
         target.refresh_from_db()
         assert target.organizer_id == organizer.pk
 
-    def test_post_rejects_merge_when_multiple_linked_users(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_merge_when_multiple_linked_users(self, panel_client, event):
         user_1 = UserFactory(username="user-one", email="user1@example.com")
         user_2 = UserFactory(username="user-two", email="user2@example.com")
         f1 = _make_facilitator(event, "Alice", "alice")
@@ -310,7 +281,7 @@ class TestFacilitatorMergePageView:
         Facilitator.objects.filter(pk=f1.pk).update(user=user_1)
         Facilitator.objects.filter(pk=f2.pk).update(user=user_2)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"facilitator_ids": [f1.pk, f2.pk], "target_id": f1.pk},
         )
@@ -351,15 +322,14 @@ class TestFacilitatorMergePageView:
         assert Facilitator.objects.filter(pk=f2.pk).exists()
 
     def test_post_ignores_foreign_facilitators_in_selection(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         local = _make_facilitator(event, "Alice", "alice")
         other_event = EventFactory(sphere=sphere)
         foreign_source = _make_facilitator(other_event, "Mallory", "mallory")
         foreign_target = _make_facilitator(other_event, "Trudy", "trudy")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitator_ids": [local.pk, foreign_source.pk, foreign_target.pk],
@@ -397,13 +367,10 @@ class TestFacilitatorMergePageView:
         assert Facilitator.objects.filter(pk=foreign_source.pk).exists()
         assert Facilitator.objects.filter(pk=foreign_target.pk).exists()
 
-    def test_post_rejects_insufficient_selection(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_insufficient_selection(self, panel_client, event):
         facilitator = _make_facilitator(event, "Alice", "alice")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"facilitator_ids": [facilitator.pk], "target_id": facilitator.pk},
         )

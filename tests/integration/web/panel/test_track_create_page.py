@@ -39,22 +39,15 @@ class TestTrackCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:track-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, active_user, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -86,22 +79,15 @@ class TestTrackCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:track-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"name": "Alpha Track"})
+        response = panel_client.post(url, data={"name": "Alpha Track"})
 
         assert_event_not_found(response)
 
-    def test_post_creates_track_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_creates_track_and_redirects(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event), data={"name": "Alpha Track", "is_public": "on"}
         )
 
@@ -168,12 +154,8 @@ class TestTrackCreatePageView:
         assert not track.spaces.filter(pk=foreign_space.pk).exists()
         assert not track.managers.filter(pk=foreign_user.pk).exists()
 
-    def test_post_shows_error_for_empty_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={"name": ""})
+    def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
+        response = panel_client.post(self.get_url(event), data={"name": ""})
 
         assert_response(
             response,

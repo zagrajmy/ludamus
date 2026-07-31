@@ -72,23 +72,13 @@ class TestEventIntegrationSettingsPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            _missing_url("panel:event-integration-settings")
-        )
+    def test_get_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.get(_missing_url("panel:event-integration-settings"))
 
         assert_event_not_found(response)
 
-    def test_get_renders_empty_settings_page(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(_settings_url(event))
+    def test_get_renders_empty_settings_page(self, panel_client, event):
+        response = panel_client.get(_settings_url(event))
 
         assert_response(
             response,
@@ -103,13 +93,10 @@ class TestEventIntegrationSettingsPageView:
             },
         )
 
-    def test_get_renders_settings_page(
-        self, authenticated_client, active_user, sphere, event, connection
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_settings_page(self, panel_client, event, connection):
         integration = make_integration(event, connection, display_name="Listed")
 
-        response = authenticated_client.get(_settings_url(event))
+        response = panel_client.get(_settings_url(event))
 
         assert_response(
             response,
@@ -139,10 +126,8 @@ class TestIntegrationCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_get_renders_form(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(_create_url(event))
+    def test_get_renders_form(self, panel_client, event):
+        response = panel_client.get(_create_url(event))
 
         assert_response(
             response,
@@ -151,33 +136,22 @@ class TestIntegrationCreatePageView:
             context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
         )
 
-    def test_get_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(_missing_url("panel:integration-create"))
+    def test_get_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.get(_missing_url("panel:integration-create"))
 
         assert_event_not_found(response)
 
-    def test_post_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            _missing_url("panel:integration-create"), data={}
-        )
+    def test_post_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.post(_missing_url("panel:integration-create"), data={})
 
         assert_event_not_found(response)
 
     def test_post_creates_integration_when_check_signature_matches(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
         signature = integration_signature(connection.pk, CONFIG_JSON)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Main import",
@@ -199,11 +173,9 @@ class TestIntegrationCreatePageView:
         ).exists()
 
     def test_post_refuses_when_check_signature_missing(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "No check",
@@ -225,11 +197,9 @@ class TestIntegrationCreatePageView:
         ).exists()
 
     def test_post_invalid_json_renders_form_with_error(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Bad JSON",
@@ -249,11 +219,9 @@ class TestIntegrationCreatePageView:
         assert "config_json" in response.context["form"].errors
 
     def test_post_non_dict_json_renders_form_with_error(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Array JSON",
@@ -273,11 +241,9 @@ class TestIntegrationCreatePageView:
         assert "config_json" in response.context["form"].errors
 
     def test_post_config_fails_pydantic_validation(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Pydantic fail",
@@ -302,11 +268,9 @@ class TestIntegrationCreatePageView:
         assert "sheet_id" in joined
 
     def test_post_missing_display_name_renders_form_with_error(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "",
@@ -326,11 +290,9 @@ class TestIntegrationCreatePageView:
         assert "display_name" in response.context["form"].errors
 
     def test_post_invalid_implementation_renders_form_with_error(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Bad impl",
@@ -349,12 +311,8 @@ class TestIntegrationCreatePageView:
         )
         assert "implementation" in response.context["form"].errors
 
-    def test_post_invalid_connection_renders_form_with_error(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_invalid_connection_renders_form_with_error(self, panel_client, event):
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Bad conn",
@@ -374,13 +332,12 @@ class TestIntegrationCreatePageView:
         assert "connection" in response.context["form"].errors
 
     def test_post_duplicate_display_name_for_kind(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
         make_integration(event, connection, display_name="Taken")
         signature = integration_signature(connection.pk, CONFIG_JSON)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _create_url(event),
             data={
                 "display_name": "Taken",
@@ -402,13 +359,10 @@ class TestIntegrationCreatePageView:
 
 @pytest.mark.django_db
 class TestIntegrationEditPageView:
-    def test_get_renders_form(
-        self, authenticated_client, active_user, sphere, event, connection
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_form(self, panel_client, event, connection):
         integration = make_integration(event, connection, display_name="Existing")
 
-        response = authenticated_client.get(_edit_url(event, integration))
+        response = panel_client.get(_edit_url(event, integration))
 
         assert_response(
             response,
@@ -423,12 +377,11 @@ class TestIntegrationEditPageView:
         )
 
     def test_post_display_name_only_bypasses_check(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(event, connection, display_name="Old name")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _edit_url(event, integration),
             data={
                 "display_name": "New name",
@@ -448,26 +401,17 @@ class TestIntegrationEditPageView:
         integration.refresh_from_db()
         assert integration.display_name == "New name"
 
-    def test_get_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            _missing_url("panel:integration-edit", pk=1)
-        )
+    def test_get_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.get(_missing_url("panel:integration-edit", pk=1))
 
         assert_event_not_found(response)
 
-    def test_get_redirects_on_unknown_integration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_unknown_integration(self, panel_client, event):
         url = reverse(
             "panel:integration-edit", kwargs={"slug": event.slug, "pk": 99999}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -476,27 +420,22 @@ class TestIntegrationEditPageView:
             url=_settings_url(event),
         )
 
-    def test_post_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.post(
             _missing_url("panel:integration-edit", pk=1), data={}
         )
         assert_event_not_found(response)
 
     def test_get_redirects_on_integration_from_other_event(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, sphere, event, connection
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         foreign = make_integration(other_event, connection, display_name="Foreign")
         url = reverse(
             "panel:integration-edit", kwargs={"slug": event.slug, "pk": foreign.pk}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -506,12 +445,11 @@ class TestIntegrationEditPageView:
         )
 
     def test_post_invalid_form_renders_with_errors(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(event, connection, display_name="To edit")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _edit_url(event, integration),
             data={
                 "display_name": "",  # required field missing → invalid form
@@ -538,13 +476,10 @@ class TestIntegrationEditPageView:
 
 @pytest.mark.django_db
 class TestIntegrationDeletePageView:
-    def test_post_deletes(
-        self, authenticated_client, active_user, sphere, event, connection
-    ):
-        sphere.managers.add(active_user)
+    def test_post_deletes(self, panel_client, event, connection):
         integration = make_integration(event, connection, display_name="Goodbye")
 
-        response = authenticated_client.post(_delete_url(event, integration))
+        response = panel_client.post(_delete_url(event, integration))
 
         assert_response(
             response,
@@ -554,13 +489,10 @@ class TestIntegrationDeletePageView:
         )
         assert not EventIntegration.objects.filter(pk=integration.pk).exists()
 
-    def test_get_renders_confirmation(
-        self, authenticated_client, active_user, sphere, event, connection
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_confirmation(self, panel_client, event, connection):
         integration = make_integration(event, connection, display_name="Confirm me")
 
-        response = authenticated_client.get(_delete_url(event, integration))
+        response = panel_client.get(_delete_url(event, integration))
 
         assert_response(
             response,
@@ -570,26 +502,17 @@ class TestIntegrationDeletePageView:
             | {"active_nav": "settings", "integration": integration_dto(integration)},
         )
 
-    def test_get_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            _missing_url("panel:integration-delete", pk=1)
-        )
+    def test_get_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.get(_missing_url("panel:integration-delete", pk=1))
 
         assert_event_not_found(response)
 
-    def test_get_redirects_on_unknown_integration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_unknown_integration(self, panel_client, event):
         url = reverse(
             "panel:integration-delete", kwargs={"slug": event.slug, "pk": 99999}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -598,28 +521,23 @@ class TestIntegrationDeletePageView:
             url=_settings_url(event),
         )
 
-    def test_post_redirects_on_unknown_event(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_redirects_on_unknown_event(self, panel_client):
+        response = panel_client.post(
             _missing_url("panel:integration-delete", pk=1), data={}
         )
 
         assert_event_not_found(response)
 
     def test_post_ignores_integration_from_other_event(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, sphere, event, connection
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         foreign = make_integration(other_event, connection, display_name="Foreign")
         url = reverse(
             "panel:integration-delete", kwargs={"slug": event.slug, "pk": foreign.pk}
         )
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
         assert_response(
             response,
@@ -633,9 +551,8 @@ class TestIntegrationDeletePageView:
 @pytest.mark.django_db
 class TestIntegrationCheckActionView:
     def test_post_ok_returns_signature(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
 
         # Mock only google.auth: real GoogleDocsProposalImporter._probe runs and
         # maps the (mocked) HTTP response — we never patch project code.
@@ -644,7 +561,7 @@ class TestIntegrationCheckActionView:
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(ok=True)
-            response = authenticated_client.post(
+            response = panel_client.post(
                 _check_url(event),
                 data={
                     "implementation": IMPL.value,
@@ -666,14 +583,8 @@ class TestIntegrationCheckActionView:
             },
         )
 
-    def test_post_unknown_event_returns_bad_request(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            _missing_url("panel:integration-check"), data={}
-        )
+    def test_post_unknown_event_returns_bad_request(self, panel_client):
+        response = panel_client.post(_missing_url("panel:integration-check"), data={})
 
         assert_response(
             response,
@@ -683,11 +594,9 @@ class TestIntegrationCheckActionView:
         assert response.content == b"Unknown event"
 
     def test_post_missing_implementation_reports_failure(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _check_url(event),
             data={
                 "implementation": "",
@@ -709,12 +618,8 @@ class TestIntegrationCheckActionView:
             },
         )
 
-    def test_post_missing_connection_reports_failure(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_missing_connection_reports_failure(self, panel_client, event):
+        response = panel_client.post(
             _check_url(event),
             data={"implementation": IMPL.value, "connection": "", "config_json": "{}"},
         )
@@ -733,11 +638,9 @@ class TestIntegrationCheckActionView:
         )
 
     def test_post_unknown_implementation_reports_failure(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             _check_url(event),
             data={
                 "implementation": "not-a-real-impl",
@@ -757,12 +660,8 @@ class TestIntegrationCheckActionView:
             },
         )
 
-    def test_post_bad_connection_id_returns_bad_request(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_bad_connection_id_returns_bad_request(self, panel_client, event):
+        response = panel_client.post(
             _check_url(event),
             data={
                 "implementation": IMPL.value,
@@ -774,12 +673,8 @@ class TestIntegrationCheckActionView:
         assert_response(response, HTTPStatus.BAD_REQUEST)
         assert response.content == b"Bad connection id"
 
-    def test_post_invalid_json_reports_failure(
-        self, authenticated_client, active_user, sphere, event, connection
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_invalid_json_reports_failure(self, panel_client, event, connection):
+        response = panel_client.post(
             _check_url(event),
             data={
                 "implementation": IMPL.value,
@@ -802,12 +697,8 @@ class TestIntegrationCheckActionView:
             },
         )
 
-    def test_post_non_dict_json_reports_failure(
-        self, authenticated_client, active_user, sphere, event, connection
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_non_dict_json_reports_failure(self, panel_client, event, connection):
+        response = panel_client.post(
             _check_url(event),
             data={
                 "implementation": IMPL.value,

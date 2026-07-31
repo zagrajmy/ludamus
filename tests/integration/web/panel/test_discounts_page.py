@@ -72,22 +72,15 @@ class TestDiscountsPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:discounts", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -100,16 +93,13 @@ class TestDiscountsPageView:
             },
         )
 
-    def test_list_shows_discount_and_accreditation(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_list_shows_discount_and_accreditation(self, panel_client, event):
         facilitator = _make_facilitator(event, accreditation_type="guest")
         discount = _make_discount(
             event, facilitator, value=Decimal("15.00"), note="VIP"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -130,12 +120,11 @@ class TestDiscountsPageView:
         )
 
     def test_list_shows_assign_for_facilitator_without_discount(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -163,16 +152,13 @@ class TestDiscountsPageView:
             not_contains="Remove",
         )
 
-    def test_list_shows_amount_discount(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_list_shows_amount_discount(self, panel_client, event):
         facilitator = _make_facilitator(event)
         discount = _make_discount(
             event, facilitator, kind="amount", value=Decimal("20.00")
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -216,13 +202,10 @@ class TestDiscountCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_to_table_modal_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_to_table_modal_for_sphere_manager(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event, facilitator))
+        response = panel_client.get(self.get_url(event, facilitator))
 
         assert_response(
             response,
@@ -233,17 +216,14 @@ class TestDiscountCreatePageView:
             ),
         )
 
-    def test_get_redirects_when_facilitator_not_in_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_facilitator_not_in_event(self, panel_client, event):
         missing_id = 999999
         url = reverse(
             "panel:discount-assign",
             kwargs={"slug": event.slug, "facilitator_id": missing_id},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -252,13 +232,10 @@ class TestDiscountCreatePageView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
 
-    def test_post_creates_discount_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_creates_discount_and_redirects(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, facilitator),
             data={"kind": "amount", "value": "25.50", "note": "VIP"},
         )
@@ -274,13 +251,10 @@ class TestDiscountCreatePageView:
         assert discount.value == Decimal("25.50")
         assert discount.note == "VIP"
 
-    def test_post_shows_errors_on_invalid_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, facilitator), data={"kind": "percent", "value": "-5"}
         )
 
@@ -307,13 +281,10 @@ class TestDiscountCreatePageView:
             ],
         )
 
-    def test_post_rejects_zero_value(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_zero_value(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, facilitator), data={"kind": "percent", "value": "0"}
         )
 
@@ -337,13 +308,10 @@ class TestDiscountCreatePageView:
         )
         assert not Discount.objects.filter(facilitator=facilitator).exists()
 
-    def test_post_shows_error_on_invalid_kind(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_shows_error_on_invalid_kind(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, facilitator), data={"kind": "bogus", "value": "5"}
         )
 
@@ -366,13 +334,10 @@ class TestDiscountCreatePageView:
             },
         )
 
-    def test_post_shows_error_on_too_long_note(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_shows_error_on_too_long_note(self, panel_client, event):
         facilitator = _make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, facilitator),
             data={"kind": "percent", "value": "5", "note": "x" * 256},
         )
@@ -396,18 +361,13 @@ class TestDiscountCreatePageView:
             },
         )
 
-    def test_post_redirects_when_facilitator_not_in_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_facilitator_not_in_event(self, panel_client, event):
         url = reverse(
             "panel:discount-assign",
             kwargs={"slug": event.slug, "facilitator_id": 999999},
         )
 
-        response = authenticated_client.post(
-            url, data={"kind": "percent", "value": "5"}
-        )
+        response = panel_client.post(url, data={"kind": "percent", "value": "5"})
 
         assert_response(
             response,
@@ -416,29 +376,21 @@ class TestDiscountCreatePageView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:discount-assign", kwargs={"slug": "nonexistent", "facilitator_id": 1}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:discount-assign", kwargs={"slug": "nonexistent", "facilitator_id": 1}
         )
 
-        response = authenticated_client.post(
-            url, data={"kind": "percent", "value": "5"}
-        )
+        response = panel_client.post(url, data={"kind": "percent", "value": "5"})
 
         assert_event_not_found(response)
 
@@ -450,14 +402,11 @@ class TestDiscountEditPageView:
             "panel:discount-edit", kwargs={"slug": event.slug, "pk": discount.pk}
         )
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
         facilitator = _make_facilitator(event)
         discount = _make_discount(event, facilitator)
 
-        response = authenticated_client.get(self.get_url(event, discount))
+        response = panel_client.get(self.get_url(event, discount))
 
         assert_response(
             response,
@@ -470,14 +419,11 @@ class TestDiscountEditPageView:
             },
         )
 
-    def test_post_updates_discount_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_discount_and_redirects(self, panel_client, event):
         facilitator = _make_facilitator(event)
         discount = _make_discount(event, facilitator)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, discount),
             data={"kind": "percent", "value": "30", "note": "updated"},
         )
@@ -492,10 +438,7 @@ class TestDiscountEditPageView:
         assert discount.value == Decimal(30)
         assert discount.note == "updated"
 
-    def test_post_404_for_discount_in_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_404_for_discount_in_other_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere, slug="other-event")
         facilitator = _make_facilitator(other_event, slug="bob")
         discount = _make_discount(other_event, facilitator)
@@ -503,9 +446,7 @@ class TestDiscountEditPageView:
         url = reverse(
             "panel:discount-edit", kwargs={"slug": event.slug, "pk": discount.pk}
         )
-        response = authenticated_client.post(
-            url, data={"kind": "percent", "value": "30"}
-        )
+        response = panel_client.post(url, data={"kind": "percent", "value": "30"})
 
         assert_response(
             response,
@@ -514,32 +455,21 @@ class TestDiscountEditPageView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:discount-edit", kwargs={"slug": "nonexistent", "pk": 1})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:discount-edit", kwargs={"slug": "nonexistent", "pk": 1})
 
-        response = authenticated_client.post(
-            url, data={"kind": "percent", "value": "5"}
-        )
+        response = panel_client.post(url, data={"kind": "percent", "value": "5"})
 
         assert_event_not_found(response)
 
-    def test_get_404_for_discount_in_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_404_for_discount_in_other_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere, slug="other-event")
         facilitator = _make_facilitator(other_event, slug="bob")
         discount = _make_discount(other_event, facilitator)
@@ -547,7 +477,7 @@ class TestDiscountEditPageView:
         url = reverse(
             "panel:discount-edit", kwargs={"slug": event.slug, "pk": discount.pk}
         )
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -556,14 +486,11 @@ class TestDiscountEditPageView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
 
-    def test_post_shows_errors_on_invalid_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         facilitator = _make_facilitator(event)
         discount = _make_discount(event, facilitator)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, discount), data={"kind": "percent", "value": "-5"}
         )
 
@@ -595,14 +522,11 @@ class TestDiscountDeleteActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_soft_deletes_discount(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_soft_deletes_discount(self, panel_client, event):
         facilitator = _make_facilitator(event)
         discount = _make_discount(event, facilitator)
 
-        response = authenticated_client.post(self.get_url(event, discount))
+        response = panel_client.post(self.get_url(event, discount))
 
         assert_response(
             response,
@@ -613,16 +537,13 @@ class TestDiscountDeleteActionView:
         assert not Discount.objects.filter(pk=discount.pk).exists()
         assert Discount.all_objects.filter(pk=discount.pk).exists()
 
-    def test_post_404_for_missing_discount(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_404_for_missing_discount(self, panel_client, event):
         missing_pk = 999999
         url = reverse(
             "panel:discount-delete", kwargs={"slug": event.slug, "pk": missing_pk}
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_response(
             response,
@@ -631,13 +552,10 @@ class TestDiscountDeleteActionView:
             url=reverse("panel:discounts", kwargs={"slug": event.slug}),
         )
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:discount-delete", kwargs={"slug": "nonexistent", "pk": 1})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
@@ -692,22 +610,17 @@ class TestDiscountExportPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:discount-export", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
     def test_get_shows_form_when_a_connection_exists(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -721,12 +634,8 @@ class TestDiscountExportPageView:
             contains=[connection.display_name, "Export"],
         )
 
-    def test_get_shows_empty_state_without_connections(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_shows_empty_state_without_connections(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -741,9 +650,8 @@ class TestDiscountExportPageView:
         )
 
     def test_post_exports_scoped_rows_and_redirects(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, sphere, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         facilitator = _make_facilitator(event, accreditation_type="guest")
         _make_discount(event, facilitator, value=Decimal("15.00"), note="VIP")
         other_event = EventFactory(sphere=sphere, slug="other-event")
@@ -753,9 +661,7 @@ class TestDiscountExportPageView:
         _make_discount(other_event, other_facilitator, value=Decimal("99.00"))
         session = _google_write_session()
 
-        response = self._post(
-            authenticated_client, event, connection_with_secret, session
-        )
+        response = self._post(panel_client, event, connection_with_secret, session)
 
         assert_response(
             response,
@@ -783,17 +689,14 @@ class TestDiscountExportPageView:
         )
 
     def test_post_shows_error_when_google_rejects_the_write(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         _make_facilitator(event)
         session = _google_write_session(
             write_ok=False, write_status=403, write_text="no edit"
         )
 
-        response = self._post(
-            authenticated_client, event, connection_with_secret, session
-        )
+        response = self._post(panel_client, event, connection_with_secret, session)
 
         assert_response(
             response,
@@ -817,18 +720,15 @@ class TestDiscountExportPageView:
         session.post.assert_not_called()
 
     def test_post_shows_error_when_connection_vanishes_mid_export(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         _make_facilitator(event)
         session = _google_write_session()
 
         with patch.object(
             ConnectionsRepository, "read_secret", side_effect=NotFoundError
         ):
-            response = self._post(
-                authenticated_client, event, connection_with_secret, session
-            )
+            response = self._post(panel_client, event, connection_with_secret, session)
 
         assert_response(
             response,
@@ -843,17 +743,14 @@ class TestDiscountExportPageView:
         )
         session.put.assert_not_called()
 
-    def test_post_rejects_connection_from_another_sphere(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_connection_from_another_sphere(self, panel_client, event):
         other_sphere = SphereFactory(name="Other")
         foreign_connection = Connection.objects.create(
             sphere=other_sphere, display_name="Foreign"
         )
         session = _google_write_session()
 
-        response = self._post(authenticated_client, event, foreign_connection, session)
+        response = self._post(panel_client, event, foreign_connection, session)
 
         assert_response(
             response,
@@ -869,11 +766,9 @@ class TestDiscountExportPageView:
         session.get.assert_not_called()
 
     def test_post_rejects_garbage_spreadsheet_value(
-        self, authenticated_client, active_user, sphere, event, connection
+        self, panel_client, event, connection
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"connection": str(connection.pk), "spreadsheet": "not a sheet"},
         )
@@ -892,12 +787,9 @@ class TestDiscountExportPageView:
             "spreadsheet": ["Enter a Google Sheets link or a spreadsheet ID."]
         }
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:discount-export", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
         assert_event_not_found(response)

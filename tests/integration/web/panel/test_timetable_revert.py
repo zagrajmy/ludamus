@@ -49,40 +49,24 @@ class TestTimetableRevertView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-revert", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"log_pk": 1})
+        response = panel_client.post(url, data={"log_pk": 1})
 
         assert_event_not_found(response)
 
-    def test_missing_log_pk_returns_422(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={})
+    def test_missing_log_pk_returns_422(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={})
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    def test_invalid_log_pk_returns_422(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.get_url(event), data={"log_pk": 99999}
-        )
+    def test_invalid_log_pk_returns_422(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={"log_pk": 99999})
 
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    def test_returns_422_for_log_from_another_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_returns_422_for_log_from_another_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)
         other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
@@ -94,7 +78,7 @@ class TestTimetableRevertView:
         start = other_event.start_time
         end = start + timedelta(hours=1)
         # Assign within the other event to create a log entry there.
-        authenticated_client.post(
+        panel_client.post(
             self.get_assign_url(other_event),
             data={
                 "session_pk": other_session.pk,
@@ -103,12 +87,12 @@ class TestTimetableRevertView:
                 "end_time": end.isoformat(),
             },
         )
-        log_response = authenticated_client.get(self.get_log_url(other_event))
+        log_response = panel_client.get(self.get_log_url(other_event))
         assign_log = log_response.context["logs"][0]
         assert assign_log.action == "assign"
 
         # Attempt to revert the other event's log via the current event.
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"log_pk": assign_log.pk}
         )
 
@@ -117,16 +101,15 @@ class TestTimetableRevertView:
         assert other_session.status == "accepted"
 
     def test_revert_assign_unschedules_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
 
         # Assign the session
-        authenticated_client.post(
+        panel_client.post(
             self.get_assign_url(event),
             data={
                 "session_pk": session.pk,
@@ -137,62 +120,58 @@ class TestTimetableRevertView:
         )
 
         # Get the assign log entry pk
-        log_response = authenticated_client.get(self.get_log_url(event))
+        log_response = panel_client.get(self.get_log_url(event))
         assign_log = log_response.context["logs"][0]
         assert assign_log.action == "assign"
 
         # Revert
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"log_pk": assign_log.pk}
         )
 
         assert response.status_code == HTTPStatus.FOUND
 
         # After revert: log shows REVERT entry, session should be unscheduled
-        log_response = authenticated_client.get(self.get_log_url(event))
+        log_response = panel_client.get(self.get_log_url(event))
         logs = log_response.context["logs"]
         # Most recent is REVERT
         assert logs[0].action == "revert"
 
     def test_revert_unassign_reschedules_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         schedule_session(session, space, event.start_time)
 
         # Unassign the session (creates log)
-        authenticated_client.post(
-            self.get_unassign_url(event), data={"session_pk": session.pk}
-        )
+        panel_client.post(self.get_unassign_url(event), data={"session_pk": session.pk})
 
         # Get the unassign log entry pk
-        log_response = authenticated_client.get(self.get_log_url(event))
+        log_response = panel_client.get(self.get_log_url(event))
         unassign_log = log_response.context["logs"][0]
         assert unassign_log.action == "unassign"
 
         # Revert the unassign
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"log_pk": unassign_log.pk}
         )
 
         assert response.status_code == HTTPStatus.FOUND
 
         # After revert: log shows REVERT entry
-        log_response = authenticated_client.get(self.get_log_url(event))
+        log_response = panel_client.get(self.get_log_url(event))
         logs = log_response.context["logs"]
         assert logs[0].action == "revert"
 
     def test_revert_non_latest_change_returns_422(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
-        authenticated_client.post(
+        panel_client.post(
             self.get_assign_url(event),
             data={
                 "session_pk": session.pk,
@@ -202,13 +181,11 @@ class TestTimetableRevertView:
             },
         )
         # The assign log is now superseded by an unassign on the same session.
-        authenticated_client.post(
-            self.get_unassign_url(event), data={"session_pk": session.pk}
-        )
-        logs = authenticated_client.get(self.get_log_url(event)).context["logs"]
+        panel_client.post(self.get_unassign_url(event), data={"session_pk": session.pk})
+        logs = panel_client.get(self.get_log_url(event)).context["logs"]
         assign_log = next(log for log in logs if log.action == "assign")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"log_pk": assign_log.pk}
         )
 
@@ -217,14 +194,13 @@ class TestTimetableRevertView:
         assert session.status == "accepted"
 
     def test_log_page_marks_only_latest_change_revertible(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
         end = start + timedelta(hours=1)
-        authenticated_client.post(
+        panel_client.post(
             self.get_assign_url(event),
             data={
                 "session_pk": session.pk,
@@ -233,11 +209,9 @@ class TestTimetableRevertView:
                 "end_time": end.isoformat(),
             },
         )
-        authenticated_client.post(
-            self.get_unassign_url(event), data={"session_pk": session.pk}
-        )
+        panel_client.post(self.get_unassign_url(event), data={"session_pk": session.pk})
 
-        log_response = authenticated_client.get(self.get_log_url(event))
+        log_response = panel_client.get(self.get_log_url(event))
         logs = log_response.context["logs"]
         revertible_pks = log_response.context["revertible_pks"]
         assign_log = next(log for log in logs if log.action == "assign")

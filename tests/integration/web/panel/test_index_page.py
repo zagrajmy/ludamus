@@ -28,21 +28,13 @@ class TestPanelIndexRedirectView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_to_first_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.URL)
+    def test_redirects_to_first_event(self, panel_client, event):
+        response = panel_client.get(self.URL)
 
         assert_response(response, HTTPStatus.FOUND, url=f"/panel/event/{event.slug}/")
 
-    def test_redirects_to_home_when_no_events(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.URL)
+    def test_redirects_to_home_when_no_events(self, panel_client):
+        response = panel_client.get(self.URL)
 
         assert_response(
             response,
@@ -99,12 +91,8 @@ class TestEventIndexPageView:
             },
         )
 
-    def test_shows_events_for_sphere(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_shows_events_for_sphere(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         current_event = response.context["current_event"]
         events = response.context["events"]
@@ -131,12 +119,8 @@ class TestEventIndexPageView:
             },
         )
 
-    def test_shows_stats_for_current_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_shows_stats_for_current_event(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         current_event = response.context["current_event"]
         events = response.context["events"]
@@ -160,23 +144,17 @@ class TestEventIndexPageView:
             },
         )
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:event-index", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_can_view_different_events(
-        self, authenticated_client, active_user, sphere, event, faker
-    ):
-        sphere.managers.add(active_user)
+    def test_can_view_different_events(self, panel_client, sphere, event, faker):
         event2 = EventFactory(sphere=sphere, slug=faker.slug())
 
-        response = authenticated_client.get(self.get_url(event2))
+        response = panel_client.get(self.get_url(event2))
 
         current_event = response.context["current_event"]
         events = response.context["events"]

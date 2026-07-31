@@ -32,69 +32,49 @@ class TestBansPageView:
 
         assert_not_a_manager(response)
 
-    def test_manager_gets_page(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self._url(event))
+    def test_manager_gets_page(self, panel_client, event):
+        response = panel_client.get(self._url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["active_nav"] == "bans"
 
-    def test_page_lists_existing_bans(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_page_lists_existing_bans(self, panel_client, event):
         tm = UserFactory(username="tm0", email="tm0@example.com", name="Banned Bob")
         EventBan.objects.create(event=event, user=tm, reason="incites violence")
         # A reasonless ban exercises the "—" fallback column.
         nr = UserFactory(username="nr0", email="nr0@example.com", name="No Reason")
         EventBan.objects.create(event=event, user=nr, reason="")
 
-        content = authenticated_client.get(self._url(event)).content.decode()
+        content = panel_client.get(self._url(event)).content.decode()
 
         assert "Banned Bob" in content
         assert "incites violence" in content
         assert "No Reason" in content
         assert "—" in content
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:bans", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:bans", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"identifier": "x"})
+        response = panel_client.post(url, data={"identifier": "x"})
 
         assert_event_not_found(response)
 
-    def test_delete_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_delete_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:ban-delete", kwargs={"slug": "nonexistent", "pk": 1})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_post_blank_identifier_reports_error(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self._url(event), data={"identifier": "  "}
-        )
+    def test_post_blank_identifier_reports_error(self, panel_client, event):
+        response = panel_client.post(self._url(event), data={"identifier": "  "})
 
         assert_response(
             response,
@@ -104,13 +84,10 @@ class TestBansPageView:
         )
         assert not EventBan.objects.exists()
 
-    def test_manager_bans_by_username(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_manager_bans_by_username(self, panel_client, event):
         troublemaker = UserFactory(username="tm", email="tm@example.com", name="TM")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url(event), data={"identifier": "tm", "reason": "incites violence"}
         )
 
@@ -123,14 +100,8 @@ class TestBansPageView:
         ban = EventBan.objects.get(event=event, user=troublemaker)
         assert ban.reason == "incites violence"
 
-    def test_ban_unknown_identifier_reports_error(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self._url(event), data={"identifier": "ghost"}
-        )
+    def test_ban_unknown_identifier_reports_error(self, panel_client, event):
+        response = panel_client.post(self._url(event), data={"identifier": "ghost"})
 
         assert_response(
             response,
@@ -140,14 +111,11 @@ class TestBansPageView:
         )
         assert not EventBan.objects.exists()
 
-    def test_manager_removes_ban(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_manager_removes_ban(self, panel_client, event):
         troublemaker = UserFactory(username="tm2", email="tm2@example.com", name="TM2")
         ban = EventBan.objects.create(event=event, user=troublemaker)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             reverse("panel:ban-delete", kwargs={"slug": event.slug, "pk": ban.pk})
         )
 
@@ -160,14 +128,13 @@ class TestBansPageView:
         assert not EventBan.objects.filter(pk=ban.pk).exists()
 
     def test_manager_cannot_remove_ban_from_other_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         troublemaker = UserFactory(username="tm3", email="tm3@example.com", name="TM3")
         foreign_ban = EventBan.objects.create(event=other_event, user=troublemaker)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             reverse(
                 "panel:ban-delete", kwargs={"slug": event.slug, "pk": foreign_ban.pk}
             )

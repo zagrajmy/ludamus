@@ -34,20 +34,15 @@ class TestTracksPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:tracks", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_ok_empty(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_empty(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -56,15 +51,12 @@ class TestTracksPageView:
             context_data={**panel_context(event, active_nav="tracks"), "tracks": []},
         )
 
-    def test_get_shows_tracks_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_tracks_in_context(self, panel_client, event):
         track = Track.objects.create(
             event=event, name="Morning Track", slug="morning-track", is_public=True
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -86,9 +78,8 @@ class TestTracksPageView:
         )
 
     def test_get_shows_assigned_spaces_and_managers(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="Morning Track", slug="morning-track", is_public=True
         )
@@ -96,7 +87,7 @@ class TestTracksPageView:
         track.spaces.add(space)
         track.managers.add(active_user)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,

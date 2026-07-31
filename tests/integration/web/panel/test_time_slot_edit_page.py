@@ -40,12 +40,8 @@ class TestTimeSlotEditPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event, time_slot
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event, time_slot))
+    def test_get_ok_for_sphere_manager(self, panel_client, event, time_slot):
+        response = panel_client.get(self.get_url(event, time_slot))
 
         assert_response(
             response,
@@ -69,13 +65,10 @@ class TestTimeSlotEditPageView:
             },
         )
 
-    def test_post_updates_time_slot(
-        self, authenticated_client, active_user, sphere, event, time_slot
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_time_slot(self, panel_client, event, time_slot):
         date_str = event.start_time.date().isoformat()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, time_slot),
             {
                 "date": date_str,
@@ -145,12 +138,8 @@ class TestTimeSlotEditPageView:
             expected_date + timedelta(days=1), time(2, 0), tzinfo=tz
         )
 
-    def test_post_invalid_form_returns_errors(
-        self, authenticated_client, active_user, sphere, event, time_slot
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_invalid_form_returns_errors(self, panel_client, event, time_slot):
+        response = panel_client.post(
             self.get_url(event, time_slot),
             {"date": "", "start_time": "", "end_time": ""},
         )
@@ -178,39 +167,30 @@ class TestTimeSlotEditPageView:
         )
         assert response.context["form"].errors
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:time-slot-edit", kwargs={"slug": "nonexistent", "pk": 99999}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:time-slot-edit", kwargs={"slug": "nonexistent", "pk": 99999}
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             url, {"date": "2026-03-10", "start_time": "10:00", "end_time": "12:00"}
         )
 
         assert_event_not_found(response)
 
-    def test_get_redirects_on_invalid_pk(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_pk(self, panel_client, event):
         url = reverse("panel:time-slot-edit", kwargs={"slug": event.slug, "pk": 99999})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -219,13 +199,10 @@ class TestTimeSlotEditPageView:
             url=f"/panel/event/{event.slug}/cfp/time-slots/",
         )
 
-    def test_post_redirects_on_invalid_pk(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_pk(self, panel_client, event):
         url = reverse("panel:time-slot-edit", kwargs={"slug": event.slug, "pk": 99999})
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             url, {"date": "2026-03-10", "start_time": "10:00", "end_time": "12:00"}
         )
 
@@ -237,12 +214,11 @@ class TestTimeSlotEditPageView:
         )
 
     def test_post_rejects_slot_outside_event_dates(
-        self, authenticated_client, active_user, sphere, event, time_slot
+        self, panel_client, event, time_slot
     ):
-        sphere.managers.add(active_user)
         before_event = (event.start_time - timedelta(days=5)).date().isoformat()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, time_slot),
             {
                 "date": before_event,
@@ -278,10 +254,7 @@ class TestTimeSlotEditPageView:
             in response.context["form"].non_field_errors()
         )
 
-    def test_post_rejects_overlapping_slot(
-        self, authenticated_client, active_user, sphere, event, time_slot
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_overlapping_slot(self, panel_client, event, time_slot):
         tz = get_current_timezone()
         slot_start = datetime.combine(event.start_time.date(), time(10, 0), tzinfo=tz)
         other = TimeSlot.objects.create(
@@ -289,7 +262,7 @@ class TestTimeSlotEditPageView:
         )
         date_str = event.start_time.date().isoformat()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, time_slot),
             {
                 "date": date_str,
@@ -327,12 +300,11 @@ class TestTimeSlotEditPageView:
         other.delete()
 
     def test_post_allows_updating_same_slot_without_overlap_error(
-        self, authenticated_client, active_user, sphere, event, time_slot
+        self, panel_client, event, time_slot
     ):
-        sphere.managers.add(active_user)
         date_str = event.start_time.date().isoformat()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, time_slot),
             {
                 "date": date_str,
@@ -350,13 +322,12 @@ class TestTimeSlotEditPageView:
         )
 
     def test_post_rejects_multi_day_slot_outside_event(
-        self, authenticated_client, active_user, sphere, event, time_slot
+        self, panel_client, event, time_slot
     ):
-        sphere.managers.add(active_user)
         start_date = event.start_time.date().isoformat()
         end_date = (event.end_time + timedelta(days=5)).date().isoformat()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, time_slot),
             {
                 "date": start_date,
@@ -392,17 +363,14 @@ class TestTimeSlotEditPageView:
             in response.context["form"].non_field_errors()
         )
 
-    def test_get_rejects_slot_from_another_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_rejects_slot_from_another_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)
         other_slot = TimeSlotFactory(event=other_event)
         url = reverse(
             "panel:time-slot-edit", kwargs={"slug": event.slug, "pk": other_slot.pk}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,

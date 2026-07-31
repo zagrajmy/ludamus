@@ -44,14 +44,11 @@ class TestTrackDeleteActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_deletes_track_for_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_deletes_track_for_manager(self, panel_client, event):
         track = self.make_track(event)
         track_pk = track.pk
 
-        response = authenticated_client.post(self.get_url(event, track))
+        response = panel_client.post(self.get_url(event, track))
 
         assert_response(
             response,
@@ -61,30 +58,24 @@ class TestTrackDeleteActionView:
         )
         assert not Track.objects.filter(pk=track_pk).exists()
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client, event):
         track = self.make_track(event)
         url = reverse(
             "panel:track-delete",
             kwargs={"slug": "nonexistent", "track_slug": track.slug},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_track_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_track_slug(self, panel_client, event):
         url = reverse(
             "panel:track-delete",
             kwargs={"slug": event.slug, "track_slug": "nonexistent"},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_response(
             response,
@@ -93,10 +84,9 @@ class TestTrackDeleteActionView:
             url=f"/panel/event/{event.slug}/tracks/",
         )
 
-    def test_get_not_allowed(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_get_not_allowed(self, panel_client, event):
         track = self.make_track(event)
 
-        response = authenticated_client.get(self.get_url(event, track))
+        response = panel_client.get(self.get_url(event, track))
 
         assert_response(response, HTTPStatus.METHOD_NOT_ALLOWED)

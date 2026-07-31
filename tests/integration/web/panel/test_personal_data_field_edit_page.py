@@ -50,15 +50,12 @@ class TestPersonalDataFieldEditPageView:
 
         assert_not_a_manager(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        response = authenticated_client.get(self.get_url(event, field))
+        response = panel_client.get(self.get_url(event, field))
 
         context_field = response.context["field"]
         assert context_field.pk == field.pk
@@ -78,10 +75,7 @@ class TestPersonalDataFieldEditPageView:
         )
         assert response.context["current_event"].pk == event.pk
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
@@ -90,20 +84,17 @@ class TestPersonalDataFieldEditPageView:
             kwargs={"slug": "nonexistent", "field_slug": field.slug},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_redirects_on_invalid_field_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_field_slug(self, panel_client, event):
         url = reverse(
             "panel:personal-data-field-edit",
             kwargs={"slug": event.slug, "field_slug": "nonexistent"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -138,15 +129,12 @@ class TestPersonalDataFieldEditPageView:
 
         assert_not_a_manager(response)
 
-    def test_post_updates_field_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_field_name(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={"name": "Phone Number", "question": "What is your phone number?"},
         )
@@ -189,15 +177,12 @@ class TestPersonalDataFieldEditPageView:
             field=field, category=foreign_category
         ).exists()
 
-    def test_post_updates_slug_on_name_change(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_slug_on_name_change(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, field),
             data={"name": "Phone Number", "question": "What is your phone number?"},
         )
@@ -205,10 +190,7 @@ class TestPersonalDataFieldEditPageView:
         field.refresh_from_db()
         assert field.slug == "phone-number"
 
-    def test_post_generates_unique_slug_on_collision(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_generates_unique_slug_on_collision(self, panel_client, event):
         PersonalDataField.objects.create(
             event=event, name="Phone", question="What is your phone?", slug="phone"
         )
@@ -216,7 +198,7 @@ class TestPersonalDataFieldEditPageView:
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, field),
             data={"name": "Phone", "question": "What is your phone?"},
         )
@@ -224,15 +206,12 @@ class TestPersonalDataFieldEditPageView:
         field.refresh_from_db()
         assert field.slug.startswith("phone-")
 
-    def test_post_error_on_empty_name_rerenders_form(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_error_on_empty_name_rerenders_form(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        response = authenticated_client.post(self.get_url(event, field), data={})
+        response = panel_client.post(self.get_url(event, field), data={})
 
         assert response.context["form"].errors
         context_field = response.context["field"]
@@ -252,10 +231,7 @@ class TestPersonalDataFieldEditPageView:
         field.refresh_from_db()
         assert field.name == "Email"  # Name unchanged
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
@@ -264,22 +240,19 @@ class TestPersonalDataFieldEditPageView:
             kwargs={"slug": "nonexistent", "field_slug": field.slug},
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             url, data={"name": "Phone", "question": "What is your phone?"}
         )
 
         assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_field_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_field_slug(self, panel_client, event):
         url = reverse(
             "panel:personal-data-field-edit",
             kwargs={"slug": event.slug, "field_slug": "nonexistent"},
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             url, data={"name": "Phone", "question": "What is your phone?"}
         )
 
@@ -290,10 +263,7 @@ class TestPersonalDataFieldEditPageView:
             url=f"/panel/event/{event.slug}/cfp/personal-data/",
         )
 
-    def test_post_updates_options_on_select_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_options_on_select_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -308,7 +278,7 @@ class TestPersonalDataFieldEditPageView:
             field=field, label="Germany", value="Germany", order=1
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={
                 "name": "Country",
@@ -330,15 +300,12 @@ class TestPersonalDataFieldEditPageView:
         )
         assert labels == ["France", "Spain", "Italy"]
 
-    def test_post_does_not_touch_options_on_text_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_does_not_touch_options_on_text_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, field),
             data={
                 "name": "Email",
@@ -351,10 +318,7 @@ class TestPersonalDataFieldEditPageView:
         assert field.name == "Email"
         assert not PersonalDataFieldOption.objects.filter(field=field).exists()
 
-    def test_get_prepopulates_options_for_select_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_prepopulates_options_for_select_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -369,15 +333,14 @@ class TestPersonalDataFieldEditPageView:
             field=field, label="Germany", value="Germany", order=1
         )
 
-        response = authenticated_client.get(self.get_url(event, field))
+        response = panel_client.get(self.get_url(event, field))
 
         form = response.context["form"]
         assert form.initial["options"] == "Poland\nGermany"
 
     def test_get_prepopulates_multi_and_custom_toggles_for_select_field(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         field = PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -388,16 +351,13 @@ class TestPersonalDataFieldEditPageView:
             allow_custom=True,
         )
 
-        response = authenticated_client.get(self.get_url(event, field))
+        response = panel_client.get(self.get_url(event, field))
 
         form = response.context["form"]
         assert form.initial["is_multiple"] is True
         assert form.initial["allow_custom"] is True
 
-    def test_post_enables_multiple_selection_on_select_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_enables_multiple_selection_on_select_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -406,7 +366,7 @@ class TestPersonalDataFieldEditPageView:
             field_type="select",
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={
                 "name": "Country",
@@ -427,10 +387,7 @@ class TestPersonalDataFieldEditPageView:
         assert field.is_multiple is True
         assert field.allow_custom is True
 
-    def test_post_disables_multiple_selection_when_unchecked(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_disables_multiple_selection_when_unchecked(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -441,7 +398,7 @@ class TestPersonalDataFieldEditPageView:
             allow_custom=True,
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={
                 "name": "Country",
@@ -460,15 +417,12 @@ class TestPersonalDataFieldEditPageView:
         assert field.is_multiple is False
         assert field.allow_custom is False
 
-    def test_post_ignores_multi_toggle_on_text_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_multi_toggle_on_text_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, field),
             data={
                 "name": "Email",
@@ -488,10 +442,7 @@ class TestPersonalDataFieldEditPageView:
         assert field.is_multiple is False
         assert field.allow_custom is False
 
-    def test_get_returns_field_with_is_multiple_attribute(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_returns_field_with_is_multiple_attribute(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -501,15 +452,12 @@ class TestPersonalDataFieldEditPageView:
             is_multiple=True,
         )
 
-        response = authenticated_client.get(self.get_url(event, field))
+        response = panel_client.get(self.get_url(event, field))
 
         context_field = response.context["field"]
         assert context_field.is_multiple is True
 
-    def test_get_returns_field_with_allow_custom_attribute(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_returns_field_with_allow_custom_attribute(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Country",
@@ -519,7 +467,7 @@ class TestPersonalDataFieldEditPageView:
             allow_custom=True,
         )
 
-        response = authenticated_client.get(self.get_url(event, field))
+        response = panel_client.get(self.get_url(event, field))
 
         context_field = response.context["field"]
         assert context_field.allow_custom is True

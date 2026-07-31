@@ -57,14 +57,11 @@ class TestProposalBulkStatusActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_accepts_multiple_and_redirects_to_list(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_accepts_multiple_and_redirects_to_list(self, panel_client, event):
         one = _make_session(event, "one")
         two = _make_session(event, "two", status="on_hold")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), {"action": "accept", "proposal_ids": [one.pk, two.pk]}
         )
 
@@ -79,10 +76,7 @@ class TestProposalBulkStatusActionView:
         assert one.status == "accepted"
         assert two.status == "accepted"
 
-    def test_post_skips_scheduled_on_reject(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_skips_scheduled_on_reject(self, panel_client, event):
         plain = _make_session(event, "plain")
         scheduled = _make_session(event, "scheduled")
         AgendaItemFactory(
@@ -92,7 +86,7 @@ class TestProposalBulkStatusActionView:
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {"action": "reject", "proposal_ids": [plain.pk, scheduled.pk]},
         )
@@ -111,14 +105,11 @@ class TestProposalBulkStatusActionView:
         assert plain.status == "rejected"
         assert scheduled.status == "pending"
 
-    def test_post_reports_missing_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_reports_missing_proposals(self, panel_client, sphere, event):
         mine = _make_session(event, "mine")
         other = _make_session(EventFactory(sphere=sphere), "other")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {"action": "accept", "proposal_ids": [mine.pk, other.pk, 99999]},
         )
@@ -137,12 +128,8 @@ class TestProposalBulkStatusActionView:
         assert mine.status == "accepted"
         assert other.status == "pending"
 
-    def test_post_without_selection_warns(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), {"action": "accept"})
+    def test_post_without_selection_warns(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), {"action": "accept"})
 
         assert_response(
             response,
@@ -151,13 +138,10 @@ class TestProposalBulkStatusActionView:
             url=reverse("panel:proposals", kwargs={"slug": event.slug}),
         )
 
-    def test_post_with_unknown_action_errors(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_with_unknown_action_errors(self, panel_client, event):
         session = _make_session(event, "one")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), {"action": "explode", "proposal_ids": [session.pk]}
         )
 
@@ -170,16 +154,13 @@ class TestProposalBulkStatusActionView:
         session.refresh_from_db()
         assert session.status == "pending"
 
-    def test_post_honors_safe_next_url(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_honors_safe_next_url(self, panel_client, event):
         session = _make_session(event, "one")
         next_url = (
             reverse("panel:proposals", kwargs={"slug": event.slug}) + "?status=pending"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {"action": "accept", "proposal_ids": [session.pk], "next": next_url},
         )

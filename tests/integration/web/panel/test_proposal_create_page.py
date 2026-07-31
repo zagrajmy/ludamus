@@ -90,23 +90,17 @@ class TestProposalCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:proposal-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -120,15 +114,14 @@ class TestProposalCreatePageView:
         )
 
     def test_get_renders_facilitator_checkboxes_when_event_has_facilitators(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         # Search-first picker: unselected facilitators start hidden.
         assert_response(
@@ -153,16 +146,13 @@ class TestProposalCreatePageView:
             ],
         )
 
-    def test_post_invalid_keeps_selected_facilitator_checked(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_invalid_keeps_selected_facilitator_checked(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
@@ -187,16 +177,13 @@ class TestProposalCreatePageView:
         content = response.content.decode()
         assert "checked" in checkbox_tag(content, "facilitator_ids", facilitator.pk)
 
-    def test_post_renders_facilitator_error_with_checkboxes(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_renders_facilitator_error_with_checkboxes(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
@@ -226,12 +213,11 @@ class TestProposalCreatePageView:
         assert not Session.objects.filter(title="Missing Facilitator").exists()
 
     def test_post_renders_facilitator_error_when_event_has_no_facilitators(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
@@ -273,20 +259,16 @@ class TestProposalCreatePageView:
 
         assert_not_a_manager(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:proposal-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
         assert_event_not_found(response)
 
     def test_post_creates_session_with_unique_slug_on_collision(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -302,7 +284,7 @@ class TestProposalCreatePageView:
             status="pending",
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -331,15 +313,14 @@ class TestProposalCreatePageView:
         assert new_session.slug != "my-new-session"
 
     def test_post_creates_session_with_facilitator_and_redirects(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -369,16 +350,13 @@ class TestProposalCreatePageView:
             facilitator.pk
         ]
 
-    def test_post_creates_session_with_cover_image(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_creates_session_with_cover_image(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -409,10 +387,7 @@ class TestProposalCreatePageView:
         )
         assert new_session.cover_image
 
-    def test_get_renders_time_slot_checkboxes(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_time_slot_checkboxes(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         slot = TimeSlot.objects.create(
             event=event,
@@ -420,7 +395,7 @@ class TestProposalCreatePageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -435,10 +410,7 @@ class TestProposalCreatePageView:
             contains='name="time_slot_ids"',
         )
 
-    def test_post_creates_session_with_preferred_time_slots(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_creates_session_with_preferred_time_slots(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -449,7 +421,7 @@ class TestProposalCreatePageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -465,10 +437,7 @@ class TestProposalCreatePageView:
         new_session = Session.objects.get(title="Slotted Session")
         assert list(new_session.time_slots.values_list("pk", flat=True)) == [slot.pk]
 
-    def test_post_ignores_time_slot_from_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_time_slot_from_other_event(self, panel_client, sphere, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -480,7 +449,7 @@ class TestProposalCreatePageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -496,10 +465,7 @@ class TestProposalCreatePageView:
         new_session = Session.objects.get(title="Slotted Session")
         assert not new_session.time_slots.exists()
 
-    def test_post_invalid_keeps_selected_time_slot_checked(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_invalid_keeps_selected_time_slot_checked(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         slot = TimeSlot.objects.create(
             event=event,
@@ -507,7 +473,7 @@ class TestProposalCreatePageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
@@ -532,16 +498,13 @@ class TestProposalCreatePageView:
         content = response.content.decode()
         assert "checked" in checkbox_tag(content, "time_slot_ids", slot.pk)
 
-    def test_get_renders_track_checkboxes(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_track_checkboxes(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -561,10 +524,7 @@ class TestProposalCreatePageView:
             ],
         )
 
-    def test_post_creates_session_with_tracks(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_creates_session_with_tracks(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -573,7 +533,7 @@ class TestProposalCreatePageView:
             event=event, name="Main Track", slug="main-track", is_public=True
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -589,10 +549,7 @@ class TestProposalCreatePageView:
         new_session = Session.objects.get(title="Tracked Session")
         assert list(new_session.tracks.values_list("pk", flat=True)) == [track.pk]
 
-    def test_post_ignores_track_from_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_track_from_other_event(self, panel_client, sphere, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -602,7 +559,7 @@ class TestProposalCreatePageView:
             event=other_event, name="Foreign", slug="foreign", is_public=True
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -618,13 +575,10 @@ class TestProposalCreatePageView:
         new_session = Session.objects.get(title="Tracked Session")
         assert not new_session.tracks.exists()
 
-    def test_post_without_facilitator_shows_error(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_without_facilitator_shows_error(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "category_id": category.pk,
@@ -651,16 +605,15 @@ class TestProposalCreatePageView:
         assert not Session.objects.filter(title="No Facilitator").exists()
 
     def test_post_ignores_facilitator_from_other_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         other_event = EventFactory(sphere=sphere)
         foreign = Facilitator.objects.create(
             event=other_event, display_name="Bob", slug="bob", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -689,13 +642,10 @@ class TestProposalCreatePageView:
         )
         assert not Session.objects.filter(title="Foreign Facilitator").exists()
 
-    def test_post_shows_errors_on_invalid_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"category_id": "", "title": "", "display_name": ""},
         )
@@ -715,10 +665,7 @@ class TestProposalCreatePageView:
         assert response.context["form"].errors
 
     @pytest.mark.postgres
-    def test_post_second_same_title_session_saves(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_second_same_title_session_saves(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -735,16 +682,15 @@ class TestProposalCreatePageView:
         }
 
         for _ in range(submissions):
-            authenticated_client.post(self.get_url(event), data=data)
+            panel_client.post(self.get_url(event), data=data)
 
         sessions = Session.objects.filter(title=title)
         assert sessions.count() == submissions
         assert all(len(session.slug) <= slug_max_length for session in sessions)
 
     def test_post_surfaces_db_error_as_form_error(
-        self, authenticated_client, active_user, sphere, event, monkeypatch
+        self, panel_client, event, monkeypatch
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -755,7 +701,7 @@ class TestProposalCreatePageView:
 
         monkeypatch.setattr(SessionRepository, "create", _raise)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -814,14 +760,11 @@ class TestProposalCreateCategoryFields:
         )
         return category, field
 
-    def test_get_renders_only_the_resolved_categorys_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_only_the_resolved_categorys_fields(self, panel_client, event):
         self._category_with_field(event, name="A", slug="a", field_slug="only-a")
         self._category_with_field(event, name="B", slug="b", field_slug="only-b")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         # Category A is the event's first category, so only its field renders.
         html = response.content.decode()
@@ -832,15 +775,12 @@ class TestProposalCreateCategoryFields:
         assert 'hx-target="#proposal-session-fields"' in html
         assert 'id="proposal-session-fields"' in html
 
-    def test_post_to_fields_component_is_rejected(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_to_fields_component_is_rejected(self, panel_client, event):
         category, _field = self._category_with_field(
             event, name="A", slug="a", field_slug="only-a"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_fields_url(event), data={"category_id": category.pk}
         )
 
@@ -850,15 +790,14 @@ class TestProposalCreateCategoryFields:
         assert not Session.objects.exists()
 
     def test_get_fields_component_follows_the_requested_category(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         self._category_with_field(event, name="A", slug="a", field_slug="only-a")
         category_b, _field = self._category_with_field(
             event, name="B", slug="b", field_slug="only-b"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_fields_url(event), data={"category_id": category_b.pk}
         )
 
@@ -880,9 +819,8 @@ class TestProposalCreateCategoryFields:
         )
 
     def test_get_fields_component_follows_the_category_derived_controls(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         ProposalCategory.objects.create(
             event=event,
             name="A",
@@ -898,7 +836,7 @@ class TestProposalCreateCategoryFields:
             max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_fields_url(event), data={"category_id": category_b.pk}
         )
 
@@ -925,9 +863,8 @@ class TestProposalCreateCategoryFields:
         )
 
     def test_get_renders_checkbox_field_with_allow_custom_without_companion(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="A", slug="a")
         field = SessionField.objects.create(
             event=event,
@@ -942,29 +879,24 @@ class TestProposalCreateCategoryFields:
             category=category, field=field, is_required=False, order=0
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         html = response.content.decode()
         assert response.status_code == HTTPStatus.OK
         assert 'name="session_streamed"' in html
         assert 'name="session_streamed_custom"' not in html
 
-    def test_get_fields_component_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_fields_component_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:proposal-create-fields", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
     def test_get_fields_component_renders_empty_when_event_has_no_categories(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_fields_url(event))
+        response = panel_client.get(self.get_fields_url(event))
 
         assert_response(
             response,
@@ -979,10 +911,7 @@ class TestProposalCreateCategoryFields:
             },
         )
 
-    def test_post_saves_the_categorys_field_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_the_categorys_field_values(self, panel_client, event):
         category, field = self._category_with_field(
             event, name="RPG", slug="rpg", field_slug="system"
         )
@@ -990,7 +919,7 @@ class TestProposalCreateCategoryFields:
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -1006,10 +935,7 @@ class TestProposalCreateCategoryFields:
         value = SessionFieldValue.objects.get(session=session, field=field)
         assert value.value == "Pathfinder"
 
-    def test_post_rejects_missing_required_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_missing_required_field(self, panel_client, event):
         category, _field = self._category_with_field(
             event, name="RPG", slug="rpg", field_slug="system", is_required=True
         )
@@ -1017,7 +943,7 @@ class TestProposalCreateCategoryFields:
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -1033,15 +959,12 @@ class TestProposalCreateCategoryFields:
         assert "session_system" in response.context["form"].errors
         assert not Session.objects.filter(title="Missing Required").exists()
 
-    def test_get_offers_the_categorys_durations_as_choices(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_offers_the_categorys_durations_as_choices(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event, name="RPG", slug="rpg", durations=["PT1H", "PT2H"]
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         duration = response.context["form"].fields["duration"]
         assert duration.choices == [
@@ -1053,12 +976,11 @@ class TestProposalCreateCategoryFields:
         assert 'value="PT1H"' in response.content.decode()
 
     def test_get_drops_the_duration_picker_without_configured_durations(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         # No presets to pick from, so the hour/minute steppers are the whole
         # control — no picker, and no free-text ISO field either.
@@ -1077,10 +999,7 @@ class TestProposalCreateCategoryFields:
         assert fields["duration_hours"].max_value == MAX_DURATION_HOURS
         assert fields["duration_minutes"].max_value == MAX_DURATION_MINUTES
 
-    def test_post_stores_a_preset_duration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_stores_a_preset_duration(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG", slug="rpg", durations=["PT1H", "PT2H"]
         )
@@ -1088,7 +1007,7 @@ class TestProposalCreateCategoryFields:
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -1112,10 +1031,7 @@ class TestProposalCreateCategoryFields:
         )
         assert new_session.duration == "PT2H"
 
-    def test_post_stores_a_custom_duration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_stores_a_custom_duration(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG", slug="rpg", durations=["PT1H"]
         )
@@ -1123,7 +1039,7 @@ class TestProposalCreateCategoryFields:
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -1150,15 +1066,14 @@ class TestProposalCreateCategoryFields:
         assert new_session.duration == "PT1H45M"
 
     def test_post_stores_steppers_when_the_category_has_no_durations(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -1182,10 +1097,7 @@ class TestProposalCreateCategoryFields:
         )
         assert new_session.duration == "PT45M"
 
-    def test_post_rejects_a_custom_duration_left_empty(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_a_custom_duration_left_empty(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG", slug="rpg", durations=["PT1H"]
         )
@@ -1193,7 +1105,7 @@ class TestProposalCreateCategoryFields:
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",
@@ -1220,16 +1132,13 @@ class TestProposalCreateCategoryFields:
         form = response.context["form"]
         assert form.errors["duration"] == ["Enter how long the session lasts."]
 
-    def test_post_rejects_out_of_range_steppers(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_out_of_range_steppers(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "facilitators_submitted": "1",

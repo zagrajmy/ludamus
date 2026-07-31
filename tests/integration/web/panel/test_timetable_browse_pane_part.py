@@ -31,24 +31,17 @@ class TestTimetableBrowsePanePartView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:timetable-browse-pane-part", kwargs={"slug": "nonexistent"}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_ok_returns_partial_with_filter_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
+    def test_ok_returns_partial_with_filter_context(self, panel_client, event):
+        response = panel_client.get(
             self.get_url(event),
             {
                 "category": "7",

@@ -41,22 +41,15 @@ class TestTimetableSessionListPartView:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-sessions-part", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
-    def test_ok_returns_partial_template(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_returns_partial_template(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -78,23 +71,21 @@ class TestTimetableSessionListPartView:
         )
 
     def test_lists_unscheduled_accepted_sessions(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
         assert session.pk in session_pks
 
     def test_excludes_non_accepted_sessions(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         accepted = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
@@ -103,7 +94,7 @@ class TestTimetableSessionListPartView:
             proposal_category, status="rejected", participants_limit=10
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
@@ -111,10 +102,7 @@ class TestTimetableSessionListPartView:
         assert pending.pk not in session_pks
         assert rejected.pk not in session_pks
 
-    def test_excludes_scheduled_sessions(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_excludes_scheduled_sessions(self, panel_client, event, proposal_category):
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -126,16 +114,13 @@ class TestTimetableSessionListPartView:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
         assert session.pk not in session_pks
 
-    def test_search_filters_by_title(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_search_filters_by_title(self, panel_client, event, proposal_category):
         matching = SessionFactory(
             category=proposal_category,
             status="accepted",
@@ -151,17 +136,14 @@ class TestTimetableSessionListPartView:
             min_age=0,
         )
 
-        response = authenticated_client.get(self.get_url(event), {"search": "magic"})
+        response = panel_client.get(self.get_url(event), {"search": "magic"})
 
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
         assert matching.pk in session_pks
         assert other.pk not in session_pks
 
-    def test_category_filter(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_category_filter(self, panel_client, event, proposal_category):
         other_category = ProposalCategoryFactory(event=event)
         matching = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -170,7 +152,7 @@ class TestTimetableSessionListPartView:
             category=other_category, status="accepted", participants_limit=10, min_age=0
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"category": str(proposal_category.pk)}
         )
 
@@ -181,25 +163,20 @@ class TestTimetableSessionListPartView:
 
     @pytest.mark.parametrize("max_duration", ("abc", "-1", "0", ""))
     def test_invalid_max_duration_param_does_not_raise(
-        self, authenticated_client, active_user, sphere, event, max_duration
+        self, panel_client, event, max_duration
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            self.get_url(event), {"max_duration": max_duration}
-        )
+        response = panel_client.get(self.get_url(event), {"max_duration": max_duration})
 
         assert response.status_code == HTTPStatus.OK
 
     def test_session_card_is_draggable_with_duration(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -208,9 +185,8 @@ class TestTimetableSessionListPartView:
         assert f'data-duration="{duration}"' in content
 
     def test_date_filter_keeps_sessions_with_slot_on_that_date(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         slot_day_one = TimeSlotFactory(event=event)
         slot_day_two = TimeSlotFactory(
             event=event, start_time=event.start_time + timedelta(days=1)
@@ -227,7 +203,7 @@ class TestTimetableSessionListPartView:
             proposal_category, status="accepted", participants_limit=10
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"date": slot_day_one.start_time.date().isoformat()}
         )
 
@@ -238,9 +214,8 @@ class TestTimetableSessionListPartView:
         assert on_day_two.pk not in session_pks
 
     def test_invalid_date_param_does_not_filter(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
@@ -250,16 +225,15 @@ class TestTimetableSessionListPartView:
             )
         )
 
-        response = authenticated_client.get(self.get_url(event), {"date": "not-a-date"})
+        response = panel_client.get(self.get_url(event), {"date": "not-a-date"})
 
         assert response.status_code == HTTPStatus.OK
         session_pks = [s.pk for s in response.context["sessions"]]
         assert session.pk in session_pks
 
     def test_all_date_param_does_not_filter_and_stays_in_links(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
         )
@@ -269,7 +243,7 @@ class TestTimetableSessionListPartView:
             )
         )
 
-        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+        response = panel_client.get(self.get_url(event), {"date": "all"})
 
         assert_response(
             response,
@@ -283,9 +257,8 @@ class TestTimetableSessionListPartView:
         assert context["date_selection"] == "all"
 
     def test_caps_results_at_limit_and_flags_has_more(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         for index in range(UNSCHEDULED_LIST_LIMIT + 1):
             SessionFactory(
                 category=proposal_category,
@@ -295,7 +268,7 @@ class TestTimetableSessionListPartView:
                 min_age=0,
             )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert len(response.context["sessions"]) == UNSCHEDULED_LIST_LIMIT

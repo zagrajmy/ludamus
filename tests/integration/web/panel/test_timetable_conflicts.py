@@ -18,9 +18,8 @@ class TestConflictDetectionOnAssign:
         return reverse("panel:timetable-assign", kwargs={"slug": event.slug})
 
     def test_assigns_without_conflicts_returns_no_conflict_trigger(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -28,7 +27,7 @@ class TestConflictDetectionOnAssign:
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), assign_payload(session, space, start_time, end_time)
         )
 
@@ -37,9 +36,8 @@ class TestConflictDetectionOnAssign:
         assert "timetableConflicts" not in trigger
 
     def test_space_overlap_conflict_included_in_trigger(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         existing_session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -56,7 +54,7 @@ class TestConflictDetectionOnAssign:
             proposal_category, status="accepted", participants_limit=10
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "session_pk": new_session.pk,

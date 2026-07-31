@@ -43,13 +43,10 @@ class TestProposalHoldActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_holds_session_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_holds_session_and_redirects(self, panel_client, event):
         session = make_proposal(event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
@@ -63,13 +60,10 @@ class TestProposalHoldActionView:
         session.refresh_from_db()
         assert session.status == "on_hold"
 
-    def test_post_holds_session_already_accepted(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_holds_session_already_accepted(self, panel_client, event):
         session = make_proposal(event, status="accepted")
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
@@ -83,48 +77,38 @@ class TestProposalHoldActionView:
         session.refresh_from_db()
         assert session.status == "on_hold"
 
-    def test_post_redirects_to_index_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_to_index_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-hold", kwargs={"slug": "nonexistent", "proposal_id": 1}
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
-    def test_post_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_proposal_not_found(self, panel_client, event):
         url = self.get_url(event, 99999)
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         session = make_proposal(other_event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_proposal_not_found(response, event)
         session.refresh_from_db()
         assert session.status == "pending"
 
-    def test_post_rejects_scheduled_session(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_scheduled_session(self, panel_client, event):
         session = make_scheduled_proposal(event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_scheduled_proposal_refused(response, event, session)
         session.refresh_from_db()

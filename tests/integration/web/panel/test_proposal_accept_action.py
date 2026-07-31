@@ -41,13 +41,10 @@ class TestProposalAcceptActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_accepts_session_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_accepts_session_and_redirects(self, panel_client, event):
         session = make_proposal(event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
@@ -61,13 +58,10 @@ class TestProposalAcceptActionView:
         session.refresh_from_db()
         assert session.status == "accepted"
 
-    def test_post_accepts_session_already_on_hold(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_accepts_session_already_on_hold(self, panel_client, event):
         session = make_proposal(event, status="on_hold")
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
@@ -81,10 +75,7 @@ class TestProposalAcceptActionView:
         session.refresh_from_db()
         assert session.status == "accepted"
 
-    def test_post_accepts_scheduled_session(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_accepts_scheduled_session(self, panel_client, event):
         session = make_proposal(event, status="pending")
         AgendaItemFactory(
             session=session,
@@ -93,7 +84,7 @@ class TestProposalAcceptActionView:
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
@@ -107,24 +98,20 @@ class TestProposalAcceptActionView:
         session.refresh_from_db()
         assert session.status == "accepted"
 
-    def test_post_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_proposal_not_found(self, panel_client, event):
         url = self.get_url(event, 99999)
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         session = make_proposal(other_event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_proposal_not_found(response, event)
         session.refresh_from_db()

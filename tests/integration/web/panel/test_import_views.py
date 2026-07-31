@@ -152,11 +152,9 @@ class TestEventImportProposalView:
         assert_not_a_manager(response)
 
     def test_get_renders_empty_state_without_import_integrations(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(_import_url(event))
+        response = panel_client.get(_import_url(event))
 
         assert_response(
             response,
@@ -167,9 +165,8 @@ class TestEventImportProposalView:
         )
 
     def test_get_renders_no_questions_state_with_an_active_integration(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -181,7 +178,7 @@ class TestEventImportProposalView:
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True, json=lambda: {"items": []}
             )
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = panel_client.get(_tab_url(event, integration))
 
         assert_response(
             response,
@@ -199,9 +196,8 @@ class TestEventImportProposalView:
         )
 
     def test_get_renders_summary_table(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -220,7 +216,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = panel_client.get(_tab_url(event, integration))
 
         assert_response(
             response,
@@ -256,9 +252,8 @@ class TestEventImportProposalView:
         assert _review_url(event, integration) + "?edit=1" in body
 
     def test_get_prefills_new_field_setup_from_a_choice_question(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -289,7 +284,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_review_url(event, integration))
+            response = panel_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["rows"] == [
@@ -325,9 +320,8 @@ class TestEventImportProposalView:
         assert "do 16\n18+" in response.content.decode()
 
     def test_review_renders_time_slot_windows_for_a_checkbox_question(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -371,7 +365,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_review_url(event, integration))
+            response = panel_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         fri_start = localtime(
@@ -388,9 +382,8 @@ class TestEventImportProposalView:
         ]
 
     def test_review_renders_track_entities_for_a_choice_question(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -432,7 +425,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_review_url(event, integration))
+            response = panel_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         row = response.context_data["rows"][0]
@@ -447,9 +440,8 @@ class TestEventImportProposalView:
         assert row["catchall_slug"] == "other"
 
     def test_get_uses_cached_snapshot_when_available(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -462,7 +454,7 @@ class TestEventImportProposalView:
         integration.save(update_fields=["questions_snapshot_json"])
 
         with patch("ludamus.links.google_docs.AuthorizedSession") as session_cls:
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = panel_client.get(_tab_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         # Google Forms API is not called — the snapshot served the view.
@@ -473,9 +465,8 @@ class TestEventImportProposalView:
         ]
 
     def test_get_summary_reflects_confirmed_ignored_and_unconfirmed(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -530,7 +521,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_tab_url(event, integration))
+            response = panel_client.get(_tab_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["summary_rows"] == [
@@ -568,9 +559,8 @@ class TestEventImportProposalView:
         assert 'data-summary-row="0"' in body
 
     def test_get_with_edit_query_renders_a_single_row_editor(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -588,9 +578,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(
-                _review_url(event, integration) + "?edit=1"
-            )
+            response = panel_client.get(_review_url(event, integration) + "?edit=1")
 
         assert response.status_code == HTTPStatus.OK
         edit_row = response.context_data["edit_row"]
@@ -620,9 +608,8 @@ class TestEventImportProposalView:
         assert 'value="1"' in body
 
     def test_get_with_hx_request_renders_only_the_swappable_region(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -640,7 +627,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(
+            response = panel_client.get(
                 _review_url(event, integration) + "?edit=1",
                 headers={"HX-Request": "true"},
             )
@@ -656,9 +643,8 @@ class TestEventImportProposalView:
         assert 'id="import-review-region"' not in body
 
     def test_edit_nav_disables_prev_at_first_question(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -676,9 +662,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(
-                _review_url(event, integration) + "?edit=0"
-            )
+            response = panel_client.get(_review_url(event, integration) + "?edit=0")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["edit_nav"] == {
@@ -694,9 +678,8 @@ class TestEventImportProposalView:
         }
 
     def test_review_with_invalid_edit_query_falls_back_to_first_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -712,7 +695,7 @@ class TestEventImportProposalView:
                 },
             )
             for raw in ("99", "abc", "-1"):
-                response = authenticated_client.get(
+                response = panel_client.get(
                     _review_url(event, integration) + f"?edit={raw}"
                 )
                 assert response.status_code == HTTPStatus.OK, raw
@@ -721,9 +704,8 @@ class TestEventImportProposalView:
                 assert edit_row["index"] == 0, raw
 
     def test_review_without_edit_query_lands_on_the_first_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -741,7 +723,7 @@ class TestEventImportProposalView:
                     ]
                 },
             )
-            response = authenticated_client.get(_review_url(event, integration))
+            response = panel_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         edit_row = response.context_data["edit_row"]
@@ -750,9 +732,8 @@ class TestEventImportProposalView:
         assert edit_row["question"] == "Alpha"
 
     def test_get_without_pk_defaults_to_first_integration(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -767,7 +748,7 @@ class TestEventImportProposalView:
                     "items": [{"title": "Title", "questionItem": {"question": {}}}]
                 },
             )
-            response = authenticated_client.get(_import_url(event))
+            response = panel_client.get(_import_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["active_integration"] == integration_dto(
@@ -775,12 +756,11 @@ class TestEventImportProposalView:
         )
 
     def test_get_unknown_integration_redirects_to_section(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         make_integration(event, connection_with_secret, display_name="Puller")
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse(
                 "panel:import-integration", kwargs={"slug": event.slug, "pk": 99999}
             )
@@ -794,11 +774,9 @@ class TestEventImportProposalView:
         )
 
     def test_review_renders_empty_state_without_an_integration(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:import-review", kwargs={"slug": event.slug, "pk": 99999})
         )
 
@@ -812,9 +790,8 @@ class TestEventImportProposalView:
         )
 
     def test_review_renders_no_questions_state_with_an_active_integration(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -826,7 +803,7 @@ class TestEventImportProposalView:
             session_cls.return_value.get.return_value = MagicMock(
                 ok=True, json=lambda: {"items": []}
             )
-            response = authenticated_client.get(_review_url(event, integration))
+            response = panel_client.get(_review_url(event, integration))
 
         assert_response(
             response,
@@ -864,14 +841,13 @@ class TestEventImportRowSaveView:
         assert_not_a_manager(response)
 
     def test_post_saves_a_session_field_and_marks_confirmed(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -904,17 +880,13 @@ class TestEventImportRowSaveView:
         assert definition.options == ["D&D", "Warhammer"]
 
     def test_post_with_stay_redirects_back_to_the_same_edit_view(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        # Operator is iterating on overrides for one question and wants to
-        # stay on the same edit view after saving instead of jumping to the
-        # next one.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "2",
@@ -935,14 +907,13 @@ class TestEventImportRowSaveView:
         )
 
     def test_post_saves_time_slot_windows_for_one_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -989,14 +960,13 @@ class TestEventImportRowSaveView:
         }
 
     def test_post_skips_time_slot_rows_with_malformed_datetimes(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -1027,14 +997,13 @@ class TestEventImportRowSaveView:
         }
 
     def test_post_saves_track_target_with_catchall(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -1067,14 +1036,13 @@ class TestEventImportRowSaveView:
         assert target.catchall == EntityRef(name="Other", slug="other")
 
     def test_post_saves_overrides_for_any_target(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -1099,9 +1067,8 @@ class TestEventImportRowSaveView:
         assert target.overrides == {"maybe 8, maybe 10": "10", "lots": "20"}
 
     def test_post_preserves_other_questions_and_definitions(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1118,7 +1085,7 @@ class TestEventImportRowSaveView:
         )
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -1138,14 +1105,13 @@ class TestEventImportRowSaveView:
         assert settings.definitions.session_fields["existing"].name == "Existing"
 
     def test_post_with_hx_request_returns_hx_redirect(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={"index": "0", "question_0": "Title", "target_0": "session.title"},
             headers={"HX-Request": "true"},
@@ -1160,9 +1126,8 @@ class TestEventImportRowSaveView:
         assert target.confirmed is True
 
     def test_post_advances_to_next_question_when_more_remain(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1175,7 +1140,7 @@ class TestEventImportRowSaveView:
         )
         integration.save(update_fields=["questions_snapshot_json"])
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={"index": "0", "question_0": "Title", "target_0": "session.title"},
         )
@@ -1188,9 +1153,8 @@ class TestEventImportRowSaveView:
         )
 
     def test_post_returns_to_summary_when_last_question_saved(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1202,7 +1166,7 @@ class TestEventImportRowSaveView:
         )
         integration.save(update_fields=["questions_snapshot_json"])
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={"index": "1", "question_1": "Last", "target_1": "session.title"},
         )
@@ -1215,15 +1179,14 @@ class TestEventImportRowSaveView:
         )
 
     def test_post_with_invalid_index_redirects_with_error(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         before = integration.settings_json
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={"index": "abc", "target_0": "session.title"},
         )
@@ -1257,9 +1220,8 @@ class TestEventImportRefetchView:
         assert_not_a_manager(response)
 
     def test_post_stores_snapshot_and_drops_confirmed(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1289,7 +1251,7 @@ class TestEventImportRefetchView:
                     ]
                 },
             )
-            response = authenticated_client.post(self._refetch_url(event, integration))
+            response = panel_client.post(self._refetch_url(event, integration))
 
         assert_response(
             response,
@@ -1329,9 +1291,8 @@ class TestEventImportMissingFieldsView:
         assert_not_a_manager(response)
 
     def test_post_adds_new_questions_and_keeps_existing_confirmations(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1361,7 +1322,7 @@ class TestEventImportMissingFieldsView:
                     ]
                 },
             )
-            response = authenticated_client.post(self._url(event, integration))
+            response = panel_client.post(self._url(event, integration))
 
         assert_response(
             response,
@@ -1380,9 +1341,8 @@ class TestEventImportMissingFieldsView:
         assert settings.definitions.session_fields["existing"].name == "Existing"
 
     def test_post_no_new_fields_emits_info_message(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1401,7 +1361,7 @@ class TestEventImportMissingFieldsView:
                     "items": [{"title": "Title", "questionItem": {"question": {}}}]
                 },
             )
-            response = authenticated_client.post(self._url(event, integration))
+            response = panel_client.post(self._url(event, integration))
 
         assert_response(
             response,
@@ -1426,9 +1386,8 @@ class TestEventImportRunActionView:
         assert_not_a_manager(response)
 
     def test_post_creates_one_proposal_per_response(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1444,7 +1403,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"], ["Another"]]
             )
-            response = authenticated_client.post(_run_url(event, integration))
+            response = panel_client.post(_run_url(event, integration))
 
         assert_response(
             response,
@@ -1459,12 +1418,8 @@ class TestEventImportRunActionView:
 
     @pytest.mark.postgres  # SQLite doesn't enforce varchar length
     def test_post_rolls_back_the_whole_row_on_a_db_constraint_failure(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        # A row provisions a facilitator and a track before the session insert
-        # fails on an over-long title. The per-row savepoint must roll the whole
-        # row back: no session, AND no orphaned facilitator or track.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1491,7 +1446,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Block"], [too_long, "GM Bob", "RPG"]]
             )
-            response = authenticated_client.post(_run_url(event, integration))
+            response = panel_client.post(_run_url(event, integration))
 
         assert_response(
             response,
@@ -1513,9 +1468,8 @@ class TestEventImportRunActionView:
         assert entry.reason
 
     def test_post_provisions_a_new_field_and_fills_it(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1539,7 +1493,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "RPG system"], ["My Talk", "D&D"]]
             )
-            response = authenticated_client.post(_run_url(event, integration))
+            response = panel_client.post(_run_url(event, integration))
 
         assert_response(
             response,
@@ -1555,9 +1509,8 @@ class TestEventImportRunActionView:
         assert value.value == "D&D"
 
     def test_post_provisions_a_session_field_with_its_definition(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1590,7 +1543,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "System"], ["My Talk", "D&D"]]
             )
-            response = authenticated_client.post(_run_url(event, integration))
+            response = panel_client.post(_run_url(event, integration))
 
         assert_response(
             response,
@@ -1609,9 +1562,8 @@ class TestEventImportRunActionView:
         ) == ["D&D", "Warhammer"]
 
     def test_post_provisions_a_personal_field_without_values(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1644,9 +1596,9 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Phone"], ["My Talk", "555-1234"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
             # Re-run: the field is matched by slug, not duplicated.
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         fields = PersonalDataField.objects.filter(event=event, slug="telefon")
         assert fields.count() == 1
@@ -1654,9 +1606,8 @@ class TestEventImportRunActionView:
         assert not PersonalDataFieldValue.objects.filter(field=fields.get()).exists()
 
     def test_post_writes_personal_field_value_against_row_facilitator(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1690,13 +1641,13 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
             # Re-run: PersonalDataFieldValue upserts on (facilitator, event, field) —
             # the row's value overwrites rather than duplicating.
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-9999"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         field = PersonalDataField.objects.get(event=event, slug="telefon")
         rows = list(PersonalDataFieldValue.objects.filter(field=field))
@@ -1705,9 +1656,8 @@ class TestEventImportRunActionView:
         assert rows[0].facilitator.display_name == "GM Bob"
 
     def test_post_provisions_and_attaches_time_slots(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1737,7 +1687,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "When"], ["My Talk", "Fri"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         session = Session.objects.get(event=event, title="My Talk")
         slots = list(session.time_slots.all())
@@ -1748,9 +1698,8 @@ class TestEventImportRunActionView:
         assert slots[0].end_time == datetime.fromisoformat("2025-09-19T22:00:00+02:00")
 
     def test_post_provisions_and_attaches_tracks(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1775,7 +1724,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Suggested"], ["My Talk", "RPG"], ["Loose", "Custom"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         # The configured option provisions and attaches its track...
         rpg = Track.objects.get(event=event, slug="rpg")
@@ -1788,9 +1737,8 @@ class TestEventImportRunActionView:
         assert list(loose.tracks.all()) == [other]
 
     def test_post_provisions_and_sets_the_category(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1815,7 +1763,7 @@ class TestEventImportRunActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Kind"], ["My Talk", "RPG"], ["Loose", "Custom"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         # The configured option provisions and sets its category...
         rpg = ProposalCategory.objects.get(event=event, slug="rpg")
@@ -1838,9 +1786,8 @@ class TestEventImportTestRowActionView:
         assert_not_a_manager(response)
 
     def test_post_imports_exactly_one_random_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1856,7 +1803,7 @@ class TestEventImportTestRowActionView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["One"], ["Two"], ["Three"]]
             )
-            response = authenticated_client.post(_test_url(event, integration))
+            response = panel_client.post(_test_url(event, integration))
 
         assert_response(
             response,
@@ -1877,9 +1824,8 @@ class TestEventImportTestRowActionView:
         assert sessions.get().title in {"One", "Two", "Three"}
 
     def test_post_with_no_responses_reports_nothing_to_test(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1889,7 +1835,7 @@ class TestEventImportTestRowActionView:
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get([])
-            response = authenticated_client.post(_test_url(event, integration))
+            response = panel_client.post(_test_url(event, integration))
 
         assert_response(
             response,
@@ -1909,12 +1855,8 @@ class TestEventImportJsonView:
 
         assert_not_a_manager(response)
 
-    def test_get_renders_empty_state_without_an_integration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
+    def test_get_renders_empty_state_without_an_integration(self, panel_client, event):
+        response = panel_client.get(
             reverse("panel:import-json", kwargs={"slug": event.slug, "pk": 99999})
         )
 
@@ -1928,9 +1870,8 @@ class TestEventImportJsonView:
         )
 
     def test_get_prettifies_the_stored_settings(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -1940,7 +1881,7 @@ class TestEventImportJsonView:
         integration.settings_json = stored
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.get(_json_url(event, integration))
+        response = panel_client.get(_json_url(event, integration))
 
         assert_response(
             response,
@@ -1958,16 +1899,13 @@ class TestEventImportJsonView:
             },
         )
 
-    def test_post_saves_valid_json(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_valid_json(self, panel_client, event, connection_with_secret):
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         blob = '{"questions": {"Title": {"to": "session.title"}}}'
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _json_url(event, integration), data={"settings_json": blob}
         )
 
@@ -1981,9 +1919,8 @@ class TestEventImportJsonView:
         assert integration.settings_json == blob
 
     def test_post_refreshes_snapshot_when_header_row_changes(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2001,7 +1938,7 @@ class TestEventImportJsonView:
                     "items": [{"title": "Fresh", "questionItem": {"question": {}}}]
                 },
             )
-            response = authenticated_client.post(
+            response = panel_client.post(
                 _json_url(event, integration),
                 data={"settings_json": json.dumps({"header_row": 2})},
             )
@@ -2017,9 +1954,8 @@ class TestEventImportJsonView:
         assert [q["title"] for q in snapshot] == ["Fresh"]
 
     def test_post_keeps_snapshot_when_parsing_fields_unchanged(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2027,7 +1963,7 @@ class TestEventImportJsonView:
         integration.questions_snapshot_json = json.dumps([{"title": "Kept"}])
         integration.save(update_fields=["settings_json", "questions_snapshot_json"])
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _json_url(event, integration),
             data={
                 "settings_json": json.dumps(
@@ -2047,15 +1983,14 @@ class TestEventImportJsonView:
         assert [q["title"] for q in snapshot] == ["Kept"]
 
     def test_post_rejects_invalid_json(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         before = integration.settings_json
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _json_url(event, integration), data={"settings_json": "{not json"}
         )
 
@@ -2087,14 +2022,13 @@ class TestEventImportRunPageView:
         assert_not_a_manager(response)
 
     def test_get_renders_the_run_actions(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.get(_run_page_url(event, integration))
+        response = panel_client.get(_run_page_url(event, integration))
 
         assert_response(
             response,
@@ -2118,9 +2052,8 @@ class TestEventImportRunPageView:
         )
 
     def test_get_reports_imported_fields_and_mapping_progress(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2155,7 +2088,7 @@ class TestEventImportRunPageView:
         )
         integration.save(update_fields=("questions_snapshot_json", "settings_json"))
 
-        response = authenticated_client.get(_run_page_url(event, integration))
+        response = panel_client.get(_run_page_url(event, integration))
 
         assert_response(
             response,
@@ -2179,12 +2112,8 @@ class TestEventImportRunPageView:
         )
 
     def test_get_offers_cached_sheet_headers_as_unique_key_columns(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        # The header row carries the localized metadata columns (Timestamp,
-        # Email Address) that the form schema — and so the questions snapshot —
-        # never sees. Those are exactly the columns a unique key wants.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2210,7 +2139,7 @@ class TestEventImportRunPageView:
         )
         integration.save(update_fields=("questions_snapshot_json", "settings_json"))
 
-        response = authenticated_client.get(_run_page_url(event, integration))
+        response = panel_client.get(_run_page_url(event, integration))
 
         assert_response(
             response,
@@ -2250,15 +2179,14 @@ class TestEventImportSettingsSaveView:
         assert_not_a_manager(response)
 
     def test_post_saves_header_row_and_unique_keys_then_returns_to_run_tab(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         header_row = 3
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._save_url(event, integration),
             data={
                 "header_row": str(header_row),
@@ -2278,14 +2206,13 @@ class TestEventImportSettingsSaveView:
         assert settings.unique_key_columns == ["Title", "Email"]
 
     def test_post_rejects_non_positive_header_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._save_url(event, integration), data={"header_row": "0"}
         )
 
@@ -2311,22 +2238,20 @@ class TestEventImportLogPageView:
         assert_not_a_manager(response)
 
     def test_get_renders_empty_state_without_attempts(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.get(_log_url(event, integration))
+        response = panel_client.get(_log_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_total_attempts"] == 0
 
     def test_get_groups_errors_and_successes_and_folds_successes_by_default(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2342,9 +2267,9 @@ class TestEventImportLogPageView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
-        response = authenticated_client.get(_log_url(event, integration))
+        response = panel_client.get(_log_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_total_attempts"] == 1
@@ -2356,9 +2281,8 @@ class TestEventImportLogPageView:
         assert "open" not in _successes_details_tag(body)
 
     def test_post_retry_creates_a_fresh_entry_and_redirects_to_log(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2380,7 +2304,7 @@ class TestEventImportLogPageView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Cap"], ["Talk", "loads"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         entry = ImportLogEntry.objects.get(integration=integration)
         # Operator fixes the recipe, then retries.
@@ -2396,7 +2320,7 @@ class TestEventImportLogPageView:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Cap"], ["Talk", "loads"]]
             )
-            response = authenticated_client.post(
+            response = panel_client.post(
                 _log_retry_url(event, integration), data={"entry_id": str(entry.pk)}
             )
 
@@ -2410,14 +2334,13 @@ class TestEventImportLogPageView:
         assert rows[0].session_id is not None
 
     def test_post_retry_with_invalid_entry_id_redirects_with_error(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _log_retry_url(event, integration), data={"entry_id": "abc"}
         )
 
@@ -2429,11 +2352,8 @@ class TestEventImportLogPageView:
         )
 
     def test_post_retry_with_foreign_entry_id_refuses_and_writes_nothing(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, sphere, event, connection_with_secret
     ):
-        # Object-scope auth: an entry belonging to another event must not be
-        # actionable through this event's retry endpoint.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2450,7 +2370,7 @@ class TestEventImportLogPageView:
         )
         before = ImportLogEntry.objects.count()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _log_retry_url(event, integration), data={"entry_id": str(foreign.pk)}
         )
 
@@ -2490,17 +2410,14 @@ class TestEventImportLogFilters:
         )
 
     def test_status_pill_skipped_hides_successes(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
 
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?status=skipped"
-        )
+        response = panel_client.get(_log_url(event, integration) + "?status=skipped")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_status"] == "skipped"
@@ -2510,17 +2427,14 @@ class TestEventImportLogFilters:
         assert [e.title for e in response.context_data["log_errors"]] == ["Wargames"]
 
     def test_status_pill_success_hides_errors_and_opens_details(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
 
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?status=success"
-        )
+        response = panel_client.get(_log_url(event, integration) + "?status=success")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_show_errors"] is False
@@ -2535,17 +2449,14 @@ class TestEventImportLogFilters:
         assert "open" in _successes_details_tag(body)
 
     def test_search_narrows_to_matching_title_or_display_name(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
 
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?search=dragon"
-        )
+        response = panel_client.get(_log_url(event, integration) + "?search=dragon")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_search"] == "dragon"
@@ -2555,17 +2466,14 @@ class TestEventImportLogFilters:
         assert response.context_data["log_errors"] == []
 
     def test_status_pill_urls_url_encode_the_search_term(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
 
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?search=A%26B%3Dc"
-        )
+        response = panel_client.get(_log_url(event, integration) + "?search=A%26B%3Dc")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_search"] == "A&B=c"
@@ -2574,15 +2482,14 @@ class TestEventImportLogFilters:
         assert "&search=A&B=c" not in all_url
 
     def test_search_and_status_combine(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             _log_url(event, integration) + "?status=skipped&search=wargames"
         )
 
@@ -2591,17 +2498,14 @@ class TestEventImportLogFilters:
         assert response.context_data["log_successes"] == []
 
     def test_invalid_status_falls_back_to_all(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         self._seed(integration)
 
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?status=bogus"
-        )
+        response = panel_client.get(_log_url(event, integration) + "?status=bogus")
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["log_status"] == "all"
@@ -2688,9 +2592,8 @@ class TestEventImportLogReimport:
         assert _log_reimport_url(event, integration) in body
 
     def test_post_clears_contact_email_when_source_row_blanks_it(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2712,7 +2615,7 @@ class TestEventImportLogReimport:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Email"], ["Original", "host@example.com"]]
             )
-            authenticated_client.post(_run_url(event, integration))
+            panel_client.post(_run_url(event, integration))
 
         entry = ImportLogEntry.objects.get(integration=integration, status="success")
         assert Session.objects.get(pk=entry.session_id).contact_email == (
@@ -2727,7 +2630,7 @@ class TestEventImportLogReimport:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Email"], ["Original", ""]]
             )
-            authenticated_client.post(
+            panel_client.post(
                 _log_reimport_url(event, integration), data={"entry_id": str(entry.pk)}
             )
 
@@ -2758,15 +2661,8 @@ class TestEventImportApplyFieldLayoutView:
         assert_not_a_manager(response)
 
     def test_post_adds_new_field_values_drops_removed_and_prunes_orphans(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        # Initial state: a session imported earlier with two session fields
-        # ("system", "genre"). Operator has since changed the recipe — only
-        # "genre" remains mapped, and "audience" is freshly mapped. Apply
-        # field layout should: add an audience value from the cached row,
-        # drop the system value, leave the genre value alone, and prune the
-        # now-orphan "system" SessionField.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2816,9 +2712,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.post(
-            _apply_field_layout_url(event, integration)
-        )
+        response = panel_client.post(_apply_field_layout_url(event, integration))
 
         assert response.status_code == HTTPStatus.FOUND
         # Retained mapping kept its existing value untouched.
@@ -2840,13 +2734,8 @@ class TestEventImportApplyFieldLayoutView:
         assert not SessionField.objects.filter(event=event, slug="system").exists()
 
     def test_post_fills_missing_contact_email_from_cached_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        # A session imported before the operator mapped session.contact_email.
-        # The cached row carries the email; the recipe now maps it. Apply
-        # field layout should fill the empty contact_email without touching
-        # other built-in fields.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2880,9 +2769,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.post(
-            _apply_field_layout_url(event, integration)
-        )
+        response = panel_client.post(_apply_field_layout_url(event, integration))
 
         assert response.status_code == HTTPStatus.FOUND
         session.refresh_from_db()
@@ -2891,9 +2778,8 @@ class TestEventImportApplyFieldLayoutView:
         assert session.title == "Talk"
 
     def test_post_does_not_overwrite_existing_contact_email(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2921,15 +2807,14 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        authenticated_client.post(_apply_field_layout_url(event, integration))
+        panel_client.post(_apply_field_layout_url(event, integration))
 
         session.refresh_from_db()
         assert session.contact_email == "existing@example.com"
 
     def test_post_adds_facilitator_when_session_has_none(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2956,15 +2841,14 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        authenticated_client.post(_apply_field_layout_url(event, integration))
+        panel_client.post(_apply_field_layout_url(event, integration))
 
         facilitators = list(session.facilitators.all())
         assert [f.display_name for f in facilitators] == ["GM Bob"]
 
     def test_post_does_not_replace_existing_facilitator(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -2995,14 +2879,13 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        authenticated_client.post(_apply_field_layout_url(event, integration))
+        panel_client.post(_apply_field_layout_url(event, integration))
 
         assert [f.pk for f in session.facilitators.all()] == [existing.pk]
 
     def test_post_sets_category_when_session_has_none(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3038,16 +2921,15 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        authenticated_client.post(_apply_field_layout_url(event, integration))
+        panel_client.post(_apply_field_layout_url(event, integration))
 
         session.refresh_from_db()
         assert session.category is not None
         assert session.category.slug == "rpg"
 
     def test_post_adds_preferred_time_slots_when_session_has_none(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3085,7 +2967,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        authenticated_client.post(_apply_field_layout_url(event, integration))
+        panel_client.post(_apply_field_layout_url(event, integration))
 
         time_slots = list(session.time_slots.all())
         assert len(time_slots) == 1
@@ -3093,9 +2975,8 @@ class TestEventImportApplyFieldLayoutView:
         assert TimeSlot.objects.filter(event=event).count() == 1
 
     def test_post_adds_tracks_when_session_has_none(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3131,7 +3012,7 @@ class TestEventImportApplyFieldLayoutView:
         )
         integration.save(update_fields=["settings_json"])
 
-        authenticated_client.post(_apply_field_layout_url(event, integration))
+        panel_client.post(_apply_field_layout_url(event, integration))
 
         tracks = list(session.tracks.all())
         assert [t.slug for t in tracks] == ["indie"]
@@ -3151,9 +3032,8 @@ def _cache_snapshot(integration, titles) -> None:
 @pytest.mark.django_db
 class TestImportSummaryLabels:
     def test_summary_covers_every_mapping_and_detail_branch(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3199,7 +3079,7 @@ class TestImportSummaryLabels:
         )
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.get(_tab_url(event, integration))
+        response = panel_client.get(_tab_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context_data["summary_rows"] == [
@@ -3265,9 +3145,8 @@ class TestImportSummaryLabels:
 @pytest.mark.django_db
 class TestImportReviewRowBranches:
     def test_rows_cover_personal_session_field_and_ignore_branches(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3296,7 +3175,7 @@ class TestImportReviewRowBranches:
         )
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.get(_review_url(event, integration))
+        response = panel_client.get(_review_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         rows = response.context_data["rows"]
@@ -3331,14 +3210,13 @@ class TestImportReviewRowBranches:
 @pytest.mark.django_db
 class TestImportRowSavePostHelpers:
     def test_post_saves_checkbox_session_field(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -3357,14 +3235,13 @@ class TestImportRowSavePostHelpers:
         assert definition.type == "checkbox"
 
     def test_post_saves_personal_field_defaulting_to_text(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -3384,14 +3261,13 @@ class TestImportRowSavePostHelpers:
         assert settings.definitions.personal_fields["phone"].type == "text"
 
     def test_post_saves_duration_target_and_skips_blank_iso(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -3412,14 +3288,13 @@ class TestImportRowSavePostHelpers:
         assert set(target.values) == {"30 min"}
 
     def test_post_skips_blank_time_slot_row(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -3440,14 +3315,13 @@ class TestImportRowSavePostHelpers:
         assert set(target.values) == {"Fri"}
 
     def test_post_skips_entity_row_with_blank_name(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -3468,14 +3342,13 @@ class TestImportRowSavePostHelpers:
         assert target.values == {"RPG": EntityRef(name="RPG", slug="rpg")}
 
     def test_post_ignores_when_field_target_has_no_slug(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _row_save_url(event, integration),
             data={
                 "index": "0",
@@ -3499,16 +3372,15 @@ class TestImportRowSavePostHelpers:
 @pytest.mark.django_db
 class TestImportJsonInvalidStored:
     def test_get_returns_raw_text_when_stored_json_is_invalid(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = "{not valid json"
         integration.save(update_fields=["settings_json"])
 
-        response = authenticated_client.get(_json_url(event, integration))
+        response = panel_client.get(_json_url(event, integration))
 
         assert response.status_code == HTTPStatus.OK
         # Un-parseable stored settings are echoed back verbatim for the operator.
@@ -3518,9 +3390,8 @@ class TestImportJsonInvalidStored:
 @pytest.mark.django_db
 class TestImportActionResultMessages:
     def test_run_reports_responses_already_imported(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3540,7 +3411,7 @@ class TestImportActionResultMessages:
                 [["Title"], ["My Talk"], ["Another"]]
             )
             # follow=True so the first run's success message is consumed.
-            authenticated_client.post(_run_url(event, integration), follow=True)
+            panel_client.post(_run_url(event, integration), follow=True)
 
         # Second run finds both rows already imported via the unique key.
         with (
@@ -3550,7 +3421,7 @@ class TestImportActionResultMessages:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title"], ["My Talk"], ["Another"]]
             )
-            response = authenticated_client.post(_run_url(event, integration))
+            response = panel_client.post(_run_url(event, integration))
 
         assert_response(
             response,
@@ -3563,12 +3434,8 @@ class TestImportActionResultMessages:
         )
 
     def test_run_adopts_preident_session_matched_by_title_and_email(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        # A session imported before the ident column existed has ident="".
-        # The re-run matches it by title + contact email, marks the row as a
-        # duplicate, and backfills the ident so future runs match directly.
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3598,7 +3465,7 @@ class TestImportActionResultMessages:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Email"], ["My Talk", "a@x.z"]]
             )
-            response = authenticated_client.post(_run_url(event, integration))
+            response = panel_client.post(_run_url(event, integration))
 
         assert_response(
             response,
@@ -3614,9 +3481,8 @@ class TestImportActionResultMessages:
         assert Session.objects.filter(event=event).count() == 1
 
     def test_test_row_reports_skip_for_invalid_answer(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3637,7 +3503,7 @@ class TestImportActionResultMessages:
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Cap"], ["My Talk", "loads"]]
             )
-            response = authenticated_client.post(_test_url(event, integration))
+            response = panel_client.post(_test_url(event, integration))
 
         assert_response(
             response,
@@ -3656,9 +3522,8 @@ class TestImportActionResultMessages:
         assert not Session.objects.filter(event=event).exists()
 
     def test_reimport_warns_when_source_row_is_gone(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3675,7 +3540,7 @@ class TestImportActionResultMessages:
                 [["Title"], ["Original"]]
             )
             # follow=True so the initial run's success message is consumed.
-            authenticated_client.post(_run_url(event, integration), follow=True)
+            panel_client.post(_run_url(event, integration), follow=True)
 
         entry = ImportLogEntry.objects.get(integration=integration, status="success")
 
@@ -3685,7 +3550,7 @@ class TestImportActionResultMessages:
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.side_effect = _sheets_get([])
-            response = authenticated_client.post(
+            response = panel_client.post(
                 _log_reimport_url(event, integration), data={"entry_id": str(entry.pk)}
             )
 
@@ -3720,24 +3585,18 @@ _EVENT_NOT_FOUND_POST = (
 @pytest.mark.django_db
 class TestImportViewsEventNotFound:
     @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_GET)
-    def test_get_tabs_redirect_to_index_for_unknown_event(
-        self, authenticated_client, active_user, sphere, name
-    ):
-        sphere.managers.add(active_user)
+    def test_get_tabs_redirect_to_index_for_unknown_event(self, panel_client, name):
         url = reverse(name, kwargs={"slug": "no-such-event", "pk": 1})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
     @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_POST)
-    def test_post_actions_redirect_to_index_for_unknown_event(
-        self, authenticated_client, active_user, sphere, name
-    ):
-        sphere.managers.add(active_user)
+    def test_post_actions_redirect_to_index_for_unknown_event(self, panel_client, name):
         url = reverse(name, kwargs={"slug": "no-such-event", "pk": 1})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_event_not_found(response)
 
@@ -3746,12 +3605,11 @@ class TestImportViewsEventNotFound:
 class TestImportViewsIntegrationNotFound:
     @pytest.mark.parametrize("name", _EVENT_NOT_FOUND_POST)
     def test_post_actions_redirect_to_section_for_unknown_integration(
-        self, authenticated_client, active_user, sphere, event, name
+        self, panel_client, event, name
     ):
-        sphere.managers.add(active_user)
         url = reverse(name, kwargs={"slug": event.slug, "pk": 99999})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_response(
             response,
@@ -3760,12 +3618,8 @@ class TestImportViewsIntegrationNotFound:
             messages=[(messages.ERROR, "Import integration not found.")],
         )
 
-    def test_log_tab_renders_empty_for_unknown_integration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
+    def test_log_tab_renders_empty_for_unknown_integration(self, panel_client, event):
+        response = panel_client.get(
             reverse("panel:import-log", kwargs={"slug": event.slug, "pk": 99999})
         )
 
@@ -3810,9 +3664,8 @@ class TestImportDistinctSessionsSameName:
             return client.post(url or _run_url(event, integration))
 
     def test_run_aborts_when_unique_key_column_missing_from_sheet(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3823,7 +3676,7 @@ class TestImportDistinctSessionsSameName:
         )
         integration.save(update_fields=["settings_json"])
 
-        response = self._run(authenticated_client, event, integration)
+        response = self._run(panel_client, event, integration)
 
         assert_response(
             response,
@@ -3843,9 +3696,8 @@ class TestImportDistinctSessionsSameName:
         assert not Session.objects.filter(event=event).exists()
 
     def test_test_row_aborts_when_unique_key_column_missing_from_sheet(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
@@ -3855,7 +3707,7 @@ class TestImportDistinctSessionsSameName:
         integration.save(update_fields=["settings_json"])
 
         response = self._run(
-            authenticated_client, event, integration, _test_url(event, integration)
+            panel_client, event, integration, _test_url(event, integration)
         )
 
         assert_response(
@@ -3876,16 +3728,15 @@ class TestImportDistinctSessionsSameName:
         assert not Session.objects.filter(event=event).exists()
 
     def test_same_title_distinct_rows_are_not_merged(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
+        self, panel_client, event, connection_with_secret
     ):
-        sphere.managers.add(active_user)
         integration = make_integration(
             event, connection_with_secret, display_name="Puller"
         )
         integration.settings_json = self._settings(_LOCALIZED_HEADER)
         integration.save(update_fields=["settings_json"])
 
-        self._run(authenticated_client, event, integration)
+        self._run(panel_client, event, integration)
 
         emails = sorted(
             Session.objects.filter(event=event).values_list("contact_email", flat=True)

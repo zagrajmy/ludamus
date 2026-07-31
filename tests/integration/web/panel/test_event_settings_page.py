@@ -44,12 +44,8 @@ class TestEventSettingsPageViewGet:
 
         assert_not_a_manager(response)
 
-    def test_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -64,14 +60,11 @@ class TestEventSettingsPageViewGet:
             },
         )
 
-    def test_shows_existing_logo_preview(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_existing_logo_preview(self, panel_client, event):
         event.logo = "events/brand.png"
         event.save()
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -88,11 +81,9 @@ class TestEventSettingsPageViewGet:
         assert "events/brand.png" in response.content.decode()
 
     def test_ships_the_dropzone_script_once_for_two_dropzones(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -105,13 +96,12 @@ class TestEventSettingsPageViewGet:
         assert content.count(b"src/dropzone.ts") == 1
 
     def test_inherit_label_reflects_sphere_default_disallowed(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         sphere.allow_facilitator_session_edit = False
         sphere.save()
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -129,13 +119,12 @@ class TestEventSettingsPageViewGet:
         assert "disallowed" in dict(edit_field.choices)[""]
 
     def test_form_initial_uses_false_when_event_disallows_edits(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         event.allow_facilitator_session_edit = False
         event.save()
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -154,24 +143,18 @@ class TestEventSettingsPageViewGet:
             == "false"
         )
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:event-settings", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_event_not_found(response)
 
     @pytest.mark.usefixtures("event")
-    def test_can_view_different_events(
-        self, authenticated_client, active_user, sphere, faker
-    ):
-        sphere.managers.add(active_user)
+    def test_can_view_different_events(self, panel_client, sphere, faker):
         event2 = EventFactory(sphere=sphere, slug=faker.slug())
 
-        response = authenticated_client.get(self.get_url(event2))
+        response = panel_client.get(self.get_url(event2))
 
         assert_response(
             response,
@@ -247,23 +230,17 @@ class TestEventSettingsPageViewPost:
 
         assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:event-settings", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"name": "New Name"})
+        response = panel_client.post(url, data={"name": "New Name"})
 
         assert_event_not_found(response)
 
-    def test_updates_event_name(
-        self, authenticated_client, active_user, sphere, event, faker
-    ):
-        sphere.managers.add(active_user)
+    def test_updates_event_name(self, panel_client, event, faker):
         new_name = faker.sentence(nb_words=3)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, name=new_name)
         )
 
@@ -276,13 +253,10 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == new_name
 
-    def test_updates_cover_image(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_updates_cover_image(self, panel_client, event):
         image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={**self._post_data(event), "cover_image": image}
         )
 
@@ -316,10 +290,7 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.use_session_cover_placeholders
 
-    def test_removes_cover_image(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_removes_cover_image(self, panel_client, event):
         event.cover_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
         )
@@ -327,7 +298,7 @@ class TestEventSettingsPageViewPost:
         storage = event.cover_image.storage
         old_name = event.cover_image.name
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={**self._post_data(event), "cover_image-clear": "on"},
         )
@@ -343,9 +314,8 @@ class TestEventSettingsPageViewPost:
         assert not storage.exists(old_name)
 
     def test_cover_replacement_survives_storage_cleanup_failure(
-        self, authenticated_client, active_user, sphere, event, caplog
+        self, panel_client, event, caplog
     ):
-        sphere.managers.add(active_user)
         event.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
         )
@@ -358,7 +328,7 @@ class TestEventSettingsPageViewPost:
             ),
             caplog.at_level("WARNING", logger="ludamus.links.db.django.repositories"),
         ):
-            response = authenticated_client.post(
+            response = panel_client.post(
                 self.get_url(event),
                 data={**self._post_data(event), "cover_image": new_image},
             )
@@ -373,17 +343,14 @@ class TestEventSettingsPageViewPost:
         assert event.cover_image
         assert "Best-effort cleanup" in caplog.text
 
-    def test_rejects_oversize_cover_dimensions(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_rejects_oversize_cover_dimensions(self, panel_client, event):
         buffer = io.BytesIO()
         Image.new("RGB", (5000, 5000)).save(buffer, format="PNG")
         image = SimpleUploadedFile(
             "huge.png", buffer.getvalue(), content_type="image/png"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={**self._post_data(event), "cover_image": image}
         )
 
@@ -399,17 +366,14 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert not event.cover_image
 
-    def test_rejects_too_large_cover_image(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_rejects_too_large_cover_image(self, panel_client, event):
         image = SimpleUploadedFile(
             "cover.png",
             PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
             content_type="image/png",
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={**self._post_data(event), "cover_image": image}
         )
 
@@ -425,13 +389,10 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert not event.cover_image
 
-    def test_rejects_unsupported_cover_image_format(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_rejects_unsupported_cover_image_format(self, panel_client, event):
         image = SimpleUploadedFile("cover.gif", GIF_BYTES, content_type="image/gif")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={**self._post_data(event), "cover_image": image}
         )
 
@@ -447,11 +408,10 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert not event.cover_image
 
-    def test_uploads_logo(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_uploads_logo(self, panel_client, event):
         logo = SimpleUploadedFile("logo.png", PNG_BYTES, content_type="image/png")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, logo=logo)
         )
 
@@ -465,17 +425,14 @@ class TestEventSettingsPageViewPost:
         assert event.logo
         assert event.logo.name.startswith("events/")
 
-    def test_rejects_too_large_logo(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_rejects_too_large_logo(self, panel_client, event):
         logo = SimpleUploadedFile(
             "logo.png",
             PNG_BYTES + b"0" * (8 * 1024 * 1024 + 1),
             content_type="image/png",
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, logo=logo)
         )
 
@@ -491,14 +448,11 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert not event.logo
 
-    def test_save_without_logo_keeps_existing(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_save_without_logo_keeps_existing(self, panel_client, event):
         event.logo = "events/keep.png"
         event.save()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, name="Renamed")
         )
 
@@ -511,14 +465,11 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.logo.name == "events/keep.png"
 
-    def test_save_with_clear_checkbox_removes_logo(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_save_with_clear_checkbox_removes_logo(self, panel_client, event):
         event.logo = "events/drop-me.png"
         event.save()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data=self._post_data(event, name="Renamed") | {"logo-clear": "on"},
         )
@@ -532,13 +483,10 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert not event.logo
 
-    def test_error_on_empty_form(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_error_on_empty_form(self, panel_client, event):
         original_name = event.name
 
-        response = authenticated_client.post(self.get_url(event), data={})
+        response = panel_client.post(self.get_url(event), data={})
 
         assert_response(
             response,
@@ -554,14 +502,11 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == original_name
 
-    def test_error_on_name_too_long(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_error_on_name_too_long(self, panel_client, event):
         original_name = event.name
         long_name = "x" * 256
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, name=long_name)
         )
 
@@ -577,15 +522,12 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == original_name
 
-    def test_error_event_not_found_during_update(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_error_event_not_found_during_update(self, panel_client, event):
         with patch(
             "ludamus.links.db.django.repositories.EventRepository.update",
             side_effect=NotFoundError,
         ):
-            response = authenticated_client.post(
+            response = panel_client.post(
                 self.get_url(event), data=self._post_data(event, name="New Name")
             )
 
@@ -596,14 +538,11 @@ class TestEventSettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/",
         )
 
-    def test_error_on_duplicate_slug(
-        self, authenticated_client, active_user, sphere, event, faker
-    ):
-        sphere.managers.add(active_user)
+    def test_error_on_duplicate_slug(self, panel_client, sphere, event, faker):
         other_event = EventFactory(sphere=sphere, slug=faker.slug())
         original_slug = event.slug
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, slug=other_event.slug)
         )
 
@@ -616,13 +555,10 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.slug == original_slug
 
-    def test_updates_event_slug(
-        self, authenticated_client, active_user, sphere, event, faker
-    ):
-        sphere.managers.add(active_user)
+    def test_updates_event_slug(self, panel_client, event, faker):
         new_slug = faker.slug()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, slug=new_slug)
         )
 
@@ -635,12 +571,8 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.slug == new_slug
 
-    def test_sets_facilitator_edit_override_allow(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_sets_facilitator_edit_override_allow(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data=self._post_data(event, allow_facilitator_session_edit="true"),
         )
@@ -654,12 +586,8 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.allow_facilitator_session_edit is True
 
-    def test_sets_facilitator_edit_override_disallow(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_sets_facilitator_edit_override_disallow(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data=self._post_data(event, allow_facilitator_session_edit="false"),
         )
@@ -673,14 +601,11 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.allow_facilitator_session_edit is False
 
-    def test_sets_facilitator_edit_override_inherit(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_sets_facilitator_edit_override_inherit(self, panel_client, event):
         event.allow_facilitator_session_edit = False
         event.save()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data=self._post_data(event, allow_facilitator_session_edit=""),
         )
@@ -694,14 +619,11 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.allow_facilitator_session_edit is None
 
-    def test_enables_auto_confirm_sessions(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_enables_auto_confirm_sessions(self, panel_client, event):
         event.auto_confirm_sessions = False
         event.save()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data=self._post_data(event, auto_confirm_sessions="on")
         )
 
@@ -714,14 +636,8 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.auto_confirm_sessions is True
 
-    def test_disables_auto_confirm_sessions_when_unchecked(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.get_url(event), data=self._post_data(event)
-        )
+    def test_disables_auto_confirm_sessions_when_unchecked(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data=self._post_data(event))
 
         assert_response(
             response,

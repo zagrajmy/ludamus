@@ -56,29 +56,23 @@ class TestProposalSetFacilitatorsActionView:
 
         assert_not_a_manager(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-set-facilitators",
             kwargs={"slug": "nonexistent", "proposal_id": 1},
         )
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
         assert_event_not_found(response)
 
-    def test_post_sets_facilitators_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_sets_facilitators_and_redirects(self, panel_client, event):
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk), data={"facilitator_ids": [facilitator.pk]}
         )
 
@@ -94,16 +88,15 @@ class TestProposalSetFacilitatorsActionView:
         assert session.facilitators.filter(pk=facilitator.pk).exists()
 
     def test_post_ignores_facilitator_from_other_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         other_event = EventFactory(sphere=sphere)
         foreign_facilitator = Facilitator.objects.create(
             event=other_event, display_name="Mallory", slug="mallory", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={"facilitator_ids": [foreign_facilitator.pk]},
         )
@@ -119,17 +112,14 @@ class TestProposalSetFacilitatorsActionView:
         )
         assert not session.facilitators.exists()
 
-    def test_post_clears_facilitators_when_empty(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_clears_facilitators_when_empty(self, panel_client, event):
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Bob", slug="bob", user=None
         )
         session.facilitators.add(facilitator)
 
-        response = authenticated_client.post(self.get_url(event, session.pk), data={})
+        response = panel_client.post(self.get_url(event, session.pk), data={})
 
         assert_response(
             response,
@@ -142,22 +132,17 @@ class TestProposalSetFacilitatorsActionView:
         )
         assert not session.facilitators.exists()
 
-    def test_post_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event, 99999), data={})
+    def test_post_redirects_when_proposal_not_found(self, panel_client, event):
+        response = panel_client.post(self.get_url(event, 99999), data={})
 
         assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         session = _make_session(other_event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk), data={})
+        response = panel_client.post(self.get_url(event, session.pk), data={})
 
         assert_proposal_not_found(response, event)
