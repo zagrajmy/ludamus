@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @import "./progressive-blur.css";
+@import "./brand-mark.css";
 @import "./modal.css";
 @import "./filters.css";
 @import "./tabs.css";
@@ -136,6 +137,18 @@
   --color-info-light: #dbeafe;
   --color-info-bg: #eff6ff;
   --color-info-text: #1e40af;
+}
+
+/* divide-y that survives client-side filtering. session-filters.ts hides
+   rows with the [hidden] attribute, and v4's divide-y borders every
+   :not(:last-child) — hidden or not — leaving a dangling divider under the
+   last visible row. Pair visible siblings instead (v3's divide-y selector):
+   a row draws a top divider only when a visible row precedes it. */
+@utility divide-y-visible {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 1px;
+    border-top-color: --alpha(var(--color-border) / 60%);
+  }
 }
 
 *,
@@ -367,6 +380,12 @@ button:active {
 
 .live-dot {
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
 }
 
 .blob {

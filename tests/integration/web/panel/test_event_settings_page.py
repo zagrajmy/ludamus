@@ -9,16 +9,13 @@ from django.urls import reverse
 from PIL import Image
 
 from ludamus.pacts import EventDTO, NotFoundError
-from tests.integration.conftest import EventFactory
+from tests.integration.conftest import PNG_BYTES, EventFactory
 from tests.integration.utils import assert_response
 
+# The settings page renders a cover image and a logo dropzone.
+DROPZONE_COUNT = 2
+
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
     "010000080400010404003b"
@@ -111,6 +108,23 @@ class TestEventSettingsPageViewGet:
             },
         )
         assert "events/brand.png" in response.content.decode()
+
+    def test_ships_the_dropzone_script_once_for_two_dropzones(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/settings.html",
+            context_data=ANY,
+        )
+        content = response.content
+        assert content.count(b"data-dropzone-input") == DROPZONE_COUNT
+        assert content.count(b"src/dropzone.ts") == 1
 
     def test_inherit_label_reflects_sphere_default_disallowed(
         self, authenticated_client, active_user, sphere, event
@@ -556,6 +570,27 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.logo.name == "events/keep.png"
 
+    def test_save_with_clear_checkbox_removes_logo(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        event.logo = "events/drop-me.png"
+        event.save()
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data=self._post_data(event, name="Renamed") | {"logo-clear": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert not event.logo
+
     def test_error_on_empty_form(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -617,7 +652,7 @@ class TestEventSettingsPageViewPost:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Event not found.")],
-            url=f"/panel/event/{event.slug}/settings/",
+            url="/panel/",
         )
 
     def test_error_on_duplicate_slug(

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from django.forms import BoundField
 
 
-def render_label(field: BoundField) -> str:
+def render_label(field: BoundField, *, required: bool | None = None) -> str:
     """Render a styled ``<label>``.
 
     Returns:
@@ -24,6 +24,6 @@ def render_label(field: BoundField) -> str:
         {
             "for_id": field.id_for_label,
             "text": field.label,
-            "required": field.field.required,
+            "required": field.field.required if required is None else required,
         },
     )

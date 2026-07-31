@@ -1,37 +1,22 @@
 # Architecture
 
+This doc maps the codebase: where each layer lives, which nouns own which
+pages and models, and how services are wired. The rules themselves (imports,
+file layout, slicing, patterns) live in the `glimpse` skill
+(`.claude/skills/glimpse/SKILL.md`) and are enforced by `importlinter`.
+
 ## Layers
 
 | Layer | Location | Purpose |
 | ----- | -------- | ------- |
-| pacts | `pacts.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
+| pacts | `pacts/{noun}.py` | Protocols, DTOs (Pydantic), errors, enums, TypedDicts |
 | specs | `specs/{noun}.py` | Business invariants — pure constants, no IO |
-| mills | `mills.py` | Business logic, Django-free |
+| mills | `mills/{noun}.py` | Business logic, Django-free |
 | links | `links/` | Repositories, UoW, external clients |
 | gates | `gates/` | Views, forms, URLs, templatetags |
-| inits | `inits.py` | DI container, middleware wiring |
+| inits | `inits/` | DI container, middleware wiring |
 | edges | `edges/` | settings, wsgi/asgi — outside GLIMPSE |
 | adapters | `adapters/` | Legacy — new code goes into GLIMPSE layers |
-
-## Import Rules
-
-Enforced by `importlinter`:
-
-```text
-General flow (Y can import X):
-pacts -> mills -> links -> gates -> inits
-
-specs sits at the bottom alongside pacts, consumed only by mills:
-pacts -> specs -> mills
-
-Forbidden:
-mills   ✗ gates, links, inits, edges, django
-links   ✗ gates, mills, inits, specs, edges
-gates   ✗ links, inits, specs, edges
-inits   ✗ edges
-specs   ✗ gates, links, inits, mills, edges, django
-pacts   ✗ gates, links, inits, mills, specs, edges, django
-```
 
 ## Repository Pattern
 
@@ -83,10 +68,8 @@ from ludamus.links.db.django import SessionRepository
 
 and never reaches `models`.
 
-**Splitting rules.** Baseline across adapters: halve, don't shard, and
-arrange parts so they don't cause circular imports. For `db/django`,
-models tend to halve along FK dependency or aggregate boundaries;
-repositories halve by aggregate group. A per-entity submodule
+Splitting thresholds and the halve-don't-shard baseline are in the
+`glimpse` skill (Growing rules). A per-entity submodule
 (`repositories/agenda_item.py`) is an escape hatch when one entity's repo
 genuinely dwarfs the rest, not the default.
 
@@ -127,7 +110,7 @@ class CFPPersonalDataFieldService:
         self._fields = fields
         self._categories = categories
 
-    def create(self, event_pk: int, data, requirements) -> PersonalDataFieldDTO:
+    def create(self, event_pk: int, data, requirements) -> OrganizerFieldDTO:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
             if requirements:
@@ -245,7 +228,7 @@ can't name one, the file isn't too big yet. Gates mirror the sitemap
 (a page or page group plus its action views); mills mirror the domain.
 
 The old **subdomain** / **bounded context** vocabulary is banned.
-Directory, URL, template, and test paths still carry the legacy subdomain
+Some directory, URL, template, and test paths still carry the legacy subdomain
 names; they are renamed opportunistically, tracked by the
 `old-subdomain-loc` tingle metric. New code slices by noun.
 
@@ -325,26 +308,28 @@ The organiser backoffice: event configuration, scheduling, venues,
 enrollment administration, intake configuration, and curation — one page
 group, no ownership split.
 
-- **URLs:** `/panel/event/<slug>/…` (namespace `panel`)
-- **Views:** `gates/web/django/chronology/panel/views/` — one module per
-  page (`proposals.py`, `facilitators.py`, `timetable.py`, `cfp.py`,
-  `personal_data_fields.py`, `session_fields.py`, `venues.py`,
-  `time_slots.py`, `tracks.py`, `event_settings.py`, `discounts.py`,
-  `print.py`, `integrations.py`, `google_docs_import.py`, …)
+- **URLs:** `/panel/event/<slug>/…` (namespace `panel`), configured in
+  `gates/web/django/event/panel/urls.py`
+- **Views:** new pages live in `gates/web/django/event/panel/views/`; remaining
+  pages under `gates/web/django/chronology/panel/views/` move there
+  opportunistically. Each module owns one page or closely related page group.
 - **Templates:** `templates/panel/`
-- **Service:** `PanelService` — event stats aggregation, cascade-safe
-  entity deletion, time slot overlap validation
+- **Services:** `EventPanelService` loads the shared event-scoped navigation
+  context through repository protocols; focused page services own page reads and
+  writes. Legacy pages still use `PanelService` for cascade-safe deletion and
+  time-slot validation until they migrate.
 
 <!-- markdownlint-disable MD013 -->
 
 | Area | Views | Templates |
 | ---- | ----- | --------- |
-| Proposal categories | `panel/views/cfp.py` | `cfp-*.html` |
+| Proposal categories | `panel/views/cfp.py`, `event/panel/views/proposal_category_settings.py` | `cfp-*.html` |
 | Proposals / sessions | `panel/views/proposals.py` | `proposal-*.html` |
 | Personal data fields | `panel/views/personal_data_fields.py` | `personal-data-field-*.html` |
 | Session fields | `panel/views/session_fields.py` | `session-field-*.html` |
 | Facilitators | `panel/views/facilitators.py` | `facilitator-*.html` |
-| Event settings | `panel/views/event_settings.py` | `settings.html` |
+| Event settings | `chronology/panel/views/event_settings.py` | `settings.html` |
+| Enrollment settings | `event/panel/views/enrollment_settings.py` | `enrollment-*.html` |
 | Time slots | `panel/views/time_slots.py` | `time-slot*.html` |
 | Tracks | `panel/views/tracks.py` | `track-*.html` |
 | Venues (Space tree) | `panel/views/venues.py` | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
@@ -421,11 +406,14 @@ accounts.
 Auth0 OAuth login/logout. State token management and JWT validation;
 user upsert on callback.
 
-- **URLs:** `/crowd/auth0/` (namespace `auth0`)
+- **URLs:** `/crowd/auth0/` (namespace `auth0`), `/crowd/login-required/`,
+  `/auth-error/` (the Auth0 tenant's error page setting points at it)
 - **Views:** `gates/web/django/crowd/auth.py` — `Auth0LoginActionView`,
   `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
-  `Auth0LogoutRedirectActionView`, `LoginRequiredPageView`
-- **Templates:** `templates/crowd/login_required.html`
+  `Auth0LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
+  `login_required_page`, `auth_error_page`
+- **Templates:** `templates/crowd/login_required.html`,
+  `templates/crowd/auth_error.html`
 - **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — user
   provisioning on callback, identity sync, sphere-domain checks
 - **External integration:** Auth0 PKCE/state OAuth flow

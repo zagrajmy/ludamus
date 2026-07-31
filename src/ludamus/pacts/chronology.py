@@ -252,6 +252,10 @@ class SpaceTimeConflictError(Exception):
     """Another session already occupies that space during the chosen slot."""
 
 
+class ProposalAcceptDeniedError(Exception):
+    """Only sphere managers and superusers may accept proposals."""
+
+
 class ProposalAcceptContextDTO(BaseModel):
     session: SessionDTO
     event: EventDTO
@@ -268,7 +272,13 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         self, *, session_id: int, user_slug: str, sphere_id: int
     ) -> ProposalAcceptContextDTO | None: ...
     def accept_session(
-        self, *, session_id: int, space_id: int, time_slot_id: int
+        self,
+        *,
+        session_id: int,
+        space_id: int,
+        time_slot_id: int,
+        user_slug: str,
+        sphere_id: int,
     ) -> None: ...
 
 
@@ -363,11 +373,6 @@ class SessionModalServiceProtocol(Protocol):
     ) -> SessionModalDTO | None: ...
 
 
-TIMETABLE_ROOM_PAGE_SIZE = 5
-TIMETABLE_SLOT_MINUTES = 60
-TIMETABLE_SNAP_MINUTES = 5
-
-
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
@@ -394,20 +399,29 @@ class SpaceGroupDTO(BaseModel):
     span: int
 
 
+class TimetableDayGridDTO(BaseModel):
+    date: date
+    columns: list[SpaceColumnDTO]
+    event_start_iso: str
+
+
+type DateSelection = date | Literal["all"]
+
+
 class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
-    columns: list[SpaceColumnDTO]
     groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
     time_labels: list[TimeLabelDTO]
     total_minutes: int
-    event_start_iso: str
     slot_minutes: int
     snap_minutes: int
     page: int
     total_pages: int
     total_spaces: int
+    total_columns: int
     available_dates: list[date] = []
-    selected_date: date | None = None
+    date_selection: DateSelection = "all"
 
 
 class ConflictType(StrEnum):

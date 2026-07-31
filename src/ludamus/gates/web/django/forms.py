@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import operator
 import re
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, cast
@@ -11,19 +10,29 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
+from lxml import etree
+from PIL import Image, UnidentifiedImageError
 
-from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
+from ludamus.gates.web.django.dynamic_fields import (
+    CustomAnswerFormMixin,
+    build_dynamic_fields,
+)
+from ludamus.gates.web.django.templatetags.cfp_tags import (
+    build_duration,
+    format_duration,
+)
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
+from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from ludamus.pacts import (
-        PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
-        SessionFieldRequirementDTO,
-    )
+    from django.core.files.uploadedfile import UploadedFile
+    from lxml.etree import _Element as Element
+
+    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -33,8 +42,8 @@ MAX_IMAGE_SIZE = 8 * 1024 * 1024
 # A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
 # bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
 MAX_IMAGE_PIXELS = 24_000_000
-ALLOWED_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP", "AVIF"})
-COVER_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif"
+# Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
+# and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
 
 
@@ -44,19 +53,25 @@ def validate_uploaded_image_size(image: object) -> None:
         raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
 
 
+def _validate_raster(
+    *, image_format: str | None, pixels: int, format_error: str
+) -> None:
+    if image_format not in ALLOWED_IMAGE_FORMATS:
+        raise ValidationError(format_error)
+    if pixels > MAX_IMAGE_PIXELS:
+        raise ValidationError(_gettext("Image dimensions are too large."))
+
+
 def validate_uploaded_image_format(image: object) -> None:
     # Django's ImageField populates `image.image` (a PIL Image with `.format`)
     # during clean. We trust the detected format over user-supplied
     # content_type or filename extension.
     pil_image = getattr(image, "image", None)
-    if getattr(pil_image, "format", None) not in ALLOWED_IMAGE_FORMATS:
-        raise ValidationError(
-            _gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
-        )
-    width = getattr(pil_image, "width", 0)
-    height = getattr(pil_image, "height", 0)
-    if width * height > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
+    _validate_raster(
+        image_format=getattr(pil_image, "format", None),
+        pixels=getattr(pil_image, "width", 0) * getattr(pil_image, "height", 0),
+        format_error=_gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
+    )
 
 
 def validate_uploaded_image(image: object) -> None:
@@ -67,6 +82,89 @@ def validate_uploaded_image(image: object) -> None:
         validate_uploaded_image_format(image)
 
 
+_SVG_FORBIDDEN_TAGS = frozenset({"script", "foreignobject"})
+# libxml2 caps entity amplification (no billion laughs); unresolved entities
+# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
+_SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
+
+
+def _xml_local_name(name: str) -> str:
+    return name.rsplit("}", 1)[-1].lower()
+
+
+# lxml types attribute names/values as str | bytes; parsed documents yield str.
+def _xml_text(value: str | bytes) -> str:
+    return value if isinstance(value, str) else value.decode(errors="replace")
+
+
+def _svg_element_is_safe(element: Element) -> bool:
+    if _xml_local_name(str(element.tag)) in _SVG_FORBIDDEN_TAGS:
+        return False
+    for name, value in element.attrib.items():
+        if _xml_local_name(_xml_text(name)).startswith("on"):
+            return False
+        if "javascript:" in "".join(_xml_text(value).split()).lower():
+            return False
+    return True
+
+
+def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
+    uploaded.seek(0)
+    try:
+        # fromstring, not parse: parse() takes a filename too, so passing an
+        # upload there reads as a path expression to taint analysis. Size is
+        # already capped by validate_uploaded_image_size.
+        root = etree.fromstring(uploaded.read(), _SVG_PARSER)
+    except etree.XMLSyntaxError as error:
+        raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
+    finally:
+        uploaded.seek(0)
+    if (
+        _xml_local_name(str(root.tag)) != "svg"
+        # iter(Element) skips entity/comment/PI nodes, whose tag is not a string
+        or not all(
+            _svg_element_is_safe(element) for element in root.iter(etree.Element)
+        )
+    ):
+        raise ValidationError(_gettext("Invalid or unsafe SVG file."))
+
+
+def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
+    uploaded.seek(0)
+    try:
+        with Image.open(uploaded) as pil_image:
+            image_format = pil_image.format
+            pixels = pil_image.width * pil_image.height
+    except UnidentifiedImageError:
+        image_format, pixels = None, 0
+    finally:
+        uploaded.seek(0)
+    _validate_raster(
+        image_format=image_format,
+        pixels=pixels,
+        format_error=_gettext(
+            "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
+        ),
+    )
+
+
+def _looks_like_svg(uploaded: UploadedFile) -> bool:
+    uploaded.seek(0)
+    head: bytes = uploaded.read(64)
+    uploaded.seek(0)
+    return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
+
+
+def validate_uploaded_logo(uploaded: UploadedFile | None) -> None:
+    if not uploaded:
+        return
+    validate_uploaded_image_size(uploaded)
+    if _looks_like_svg(uploaded):
+        _validate_uploaded_svg(uploaded)
+    else:
+        _validate_uploaded_raster_logo(uploaded)
+
+
 def cover_image_field() -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
@@ -74,20 +172,20 @@ def cover_image_field() -> forms.ImageField:
         label=_("Cover image"),
         required=False,
         help_text=COVER_IMAGE_HELP_TEXT,
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
     )
 
 
-def _logo_field() -> forms.ImageField:
-    # Reuses the shared image validators (format + decompression-bomb guard);
-    # the printable-schedule logo only differs in label and accepted types.
-    return forms.ImageField(
+def _logo_field() -> forms.FileField:
+    return forms.FileField(
         required=False,
         label=_("Logo"),
         help_text=_(
-            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, or AVIF."
+            "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(attrs={"accept": COVER_IMAGE_ACCEPT}),
+        widget=forms.ClearableFileInput(
+            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
+        ),
     )
 
 
@@ -177,9 +275,9 @@ class EventSettingsForm(forms.Form):
         return image
 
     def clean_logo(self) -> object:
-        image = self.cleaned_data.get("logo")
-        validate_uploaded_image(image)
-        return image
+        logo = self.cleaned_data.get("logo")
+        validate_uploaded_logo(logo)
+        return logo
 
 
 class SphereSettingsForm(forms.Form):
@@ -193,9 +291,9 @@ class SphereSettingsForm(forms.Form):
     logo = _logo_field()
 
     def clean_logo(self) -> object:
-        image = self.cleaned_data.get("logo")
-        validate_uploaded_image(image)
-        return image
+        logo = self.cleaned_data.get("logo")
+        validate_uploaded_logo(logo)
+        return logo
 
 
 class ProposalSettingsForm(forms.Form):
@@ -236,6 +334,27 @@ class ProposalCategoryForm(forms.Form):
     end_time = forms.DateTimeField(required=False)
     min_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
     max_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
+    promotion_mode = forms.ChoiceField(
+        required=False,
+        initial=PromotionMode.AUTO.value,
+        label=_("When a seat becomes available"),
+        choices=(
+            (PromotionMode.AUTO.value, _("Confirm the next person automatically")),
+            (
+                PromotionMode.OFFER_CLAIM.value,
+                _("Hold the seat until the next person confirms"),
+            ),
+        ),
+        widget=forms.RadioSelect,
+    )
+    offer_claim_window_minutes = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=10_080,
+        initial=1_440,
+        label=_("Time to confirm the seat"),
+        help_text=_("Minutes before an unconfirmed seat goes to the next person."),
+    )
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean() or {}
@@ -244,6 +363,15 @@ class ProposalCategoryForm(forms.Form):
         if min_limit and max_limit and min_limit > max_limit:
             raise forms.ValidationError(
                 _("Minimum participants limit cannot exceed maximum.")
+            )
+        if cleaned.get(
+            "promotion_mode"
+        ) == PromotionMode.OFFER_CLAIM.value and not cleaned.get(
+            "offer_claim_window_minutes"
+        ):
+            self.add_error(
+                "offer_claim_window_minutes",
+                _("Set how long a held seat waits for confirmation."),
             )
         return cleaned
 
@@ -377,28 +505,32 @@ class TimeSlotForm(forms.Form):
     """Form for creating/editing time slots."""
 
     date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         error_messages={
             "required": _("Date is required."),
             "invalid": _("Enter a valid date."),
-        }
+        },
     )
     end_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
         error_messages={
             "required": _("End date is required."),
             "invalid": _("Enter a valid date."),
-        }
+        },
     )
     start_time = forms.TimeField(
+        widget=forms.TimeInput(attrs={"type": "time"}),
         error_messages={
             "required": _("Start time is required."),
             "invalid": _("Enter a valid time."),
-        }
+        },
     )
     end_time = forms.TimeField(
+        widget=forms.TimeInput(attrs={"type": "time"}),
         error_messages={
             "required": _("End time is required."),
             "invalid": _("Enter a valid time."),
-        }
+        },
     )
 
 
@@ -480,116 +612,30 @@ class TrackForm(forms.Form):
     )
 
 
-def build_field_from_requirement(
-    fields: dict[str, forms.Field],
-    field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
-) -> None:
-    # Shared by the proposal wizard and the organizer panel so a category's
-    # configured fields render identically in both. The label is the field's
-    # question — the wording the proposer is actually asked — since the panel
-    # renders these through tessera_field rather than hand-rolled labels.
-    field_def = req.field
-    label = field_def.question
-    help_text = field_def.help_text
-
-    if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
-
-        if field_def.is_multiple:
-            fields[field_key] = forms.MultipleChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices[1:],  # no blank for multi
-                required=req.is_required,
-                widget=forms.CheckboxSelectMultiple,
-            )
-        else:
-            fields[field_key] = forms.ChoiceField(
-                label=label,
-                help_text=help_text,
-                choices=choices,
-                required=req.is_required,
-            )
-
-    elif field_def.field_type == "checkbox":
-        # We can't make checkboxes required because it ENFORCES TRUE.
-        fields[field_key] = forms.BooleanField(
-            label=label, help_text=help_text, required=False
-        )
-    else:
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[field_key] = forms.CharField(
-            label=label,
-            help_text=help_text,
-            required=req.is_required,
-            max_length=max_len,
-        )
-
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion input the descriptors expect.
-    if field_def.allow_custom and field_def.field_type != "checkbox":
-        max_len = field_def.max_length if field_def.max_length > 0 else None
-        fields[f"{field_key}_custom"] = forms.CharField(
-            label=_("Or type a custom value"), required=False, max_length=max_len
-        )
-
-
-def field_descriptors(
-    prefix: str,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    form: forms.Form,
-) -> list[dict[str, object]]:
-    # Template-facing view of a category's fields: pairs each requirement with
-    # its bound field so the wizard and the panel render them the same way.
-    descriptors = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
-        desc: dict[str, object] = {
-            "key": field_key,
-            "bound_field": form[field_key],
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        # Checkboxes get no companion input even when allow_custom is set.
-        custom_key = f"{field_key}_custom"
-        desc["custom_bound_field"] = (
-            form[custom_key] if custom_key in form.fields else None
-        )
-        descriptors.append(desc)
-    return descriptors
-
-
 class SessionEditForm(forms.Form):
     """Form for editing session fields by an organizer."""
 
     title = forms.CharField(
-        max_length=255, strip=True, error_messages={"required": _("Title is required.")}
+        max_length=255,
+        strip=True,
+        label=_("Title"),
+        error_messages={"required": _("Title is required.")},
     )
     display_name = forms.CharField(
         max_length=255,
         strip=True,
+        label=_("Display Name"),
         error_messages={"required": _("Display name is required.")},
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 5})
+        required=False, label=_("Description"), widget=forms.Textarea(attrs={"rows": 5})
     )
-    contact_email = forms.EmailField(required=False)
-    participants_limit = forms.IntegerField(required=False, min_value=0)
-    min_age = forms.IntegerField(required=False, min_value=0)
-    duration = forms.CharField(required=False)
+    contact_email = forms.EmailField(required=False, label=_("Contact Email"))
+    participants_limit = forms.IntegerField(
+        required=False, min_value=0, label=_("Participants Limit")
+    )
+    min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
+    duration = forms.CharField(required=False, label=_("Duration"))
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -601,16 +647,62 @@ class SessionEditForm(forms.Form):
 def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
     # Stays optional (blank = no limit, as organizers expect) but honours the
     # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {"required": False, "min_value": min_limit or 0}
+    kwargs: dict[str, Any] = {
+        "required": False,
+        "min_value": min_limit or 0,
+        "label": _("Participants Limit"),
+    }
     if max_limit:
         kwargs["max_value"] = max_limit
     return forms.IntegerField(**kwargs)
 
 
+CUSTOM_DURATION = "custom"
+MAX_DURATION_HOURS = 23
+MAX_DURATION_MINUTES = 59
+
+
+class _ComposedDurationForm(SessionEditForm):
+    # A session stores one ISO duration, but the organizer may type it as hours
+    # plus minutes, so the composed value has to land back on `duration`.
+    # Returns nothing: the composed value is written straight into
+    # cleaned_data, which Django keeps when clean() returns None.
+    def clean(self) -> None:
+        super().clean()
+        cleaned = self.cleaned_data
+        if "duration" in self.fields and cleaned.get("duration") != CUSTOM_DURATION:
+            return
+        cleaned["duration"] = build_duration(
+            hours=cleaned.get("duration_hours") or 0,
+            minutes=cleaned.get("duration_minutes") or 0,
+        )
+        # Picking "Custom" and entering nothing is a mistake worth naming; with
+        # no preset picker at all the duration simply stays unset.
+        if not cleaned["duration"] and "duration" in self.fields:
+            self.add_error("duration", _("Enter how long the session lasts."))
+
+
+def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
+    # No configured durations means the steppers are the whole control, so the
+    # inherited free-text field is dropped (a None entry removes it).
+    if not durations:
+        return None
+    return forms.ChoiceField(
+        required=False,
+        label=_("Duration"),
+        choices=[
+            ("", "---"),
+            *((d, format_duration(d)) for d in durations),
+            # Kept last: the template reveals the steppers with a CSS
+            # :last-child selector rather than JavaScript.
+            (CUSTOM_DURATION, _("Custom")),
+        ],
+    )
+
+
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
-    facilitators: list[tuple[int, str]] | None = None,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
     category: ProposalCategoryDTO | None = None,
 ) -> type[SessionEditForm]:
@@ -623,17 +715,6 @@ def create_proposal_form(
             },
         )
     }
-    # Create variant only: a required facilitator binding so a hand-added
-    # proposal can never exist with zero facilitators. The edit view omits
-    # this — it manages facilitators through its own inline list.
-    if facilitators is not None:
-        attrs["facilitator_ids"] = forms.MultipleChoiceField(
-            choices=facilitators,
-            error_messages={
-                "required": _("Please select at least one facilitator."),
-                "invalid_choice": _("Invalid facilitator selection."),
-            },
-        )
 
     if category and (
         category.min_participants_limit or category.max_participants_limit
@@ -643,21 +724,25 @@ def create_proposal_form(
             max_limit=category.max_participants_limit,
         )
 
-    # A category with no configured durations keeps the inherited free-text
-    # field, so organizers can still record one.
-    if category and category.durations:
-        attrs["duration"] = forms.ChoiceField(
-            required=False,
-            choices=[
-                ("", "---"),
-                *((d, format_duration(d)) for d in category.durations),
-            ],
-        )
+    attrs["duration_hours"] = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
+    )
+    attrs["duration_minutes"] = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
+    )
 
-    for req in requirements:
-        build_field_from_requirement(attrs, f"session_{req.field.slug}", req)
+    custom_required = build_dynamic_fields(
+        fields=attrs, requirements=requirements, prefix="session"
+    )
 
-    return type("ProposalCreateForm", (SessionEditForm,), attrs)
+    namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
+        **attrs,
+        "duration": _duration_field(category.durations if category else []),
+        "custom_required_keys": custom_required,
+    }
+    return type(
+        "ProposalCreateForm", (CustomAnswerFormMixin, _ComposedDurationForm), namespace
+    )
 
 
 ACCREDITATION_TYPE_LABELS = {
@@ -687,6 +772,12 @@ class FacilitatorForm(forms.Form):
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
+    )
+    assign_me = forms.BooleanField(
+        initial=True,
+        required=False,
+        label=_("Assign me as organizer"),
+        help_text=_("You handle this facilitator until you step down."),
     )
 
     def clean_accreditation_type(self) -> str:

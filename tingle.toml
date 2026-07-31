@@ -261,6 +261,13 @@ pattern = '\|\s*safe\b'
 ranges = ["templates"]
 
 [[metrics]]
+name = "raw-form-controls"
+type = "regex_count"
+group = "frontend"
+pattern = '<select\b|type="checkbox"'
+ranges = ["templates"]
+
+[[metrics]]
 name = "template-hardcoded-text"
 type = "regex_count"
 group = "frontend"

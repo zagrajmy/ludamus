@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Login failed" %}
+{% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    <div class="flex-1 flex items-center justify-center">
+        <div class="max-w-md mx-auto px-4">
+            {% translate "Login failed" as heading %}
+            {% translate "Something interrupted the login. This can happen after going back to an old login page, waiting too long, or when your browser blocks cookies. Trying again usually helps." as lead %}
+            {% include "components/status_hero.html" with icon="exclamation-triangle" icon_color="text-primary" error_code="" heading=heading lead=lead only %}
+            <div class="flex flex-col sm:flex-row items-start gap-3">
+                {% url 'web:index' as home_url %}
+                {% translate "Log in again" as login_again %}
+                {% include "components/login_button.html" with next=home_url show_icon=True text=login_again extra_class="" %}
+                <a href="{{ home_url }}" class="btn btn-secondary">
+                    {% icon "arrow-left" class="w-5 h-5" %}
+                    {% translate "Back to Home" %}
+                </a>
+            </div>
+            {% if tracking %}
+                <p class="mt-6 text-xs text-foreground-muted">{% translate "Error ID" %}: {{ tracking }}</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock body %}

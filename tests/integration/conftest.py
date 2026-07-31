@@ -33,6 +33,14 @@ User = get_user_model()
 
 pytest.register_assert_rewrite("tests.integration.utils")
 
+# Smallest valid 1x1 PNG. Real bytes, because ImageField runs Pillow on upload.
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
+    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 register(CompleteUserFactory)
 register(AnonymousUserFactory)
 
@@ -221,6 +229,29 @@ def authenticated_client(client, active_user):
 def staff_client(client, staff_user):
     client.force_login(staff_user)
     return client
+
+
+@pytest.fixture(name="manager_user")
+def manager_user_fixture(sphere):
+    user = UserFactory(username="manageruser", name="Manager User")
+    sphere.managers.add(user)
+    return user
+
+
+@pytest.fixture(name="manager_client")
+def manager_client_fixture(client, manager_user):
+    client.force_login(manager_user)
+    return client
+
+
+@pytest.fixture(params=["manager", "superuser"])
+def panel_access_user(request, active_user, sphere):
+    if request.param == "manager":
+        sphere.managers.add(active_user)
+    else:
+        active_user.is_superuser = True
+        active_user.save()
+    return active_user
 
 
 @pytest.fixture(name="active_user")

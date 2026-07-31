@@ -14,6 +14,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import EventDTO, FacilitatorDTO
+from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -119,7 +120,32 @@ class TestFacilitatorEditPageView:
                 **_base_context(event),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
-                "personal_fields": [],
+                "field_descriptors": [],
+            },
+        )
+
+    def test_get_shows_the_organizer_read_only(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
+        facilitator = _make_facilitator(event, organizer=organizer)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **_base_context(event),
+                "form": ANY,
+                "facilitator": (
+                    FacilitatorDTO.model_validate(facilitator).model_copy(
+                        update={"organizer_name": "Olga Organizer"}
+                    )
+                ),
+                "field_descriptors": [],
             },
         )
 
@@ -182,7 +208,7 @@ class TestFacilitatorEditPageView:
                     ]
                 ),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
-                "personal_fields": [],
+                "field_descriptors": [],
             },
         )
 
@@ -289,7 +315,7 @@ class TestFacilitatorEditPageView:
                 **_base_context(event),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
-                "personal_fields": [],
+                "field_descriptors": [],
             },
             not_contains='name="display_name"',
         )
@@ -330,6 +356,10 @@ class TestFacilitatorEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["en", "pl"]):
+            PersonalDataFieldOption.objects.create(
+                field=field, label=value.upper(), value=value, order=order
+            )
 
         authenticated_client.post(
             self.get_url(event),
@@ -366,6 +396,46 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
 
+    def test_post_keeps_comma_inside_a_multi_value_write_in(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(event)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Languages",
+            question="Which languages?",
+            slug="languages",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="English", value="en", order=0
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "display_name": "Alice",
+                "personal_languages": ["en"],
+                "personal_languages_custom": "śląski, ale tylko trochę",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator updated successfully.")],
+            url=reverse(
+                "panel:facilitator-detail",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            ),
+        )
+        hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
+        assert hpd.value == ["en", "śląski, ale tylko trochę"]
+
     def test_get_renders_all_personal_field_types(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -379,6 +449,7 @@ class TestFacilitatorEditPageView:
             slug="languages",
             field_type="select",
             is_multiple=True,
+            allow_custom=True,
             help_text="Pick all that apply",
             order=0,
         )
@@ -424,7 +495,10 @@ class TestFacilitatorEditPageView:
         )
 
         PersonalDataFieldValue.objects.create(
-            facilitator=facilitator, event=event, field=languages, value=["en"]
+            facilitator=facilitator,
+            event=event,
+            field=languages,
+            value=["en", "śląski, ale tylko trochę"],
         )
         PersonalDataFieldValue.objects.create(
             facilitator=facilitator, event=event, field=system, value="dnd"

@@ -152,6 +152,27 @@ class TestFileInput:
         assert "/media/events/cover.png" in html
         assert "events/cover.png" in html
 
+    def test_previews_image_only_file_field_as_image(self) -> None:
+        class LogoForm(forms.Form):
+            logo = forms.FileField(
+                required=False,
+                widget=forms.ClearableFileInput(
+                    attrs={"accept": "image/png,image/svg+xml"}
+                ),
+            )
+
+        form = LogoForm(initial={"logo": "/media/spheres/logo.svg"})
+        html = tessera_field(form["logo"])
+        assert 'data-state="image"' in html
+
+    def test_previews_generic_file_field_as_file(self) -> None:
+        class AttachmentForm(forms.Form):
+            attachment = forms.FileField(required=False)
+
+        form = AttachmentForm(initial={"attachment": "/media/docs/notes.pdf"})
+        html = tessera_field(form["attachment"])
+        assert 'data-state="file"' in html
+
     def test_ignores_initial_of_unexpected_type(self) -> None:
         # A value that is neither a file (no `.url`) nor a URL string yields no
         # preview rather than rendering a broken image.
@@ -197,6 +218,21 @@ class TestTesseraButton:
         html = tessera_button('<script>alert("xss")</script>')
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
+
+    def test_spreads_html_attributes(self) -> None:
+        html = tessera_button(
+            "Assign",
+            href="?assign=1",
+            aria_controls="discount-assign-modal-1",
+            aria_haspopup="dialog",
+            data_modal_close="discount-assign-modal-1",
+            title="Assign discount",
+        )
+        assert 'href="?assign=1"' in html
+        assert 'aria-controls="discount-assign-modal-1"' in html
+        assert 'aria-haspopup="dialog"' in html
+        assert 'data-modal-close="discount-assign-modal-1"' in html
+        assert 'title="Assign discount"' in html
 
 
 class TestRenderLabel:
@@ -369,6 +405,12 @@ class TestRenderInput:
         form.fields["name"].widget.attrs["placeholder"] = "Enter name"
         html = render_input(form["name"])
         assert 'placeholder="Enter name"' in html
+
+    def test_respects_explicit_input_type(self) -> None:
+        form = SimpleForm()
+        form.fields["name"].widget.attrs["type"] = "date"
+        html = render_input(form["name"])
+        assert 'type="date"' in html
 
     def test_error_styling(self) -> None:
         form = SimpleForm(data={"name": ""})

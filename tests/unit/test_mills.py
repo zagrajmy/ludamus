@@ -6,15 +6,14 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills import (
-    PanelService,
     ProposeSessionService,
     check_proposal_rate_limit,
     generate_ics_content,
     google_calendar_url,
-    is_proposal_active,
     outlook_calendar_url,
     render_markdown,
 )
+from ludamus.mills.event import build_panel_stats, is_proposal_active
 from ludamus.mills.multiverse import ConnectionsService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
@@ -27,6 +26,7 @@ from ludamus.mills.submissions.mapping import (
     decode_response,
     dedup_ident,
     extract_identity,
+    field_answer,
     field_setup,
     generate_unique_slug,
     locate_row,
@@ -34,14 +34,15 @@ from ludamus.mills.submissions.mapping import (
     slugify,
 )
 from ludamus.mills.submissions.personal_data_fields import CFPPersonalDataFieldService
+from ludamus.mills.submissions.session_fields import CFPSessionFieldService
 from ludamus.pacts import (
     EncounterDTO,
     EventDTO,
     EventStatsData,
     FacilitatorDTO,
     NotFoundError,
+    OrganizerFieldDTO,
     PanelStatsDTO,
-    PersonalDataFieldDTO,
     ProposalCategoryDTO,
     RequestContext,
     SessionStatus,
@@ -62,6 +63,7 @@ from ludamus.pacts.submissions import (
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
     QuestionTarget,
+    RequirementSelectionDTO,
 )
 
 
@@ -70,7 +72,7 @@ def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
 
 
 def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type="text",
         max_length=50,
         name=name,
@@ -93,6 +95,10 @@ def _category(pk=1, name="Talk", slug="talk"):
         slug=slug,
         start_time=None,
     )
+
+
+def _selection(requirements: dict[int, bool]) -> RequirementSelectionDTO:
+    return RequirementSelectionDTO(requirements=requirements, order=[])
 
 
 class TestCFPPersonalDataFieldService:
@@ -193,13 +199,13 @@ class TestCFPPersonalDataFieldService:
         }
 
         result = service.create(
-            event_pk=7, data=data, category_requirements={1: True, 2: False}
+            event_pk=7, data=data, category_requirements=_selection({1: True, 2: False})
         )
 
         assert result is created
         transaction.atomic.assert_called_once()
         fields.create.assert_called_once_with(7, data)
-        categories.add_field_to_categories.assert_called_once_with(
+        categories.set_personal_field_categories.assert_called_once_with(
             99, {1: True, 2: False}
         )
 
@@ -221,11 +227,13 @@ class TestCFPPersonalDataFieldService:
         }
 
         service.create(
-            event_pk=7, data=data, category_requirements={1: True, 999: True}
+            event_pk=7,
+            data=data,
+            category_requirements=_selection({1: True, 999: True}),
         )
 
         # The foreign category pk (999) is dropped before persisting.
-        categories.add_field_to_categories.assert_called_once_with(99, {1: True})
+        categories.set_personal_field_categories.assert_called_once_with(99, {1: True})
 
     def test_create_skips_category_assignment_when_no_requirements(
         self, service, fields, categories
@@ -243,9 +251,9 @@ class TestCFPPersonalDataFieldService:
             "is_public": False,
         }
 
-        service.create(event_pk=7, data=data, category_requirements={})
+        service.create(event_pk=7, data=data, category_requirements=_selection({}))
 
-        categories.add_field_to_categories.assert_not_called()
+        categories.set_personal_field_categories.assert_not_called()
 
     def test_update_writes_field_and_sets_categories_in_transaction(
         self, service, transaction, fields, categories
@@ -266,7 +274,7 @@ class TestCFPPersonalDataFieldService:
             event_pk=5,
             field_slug="email",
             data=update_data,
-            category_requirements={1: True},
+            category_requirements=_selection({1: True}),
         )
 
         transaction.atomic.assert_called_once()
@@ -288,7 +296,7 @@ class TestCFPPersonalDataFieldService:
                     "is_public": False,
                     "options": None,
                 },
-                category_requirements={},
+                category_requirements=_selection({}),
             )
 
     def test_delete_returns_false_when_field_has_requirements(self, service, fields):
@@ -316,81 +324,72 @@ class TestCFPPersonalDataFieldService:
             service.delete(event_pk=5, field_slug="missing")
 
 
-class TestPanelService:
-    @pytest.fixture
-    def mock_uow(self):
-        return MagicMock()
+class TestBuildPanelStats:
+    def test_total_sessions_sums_pending_and_scheduled(self) -> None:
+        pending, scheduled = 5, 10
 
-    @pytest.fixture
-    def panel_service(self, mock_uow):
-        return PanelService(mock_uow)
-
-    def test_get_event_stats_calculates_total_sessions(self, panel_service, mock_uow):
-        total_proposals = 15
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=5,
-            scheduled_sessions=10,
-            total_proposals=total_proposals,
-            unique_host_ids={1, 2, 3},
-            rooms_count=4,
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=pending,
+                scheduled_sessions=scheduled,
+                total_proposals=15,
+                unique_host_ids={1, 2, 3},
+                rooms_count=4,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=1)
+        assert stats.total_sessions == pending + scheduled
 
-        assert result.total_sessions == total_proposals
-        mock_uow.events.get_stats_data.assert_called_once_with(1)
-
-    def test_get_event_stats_counts_unique_hosts(self, panel_service, mock_uow):
+    def test_counts_unique_hosts(self) -> None:
         hosts = {10, 20, 30, 40, 50}
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=0,
-            scheduled_sessions=0,
-            total_proposals=0,
-            unique_host_ids=hosts,
-            rooms_count=0,
+
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=0,
+                scheduled_sessions=0,
+                total_proposals=0,
+                unique_host_ids=hosts,
+                rooms_count=0,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=42)
+        assert stats.hosts_count == len(hosts)
 
-        assert result.hosts_count == len(hosts)
+    def test_maps_every_field(self) -> None:
+        pending, scheduled, total, rooms = 3, 7, 10, 5
+        hosts = {1, 2}
 
-    def test_get_event_stats_returns_panel_stats_dto(self, panel_service, mock_uow):
-        pending_proposals = 3
-        scheduled_sessions = 7
-        total_proposals = 10
-        unique_host_ids = {1, 2}
-        rooms_count = 5
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=pending_proposals,
-            scheduled_sessions=scheduled_sessions,
-            total_proposals=total_proposals,
-            unique_host_ids=unique_host_ids,
-            rooms_count=rooms_count,
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=pending,
+                scheduled_sessions=scheduled,
+                total_proposals=total,
+                unique_host_ids=hosts,
+                rooms_count=rooms,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=1)
+        assert isinstance(stats, PanelStatsDTO)
+        assert stats.pending_proposals == pending
+        assert stats.scheduled_sessions == scheduled
+        assert stats.total_proposals == total
+        assert stats.rooms_count == rooms
+        assert stats.hosts_count == len(hosts)
+        assert stats.total_sessions == pending + scheduled
 
-        assert isinstance(result, PanelStatsDTO)
-        assert result.pending_proposals == pending_proposals
-        assert result.scheduled_sessions == scheduled_sessions
-        assert result.total_proposals == total_proposals
-        assert result.rooms_count == rooms_count
-        assert result.hosts_count == len(unique_host_ids)
-        assert result.total_sessions == total_proposals
-
-    def test_get_event_stats_with_empty_hosts(self, panel_service, mock_uow):
-        mock_uow.events.get_stats_data.return_value = EventStatsData(
-            pending_proposals=0,
-            scheduled_sessions=0,
-            total_proposals=0,
-            unique_host_ids=set(),
-            rooms_count=0,
+    def test_handles_empty_hosts(self) -> None:
+        stats = build_panel_stats(
+            EventStatsData(
+                pending_proposals=0,
+                scheduled_sessions=0,
+                total_proposals=0,
+                unique_host_ids=set(),
+                rooms_count=0,
+            )
         )
 
-        result = panel_service.get_event_stats(event_id=1)
-
-        assert result.hosts_count == 0
-        assert result.total_sessions == 0
+        assert stats.hosts_count == 0
+        assert stats.total_sessions == 0
 
 
 class TestIsProposalActive:
@@ -480,7 +479,6 @@ class TestGenerateIcsContent:
             "description": "A great session",
             "end_time": now + timedelta(hours=2),
             "game": "D&D",
-            "header_image": "",
             "max_participants": 6,
             "pk": 1,
             "place": "Room 42",
@@ -546,7 +544,6 @@ class TestGoogleCalendarUrl:
             "description": "A great session",
             "end_time": now + timedelta(hours=2),
             "game": "D&D",
-            "header_image": "",
             "max_participants": 6,
             "pk": 1,
             "place": "Room 42",
@@ -584,7 +581,6 @@ class TestOutlookCalendarUrl:
             "description": "A great session",
             "end_time": now + timedelta(hours=2),
             "game": "D&D",
-            "header_image": "",
             "max_participants": 6,
             "pk": 1,
             "place": "Room 42",
@@ -2665,6 +2661,92 @@ class TestMappingHelpers:
 
         assert builtins.description == "Hello"
 
+    def test_answer_splits_a_multi_value_cell_into_a_list(self):
+        settings = ImportSettings(
+            questions={"Triggers": QuestionTarget(to="field.triggers")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "triggers": FieldDefinition(
+                        name="Triggers", type="select", multiple=True
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Triggers": "krew, przemoc"}),
+            header="Triggers",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["krew", "przemoc"]
+
+    def test_answer_keeps_an_option_that_contains_a_comma(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele"]
+
+    def test_answer_keeps_a_comma_bearing_option_beside_another(self):
+        settings = ImportSettings(
+            questions={"Kind": QuestionTarget(to="field.kind")},
+            definitions=FieldDefinitions(
+                session_fields={
+                    "kind": FieldDefinition(
+                        name="Kind",
+                        type="select",
+                        multiple=True,
+                        options=["Warsztaty, panele", "Prelekcja"],
+                    )
+                }
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"Kind": "Warsztaty, panele, Prelekcja"}),
+            header="Kind",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == ["Warsztaty, panele", "Prelekcja"]
+
+    def test_answer_keeps_a_single_value_cell_as_text(self):
+        settings = ImportSettings(
+            questions={"System": QuestionTarget(to="field.system")},
+            definitions=FieldDefinitions(
+                session_fields={"system": FieldDefinition(name="System")}
+            ),
+        )
+
+        value = field_answer(
+            settings=settings,
+            row=ImportRow({"System": "D&D, 5e"}),
+            header="System",
+            definitions=settings.definitions.session_fields,
+        )
+
+        assert value == "D&D, 5e"
+
     def test_cell_reads_value_despite_trailing_space_in_recipe_key(self):
         target = QuestionTarget(to="track")
         row = ImportRow({"Block": "RPG"})
@@ -2822,3 +2904,47 @@ class TestDedupIdent:
         assert dedup_ident(event_id=7, identity=identity) == dedup_ident(
             event_id=7, identity=identity
         )
+
+
+def _session_field_dto(pk=99):
+    return OrganizerFieldDTO(
+        field_type="text", name="Genre", order=pk, pk=pk, question="Q", slug="genre"
+    )
+
+
+class TestCFPSessionFieldService:
+    @pytest.fixture
+    def categories(self):
+        categories = MagicMock()
+        categories.list_by_event.return_value = [_category(pk=1)]
+        return categories
+
+    @pytest.fixture
+    def service(self, categories):
+        fields = MagicMock()
+        fields.create.return_value = _session_field_dto()
+        fields.read_by_slug.return_value = _session_field_dto()
+        return CFPSessionFieldService(
+            transaction=MagicMock(), fields=fields, categories=categories
+        )
+
+    def test_create_writes_to_the_session_field_link_table(self, service, categories):
+        service.create(
+            event_pk=7,
+            data={"name": "Genre", "question": "Q", "field_type": "text"},
+            category_requirements=_selection({1: True, 999: True}),
+        )
+
+        categories.set_session_field_categories.assert_called_once_with(99, {1: True})
+        categories.set_personal_field_categories.assert_not_called()
+
+    def test_update_writes_to_the_session_field_link_table(self, service, categories):
+        service.update(
+            event_pk=7,
+            field_slug="genre",
+            data={"name": "Genre"},
+            category_requirements=_selection({1: False, 999: True}),
+        )
+
+        categories.set_session_field_categories.assert_called_once_with(99, {1: False})
+        categories.set_personal_field_categories.assert_not_called()

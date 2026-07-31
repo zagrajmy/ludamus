@@ -1,16 +1,16 @@
 import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
-import { beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs } from "./harness";
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 
 const env = process.env;
-const session = env.SESSION ? `${env.SESSION}-modal` : "zagrajmy-ios-modal-local";
+const session = sessionName("modal");
 const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+const preOpenScrollSteps = 8;
 
 const {
   client,
@@ -18,10 +18,12 @@ const {
   takeSnapshot,
   snapshotLabels,
   findNodeByLabel,
+  viewportOf,
+  close,
   openUrl,
   prepareDevice,
   assertPageReady,
-} = await createIosHarness(session);
+} = createIosHarness(session);
 
 const hasVisibleText = async (text: string): Promise<boolean> => {
   const labels = await snapshotLabels();
@@ -55,7 +57,7 @@ const describeNode = (node: SnapshotNode): string => {
 
 const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean => {
   if (!node.rect) return false;
-  const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
+  const viewportHeight = viewportOf(snapshot).height;
   const centerY = node.rect.y + node.rect.height / 2;
   return centerY >= 80 && centerY <= viewportHeight - 120;
 };
@@ -98,7 +100,7 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
       snapshot.nodes.find(
         (candidate) => candidate.label === targetTriggerLabel && !isHiddenDialogLabel(candidate),
       ) ?? snapshot.nodes.find(isTargetTitleNode);
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
+    const viewportHeight = viewportOf(snapshot).height;
     const centerY = node?.rect ? node.rect.y + node.rect.height / 2 : viewportHeight;
     await client.interactions.scroll({
       ...deviceOptions,
@@ -217,6 +219,8 @@ beforeAll(async () => {
     }
   }
 }, hookTimeoutMs);
+
+afterAll(close, 30_000);
 
 test("modal content is visible when the session modal opens", () => {
   expect(contentIssue).toBeNull();

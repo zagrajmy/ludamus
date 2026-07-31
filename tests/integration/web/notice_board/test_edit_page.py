@@ -6,15 +6,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.pacts import EncounterDTO
-from tests.integration.conftest import EncounterFactory
+from tests.integration.conftest import PNG_BYTES, EncounterFactory
 from tests.integration.utils import assert_response, assert_response_404
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 class TestEncounterEditPageView:
@@ -49,6 +42,24 @@ class TestEncounterEditPageView:
         response = authenticated_client.get(self._url(encounter.pk))
 
         assert_response_404(response)
+
+    def test_not_creator_post_has_no_side_effects(
+        self, authenticated_client, encounter
+    ):
+        before = EncounterDTO.model_validate(encounter)
+
+        response = authenticated_client.post(
+            self._url(encounter.pk),
+            {
+                "title": "Updated Title",
+                "start_time": "2026-06-01T14:00",
+                "max_participants": 5,
+            },
+        )
+
+        assert_response_404(response)
+        encounter.refresh_from_db()
+        assert EncounterDTO.model_validate(encounter) == before
 
     def test_ok_post(self, authenticated_client, user, sphere):
         encounter = EncounterFactory(creator=user, sphere=sphere)

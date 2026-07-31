@@ -1,4 +1,5 @@
-{% load i18n tessera %}
+{% load i18n tessera vite_tags %}
+{% vite_asset_once 'src/dropzone.ts' %}
 <label for="{{ id }}"
        data-dropzone
        data-state="{{ dropzone_state }}"
@@ -39,7 +40,7 @@
                  alt=""
                  width="800"
                  height="400"
-                 class="absolute inset-0 w-full h-full object-cover">
+                 class="absolute inset-0 w-full h-full {% if contain %}object-contain p-6 pb-12{% else %}object-cover{% endif %}">
             <div class="absolute inset-x-0 bottom-0 pt-12 pb-2 px-3 bg-linear-to-t from-black via-black/55 to-transparent">
                 <p data-dropzone-name class="text-sm font-medium text-white truncate">{{ initial_name }}</p>
                 <p data-dropzone-size class="text-xs text-white/75"></p>

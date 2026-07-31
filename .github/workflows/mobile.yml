@@ -17,9 +17,40 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    timeout-minutes: 30
+    # 6.5 setup + 7 warm-up + 28 tests + 1.5 teardown and upload, leaving the
+    # step timeouts to bind first.
+    timeout-minutes: 46
+    env:
+      # Every runner command is an HTTP request capped by
+      # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
+      # snapshot that runs long aborts and is reported as a connect failure,
+      # which makes agent-device kill and relaunch a runner that was healthy.
+      AGENT_DEVICE_RUNNER_CONNECT_REQUEST_TIMEOUT_MS: 90000
+      # Total deadline per runner command; has to exceed the per-request cap.
+      AGENT_DEVICE_RUNNER_COMMAND_TIMEOUT_MS: 180000
+      # Spawn to AGENT_DEVICE_RUNNER_LISTENER_READY measures 70s on these
+      # runners, so at the 45s default the relaunch path can never succeed.
+      AGENT_DEVICE_RUNNER_STARTUP_TIMEOUT_MS: 180000
+      # Client-to-daemon, not runner-facing: it only has to outlast the above.
+      AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
+      AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
+      BASE_URL: http://localhost:8000
+      SESSION: ios-regressions
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the iOS spec budget
+        run: |
+          shopt -s nullglob
+          files=(scripts/ios-regressions/*.test.ts)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no iOS regression test files found"
+            exit 1
+          fi
+          if [ ${#files[@]} -gt 2 ]; then
+            echo "::error::${#files[@]} iOS specs found; the budget is sized for 2. Raise timeout-minutes on the test step and the job, and the 2 in this guard."
+            exit 1
+          fi
 
       - uses: jdx/mise-action@v2
         with:
@@ -33,14 +64,12 @@ jobs:
       - run: mise install
       - run: mise exec -- poetry install
 
-      - name: Install agent-device
-        run: bun install -g agent-device@0.14.7
-
       - name: Prepare iOS simulator
         run: |
           UDID=$(python - <<'PY'
           import json
           import subprocess
+          import sys
 
           output = subprocess.check_output([
               "xcrun",
@@ -56,8 +85,9 @@ jobs:
               for device in runtime_devices
               if device.get("isAvailable") and "iPhone" in device.get("name", "")
           ]
-          preferred = next((device for device in devices if device["name"] == "iPhone 16"), None)
+          preferred = next((d for d in devices if d["name"] == "iPhone 17 Pro"), None)
           selected = preferred or devices[0]
+          print(selected["name"], file=sys.stderr)
           print(selected["udid"])
           PY
           )
@@ -85,23 +115,47 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
+      # The first runner-backed command builds, launches and attaches the
+      # XCUITest runner, which measures 194-240s. Left inside a test hook it
+      # burns that hook's budget and one of its attempts.
+      - name: Warm up the agent-device runner
+        continue-on-error: true
+        timeout-minutes: 7
+        run: bun run scripts/ios-regressions/warmup.ts
+
       - name: Run iOS Safari regressions
+        # A worst-case attempt is the 360s hook plus the 30s afterAll and bun's
+        # own start and teardown, so ~13.2min per discovered spec at two
+        # attempts each. Raise this and the job cap when adding a third.
+        timeout-minutes: 28
         env:
-          AGENT_DEVICE_DAEMON_TIMEOUT_MS: 240000
-          AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
-          BASE_URL: http://localhost:8000
-          IOS_DEVICE_NAME: iPhone 16
-          SESSION: ios-regressions
+          # Per-attempt cap, sized so four attempts fit the step budget above.
+          # The slowest healthy hook measures 316s.
+          IOS_HOOK_TIMEOUT_MS: 360000
         run: |
-          for attempt in 1 2; do
-            if bun test scripts/ios-regressions/; then
-              exit 0
-            fi
-            echo "iOS regressions attempt ${attempt} failed; retrying after simulator cleanup" >&2
-            xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
-            sleep 15
+          shopt -s nullglob
+          files=(scripts/ios-regressions/*.test.ts)
+
+          # Per file rather than per suite, so a retry re-runs only what failed.
+          # Two attempts each is what fits the step budget above.
+          run_file() {
+            for attempt in 1 2; do
+              if bun test "$1"; then
+                return 0
+              fi
+              echo "::warning::$(basename "$1") attempt ${attempt}/2 failed"
+              # Retrying into a Safari left mid-gesture wastes the second
+              # attempt.
+              xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+            done
+            return 1
+          }
+
+          status=0
+          for file in "${files[@]}"; do
+            run_file "$file" || status=1
           done
-          exit 1
+          exit "$status"
 
       - name: Stop local e2e server
         if: always()
@@ -111,10 +165,11 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: always()
         with:
           name: ios-regression-logs
           path: |
             ios-server.log
+            ~/.agent-device/daemon.log
             ~/.agent-device/logs/
           retention-days: 14

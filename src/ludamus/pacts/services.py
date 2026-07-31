@@ -32,12 +32,19 @@ if TYPE_CHECKING:
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
     )
+    from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
+        EnrollmentSettingsServiceProtocol,
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.event import (
+        EventPanelServiceProtocol,
+        PanelTimeSlotsServiceProtocol,
+    )
+    from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -50,15 +57,19 @@ if TYPE_CHECKING:
         PrintablesReminderServiceProtocol,
         PrintMaterialsServiceProtocol,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
+        CFPSessionFieldServiceProtocol,
         FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
+        ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
+    from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
@@ -82,7 +93,11 @@ class ServicesProtocol(Protocol):
     @property
     def personal_data_fields(self) -> CFPPersonalDataFieldServiceProtocol: ...
     @property
+    def session_fields(self) -> CFPSessionFieldServiceProtocol: ...
+    @property
     def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
+    @property
+    def proposal_category_settings(self) -> ProposalCategorySettingsServiceProtocol: ...
     @property
     def facilitator_panel(self) -> FacilitatorPanelServiceProtocol: ...
     @property
@@ -105,6 +120,12 @@ class ServicesProtocol(Protocol):
     def announcements(self) -> AnnouncementsServiceProtocol: ...
     @property
     def events(self) -> EventsServiceProtocol: ...
+    @property
+    def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def event_settings(self) -> EventSettingsServiceProtocol: ...
+    @property
+    def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
@@ -132,6 +153,8 @@ class ServicesProtocol(Protocol):
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property
+    def enrollment_settings(self) -> EnrollmentSettingsServiceProtocol: ...
+    @property
     def print_materials(self) -> PrintMaterialsServiceProtocol: ...
     @property
     def printables_reminder(self) -> PrintablesReminderServiceProtocol: ...
@@ -155,3 +178,9 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
+    @property
+    def tracks_panel(self) -> TracksPanelServiceProtocol: ...
+    @property
+    def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...

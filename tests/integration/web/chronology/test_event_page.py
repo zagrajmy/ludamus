@@ -46,6 +46,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
     ProposalCategoryFactory,
@@ -70,14 +71,6 @@ def _schedule_context(url: str) -> dict[str, object]:
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
     }
-
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 class TestEventPageView:
@@ -121,6 +114,30 @@ class TestEventPageView:
             not_contains="Enrollment Open",
             cache_control={"private", "max-age=180"},
         )
+        assert "Cookie" in response.headers.get("Vary", "")
+
+    def test_offered_seats_count_toward_capacity(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        space = SpaceFactory(event=event)
+        session = SessionFactory(event=event, category=None, participants_limit=2)
+        AgendaItemFactory(session=session, space=space)
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            session=session,
+            user=UserFactory(),
+            status=SessionParticipationStatus.OFFERED,
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        sessions = response.context_data["sessions"]
+        card = next(item for item in sessions if item.session.pk == session.pk)
+        assert card.is_full
+        assert card.enrolled_count == session.participants_limit
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
@@ -3721,10 +3738,49 @@ class TestEventPageView:
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
-    def test_unpublished_event_visible_for_manager(
+    def test_unpublished_event_visible_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, sphere
+    ):
+        event = EventFactory(sphere=sphere, publication_time=None)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "pending_review_visible": True,
+                "pending_sessions": [],
+                "pending_wizard_view": panel_access_user.is_superuser,
+                "own_pending_proposals": [],
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+        )
+
+    def test_superuser_who_manages_sphere_gets_manager_view(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
+        active_user.is_superuser = True
+        active_user.save()
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self._get_url(event.slug))

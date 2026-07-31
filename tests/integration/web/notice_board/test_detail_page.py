@@ -1,13 +1,16 @@
 from http import HTTPStatus
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.meta import encounter_description
 from ludamus.links.db.django.models import EncounterRSVP
 from ludamus.links.gravatar import gravatar_url
 from ludamus.mills import google_calendar_url, outlook_calendar_url, render_markdown
 from ludamus.pacts import EncounterDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     EncounterFactory,
     EncounterRSVPFactory,
     UserFactory,
@@ -33,6 +36,9 @@ def _detail_context(
     encounter, *, is_creator=False, user_has_rsvpd=False, attendees=None, rsvp_count=0
 ):
     encounter_dto = EncounterDTO.model_validate(encounter)
+    description_html = (
+        render_markdown(encounter.description) if encounter.description else ""
+    )
     share_url = "http://testserver" + reverse(
         "web:notice-board:encounter-detail", kwargs={"share_code": encounter.share_code}
     )
@@ -47,8 +53,9 @@ def _detail_context(
         ),
         "spots_remaining": max(0, spots) if encounter.max_participants > 0 else None,
         "is_creator": is_creator,
-        "description_html": (
-            render_markdown(encounter.description) if encounter.description else ""
+        "description_html": description_html,
+        "encounter_meta_description": encounter_description(
+            encounter_dto, description_html
         ),
         "share_url": share_url,
         "user_has_rsvpd": user_has_rsvpd,
@@ -72,6 +79,26 @@ class TestEncounterDetailPageView:
             context_data=_detail_context(encounter),
             template_name="notice_board/detail.html",
         )
+
+    def test_ok_with_header_image(self, client, encounter):
+        encounter.header_image = SimpleUploadedFile(
+            "header.png", PNG_BYTES, content_type="image/png"
+        )
+        encounter.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(encounter),
+            template_name="notice_board/detail.html",
+        )
+        assert encounter.header_image_url.encode() in response.content
 
     def test_shows_creator_discord_handle(self, client, encounter):
         encounter.creator.discord_username = "coolgm"

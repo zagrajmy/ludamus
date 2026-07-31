@@ -21,9 +21,10 @@ from ludamus.links.db.django.repositories.chronology import (
     location_data,
     session_card_stats,
 )
-from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
+    OCCUPYING_PARTICIPATION_STATUSES,
     UNSCHEDULED_LIST_LIMIT,
     AgendaItemDTO,
     EventDTO,
@@ -65,6 +66,23 @@ def _parse_iso8601_duration_minutes(duration: str) -> int:
     hours = int(m.group(1) or 0)
     minutes = int(m.group(2) or 0)
     return hours * 60 + minutes
+
+
+def annotate_session_participation_counts(
+    queryset: QuerySet[Session],
+) -> QuerySet[Session]:
+    return queryset.annotate(
+        enrolled_count_cached=Count(
+            "session_participations",
+            filter=Q(
+                session_participations__status__in=OCCUPYING_PARTICIPATION_STATUSES
+            ),
+        ),
+        waiting_count_cached=Count(
+            "session_participations",
+            filter=Q(session_participations__status=SessionParticipationStatus.WAITING),
+        ),
+    )
 
 
 def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
@@ -166,21 +184,8 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         viewer_user_ids: list[int],
         editor_user_id: int | None,
     ) -> SessionModalDTO | None:
-        base = Session.objects.filter(agenda_item__isnull=False).annotate(
-            enrolled_count_cached=Count(
-                "session_participations",
-                filter=Q(
-                    session_participations__status=(
-                        SessionParticipationStatus.CONFIRMED
-                    )
-                ),
-            ),
-            waiting_count_cached=Count(
-                "session_participations",
-                filter=Q(
-                    session_participations__status=(SessionParticipationStatus.WAITING)
-                ),
-            ),
+        base = annotate_session_participation_counts(
+            Session.objects.filter(agenda_item__isnull=False)
         )
         try:
             session = with_session_card_relations(base).get(
@@ -243,12 +248,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             session = Session.objects.get(id=pk)
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
-        old_cover = session.cover_image.name
-        for key, value in data.items():
-            setattr(session, key, value)
-        session.save(update_fields=list(data.keys()))
-        if old_cover and old_cover != session.cover_image.name:
-            delete_stored_file(session.cover_image, old_cover)
+        save_replacing_files(session, data)
 
     @staticmethod
     def soft_delete(pk: int) -> None:
@@ -602,6 +602,31 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def clear_field_values(session_id: int) -> None:
         SessionFieldValue.objects.filter(session_id=session_id).delete()
+
+    @staticmethod
+    def read_facilitators_by_sessions(
+        session_ids: Iterable[int],
+    ) -> dict[int, list[FacilitatorDTO]]:
+        ids = list(session_ids)
+        rows = (
+            Session.facilitators.through.objects.filter(session_id__in=ids)
+            .select_related("facilitator")
+            .order_by("facilitator__display_name")
+        )
+        result: dict[int, list[FacilitatorDTO]] = {sid: [] for sid in ids}
+        for row in rows:
+            result[row.session_id].append(
+                FacilitatorDTO.model_validate(row.facilitator)
+            )
+        return result
+
+    @staticmethod
+    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
+        return dict(
+            Session.objects.filter(pk__in=session_ids).values_list(
+                "pk", "participants_limit"
+            )
+        )
 
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:

@@ -30,7 +30,7 @@ def render_input(field: BoundField) -> str:
     widget = field.field.widget
     attrs = widget.attrs
     value = field.value()
-    input_type = getattr(widget, "input_type", "text")
+    input_type = attrs.get("type", getattr(widget, "input_type", "text"))
     spellcheck = attrs.get("spellcheck")
     if spellcheck is None and input_type in _NO_SPELLCHECK_TYPES:
         spellcheck = "false"

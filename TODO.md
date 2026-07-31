@@ -100,6 +100,9 @@ kanban
     [Panel object-scope authorization - close IDOR holes]@{
       assigned: 'GLIMPSE'
     }
+    [Link form field errors to inputs - aria-invalid + aria-describedby]@{
+      assigned: 'frontend'
+    }
 
   chores
     [Expand README.md - description, features, quick start]@{
@@ -191,5 +194,8 @@ kanban
     [Space reordering has no keyboard alternative to drag-and-drop]@{
       assigned: 'frontend'
       ticket: 281
+    }
+    [Theme toggle doesn't sync browser chrome (color-scheme)]@{
+      assigned: 'frontend'
     }
 ```

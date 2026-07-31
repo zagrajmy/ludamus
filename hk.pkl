@@ -58,6 +58,11 @@ local linters = new Mapping<String, Step> {
     )
   }
 
+  // Frontend — oxlint, run as an aube devDep like oxfmt
+  ["oxlint"] = (Builtins.ox_lint) {
+    prefix = "aube exec"
+  }
+
   // Config / infra
   ["yamllint"] = Builtins.yamllint
   ["actionlint"] = Builtins.actionlint

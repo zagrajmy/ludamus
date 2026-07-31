@@ -14,6 +14,7 @@ from ludamus.links.db.django.models import (
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
 from ludamus.pacts import SessionDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
@@ -22,12 +23,6 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response, assert_response_404
 
 FRAGMENT = "chronology/parts/session-edit-form.html"
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 def _expected_session(session):
@@ -68,7 +63,7 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -141,7 +136,7 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -171,7 +166,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": True,
             },
@@ -195,7 +190,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": True,
             },
@@ -291,7 +286,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -322,7 +317,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -394,6 +389,7 @@ class TestSessionEditViewPost:
             slug="genres",
             field_type="select",
             is_multiple=True,
+            allow_custom=True,
             order=0,
         )
         SessionFieldOption.objects.create(
@@ -456,6 +452,27 @@ class TestSessionEditViewPost:
         assert 'name="session_field_genres"' in content
         assert 'name="session_field_system_custom"' in content
         assert 'name="session_field_adult"' in content
+
+    def test_htmx_post_merges_a_write_in_into_a_multi_value_field(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, _system, _adult, _notes = self._make_fields(event)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=genres, value=["horror", "kobolds"]
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(
+                session_fields_submitted="1",
+                session_field_genres=["horror"],
+                session_field_genres_custom="kobolds; gore",
+            ),
+            headers={"hx-request": "true"},
+        )
+
+        value = SessionFieldValue.objects.get(session=owned_session, field=genres).value
+        assert value == ["horror", "kobolds", "gore"]
 
     def test_htmx_post_saves_every_field_type(
         self, authenticated_client, event, owned_session

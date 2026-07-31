@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/fixtures";
 
 test.describe("Anonymous proposals", () => {
   test("redirects to login when anonymous proposals are disabled", async ({ page }) => {
@@ -21,6 +21,9 @@ test.describe("Anonymous proposals", () => {
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page.getByLabel(/duration/i).selectOption("PT1H");
+    // The open-mic category asks for two organizer-defined fields, both required.
+    await page.getByRole("checkbox", { name: "Comedy" }).check();
+    await page.locator("#id_session_system").fill("Dungeon World");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();

@@ -15,6 +15,13 @@ Auth0 is the real identity provider, so local login goes through a bundled
 `~/.simulacrum/certs`). With those in place, `mise run start` runs the simulator
 on `:4400` and the normal login flow works against it.
 
+The seeded sphere-manager login is:
+
+```text
+Email: default@example.com
+Password: 12345
+```
+
 If `AUTH0_DOMAIN` points at a real tenant (the default in some `.env.local`
 files), the simulator stays idle and you cannot log in locally — switch
 `AUTH0_DOMAIN` to e.g. `auth0.localhost` for simulator-backed login.

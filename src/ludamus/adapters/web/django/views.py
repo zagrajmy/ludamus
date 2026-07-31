@@ -13,7 +13,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Count, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -21,6 +20,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
+from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView, View
 from django.views.generic.detail import DetailView
 
@@ -30,6 +30,7 @@ from ludamus.adapters.web.django.forms import (
     RosterMember,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_session
+from ludamus.gates.web.django.access import PanelAccess, has_panel_access, panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
@@ -55,7 +56,6 @@ from ludamus.gates.web.django.entities import (
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     AgendaItem,
-    EnrollmentConfig,
     Event,
     EventSettings,
     Session,
@@ -64,10 +64,15 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.sessions import (
+    annotate_session_participation_counts,
     field_value_dto,
     with_session_card_relations,
 )
-from ludamus.mills.enrollment import get_user_enrollment_config
+from ludamus.mills.enrollment import (
+    EnrollmentPolicy,
+    get_user_enrollment_config,
+    restricts_everyone,
+)
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
@@ -183,17 +188,7 @@ class IndexRedirectView(View):
         return redirect("web:events")
 
 
-def _is_manager(request: RootRequest) -> bool:
-    return (
-        request.user.is_authenticated
-        and request.context.current_user_slug is not None
-        and request.di.uow.spheres.is_manager(
-            request.context.current_sphere_id, request.context.current_user_slug
-        )
-    )
-
-
-@method_decorator(cache_control(private=True, max_age=180), name="get")
+@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
@@ -205,7 +200,7 @@ class EventsPageView(TemplateView):
             sphere_id
         )
         items = self.request.services.events.list_for_sphere(
-            sphere_id, include_unpublished=_is_manager(self.request)
+            sphere_id, include_unpublished=has_panel_access(self.request)
         )
         context["upcoming_events"] = self._with_covers(
             sorted(
@@ -263,7 +258,7 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator(cache_control(private=True, max_age=180), name="get")
+@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
@@ -284,30 +279,15 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
 
-        if not self.object.is_published and not _is_manager(self.request):
+        if not self.object.is_published and not has_panel_access(self.request):
             raise Http404
 
         # Get all sessions for this event that are published
-        event_sessions = (
+        event_sessions = annotate_session_participation_counts(
             with_session_card_relations(
                 Session.objects.filter(event=self.object, agenda_item__isnull=False)
             )
-            .annotate(
-                enrolled_count_cached=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status=SessionParticipationStatus.CONFIRMED
-                    ),
-                ),
-                waiting_count_cached=Count(
-                    "session_participations",
-                    filter=Q(
-                        session_participations__status=SessionParticipationStatus.WAITING
-                    ),
-                ),
-            )
-            .order_by("agenda_item__start_time")
-        )
+        ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
         banned_by: set[int] = set()
@@ -475,20 +455,13 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ):
             return context
 
-        is_sphere_manager = self.object.sphere.managers.filter(
-            id=self.request.context.current_user_id
-        ).exists()
-        is_superuser = self.request.di.uow.active_users.read(
-            self.request.context.current_user_slug
-        ).is_superuser
-
-        if is_superuser or is_sphere_manager:
+        if (access := panel_access(self.request)) is not PanelAccess.NONE:
             return context | {
                 "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
                     self.object.pk
                 ),
                 "pending_review_visible": True,
-                "pending_wizard_view": is_superuser and not is_sphere_manager,
+                "pending_wizard_view": access is PanelAccess.SUPERUSER,
             }
 
         return context | {
@@ -856,6 +829,7 @@ _status_by_choice = {
 
 class SessionEnrollPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
+    _policies: dict[int, EnrollmentPolicy] | None = None
 
     def get(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
@@ -957,10 +931,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 [member.user_pk for member in eligible]
             )
         }
-        enrollment_config = session.event.get_most_liberal_config(session)
-        restricted = bool(
-            enrollment_config and enrollment_config.restrict_to_configured_users
-        )
+        restricted = self._restricts_unconfigured(session)
         return [
             RosterMember(
                 user=users[member.user_pk],
@@ -982,25 +953,18 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     @staticmethod
     def _validate_request(
         session: Session, enrollment_requests: list[EnrollmentRequest] | None = None
-    ) -> EnrollmentConfig | None:
-        event = session.event
+    ) -> None:
         if enrollment_requests and all(
             req.choice == EnrollmentChoice.CANCEL for req in enrollment_requests
         ):
             # Cancels release seats and must work with all configs deleted.
-            return event.enrollment_configs.order_by("pk").first()
+            return
 
-        if not (enrollment_config := event.get_most_liberal_config(session)):
+        if not session.event.get_eligible_enrollment_configs(session):
             raise RedirectError(
                 reverse("web:chronology:event", kwargs={"slug": session.event.slug}),
                 error=_("No enrollment configuration is available for this session."),
             )
-
-        # Note: UserDTO slot limits (max number of unique users that can be enrolled)
-        # are handled in _process_enrollments(). Users can enroll in multiple sessions
-        # without consuming additional slots. No need to block access here.
-
-        return enrollment_config
 
     def _get_user_participation_data(
         self,
@@ -1122,8 +1086,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             for error in field_errors:
                 messages.error(self.request, str(error))
 
-        enrollment_config = session.event.get_most_liberal_config(session)
-        if not (enrollment_config and enrollment_config.restrict_to_configured_users):
+        if not self._restricts_unconfigured(session):
             messages.warning(
                 self.request, _("Please review the enrollment options below.")
             )
@@ -1192,11 +1155,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Only validate enrollment requirements when form is valid
         enrollment_requests = self._get_enrollment_requests(form, roster, session)
         try:
-            enrollment_config = self._validate_request(session, enrollment_requests)
+            self._validate_request(session, enrollment_requests)
             self._manage_enrollments(
                 form=form,
                 session=session,
-                enrollment_config=enrollment_config,
                 roster=roster,
                 party_pk=selection.selected.pk if selection.selected else None,
             )
@@ -1319,6 +1281,37 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             form, session, wants_in, member_pks, freed
         )
 
+    def _actor_policy(self, session: Session) -> EnrollmentPolicy:
+        if self._policies is None:
+            self._policies = {}
+        if session.pk not in self._policies:
+            viewer = self.request.services.enrollment.read_viewer(
+                self.request.context.current_user_slug
+            )
+            self._policies[session.pk] = EnrollmentPolicy.for_actor(
+                session.event.get_eligible_enrollment_configs(session),
+                is_configured_user=self._member_has_access(session, viewer),
+            )
+        return self._policies[session.pk]
+
+    @staticmethod
+    def _restricts_unconfigured(session: Session) -> bool:
+        return restricts_everyone(
+            session.event.get_eligible_enrollment_configs(session)
+        )
+
+    @staticmethod
+    def _spots(
+        enrollment_policy: EnrollmentPolicy, session: Session, *, freed: int
+    ) -> int:
+        return enrollment_policy.available_slots(
+            participants_limit=session.participants_limit,
+            enrolled_count=session.enrolled_count - freed,
+        )
+
+    def _available_slots(self, session: Session, *, freed: int = 0) -> int:
+        return self._spots(self._actor_policy(session), session, freed=freed)
+
     def _route_wants_in(
         self,
         form: forms.Form,
@@ -1329,11 +1322,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     ) -> list[EnrollmentRequest]:
         # Fill confirmed seats first (viewer, then companions, then members — the
         # household order), overflow to the waiting list. Counting matches
-        # _is_capacity_invalid so the capacity net never rejects this routing.
-        enrollment_config = session.event.get_most_liberal_config(session)
-        available = freed + (
-            enrollment_config.get_available_slots(session) if enrollment_config else 0
-        )
+        available = self._available_slots(session, freed=freed)
         routed: list[EnrollmentRequest] = []
         for member in wants_in:
             user = member.user
@@ -1381,7 +1370,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         *,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
-        enrollment_config: EnrollmentConfig | None,
         party_pk: int | None,
         guests_target: int | None = None,
     ) -> Enrollments:
@@ -1404,7 +1392,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         if self._is_capacity_invalid(
             enrollment_requests,
             session,
-            enrollment_config,
             guest_seats_needed=guest_seats_needed,
             guest_seats_freed=guest_seats_freed,
         ):
@@ -1627,14 +1614,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         self,
         enrollment_requests: list[EnrollmentRequest],
         session: Session,
-        enrollment_config: EnrollmentConfig | None,
         *,
         guest_seats_needed: int = 0,
         guest_seats_freed: int = 0,
     ) -> bool:
-        enroll_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
-        enroll_count += guest_seats_needed
-        if enroll_count == 0:
+        member_count = sum(1 for req in enrollment_requests if req.choice == "enroll")
+        if (enroll_count := member_count + guest_seats_needed) == 0:
             return False
 
         # A cancellation in the same batch frees its held seat (CONFIRMED or
@@ -1651,41 +1636,46 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 status__in=OCCUPYING_PARTICIPATION_STATUSES,
             ).count()
 
-        # Zero config rows (cancel-only carve-out) contribute no slots; guest
-        # increases stay bounded by seats freed by the same batch's cancels.
-        config_slots = (
-            enrollment_config.get_available_slots(session) if enrollment_config else 0
+        session_policy = EnrollmentPolicy.for_actor(
+            session.event.get_eligible_enrollment_configs(session),
+            is_configured_user=True,
         )
-        available_spots = config_slots + freed_spots
-
-        if enroll_count > available_spots:
-            # Guests cannot wait on the list, so the generic "use the waiting
-            # list" advice would be a dead end when guests caused the overflow.
-            message = (
-                _(
-                    "Not enough spots available. {} spots requested, {} available. "
-                    "Bring fewer guests or use the waiting list for account "
-                    "holders."
-                )
-                if guest_seats_needed
-                else _(
-                    "Not enough spots available. {} spots requested, {} available. "
-                    "Please use waiting list for some users."
-                )
-            )
-            messages.error(
-                self.request, str(message).format(enroll_count, available_spots)
-            )
+        available_spots = (
+            self._spots(session_policy, session, freed=freed_spots)
+            if session_policy.can_enroll
+            else freed_spots
+        )
+        member_spots = self._available_slots(session, freed=freed_spots)
+        if member_count > member_spots:
+            self._report_overflow(member_count, member_spots, blame_guests=False)
             return True
-
+        if enroll_count > available_spots:
+            self._report_overflow(enroll_count, available_spots, blame_guests=True)
+            return True
         return False
+
+    def _report_overflow(
+        self, requested: int, available: int, *, blame_guests: bool
+    ) -> None:
+        message = (
+            _(
+                "Not enough spots available. {} spots requested, {} available. "
+                "Bring fewer guests or use the waiting list for account "
+                "holders."
+            )
+            if blame_guests
+            else _(
+                "Not enough spots available. {} spots requested, {} available. "
+                "Please use waiting list for some users."
+            )
+        )
+        messages.error(self.request, str(message).format(requested, available))
 
     def _manage_enrollments(
         self,
         *,
         form: forms.Form,
         session: Session,
-        enrollment_config: EnrollmentConfig | None,
         roster: EnrollmentRoster,
         party_pk: int | None,
     ) -> None:
@@ -1703,7 +1693,6 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 enrollments = self._process_enrollments(
                     enrollment_requests=enrollment_requests,
                     session=session,
-                    enrollment_config=enrollment_config,
                     party_pk=party_pk,
                     guests_target=guests_target,
                 )

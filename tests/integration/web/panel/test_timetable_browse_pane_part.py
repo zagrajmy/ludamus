@@ -77,7 +77,7 @@ class TestTimetableBrowsePanePartView:
                 "category_pk": 7,
                 "max_duration_minutes": 30,
                 "search": "abc",
-                "selected_date": date(2026, 9, 4),
+                "date_selection": date(2026, 9, 4),
                 "slug": event.slug,
                 "current_event": EventDTO.model_validate(event),
             },

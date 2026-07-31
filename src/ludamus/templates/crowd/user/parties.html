@@ -129,30 +129,32 @@
                                 <div id="party-menu-{{ entry.party.pk }}"
                                      data-menu-panel
                                      hidden
-                                     class="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border border-border bg-bg-secondary overflow-hidden shadow-(--shadow-elevated)">
-                                    <a href="?rename={{ entry.party.pk }}"
-                                       class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left text-foreground-secondary hover:bg-bg-tertiary"
-                                       aria-controls="rename-modal-{{ entry.party.pk }}"
-                                       aria-haspopup="dialog">
-                                        {% icon "pencil" class="w-4 h-4 opacity-60" %}
-                                        {% translate "Rename" %}
-                                    </a>
-                                    <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
-                                       class="flex items-center gap-2 px-3.5 py-2.5 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                                        {% icon "clock" class="w-4 h-4 opacity-60" %}
-                                        {% translate "History" %}
-                                    </a>
-                                    <form method="post"
-                                          action="{% url 'web:crowd:parties-delete' pk=entry.party.pk %}"
-                                          data-confirm="{% translate "Delete this party? Members keep their own accounts." %}"
-                                          data-confirm-action="{% translate "Delete party" %}">
-                                        {% csrf_token %}
-                                        <button type="submit"
-                                                class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left border-t border-border text-danger hover:bg-danger-bg">
-                                            {% icon "trash" class="w-4 h-4" %}
-                                            {% translate "Remove" %}
-                                        </button>
-                                    </form>
+                                     class="absolute right-0 top-full mt-1 z-50">
+                                    <div {% include "components/menu_surface.html" with extra_class="w-44 rounded-lg border border-border bg-bg-secondary overflow-hidden shadow-(--shadow-elevated)" %}>
+                                        <a href="?rename={{ entry.party.pk }}"
+                                           class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left text-foreground-secondary hover:bg-bg-tertiary"
+                                           aria-controls="rename-modal-{{ entry.party.pk }}"
+                                           aria-haspopup="dialog">
+                                            {% icon "pencil" class="w-4 h-4 opacity-60" %}
+                                            {% translate "Rename" %}
+                                        </a>
+                                        <a href="{% url 'web:crowd:party-detail' pk=entry.party.pk %}"
+                                           class="flex items-center gap-2 px-3.5 py-2.5 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                            {% icon "clock" class="w-4 h-4 opacity-60" %}
+                                            {% translate "History" %}
+                                        </a>
+                                        <form method="post"
+                                              action="{% url 'web:crowd:parties-delete' pk=entry.party.pk %}"
+                                              data-confirm="{% translate "Delete this party? Members keep their own accounts." %}"
+                                              data-confirm-action="{% translate "Delete party" %}">
+                                            {% csrf_token %}
+                                            <button type="submit"
+                                                    class="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm text-left border-t border-border text-danger hover:bg-danger-bg">
+                                                {% icon "trash" class="w-4 h-4" %}
+                                                {% translate "Remove" %}
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         {% else %}

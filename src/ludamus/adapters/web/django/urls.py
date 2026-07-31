@@ -1,10 +1,12 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -13,7 +15,6 @@ from ludamus.gates.web.django.notice_board.urls import (
 )
 
 from . import views
-from .print_views import PublicEventPrintView
 
 app_name = "web"  # pylint: disable=invalid-name
 
@@ -55,12 +56,8 @@ urlpatterns = [
         name="notifications-mark-read",
     ),
     path("design/", views.DesignPageView.as_view(), name="design"),
+    path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
-    path(
-        "design/tailwind/",
-        TemplateView.as_view(template_name="design_tailwind.html"),
-        name="design-tailwind",
-    ),
     path("", include((chronology_urls, "chronology"), namespace="chronology")),
     # Permanent redirects for links shared before the `chronology/` path segment
     # was dropped from public event URLs (issue #543, A4). View names are
@@ -71,6 +68,9 @@ urlpatterns = [
         name="chronology-legacy-redirect",
     ),
     path("crowd/", include((crowd_urls, "crowd"), namespace="crowd")),
+    # The Auth0 tenant's error page setting points here; the path must stay
+    # /auth-error to match it.
+    path("auth-error/", auth_error_page, name="auth-error"),
     path(
         "",
         include(

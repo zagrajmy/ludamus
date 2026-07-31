@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from urllib.parse import urlencode
 
-from django.contrib import messages
 from django.urls import reverse
 
 from tests.integration.utils import assert_response
@@ -16,7 +15,7 @@ class TestAuth0LogoutActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "You have been successfully logged out.")],
+            messages=[],
             url="https://auth0.example.com/v2/logout?"
             + urlencode(
                 {

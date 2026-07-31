@@ -10,12 +10,14 @@
     {% if current_event %}{{ current_event.name }}{% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if current_event %}
-        <div class="card p-6 max-w-2xl">
-            <p class="text-sm text-foreground-muted mb-4">
-                {% translate "Open a print-ready page, then use your browser to save it as a PDF or print it. Use the scope menu to print a single space — a room, a floor, or a whole building. Door cards can be limited to a time window — leave the start empty to print the whole event." %}
-            </p>
-            <div class="flex gap-3 flex-wrap items-center">{% include "panel/parts/print-controls.html" %}</div>
-        </div>
-    {% endif %}
+    <div class="p-4">
+        {% if current_event %}
+            <div class="card p-6 max-w-2xl">
+                <p class="text-sm text-foreground-muted mb-4">
+                    {% translate "Open a print-ready page, then use your browser to save it as a PDF or print it. Use the scope menu to print a single space — a room, a floor, or a whole building. Door cards can be limited to a time window — leave the start empty to print the whole event." %}
+                </p>
+                <div class="flex gap-3 flex-wrap items-center">{% include "panel/parts/print-controls.html" %}</div>
+            </div>
+        {% endif %}
+    </div>
 {% endblock content %}

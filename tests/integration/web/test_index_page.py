@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -12,19 +13,13 @@ from ludamus.links.db.django.models import Announcement
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
-
-PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
-    b"\x00\x00\x0cIDATx\x9cc```\x00\x00\x00\x04\x00\x01"
-    b"\xf6\x178U\x00\x00\x00\x00IEND\xaeB`\x82"
-)
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -84,6 +79,7 @@ class TestEventsPageView:
             template_name=["index.html"],
             cache_control={"private", "max-age=180"},
         )
+        assert "Cookie" in response.headers.get("Vary", "")
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
 
     def test_ok_with_event(self, client, event):
@@ -314,24 +310,28 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_panel_link_shown_for_sphere_manager(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
-
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_panel_link_shown_for_manager_and_superuser(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert "is_sphere_manager" in response.context
-        assert response.context["is_sphere_manager"] is True
-        assert b"Panel" in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["index.html"],
+            contains='href="/panel/"',
+        )
 
     def test_panel_link_hidden_for_non_manager(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["is_sphere_manager"] is False
-        assert b'href="/panel/"' not in response.content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["index.html"],
+            not_contains='href="/panel/"',
+        )
 
     def test_published_announcement_shown(self, client, sphere):
         announcement = Announcement.objects.create(
@@ -428,10 +428,10 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_unpublished_event_visible_for_manager(
-        self, authenticated_client, active_user, sphere
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_unpublished_event_visible_for_manager_and_superuser(
+        self, authenticated_client, sphere
     ):
-        sphere.managers.add(active_user)
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self.URL)

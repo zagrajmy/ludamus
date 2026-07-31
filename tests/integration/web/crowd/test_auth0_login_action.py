@@ -1,6 +1,6 @@
 import json
 from http import HTTPStatus
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 from django.core.cache import cache
 from django.http import HttpResponse
@@ -19,12 +19,10 @@ class TestAuth0LoginActionView:
         response = client.get(self.URL)
 
         assert_response(response, HTTPStatus.OK)
-        oauth_mock.auth0.authorize_redirect.assert_called_once_with(
-            ANY, "http://testserver/crowd/auth0/do/login/callback", state=ANY
-        )
-        cache_key = (
-            f"oauth_state:{oauth_mock.auth0.authorize_redirect.call_args[1]['state']}"
-        )
+        assert oauth_mock.auth0.authorize_redirect.call_count == 1
+        call = oauth_mock.auth0.authorize_redirect.call_args
+        assert call.args[1] == "http://testserver/crowd/auth0/do/login/callback"
+        cache_key = f"oauth_state:{call.kwargs['state']}"
         cached_data = json.loads(cache.get(cache_key))
         assert cached_data == {
             "redirect_to": None,
@@ -43,6 +41,28 @@ class TestAuth0LoginActionView:
         )
         cached_data = json.loads(cache.get(cache_key))
         assert cached_data["redirect_to"] is None
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth")
+    def test_ok_redirect_forwards_signup_screen_hint(self, oauth_mock, client):
+        oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
+
+        response = client.get(f"{self.URL}?screen_hint=signup")
+
+        assert_response(response, HTTPStatus.OK)
+        call = oauth_mock.auth0.authorize_redirect.call_args
+        assert call.args[1] == "http://testserver/crowd/auth0/do/login/callback"
+        assert call.kwargs["screen_hint"] == "signup"
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth")
+    def test_ok_redirect_drops_unknown_screen_hint(self, oauth_mock, client):
+        oauth_mock.auth0.authorize_redirect.return_value = HttpResponse()
+
+        response = client.get(f"{self.URL}?screen_hint=deleteme")
+
+        assert_response(response, HTTPStatus.OK)
+        call = oauth_mock.auth0.authorize_redirect.call_args
+        assert call.args[1] == "http://testserver/crowd/auth0/do/login/callback"
+        assert "screen_hint" not in call.kwargs
 
     def test_error_non_root_domain(self, client, non_root_sphere):
         response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
@@ -66,4 +86,32 @@ class TestAuth0LoginActionView:
                 "http://testserver/crowd/auth0/do/login"
                 f"?next=http%3A%2F%2F{domain}%2Fevent%2Fmy-event%2Fsession%2Fpropose%2F"
             ),
+        )
+
+    def test_error_non_root_domain_preserves_screen_hint(self, client, non_root_sphere):
+        domain = non_root_sphere.site.domain
+        response = client.get(
+            f"{self.URL}?screen_hint=signup&next=/events/", HTTP_HOST=domain
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=(
+                "http://testserver/crowd/auth0/do/login"
+                f"?next=http%3A%2F%2F{domain}%2Fevents%2F&screen_hint=signup"
+            ),
+        )
+
+    def test_error_non_root_domain_forwards_screen_hint_without_next(
+        self, client, non_root_sphere
+    ):
+        response = client.get(
+            f"{self.URL}?screen_hint=signup", HTTP_HOST=non_root_sphere.site.domain
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/auth0/do/login?screen_hint=signup",
         )

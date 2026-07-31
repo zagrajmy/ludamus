@@ -26,10 +26,17 @@ const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!
 
 const grid = (): HTMLElement => document.getElementById("timetable-grid")!;
 
-const calendar = (): HTMLElement | null => document.getElementById("timetable-calendar");
+const dayGrids = (): NodeListOf<HTMLElement> =>
+  document.querySelectorAll<HTMLElement>(".timetable-day-grid");
 
 const columns = (): NodeListOf<HTMLElement> =>
   document.querySelectorAll<HTMLElement>(".timetable-column");
+
+const columnsForDayGrid = (dayGrid: HTMLElement): NodeListOf<HTMLElement> =>
+  dayGrid.querySelectorAll<HTMLElement>(".timetable-column");
+
+const dayGridForColumn = (col: HTMLElement): HTMLElement | null =>
+  col.closest<HTMLElement>(".timetable-day-grid");
 
 const csrfToken = (): string =>
   (document.querySelector("[name=csrfmiddlewaretoken]") as HTMLInputElement).value;
@@ -86,7 +93,7 @@ function hideDropGuide(): void {
 // A ghost block, snapped to the drop time and sized to the session, shown
 // inside the hovered column while dragging -- the Google-Calendar drop preview.
 function showDropGuide(col: HTMLElement, startDt: Date, placement: Placement): void {
-  const cal = calendar();
+  const cal = dayGridForColumn(col);
   if (!cal?.dataset.eventStart) return;
   const minutePx = pxPerMinute(cal);
   const topPx =
@@ -126,38 +133,37 @@ function renderPreferredSlotOverlays(): void {
   clearPreferredSlotOverlays();
   const slots = (armed ?? dragging)?.preferredSlots ?? [];
   if (slots.length === 0) return;
-  const cal = calendar();
-  if (!cal) return;
-  const { eventStart } = cal.dataset;
-  if (!eventStart) return;
 
-  const totalMinutes = Number(cal.dataset.totalMinutes);
-  if (!totalMinutes) return;
+  for (const cal of dayGrids()) {
+    const { eventStart } = cal.dataset;
+    if (!eventStart) continue;
 
-  const eventStartMs = new Date(eventStart).getTime();
-  const minutePx = pxPerMinute(cal);
-  const pxPerMs = minutePx / 60_000;
-  const totalHeightPx = totalMinutes * minutePx;
-  const cols = columns();
-  if (cols.length === 0) return;
+    const totalMinutes = Number(cal.dataset.totalMinutes);
+    if (!totalMinutes) continue;
 
-  for (const slot of slots) {
-    const startMs = new Date(slot.start).getTime();
-    const endMs = new Date(slot.end).getTime();
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+    const eventStartMs = new Date(eventStart).getTime();
+    const minutePx = pxPerMinute(cal);
+    const pxPerMs = minutePx / 60_000;
+    const totalHeightPx = totalMinutes * minutePx;
 
-    const rawTop = (startMs - eventStartMs) * pxPerMs;
-    const rawBottom = (endMs - eventStartMs) * pxPerMs;
-    const top = Math.max(0, rawTop);
-    const bottom = Math.min(totalHeightPx, rawBottom);
-    if (bottom <= top) continue;
+    for (const slot of slots) {
+      const startMs = new Date(slot.start).getTime();
+      const endMs = new Date(slot.end).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
 
-    for (const col of cols) {
-      const overlay = document.createElement("div");
-      overlay.className = "timetable-preferred-slot";
-      overlay.style.top = `calc(${top}px + 20px)`;
-      overlay.style.height = `${bottom - top}px`;
-      col.append(overlay);
+      const rawTop = (startMs - eventStartMs) * pxPerMs;
+      const rawBottom = (endMs - eventStartMs) * pxPerMs;
+      const top = Math.max(0, rawTop);
+      const bottom = Math.min(totalHeightPx, rawBottom);
+      if (bottom <= top) continue;
+
+      for (const col of columnsForDayGrid(cal)) {
+        const overlay = document.createElement("div");
+        overlay.className = "timetable-preferred-slot";
+        overlay.style.top = `calc(${top}px + 20px)`;
+        overlay.style.height = `${bottom - top}px`;
+        col.append(overlay);
+      }
     }
   }
 }
@@ -203,7 +209,7 @@ function placementFromDraggable(el: HTMLElement): Placement {
 }
 
 function startTimeAt(col: HTMLElement, clientY: number): Date | null {
-  const cal = calendar();
+  const cal = dayGridForColumn(col);
   if (!cal) return null;
   const { eventStart } = cal.dataset;
   if (!eventStart) return null;
@@ -356,7 +362,7 @@ document.addEventListener("mousemove", (e) => {
     return;
   }
 
-  const cal = calendar();
+  const cal = dayGridForColumn(col);
   const startDt = cal && startTimeAt(col, e.clientY);
   if (!cal || !startDt) return;
   const endDt = new Date(startDt.getTime() + armed.duration * 60_000);
@@ -405,3 +411,160 @@ document.addEventListener("keydown", (e) => {
     exitAssignMode();
   }
 });
+
+// --- Column width -----------------------------------------------------------
+// Every column is one CSS track of the same width, so a single stored number
+// drives the whole calendar. It lives on the document element rather than on
+// the calendar, which HTMX replaces wholesale on every pagination or refresh.
+// The default is the CSS fallback in timetable.css, never restated here.
+
+const COLUMN_WIDTH_KEY = "timetable.columnWidth";
+const COLUMN_WIDTH_MIN = 80;
+const COLUMN_WIDTH_MAX = 512;
+const COLUMN_WIDTH_STEP = 16;
+const GRIP_FALLBACK_PX = 14;
+const COLUMN_WIDTH_KEY_STEPS: Record<string, number> = {
+  ArrowLeft: -COLUMN_WIDTH_STEP,
+  ArrowRight: COLUMN_WIDTH_STEP,
+};
+
+const resizer = (): HTMLElement | null =>
+  document.querySelector<HTMLElement>(".timetable-column-resizer");
+
+const roomCells = (): HTMLElement[] => [
+  ...document.querySelectorAll<HTMLElement>(".timetable-room-cell"),
+];
+
+const clampColumnWidth = (px: number): number =>
+  Math.round(Math.min(COLUMN_WIDTH_MAX, Math.max(COLUMN_WIDTH_MIN, px)));
+
+// The rendered width, not the stored one: under the stored width the tracks
+// stretch to fill the calendar (`minmax(w, 1fr)`), and that is what the handle
+// has to report and step from. Reads layout, so never call it mid-drag.
+const renderedColumnWidth = (): number =>
+  roomCells()[0]?.getBoundingClientRect().width ?? COLUMN_WIDTH_MIN;
+
+function storedColumnWidth(): number | null {
+  const parsed = Number.parseFloat(localStorage.getItem(COLUMN_WIDTH_KEY) ?? "");
+  return Number.isFinite(parsed) ? clampColumnWidth(parsed) : null;
+}
+
+// Paint only. Runs per pointermove, so it touches nothing but the property.
+const applyColumnWidth = (width: number): void =>
+  document.documentElement.style.setProperty("--timetable-column-width", `${width}px`);
+
+// The bounds live here alone; the template ships a static separator and this is
+// what promotes it to a focusable one, so a missing bundle leaves no dead tab
+// stop behind.
+function announceColumnWidth(): void {
+  const handle = resizer();
+  if (!handle) return;
+  const now = Math.round(renderedColumnWidth());
+  handle.tabIndex = 0;
+  handle.setAttribute("aria-valuemin", String(COLUMN_WIDTH_MIN));
+  handle.setAttribute("aria-valuemax", String(COLUMN_WIDTH_MAX));
+  handle.setAttribute("aria-valuenow", String(now));
+  handle.setAttribute("aria-valuetext", `${now} px`);
+}
+
+// Paint, persist and announce together -- for the discrete changes (keyboard,
+// end of a drag), never for a drag frame.
+function commitColumnWidth(width: number): void {
+  applyColumnWidth(width);
+  localStorage.setItem(COLUMN_WIDTH_KEY, String(width));
+  announceColumnWidth();
+}
+
+function resetColumnWidth(): void {
+  document.documentElement.style.removeProperty("--timetable-column-width");
+  localStorage.removeItem(COLUMN_WIDTH_KEY);
+  announceColumnWidth();
+}
+
+// Every room border is a grip (a ::after, so there are no nodes to hit): a
+// pointerdown counts as a grab when it lands within one grip of the right edge.
+function grabbedCell(e: PointerEvent): HTMLElement | null {
+  const cell = (e.target as Element).closest?.<HTMLElement>(".timetable-room-cell");
+  if (!cell) return null;
+  // Measured off the one real handle, which the same custom property sizes, so
+  // the grip width stays in CSS instead of being restated here in pixels.
+  const grip = resizer()?.getBoundingClientRect().width || GRIP_FALLBACK_PX;
+  return e.clientX >= cell.getBoundingClientRect().right - grip ? cell : null;
+}
+
+// The grabbed border closes `index + 1` equal columns counted from where the
+// first one starts, so the travel divides by that many. Widening pushes every
+// column left of the border along too, and folding that into the same step is
+// what keeps the border under the cursor instead of running away from it.
+function columnWidthFromPointer(index: number, left: number, clientX: number): number {
+  return clampColumnWidth((clientX - left) / (index + 1));
+}
+
+document.addEventListener("pointerdown", (e) => {
+  const cell = e.button === 0 ? grabbedCell(e) : null;
+  if (!cell) return;
+  e.preventDefault();
+
+  const cells = roomCells();
+  const index = cells.indexOf(cell);
+  const [first] = cells;
+  if (index === -1 || !first) return;
+
+  // Measured once: the drag reads no layout after this, and the first column's
+  // left edge cannot move -- the time column ahead of it is a fixed track.
+  const { left } = first.getBoundingClientRect();
+  // Resize from wherever inside the grip the drag started, so the border does
+  // not jump to the cursor on the first move.
+  const grabOffset = e.clientX - cell.getBoundingClientRect().right;
+
+  const target = e.target as HTMLElement;
+  target.setPointerCapture(e.pointerId);
+  cell.classList.add("is-resizing");
+  document.documentElement.classList.add("timetable-resizing");
+
+  let width = renderedColumnWidth();
+  const onMove = (move: PointerEvent): void => {
+    width = columnWidthFromPointer(index, left, move.clientX - grabOffset);
+    applyColumnWidth(width);
+  };
+  const onEnd = (): void => {
+    target.removeEventListener("pointermove", onMove);
+    target.removeEventListener("pointerup", onEnd);
+    target.removeEventListener("pointercancel", onEnd);
+    cell.classList.remove("is-resizing");
+    document.documentElement.classList.remove("timetable-resizing");
+    commitColumnWidth(width);
+  };
+
+  target.addEventListener("pointermove", onMove);
+  target.addEventListener("pointerup", onEnd);
+  target.addEventListener("pointercancel", onEnd);
+});
+
+document.addEventListener("dblclick", (e) => {
+  if (grabbedCell(e as unknown as PointerEvent)) resetColumnWidth();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (!(e.target as Element).closest?.(".timetable-column-resizer")) return;
+
+  if (e.key in COLUMN_WIDTH_KEY_STEPS) {
+    e.preventDefault();
+    commitColumnWidth(clampColumnWidth(renderedColumnWidth() + COLUMN_WIDTH_KEY_STEPS[e.key]));
+  } else if (e.key === "Home") {
+    e.preventDefault();
+    commitColumnWidth(COLUMN_WIDTH_MIN);
+  } else if (e.key === "End") {
+    e.preventDefault();
+    commitColumnWidth(COLUMN_WIDTH_MAX);
+  }
+});
+
+// The width itself survives an HTMX swap on its own -- it is set above every
+// node HTMX replaces -- but the handle inside the new markup is static until
+// this promotes it again.
+document.body.addEventListener("htmx:load", announceColumnWidth);
+
+const storedWidth = storedColumnWidth();
+if (storedWidth !== null) applyColumnWidth(storedWidth);
+announceColumnWidth();

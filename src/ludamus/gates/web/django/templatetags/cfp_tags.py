@@ -97,6 +97,7 @@ def facilitator_column_label(column: FacilitatorColumnDTO) -> str:
         "linked": _("Linked User"),
         "sessions": _("Sessions"),
         "accreditation": _("Accreditation"),
+        "organizer": _("Organizer"),
     }
     return labels.get(column.key, column.key)
 
@@ -174,6 +175,28 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
     return str(value)
 
 
+def parse_duration(iso_duration: str) -> tuple[int, int]:
+    """Split an ISO 8601 duration into hours and minutes.
+
+    Returns:
+        (hours, minutes), both 0 for anything unparsable.
+    """
+    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso_duration or "")):
+        return 0, 0
+    return int(match.group(1) or 0), int(match.group(2) or 0)
+
+
+def build_duration(*, hours: int, minutes: int) -> str:
+    """Compose an ISO 8601 duration, empty when both parts are zero.
+
+    Returns:
+        A string like "PT1H30M", "PT45M" or "".
+    """
+    if not hours and not minutes:
+        return ""
+    return "PT" + (f"{hours}H" if hours else "") + (f"{minutes}M" if minutes else "")
+
+
 @register.filter
 def format_duration(iso_duration: str) -> str:
     """Format ISO 8601 duration string to human-readable format.
@@ -187,11 +210,7 @@ def format_duration(iso_duration: str) -> str:
     if not iso_duration:
         return ""
 
-    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso_duration)):
-        return iso_duration
-
-    hours = int(match.group(1)) if match.group(1) else 0
-    minutes = int(match.group(2)) if match.group(2) else 0
+    hours, minutes = parse_duration(iso_duration)
 
     if hours and minutes:
         return f"{hours}h {minutes}min"

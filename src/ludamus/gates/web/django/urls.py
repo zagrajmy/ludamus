@@ -54,7 +54,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path("", include("ludamus.adapters.web.django.urls", namespace="web")),
     path(
         "panel/",
-        include("ludamus.gates.web.django.chronology.panel.urls", namespace="panel"),
+        include("ludamus.gates.web.django.event.panel.urls", namespace="panel"),
     ),
     path(
         "multiverse/",

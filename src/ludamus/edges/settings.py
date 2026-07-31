@@ -53,7 +53,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
     # local Mailpit inbox, filemail:///path for file capture, or
-    # smtp://user:pass@host:587/?tls=True in production.
+    # smtp+tls://user:pass@host:587 in production.
     EMAIL_URL=(str, "consolemail://"),
     DEFAULT_FROM_EMAIL=(str, "Zagrajmy <noreply@zagrajmy.net>"),
     # Scheduler mode: "dbos" (default; durable offer timers plus the
@@ -65,6 +65,9 @@ env = environ.Env(
     # SQLite file when the app DB is SQLite.
     DBOS_SYSTEM_DATABASE_URL=(str, ""),
     ENV=str,
+    # Staging runs with ENV=production; this flag is the only way the app
+    # can tell the two apart (currently: the favicon variant).
+    IS_STAGING=(bool, False),
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
@@ -74,6 +77,7 @@ env = environ.Env(
 # Environment configuration
 ENV = env("ENV")
 IS_PRODUCTION = ENV == "production"
+IS_STAGING = env("IS_STAGING")
 IN_TESTS = env("IN_TESTS")
 
 # Quick-start development settings - unsuitable for production
@@ -170,6 +174,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.template.context_processors.media",
                 "ludamus.gates.web.django.context_processors.sites",
+                "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -180,7 +185,6 @@ TEMPLATES = [
                 "avatar_tags": "ludamus.gates.web.django.templatetags.avatar_tags"
             },
             "debug": DEBUG or env("IN_TESTS"),
-            "string_if_invalid": "" if IS_PRODUCTION else "ERROR: Missing variable %s",
         },
     }
 ]
@@ -424,8 +428,8 @@ else:
     }
 
 # Email — transport selected by EMAIL_URL (consolemail:// in dev, smtp://mailpit
-# for the local inbox UI, smtp://… in production). Wired the same way in every
-# environment so prod only needs the env var set.
+# for the local inbox UI, smtp+tls://… in production). Wired the same way in
+# every environment so prod only needs the env var set.
 _EMAIL_CONFIG = env.email_url("EMAIL_URL")
 EMAIL_BACKEND = _EMAIL_CONFIG["EMAIL_BACKEND"]
 EMAIL_HOST = _EMAIL_CONFIG.get("EMAIL_HOST", "")

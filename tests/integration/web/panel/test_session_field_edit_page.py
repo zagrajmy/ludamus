@@ -416,6 +416,120 @@ class TestSessionFieldEditPageView:
         form = response.context["form"]
         assert form.initial["options"] == "Fantasy\nSci-Fi"
 
+    def test_get_prepopulates_multi_and_custom_toggles_for_select_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = SessionField.objects.create(
+            event=event,
+            name="Tags",
+            question="What tags apply?",
+            slug="tags",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+        )
+
+        response = authenticated_client.get(self.get_url(event, field))
+
+        form = response.context["form"]
+        assert form.initial["is_multiple"] is True
+        assert form.initial["allow_custom"] is True
+
+    def test_post_enables_multiple_selection_on_select_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = SessionField.objects.create(
+            event=event,
+            name="Tags",
+            question="What tags apply?",
+            slug="tags",
+            field_type="select",
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Tags",
+                "question": "What tags apply?",
+                "options": "Fantasy\nSci-Fi",
+                "is_multiple": "on",
+                "allow_custom": "on",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/session-fields/",
+        )
+        field.refresh_from_db()
+        assert field.is_multiple is True
+        assert field.allow_custom is True
+
+    def test_post_disables_multiple_selection_when_unchecked(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = SessionField.objects.create(
+            event=event,
+            name="Tags",
+            question="What tags apply?",
+            slug="tags",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Tags",
+                "question": "What tags apply?",
+                "options": "Fantasy\nSci-Fi",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/session-fields/",
+        )
+        field.refresh_from_db()
+        assert field.is_multiple is False
+        assert field.allow_custom is False
+
+    def test_post_ignores_multi_toggle_on_text_field(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        field = SessionField.objects.create(
+            event=event, name="Notes", question="Any notes?", slug="notes"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, field),
+            data={
+                "name": "Notes",
+                "question": "Any notes?",
+                "is_multiple": "on",
+                "allow_custom": "on",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Session field updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/session-fields/",
+        )
+        field.refresh_from_db()
+        assert field.is_multiple is False
+        assert field.allow_custom is False
+
     def test_get_returns_field_with_is_multiple_attribute(
         self, authenticated_client, active_user, sphere, event
     ):

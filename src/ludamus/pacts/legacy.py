@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -10,7 +10,9 @@ from typing import (
     runtime_checkable,
 )
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
+
+from ludamus.pacts.fields import OrganizerFieldDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -63,10 +65,10 @@ def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
     return value if isinstance(value, UploadedFileProtocol) else None
 
 
-def resolve_cover_image(raw: object) -> UploadedFileProtocol | str | None:
+def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
     # ClearableFileInput's tri-state in one place: a file on upload becomes the
-    # new cover, False clears it (""), and any other value (None / unchanged)
-    # returns None so the caller leaves the stored cover untouched.
+    # new value, False clears it (""), and any other value (None / unchanged)
+    # returns None so the caller leaves the stored file untouched.
     if uploaded := parse_uploaded_file(raw):
         return uploaded
     return "" if raw is False else None
@@ -79,6 +81,11 @@ class FacilitatorDTO(BaseModel):
     display_name: str
     event_id: int
     internal_comment: str = ""
+    organizer_id: int | None = None
+    # Annotated by the single-facilitator reads, so a page showing the
+    # organizer needs no second lookup. `create` and `update` return the row
+    # they just wrote, without it.
+    organizer_name: str | None = None
     pk: int
     slug: str
     user_id: int | None
@@ -88,6 +95,7 @@ class FacilitatorData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     event_id: int
+    organizer_id: int | None
     slug: str
     user_id: int | None
 
@@ -96,6 +104,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    organizer_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -104,10 +113,18 @@ class FacilitatorListItemDTO(BaseModel):
     accreditation_type: str
     display_name: str
     flagged_for_deletion: bool = False
+    organizer_id: int | None = None
+    # Annotated by `list_by_event`; null when nobody took the facilitator on.
+    organizer_name: str | None = None
     pk: int
     session_count: int
     slug: str
     user_id: int | None
+
+
+class PromotionMode(StrEnum):
+    AUTO = auto()
+    OFFER_CLAIM = auto()
 
 
 class ProposalCategoryDTO(BaseModel):
@@ -119,7 +136,9 @@ class ProposalCategoryDTO(BaseModel):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta = timedelta(hours=24)
     pk: int
+    promotion_mode: PromotionMode = PromotionMode.AUTO
     slug: str
     start_time: datetime | None
 
@@ -274,18 +293,6 @@ OCCUPYING_PARTICIPATION_STATUSES = (
 )
 
 
-class PromotionMode(StrEnum):
-    """How a freed seat is filled from the waiting list, per ProposalCategory.
-
-    AUTO: the next eligible waiter is moved straight to CONFIRMED.
-    OFFER_CLAIM: the seat is held and OFFERED to the next eligible waiter for a
-    bounded window; they must actively claim it or it rolls to the next party.
-    """
-
-    AUTO = auto()
-    OFFER_CLAIM = auto()
-
-
 class NotificationKind(StrEnum):
     WAITLIST_PROMOTED = auto()
     WAITLIST_OFFER = auto()
@@ -433,30 +440,22 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
-    logo: str = ""
     logo_url: str = ""
     name: str
     pk: int
     site: SiteDTO
 
-    @field_validator("logo", mode="before")
-    @classmethod
-    def _coerce_logo(cls, v: object) -> str:
-        return str(v) if v else ""
-
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime (matches EventUpdateData.logo / EncounterData.header_image).
-    logo: str
+    logo: UploadedFileProtocol | str
 
 
 @dataclass
 class SessionSelfEditContext:
     session: SessionDTO
     event: EventDTO
-    session_fields: list[tuple[SessionFieldDTO, str | list[str] | bool | None]]
+    session_fields: list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
     facilitators: list[FacilitatorDTO]
 
 
@@ -468,7 +467,6 @@ class EventDTO(BaseModel):
     cover_image_url: str = ""
     description: str
     end_time: datetime
-    logo: str = ""
     logo_url: str = ""
     name: str
     pk: int
@@ -480,11 +478,6 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
-
-    @field_validator("logo", mode="before")
-    @classmethod
-    def _coerce_logo(cls, v: object) -> str:
-        return str(v) if v else ""
 
 
 class EventListItemDTO(BaseModel):
@@ -511,7 +504,6 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
     header_image_url: str = ""
     max_participants: int
     pk: int
@@ -520,11 +512,6 @@ class EncounterDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     title: str
-
-    @field_validator("header_image", mode="before")
-    @classmethod
-    def _coerce_header_image(cls, v: object) -> str:
-        return str(v) if v else ""
 
 
 class EncounterRSVPDTO(BaseModel):
@@ -542,7 +529,7 @@ class EncounterData(TypedDict, total=False):
     description: str
     end_time: datetime | None
     game: str
-    header_image: str
+    header_image: UploadedFileProtocol | str
     max_participants: int
     place: str
     share_code: str
@@ -599,6 +586,8 @@ class ProposalCategoryData(TypedDict, total=False):
     max_participants_limit: int
     min_participants_limit: int
     name: str
+    offer_claim_window: timedelta
+    promotion_mode: PromotionMode
     start_time: datetime | None
 
 
@@ -607,67 +596,6 @@ class CategoryStats(TypedDict):
 
     proposals_count: int
     accepted_count: int
-
-
-class PersonalDataFieldOptionDTO(BaseModel):
-    """An option for a select-type personal data field."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    label: str
-    order: int
-    pk: int
-    value: str
-
-
-class PersonalDataFieldDTO(BaseModel):
-    """Personal data field definition for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    allow_custom: bool = False
-    field_type: Literal["text", "select", "checkbox"]
-    help_text: str = ""
-    is_multiple: bool = False
-    is_public: bool = False
-    max_length: int = 50
-    name: str
-    options: list[PersonalDataFieldOptionDTO] = []
-    order: int
-    pk: int
-    question: str
-    slug: str
-
-
-class SessionFieldOptionDTO(BaseModel):
-    """An option for a select-type session field."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    label: str
-    order: int
-    pk: int
-    value: str
-
-
-class SessionFieldDTO(BaseModel):
-    """Session field definition for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    allow_custom: bool = False
-    field_type: Literal["text", "select", "checkbox"]
-    help_text: str = ""
-    icon: str = ""
-    is_multiple: bool = False
-    is_public: bool = False
-    max_length: int = 50
-    name: str
-    options: list[SessionFieldOptionDTO] = []
-    order: int
-    pk: int
-    question: str
-    slug: str
 
 
 class EventProposalSettingsDTO(BaseModel):
@@ -693,9 +621,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
-    # Typed str to keep Django out of pacts; carries the uploaded image at
-    # runtime, matching the EncounterData.header_image convention.
-    logo: str
+    logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
     end_time: datetime
@@ -712,20 +638,20 @@ class EventUpdateData(TypedDict, total=False):
 class FieldUsageSummary:
     """A field DTO bundled with its usage counts across categories."""
 
-    field: PersonalDataFieldDTO | SessionFieldDTO
+    field: OrganizerFieldDTO
     required_count: int
     optional_count: int
 
 
 class PersonalFieldRequirementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     is_required: bool
 
 
 class SessionFieldRequirementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    field: SessionFieldDTO
+    field: OrganizerFieldDTO
     is_required: bool
 
 
@@ -920,6 +846,12 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
+    def read_facilitators_by_sessions(
+        session_ids: Iterable[int],
+    ) -> dict[int, list[FacilitatorDTO]]: ...
+    @staticmethod
+    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]: ...
+    @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None: ...
     @staticmethod
     def replace_facilitators_in_sessions(
@@ -957,9 +889,15 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]: ...
     @staticmethod
-    def list_by_session(session_pk: int) -> list[TrackDTO]: ...
+    def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
     @staticmethod
-    def list_manager_names(track_pk: int) -> list[str]: ...
+    def list_track_pks_by_sessions(
+        session_pks: Iterable[int],
+    ) -> dict[int, list[int]]: ...
+    @staticmethod
+    def list_manager_names_by_tracks(
+        track_pks: Iterable[int],
+    ) -> dict[int, list[str]]: ...
 
 
 class AgendaItemRepositoryProtocol(Protocol):
@@ -1080,12 +1018,6 @@ class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-method
         category_id: int, requirements: dict[int, bool], order: list[int] | None = None
     ) -> None: ...
     @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None: ...
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None: ...
-    @staticmethod
     def get_personal_field_categories(field_id: int) -> dict[int, bool]: ...
     @staticmethod
     def set_personal_field_categories(
@@ -1120,6 +1052,8 @@ class PersonalDataFieldUpdateData(TypedDict):
     help_text: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class SessionFieldCreateData(TypedDict):
@@ -1144,12 +1078,14 @@ class SessionFieldUpdateData(TypedDict):
     icon: str
     is_public: bool
     options: list[str] | None
+    is_multiple: bool
+    allow_custom: bool
 
 
 class PersonalDataFieldRepositoryProtocol(Protocol):
     def create(
         self, event_id: int, data: PersonalDataFieldCreateData
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1158,17 +1094,17 @@ class PersonalDataFieldRepositoryProtocol(Protocol):
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
-    def list_by_event(self, event_id: int) -> list[PersonalDataFieldDTO]: ...
-    def read_by_slug(self, event_id: int, slug: str) -> PersonalDataFieldDTO: ...
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
     def update(
         self, pk: int, data: PersonalDataFieldUpdateData
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
 
 
 class SessionFieldRepositoryProtocol(Protocol):
     def create(
         self, event_id: int, data: SessionFieldCreateData
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1177,9 +1113,9 @@ class SessionFieldRepositoryProtocol(Protocol):
     def has_requirements(pk: int) -> bool: ...
     @staticmethod
     def get_usage_counts(event_id: int) -> dict[int, dict[str, int]]: ...
-    def list_by_event(self, event_id: int) -> list[SessionFieldDTO]: ...
-    def read_by_slug(self, event_id: int, slug: str) -> SessionFieldDTO: ...
-    def update(self, pk: int, data: SessionFieldUpdateData) -> SessionFieldDTO: ...
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO: ...
+    def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO: ...
 
 
 class TimeSlotRepositoryProtocol(Protocol):
@@ -1302,6 +1238,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None: ...
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool: ...
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -1489,6 +1429,8 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
 class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
+    @staticmethod
+    def savepoint() -> AbstractContextManager[None]: ...
     @property
     def active_users(self) -> UserRepositoryProtocol: ...
     @property

@@ -9,11 +9,11 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import (
+from ludamus.pacts.chronology import TimetableGridDTO
+from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
     TIMETABLE_SNAP_MINUTES,
-    TimetableGridDTO,
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -30,18 +30,17 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 def _empty_grid():
     return TimetableGridDTO(
         spaces=[],
-        columns=[],
         groups=[],
+        days=[],
         time_labels=[],
         total_minutes=0,
-        event_start_iso="",
         slot_minutes=TIMETABLE_SLOT_MINUTES,
         snap_minutes=TIMETABLE_SNAP_MINUTES,
         page=1,
         total_pages=1,
         total_spaces=0,
+        total_columns=0,
         available_dates=[],
-        selected_date=None,
     )
 
 
@@ -121,6 +120,7 @@ class TestTimetablePageView:
                 **_base_context(event),
                 "room_page": 1,
                 "grid": _empty_grid(),
+                "conflicts": [],
                 "conflict_session_pks": set(),
                 "conflicts_count": 0,
                 "categories": [],
@@ -128,7 +128,7 @@ class TestTimetablePageView:
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
-                "selected_date": None,
+                "date_selection": "all",
                 "slug": event.slug,
                 "tab_urls": {
                     "timetable": reverse(
@@ -160,8 +160,8 @@ class TestTimetablePageView:
         assert len(grid.spaces) == 1
         assert grid.spaces[0].pk == space.pk
         assert len(grid.time_labels) > 0
-        assert grid.selected_date is not None
-        assert grid.available_dates == [grid.selected_date]
+        assert grid.date_selection == "all"
+        assert grid.available_dates == [grid.days[0].date]
         assert time_slot is not None
 
     def test_grid_contains_scheduled_session(
@@ -183,9 +183,94 @@ class TestTimetablePageView:
 
         assert response.status_code == HTTPStatus.OK
         grid = response.context["grid"]
-        col = next(c for c in grid.columns if c.space.pk == space.pk)
+        col = next(c for c in grid.days[0].columns if c.space.pk == space.pk)
         assert len(col.sessions) == 1
         assert col.sessions[0].agenda_item.session_title == session.title
+        assert time_slot is not None
+
+    def test_all_days_render_side_by_side_with_canonical_url_state(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        sphere.managers.add(active_user)
+        second_slot = TimeSlotFactory(
+            event=event,
+            start_time=time_slot.start_time + timedelta(days=1),
+            end_time=time_slot.end_time + timedelta(days=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=response.context_data,
+            contains=['id="timetable-date"', '<option value="all"', "date=all"],
+        )
+        context = response.context
+        grid = context["grid"]
+        assert [day.date for day in grid.days] == [
+            time_slot.start_time.date(),
+            second_slot.start_time.date(),
+        ]
+        assert grid.date_selection == "all"
+        assert context["date_selection"] == "all"
+        content = response.content.decode()
+        expected_day_count = 2
+        assert content.count('class="timetable-calendar ') == 1
+        assert content.count('class="timetable-day-grid ') == expected_day_count
+        assert content.count('class="timetable-time-axis ') == 1
+        assert content.count("Time</div>") == 1
+        assert [column.space.pk for column in grid.days[0].columns] == [space.pk]
+
+    def test_grid_declares_one_track_per_room_per_day(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        # Rooms and days differ, and differ from their product, so nothing but
+        # the track count itself can satisfy the assertions.
+        sphere.managers.add(active_user)
+        room_count = 3
+        day_count = 2
+        for _ in range(room_count - 1):
+            SpaceFactory(event=event)
+        TimeSlotFactory(
+            event=event,
+            start_time=time_slot.start_time + timedelta(days=1),
+            end_time=time_slot.end_time + timedelta(days=1),
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=response.context_data,
+            # Header and body are laid out from these two numbers alone.
+            contains=["--total-columns: 6", "--columns-per-day: 3"],
+        )
+        grid = response.context["grid"]
+        assert len(grid.spaces) == room_count
+        assert len(grid.days) == day_count
+        assert grid.total_columns == room_count * day_count
+        content = response.content.decode()
+        assert content.count('class="timetable-room-cell ') == room_count * day_count
+        assert space.pk in {column.space.pk for column in grid.days[0].columns}
+
+    def test_single_schedule_day_hides_day_selector(
+        self, authenticated_client, active_user, sphere, event, time_slot
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=response.context_data,
+            not_contains='id="timetable-date"',
+        )
         assert time_slot is not None
 
     def test_grid_session_is_draggable_with_placement_data(
@@ -381,7 +466,7 @@ class TestPanelBaseHeader:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=ANY,
-            contains="<strong>06 Aug 2026</strong>",
+            contains="06 Aug 2026",
             not_contains="06 Aug - 06 Aug",
         )
 
@@ -403,5 +488,5 @@ class TestPanelBaseHeader:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=ANY,
-            contains="<strong>06 Aug - 08 Aug 2026</strong>",
+            contains="06 Aug - 08 Aug 2026",
         )

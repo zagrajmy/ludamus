@@ -24,20 +24,23 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.forms import SessionEditForm, field_descriptors
-from ludamus.gates.web.django.helpers import (
-    get_client_ip,
-    is_event_published,
-    parse_dynamic_field_value,
+from ludamus.gates.web.django.dynamic_fields import (
+    WizardData,
+    answered_value,
+    dynamic_fields_form,
+    field_descriptors,
+    fold_custom_answers,
+    requirement_fields,
+    unfold_custom_answers,
 )
+from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.mills import (
-    ProposeSessionService,
-    check_proposal_rate_limit,
-    is_proposal_active,
-)
+from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
 from ludamus.mills.chronology import SessionEditNotAllowedError
+from ludamus.mills.event import is_proposal_active
 from ludamus.pacts import (
     NotFoundError,
     RedirectError,
@@ -58,6 +61,7 @@ if TYPE_CHECKING:
 
     from django import forms
     from django.core.files.uploadedfile import UploadedFile
+    from django.http import QueryDict
     from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
@@ -65,9 +69,9 @@ if TYPE_CHECKING:
         AuthenticatedRequestContext,
         EventDTO,
         EventProposalSettingsDTO,
-        PersonalDataFieldDTO,
+        FieldValue,
+        OrganizerFieldDTO,
         ProposalCategoryDTO,
-        SessionFieldDTO,
         SessionSelfEditContext,
         TimeSlotRequirementDTO,
     )
@@ -188,9 +192,7 @@ def _store_single_timeslot(
     request.session[_session_key(event_slug)] = wizard
 
 
-def _display_value(
-    field: SessionFieldDTO | PersonalDataFieldDTO, raw: object
-) -> object:
+def _display_value(field: OrganizerFieldDTO, raw: object) -> object:
     if isinstance(raw, bool):
         return raw
     option_map = {opt.value: opt.label for opt in field.options}
@@ -288,12 +290,13 @@ def _personal_context(
     requirements = service.get_personal_requirements(category.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial: dict[str, str | list[str] | bool] = {}
-    if saved_personal := wizard.get("personal_data"):
-        initial = saved_personal
-    else:
-        saved = service.get_saved_personal_data(event.pk)
-        initial = {f"personal_{slug}": value for slug, value in saved.items()}
+    stored: WizardData = wizard.get("personal_data") or {
+        f"personal_{slug}": value
+        for slug, value in service.get_saved_personal_data(event.pk).items()
+    }
+    initial = unfold_custom_answers(
+        stored=stored, requirements=requirements, prefix="personal"
+    )
 
     initial["contact_email"] = wizard.get(
         "contact_email", getattr(request.user, "email", "")
@@ -307,7 +310,9 @@ def _personal_context(
         "proposal_settings": _proposal_settings(request, event),
         "category": category,
         "form": form,
-        "field_descriptors": field_descriptors("personal", requirements, form),
+        "field_descriptors": field_descriptors(
+            prefix="personal", fields=requirement_fields(requirements), form=form
+        ),
         "current_step": "personal",
         "wizard_steps": _wizard_steps(service, category, has_category=has_category),
         "show_back_button": has_category,
@@ -373,7 +378,11 @@ def _render_details(
     public_tracks = service.get_public_tracks(event.pk)
 
     wizard = request.session.get(_session_key(event.slug), {})
-    initial = wizard.get("session_data", {})
+    initial = unfold_custom_answers(
+        stored=wizard.get("session_data", {}),
+        requirements=requirements,
+        prefix="session",
+    )
     if "display_name" not in initial:
         initial["display_name"] = getattr(request.user, "name", "")
 
@@ -396,7 +405,9 @@ def _render_details(
             "form": form,
             "image_form": _wizard_image_form(wizard),
             "durations": category.durations,
-            "field_descriptors": field_descriptors("session", requirements, form),
+            "field_descriptors": field_descriptors(
+                prefix="session", fields=requirement_fields(requirements), form=form
+            ),
             "public_tracks": public_tracks,
             "selected_track_pks": selected_track_pks,
             "current_step": "details",
@@ -663,7 +674,11 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
                 "proposal_settings": _proposal_settings(request, event),
                 "category": category,
                 "form": form,
-                "field_descriptors": field_descriptors("personal", requirements, form),
+                "field_descriptors": field_descriptors(
+                    prefix="personal",
+                    fields=requirement_fields(requirements),
+                    form=form,
+                ),
                 "current_step": "personal",
                 "wizard_steps": _wizard_steps(
                     service, category, has_category=has_category
@@ -677,9 +692,12 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
             )
 
         wizard = request.session.get(_session_key(event_slug), {})
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="personal"
+        )
         wizard["personal_data"] = {
             key: value
-            for key, value in form.cleaned_data.items()
+            for key, value in folded.items()
             if key != "contact_email" and value
         }
 
@@ -784,7 +802,9 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
                     "image_form": display_image_form,
                     "durations": category.durations,
                     "field_descriptors": field_descriptors(
-                        "session", requirements, form
+                        prefix="session",
+                        fields=requirement_fields(requirements),
+                        form=form,
                     ),
                     "current_step": "details",
                     "wizard_steps": _wizard_steps(
@@ -805,9 +825,10 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             if tid in valid_track_ids
         ]
 
-        wizard["session_data"] = {
-            key: value for key, value in form.cleaned_data.items() if value
-        }
+        folded = fold_custom_answers(
+            cleaned=form.cleaned_data, requirements=requirements, prefix="session"
+        )
+        wizard["session_data"] = {key: value for key, value in folded.items() if value}
         wizard["track_pks"] = track_pks
         request.session[_session_key(event_slug)] = wizard
 
@@ -866,22 +887,29 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
         return redirect(redirect_url)
 
 
+_SESSION_FIELD_PREFIX = "session_field"
+
+
+def _session_field_pairs(
+    ctx: SessionSelfEditContext,
+) -> list[tuple[OrganizerFieldDTO, bool]]:
+    # The modal edits an existing session rather than answering a category's
+    # call for proposals, so nothing here is required.
+    return [(field, False) for field, _current in ctx.session_fields]
+
+
 def _collect_session_field_values(
-    request: SessionEditRequest,
-    session_id: int,
-    session_fields: Sequence[tuple[SessionFieldDTO, object]],
-) -> list[SessionFieldValueData] | None:
-    if request.POST.get("session_fields_submitted") != "1":
-        return None
+    session_id: int, ctx: SessionSelfEditContext, form: forms.Form
+) -> list[SessionFieldValueData]:
     return [
         SessionFieldValueData(
             session_id=session_id,
             field_id=field.pk,
-            value=parse_dynamic_field_value(
-                request=request, field=field, key=f"session_field_{field.slug}"
+            value=answered_value(
+                prefix=_SESSION_FIELD_PREFIX, field_def=field, form=form
             ),
         )
-        for field, _current in session_fields
+        for field, _required in _session_field_pairs(ctx)
     ]
 
 
@@ -910,12 +938,30 @@ class SessionEditView(LoginRequiredMixin, View):
             }
         )
 
+    @staticmethod
+    def _fields_form(
+        ctx: SessionSelfEditContext, data: QueryDict | None = None
+    ) -> forms.Form:
+        initial: dict[str, FieldValue] = {
+            f"{_SESSION_FIELD_PREFIX}_{field.slug}": current
+            for field, current in ctx.session_fields
+        }
+        return dynamic_fields_form(
+            prefix=_SESSION_FIELD_PREFIX,
+            fields=_session_field_pairs(ctx),
+            data=data,
+            initial=initial,
+        )
+
     def get(
         self, _request: HttpRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
         return self._render(
-            event_slug, session_id, ctx, self._initial_form(ctx), saved=False
+            ctx=ctx,
+            form=self._initial_form(ctx),
+            fields_form=self._fields_form(ctx),
+            saved=False,
         )
 
     def post(
@@ -925,11 +971,20 @@ class SessionEditView(LoginRequiredMixin, View):
         form = SessionEditForm(self.request.POST, self.request.FILES)
         if ctx.session.cover_image_url:
             form.fields["cover_image"].initial = ctx.session.cover_image_url
-        if not form.is_valid():
-            return self._render(event_slug, session_id, ctx, form, saved=False)
+        # The fields block only posts when the modal rendered it; without the
+        # marker the stored answers are left alone rather than blanked.
+        submitted = self.request.POST.get("session_fields_submitted") == "1"
+        fields_form = self._fields_form(ctx, self.request.POST if submitted else None)
+        fields_valid = fields_form.is_valid() if submitted else True
+        if not form.is_valid() or not fields_valid:
+            return self._render(
+                ctx=ctx, form=form, fields_form=fields_form, saved=False
+            )
 
-        field_values = _collect_session_field_values(
-            self.request, session_id, ctx.session_fields
+        field_values = (
+            _collect_session_field_values(session_id, ctx, fields_form)
+            if submitted
+            else None
         )
         try:
             self.request.services.session_self_edit.update(
@@ -946,7 +1001,10 @@ class SessionEditView(LoginRequiredMixin, View):
             return redirect(f"{event_url}?session={session_id}")
         ctx = self._context(event_slug, session_id)
         return self._render(
-            event_slug, session_id, ctx, self._initial_form(ctx), saved=True
+            ctx=ctx,
+            form=self._initial_form(ctx),
+            fields_form=self._fields_form(ctx),
+            saved=True,
         )
 
     def _context(self, event_slug: str, session_id: int) -> SessionSelfEditContext:
@@ -962,16 +1020,15 @@ class SessionEditView(LoginRequiredMixin, View):
 
     def _render(
         self,
-        event_slug: str,
-        session_id: int,
+        *,
         ctx: SessionSelfEditContext,
         form: SessionEditForm,
-        *,
+        fields_form: forms.Form,
         saved: bool,
     ) -> HttpResponse:
         post_url = reverse(
             "web:chronology:session-edit",
-            kwargs={"event_slug": event_slug, "session_id": session_id},
+            kwargs={"event_slug": ctx.event.slug, "session_id": ctx.session.pk},
         )
         return TemplateResponse(
             self.request,
@@ -979,7 +1036,11 @@ class SessionEditView(LoginRequiredMixin, View):
             {
                 "session": ctx.session,
                 "form": form,
-                "session_fields": ctx.session_fields,
+                "field_descriptors": field_descriptors(
+                    prefix=_SESSION_FIELD_PREFIX,
+                    fields=_session_field_pairs(ctx),
+                    form=fields_form,
+                ),
                 "post_url": post_url,
                 "saved": saved,
             },
@@ -1038,15 +1099,9 @@ class SessionModalComponentView(View):
             )
         except NotFoundError as exc:
             raise Http404 from exc
-        if not is_event_published(event) and not self._is_manager():
+        if not is_event_published(event) and not has_panel_access(self.request):
             raise Http404
         return event
-
-    def _is_manager(self) -> bool:
-        slug = self.request.context.current_user_slug
-        return slug is not None and self.request.services.sites.is_manager(
-            self.request.context.current_sphere_id, slug
-        )
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[int], set[int], bool]:
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -1116,6 +1171,8 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 session_id=context.session.pk,
                 space_id=form.cleaned_data["space"],
                 time_slot_id=form.cleaned_data["time_slot"],
+                user_slug=request.context.current_user_slug,
+                sphere_id=request.context.current_sphere_id,
             )
         except SpaceTimeConflictError:
             form.add_error(
