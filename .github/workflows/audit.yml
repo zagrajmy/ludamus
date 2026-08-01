@@ -27,4 +27,4 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise install
       - run: mise exec -- poetry install
-      - run: mise run audit
+      - run: mise run dep:audit:py
