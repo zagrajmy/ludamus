@@ -249,20 +249,22 @@ class EventRepository(EventRepositoryProtocol):
         Returns:
             EventStatsData with raw counts and IDs for business logic processing.
         """
-        sessions = Session.objects.filter(category__event_id=event_id)
-        scheduled = Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
-        spaces = Space.objects.filter(event_id=event_id)
+        # One aggregate instead of a COUNT per stat: this runs on every panel
+        # page, and a big event pays for each extra scan.
+        session_stats = Session.objects.filter(category__event_id=event_id).aggregate(
+            pending=Count("id", filter=Q(status=SessionStatus.PENDING)),
+            total=Count("id"),
+            hosts=Count("presenter_id", distinct=True),
+        )
 
         return EventStatsData(
-            pending_proposals=sessions.filter(status=SessionStatus.PENDING).count(),
-            scheduled_sessions=scheduled.count(),
-            total_proposals=sessions.count(),
-            unique_host_ids=set(
-                sessions.exclude(presenter_id__isnull=True).values_list(
-                    "presenter_id", flat=True
-                )
-            ),
-            rooms_count=spaces.count(),
+            pending_proposals=session_stats["pending"],
+            scheduled_sessions=Session.objects.filter(
+                event_id=event_id, agenda_item__isnull=False
+            ).count(),
+            total_proposals=session_stats["total"],
+            hosts_count=session_stats["hosts"],
+            rooms_count=Space.objects.filter(event_id=event_id).count(),
         )
 
     @staticmethod

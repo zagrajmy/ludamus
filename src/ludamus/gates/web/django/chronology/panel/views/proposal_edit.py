@@ -422,14 +422,21 @@ class ProposalFormPageView(_ProposalFormBase):
         if not fields:
             return []
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        # One query for every assigned facilitator's answers instead of one
+        # lookup per facilitator.
+        values_by_facilitator = (
+            self.request.di.uow.personal_data_field_values.list_values_for_facilitators(
+                [f.pk for f in assigned], [f.pk for f in fields]
+            )
+        )
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
-            personal_data_field_values = self.request.di.uow.personal_data_field_values
-            values = personal_data_field_values.read_for_facilitator_event(
-                facilitator.pk, event_pk
-            )
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(prefix=prefix, fields=fields, values=values)
+            form = _facilitator_fields_form(
+                prefix=prefix,
+                fields=fields,
+                values=values_by_facilitator.get(facilitator.pk, {}),
+            )
             result.append(
                 (
                     facilitator,

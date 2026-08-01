@@ -523,9 +523,10 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["slug"] = slug
         service = self.request.services.session_content_edit
-        context["logs"] = service.list_log(current_event.pk)
+        logs = service.list_log(current_event.pk)
+        context["logs"] = logs
         context["field_names"] = service.list_field_names(current_event.pk)
-        context["revertible_pks"] = service.revertible_log_pks(current_event.pk)
+        context["revertible_pks"] = service.revertible_log_pks(current_event.pk, logs)
         facilitator_service = self.request.services.personal_data_field_values
         context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
         context["facilitator_field_names"] = facilitator_service.list_field_names(
