@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-31 18:15+0200\n"
+"POT-Creation-Date: 2026-08-01 17:51+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1466,6 +1466,10 @@ msgstr "Pole danych osobowych zostało usunięte."
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 msgid "Space not found."
 msgstr "Przestrzeń nie została znaleziona."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Fix the facilitator personal data below before saving."
+msgstr "Popraw dane osobowe twórców programu poniżej, zanim zapiszesz."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
@@ -7061,9 +7065,10 @@ msgid ""
 "Import dedupes on them, so a renamed facilitator stays one record. Leave "
 "empty to match by display name."
 msgstr ""
-"Kolumny, których wartości identyfikują twórcę programu w wielu wierszach (np. "
-"adres e-mail). Import deduplikuje na ich podstawie, więc zmiana nazwy nie "
-"tworzy nowego rekordu. Pozostaw puste, aby dopasowywać po nazwie wyświetlanej."
+"Kolumny, których wartości identyfikują twórcę programu w wielu wierszach "
+"(np. adres e-mail). Import deduplikuje na ich podstawie, więc zmiana nazwy "
+"nie tworzy nowego rekordu. Pozostaw puste, aby dopasowywać po nazwie "
+"wyświetlanej."
 
 #: src/ludamus/templates/panel/import-run.html
 msgid ""
@@ -8678,6 +8683,7 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr ""
 #~ "Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w "
 #~ "tym zgłoszeniu. Kontynuować?"
+
 #~ msgid "Apply"
 #~ msgstr "Zastosuj"
 
