@@ -255,3 +255,7 @@ If you fix a papercut, remove it.
   ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
   ModuleNotFoundError: No module named 'django'. Took a while to spot because
   the traceback points at tests/conftest.py, not at the wrong interpreter.
+- 2026-08-01: git push over SSH fails with 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
+  credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
