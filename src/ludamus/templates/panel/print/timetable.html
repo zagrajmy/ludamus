@@ -8,13 +8,9 @@
     </style>
 {% endblock extra_style %}
 {% block body %}
-    <div class="doc-header">
-        <div class="event-name">{{ document.event_name }}</div>
-        <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
-        {% if document.scope_name %}<div class="scope-name">{{ document.scope_name }}</div>{% endif %}
-    </div>
+    {% include "panel/print/parts/doc-header.html" %}
     {% for page in document.pages %}
-        <section {% if not forloop.last %}style="break-after: page;"{% endif %}>
+        <section class="print:break-after-page last:print:break-after-auto">
             <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">
                 {{ page.day|date:"l, j E Y" }}
                 {% if page.space_range_name %}

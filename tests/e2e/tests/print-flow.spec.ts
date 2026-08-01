@@ -97,13 +97,22 @@ test.describe("Panel print pages", () => {
     await expect(page.getByRole("cell", { name: /11:00–13:00/ }).first()).toBeVisible();
   });
 
-  test("door cards render one card per room with its hours", async ({ page }) => {
+  test("door cards render one card per room and day", async ({ page }) => {
     await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/door-cards/");
 
-    // Only rooms with sessions get a card; Miniature Painting always has some.
-    await expect(
-      page.getByRole("heading", { name: "Miniature Painting", exact: true }).first(),
-    ).toBeVisible();
+    // Only rooms with sessions get a card; Miniature Painting always has some,
+    // spread over the three seeded days, so it gets one sheet per day.
+    const roomHeadings = page.getByRole("heading", { name: "Miniature Painting", exact: true });
+    await expect(roomHeadings.first()).toBeVisible();
+    expect(await roomHeadings.count()).toBeGreaterThan(1);
     await expect(page.getByText("Capacity: 18").first()).toBeVisible();
+
+    // A card hangs on a door for one day: every page names one room and one day.
+    const cards = page.locator("section");
+    expect(await cards.count()).toBeGreaterThan(0);
+    for (const card of await cards.all()) {
+      await expect(card.getByRole("heading", { level: 1 })).toHaveCount(1);
+      await expect(card.getByRole("heading", { level: 2 })).toHaveCount(1);
+    }
   });
 });

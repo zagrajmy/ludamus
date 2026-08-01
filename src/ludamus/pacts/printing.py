@@ -63,15 +63,12 @@ class DoorCardEntryDTO(BaseModel):
     session: PrintSessionDTO
 
 
-class DoorCardDayDTO(BaseModel):
-    day: date
-    entries: list[DoorCardEntryDTO]
-
-
+# One card is one sheet of paper: it hangs on a door for a single day.
 class DoorCardDTO(BaseModel):
     space_name: str
     capacity: int | None
-    days: list[DoorCardDayDTO]
+    day: date
+    entries: list[DoorCardEntryDTO]
 
 
 class DoorCardsDocumentDTO(BaseModel):
