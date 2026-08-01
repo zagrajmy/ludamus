@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 
 
 class PrintScopeOptionDTO(BaseModel):
@@ -20,9 +20,9 @@ class PrintScopeDTO(BaseModel):
     scope_name: str | None = None
 
 
-class SpaceNodeDTO(BaseModel):
-    # One node of the Space tree. Roots have parent_id None; capacity/description
-    # are meaningful only on leaves (is_leaf). depth: root = 1.
+class SpaceRecordDTO(BaseModel):
+    # One Space, its own columns only. Roots have parent_id None; capacity and
+    # description are meaningful only on spaces that hold sessions.
     model_config = ConfigDict(from_attributes=True)
 
     pk: int
@@ -34,19 +34,16 @@ class SpaceNodeDTO(BaseModel):
     description: str
     location: str = ""
     order: int
-    # Position in the tree, which a single Space cannot know on its own: whoever
-    # walks the tree fills these in. The defaults describe a childless root.
-    depth: int = 1
-    is_leaf: bool = True
-    track_names: list[str] = []
-    children: list[SpaceNodeDTO] = []
 
-    @field_validator("children", mode="before")
-    @classmethod
-    def _drop_related_manager(cls, value: object) -> object:
-        # A Space has a "children" relation of its own, which building from
-        # attributes would otherwise hand us instead of the nodes to render.
-        return value if isinstance(value, list) else []
+
+class SpaceTreeNodeDTO(BaseModel):
+    # A space as the tree renders it. Everything besides the record is a fact
+    # about the space's place among its siblings, which only the walk that
+    # assembles the tree knows — so all of it is required, never defaulted.
+    space: SpaceRecordDTO
+    is_leaf: bool
+    track_names: list[str]
+    children: list[SpaceTreeNodeDTO]
 
 
 class SpaceInputDTO(BaseModel):
@@ -61,14 +58,15 @@ class SpaceInputDTO(BaseModel):
 
 class SpaceTreeRepositoryProtocol(Protocol):
     @staticmethod
-    def list_tree(event_pk: int) -> list[SpaceNodeDTO]: ...
-    def read(self, pk: int) -> SpaceNodeDTO: ...
+    def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]: ...
+    @staticmethod
+    def read(pk: int) -> SpaceRecordDTO: ...
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO: ...
+    ) -> SpaceRecordDTO: ...
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO: ...
+    ) -> SpaceRecordDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod
@@ -77,27 +75,27 @@ class SpaceTreeRepositoryProtocol(Protocol):
     def subtree_has_sessions(pk: int) -> bool: ...
     @staticmethod
     def space_pks_with_sessions(event_id: int) -> frozenset[int]: ...
-    def duplicate(self, pk: int, new_name: str) -> SpaceNodeDTO: ...
-    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceNodeDTO: ...
+    def duplicate(self, pk: int, new_name: str) -> SpaceRecordDTO: ...
+    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceRecordDTO: ...
 
 
 class SpaceTreeServiceProtocol(Protocol):
-    def list_tree(self, event_pk: int) -> list[SpaceNodeDTO]: ...
-    def read(self, pk: int) -> SpaceNodeDTO: ...
+    def list_tree(self, event_pk: int) -> list[SpaceTreeNodeDTO]: ...
+    def read(self, pk: int) -> SpaceRecordDTO: ...
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO: ...
+    ) -> SpaceRecordDTO: ...
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO: ...
+    ) -> SpaceRecordDTO: ...
     def list_reparent_targets(
         self, *, pk: int, event_pk: int
     ) -> list[tuple[int, str]]: ...
     def reorder(
         self, *, parent_id: int | None, child_pks: list[int], event_id: int
     ) -> None: ...
-    def duplicate(self, *, pk: int, new_name: str) -> SpaceNodeDTO: ...
-    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceNodeDTO: ...
+    def duplicate(self, *, pk: int, new_name: str) -> SpaceRecordDTO: ...
+    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceRecordDTO: ...
     def delete_space(self, pk: int) -> bool: ...
 
 

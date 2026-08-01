@@ -2,22 +2,24 @@ import pytest
 
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceNodeDTO
+from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 
 
 def _node(pk, name, children=()):
     kids = list(children)
-    return SpaceNodeDTO(
-        pk=pk,
-        event_id=1,
-        parent_id=None,
-        name=name,
-        slug=name.lower(),
-        capacity=None,
-        description="",
-        order=0,
-        depth=1,
+    return SpaceTreeNodeDTO(
+        space=SpaceRecordDTO(
+            pk=pk,
+            event_id=1,
+            parent_id=None,
+            name=name,
+            slug=name.lower(),
+            capacity=None,
+            description="",
+            order=0,
+        ),
         is_leaf=not kids,
+        track_names=[],
         children=kids,
     )
 

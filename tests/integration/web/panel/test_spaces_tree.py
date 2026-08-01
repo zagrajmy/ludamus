@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts.venues import SpaceNodeDTO
+from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
@@ -20,8 +20,8 @@ from tests.integration.web.panel.helpers import (
 )
 
 
-def _node(space, *, depth, is_leaf, children=None, track_names=None):
-    return SpaceNodeDTO(
+def _record(space):
+    return SpaceRecordDTO(
         pk=space.pk,
         event_id=space.event_id,
         parent_id=space.parent_id,
@@ -31,7 +31,12 @@ def _node(space, *, depth, is_leaf, children=None, track_names=None):
         description=space.description,
         location=space.location,
         order=space.order,
-        depth=depth,
+    )
+
+
+def _node(space, *, is_leaf, children=None, track_names=None):
+    return SpaceTreeNodeDTO(
+        space=_record(space),
         is_leaf=is_leaf,
         track_names=track_names or [],
         children=children or [],
@@ -90,12 +95,7 @@ class TestSpacesTreePage:
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=2),
                 "tree": [
-                    _node(
-                        root,
-                        depth=1,
-                        is_leaf=False,
-                        children=[_node(leaf, depth=2, is_leaf=True)],
-                    )
+                    _node(root, is_leaf=False, children=[_node(leaf, is_leaf=True)])
                 ],
             },
         )
@@ -119,7 +119,6 @@ class TestSpacesTreePage:
                 "tree": [
                     _node(
                         leaf,
-                        depth=1,
                         is_leaf=True,
                         track_names=["Board Games", "Card Games", "Larp", "RPG"],
                     )
@@ -184,7 +183,7 @@ class TestSpaceCreate:
             messages=[(messages.SUCCESS, "Space created successfully.")],
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=1),
-                "tree": [_node(room, depth=1, is_leaf=True)],
+                "tree": [_node(room, is_leaf=True)],
             },
         )
 
@@ -287,7 +286,7 @@ class TestSpaceCreate:
             template_name="panel/space-form.html",
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=1),
-                "parent": _node(parent, depth=1, is_leaf=True),
+                "parent": _record(parent),
                 "node": None,
                 "form": ANY,
             },
@@ -345,7 +344,7 @@ class TestSpaceEdit:
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=1),
                 "parent": None,
-                "node": _node(node, depth=1, is_leaf=True),
+                "node": _record(node),
                 "form": ANY,
             },
         )
@@ -431,7 +430,7 @@ class TestSpaceEdit:
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=2),
                 "parent": None,
-                "node": _node(root, depth=1, is_leaf=False),
+                "node": _record(root),
                 "form": ANY,
             },
         )
@@ -461,7 +460,7 @@ class TestSpaceEdit:
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=8),
                 "parent": None,
-                "node": _node(node, depth=1, is_leaf=True),
+                "node": _record(node),
                 "form": ANY,
             },
         )
@@ -489,7 +488,7 @@ class TestSpaceEdit:
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=2),
                 "parent": None,
-                "node": _node(child, depth=2, is_leaf=True),
+                "node": _record(child),
                 "form": ANY,
             },
         )
@@ -661,7 +660,7 @@ class TestSpaceCopy:
             template_name="panel/space-copy.html",
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=1),
-                "node": _node(node, depth=1, is_leaf=True),
+                "node": _record(node),
                 "form": ANY,
             },
         )
