@@ -676,10 +676,6 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         session.time_slots.set(time_slot_ids)
 
     @staticmethod
-    def clear_field_values(session_id: int) -> None:
-        SessionFieldValue.objects.filter(session_id=session_id).delete()
-
-    @staticmethod
     def read_facilitators_by_sessions(
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:

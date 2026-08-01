@@ -160,7 +160,9 @@ def collect_session_field_inputs(
     *, requirements: Sequence[SessionFieldRequirementDTO], form: forms.Form
 ) -> dict[int, str | list[str] | bool]:
     # Only the category's own fields are read back; a value the category no
-    # longer asks for is left untouched rather than blanked.
+    # longer asks for is left untouched rather than blanked. Blanks are kept
+    # in the result — on an edit they blank an answer that exists, and the
+    # write path is what drops the ones that would create an empty row.
     folded = fold_custom_answers(
         cleaned=form.cleaned_data, requirements=requirements, prefix="session"
     )

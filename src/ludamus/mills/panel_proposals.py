@@ -18,6 +18,7 @@ from ludamus.pacts.panel import (
     ProposalPanelRepos,
     ProposalPanelServiceProtocol,
 )
+from ludamus.pacts.submissions import is_empty_answer
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -177,16 +178,17 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             session_id = self._repos.sessions.create(
                 payload, facilitator_ids=draft.facilitator_ids
             )
-            if draft.field_values:
-                self._repos.sessions.save_field_values(
-                    session_id,
-                    [
-                        SessionFieldValueData(
-                            session_id=session_id, field_id=field_id, value=value
-                        )
-                        for field_id, value in draft.field_values.items()
-                    ],
+            # A brand-new proposal has no answers yet, so a blank input is
+            # "never answered" and stores no row.
+            answered = [
+                SessionFieldValueData(
+                    session_id=session_id, field_id=field_id, value=value
                 )
+                for field_id, value in draft.field_values.items()
+                if not is_empty_answer(value=value)
+            ]
+            if answered:
+                self._repos.sessions.save_field_values(session_id, answered)
             if draft.track_ids:
                 self._repos.sessions.set_session_tracks(session_id, draft.track_ids)
             if draft.time_slot_ids:
