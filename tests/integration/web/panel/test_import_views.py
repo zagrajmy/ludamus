@@ -1642,8 +1642,8 @@ class TestEventImportRunActionView:
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-1234"]]
             )
             panel_client.post(_run_url(event, integration))
-            # Re-run: PersonalDataFieldValue upserts on (facilitator, event, field) —
-            # the row's value overwrites rather than duplicating.
+            # Re-run: the facilitator already has an answer for this field, so
+            # the second run neither duplicates it nor overwrites it.
             session_cls.return_value.get.side_effect = _sheets_get(
                 [["Title", "Nick", "Phone"], ["My Talk", "GM Bob", "555-9999"]]
             )
@@ -1652,7 +1652,7 @@ class TestEventImportRunActionView:
         field = PersonalDataField.objects.get(event=event, slug="telefon")
         rows = list(PersonalDataFieldValue.objects.filter(field=field))
         assert len(rows) == 1
-        assert rows[0].value == "555-9999"
+        assert rows[0].value == "555-1234"
         assert rows[0].facilitator.display_name == "GM Bob"
 
     def test_post_provisions_and_attaches_time_slots(
@@ -2042,12 +2042,13 @@ class TestEventImportRunPageView:
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
                 "unique_key_columns": [],
+                "facilitator_key_columns": [],
                 "available_columns": [],
                 "fields_imported": False,
                 "fields_count": 0,
                 "mapping_total": 0,
                 "mapping_confirmed": 0,
-                "no_unique_keys_label": "No columns selected.",
+                "no_columns_label": "No columns selected.",
             },
         )
 
@@ -2102,12 +2103,13 @@ class TestEventImportRunPageView:
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": header_row,
                 "unique_key_columns": ["Email Address"],
+                "facilitator_key_columns": [],
                 "available_columns": ["Title", "System"],
                 "fields_imported": True,
                 "fields_count": len(["Title", "System"]),
                 "mapping_total": len(["Title", "System"]),
                 "mapping_confirmed": 1,
-                "no_unique_keys_label": "No columns selected.",
+                "no_columns_label": "No columns selected.",
             },
         )
 
@@ -2153,12 +2155,13 @@ class TestEventImportRunPageView:
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "header_row": 1,
                 "unique_key_columns": ["Sygnatura czasowa"],
+                "facilitator_key_columns": [],
                 "available_columns": headers,
                 "fields_imported": True,
                 "fields_count": 1,
                 "mapping_total": 1,
                 "mapping_confirmed": 1,
-                "no_unique_keys_label": "No columns selected.",
+                "no_columns_label": "No columns selected.",
             },
         )
 
@@ -2191,6 +2194,7 @@ class TestEventImportSettingsSaveView:
             data={
                 "header_row": str(header_row),
                 "unique_key_columns": ["Title", " Email "],
+                "facilitator_key_columns": [" Email ", "Name"],
             },
         )
 
@@ -2204,6 +2208,7 @@ class TestEventImportSettingsSaveView:
         settings = ImportSettings.model_validate_json(integration.settings_json)
         assert settings.header_row == header_row
         assert settings.unique_key_columns == ["Title", "Email"]
+        assert settings.facilitator_key_columns == ["Email", "Name"]
 
     def test_post_rejects_non_positive_header_row(
         self, panel_client, event, connection_with_secret
@@ -2538,7 +2543,7 @@ class TestEventImportLogReimport:
         entry = ImportLogEntry.objects.get(integration=integration, status="success")
         return integration, entry
 
-    def test_post_overwrites_session_with_source_row_and_writes_log_entry(
+    def test_post_keeps_the_hand_edited_session_and_writes_log_entry(
         self, authenticated_client, active_user, sphere, event, connection_with_secret
     ):
         integration, entry = self._setup(
@@ -2562,9 +2567,8 @@ class TestEventImportLogReimport:
 
         assert response.status_code == HTTPStatus.FOUND
         assert response.url == _log_url(event, integration)
-        # Title is back to the source value; session pk is unchanged.
-        Session.objects.get(pk=session_pk).refresh_from_db()
-        assert Session.objects.get(pk=session_pk).title == "Original"
+        # The hand edit survives; session pk is unchanged.
+        assert Session.objects.get(pk=session_pk).title == "Hand-edited"
         # The same log entry is updated in place — same pk, same session FK.
         entries = list(ImportLogEntry.objects.filter(integration=integration))
         assert len(entries) == 1
@@ -2572,26 +2576,7 @@ class TestEventImportLogReimport:
         assert entries[0].status == "success"
         assert entries[0].session_id == session_pk
 
-    def test_template_renders_reimport_confirm_dialog(
-        self, authenticated_client, active_user, sphere, event, connection_with_secret
-    ):
-        integration, _entry = self._setup(
-            authenticated_client, active_user, sphere, event, connection_with_secret
-        )
-
-        response = authenticated_client.get(
-            _log_url(event, integration) + "?status=success"
-        )
-
-        body = response.content.decode()
-        reimport_confirm = (
-            "Reimport will overwrite any manual edits to the imported fields"
-            " on this proposal. Continue?"
-        )
-        assert f'data-confirm="{reimport_confirm}"' in body
-        assert _log_reimport_url(event, integration) in body
-
-    def test_post_clears_contact_email_when_source_row_blanks_it(
+    def test_post_keeps_contact_email_when_source_row_blanks_it(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -2635,7 +2620,7 @@ class TestEventImportLogReimport:
             )
 
         reimported = Session.objects.get(pk=entry.session_id)
-        assert not reimported.contact_email
+        assert reimported.contact_email == "host@example.com"
 
 
 def _apply_field_layout_url(event, integration) -> str:
@@ -3686,8 +3671,8 @@ class TestImportDistinctSessionsSameName:
                 (
                     messages.ERROR,
                     (
-                        "Import aborted: unique-key columns not found in the "
-                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "Import aborted: key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the key-column "
                         "selection on the run tab, then try again."
                     ),
                 )
@@ -3718,8 +3703,40 @@ class TestImportDistinctSessionsSameName:
                 (
                     messages.ERROR,
                     (
-                        "Import aborted: unique-key columns not found in the "
-                        "sheet: Timestamp, Email Address. Fix the unique-key "
+                        "Import aborted: key columns not found in the "
+                        "sheet: Timestamp, Email Address. Fix the key-column "
+                        "selection on the run tab, then try again."
+                    ),
+                )
+            ],
+        )
+        assert not Session.objects.filter(event=event).exists()
+
+    def test_run_aborts_when_facilitator_key_column_missing_from_sheet(
+        self, panel_client, event, connection_with_secret
+    ):
+        integration = make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        # A renamed facilitator-identity header would silently drop the run back
+        # to display-name dedup — the very thing the key columns replace.
+        settings = json.loads(self._settings(_LOCALIZED_HEADER))
+        settings["facilitator_key_columns"] = ["Adres e-mail (prowadzący)"]
+        integration.settings_json = json.dumps(settings)
+        integration.save(update_fields=["settings_json"])
+
+        response = self._run(panel_client, event, integration)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_run_page_url(event, integration),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Import aborted: key columns not found in the sheet: "
+                        "Adres e-mail (prowadzący). Fix the key-column "
                         "selection on the run tab, then try again."
                     ),
                 )
