@@ -19,8 +19,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.mills.chronology import ConflictDetectionService, TimetableOverviewService
-from ludamus.mills.timetable import TimetableService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
     NotFoundError,
@@ -347,9 +350,15 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
-        conflicts = ConflictDetectionService(uow).detect_for_assignment(
-            session_pk=session_pk, placement=placement
-        )
+        try:
+            conflicts = ConflictDetectionService(uow).detect_for_assignment(
+                event_pk=current_event.pk, session_pk=session_pk
+            )
+        except NotFoundError:
+            # A concurrent unassign can remove the placement between the
+            # committed write and this advisory sweep; that is not a failure
+            # of the assignment, so report no conflicts.
+            conflicts = []
 
         trigger_data: dict[str, object] = {"timetableChanged": {}}
         if conflicts:

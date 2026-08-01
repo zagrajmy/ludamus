@@ -66,7 +66,7 @@ class FakeEvents(EventRepositoryProtocol):
             pending_proposals=2,
             scheduled_sessions=5,
             total_proposals=8,
-            unique_host_ids={11, 12, 13},
+            hosts_count=3,
             rooms_count=4,
         )
 
