@@ -15,7 +15,8 @@
 
         /* Document typography + white paper are scoped to the sheet so they
            never touch the site navbar/footer that now wrap this page, and so
-           the sheet prints white regardless of the active light/dark theme. */
+           the sheet prints white regardless of the active light/dark theme.
+           One .sheet is one printed page. */
         .sheet {
             font-family: sans-serif;
             color: #111827;
@@ -72,11 +73,21 @@
         }
 
         @media screen {
-            .sheet {
+            .print-doc {
                 max-width: 210mm;
                 margin: 16px auto;
+            }
+
+            /* On paper the page break draws the boundary; on screen only this
+               does, so the preview shows where each sheet starts and ends. */
+            .sheet {
+                min-height: 297mm;
                 padding: 14mm;
                 box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+            }
+
+            .sheet+.sheet {
+                margin-top: 16px;
             }
         }
 
@@ -102,7 +113,9 @@
 {% endblock body_class %}
 {% block main_region %}
     <main class="grow w-full">
-        <div class="sheet">
+        <div class="print-doc">
+            {# The sheets repeat their header, so the document's one heading is here. #}
+            <h1 class="sr-only">{{ document.event_name }}</h1>
             <div class="toolbar no-print">
                 <button type="button" class="print-btn" data-action="print">{% translate "Print" %}</button>
                 <span class="print-hint">{% translate "or press Ctrl+P (⌘P on Mac)" %}</span>

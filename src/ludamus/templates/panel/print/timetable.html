@@ -5,12 +5,23 @@
         @page {
             size: A4 landscape;
         }
+
+        /* Landscape sheets: keep the screen preview the shape of the paper. */
+        @media screen {
+            .print-doc {
+                max-width: 297mm;
+            }
+
+            .sheet {
+                min-height: 210mm;
+            }
+        }
     </style>
 {% endblock extra_style %}
 {% block body %}
-    {% include "panel/print/parts/doc-header.html" %}
     {% for page in document.pages %}
-        <section class="print:break-after-page last:print:break-after-auto">
+        <section class="sheet print:break-after-page last:print:break-after-auto">
+            {% include "panel/print/parts/doc-header.html" %}
             <h2 style="font-size: 12pt; margin: 0 0 2mm 0;">
                 {{ page.day|date:"l, j E Y" }}
                 {% if page.space_range_name %}
@@ -67,6 +78,9 @@
             </table>
         </section>
     {% empty %}
-        <p class="empty">{% translate "No time slots scheduled." %}</p>
+        <section class="sheet">
+            {% include "panel/print/parts/doc-header.html" %}
+            <p class="empty">{% translate "No time slots scheduled." %}</p>
+        </section>
     {% endfor %}
 {% endblock body %}

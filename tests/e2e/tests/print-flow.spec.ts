@@ -95,6 +95,14 @@ test.describe("Panel print pages", () => {
     // Session times, not 4-hour availability slots: an 11:00–13:00 session
     // renders as its own row.
     await expect(page.getByRole("cell", { name: /11:00–13:00/ }).first()).toBeVisible();
+
+    // A sheet torn off the stack still names its event, so every page repeats
+    // the header rather than only the first one carrying it.
+    const sheets = page.locator("section.sheet");
+    expect(await sheets.count()).toBeGreaterThan(1);
+    for (const sheet of await sheets.all()) {
+      await expect(sheet.getByText(eventName).first()).toBeVisible();
+    }
   });
 
   test("door cards render one card per room and day", async ({ page }) => {
@@ -107,12 +115,14 @@ test.describe("Panel print pages", () => {
     expect(await roomHeadings.count()).toBeGreaterThan(1);
     await expect(page.getByText("Capacity: 18").first()).toBeVisible();
 
-    // A card hangs on a door for one day: every page names one room and one day.
-    const cards = page.locator("section");
+    // One h1 for the document, then one room and one day per sheet.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    const cards = page.locator("section.sheet");
     expect(await cards.count()).toBeGreaterThan(0);
     for (const card of await cards.all()) {
-      await expect(card.getByRole("heading", { level: 1 })).toHaveCount(1);
       await expect(card.getByRole("heading", { level: 2 })).toHaveCount(1);
+      await expect(card.getByRole("heading", { level: 3 })).toHaveCount(1);
+      await expect(card.getByText(eventName).first()).toBeVisible();
     }
   });
 });

@@ -263,3 +263,8 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-01: mise run lint fails locally on lint:hk: oxlint can't build
+  src/ludamus/client/oxlint.config.ts because eslint-plugin-sonarjs isn't
+  installed in the local node_modules (CI is fine). Same failure on a clean
+  tree, so it's env drift, not a code problem — had to stash and re-run to prove
+  my change was innocent.
