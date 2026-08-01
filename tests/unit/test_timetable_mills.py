@@ -864,6 +864,27 @@ class TestTimetableOverviewServiceDefaults:
         assert result.spaces == []
         assert not result.days
 
+    def test_build_heatmap_columns_are_leaf_spaces_only(self, mock_uow):
+        # Venue (1) > area (2) > rooms (3, 4): only the rooms are bookable.
+        mock_uow.spaces.list_by_event.return_value = [
+            _space(1),
+            _space(2, parent_id=1),
+            _space(3, parent_id=2),
+            _space(4, parent_id=2),
+        ]
+        mock_uow.time_slots.list_by_event.return_value = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        svc = TimetableOverviewService(mock_uow)
+
+        result = svc.build_heatmap(event_pk=1, tz=UTC, conflicts=[])
+
+        assert [s.pk for s in result.spaces] == [3, 4]
+        assert [c.space_pk for c in result.rows[0].cells] == [3, 4]
+
     def test_all_conflicts_grouped_fetches_conflicts_when_none(self, mock_uow):
         # conflicts=None makes all_conflicts_grouped fetch conflicts itself.
         svc = TimetableOverviewService(mock_uow)

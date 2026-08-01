@@ -104,6 +104,25 @@ def _position_sessions(
     return positions
 
 
+def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+    children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
+    for node in nodes:
+        children[node.parent_id].append(node)
+
+    leaves: list[SpaceDTO] = []
+
+    def walk(node: SpaceDTO) -> None:
+        if kids := children.get(node.pk, []):
+            for kid in kids:
+                walk(kid)
+        else:
+            leaves.append(node)
+
+    for root in children.get(None, []):
+        walk(root)
+    return leaves
+
+
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -119,7 +138,7 @@ class TimetableService:
     ) -> TimetableGridDTO:
         all_nodes = self._uow.spaces.list_by_event(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
-        leaf_spaces = self._leaves_in_tree_order(all_nodes)
+        leaf_spaces = _leaves_in_tree_order(all_nodes)
         if track_pk is not None:
             track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
             leaf_spaces = [
@@ -276,25 +295,6 @@ class TimetableService:
         )
 
     @staticmethod
-    def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
-        children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
-        for node in nodes:
-            children[node.parent_id].append(node)
-
-        leaves: list[SpaceDTO] = []
-
-        def walk(node: SpaceDTO) -> None:
-            if kids := children.get(node.pk, []):
-                for kid in kids:
-                    walk(kid)
-            else:
-                leaves.append(node)
-
-        for root in children.get(None, []):
-            walk(root)
-        return leaves
-
-    @staticmethod
     def _build_space_groups(
         spaces: list[SpaceDTO], name_by_pk: dict[int, str]
     ) -> list[SpaceGroupDTO]:
@@ -319,9 +319,7 @@ class TimetableService:
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         leaf_pks = {
             space.pk
-            for space in self._leaves_in_tree_order(
-                self._uow.spaces.list_by_event(event_pk)
-            )
+            for space in _leaves_in_tree_order(self._uow.spaces.list_by_event(event_pk))
         }
         if space_pk not in leaf_pks:
             raise NotFoundError
@@ -742,7 +740,9 @@ class TimetableOverviewService:
     def build_heatmap(
         self, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
     ) -> HeatmapDTO:
-        spaces = self._uow.spaces.list_by_event(event_pk)
+        # Only leaf spaces are bookable rooms; a venue or area column would be
+        # permanently empty.
+        spaces = _leaves_in_tree_order(self._uow.spaces.list_by_event(event_pk))
         all_items = self._uow.agenda_items.list_by_event(event_pk)
         if conflicts is None:
             conflicts = self.get_all_conflicts(event_pk)
