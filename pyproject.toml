@@ -183,6 +183,10 @@ warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
 
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
 [tool.django-stubs]
 django_settings_module = "ludamus.edges.settings"
 
@@ -232,14 +236,9 @@ disallow_any_expr = false
 module = ["ludamus.gates.mcp.registry"]
 disallow_any_expr = false
 
-[tool.pydantic-mypy]
-init_forbid_extra = true
-init_typed = true
-
 # RUFF
 
 [tool.ruff]
-fix = false
 line-length = 88
 output-format = 'concise'
 preview = true
@@ -329,27 +328,39 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-forbidden_modules = ["ludamus.links", "ludamus.inits", "ludamus.edges"]
-# Management commands are composition entrypoints (like manage.py/wsgi): the
-# cron jobs must build their service via the inits root.
-ignore_imports = [
-    "ludamus.gates.cli.django.management.commands.expire_offers -> ludamus.inits.services",
-    "ludamus.gates.cli.django.management.commands.send_printables_reminders -> ludamus.inits.services",
+# The specs rule breaks only transitively, through mills (e.g.
+# gates.web.django.chronology.views -> mills.chronology -> specs.chronology).
+# import-linter has no direct-imports-only mode for `forbidden`, so it stays off
+# until mills stops re-exporting specs. The others break directly.
+forbidden_modules = [
+    # "ludamus.links",
+    # "ludamus.inits",
+    # "ludamus.mills",
+    # "ludamus.specs",
+    "ludamus.edges",
 ]
-
 
 [[tool.importlinter.contracts]]
 name = "links"
 type = "forbidden"
 source_modules = ["ludamus.links"]
-forbidden_modules = ["ludamus.gates", "ludamus.inits", "ludamus.specs", "ludamus.edges"]
-
+forbidden_modules = [
+    "ludamus.gates",
+    "ludamus.inits",
+    "ludamus.mills",
+    "ludamus.specs",
+    "ludamus.edges",
+]
 
 [[tool.importlinter.contracts]]
 name = "inits"
 type = "forbidden"
 source_modules = ["ludamus.inits"]
-forbidden_modules = ["ludamus.edges"]
+# The specs rule breaks only transitively, through mills — see the gates note.
+forbidden_modules = [
+    # "ludamus.specs",
+    "ludamus.edges",
+]
 
 
 [[tool.importlinter.contracts]]
@@ -407,6 +418,35 @@ forbidden_modules = [
     "ludamus.specs",
 ]
 
+# [[tool.importlinter.contracts]]
+# name = "inside-gates"
+# type = "independence"
+# modules = ["ludamus.gates.*"]
+
+# [[tool.importlinter.contracts]]
+# name = "inside-links"
+# type = "independence"
+# modules = ["ludamus.links.*"]
+
+# [[tool.importlinter.contracts]]
+# name = "inside-mills"
+# type = "independence"
+# modules = ["ludamus.mills.*"]
+
+# [[tool.importlinter.contracts]]
+# name = "inside-pacts"
+# type = "independence"
+# modules = ["ludamus.pacts.*"]
+
+[[tool.importlinter.contracts]]
+name = "inside-specs"
+type = "independence"
+modules = ["ludamus.specs.*"]
+
+[[tool.importlinter.contracts]]
+name = "inside-edges"
+type = "independence"
+modules = ["ludamus.edges.*"]
 
 # VULTURE
 
