@@ -328,6 +328,10 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
+# The specs rule breaks only transitively, through mills (e.g.
+# gates.web.django.chronology.views -> mills.chronology -> specs.chronology).
+# import-linter has no direct-imports-only mode for `forbidden`, so it stays off
+# until mills stops re-exporting specs. The others break directly.
 forbidden_modules = [
     # "ludamus.links",
     # "ludamus.inits",
@@ -352,6 +356,7 @@ forbidden_modules = [
 name = "inits"
 type = "forbidden"
 source_modules = ["ludamus.inits"]
+# The specs rule breaks only transitively, through mills — see the gates note.
 forbidden_modules = [
     # "ludamus.specs",
     "ludamus.edges",
@@ -362,7 +367,13 @@ forbidden_modules = [
 name = "mills"
 type = "forbidden"
 source_modules = ["ludamus.mills"]
-forbidden_modules = ["ludamus.gates", "ludamus.links", "ludamus.inits", "ludamus.edges"]
+forbidden_modules = [
+    "ludamus.gates",
+    "ludamus.links",
+    "ludamus.inits",
+    "ludamus.edges",
+    "django",
+]
 
 
 [[tool.importlinter.contracts]]
@@ -376,6 +387,7 @@ forbidden_modules = [
     "ludamus.mills",
     "ludamus.specs",
     "ludamus.edges",
+    "django",
 ]
 
 
@@ -389,6 +401,7 @@ forbidden_modules = [
     "ludamus.inits",
     "ludamus.mills",
     "ludamus.edges",
+    "django",
 ]
 
 

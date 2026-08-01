@@ -46,7 +46,9 @@ env = { _.file = '.env.test' }
 
 ["lint:pylint"]
 description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
-run = ["pylint -j 0 {{ env.SRC_PATHS }}"]  # Change: missing {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}
+run = [
+    "pylint -j 0 {{ env.SRC_PATHS }}",
+] # Change: missing {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}
 
 ["lint:ruff"]
 description = "Check Python with Ruff"
@@ -57,6 +59,7 @@ description = "Check TOML files"
 run = "taplo lint --config=.taplo.toml {{ env.TOML_PATHS }}"
 
 ["lint:tingle"]
+description = "Check the branch does not grow technical debt on net"
 run = "tingle check"
 
 ["lint:vulture"]
@@ -77,6 +80,10 @@ depends = [
 ]
 
 ## Dependencies
+
+["dep:audit:py"]
+description = "Audit dependencies: known CVEs (pip-audit), drift (deptry)"
+run = ["pip-audit .", "deptry {{ env.SRC_PATHS }} {{ env.TEST_PATHS }}"]
 
 ["dep:upgrade:py"]
 description = "Update all dependencies: mise tools, pip, Poetry packages"
@@ -119,7 +126,7 @@ env = { _.file = '.env.test' }
 
 ["test:int:cov"]
 description = "Run integration tests"
-run = { task = "test:int", args = ["--cov=tests.integration", "--cov={{env.PACKAGE}}"] }
+run = { task = "test:int", args = ["--cov=tests.integration", "--cov={{env.PACKAGE}}", "--cov={{env.SRC_PATHS}}/{{env.PACKAGE}}/templates/"] }
 env = { _.file = '.env.test' }
 
 ["test:int:cov:diff"]
@@ -153,6 +160,7 @@ env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit"
 ## Complex
 
 ["check:py"]
+description = "Format, lint and test all Python code"
 run = [
     { task = "format:py" },
     { task = "lint:py" },

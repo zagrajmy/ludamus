@@ -44,7 +44,7 @@ PACKAGE = "ludamus"
 SRC_PATHS = "src"
 TEST_PATHS = "tests"
 SCRIPT_PATHS = ".claude scripts"
-TOML_PATHS = "*.toml docker/*.toml"
+TOML_PATHS = "*.toml .taplo.toml docker/*.toml"
 
 [bootstrap.packages]
 "brew:libxml2" = "latest"
