@@ -74,7 +74,7 @@
   --color-stone-*: initial;
 
   --color-background: #f0f1f3;
-  --color-border: #e4ddd6;
+  --color-border: var(--color-warm-300);
 
   --ease-spring-a-bit: linear(
     0 0%,
@@ -323,7 +323,7 @@ button {
   --color-foreground-secondary: #d4d4d4;
   --color-foreground-muted: #737373;
   --color-foreground-inverse: #0a0a0a;
-  --color-border: #404040;
+  --color-border: var(--color-neutral-700);
   --color-border-focus: #f85a3c;
   --color-primary: #f85a3c;
   --color-primary-hover: #e53e20;
