@@ -251,3 +251,7 @@ If you fix a papercut, remove it.
   ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
   ModuleNotFoundError: No module named 'django'. Took a while to spot because
   the traceback points at tests/conftest.py, not at the wrong interpreter.
+- 2026-08-01: mise run test:int -- tests/foo/test_x.py doesn't narrow: the task
+  hardcodes the integration path and appends args, so pytest gets two paths and
+  runs the whole suite. Had to use `-k name` and wait ~2.5 min for
+  collection+run instead of 5s.

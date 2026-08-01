@@ -37,6 +37,7 @@ from ludamus.gates.web.django.templatetags.cfp_tags import parse_duration
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
+    PersonalFieldRequirementDTO,
     SessionContentEditData,
     SessionData,
     SessionFieldValueData,
@@ -89,7 +90,18 @@ def _facilitator_fields_form(
         prefix=prefix,
         fields=[(field, False) for field in fields],
         data=data,
-        initial={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
+        # A write-in is stored as one value; it comes back split across the
+        # control and its companion input, as the proposal wizard renders it.
+        initial=unfold_custom_answers(
+            stored={
+                f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields
+            },
+            requirements=[
+                PersonalFieldRequirementDTO(field=field, is_required=False)
+                for field in fields
+            ],
+            prefix=prefix,
+        ),
     )
 
 
@@ -197,6 +209,12 @@ def collect_session_field_values(
         )
     return values
 
+
+# The personal-data blocks are separate forms, so their errors never reach the
+# page's error summary on their own — this says why the save didn't happen.
+PERSONAL_DATA_ERROR = gettext_lazy(
+    "Fix the facilitator personal data below before saving."
+)
 
 _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
@@ -854,6 +872,8 @@ class ProposalFormPageView(_ProposalFormBase):
         if not form.is_valid() or not facilitator_ids or not personal_data_valid:
             if not facilitator_ids:
                 form.add_error(None, _("Please select at least one facilitator."))
+            if not personal_data_valid:
+                form.add_error(None, PERSONAL_DATA_ERROR)
             return self._render(context, prepared)
 
         try:
@@ -936,7 +956,10 @@ class ProposalFormPageView(_ProposalFormBase):
         prepared: _Prepared,
     ) -> HttpResponse:
         form = prepared.form
-        if not form.is_valid() or not self._personal_data_is_valid(current_event.pk):
+        personal_data_valid = self._personal_data_is_valid(current_event.pk)
+        if not form.is_valid() or not personal_data_valid:
+            if not personal_data_valid:
+                form.add_error(None, PERSONAL_DATA_ERROR)
             return self._render(context, prepared)
 
         try:

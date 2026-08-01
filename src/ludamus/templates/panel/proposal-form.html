@@ -154,7 +154,10 @@
                             </p>
                             <div class="space-y-3">
                                 {% for facilitator, name_prefix, descriptors in facilitator_personal_data %}
-                                    <details class="border border-border rounded-lg">
+                                    {# Open when the page says something is wrong: the only #}
+                                    {# form-level error an edit can raise is this card's. #}
+                                    <details class="border border-border rounded-lg"
+                                             {% if form.non_field_errors %}open{% endif %}>
                                         <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ facilitator.display_name }}</summary>
                                         <div class="px-4 pb-4 pt-2">
                                             <input type="hidden"

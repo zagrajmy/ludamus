@@ -8494,6 +8494,10 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Fix the facilitator personal data below before saving."
+msgstr "Popraw dane osobowe twórców programu poniżej, zanim zapiszesz."
+
 #~ msgid "Apply"
 #~ msgstr "Zastosuj"
 

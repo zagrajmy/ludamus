@@ -123,7 +123,7 @@ def dynamic_fields_form(
     prefix: str,
     fields: Sequence[tuple[OrganizerFieldDTO, bool]],
     data: QueryDict | None = None,
-    initial: Mapping[str, FieldValue] | None = None,
+    initial: Mapping[str, FieldValue | int] | None = None,
 ) -> forms.Form:
     # Every page offering organizer-defined fields validates them through a
     # real form, so choice, length and required rules are enforced server-side
