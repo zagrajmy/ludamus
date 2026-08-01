@@ -49,10 +49,14 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+    checkbox_tag,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     assert_proposal_not_found,
     facilitator_list_item_dto,

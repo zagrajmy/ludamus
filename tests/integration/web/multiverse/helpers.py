@@ -31,12 +31,6 @@ def sphere_panel_context(*, active_tab: str) -> dict:
     }
 
 
-def assert_login_required(response: HttpResponse, url: str) -> None:
-    assert_response(
-        response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-    )
-
-
 def assert_not_a_sphere_manager(response: HttpResponse) -> None:
     assert_response(
         response,

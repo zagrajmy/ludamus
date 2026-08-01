@@ -15,10 +15,9 @@ from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
 from ludamus.pacts.chronology import IntegrationImplementationId
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     integration_dto,
     make_integration,

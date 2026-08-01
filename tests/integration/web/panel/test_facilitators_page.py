@@ -18,11 +18,10 @@ from ludamus.links.db.django.models import (
 from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
 from ludamus.pacts.submissions import FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
-from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_facilitator_not_found,
-    assert_login_required,
     assert_not_a_manager,
     facilitator_list_item_dto,
     panel_context,

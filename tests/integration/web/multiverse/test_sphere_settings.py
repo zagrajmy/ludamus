@@ -9,9 +9,8 @@ from django.urls import reverse
 from PIL import Image as PILImage
 
 from tests.integration.conftest import PNG_BYTES
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
-    assert_login_required,
     assert_not_a_sphere_manager,
     sphere_panel_context,
 )

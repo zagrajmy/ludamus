@@ -69,12 +69,6 @@ def panel_context(event, *, active_nav: str | None = None, **stats: int) -> dict
     return context
 
 
-def assert_login_required(response: HttpResponse, url: str) -> None:
-    assert_response(
-        response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-    )
-
-
 def assert_not_a_manager(response: HttpResponse) -> None:
     assert_response(
         response,

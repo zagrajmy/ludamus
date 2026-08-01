@@ -8,11 +8,8 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import ProposalCategory, Session
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
-from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import (
-    assert_login_required,
-    assert_not_a_manager,
-)
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import assert_not_a_manager
 
 SCHEDULED_SKIPPED = (
     "1 scheduled proposal was skipped; remove it from the timetable to "

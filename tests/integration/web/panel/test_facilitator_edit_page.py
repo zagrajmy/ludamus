@@ -19,11 +19,14 @@ from ludamus.pacts import (
     OrganizerFieldOptionDTO,
 )
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import FormErrorsMatcher, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_facilitator_not_found,
-    assert_login_required,
     assert_not_a_manager,
     make_facilitator,
     panel_context,
@@ -419,10 +422,10 @@ class TestFacilitatorEditPageView:
             help_text="Pick all that apply",
             order=0,
         )
-        PersonalDataFieldOption.objects.create(
+        english = PersonalDataFieldOption.objects.create(
             field=languages, label="English", value="en", order=0
         )
-        PersonalDataFieldOption.objects.create(
+        polish = PersonalDataFieldOption.objects.create(
             field=languages, label="Polish", value="pl", order=1
         )
 
@@ -435,7 +438,7 @@ class TestFacilitatorEditPageView:
             allow_custom=True,
             order=1,
         )
-        PersonalDataFieldOption.objects.create(
+        dnd = PersonalDataFieldOption.objects.create(
             field=system, label="D&D", value="dnd", order=0
         )
 
@@ -478,16 +481,100 @@ class TestFacilitatorEditPageView:
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        html = response.content.decode()
-        assert 'name="personal_languages" value="en"\n' in html or (
-            'name="personal_languages"' in html and 'value="en"' in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="Pick all that apply",
+                            is_multiple=True,
+                            is_public=False,
+                            max_length=50,
+                            name="Languages",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="English", order=0, pk=english.pk, value="en"
+                                ),
+                                OrganizerFieldOptionDTO(
+                                    label="Polish", order=1, pk=polish.pk, value="pl"
+                                ),
+                            ],
+                            order=0,
+                            pk=languages.pk,
+                            question="Which languages?",
+                            slug="languages",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(
+                            value=["en"], custom_value="śląski, ale tylko trochę"
+                        ),
+                    },
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="System",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="D&D", order=0, pk=dnd.pk, value="dnd"
+                                )
+                            ],
+                            order=1,
+                            pk=system.pk,
+                            question="Which RPG system?",
+                            slug="system",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(value="dnd", custom_value=""),
+                    },
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=False,
+                            field_type="checkbox",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="Vegan",
+                            options=[],
+                            order=2,
+                            pk=vegan.pk,
+                            question="Are you vegan?",
+                            slug="vegan",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(value=True, custom_value=""),
+                    },
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="text",
+                            help_text="Optional",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=42,
+                            name="Nickname",
+                            options=[],
+                            order=3,
+                            pk=nickname.pk,
+                            question="Your nickname",
+                            slug="nickname",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(value="Bob", custom_value=""),
+                    },
+                ],
+            },
         )
-        assert "Pick all that apply" in html
-        assert 'name="personal_system"' in html
-        assert 'name="personal_system_custom"' in html
-        assert 'name="personal_vegan"' in html
-        assert 'name="personal_nickname"' in html
-        assert 'maxlength="42"' in html
-        assert 'name="personal_nickname_custom"' in html
-        assert "Optional" in html

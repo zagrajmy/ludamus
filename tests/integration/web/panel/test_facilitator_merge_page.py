@@ -10,10 +10,9 @@ from ludamus.links.db.django.models import Facilitator, ProposalCategory, Sessio
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO
 from ludamus.pacts.submissions import AccreditationType, FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     facilitator_list_item_dto,
     panel_context,

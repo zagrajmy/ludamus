@@ -6,10 +6,9 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventSettings, SessionField
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     panel_context,
 )

@@ -27,10 +27,9 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     panel_context,
     proposal_detail_context,

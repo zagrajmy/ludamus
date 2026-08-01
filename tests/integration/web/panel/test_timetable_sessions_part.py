@@ -13,10 +13,9 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     make_timetable_session,
 )
@@ -168,21 +167,6 @@ class TestTimetableSessionListPartView:
         response = panel_client.get(self.get_url(event), {"max_duration": max_duration})
 
         assert response.status_code == HTTPStatus.OK
-
-    def test_session_card_is_draggable_with_duration(
-        self, panel_client, event, proposal_category
-    ):
-        make_timetable_session(
-            proposal_category, status="accepted", participants_limit=10
-        )
-
-        response = panel_client.get(self.get_url(event))
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        duration = response.context["sessions"][0].duration_minutes
-        assert 'draggable="true"' in content
-        assert f'data-duration="{duration}"' in content
 
     def test_date_filter_keeps_sessions_with_slot_on_that_date(
         self, panel_client, event, proposal_category

@@ -6,10 +6,9 @@ from django.urls import reverse
 from ludamus.links.db.django.models import Track
 from ludamus.pacts.chronology import CapacityHoursDTO, HeatmapDTO, TrackProgressDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     make_timetable_session,
     panel_context,

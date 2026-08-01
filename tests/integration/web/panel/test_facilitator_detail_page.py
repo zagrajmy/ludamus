@@ -19,11 +19,10 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_facilitator_not_found,
-    assert_login_required,
     assert_not_a_manager,
     make_facilitator,
     panel_context,
@@ -252,14 +251,24 @@ class TestFacilitatorDetailPageView:
         )
 
     def test_get_shows_accreditation_type(self, panel_client, event):
-        make_facilitator(event, accreditation_type="honorary")
+        facilitator = make_facilitator(event, accreditation_type="honorary")
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        html = response.content.decode()
-        assert "Accreditation type" in html
-        assert "Honorary" in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "Honorary",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
 
     def test_get_shows_personal_data_fields(self, panel_client, event):
         facilitator = make_facilitator(event)

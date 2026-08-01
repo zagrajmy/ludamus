@@ -5,12 +5,13 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import EventBan
+from ludamus.pacts.safety import EventBanDTO
 from tests.integration.conftest import EventFactory, UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
+    panel_context,
 )
 
 
@@ -35,22 +36,49 @@ class TestBansPageView:
     def test_manager_gets_page(self, panel_client, event):
         response = panel_client.get(self._url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["active_nav"] == "bans"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/bans.html",
+            context_data={**panel_context(event, active_nav="bans"), "bans": []},
+        )
 
     def test_page_lists_existing_bans(self, panel_client, event):
         tm = UserFactory(username="tm0", email="tm0@example.com", name="Banned Bob")
-        EventBan.objects.create(event=event, user=tm, reason="incites violence")
-        # A reasonless ban exercises the "—" fallback column.
+        reasoned = EventBan.objects.create(
+            event=event, user=tm, reason="incites violence"
+        )
+        # A reasonless ban reaches the template with an empty reason, which the
+        # bans table renders as the "—" fallback column.
         nr = UserFactory(username="nr0", email="nr0@example.com", name="No Reason")
-        EventBan.objects.create(event=event, user=nr, reason="")
+        reasonless = EventBan.objects.create(event=event, user=nr, reason="")
 
-        content = panel_client.get(self._url(event)).content.decode()
+        response = panel_client.get(self._url(event))
 
-        assert "Banned Bob" in content
-        assert "incites violence" in content
-        assert "No Reason" in content
-        assert "—" in content
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/bans.html",
+            context_data={
+                **panel_context(event, active_nav="bans"),
+                "bans": [
+                    EventBanDTO(
+                        pk=reasoned.pk,
+                        user_name="Banned Bob",
+                        user_slug=tm.slug,
+                        reason="incites violence",
+                        created_at=reasoned.created_at,
+                    ),
+                    EventBanDTO(
+                        pk=reasonless.pk,
+                        user_name="No Reason",
+                        user_slug=nr.slug,
+                        reason="",
+                        created_at=reasonless.created_at,
+                    ),
+                ],
+            },
+        )
 
     def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:bans", kwargs={"slug": "nonexistent"})

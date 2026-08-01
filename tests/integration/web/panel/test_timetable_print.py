@@ -16,11 +16,8 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
 )
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
-from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import (
-    assert_login_required,
-    assert_not_a_manager,
-)
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import assert_not_a_manager
 
 
 class TestTimetablePrintView:

@@ -12,12 +12,8 @@ from django.utils.text import slugify
 from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
-from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import (
-    assert_login_required,
-    assert_not_a_manager,
-    panel_context,
-)
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import assert_not_a_manager, panel_context
 
 
 def _record(space):

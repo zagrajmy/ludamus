@@ -3,10 +3,9 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import PersonalDataField
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     cfp_tab_urls,
     panel_context,

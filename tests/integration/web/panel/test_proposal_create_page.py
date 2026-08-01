@@ -30,10 +30,9 @@ from ludamus.pacts import (
     TrackDTO,
 )
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.utils import assert_login_required, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     facilitator_list_item_dto,
     panel_context,

@@ -22,10 +22,9 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     assign_payload,
     empty_grid,

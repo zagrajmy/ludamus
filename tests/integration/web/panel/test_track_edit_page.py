@@ -10,10 +10,9 @@ from ludamus.links.db.django.models import Track
 from ludamus.pacts import TrackDTO
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
-    assert_login_required,
     assert_not_a_manager,
     panel_context,
 )

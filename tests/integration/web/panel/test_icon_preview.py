@@ -3,10 +3,8 @@ from http import HTTPStatus
 from django.test import override_settings
 from django.urls import reverse
 
-from tests.integration.web.panel.helpers import (
-    assert_login_required,
-    assert_not_a_manager,
-)
+from tests.integration.utils import assert_login_required
+from tests.integration.web.panel.helpers import assert_not_a_manager
 
 URL = reverse("panel:icon-preview")
 
