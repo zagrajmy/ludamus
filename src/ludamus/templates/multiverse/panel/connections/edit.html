@@ -28,7 +28,7 @@
                     {% endif %}
                 </p>
                 <div class="peer">
-                    {% include "components/checkbox-field.html" with name=form.replace_secret.html_name id=form.replace_secret.id_for_label label=form.replace_secret.label checked=form.replace_secret.value aria_controls="secret-section" aria_expanded=form.replace_secret.value|yesno:"true,false" hx_on_change="this.setAttribute('aria-expanded', this.checked ? 'true' : 'false'); var s=document.getElementById('id_secret'); if (s) { if (this.checked) { s.setAttribute('aria-required', 'true'); } else { s.removeAttribute('aria-required'); } }" only %}
+                    {% include "components/checkbox-field.html" with name=form.replace_secret.html_name id=form.replace_secret.id_for_label label=form.replace_secret.label checked=form.replace_secret.value aria_controls="secret-section" aria_expanded=form.replace_secret.value|yesno:"true,false" data_action="sync-expanded-required" data_required_target="id_secret" only %}
                 </div>
                 <div id="secret-section"
                      class="hidden peer-has-[:checked]:block space-y-1">
