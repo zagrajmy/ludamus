@@ -126,7 +126,7 @@ description = "Format TOML files"
 run = "taplo lint --config=.taplo.toml"
 
 [tasks."lint:tingle"]
-run = ["tingle check || true"]
+run = ["tingle check"]
 
 [tasks."lint:vulture"]
 description = "Find dead Python code"
@@ -372,7 +372,7 @@ run = [
         "lint:import-linter",
         "lint:ruff",
     ] },
-    { task = "test:py", ars = [
+    { task = "test:py", args = [
         "-x",
     ] },
 ]
