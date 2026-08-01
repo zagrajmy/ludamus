@@ -12,7 +12,12 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import FacilitatorDTO
+from ludamus.pacts import (
+    FacilitatorDTO,
+    FieldAnswer,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
+)
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 from tests.integration.web.panel.helpers import (
@@ -339,6 +344,66 @@ class TestFacilitatorEditPageView:
         )
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == ["en", "śląski, ale tylko trochę"]
+
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, panel_client, event
+    ):
+        facilitator = make_facilitator(event)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Languages",
+            question="Which languages?",
+            slug="languages",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = PersonalDataFieldOption.objects.create(
+            field=field, label="English", value="en", order=0
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator, event=event, field=field, value=["en", "śląski"]
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="",
+                            is_multiple=True,
+                            is_public=False,
+                            max_length=50,
+                            name="Languages",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="English", order=0, pk=option.pk, value="en"
+                                )
+                            ],
+                            order=0,
+                            pk=field.pk,
+                            question="Which languages?",
+                            slug="languages",
+                        ),
+                        "name_prefix": "personal",
+                        # The stored write-in comes back split: the option on
+                        # the control, the rest beside it.
+                        "answer": FieldAnswer(value=["en"], custom_value="śląski"),
+                    }
+                ],
+            },
+        )
 
     def test_get_renders_all_personal_field_types(self, panel_client, event):
         facilitator = make_facilitator(event)

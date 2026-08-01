@@ -71,7 +71,17 @@ if TYPE_CHECKING:
         SessionFieldValueDTO,
     )
 
-    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, list[FieldDescriptor]]]
+
+@dataclass(frozen=True)
+class PersonalDataCard:
+    facilitator: FacilitatorDTO
+    descriptors: list[FieldDescriptor]
+    # A card is collapsed until it has something to say: the page opens the one
+    # that is wrong rather than guessing from a page-wide error.
+    has_errors: bool = False
+
+
+FacilitatorPersonalData = list[PersonalDataCard]
 
 
 def _facilitator_prefix(facilitator_id: int) -> str:
@@ -85,12 +95,11 @@ def _facilitator_fields_form(
     data: QueryDict | None = None,
     values: Mapping[str, FieldValue] | None = None,
 ) -> forms.Form:
-    stored = values or {}
     return dynamic_fields_form(
         prefix=prefix,
         fields=[(field, False) for field in fields],
         data=data,
-        initial={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
+        initial=values or {},
     )
 
 
@@ -200,6 +209,12 @@ def collect_session_field_values(
         )
     return values
 
+
+# The personal-data blocks are separate forms, so their errors never reach the
+# page's error summary on their own — this says why the save didn't happen.
+PERSONAL_DATA_ERROR = gettext_lazy(
+    "Fix the facilitator personal data below before saving."
+)
 
 _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
@@ -522,7 +537,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
                 for req in requirements
                 if req.field.pk in stored
             },
-            requirements=requirements,
+            fields=[req.field for req in requirements],
             prefix="session",
         )
         return form_class(initial=initial)
@@ -649,10 +664,9 @@ class ProposalFormPageView(_ProposalFormBase):
                 values=values_by_facilitator.get(facilitator.pk, {}),
             )
             result.append(
-                (
-                    facilitator,
-                    prefix,
-                    _descriptors(prefix=prefix, fields=fields, form=form),
+                PersonalDataCard(
+                    facilitator=facilitator,
+                    descriptors=_descriptors(prefix=prefix, fields=fields, form=form),
                 )
             )
         return result
@@ -671,10 +685,10 @@ class ProposalFormPageView(_ProposalFormBase):
                 prefix=prefix, fields=fields, data=self.request.POST
             )
             result.append(
-                (
-                    facilitator,
-                    prefix,
-                    _descriptors(prefix=prefix, fields=fields, form=form),
+                PersonalDataCard(
+                    facilitator=facilitator,
+                    descriptors=_descriptors(prefix=prefix, fields=fields, form=form),
+                    has_errors=not form.is_valid(),
                 )
             )
         return result
@@ -853,8 +867,9 @@ class ProposalFormPageView(_ProposalFormBase):
         # picker is not a form field, so the rule is enforced here and reported
         # through the form's own error channel.
         facilitator_ids = self._collect_facilitator_ids(current_event.pk) or []
-        personal_data_valid = self._personal_data_is_valid(current_event.pk)
-        if not form.is_valid() or not facilitator_ids or not personal_data_valid:
+        # No personal-data check here: a proposal that does not exist yet has no
+        # facilitators to render cards for, so the create page never posts any.
+        if not form.is_valid() or not facilitator_ids:
             if not facilitator_ids:
                 form.add_error(None, _("Please select at least one facilitator."))
             return self._render(context, prepared)
@@ -946,7 +961,10 @@ class ProposalFormPageView(_ProposalFormBase):
         prepared: _Prepared,
     ) -> HttpResponse:
         form = prepared.form
-        if not form.is_valid() or not self._personal_data_is_valid(current_event.pk):
+        personal_data_valid = self._personal_data_is_valid(current_event.pk)
+        if not form.is_valid() or not personal_data_valid:
+            if not personal_data_valid:
+                form.add_error(None, PERSONAL_DATA_ERROR)
             return self._render(context, prepared)
 
         try:

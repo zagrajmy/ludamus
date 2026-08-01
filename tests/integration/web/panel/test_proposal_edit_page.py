@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.proposals import PersonalDataCard
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -35,6 +36,7 @@ from ludamus.pacts import (
     FacilitatorListItemDTO,
     FieldAnswer,
     OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     SessionDTO,
     TimeSlotDTO,
     TrackDTO,
@@ -47,7 +49,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
@@ -893,10 +895,9 @@ class TestProposalEditPageView:
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [
-                    (
-                        FacilitatorDTO.model_validate(facilitator),
-                        f"facilitator_{facilitator.pk}_personal",
-                        [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
                             {
                                 "field": OrganizerFieldDTO(
                                     allow_custom=False,
@@ -1072,6 +1073,206 @@ class TestProposalEditPageView:
         )
         assert stored.value == ["vegan", "no peanuts"]
 
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, panel_client, event
+    ):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator,
+            event=event,
+            field=field,
+            value=["vegan", "no peanuts"],
+        )
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=True,
+                                    field_type="select",
+                                    help_text="",
+                                    is_multiple=True,
+                                    is_public=False,
+                                    max_length=50,
+                                    name="Diet",
+                                    options=[
+                                        OrganizerFieldOptionDTO(
+                                            label="Vegan",
+                                            order=0,
+                                            pk=option.pk,
+                                            value="vegan",
+                                        )
+                                    ],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any dietary needs?",
+                                    slug="diet",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                # The stored write-in comes back split: the
+                                # option on the control, the rest beside it.
+                                "answer": FieldAnswer(
+                                    value=["vegan"], custom_value="no peanuts"
+                                ),
+                            }
+                        ],
+                    )
+                ],
+            },
+        )
+
+    def test_post_with_only_invalid_personal_data_reports_it_on_the_form(
+        self, panel_client, event
+    ):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=5,
+            order=0,
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "New title",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                # Longer than the field allows, so only the personal-data form
+                # is invalid — the proposal form itself has nothing to report.
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": FormErrorsMatcher(
+                    __all__=["Fix the facilitator personal data below before saving."]
+                ),
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=False,
+                                    field_type="text",
+                                    help_text="",
+                                    is_multiple=False,
+                                    is_public=False,
+                                    max_length=5,
+                                    name="Allergy",
+                                    options=[],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any allergy?",
+                                    slug="allergy",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(
+                                    value="Peanuts",
+                                    errors=[
+                                        (
+                                            "Ensure this value has at most 5 "
+                                            "characters (it has 7)."
+                                        )
+                                    ],
+                                ),
+                            }
+                        ],
+                        has_errors=True,
+                    )
+                ],
+            },
+        )
+        session.refresh_from_db()
+        assert session.title == "Test Session"
+
     def test_invalid_post_preserves_submitted_personal_data(self, panel_client, event):
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
@@ -1104,10 +1305,9 @@ class TestProposalEditPageView:
 
         assert response.context["form"].errors
         assert response.context["facilitator_personal_data"] == [
-            (
-                FacilitatorDTO.model_validate(facilitator),
-                f"facilitator_{facilitator.pk}_personal",
-                [
+            PersonalDataCard(
+                facilitator=FacilitatorDTO.model_validate(facilitator),
+                descriptors=[
                     {
                         "field": OrganizerFieldDTO(
                             allow_custom=False,
