@@ -42,6 +42,7 @@ class FakeFacilitators:
 class FakeAgendaItems:
     def __init__(
         self,
+        *,
         rows: list[ConfirmationCountsRow],
         without_facilitator: int = 0,
         totals: ConfirmationTotalsRow | None = None,
@@ -87,7 +88,9 @@ def _service(
     totals: ConfirmationTotalsRow | None = None,
 ) -> tuple[EventConfirmationsService, FakeFacilitators, FakeAgendaItems, FakeTracks]:
     facilitators = FakeFacilitators(organizer_rows or [])
-    agenda_items = FakeAgendaItems(track_rows or [], without_facilitator, totals)
+    agenda_items = FakeAgendaItems(
+        rows=track_rows or [], without_facilitator=without_facilitator, totals=totals
+    )
     tracks = FakeTracks(manager_names or {})
     service = EventConfirmationsService(
         facilitators=facilitators,
