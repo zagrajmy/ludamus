@@ -34,53 +34,14 @@
                            required
                            class="w-32 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
-                <div>
-                    <p class="mb-1 text-sm font-medium text-foreground">{% translate "Unique key columns" %}</p>
-                    <p class="mb-2 text-xs text-foreground-muted">
-                        {% translate "Columns whose values together identify a row uniquely. Retry uses them to find the same row again after the sheet shifts." %}
-                    </p>
-                    {% if available_columns %}
-                        <div data-unique-keys
-                             class="space-y-2"
-                             data-empty-label="{{ no_unique_keys_label }}">
-                            <ul data-unique-keys-list class="flex flex-wrap gap-2">
-                                {% for col in unique_key_columns %}
-                                    <li class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-bg-secondary px-3 py-1 text-sm text-foreground-secondary">
-                                        <input type="hidden" name="unique_key_columns" value="{{ col }}">
-                                        <span class="truncate" title="{{ col }}">{{ col }}</span>
-                                        <button type="button"
-                                                data-unique-keys-remove
-                                                aria-label="{% blocktranslate with col=col %}Remove {{ col }}{% endblocktranslate %}"
-                                                class="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground">
-                                            {% icon "x-mark" class="w-3 h-3" %}
-                                        </button>
-                                    </li>
-                                {% empty %}
-                                    <li data-unique-keys-empty class="text-xs text-foreground-muted">{% translate "No columns selected." %}</li>
-                                {% endfor %}
-                            </ul>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <select data-unique-keys-select
-                                        class="w-full max-w-xs truncate rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                                    <option value="">{% translate "Add column…" %}</option>
-                                    {% for col in available_columns %}
-                                        {% if col not in unique_key_columns %}<option value="{{ col }}">{{ col }}</option>{% endif %}
-                                    {% endfor %}
-                                </select>
-                                <button type="button"
-                                        data-unique-keys-add
-                                        class="btn btn-secondary inline-flex items-center">
-                                    {% icon "plus" class="w-4 h-4 mr-1" %}
-                                    {% translate "Add" %}
-                                </button>
-                            </div>
-                        </div>
-                    {% else %}
-                        <p class="text-xs text-foreground-muted">
-                            {% translate "Map the form's questions first — the saved columns will appear here as unique-key candidates." %}
-                        </p>
-                    {% endif %}
-                </div>
+                {% translate "Unique key columns" as unique_keys_label %}
+                {% translate "Columns whose values together identify a row uniquely. Retry uses them to find the same row again after the sheet shifts." as unique_keys_help %}
+                {% translate "Map the form's questions first — the saved columns will appear here as unique-key candidates." as unique_keys_no_candidates %}
+                {% include "panel/_column_key_picker.html" with name="unique_key_columns" label=unique_keys_label help=unique_keys_help selected=unique_key_columns available=available_columns empty_label=no_columns_label no_candidates_help=unique_keys_no_candidates only %}
+                {% translate "Facilitator identity columns" as facilitator_keys_label %}
+                {% translate "Columns whose values identify a facilitator across rows (e.g. an email). Import dedupes on them, so a renamed facilitator stays one record. Leave empty to match by display name." as facilitator_keys_help %}
+                {% translate "Map the form's questions first — the saved columns will appear here as facilitator-key candidates." as facilitator_keys_no_candidates %}
+                {% include "panel/_column_key_picker.html" with name="facilitator_key_columns" label=facilitator_keys_label help=facilitator_keys_help selected=facilitator_key_columns available=available_columns empty_label=no_columns_label no_candidates_help=facilitator_keys_no_candidates only %}
                 <div class="flex justify-end">
                     <button type="submit" class="btn btn-primary inline-flex items-center">
                         {% icon "check" class="w-4 h-4 mr-1" %}

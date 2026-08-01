@@ -18,6 +18,7 @@ from ludamus.pacts.submissions import (
     CFPPersonalDataFieldServiceProtocol,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
+    is_empty_answer,
 )
 
 if TYPE_CHECKING:
@@ -84,10 +85,15 @@ class CFPPersonalDataFieldService(
         return True
 
 
-def _is_blank(*, value: str | list[str] | bool | None) -> bool:
+def _means_unset(*, value: str | list[str] | bool | None) -> bool:
+    # Wider than `is_empty_answer`: for the change log an unchecked checkbox
+    # and a missing row are the same non-event, so `False` counts here too.
+    # Storage keeps them apart — `False` is an answer worth a row.
+    if isinstance(value, str):
+        return not value.strip()
     if isinstance(value, list):
         return not value
-    return value in {None, "", False}
+    return value is None or value is False
 
 
 def _diff_personal_data(
@@ -102,7 +108,7 @@ def _diff_personal_data(
             continue
         old = old_by_slug.get(field.slug)
         new = entry["value"]
-        if _is_blank(value=old) and _is_blank(value=new):
+        if _means_unset(value=old) and _means_unset(value=new):
             continue
         if old != new:
             changes.append(
@@ -152,6 +158,29 @@ class PersonalDataFieldValueService:
             old_by_slug=old_by_slug, fields_by_id=fields_by_id, entries=entries
         )
 
+    def _storable(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+    ) -> list[PersonalDataFieldValueData]:
+        # A blank input over a field the facilitator has never answered writes
+        # nothing — no row means "never answered", and an empty row would
+        # claim otherwise. Blanking an answer that exists is a real edit and
+        # is stored, which also stops re-import from refilling it.
+        answered = set(
+            self._personal_data_field_values.list_field_ids_for_facilitator_event(
+                facilitator_id, event_id
+            )
+        )
+        return [
+            entry
+            for entry in entries
+            if entry["field_id"] in answered
+            or not is_empty_answer(value=entry["value"])
+        ]
+
     def _log(
         self,
         *,
@@ -185,8 +214,11 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            if entries:
-                self._personal_data_field_values.save(entries)
+            storable = self._storable(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if storable:
+                self._personal_data_field_values.save(storable)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,
@@ -248,8 +280,11 @@ class PersonalDataFieldValueService:
                     }
                 )
             self._facilitators.update(facilitator_id, data)
-            if entries:
-                self._personal_data_field_values.save(entries)
+            storable = self._storable(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if storable:
+                self._personal_data_field_values.save(storable)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,

@@ -165,6 +165,10 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: test_event_page.py::test_query_count_constant_in_session_count
+  flaked once under parallel run with 'UNIQUE constraint failed: sphere.site_id'
+  — passed on re-run, looks like a test-isolation collision between sphere/site
+  fixtures
 - 2026-07-24: Committed from a new git worktree → hook startup failed because
   the copied mise.toml was untrusted; trust was required before hooks could run.
 - 2026-07-24: Used agent-browser find role link with an exact Log in name → it
@@ -259,3 +263,7 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' — that file is owned by uid
   65534, and OpenSSH refuses any system config it does not own as root. Worked
   around it by pushing over https with gh as the credential helper.
+- 2026-08-01: git push over SSH fails with 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
+  credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch

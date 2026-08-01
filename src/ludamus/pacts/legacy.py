@@ -80,6 +80,7 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    ident: str = ""
     internal_comment: str = ""
     organizer_id: int | None = None
     # Annotated by the single-facilitator reads, so a page showing the
@@ -95,6 +96,7 @@ class FacilitatorData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     event_id: int
+    ident: str
     organizer_id: int | None
     slug: str
     user_id: int | None
@@ -853,8 +855,6 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def set_time_slots(session_id: int, time_slot_ids: list[int]) -> None: ...
     @staticmethod
-    def clear_field_values(session_id: int) -> None: ...
-    @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]: ...
     @staticmethod
     def read_facilitators_by_sessions(
@@ -1232,6 +1232,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO: ...
     @staticmethod
     def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO: ...
+    @staticmethod
+    def find_id_by_ident(event_id: int, ident: str) -> int | None: ...
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod

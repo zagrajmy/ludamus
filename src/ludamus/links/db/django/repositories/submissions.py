@@ -855,6 +855,18 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
+    def find_id_by_ident(event_id: int, ident: str) -> int | None:
+        return (
+            Facilitator.objects.filter(event_id=event_id, ident=ident)
+            .values_list("id", flat=True)
+            .first()
+        )
+
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None:
+        Facilitator.objects.filter(id=pk).update(ident=ident)
+
+    @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO:
         try:
             facilitator = Facilitator.objects.get(pk=pk)
