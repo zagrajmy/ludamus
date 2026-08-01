@@ -1306,7 +1306,6 @@ msgid "Import settings saved."
 msgstr "Zapisano ustawienia importu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
-#: src/ludamus/templates/panel/import-run.html
 msgid "No columns selected."
 msgstr "Nie wybrano żadnych kolumn."
 
@@ -1321,12 +1320,11 @@ msgstr "Zapisano ustawienia arkusza."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
 msgid ""
-"Import aborted: unique-key columns not found in the sheet: %(columns)s. Fix "
-"the unique-key selection on the run tab, then try again."
+"Import aborted: key columns not found in the sheet: %(columns)s. Fix the key-"
+"column selection on the run tab, then try again."
 msgstr ""
-"Przerwano import: nie znaleziono w arkuszu kolumn klucza unikalnego: "
-"%(columns)s. Popraw wybór klucza unikalnego na karcie uruchamiania i spróbuj "
-"ponownie."
+"Przerwano import: nie znaleziono w arkuszu kolumn kluczowych: %(columns)s. "
+"Popraw wybór kolumn kluczowych na karcie uruchamiania i spróbuj ponownie."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #, python-format
@@ -5804,6 +5802,21 @@ msgstr "Pola punktu programu"
 msgid "Time Slots"
 msgstr "Przedziały czasowe"
 
+#: src/ludamus/templates/panel/_column_key_picker.html
+#, python-format
+msgid "Remove %(col)s"
+msgstr "Usuń %(col)s"
+
+#: src/ludamus/templates/panel/_column_key_picker.html
+msgid "Add column…"
+msgstr "Dodaj kolumnę…"
+
+#: src/ludamus/templates/panel/_column_key_picker.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Add"
+msgstr "Dodaj"
+
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -6216,12 +6229,6 @@ msgstr "h"
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "min"
 msgstr "min"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Add"
-msgstr "Dodaj"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "No durations configured yet."
@@ -7004,14 +7011,6 @@ msgid "View proposal"
 msgstr "Zobacz zgłoszenie"
 
 #: src/ludamus/templates/panel/import-log.html
-msgid ""
-"Reimport will overwrite any manual edits to the imported fields on this "
-"proposal. Continue?"
-msgstr ""
-"Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w tym "
-"zgłoszeniu. Kontynuować?"
-
-#: src/ludamus/templates/panel/import-log.html
 msgid "Reimport"
 msgstr "Ponów import"
 
@@ -7045,21 +7044,34 @@ msgstr ""
 "arkusza."
 
 #: src/ludamus/templates/panel/import-run.html
-#, python-format
-msgid "Remove %(col)s"
-msgstr "Usuń %(col)s"
-
-#: src/ludamus/templates/panel/import-run.html
-msgid "Add column…"
-msgstr "Dodaj kolumnę…"
-
-#: src/ludamus/templates/panel/import-run.html
 msgid ""
 "Map the form's questions first — the saved columns will appear here as "
 "unique-key candidates."
 msgstr ""
 "Najpierw przypisz pytania formularza — zapisane kolumny pojawią się tu jako "
 "kandydaci na klucze unikalności."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid "Facilitator identity columns"
+msgstr "Kolumny tożsamości twórcy programu"
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Columns whose values identify a facilitator across rows (e.g. an email). "
+"Import dedupes on them, so a renamed facilitator stays one record. Leave "
+"empty to match by display name."
+msgstr ""
+"Kolumny, których wartości identyfikują twórcę programu w wielu wierszach (np. "
+"adres e-mail). Import deduplikuje na ich podstawie, więc zmiana nazwy nie "
+"tworzy nowego rekordu. Pozostaw puste, aby dopasowywać po nazwie wyświetlanej."
+
+#: src/ludamus/templates/panel/import-run.html
+msgid ""
+"Map the form's questions first — the saved columns will appear here as "
+"facilitator-key candidates."
+msgstr ""
+"Najpierw przypisz pytania formularza — zapisane kolumny pojawią się tu jako "
+"kandydaci na kolumny tożsamości twórcy programu."
 
 #: src/ludamus/templates/panel/import-run.html
 msgid "Form fields"
@@ -8660,6 +8672,12 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid ""
+#~ "Reimport will overwrite any manual edits to the imported fields on this "
+#~ "proposal. Continue?"
+#~ msgstr ""
+#~ "Ponowny import nadpisze wszelkie ręczne zmiany w polach importowanych w "
+#~ "tym zgłoszeniu. Kontynuować?"
 #~ msgid "Apply"
 #~ msgstr "Zastosuj"
 

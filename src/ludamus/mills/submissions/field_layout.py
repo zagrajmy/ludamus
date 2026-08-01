@@ -162,7 +162,12 @@ class ImportFieldLayoutService:
             builtins = resolve_builtins(settings, row)
         except RowSkippedError:
             return 0
-        facilitator_id = self._engine.facilitator_id(event_id, builtins.display_name)
+        facilitator_id = self._engine.facilitator_id(
+            event_id=event_id,
+            settings=settings,
+            row=row,
+            display_name=builtins.display_name,
+        )
         if facilitator_id is None:
             return 0
         self._repos.sessions.set_facilitators(session_id, [facilitator_id])
