@@ -156,6 +156,16 @@ class TestAnonymousCapacity:
             participants_limit=_SESSION_LIMIT, enrolled_count=_SEATS_AT_OPEN_PERCENT - 1
         )
 
+    def test_an_unlimited_session_has_no_effective_participants_limit(self) -> None:
+        policy = _policy(_Window())
+
+        assert policy.effective_participants_limit(participants_limit=0) == 0
+
+    def test_an_unlimited_session_is_never_full(self) -> None:
+        policy = _policy(_Window())
+
+        assert not policy.is_full(participants_limit=0, enrolled_count=_UNLIMITED)
+
 
 class TestAggregates:
     def test_waiting_list_takes_the_highest_usable_window(self) -> None:
