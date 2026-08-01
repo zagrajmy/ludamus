@@ -64,6 +64,7 @@ visibility badges, …). Prefer including those over re-creating their markup.
   hairline ring into the shadow's final layer instead: `border shadow-md` →
   `smooth-shadow-ring-md`; no edge wanted → plain `smooth-shadow-{size}`.
   Don't add a `border`/`ring` on top — the ring is already in there. Tint via
-  `shadow-{color}` (shadow) and `smooth-ring-{color}` (ring); dark mode is
-  handled automatically.
+  `shadow-{color}` (shadow) and `smooth-ring-{color}` (ring). Globally the
+  ring reads `var(--color-border)` (index.css) so hairlines stay warm and flip
+  with the theme — don't re-tint per element without a reason.
 - One brand font (Outfit) by design — don't add a second.

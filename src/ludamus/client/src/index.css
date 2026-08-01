@@ -350,6 +350,26 @@ button {
   --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* smooth-shadow-ring hairlines read the house border token — our neutrals are
+   warm, and the plugin's default semi-transparent black renders cool grey
+   against them. Mirrors all three plugin selectors (:root, the
+   prefers-color-scheme media rule, .dark) so this wins each cascade branch;
+   var() resolves per-theme, so one value covers light and dark. */
+:root {
+  --smooth-ring-color: var(--color-border);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    --smooth-ring-color: var(--color-border);
+  }
+}
+
+.dark,
+[data-theme="dark"] {
+  --smooth-ring-color: var(--color-border);
+}
+
 :focus-visible {
   outline: none;
   box-shadow:
