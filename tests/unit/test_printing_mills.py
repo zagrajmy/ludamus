@@ -132,6 +132,25 @@ class TestBuildDoorCards:
 
         assert [c.space_name for c in document.cards] == ["Alfa", "Bravo"]
 
+    def test_a_room_used_on_two_days_gets_a_card_per_day(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True, day=2),
+            _item(2, 1, 9, 10, title="Larp", confirmed=True, day=1),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = _door_cards(service)
+
+        assert [(c.space_name, c.day) for c in document.cards] == [
+            ("Alfa", date(2026, 6, 1)),
+            ("Alfa", date(2026, 6, 2)),
+        ]
+        assert [[e.session.title for e in c.entries] for c in document.cards] == [
+            ["Larp"],
+            ["RPG"],
+        ]
+
     def test_time_range_keeps_overlapping_entries_and_drops_empty_rooms(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [
@@ -149,7 +168,7 @@ class TestBuildDoorCards:
         )
 
         assert [c.space_name for c in document.cards] == ["Alfa"]
-        entries = document.cards[0].days[0].entries
+        entries = document.cards[0].entries
         assert [entry.session.title for entry in entries] == ["RPG"]
 
     def test_empty_slots_and_sessionless_spaces_are_omitted(self):
@@ -163,7 +182,7 @@ class TestBuildDoorCards:
         document = _door_cards(service)
 
         assert [c.space_name for c in document.cards] == ["Alfa"]
-        entries = document.cards[0].days[0].entries
+        entries = document.cards[0].entries
         assert [e.session.title for e in entries] == ["RPG"]
 
     def test_includes_unconfirmed_scheduled_session(self):
@@ -174,7 +193,7 @@ class TestBuildDoorCards:
 
         document = _door_cards(service)
 
-        entries = document.cards[0].days[0].entries
+        entries = document.cards[0].entries
         assert entries[0].session is not None
         assert entries[0].session.title == "Larp"
 

@@ -9,7 +9,6 @@ from django.utils.timezone import localdate
 from ludamus.links.db.django.models import Space
 from ludamus.pacts import EventDTO
 from ludamus.pacts.printing import (
-    DoorCardDayDTO,
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
@@ -92,7 +91,8 @@ class TestTimetablePrintView:
         time_slot,
     ):
         sphere.managers.add(active_user)
-        empty_space = SpaceFactory(event=event, name="Empty Hall")
+        # Participant-facing cards: a room with nothing scheduled gets no card.
+        SpaceFactory(event=event, name="Empty Hall")
         AgendaItemFactory(
             session=session,
             space=space,
@@ -106,13 +106,33 @@ class TestTimetablePrintView:
             response,
             HTTPStatus.OK,
             template_name="panel/print/door-cards.html",
-            context_data={"document": ANY},
+            context_data={
+                "document": DoorCardsDocumentDTO(
+                    event_name=event.name,
+                    event_description=event.description,
+                    event_start=event.start_time,
+                    event_end=event.end_time,
+                    scope_name=None,
+                    cards=[
+                        DoorCardDTO(
+                            space_name=space.name,
+                            capacity=space.capacity,
+                            day=localdate(time_slot.start_time),
+                            entries=[
+                                DoorCardEntryDTO(
+                                    start_time=time_slot.start_time,
+                                    end_time=time_slot.start_time + timedelta(hours=1),
+                                    session=PrintSessionDTO(
+                                        title=session.title,
+                                        presenter_name=session.display_name,
+                                    ),
+                                )
+                            ],
+                        )
+                    ],
+                )
+            },
         )
-        content = response.content.decode()
-        assert space.name in content
-        # participant-facing cards: no card for an empty room, no gap rows
-        assert empty_space.name not in content
-        assert "Free slot" not in content
 
     def test_door_cards_limited_to_time_window(
         self,
@@ -159,20 +179,15 @@ class TestTimetablePrintView:
                         DoorCardDTO(
                             space_name=space.name,
                             capacity=space.capacity,
-                            days=[
-                                DoorCardDayDTO(
-                                    day=localdate(time_slot.start_time),
-                                    entries=[
-                                        DoorCardEntryDTO(
-                                            start_time=time_slot.start_time,
-                                            end_time=time_slot.start_time
-                                            + timedelta(hours=1),
-                                            session=PrintSessionDTO(
-                                                title=session.title,
-                                                presenter_name=session.display_name,
-                                            ),
-                                        )
-                                    ],
+                            day=localdate(time_slot.start_time),
+                            entries=[
+                                DoorCardEntryDTO(
+                                    start_time=time_slot.start_time,
+                                    end_time=time_slot.start_time + timedelta(hours=1),
+                                    session=PrintSessionDTO(
+                                        title=session.title,
+                                        presenter_name=session.display_name,
+                                    ),
                                 )
                             ],
                         )

@@ -19,7 +19,6 @@ from ludamus.pacts.printing import (
     AreaScheduleQueryDTO,
     AreaScheduleSessionDTO,
     AreaScheduleSpaceDTO,
-    DoorCardDayDTO,
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
@@ -148,11 +147,9 @@ class PrintMaterialsService:
         for space in spaces:
             # Cards hang on doors for participants: a room with nothing
             # scheduled gets no card, and empty hours are simply not listed.
-            if not (space_items := items_by_space.get(space.pk)):
-                continue
             entries_by_day: dict[date, list[DoorCardEntryDTO]] = defaultdict(list)
 
-            for item in space_items:
+            for item in items_by_space.get(space.pk, []):
                 day = item.start_time.astimezone(query.tz).date()
                 entries_by_day[day].append(
                     DoorCardEntryDTO(
@@ -162,15 +159,15 @@ class PrintMaterialsService:
                     )
                 )
 
-            days = [
-                DoorCardDayDTO(
-                    day=day, entries=sorted(entries_by_day[day], key=_entry_start)
+            cards += [
+                DoorCardDTO(
+                    space_name=space.name,
+                    capacity=space.capacity,
+                    day=day,
+                    entries=sorted(entries_by_day[day], key=_entry_start),
                 )
                 for day in sorted(entries_by_day)
             ]
-            cards.append(
-                DoorCardDTO(space_name=space.name, capacity=space.capacity, days=days)
-            )
 
         return DoorCardsDocumentDTO(
             event_name=event.name,
