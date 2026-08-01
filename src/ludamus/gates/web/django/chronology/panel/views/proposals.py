@@ -13,7 +13,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
@@ -222,6 +222,32 @@ _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 # SessionStatus, but organizers still need "show me what's placed".
 SCHEDULED_FILTER = "scheduled"
 
+# Explicit "no status filter" value. An absent param means the pending
+# backlog, so "show everything" has to travel in the query — forms, the Clear
+# link and post-action redirects all echo it back.
+STATUS_ALL = "all"
+
+
+def _safe_next(request: PanelRequest) -> str | None:
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}
+    ):
+        return next_url
+    return None
+
+
+def _back_to_proposals(request: PanelRequest, slug: str) -> str:
+    return _safe_next(request) or reverse("panel:proposals", kwargs={"slug": slug})
+
+
+def _proposal_detail_url(*, request: PanelRequest, slug: str, proposal_id: int) -> str:
+    detail = reverse(
+        "panel:proposal-detail", kwargs={"slug": slug, "proposal_id": proposal_id}
+    )
+    back = _safe_next(request)
+    return f"{detail}?{urlencode({'next': back})}" if back else detail
+
 
 class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
     """List submitted proposals for an event."""
@@ -259,8 +285,8 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             filter_category_pk = None
 
         # Default (no status param) is the pending backlog — the queue an
-        # organizer opens this page to work through. "All statuses" sends an
-        # explicit empty param and still shows everything.
+        # organizer opens this page to work through. STATUS_ALL (or any other
+        # unknown value) still shows everything.
         status_raw = self.request.GET.get("status", SessionStatus.PENDING.value)
         filter_status: str | None = (
             status_raw
@@ -333,6 +359,10 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             (SCHEDULED_FILTER, _("Scheduled")),
         ]
         context["filter_status"] = filter_status
+        # Value the track form and the Clear link echo back so the status
+        # selection round-trips. "All statuses" must stay present in the query,
+        # or the absent-param default re-selects the pending backlog.
+        context["filter_status_value"] = filter_status or STATUS_ALL
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
 
@@ -416,6 +446,9 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["preferred_time_slots"] = preferred_time_slots
         context["import_log_entry"] = import_log_entry
         context["import_log_integration"] = import_log_integration
+        # Carries the list's filters back: the breadcrumb and the action forms
+        # both return here, and a bare proposals URL means the pending backlog.
+        context["back_url"] = _back_to_proposals(self.request, slug)
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
 
 
@@ -1080,11 +1113,18 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        # The detail page keeps the list's filters alive across the transition:
+        # a bare proposals URL means the pending backlog, so the round trip has
+        # to carry the query the organizer came from.
+        back = _back_to_proposals(self.request, slug)
+        detail_url = _proposal_detail_url(
+            request=self.request, slug=slug, proposal_id=proposal_id
+        )
         try:
             self._apply_status(event_pk=current_event.pk, session_pk=proposal_id)
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+            return redirect(back)
         except ProposalScheduledError:
             messages.error(
                 self.request,
@@ -1093,10 +1133,10 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
                     "Remove it from the timetable to change its status."
                 ),
             )
-            return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+            return redirect(detail_url)
 
         messages.success(self.request, self.success_message)
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+        return redirect(detail_url)
 
 
 class ProposalPendingActionView(ProposalStatusActionView):
@@ -1162,7 +1202,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        back = self._redirect_target(slug)
+        back = _back_to_proposals(self.request, slug)
         method_name = _BULK_STATUS_METHODS.get(self.request.POST.get("action", ""))
         if method_name is None:
             messages.error(self.request, _("Unknown bulk action."))
@@ -1195,14 +1235,6 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             except ValueError:
                 continue
         return pks
-
-    def _redirect_target(self, slug: str) -> str:
-        next_url = self.request.POST.get("next", "")
-        if next_url and url_has_allowed_host_and_scheme(
-            next_url, allowed_hosts={self.request.get_host()}
-        ):
-            return next_url
-        return reverse("panel:proposals", kwargs={"slug": slug})
 
     def _report(self, *, applied: int, scheduled: int, missing: int) -> None:
         if applied:
@@ -1248,6 +1280,7 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        back = _back_to_proposals(self.request, slug)
         try:
             self.request.services.session_deletion.soft_delete(
                 event_pk=current_event.pk,
@@ -1256,10 +1289,10 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+            return redirect(back)
 
         messages.success(self.request, _("Session deleted."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect(back)
 
 
 class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
@@ -1271,16 +1304,17 @@ class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        back = _back_to_proposals(self.request, slug)
         try:
             self.request.services.session_deletion.restore(
                 event_pk=current_event.pk, session_pk=proposal_id
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+            return redirect(back)
 
         messages.success(self.request, _("Session restored."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect(back)
 
 
 class ProposalSetFacilitatorsActionView(PanelAccessMixin, EventContextMixin, View):

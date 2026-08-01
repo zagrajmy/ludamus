@@ -30,6 +30,7 @@
                 <form method="post"
                       action="{% url 'panel:proposal-pending' slug=current_event.slug proposal_id=proposal.pk %}">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ back_url }}">
                     {% tessera_button pending_label variant="secondary" %}
                 </form>
             {% endif %}
@@ -40,6 +41,7 @@
                 <form method="post"
                       action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ back_url }}">
                     {% tessera_button accept_label variant="primary" %}
                 </form>
             {% endif %}
@@ -52,6 +54,7 @@
                 <form method="post"
                       action="{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk %}">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ back_url }}">
                     {% tessera_button hold_label variant="secondary" %}
                 </form>
             {% endif %}
@@ -66,6 +69,7 @@
                       data-confirm="{% translate "Are you sure you want to reject this proposal?" %}"
                       data-confirm-action="{% translate "Reject" %}">
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ back_url }}">
                     {% tessera_button reject_label variant="danger" %}
                 </form>
             {% endif %}
@@ -74,6 +78,7 @@
                   data-confirm="{% translate "Are you sure you want to delete this session? It will be removed from the schedule." %}"
                   data-confirm-action="{% translate "Delete" %}">
                 {% csrf_token %}
+                <input type="hidden" name="next" value="{{ back_url }}">
                 {% translate "Delete" as delete_label %}
                 {% tessera_button delete_label variant="danger" %}
             </form>
@@ -85,7 +90,7 @@
         <nav class="mb-4 text-sm">
             <ol class="flex items-center space-x-2">
                 <li>
-                    <a href="{% url 'panel:proposals' slug=current_event.slug %}"
+                    <a href="{{ back_url }}"
                        class="text-foreground-muted hover:text-primary">{% translate "Proposals" %}</a>
                 </li>
                 <li class="text-foreground-muted/50">/</li>

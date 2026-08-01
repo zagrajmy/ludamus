@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from http import HTTPStatus
+from urllib.parse import quote
 
 from django.contrib import messages
 from django.urls import reverse
@@ -80,6 +81,30 @@ class TestProposalAcceptActionView:
         )
         session.refresh_from_db()
         assert session.status == "accepted"
+
+    def test_post_carries_the_list_filters_to_the_detail_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        back = (
+            reverse("panel:proposals", kwargs={"slug": event.slug}) + "?status=rejected"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk), {"next": back}
+        )
+
+        detail = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal accepted.")],
+            url=f"{detail}?next={quote(back, safe='')}",
+        )
 
     def test_post_accepts_session_already_on_hold(
         self, authenticated_client, active_user, sphere, event

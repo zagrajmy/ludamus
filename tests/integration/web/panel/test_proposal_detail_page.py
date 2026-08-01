@@ -145,6 +145,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
 
@@ -193,6 +194,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
         assert session.cover_image_url.encode() in response.content
@@ -240,6 +242,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=["Presenter", "Contact Email", 'href="mailto:anna@example.com"'],
         )
@@ -292,6 +295,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [TimeSlotDTO.model_validate(slot)],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains="Preferred time slots",
         )
@@ -338,6 +342,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=["Slug", "Created", "Last modified", "unscheduled"],
             not_contains=["View on timetable", "Schedule changes"],
@@ -407,6 +412,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[
                 "View on timetable",
@@ -486,6 +492,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=["Schedule changes", "Assigned", "Main Hall"],
         )
@@ -575,6 +582,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[
                 reverse("panel:proposal-accept", kwargs=url_kwargs),
@@ -653,6 +661,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[
                 f'disabled title="{scheduled_tooltip}"',
@@ -716,6 +725,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[f'href="{facilitator_url}"', "Alice"],
         )
@@ -769,6 +779,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[f'href="{track_url}"', "Main Track"],
         )
@@ -845,6 +856,7 @@ class TestProposalDetailPageView:
                     settings_json="{}",
                     questions_snapshot_json="[]",
                 ),
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[f'href="{log_url}?focus={entry.pk}"', "Imported via Puller"],
         )

@@ -27,20 +27,23 @@
         <form method="get"
               data-autosubmit
               class="flex items-center gap-2 flex-shrink-0">
-            {% for field in session_fields %}
-                <input type="hidden"
-                       name="field_{{ field.pk }}"
-                       value="{{ filter_fields|get_item:field.pk }}">
-            {% endfor %}
-            {% if filter_search %}
-                <input type="hidden" name="search" value="{{ filter_search }}">
-            {% endif %}
-            {% if filter_status %}
-                <input type="hidden" name="status" value="{{ filter_status }}">
-            {% endif %}
-            {% if filter_category_pk %}
-                <input type="hidden" name="category" value="{{ filter_category_pk }}">
-            {% endif %}
+            {# The other filters ride along as hidden inputs. They live in their #}
+            {# own element so the results swap can replace them out of band —    #}
+            {# swapping the form itself would drop its autosubmit listener.      #}
+            <div id="track-form-filters" class="contents">
+                {% for field in session_fields %}
+                    <input type="hidden"
+                           name="field_{{ field.pk }}"
+                           value="{{ filter_fields|get_item:field.pk }}">
+                {% endfor %}
+                {% if filter_search %}
+                    <input type="hidden" name="search" value="{{ filter_search }}">
+                {% endif %}
+                <input type="hidden" name="status" value="{{ filter_status_value }}">
+                {% if filter_category_pk %}
+                    <input type="hidden" name="category" value="{{ filter_category_pk }}">
+                {% endif %}
+            </div>
             <label for="track-scope"
                    class="text-xs text-foreground-muted whitespace-nowrap hidden sm:inline">
                 {% translate "Track" %}
@@ -73,6 +76,10 @@
                       hx-target="#proposals-results"
                       hx-select="#proposals-results"
                       hx-swap="outerHTML"
+                      {# The track form sits outside the swapped results and #}
+                      {# carries the other filters as hidden inputs, so they #}
+                      {# have to come back fresh or it replays a stale query. #}
+                      hx-select-oob="#track-form-filters"
                       hx-push-url="true"
                       hx-indicator="#filter-spinner"
                       class="flex flex-wrap gap-4 items-end">
@@ -117,10 +124,21 @@
                         <select id="filter-status"
                                 name="status"
                                 class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                            <option value="" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
-                            {% for s, label in statuses %}
-                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
+                            <option value="all" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
+                            <optgroup label="{% translate "Not on the timetable" %}">
+                                {% for s, label in statuses %}
+                                    {% if s != "scheduled" %}
+                                        <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </optgroup>
+                            <optgroup label="{% translate "On the timetable" %}">
+                                {% for s, label in statuses %}
+                                    {% if s == "scheduled" %}
+                                        <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </optgroup>
                         </select>
                     </div>
                     {% for field in session_fields %}
@@ -164,7 +182,7 @@
                               class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
                               role="status"
                               aria-label="{% translate "Filtering" %}"></span>
-                        <a href="{% url 'panel:proposals' slug=current_event.slug %}"
+                        <a href="{% url 'panel:proposals' slug=current_event.slug %}?status=all"
                            class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
                     </div>
                 </form>
@@ -242,7 +260,7 @@
                                                class="bulk-row-checkbox rounded border-border">
                                     </td>
                                     <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                                        <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
+                                        <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}?next={{ request.get_full_path|urlencode }}"
                                            class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
                                     </td>
                                     <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
@@ -281,7 +299,12 @@
             {% else %}
                 <div class="card p-8 text-center">
                     {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
-                        <p class="text-foreground-muted">{% translate "No proposals match the current filters." %}</p>
+                        <p class="text-foreground-muted mb-4">{% translate "No proposals match the current filters." %}</p>
+                        {% if filter_status %}
+                            {% querystring status="all" as all_statuses_url %}
+                            {% translate "Show all statuses" as t_all_statuses %}
+                            {% tessera_button t_all_statuses href=all_statuses_url variant="secondary" %}
+                        {% endif %}
                     {% else %}
                         <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
                         {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
@@ -337,6 +360,7 @@
                             <form method="post"
                                   action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}">
                                 {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                 {% translate "Restore" as restore_label %}
                                 {% tessera_button restore_label variant="secondary" %}
                             </form>

@@ -263,3 +263,12 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-01: e2e: Firefox project fails locally with 'browserContext.newPage:
+  Test timeout' on every spec (even untouched ones like sound.spec.ts); only
+  chromium is runnable here, so a local full 'mise run test:e2e' always ends red
+  and 63 tests report 'did not run'. Had to verify per-project.
+- 2026-08-01: e2e: 'panel redirects to home with message when sphere has no
+  events' (panel.spec.ts) fails locally on a freshly prepped DB even with no
+  working-tree changes — /panel/ stays put instead of redirecting to /events/.
+  It also aborts the rest of panel.spec.ts (serial mode), so 43 tests report
+  'did not run'.

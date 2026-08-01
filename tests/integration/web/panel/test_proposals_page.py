@@ -49,6 +49,7 @@ _TRACK_FILTER_CONTEXT = {
     "page_obj": PageMatcher(number=1, num_pages=1),
     "filter_category_pk": None,
     "filter_status": SessionStatus.PENDING,
+    "filter_status_value": SessionStatus.PENDING,
     "statuses": _STATUSES,
 }
 
@@ -885,6 +886,7 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
         )
@@ -922,16 +924,9 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": "accepted",
+                "filter_status_value": "accepted",
                 "statuses": _STATUSES,
             },
-            contains=[
-                # "All tracks" survives a status submit instead of snapping
-                # back to the single managed track.
-                '<input type="hidden" name="track" value="">',
-                # The track switcher carries the active status filter forward.
-                '<input type="hidden" name="status" value="accepted">',
-            ],
-            not_contains=f'name="track" value="{track.pk}"',
         )
 
     def test_track_form_carries_category_filter_forward(
@@ -967,6 +962,7 @@ class TestProposalsPageView:
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "filter_category_pk": category.pk,
                 "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
             contains=f'<input type="hidden" name="category" value="{category.pk}">',
@@ -1005,6 +1001,7 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
         )
@@ -1109,7 +1106,7 @@ class TestProposalsPageView:
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        Session.objects.create(
+        pending = Session.objects.create(
             event=event,
             category=category,
             display_name="Pending Host",
@@ -1149,10 +1146,112 @@ class TestProposalsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        titles = {p.title for p in response.context["proposals"]}
-        assert titles == {"Pending Session"}
-        assert response.context["filter_status"] == SessionStatus.PENDING
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 2,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 4,
+                    "total_sessions": 3,
+                },
+                "proposals": [
+                    SessionListItemDTO(
+                        pk=pending.pk,
+                        title="Pending Session",
+                        display_name="Pending Host",
+                        category_name="RPG",
+                        status=SessionStatus.PENDING,
+                        creation_time=pending.creation_time,
+                        is_scheduled=False,
+                    )
+                ],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
+
+    def test_all_status_param_shows_every_status_and_round_trips(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        pending = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        accepted = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 2,
+                    "total_sessions": 1,
+                },
+                "filter_status": None,
+                # The value forms echo back, so "All statuses" survives a track
+                # or category submit instead of falling back to the default.
+                "filter_status_value": "all",
+                "proposals": [
+                    SessionListItemDTO(
+                        pk=accepted.pk,
+                        title="Accepted Session",
+                        display_name="Accepted Host",
+                        category_name="RPG",
+                        status=SessionStatus.ACCEPTED,
+                        creation_time=accepted.creation_time,
+                        is_scheduled=False,
+                    ),
+                    SessionListItemDTO(
+                        pk=pending.pk,
+                        title="Pending Session",
+                        display_name="Pending Host",
+                        category_name="RPG",
+                        status=SessionStatus.PENDING,
+                        creation_time=pending.creation_time,
+                        is_scheduled=False,
+                    ),
+                ],
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
 
     def test_filters_by_status_param(
         self, authenticated_client, active_user, sphere, event
@@ -1399,6 +1498,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
 
@@ -1456,6 +1556,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
 
