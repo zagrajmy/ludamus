@@ -31,13 +31,13 @@ from ludamus.gates.web.django.dynamic_fields import (
     fold_custom_answers,
     requirement_fields,
     unfold_custom_answers,
+    unfolded_initial,
 )
 from ludamus.gates.web.django.forms import CUSTOM_DURATION, create_proposal_form
 from ludamus.gates.web.django.templatetags.cfp_tags import parse_duration
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
-    PersonalFieldRequirementDTO,
     SessionContentEditData,
     SessionData,
     SessionFieldValueData,
@@ -92,16 +92,7 @@ def _facilitator_fields_form(
         data=data,
         # A write-in is stored as one value; it comes back split across the
         # control and its companion input, as the proposal wizard renders it.
-        initial=unfold_custom_answers(
-            stored={
-                f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields
-            },
-            requirements=[
-                PersonalFieldRequirementDTO(field=field, is_required=False)
-                for field in fields
-            ],
-            prefix=prefix,
-        ),
+        initial=unfolded_initial(prefix=prefix, fields=fields, stored=stored),
     )
 
 

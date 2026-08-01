@@ -34,6 +34,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     fold_custom_answers,
     requirement_fields,
     unfold_custom_answers,
+    unfolded_initial,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
@@ -69,7 +70,6 @@ if TYPE_CHECKING:
         AuthenticatedRequestContext,
         EventDTO,
         EventProposalSettingsDTO,
-        FieldValue,
         OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionSelfEditContext,
@@ -942,15 +942,17 @@ class SessionEditView(LoginRequiredMixin, View):
     def _fields_form(
         ctx: SessionSelfEditContext, data: QueryDict | None = None
     ) -> forms.Form:
-        initial: dict[str, FieldValue] = {
-            f"{_SESSION_FIELD_PREFIX}_{field.slug}": current
-            for field, current in ctx.session_fields
-        }
         return dynamic_fields_form(
             prefix=_SESSION_FIELD_PREFIX,
             fields=_session_field_pairs(ctx),
             data=data,
-            initial=initial,
+            # A write-in is stored as one value; it comes back split across the
+            # control and its companion input, as the wizard renders it.
+            initial=unfolded_initial(
+                prefix=_SESSION_FIELD_PREFIX,
+                fields=[field for field, _current in ctx.session_fields],
+                stored={field.slug: current for field, current in ctx.session_fields},
+            ),
         )
 
     def get(

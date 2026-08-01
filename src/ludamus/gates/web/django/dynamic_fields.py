@@ -8,7 +8,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.mills.field_values import merge_custom, split_stored
-from ludamus.pacts import FieldAnswer
+from ludamus.pacts import FieldAnswer, PersonalFieldRequirementDTO
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
         FieldDescriptor,
         FieldValue,
         OrganizerFieldDTO,
-        PersonalFieldRequirementDTO,
         SessionFieldRequirementDTO,
     )
 
@@ -223,6 +222,25 @@ def unfold_custom_answers(
         if custom and req.field.allow_custom and custom_key not in keys:
             initial[custom_key] = custom
     return initial
+
+
+def unfolded_initial(
+    *,
+    prefix: str,
+    fields: Sequence[OrganizerFieldDTO],
+    stored: Mapping[str, FieldValue],
+) -> WizardData:
+    # Answers keyed by slug, as every page outside the proposal wizard reads
+    # them back. The requirement wrapper only carries the field: unfolding
+    # asks nothing about who has to answer.
+    return unfold_custom_answers(
+        stored={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
+        requirements=[
+            PersonalFieldRequirementDTO(field=field, is_required=False)
+            for field in fields
+        ],
+        prefix=prefix,
+    )
 
 
 def fold_custom_answers(
