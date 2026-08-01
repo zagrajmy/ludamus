@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-29 22:37+0200\n"
+"POT-Creation-Date: 2026-07-31 18:15+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6019,6 +6019,10 @@ msgstr "Usunąć ten ban?"
 #: src/ludamus/templates/panel/bans.html
 msgid "Nobody is banned from this event"
 msgstr "Nikt nie jest zbanowany na tym wydarzeniu"
+
+#: src/ludamus/templates/panel/base.html
+msgid "Page loading"
+msgstr "Ładowanie strony"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Close navigation"

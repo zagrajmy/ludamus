@@ -25,7 +25,7 @@ def build_panel_stats(stats_data: EventStatsData) -> PanelStatsDTO:
         total_sessions=stats_data.pending_proposals + stats_data.scheduled_sessions,
         scheduled_sessions=stats_data.scheduled_sessions,
         pending_proposals=stats_data.pending_proposals,
-        hosts_count=len(stats_data.unique_host_ids),
+        hosts_count=stats_data.hosts_count,
         rooms_count=stats_data.rooms_count,
         total_proposals=stats_data.total_proposals,
     )

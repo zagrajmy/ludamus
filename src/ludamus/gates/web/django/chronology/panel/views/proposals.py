@@ -633,14 +633,21 @@ class ProposalFormPageView(_ProposalFormBase):
         if not fields:
             return []
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        # One query for every assigned facilitator's answers instead of one
+        # lookup per facilitator.
+        values_by_facilitator = (
+            self.request.di.uow.personal_data_field_values.list_values_for_facilitators(
+                [f.pk for f in assigned], [f.pk for f in fields]
+            )
+        )
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
-            personal_data_field_values = self.request.di.uow.personal_data_field_values
-            values = personal_data_field_values.read_for_facilitator_event(
-                facilitator.pk, event_pk
-            )
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(prefix=prefix, fields=fields, values=values)
+            form = _facilitator_fields_form(
+                prefix=prefix,
+                fields=fields,
+                values=values_by_facilitator.get(facilitator.pk, {}),
+            )
             result.append(
                 (
                     facilitator,
@@ -1306,9 +1313,10 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["slug"] = slug
         service = self.request.services.session_content_edit
-        context["logs"] = service.list_log(current_event.pk)
+        logs = service.list_log(current_event.pk)
+        context["logs"] = logs
         context["field_names"] = service.list_field_names(current_event.pk)
-        context["revertible_pks"] = service.revertible_log_pks(current_event.pk)
+        context["revertible_pks"] = service.revertible_log_pks(current_event.pk, logs)
         facilitator_service = self.request.services.personal_data_field_values
         context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
         context["facilitator_field_names"] = facilitator_service.list_field_names(

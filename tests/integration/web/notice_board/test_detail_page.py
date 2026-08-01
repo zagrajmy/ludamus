@@ -162,8 +162,10 @@ class TestEncounterDetailPageView:
 
         response = client.get(url)
 
-        rsvps = EncounterRSVP.objects.filter(encounter=encounter).order_by(
-            "creation_time"
+        rsvps = (
+            EncounterRSVP.objects.filter(encounter=encounter)
+            .select_related("user")
+            .order_by("creation_time")
         )
         attendees = [
             UserInfo(

@@ -238,6 +238,10 @@ If you fix a papercut, remove it.
   django_vite's cached manifest kept serving deleted hashed JS, pages silently
   lost their scripts until a manual server restart. Fixed test:e2e:serve to
   watch manifest.json and bounce itself.
+- 2026-07-30: Web-sandbox image shipped without mise entirely; session-start.sh
+  assumed the binary exists, so every provisioning step warned-and-skipped and
+  the session looked half-provisioned. Installed it from mise.run (reachable
+  through the proxy) and added a self-install step to the hook.
 - 2026-07-31: sandbox: 'mise install' wedges on pipx:shellcheck-py@0.11.0 /
   hadolint-py@2.14.0 (PyPI only ships .0.1 wrapper revs) and session-start.sh's
   trim-retry did not self-heal, so every 'mise run' aborted until I exported

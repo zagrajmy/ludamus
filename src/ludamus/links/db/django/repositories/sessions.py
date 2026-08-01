@@ -44,6 +44,7 @@ from ludamus.pacts import (
     SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
+    TrackSessionCountsDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
@@ -206,12 +207,15 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
+        # add(), not set(): the session is brand new, so there is nothing to
+        # diff against — set() would first read back the (empty) relation,
+        # which turns bulk imports into a query per created session.
         if time_slot_ids:
-            session.time_slots.set(time_slot_ids)
+            session.time_slots.add(*time_slot_ids)
         if facilitator_ids:
-            session.facilitators.set(facilitator_ids)
+            session.facilitators.add(*facilitator_ids)
         if track_ids:
-            session.tracks.set(track_ids)
+            session.tracks.add(*track_ids)
         return session.pk
 
     @staticmethod
@@ -632,6 +636,42 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
         return [FacilitatorDTO.model_validate(f) for f in session.facilitators.all()]
+
+    @staticmethod
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
+        rows = (
+            Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
+            .values("tracks__pk")
+            .annotate(
+                pending=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.PENDING)
+                ),
+                accepted=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ACCEPTED)
+                ),
+                scheduled=Count(
+                    "pk",
+                    distinct=True,
+                    filter=Q(status=SessionStatus.ACCEPTED, agenda_item__isnull=False),
+                ),
+                on_hold=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ON_HOLD)
+                ),
+                rejected=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.REJECTED)
+                ),
+            )
+        )
+        return {
+            row["tracks__pk"]: TrackSessionCountsDTO(
+                pending=row["pending"],
+                accepted=row["accepted"],
+                scheduled=row["scheduled"],
+                on_hold=row["on_hold"],
+                rejected=row["rejected"],
+            )
+            for row in rows
+        }
 
     @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:
