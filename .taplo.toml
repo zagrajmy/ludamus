@@ -1,3 +1,5 @@
+exclude = [".venv/**/*.toml", "node_modules/**/*.toml"]
+
 [formatting]
 column_width = 88
 inline_table_expand = false

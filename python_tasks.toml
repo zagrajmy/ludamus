@@ -100,7 +100,7 @@ env = { _.file = '.env.test' }
 
 ["test:unit:cov"]
 description = "Run unit tests"
-run = { task = "test:unit", args = ["--cov=tests.unit", "--cov={{env.PACKAGE}}"] }
+run = { task = "test:unit", args = ["--cov=tests.unit", "--cov={{env.PACKAGE}}.mills"] }
 env = { _.file = '.env.test' }
 
 ["test:unit:cov:diff"]
@@ -148,7 +148,7 @@ run = [
     "coverage xml",
     "diff-cover coverage.xml --compare-branch=main",
 ]
-env = { _.file = '.env.test' }
+env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 ## Complex
 

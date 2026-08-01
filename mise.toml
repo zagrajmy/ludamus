@@ -40,20 +40,18 @@ _.python.venv = { path = ".venv", create = true }
 _.path = "/opt/homebrew/opt/gettext/bin:/usr/local/opt/gettext/bin:/home/linuxbrew/.linuxbrew/opt/gettext/bin"
 LD_LIBRARY_PATH = "/opt/homebrew/lib:/home/linuxbrew/.linuxbrew/lib"
 PYTHONPATH = "src"
+PACKAGE = "ludamus"
 SRC_PATHS = "src"
 TEST_PATHS = "tests"
 SCRIPT_PATHS = ".claude scripts"
-TOML_PATHS = ".taplo.toml pyproject.toml mise.sandbox.toml tasks.toml docker mise.toml tingle.toml python_tasks.toml"
+TOML_PATHS = "*.toml docker/*.toml"
 
 [bootstrap.packages]
 "brew:libxml2" = "latest"
 "brew:gettext" = "latest"
 
 [task_config]
-includes = [
-    "tasks.toml",
-    "python_tasks.toml"
-]
+includes = ["tasks.toml", "python_tasks.toml"]
 
 # Tasks
 
@@ -242,10 +240,7 @@ env.PYTHONPATH = "src"
 run = [{ task = "format" }, { task = "lint" }]
 
 [tasks.devcheck]
-run = [
-    { task = "lint:djlint" },
-    { task = "check:py" },
-]
+run = [{ task = "lint:djlint" }, { task = "check:py" }]
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
