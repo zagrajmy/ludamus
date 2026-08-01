@@ -153,6 +153,26 @@ test.describe("Confirmations", () => {
     expect(copied).not.toContain("Maybe: Harbour Larp");
   });
 
+  // The dashboard's track links are plain hrefs, so only the switcher proves
+  // the select still submits — an inline onchange did not, under the
+  // enforcing CSP, and left both directions dead.
+  test("the track switcher opens a block and gives the dashboard back", async ({ page }) => {
+    await page.goto(DASHBOARD_URL);
+    const track = page.getByLabel("Track:");
+    const value = await track
+      .locator("option", { hasText: "Main Programme" })
+      .getAttribute("value");
+
+    await track.selectOption(value);
+
+    await expect(page).toHaveURL(new RegExp(`[?&]track=${value}`));
+    await expect(page.getByText("Ada McCall")).toBeVisible();
+
+    await page.getByLabel("Track:").selectOption("");
+
+    await expect(page.getByRole("heading", { name: "By track" })).toBeVisible();
+  });
+
   test("an unclaimed facilitator can be taken on from the list", async ({ page }) => {
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");

@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load django_vite %}
 {% block title_prefix %}
     {% translate "Confirmations" %} —
 {% endblock title_prefix %}
@@ -14,9 +15,10 @@
         {% if all_tracks %}
             <form method="get"
                   action="{% url 'panel:timetable-confirmations' slug=current_event.slug %}"
+                  data-autosubmit
                   class="flex items-center gap-2">
                 <label for="confirmations-track" class="text-sm text-foreground-muted">{% translate "Track:" %}</label>
-                {% select id="confirmations-track" name="track" onchange="this.form.submit()" class="h-9 sm:w-56" %}
+                {% select id="confirmations-track" name="track" class="h-9 sm:w-56" %}
                     <option value="">{% translate "All tracks" %}</option>
                     {% for track in all_tracks %}
                         <option value="{{ track.pk }}"
@@ -153,3 +155,6 @@
 {% end_tab_shell_body %}
 {% end_tab_shell %}
 {% endblock content %}
+{% block extra_scripts %}
+    {% vite_asset 'src/filter-autosubmit.ts' %}
+{% endblock extra_scripts %}
