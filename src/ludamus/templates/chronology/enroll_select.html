@@ -125,7 +125,7 @@
                     {# feed enroll-preview.ts, which projects each ticked row to #}
                     {# "gets a seat" / "joins the waiting list" using the same order #}
                     {# and seat accounting as the server's routing. #}
-                    <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden shadow-xl"
+                    <div class="rounded-2xl bg-bg-secondary overflow-hidden smooth-shadow-ring-xl"
                          style="box-shadow: var(--shadow-elevated)"
                          data-enroll-preview
                          {% if seats_left is not None %}data-seats-left="{{ seats_left }}"{% endif %}

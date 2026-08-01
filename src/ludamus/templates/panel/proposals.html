@@ -64,7 +64,7 @@
 {% block content %}
     <div class="p-4">
         {% if current_event %}
-            <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
+            <div class="bg-bg-secondary rounded-2xl smooth-shadow-ring-xs p-4 mb-6">
                 <form method="get"
                       id="proposals-filter-form"
                       data-autosubmit
@@ -346,7 +346,7 @@
         {% end_tessera_table %}
     {% endif %}
 {% else %}
-    <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
+    <div class="bg-bg-secondary rounded-2xl smooth-shadow-ring-xs p-8 text-center">
         <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
     </div>
 {% endif %}

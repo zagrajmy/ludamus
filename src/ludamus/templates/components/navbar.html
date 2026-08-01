@@ -53,8 +53,7 @@
                              class="absolute right-0 top-full mt-2 z-50">
                             <span aria-hidden="true"
                                   class="absolute right-0 -top-2 block h-2 w-48 pointer-events-auto [clip-path:polygon(81.25%_0,100%_0,100%_100%,0_100%)]"></span>
-                            <div {% include "components/menu_surface.html" with extra_class="w-48 rounded-lg shadow-lg border bg-bg-secondary border-border" %}
-                                 style="box-shadow: var(--shadow-elevated)">
+                            <div {% include "components/menu_surface.html" with extra_class="w-48 rounded-lg bg-bg-secondary smooth-shadow-ring-lg" %}>
                                 <!-- User info header -->
                                 <div class="px-3.5 py-2.5 border-b rounded-t-lg border-border">
                                     <p class="text-sm font-medium truncate text-foreground-primary">{{ request.user.full_name|default:"User" }}</p>

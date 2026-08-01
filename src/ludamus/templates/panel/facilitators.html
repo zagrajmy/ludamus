@@ -26,7 +26,7 @@
             {% tab_shell "panel/_facilitator_tabs.html" %}
             {% tab_shell_body %}
             {% if facilitators or filters_active %}
-                <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
+                <div class="bg-bg-secondary rounded-2xl smooth-shadow-ring-xs p-4 mb-6">
                     <form method="get" class="flex flex-wrap gap-4 items-end">
                         {% if filter_sort and filter_sort != "name" %}
                             <input type="hidden" name="sort" value="{{ filter_sort }}">

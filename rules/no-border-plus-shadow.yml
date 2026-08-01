@@ -1,0 +1,16 @@
+id: no-border-plus-shadow
+language: html
+severity: warning
+rule:
+  kind: attribute
+  regex: 'class="(?:[^"]*[\s"])?(?:(?:border(?:-2)?|ring(?:-\d)?)[\s"](?:[^"]*[\s"])?(?:smooth-)?shadow(?:-ring)?(?:-(?:xs|sm|md|lg|xl|2xl)|-\(--[a-z-]+\))?[\s"]|(?:smooth-)?shadow(?:-ring)?(?:-(?:xs|sm|md|lg|xl|2xl)|-\(--[a-z-]+\))?[\s"](?:[^"]*[\s"])?(?:border(?:-2)?|ring(?:-\d)?)[\s"])'
+message: |
+  Border + shadow on one element draws a double edge: a hard 1px stroke with
+  the shadow starting just outside it. Elevated surfaces (cards, menus,
+  popovers, dialogs) use smooth-shadow-ring-{size} instead — the hairline is
+  baked into the shadow's last layer, so the edge dissolves into it:
+    border border-border shadow-lg  → smooth-shadow-ring-lg
+    border shadow-(--shadow-card)   → smooth-shadow-ring-xs
+  Never stack a border/ring on top of smooth-shadow-ring-* either; the ring
+  is already in there. Directional dividers (border-b, border-r) are fine.
+  See .claude/skills/product-design/references/patterns.md.

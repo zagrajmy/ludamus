@@ -187,7 +187,7 @@
 {% end_tab_shell %}
 {% include "panel/_time-slot-create-modal.html" with modal_id="time-slot-create-modal" form=create_form current_event=current_event csrf_token=csrf_token only %}
 {% else %}
-<div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+<div class="bg-bg-secondary rounded-2xl smooth-shadow-ring-xs p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
 </div>
 {% endif %}
