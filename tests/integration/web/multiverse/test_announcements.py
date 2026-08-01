@@ -284,7 +284,6 @@ class TestAnnouncementDeletePageView:
                 **ANNOUNCEMENTS_PANEL_CONTEXT,
                 "announcement": AnnouncementDTO.model_validate(announcement),
             },
-            contains="this.querySelector('button[type=submit]').disabled = true",
         )
 
     def test_get_redirects_when_announcement_belongs_to_other_sphere(

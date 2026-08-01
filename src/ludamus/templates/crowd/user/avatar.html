@@ -23,7 +23,7 @@
                                        name="use_gravatar"
                                        id="avatar-auth0"
                                        value="false"
-                                       onchange="this.form.submit()"
+                                       data-action="submit-form"
                                        {% if not user.use_gravatar %}checked{% endif %}>
                                 <span class="text-sm">{% translate "Use this avatar" %}</span>
                             </div>
@@ -61,7 +61,7 @@
                                        name="use_gravatar"
                                        id="avatar-gravatar"
                                        value="true"
-                                       onchange="this.form.submit()"
+                                       data-action="submit-form"
                                        {% if not gravatar_url %}disabled{% endif %}
                                        {% if user.use_gravatar %}checked{% endif %}>
                                 <span class="text-sm">{% translate "Use this avatar" %}</span>
