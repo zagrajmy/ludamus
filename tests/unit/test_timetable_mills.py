@@ -17,7 +17,12 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TrackSessionCountsDTO,
 )
-from ludamus.pacts.chronology import CapacityHoursDTO, ConflictType, SessionPlacement
+from ludamus.pacts.chronology import (
+    CapacityHoursDTO,
+    ConflictType,
+    HeatmapCellStatus,
+    SessionPlacement,
+)
 
 
 def _make_item(**overrides):
@@ -878,12 +883,18 @@ class TestTimetableOverviewServiceDefaults:
                 datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
             )
         ]
+        # An item in room 3 must survive the leaf filter and colour its cell.
+        mock_uow.agenda_items.list_by_event.return_value = [_make_item(space_id=3)]
         svc = TimetableOverviewService(mock_uow)
 
         result = svc.build_heatmap(event_pk=1, tz=UTC, conflicts=[])
 
         assert [s.pk for s in result.spaces] == [3, 4]
         assert [c.space_pk for c in result.rows[0].cells] == [3, 4]
+        assert [c.status for c in result.rows[0].cells] == [
+            HeatmapCellStatus.SCHEDULED,
+            HeatmapCellStatus.EMPTY,
+        ]
 
     def test_all_conflicts_grouped_fetches_conflicts_when_none(self, mock_uow):
         # conflicts=None makes all_conflicts_grouped fetch conflicts itself.

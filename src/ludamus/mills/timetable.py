@@ -855,11 +855,7 @@ class TimetableOverviewService:
         # Capacity = one program slot per room: every room is bookable for the
         # whole of each event time slot. Scheduled = hours already occupied by
         # placed agenda items in those rooms. Hours-to-fill is the remainder.
-        # Only leaf spaces are bookable rooms — a venue or area node would
-        # inflate capacity with slots nothing can ever fill.
-        spaces = self._uow.spaces.list_by_event(event_pk)
-        parent_pks = {s.parent_id for s in spaces if s.parent_id is not None}
-        rooms = [s for s in spaces if s.pk not in parent_pks]
+        rooms = _leaves_in_tree_order(self._uow.spaces.list_by_event(event_pk))
         room_count = len(rooms)
 
         slots = self._uow.time_slots.list_by_event(event_pk)
