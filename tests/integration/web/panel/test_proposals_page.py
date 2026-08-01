@@ -48,7 +48,7 @@ _TRACK_FILTER_CONTEXT = {
     "filter_track_value": "",
     "page_obj": PageMatcher(number=1, num_pages=1),
     "filter_category_pk": None,
-    "filter_status": None,
+    "filter_status": SessionStatus.PENDING,
     "statuses": _STATUSES,
 }
 
@@ -884,7 +884,7 @@ class TestProposalsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
-                "filter_status": None,
+                "filter_status": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
         )
@@ -966,7 +966,7 @@ class TestProposalsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "filter_category_pk": category.pk,
-                "filter_status": None,
+                "filter_status": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
             contains=f'<input type="hidden" name="category" value="{category.pk}">',
@@ -1004,7 +1004,7 @@ class TestProposalsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "categories": [],
                 "filter_category_pk": None,
-                "filter_status": None,
+                "filter_status": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
         )
@@ -1104,7 +1104,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_default_status_filter_shows_all_statuses(
+    def test_default_status_filter_shows_only_pending(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -1136,13 +1136,23 @@ class TestProposalsPageView:
             participants_limit=5,
             status="rejected",
         )
+        scheduled = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Scheduled Host",
+            title="Scheduled Pending Session",
+            slug="scheduled-pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        AgendaItemFactory(session=scheduled, space=SpaceFactory(event=event))
 
         response = authenticated_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         titles = {p.title for p in response.context["proposals"]}
-        assert titles == {"Pending Session", "Accepted Session", "Rejected Session"}
-        assert response.context["filter_status"] is None
+        assert titles == {"Pending Session"}
+        assert response.context["filter_status"] == SessionStatus.PENDING
 
     def test_filters_by_status_param(
         self, authenticated_client, active_user, sphere, event
