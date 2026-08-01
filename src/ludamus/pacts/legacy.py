@@ -476,7 +476,7 @@ class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
-    auto_confirm_sessions: bool = True
+    auto_confirm_sessions: bool = False
     cover_image_url: str = ""
     description: str
     end_time: datetime
