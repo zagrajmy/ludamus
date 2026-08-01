@@ -45,10 +45,10 @@
         <form id="proposal-form"
               method="post"
               enctype="multipart/form-data"
-              class="p-4 lg:p-6 columns-1 lg:columns-2 xl:columns-3 gap-6">
+              class="p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
             {% csrf_token %}
             <div class="contents">
-                <div class="card break-inside-avoid mb-6">
+                <div class="card">
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Details" %}</h3>
                         <div class="space-y-6">
@@ -90,7 +90,7 @@
             </div>
             <div class="contents">
                 {% if all_facilitators %}
-                    <div class="card break-inside-avoid mb-6">
+                    <div class="card">
                         <div class="card-body">
                             <input type="hidden" name="facilitators_submitted" value="1">
                             <h3 class="text-lg font-semibold text-foreground mb-2">
@@ -101,7 +101,7 @@
                         </div>
                     </div>
                 {% elif not proposal %}
-                    <div class="card break-inside-avoid mb-6">
+                    <div class="card">
                         <div class="card-body">
                             <h3 class="text-lg font-semibold text-foreground mb-2">
                                 {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
@@ -118,7 +118,7 @@
                     </div>
                 {% endif %}
                 {% if all_tracks %}
-                    <div class="card break-inside-avoid mb-6">
+                    <div class="card">
                         <div class="card-body">
                             <input type="hidden" name="tracks_submitted" value="1">
                             <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Tracks" %}</h3>
@@ -137,7 +137,7 @@
                     </div>
                 {% endif %}
                 {% if all_time_slots %}
-                    <div class="card break-inside-avoid mb-6">
+                    <div class="card">
                         <div class="card-body">
                             <input type="hidden" name="time_slots_submitted" value="1">
                             {% include "panel/parts/time-slot-picker.html" %}
@@ -145,7 +145,7 @@
                     </div>
                 {% endif %}
                 {% if facilitator_personal_data %}
-                    <div class="card break-inside-avoid mb-6">
+                    <div class="card">
                         <div class="card-body">
                             <input type="hidden" name="personal_data_submitted" value="1">
                             <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitator personal data" %}</h3>
