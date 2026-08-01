@@ -3,15 +3,15 @@
 {% block body %}
     {% for card in document.cards %}
         {# one A4 page per card: a card hangs on the door for one day #}
-        <section class="print:break-after-page last:print:break-after-auto">
+        <section class="sheet print:break-after-page last:print:break-after-auto">
             {% include "panel/print/parts/doc-header.html" %}
-            <h1 style="font-size: 26pt; margin: 0 0 1mm 0;">{{ card.space_name }}</h1>
+            <h2 style="font-size: 26pt; margin: 0 0 1mm 0;">{{ card.space_name }}</h2>
             {% if card.capacity %}
                 <p style="margin: 0 0 1mm 0; color: #6b7280;">{% translate "Capacity" %}: {{ card.capacity }}</p>
             {% endif %}
-            <h2 style="font-size: 12pt;
+            <h3 style="font-size: 12pt;
                        margin: 5mm 0 2mm 0;
-                       border-bottom: 0.5pt solid #d1d5db">{{ card.day|date:"l, j E" }}</h2>
+                       border-bottom: 0.5pt solid #d1d5db">{{ card.day|date:"l, j E" }}</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 {% for entry in card.entries %}
                     <tr style="border-bottom: 0.5pt solid #e5e7eb;">
@@ -31,6 +31,9 @@
             </table>
         </section>
     {% empty %}
-        <p class="empty">{% translate "No rooms to print." %}</p>
+        <section class="sheet">
+            {% include "panel/print/parts/doc-header.html" %}
+            <p class="empty">{% translate "No rooms to print." %}</p>
+        </section>
     {% endfor %}
 {% endblock body %}
