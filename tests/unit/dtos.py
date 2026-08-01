@@ -2,7 +2,11 @@
 
 from datetime import UTC, datetime
 
-from ludamus.pacts import OrganizerFieldDTO, OrganizerFieldOptionDTO
+from ludamus.pacts import (
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
+    ProposalCategoryDTO,
+)
 from ludamus.pacts.crowd import UserDTO, UserType
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
@@ -44,3 +48,17 @@ def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
         slug="tags",
     )
     return field.model_copy(update=overrides)
+
+
+def category(pk=1, name="Talk", slug="talk"):
+    return ProposalCategoryDTO(
+        description="",
+        durations=[],
+        end_time=None,
+        max_participants_limit=0,
+        min_participants_limit=0,
+        name=name,
+        pk=pk,
+        slug=slug,
+        start_time=None,
+    )

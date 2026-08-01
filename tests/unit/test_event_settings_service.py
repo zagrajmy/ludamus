@@ -16,9 +16,10 @@ from ludamus.pacts.legacy import (
     EventProposalSettingsDTO,
     EventSettingsDTO,
     NotFoundError,
-    ProposalCategoryDTO,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+
+from .dtos import category
 
 SPHERE_ID = 10
 
@@ -52,20 +53,6 @@ def _session_field(pk=1, slug="system", *, is_public=True):
         pk=pk,
         question="Q",
         slug=slug,
-    )
-
-
-def _category(pk=1, name="Talk", slug="talk"):
-    return ProposalCategoryDTO(
-        description="",
-        durations=[],
-        end_time=None,
-        max_participants_limit=0,
-        min_participants_limit=0,
-        name=name,
-        pk=pk,
-        slug=slug,
-        start_time=None,
     )
 
 
@@ -331,8 +318,8 @@ class TestEventSettingsService:
     ):
         events.read_by_slug.return_value = _event(pk=7)
         proposal_categories.list_by_event.return_value = [
-            _category(pk=1),
-            _category(pk=2),
+            category(pk=1),
+            category(pk=2),
         ]
         start = datetime(2026, 4, 1, 10, tzinfo=UTC)
         end = datetime(2026, 4, 15, 18, tzinfo=UTC)

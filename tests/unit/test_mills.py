@@ -43,7 +43,6 @@ from ludamus.pacts import (
     NotFoundError,
     OrganizerFieldDTO,
     PanelStatsDTO,
-    ProposalCategoryDTO,
     RequestContext,
     SessionStatus,
 )
@@ -66,6 +65,8 @@ from ludamus.pacts.submissions import (
     RequirementSelectionDTO,
 )
 
+from .dtos import category
+
 
 def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
     return [ImportRow(raw) for raw in raws]
@@ -80,20 +81,6 @@ def _personal_data_field(pk=1, slug="email", question="Q", name="Email"):
         pk=pk,
         question=question,
         slug=slug,
-    )
-
-
-def _category(pk=1, name="Talk", slug="talk"):
-    return ProposalCategoryDTO(
-        description="",
-        durations=[],
-        end_time=None,
-        max_participants_limit=0,
-        min_participants_limit=0,
-        name=name,
-        pk=pk,
-        slug=slug,
-        start_time=None,
     )
 
 
@@ -143,7 +130,7 @@ class TestCFPPersonalDataFieldService:
         fields.get_usage_counts.assert_called_once_with(42)
 
     def test_get_create_form_context_returns_categories(self, service, categories):
-        cats = [_category(pk=1), _category(pk=2)]
+        cats = [category(pk=1), category(pk=2)]
         categories.list_by_event.return_value = cats
 
         ctx = service.get_create_form_context(event_pk=7)
@@ -156,7 +143,7 @@ class TestCFPPersonalDataFieldService:
         self, service, fields, categories
     ):
         field = _personal_data_field(pk=10)
-        cats = [_category()]
+        cats = [category()]
         fields.read_by_slug.return_value = field
         categories.list_by_event.return_value = cats
         categories.get_personal_field_categories.return_value = {
@@ -185,7 +172,7 @@ class TestCFPPersonalDataFieldService:
     ):
         created = _personal_data_field(pk=99)
         fields.create.return_value = created
-        categories.list_by_event.return_value = [_category(pk=1), _category(pk=2)]
+        categories.list_by_event.return_value = [category(pk=1), category(pk=2)]
         data = {
             "name": "Email",
             "question": "Q",
@@ -213,7 +200,7 @@ class TestCFPPersonalDataFieldService:
         self, service, fields, categories
     ):
         fields.create.return_value = _personal_data_field(pk=99)
-        categories.list_by_event.return_value = [_category(pk=1)]
+        categories.list_by_event.return_value = [category(pk=1)]
         data = {
             "name": "Email",
             "question": "Q",
@@ -260,7 +247,7 @@ class TestCFPPersonalDataFieldService:
     ):
         field = _personal_data_field(pk=10)
         fields.read_by_slug.return_value = field
-        categories.list_by_event.return_value = [_category(pk=1)]
+        categories.list_by_event.return_value = [category(pk=1)]
         update_data = {
             "name": "Email",
             "question": "Q",
@@ -2900,7 +2887,7 @@ class TestCFPSessionFieldService:
     @pytest.fixture
     def categories(self):
         categories = MagicMock()
-        categories.list_by_event.return_value = [_category(pk=1)]
+        categories.list_by_event.return_value = [category(pk=1)]
         return categories
 
     @pytest.fixture
