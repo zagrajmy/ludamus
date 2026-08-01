@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.timezone import localtime
 
+from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventProposalSettings, ProposalCategory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
@@ -41,9 +42,8 @@ class TestEventProposalSettingsPageViewGet:
             template_name="panel/proposal-settings.html",
             context_data={
                 **panel_context(event, active_nav="settings"),
-                "is_proposal_active": response.context["is_proposal_active"],
                 "active_tab": "proposals",
-                "tab_urls": response.context["tab_urls"],
+                "tab_urls": settings_tab_urls(event.slug),
                 "form": ANY,
             },
         )

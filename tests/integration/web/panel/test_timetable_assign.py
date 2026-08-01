@@ -57,7 +57,19 @@ class TestTimetableGridPartView:
     def test_room_page_invalid_value_defaults_to_one(self, panel_client, event):
         response = panel_client.get(self.get_url(event), {"room_page": "not-a-number"})
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-grid.html",
+            context_data={
+                "grid": empty_grid(),
+                "filter_track_pk": None,
+                "conflict_session_pks": set(),
+                "slot_violation_session_pks": set(),
+                "date_selection": "all",
+                "slug": event.slug,
+            },
+        )
 
     def test_ok_returns_grid_partial(self, panel_client, event):
         response = panel_client.get(self.get_url(event))
@@ -135,7 +147,7 @@ class TestTimetableAssignView:
     def test_returns_422_on_missing_params(self, panel_client, event):
         response = panel_client.post(self.get_url(event), {})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_assigns_session_and_returns_204(
         self, panel_client, event, proposal_category
@@ -148,10 +160,13 @@ class TestTimetableAssignView:
         end_time = start_time + timedelta(hours=1)
 
         response = panel_client.post(
-            self.get_url(event), assign_payload(session, space, start_time, end_time)
+            self.get_url(event),
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "accepted"
@@ -172,10 +187,13 @@ class TestTimetableAssignView:
         end_time = start_time + timedelta(hours=1)
 
         response = panel_client.post(
-            self.get_url(event), assign_payload(session, space, start_time, end_time)
+            self.get_url(event),
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
         assert session.agenda_item.session_confirmed is False
 
@@ -218,10 +236,13 @@ class TestTimetableAssignView:
         end_time = start_time + timedelta(hours=1)
 
         response = panel_client.post(
-            self.get_url(event), assign_payload(session, space, start_time, end_time)
+            self.get_url(event),
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_reassigns_already_scheduled_session_to_new_slot(
         self, panel_client, event, proposal_category
@@ -249,7 +270,7 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
         assert session.status == "accepted"
         agenda_item = session.agenda_item
@@ -295,7 +316,7 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         assert "timetableChanged" in response["HX-Trigger"]
         assert "timetableConflicts" not in response["HX-Trigger"]
         session.refresh_from_db()
@@ -325,7 +346,7 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         other_session.refresh_from_db()
         assert other_session.status == "pending"
         assert not AgendaItem.objects.filter(session=other_session).exists()
@@ -348,7 +369,7 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         session.refresh_from_db()
         assert session.status == "pending"
         assert not AgendaItem.objects.filter(session=session).exists()
@@ -378,7 +399,7 @@ class TestTimetableUnassignView:
     def test_returns_422_on_missing_params(self, panel_client, event):
         response = panel_client.post(self.get_url(event), {})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_unassigns_session_and_returns_204(
         self, panel_client, event, proposal_category
@@ -395,7 +416,7 @@ class TestTimetableUnassignView:
 
         response = panel_client.post(self.get_url(event), {"session_pk": session.pk})
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "accepted"
@@ -410,7 +431,7 @@ class TestTimetableUnassignView:
 
         response = panel_client.post(self.get_url(event), {"session_pk": session.pk})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_returns_422_for_session_from_another_event(
         self, panel_client, sphere, event
@@ -436,7 +457,7 @@ class TestTimetableUnassignView:
             self.get_url(event), {"session_pk": other_session.pk}
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         other_session.refresh_from_db()
         assert other_session.status == "accepted"
         assert AgendaItem.objects.filter(session=other_session).exists()

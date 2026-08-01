@@ -4,7 +4,7 @@ from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO
 from ludamus.pacts.services import DatabaseConstraintError
-from tests.unit.dtos import user_dto
+from tests.unit.factories import user_dto
 
 
 @contextmanager

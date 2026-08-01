@@ -209,7 +209,7 @@ class TestTimetableOverviewPageView:
     ):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        schedule_session(session, space, event.start_time)
+        schedule_session(session=session, space=space, start=event.start_time)
 
         response = panel_client.get(self.get_url(event))
 

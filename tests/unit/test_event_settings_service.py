@@ -19,7 +19,7 @@ from ludamus.pacts.legacy import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 
-from .dtos import category
+from .factories import category
 
 SPHERE_ID = 10
 

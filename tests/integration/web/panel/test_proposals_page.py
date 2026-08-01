@@ -1251,7 +1251,11 @@ class TestProposalDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
-            context_data={**proposal_detail_context(event, session, active_user)},
+            context_data={
+                **proposal_detail_context(
+                    event=event, session=session, presenter=active_user
+                )
+            },
         )
 
     def test_shows_field_values(self, panel_client, active_user, event):

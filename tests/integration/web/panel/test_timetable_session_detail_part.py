@@ -4,7 +4,7 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.pacts import EventDTO
-from ludamus.pacts.legacy import SessionDTO
+from ludamus.pacts.legacy import AgendaItemDTO, SessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -28,6 +28,43 @@ class TestTimetableSessionDetailPartView:
     def get_url(event, pk):
         return reverse(
             "panel:timetable-session-detail-part", kwargs={"slug": event.slug, "pk": pk}
+        )
+
+    @staticmethod
+    def expected_context(event, session, *, agenda_item=None, back_url=None):
+        return {
+            "session": SessionDTO.model_validate(session),
+            "agenda_item": agenda_item,
+            "facilitators": [],
+            "time_slots": [],
+            "time_slots_json": "[]",
+            "duration_minutes": 60,
+            "slug": event.slug,
+            "event": EventDTO.model_validate(event),
+            "back_url": (
+                back_url
+                or reverse(
+                    "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
+                )
+            ),
+        }
+
+    @staticmethod
+    def scheduled_dto(session, space, *, pk, confirmed):
+        return AgendaItemDTO(
+            pk=pk,
+            start_time=session.event.start_time,
+            end_time=session.event.start_time + timedelta(hours=1),
+            session_confirmed=confirmed,
+            space_id=space.pk,
+            space_name=space.name,
+            session_id=session.pk,
+            session_title=session.title,
+            session_description=session.description,
+            presenter_name=session.display_name,
+            session_duration_minutes=60,
+            session_status=session.status,
+            category_name=session.category.name,
         )
 
     def test_redirects_anonymous_user_to_login(self, client, event, session):
@@ -68,19 +105,7 @@ class TestTimetableSessionDetailPartView:
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-detail.html",
-            context_data={
-                "session": SessionDTO.model_validate(session),
-                "agenda_item": None,
-                "facilitators": [],
-                "time_slots": [],
-                "time_slots_json": "[]",
-                "duration_minutes": 60,
-                "slug": event.slug,
-                "event": EventDTO.model_validate(event),
-                "back_url": reverse(
-                    "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
-                ),
-            },
+            context_data=self.expected_context(event, session),
         )
 
     def test_redirects_when_session_belongs_to_other_sphere(self, panel_client, event):
@@ -109,12 +134,21 @@ class TestTimetableSessionDetailPartView:
             },
         )
 
-        assert response.status_code == HTTPStatus.OK
-        back_url = response.context["back_url"]
-        assert "category=5" in back_url
-        assert "max_duration=60" in back_url
-        assert "search=magic" in back_url
-        assert "date=2026-09-04" in back_url
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                back_url=(
+                    reverse(
+                        "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
+                    )
+                    + "?category=5&max_duration=60&search=magic&date=2026-09-04"
+                ),
+            ),
+        )
 
     def test_shows_session_title(self, panel_client, event, proposal_category):
         session = SessionFactory(
@@ -127,8 +161,12 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["session"].title == "My Awesome Session"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
+        )
 
     def test_links_to_proposal_detail_page(
         self, panel_client, event, proposal_category
@@ -147,7 +185,12 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
+        )
         assert f'href="{proposal_url}"' in response.content.decode()
 
     def test_shows_agenda_item_when_scheduled(
@@ -155,7 +198,7 @@ class TestTimetableSessionDetailPartView:
     ):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, participants_limit=10)
-        AgendaItemFactory(
+        agenda_item = AgendaItemFactory(
             session=session,
             space=space,
             start_time=event.start_time,
@@ -164,9 +207,18 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["agenda_item"] is not None
-        assert response.context["agenda_item"].space_id == space.pk
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                agenda_item=self.scheduled_dto(
+                    session, space, pk=agenda_item.pk, confirmed=False
+                ),
+            ),
+        )
 
     def test_agenda_item_is_none_when_unscheduled(
         self, panel_client, event, proposal_category
@@ -175,23 +227,39 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["agenda_item"] is None
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
+        )
 
     def test_scheduled_unconfirmed_offers_confirm_button(
         self, panel_client, event, proposal_category
     ):
+        space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, participants_limit=10)
-        AgendaItemFactory(
+        agenda_item = AgendaItemFactory(
             session=session,
-            space=SpaceFactory(event=event),
+            space=space,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                agenda_item=self.scheduled_dto(
+                    session, space, pk=agenda_item.pk, confirmed=False
+                ),
+            ),
+        )
         content = response.content.decode()
         assert "Confirm program item" in content
         assert "Undo confirmation" not in content
@@ -199,10 +267,11 @@ class TestTimetableSessionDetailPartView:
     def test_scheduled_confirmed_offers_undo_button(
         self, panel_client, event, proposal_category
     ):
+        space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, participants_limit=10)
         agenda_item = AgendaItemFactory(
             session=session,
-            space=SpaceFactory(event=event),
+            space=space,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
@@ -211,7 +280,18 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                agenda_item=self.scheduled_dto(
+                    session, space, pk=agenda_item.pk, confirmed=True
+                ),
+            ),
+        )
         content = response.content.decode()
         assert "Undo confirmation" in content
         assert "Confirm program item" not in content
@@ -219,10 +299,11 @@ class TestTimetableSessionDetailPartView:
     def test_reassign_button_carries_confirmed_flag(
         self, panel_client, event, proposal_category
     ):
+        space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, participants_limit=10)
-        AgendaItemFactory(
+        agenda_item = AgendaItemFactory(
             session=session,
-            space=SpaceFactory(event=event),
+            space=space,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
             session_confirmed=True,
@@ -230,7 +311,18 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                agenda_item=self.scheduled_dto(
+                    session, space, pk=agenda_item.pk, confirmed=True
+                ),
+            ),
+        )
         assert 'data-assign-confirmed="true"' in response.content.decode()
 
     def test_assign_button_of_unscheduled_session_is_unconfirmed(
@@ -240,5 +332,10 @@ class TestTimetableSessionDetailPartView:
 
         response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
+        )
         assert 'data-assign-confirmed="false"' in response.content.decode()

@@ -1,8 +1,6 @@
-"""Integration tests for /panel/event/<slug>/proposals/<proposal_id>/do/<action>.
-
-Accept, hold, reject and pending are the same view with a different target
-status, so every case runs once per action.
-"""
+# /panel/event/<slug>/proposals/<proposal_id>/do/<action>. Accept, hold, reject
+# and pending are the same view with a different target status, so every case
+# runs once per action.
 
 from dataclasses import dataclass
 
@@ -71,7 +69,7 @@ PENDING = StatusAction(
 REFUSE_SCHEDULED = [HOLD, REJECT, PENDING]
 
 
-def _url(event, proposal_id, action):
+def _url(event, *, proposal_id, action):
     return reverse(
         action.url_name, kwargs={"slug": event.slug, "proposal_id": proposal_id}
     )
@@ -87,7 +85,7 @@ def action_fixture(request):
 class TestProposalStatusActionView:
     def test_post_redirects_anonymous_user_to_login(self, client, event, action):
         session = make_proposal(event, status=action.start_status)
-        url = _url(event, session.pk, action)
+        url = _url(event, proposal_id=session.pk, action=action)
 
         response = client.post(url)
 
@@ -96,19 +94,21 @@ class TestProposalStatusActionView:
     def test_post_redirects_non_manager_user(self, authenticated_client, event, action):
         session = make_proposal(event, status=action.start_status)
 
-        response = authenticated_client.post(_url(event, session.pk, action))
+        response = authenticated_client.post(
+            _url(event, proposal_id=session.pk, action=action)
+        )
 
         assert_not_a_manager(response)
 
     def test_post_applies_the_status_and_redirects(self, panel_client, event, action):
         session = make_proposal(event, status=action.start_status)
 
-        response = panel_client.post(_url(event, session.pk, action))
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=action))
 
         assert_proposal_status_applied(
-            response,
-            event,
-            session,
+            response=response,
+            event=event,
+            session=session,
             message=action.message,
             status=action.target_status,
         )
@@ -118,12 +118,12 @@ class TestProposalStatusActionView:
     ):
         session = make_proposal(event, status=action.alternate_start)
 
-        response = panel_client.post(_url(event, session.pk, action))
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=action))
 
         assert_proposal_status_applied(
-            response,
-            event,
-            session,
+            response=response,
+            event=event,
+            session=session,
             message=action.message,
             status=action.target_status,
         )
@@ -136,7 +136,7 @@ class TestProposalStatusActionView:
         assert_event_not_found(response)
 
     def test_post_redirects_when_proposal_not_found(self, panel_client, event, action):
-        url = _url(event, 99999, action)
+        url = _url(event, proposal_id=99999, action=action)
 
         response = panel_client.post(url)
 
@@ -148,7 +148,7 @@ class TestProposalStatusActionView:
         other_event = EventFactory(sphere=sphere)
         session = make_proposal(other_event, status=action.start_status)
 
-        response = panel_client.post(_url(event, session.pk, action))
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=action))
 
         assert_proposal_not_found(response, event)
         assert_proposal_status_unchanged(session, action.start_status)
@@ -158,10 +158,14 @@ class TestScheduledProposal:
     def test_post_accepts_a_scheduled_proposal(self, panel_client, event):
         session = make_scheduled_proposal(event)
 
-        response = panel_client.post(_url(event, session.pk, ACCEPT))
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
 
         assert_proposal_status_applied(
-            response, event, session, message=ACCEPT.message, status="accepted"
+            response=response,
+            event=event,
+            session=session,
+            message=ACCEPT.message,
+            status="accepted",
         )
 
     @pytest.mark.parametrize("action", REFUSE_SCHEDULED, ids=lambda a: a.name)
@@ -170,7 +174,9 @@ class TestScheduledProposal:
     ):
         session = make_scheduled_proposal(event)
 
-        response = panel_client.post(_url(event, session.pk, action))
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=action))
 
-        assert_scheduled_proposal_refused(response, event, session)
+        assert_scheduled_proposal_refused(
+            response=response, event=event, session=session
+        )
         assert_proposal_status_unchanged(session, "accepted")

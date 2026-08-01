@@ -150,7 +150,9 @@ class TestTimetableProblemsPageView:
             end_time=event.start_time + timedelta(hours=6),
         )
         session.time_slots.add(preferred_slot)
-        agenda_item = schedule_session(session, space, event.start_time)
+        agenda_item = schedule_session(
+            session=session, space=space, start=event.start_time
+        )
 
         response = panel_client.get(self.get_url(event))
 
@@ -192,7 +194,7 @@ class TestTimetableProblemsPageView:
             end_time=event.start_time + timedelta(hours=2),
         )
         session.time_slots.add(preferred_slot)
-        schedule_session(session, space, event.start_time)
+        schedule_session(session=session, space=space, start=event.start_time)
 
         response = panel_client.get(self.get_url(event))
 
@@ -301,7 +303,7 @@ class TestTimetableProblemsPageView:
     ):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category)
-        schedule_session(session, space, event.start_time)
+        schedule_session(session=session, space=space, start=event.start_time)
 
         response = panel_client.get(self.get_url(event))
 

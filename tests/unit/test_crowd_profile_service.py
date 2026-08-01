@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from ludamus.mills.crowd import CompanionsService, ProfileService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import CompanionDTO, UserType
-from tests.unit.dtos import user_dto
+from tests.unit.factories import user_dto
 
 
 @contextmanager

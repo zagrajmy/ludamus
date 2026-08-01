@@ -4,6 +4,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventSettings, SessionField
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
@@ -51,9 +52,8 @@ class TestEventDisplaySettingsPageViewGet:
             template_name="panel/display-settings.html",
             context_data={
                 **panel_context(event, active_nav="settings"),
-                "is_proposal_active": response.context["is_proposal_active"],
                 "active_tab": "display",
-                "tab_urls": response.context["tab_urls"],
+                "tab_urls": settings_tab_urls(event.slug),
                 "fields": [],
                 "filterable_field_ids": [],
             },

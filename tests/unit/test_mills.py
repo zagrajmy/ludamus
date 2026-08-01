@@ -69,7 +69,7 @@ from ludamus.pacts.submissions import (
     RequirementSelectionDTO,
 )
 
-from .dtos import category
+from .factories import category
 
 
 def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:

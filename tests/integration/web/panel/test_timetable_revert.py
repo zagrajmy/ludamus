@@ -9,6 +9,7 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
 )
+from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_login_required,
@@ -59,12 +60,12 @@ class TestTimetableRevertView:
     def test_missing_log_pk_returns_422(self, panel_client, event):
         response = panel_client.post(self.get_url(event), data={})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_invalid_log_pk_returns_422(self, panel_client, event):
         response = panel_client.post(self.get_url(event), data={"log_pk": 99999})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_returns_422_for_log_from_another_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)
@@ -96,7 +97,7 @@ class TestTimetableRevertView:
             self.get_url(event), data={"log_pk": assign_log.pk}
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         other_session.refresh_from_db()
         assert other_session.status == "accepted"
 
@@ -129,7 +130,7 @@ class TestTimetableRevertView:
             self.get_url(event), data={"log_pk": assign_log.pk}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(response, HTTPStatus.FOUND, url=self.get_log_url(event))
 
         # After revert: log shows REVERT entry, session should be unscheduled
         log_response = panel_client.get(self.get_log_url(event))
@@ -142,7 +143,7 @@ class TestTimetableRevertView:
     ):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
-        schedule_session(session, space, event.start_time)
+        schedule_session(session=session, space=space, start=event.start_time)
 
         # Unassign the session (creates log)
         panel_client.post(self.get_unassign_url(event), data={"session_pk": session.pk})
@@ -157,7 +158,7 @@ class TestTimetableRevertView:
             self.get_url(event), data={"log_pk": unassign_log.pk}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(response, HTTPStatus.FOUND, url=self.get_log_url(event))
 
         # After revert: log shows REVERT entry
         log_response = panel_client.get(self.get_log_url(event))
@@ -189,7 +190,7 @@ class TestTimetableRevertView:
             self.get_url(event), data={"log_pk": assign_log.pk}
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         session.refresh_from_db()
         assert session.status == "accepted"
 

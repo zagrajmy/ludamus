@@ -1,6 +1,6 @@
 from ludamus.adapters.web.django.templatetags.tessera.dynamic_field import field_context
 from ludamus.pacts import FieldAnswer
-from tests.unit.dtos import organizer_field_dto
+from tests.unit.factories import organizer_field_dto
 
 
 class TestOptions:

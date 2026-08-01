@@ -1038,8 +1038,16 @@ class TestFacilitatorActions:
             event, accreditation_type=AccreditationType.GUEST
         )
 
-        panel_client.post(self._url("panel:facilitator-mark-guest", event, facilitator))
+        response = panel_client.post(
+            self._url("panel:facilitator-mark-guest", event, facilitator)
+        )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator marked as guest.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         assert not FacilitatorChangeLog.objects.filter(facilitator=facilitator).exists()
 
     def test_assign_organizer(self, panel_client, active_user, event):

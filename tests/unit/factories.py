@@ -1,5 +1,3 @@
-"""Shared DTO builders for unit tests."""
-
 from datetime import UTC, datetime
 
 from ludamus.pacts import (
@@ -38,19 +36,19 @@ BOARD_OPTION = OrganizerFieldOptionDTO(label="Board", order=0, pk=2, value="boar
 
 
 def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
-    field = OrganizerFieldDTO(
-        field_type="select",
-        name="Tags",
-        options=[RPG_OPTION, BOARD_OPTION],
-        order=0,
-        pk=1,
-        question="What tags apply?",
-        slug="tags",
-    )
-    return field.model_copy(update=overrides)
+    defaults = {
+        "field_type": "select",
+        "name": "Tags",
+        "options": [RPG_OPTION, BOARD_OPTION],
+        "order": 0,
+        "pk": 1,
+        "question": "What tags apply?",
+        "slug": "tags",
+    }
+    return OrganizerFieldDTO(**(defaults | overrides))
 
 
-def category(pk=1, name="Talk", slug="talk"):
+def category(*, pk=1, name="Talk", slug="talk"):
     return ProposalCategoryDTO(
         description="",
         durations=[],

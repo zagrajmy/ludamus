@@ -30,6 +30,7 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    TimeSlotFactory,
 )
 from tests.integration.utils import assert_response
 
@@ -101,7 +102,9 @@ def assert_proposal_not_found(response: HttpResponse, event) -> None:
     )
 
 
-def assert_scheduled_proposal_refused(response: HttpResponse, event, session) -> None:
+def assert_scheduled_proposal_refused(
+    *, response: HttpResponse, event, session
+) -> None:
     assert_response(
         response,
         HTTPStatus.FOUND,
@@ -114,7 +117,7 @@ def assert_scheduled_proposal_refused(response: HttpResponse, event, session) ->
 
 
 def assert_proposal_status_applied(
-    response: HttpResponse, event, session, *, message: str, status: str
+    *, response: HttpResponse, event, session, message: str, status: str
 ) -> None:
     assert_response(
         response,
@@ -160,7 +163,7 @@ def make_scheduled_proposal(event):
     return session
 
 
-def schedule_session(session, space, start, *, hours=1):
+def schedule_session(*, session, space, start, hours=1):
     return AgendaItemFactory(
         session=session,
         space=space,
@@ -174,8 +177,23 @@ def make_overlapping_sessions(event, category):
     space = SpaceFactory(event=event)
     sessions = [make_timetable_session(category) for _ in range(2)]
     for session in sessions:
-        schedule_session(session, space, event.start_time)
+        schedule_session(session=session, space=space, start=event.start_time)
     return space, sessions
+
+
+def schedule_outside_preferred_slot(*, event, category, space):
+    # Scheduled at the event start while its only preferred slot sits hours
+    # later: a slot violation, which the conflict panel deliberately ignores.
+    session = make_timetable_session(category)
+    session.time_slots.add(
+        TimeSlotFactory(
+            event=event,
+            start_time=event.start_time + timedelta(hours=4),
+            end_time=event.start_time + timedelta(hours=6),
+        )
+    )
+    schedule_session(session=session, space=space, start=event.start_time)
+    return session
 
 
 def make_timetable_session(category, *, status="pending", participants_limit=5):
@@ -187,7 +205,7 @@ def make_timetable_session(category, *, status="pending", participants_limit=5):
     )
 
 
-def assign_payload(session, space, start, end):
+def assign_payload(*, session, space, start, end):
     return {
         "session_pk": session.pk,
         "space_pk": space.pk,
@@ -231,7 +249,7 @@ def assert_facilitator_not_found(response: HttpResponse, event) -> None:
     )
 
 
-def proposal_detail_context(event, session, presenter) -> dict:
+def proposal_detail_context(*, event, session, presenter) -> dict:
     # One proposal by one host: the counts the sidebar derives from it are
     # fixed, so they belong with the rest of the detail-page context.
     return {
@@ -268,7 +286,7 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
     )
 
 
-def make_optional_session_field(event, category, *, slug="system", name="System"):
+def make_optional_session_field(*, event, category, slug="system", name="System"):
     field = SessionField.objects.create(
         event=event,
         name=name,

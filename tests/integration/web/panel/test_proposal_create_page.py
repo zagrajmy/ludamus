@@ -22,7 +22,13 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts import EventDTO, TimeSlotDTO, TrackDTO
+from ludamus.pacts import (
+    EventDTO,
+    FieldAnswer,
+    OrganizerFieldDTO,
+    TimeSlotDTO,
+    TrackDTO,
+)
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import (
@@ -882,7 +888,32 @@ class TestProposalCreateCategoryFields:
         response = panel_client.get(self.get_url(event))
 
         html = response.content.decode()
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="checkbox",
+                            name=field.name,
+                            options=[],
+                            order=0,
+                            pk=field.pk,
+                            question=field.question,
+                            slug=field.slug,
+                        ),
+                        "name_prefix": "session",
+                        "answer": FieldAnswer(),
+                    }
+                ],
+                "form": ANY,
+            },
+        )
         assert 'name="session_streamed"' in html
         assert 'name="session_streamed_custom"' not in html
 
@@ -961,7 +992,7 @@ class TestProposalCreateCategoryFields:
         ).exists()
 
     def test_post_rejects_missing_required_field(self, panel_client, event):
-        category, _field = self._category_with_field(
+        category, field = self._category_with_field(
             event, name="RPG", slug="rpg", field_slug="system", is_required=True
         )
         facilitator = Facilitator.objects.create(
@@ -980,7 +1011,37 @@ class TestProposalCreateCategoryFields:
             },
         )
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            field_type="text",
+                            name=field.name,
+                            options=[],
+                            order=0,
+                            pk=field.pk,
+                            question=field.question,
+                            slug=field.slug,
+                        ),
+                        "name_prefix": "session",
+                        "answer": FieldAnswer(
+                            value="",
+                            errors=["This field is required."],
+                            is_required=True,
+                        ),
+                    }
+                ],
+                "form": ANY,
+            },
+        )
         assert "session_system" in response.context["form"].errors
         assert not Session.objects.filter(title="Missing Required").exists()
 

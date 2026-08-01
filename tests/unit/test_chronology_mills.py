@@ -37,7 +37,7 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.submissions import ImportSettings
-from tests.unit.dtos import user_dto
+from tests.unit.factories import user_dto
 
 
 def _make_item(**overrides):

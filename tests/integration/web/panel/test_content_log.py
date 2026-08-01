@@ -262,7 +262,7 @@ class TestContentLogRecordsEdits:
         self, panel_client, event, proposal_category
     ):
         session = _make_session(proposal_category)
-        field = make_optional_session_field(event, proposal_category)
+        field = make_optional_session_field(event=event, category=proposal_category)
 
         panel_client.post(
             reverse(

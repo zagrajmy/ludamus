@@ -28,7 +28,10 @@ class TestConflictDetectionOnAssign:
         end_time = start_time + timedelta(hours=1)
 
         response = panel_client.post(
-            self.get_url(event), assign_payload(session, space, start_time, end_time)
+            self.get_url(event),
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
         assert response.status_code == HTTPStatus.NO_CONTENT

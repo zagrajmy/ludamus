@@ -5,12 +5,8 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, Track
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    SpaceFactory,
-    TimeSlotFactory,
-    UserFactory,
-)
+from ludamus.pacts.chronology import ConflictDTO, ConflictSeverity, ConflictType
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -18,7 +14,7 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     make_overlapping_sessions,
     make_timetable_session,
-    schedule_session,
+    schedule_outside_preferred_slot,
 )
 
 User = get_user_model()
@@ -60,40 +56,50 @@ class TestTimetableConflictsPartView:
             context_data={"conflicts": [], "slug": event.slug, "filter_track_pk": None},
         )
 
-    def test_empty_conflicts_when_no_sessions(self, panel_client, event):
-        response = panel_client.get(self.get_url(event))
-
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["conflicts"] == []
-
     def test_detects_space_overlap_conflict(
         self, panel_client, event, proposal_category
     ):
-        make_overlapping_sessions(event, proposal_category)
+        _space, (subject, occupier) = make_overlapping_sessions(
+            event, proposal_category
+        )
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        conflict_types = [c.type for c in response.context["conflicts"]]
-        assert "space_overlap" in conflict_types
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-conflict-panel.html",
+            context_data={
+                "conflicts": [
+                    ConflictDTO(
+                        type=ConflictType.SPACE_OVERLAP,
+                        severity=ConflictSeverity.ERROR,
+                        subject_session_title=subject.title,
+                        subject_session_pk=subject.pk,
+                        session_title=occupier.title,
+                        session_pk=occupier.pk,
+                    )
+                ],
+                "slug": event.slug,
+                "filter_track_pk": None,
+            },
+        )
 
     def test_slot_violation_does_not_appear_in_conflicts(
         self, panel_client, event, proposal_category
     ):
-        space = SpaceFactory(event=event)
-        session = make_timetable_session(proposal_category)
-        preferred = TimeSlotFactory(
-            event=event,
-            start_time=event.start_time + timedelta(hours=4),
-            end_time=event.start_time + timedelta(hours=6),
+        schedule_outside_preferred_slot(
+            event=event, category=proposal_category, space=SpaceFactory(event=event)
         )
-        session.time_slots.add(preferred)
-        schedule_session(session, space, event.start_time)
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["conflicts"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-conflict-panel.html",
+            context_data={"conflicts": [], "slug": event.slug, "filter_track_pk": None},
+        )
 
     def test_cross_track_facilitator_conflict_has_attribution(
         self, panel_client, event, proposal_category
@@ -138,12 +144,25 @@ class TestTimetableConflictsPartView:
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        conflicts = response.context["conflicts"]
-        facilitator_conflicts = [
-            c for c in conflicts if c.type == "facilitator_overlap"
-        ]
-        assert len(facilitator_conflicts) == 1
-        conflict = facilitator_conflicts[0]
-        assert conflict.track_name is not None
-        assert conflict.manager_names != []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-conflict-panel.html",
+            context_data={
+                "conflicts": [
+                    ConflictDTO(
+                        type=ConflictType.FACILITATOR_OVERLAP,
+                        severity=ConflictSeverity.ERROR,
+                        subject_session_title=session_a.title,
+                        subject_session_pk=session_a.pk,
+                        session_title=session_b.title,
+                        session_pk=session_b.pk,
+                        facilitator_name=shared_facilitator.display_name,
+                        track_name=track_b.name,
+                        manager_names=[manager_b.name],
+                    )
+                ],
+                "slug": event.slug,
+                "filter_track_pk": None,
+            },
+        )

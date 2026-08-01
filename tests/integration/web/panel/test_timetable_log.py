@@ -105,7 +105,7 @@ class TestTimetableLogPageView:
     def test_unassign_creates_log_entry(self, panel_client, event, proposal_category):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
-        schedule_session(session, space, event.start_time)
+        schedule_session(session=session, space=space, start=event.start_time)
 
         panel_client.post(
             reverse("panel:timetable-unassign", kwargs={"slug": event.slug}),
