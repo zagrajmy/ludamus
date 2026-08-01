@@ -34,7 +34,6 @@ from ludamus.gates.web.django.dynamic_fields import (
     fold_custom_answers,
     requirement_fields,
     unfold_custom_answers,
-    unfolded_initial,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
@@ -295,7 +294,7 @@ def _personal_context(
         for slug, value in service.get_saved_personal_data(event.pk).items()
     }
     initial = unfold_custom_answers(
-        stored=stored, requirements=requirements, prefix="personal"
+        stored=stored, fields=[req.field for req in requirements], prefix="personal"
     )
 
     initial["contact_email"] = wizard.get(
@@ -380,7 +379,7 @@ def _render_details(
     wizard = request.session.get(_session_key(event.slug), {})
     initial = unfold_custom_answers(
         stored=wizard.get("session_data", {}),
-        requirements=requirements,
+        fields=[req.field for req in requirements],
         prefix="session",
     )
     if "display_name" not in initial:
@@ -946,13 +945,7 @@ class SessionEditView(LoginRequiredMixin, View):
             prefix=_SESSION_FIELD_PREFIX,
             fields=_session_field_pairs(ctx),
             data=data,
-            # A write-in is stored as one value; it comes back split across the
-            # control and its companion input, as the wizard renders it.
-            initial=unfolded_initial(
-                prefix=_SESSION_FIELD_PREFIX,
-                fields=[field for field, _current in ctx.session_fields],
-                stored={field.slug: current for field, current in ctx.session_fields},
-            ),
+            initial={field.slug: current for field, current in ctx.session_fields},
         )
 
     def get(

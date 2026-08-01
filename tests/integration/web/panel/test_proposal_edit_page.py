@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.proposals import PersonalDataCard
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -48,7 +49,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 CUSTOM_DURATION_MINUTES = 45
@@ -1028,10 +1029,9 @@ class TestProposalEditPageView:
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [
-                    (
-                        FacilitatorDTO.model_validate(facilitator),
-                        f"facilitator_{facilitator.pk}_personal",
-                        [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
                             {
                                 "field": OrganizerFieldDTO(
                                     allow_custom=False,
@@ -1275,10 +1275,9 @@ class TestProposalEditPageView:
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [
-                    (
-                        FacilitatorDTO.model_validate(facilitator),
-                        f"facilitator_{facilitator.pk}_personal",
-                        [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
                             {
                                 "field": OrganizerFieldDTO(
                                     allow_custom=True,
@@ -1364,7 +1363,9 @@ class TestProposalEditPageView:
                     "total_sessions": 1,
                 },
                 "proposal": SessionDTO.model_validate(session),
-                "form": ANY,
+                "form": FormErrorsMatcher(
+                    __all__=["Fix the facilitator personal data below before saving."]
+                ),
                 "all_facilitators": [_facilitator_dto(facilitator, session_count=1)],
                 "assigned_facilitator_pks": {facilitator.pk},
                 "field_descriptors": [],
@@ -1376,10 +1377,9 @@ class TestProposalEditPageView:
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [
-                    (
-                        FacilitatorDTO.model_validate(facilitator),
-                        f"facilitator_{facilitator.pk}_personal",
-                        [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
                             {
                                 "field": OrganizerFieldDTO(
                                     allow_custom=False,
@@ -1407,14 +1407,11 @@ class TestProposalEditPageView:
                                 ),
                             }
                         ],
+                        has_errors=True,
                     )
                 ],
             },
         )
-        form = response.context["form"]
-        assert form.non_field_errors() == [
-            "Fix the facilitator personal data below before saving."
-        ]
         session.refresh_from_db()
         assert session.title == "Test Session"
 
@@ -1453,10 +1450,9 @@ class TestProposalEditPageView:
 
         assert response.context["form"].errors
         assert response.context["facilitator_personal_data"] == [
-            (
-                FacilitatorDTO.model_validate(facilitator),
-                f"facilitator_{facilitator.pk}_personal",
-                [
+            PersonalDataCard(
+                facilitator=FacilitatorDTO.model_validate(facilitator),
+                descriptors=[
                     {
                         "field": OrganizerFieldDTO(
                             allow_custom=False,

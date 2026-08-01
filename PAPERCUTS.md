@@ -259,10 +259,6 @@ If you fix a papercut, remove it.
   hardcodes the integration path and appends args, so pytest gets two paths and
   runs the whole suite. Had to use `-k name` and wait ~2.5 min for
   collection+run instead of 5s.
-- 2026-08-01: git push over ssh dies with 'Bad owner or permissions on
-  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' — that file is owned by uid
-  65534, and OpenSSH refuses any system config it does not own as root. Worked
-  around it by pushing over https with gh as the credential helper.
 - 2026-08-01: git push over SSH fails with 'Bad owner or permissions on
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-

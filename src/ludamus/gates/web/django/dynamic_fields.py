@@ -8,7 +8,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.mills.field_values import merge_custom, split_stored
-from ludamus.pacts import FieldAnswer, PersonalFieldRequirementDTO
+from ludamus.pacts import FieldAnswer
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
         FieldDescriptor,
         FieldValue,
         OrganizerFieldDTO,
+        PersonalFieldRequirementDTO,
         SessionFieldRequirementDTO,
     )
 
@@ -122,7 +123,7 @@ def dynamic_fields_form(
     prefix: str,
     fields: Sequence[tuple[OrganizerFieldDTO, bool]],
     data: QueryDict | None = None,
-    initial: Mapping[str, FieldValue | int] | None = None,
+    initial: Mapping[str, FieldValue] | None = None,
 ) -> forms.Form:
     # Every page offering organizer-defined fields validates them through a
     # real form, so choice, length and required rules are enforced server-side
@@ -147,7 +148,21 @@ def dynamic_fields_form(
             ),
         },
     )
-    return form_class(data, initial=dict(initial or {}))
+    # Answers arrive keyed by slug, as every page stores them. A write-in is
+    # stored as one value; it goes back out split across the control and its
+    # companion input, the way the proposal wizard renders it.
+    stored = initial or {}
+    return form_class(
+        data,
+        initial=unfold_custom_answers(
+            stored={
+                f"{prefix}_{field_def.slug}": stored.get(field_def.slug)
+                for field_def, _is_required in fields
+            },
+            fields=[field_def for field_def, _is_required in fields],
+            prefix=prefix,
+        ),
+    )
 
 
 def answered_value(
@@ -201,46 +216,27 @@ def field_descriptors(
 
 
 def unfold_custom_answers(
-    *, stored: WizardData, requirements: Sequence[Requirement], prefix: str
+    *, stored: WizardData, fields: Sequence[OrganizerFieldDTO], prefix: str
 ) -> WizardData:
-    keys = {f"{prefix}_{req.field.slug}" for req in requirements}
+    keys = {f"{prefix}_{field_def.slug}" for field_def in fields}
     initial: WizardData = dict(stored)
-    for req in requirements:
-        key = f"{prefix}_{req.field.slug}"
+    for field_def in fields:
+        key = f"{prefix}_{field_def.slug}"
         value = initial.get(key)
-        if req.field.field_type != "select" or not isinstance(value, str | list):
+        if field_def.field_type != "select" or not isinstance(value, str | list):
             continue
         chosen, custom = split_stored(
             stored=value,
-            known={option.value for option in req.field.options},
-            is_multiple=req.field.is_multiple,
+            known={option.value for option in field_def.options},
+            is_multiple=field_def.is_multiple,
         )
         initial[key] = chosen
         custom_key = f"{key}_custom"
         # When another field is slugged like this one's companion, the write-in
         # has nowhere to go — better lost than written over a real answer.
-        if custom and req.field.allow_custom and custom_key not in keys:
+        if custom and field_def.allow_custom and custom_key not in keys:
             initial[custom_key] = custom
     return initial
-
-
-def unfolded_initial(
-    *,
-    prefix: str,
-    fields: Sequence[OrganizerFieldDTO],
-    stored: Mapping[str, FieldValue],
-) -> WizardData:
-    # Answers keyed by slug, as every page outside the proposal wizard reads
-    # them back. The requirement wrapper only carries the field: unfolding
-    # asks nothing about who has to answer.
-    return unfold_custom_answers(
-        stored={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
-        requirements=[
-            PersonalFieldRequirementDTO(field=field, is_required=False)
-            for field in fields
-        ],
-        prefix=prefix,
-    )
 
 
 def fold_custom_answers(

@@ -25,7 +25,6 @@ from ludamus.gates.web.django.dynamic_fields import (
     answered_value,
     dynamic_fields_form,
     field_descriptors,
-    unfolded_initial,
 )
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
@@ -101,14 +100,11 @@ def _personal_fields_form(
 ) -> forms.Form:
     # The panel records answers on someone's behalf, so nothing is required
     # here even when the proposal wizard would demand it.
-    stored = values or {}
     return dynamic_fields_form(
         prefix=_PERSONAL_PREFIX,
         fields=[(field, False) for field in fields],
         data=data,
-        # A write-in is stored as one value; it comes back split across the
-        # control and its companion input, as the proposal wizard renders it.
-        initial=unfolded_initial(prefix=_PERSONAL_PREFIX, fields=fields, stored=stored),
+        initial=values or {},
     )
 
 
