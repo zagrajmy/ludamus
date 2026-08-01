@@ -111,15 +111,11 @@ def _personal_fields_form(
 ) -> forms.Form:
     # The panel records answers on someone's behalf, so nothing is required
     # here even when the proposal wizard would demand it.
-    stored = values or {}
     return dynamic_fields_form(
         prefix=_PERSONAL_PREFIX,
         fields=[(field, False) for field in fields],
         data=data,
-        initial={
-            f"{_PERSONAL_PREFIX}_{field.slug}": stored.get(field.slug)
-            for field in fields
-        },
+        initial=values or {},
     )
 
 
