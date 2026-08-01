@@ -18,10 +18,6 @@ let armed: Placement | null = null;
 // Active drag payload; independent of `armed` so a bare drag also works.
 let dragging: Placement | null = null;
 
-declare const htmx: {
-  ajax: (method: string, url: string, opts: { swap: string; target: string }) => void;
-};
-
 const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!;
 
 const grid = (): HTMLElement => document.getElementById("timetable-grid")!;

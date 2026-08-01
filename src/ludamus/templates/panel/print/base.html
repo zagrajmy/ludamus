@@ -104,7 +104,7 @@
     <main class="grow w-full">
         <div class="sheet">
             <div class="toolbar no-print">
-                <button type="button" class="print-btn" onclick="window.print()">{% translate "Print" %}</button>
+                <button type="button" class="print-btn" data-action="print">{% translate "Print" %}</button>
                 <span class="print-hint">{% translate "or press Ctrl+P (⌘P on Mac)" %}</span>
             </div>
             {% block body %}

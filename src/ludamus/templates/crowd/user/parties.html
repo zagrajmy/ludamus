@@ -292,7 +292,9 @@
                             <div class="flex gap-1 shrink-0 -mr-1 -mt-1">
                                 <button type="button"
                                         class="icon-btn"
-                                        onclick="document.getElementById('companion-display-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='block'">
+                                        data-action="swap-visibility"
+                                        data-hide="companion-display-{{ row.companion.slug }}"
+                                        data-show="companion-edit-{{ row.companion.slug }}">
                                     {% icon "pencil" class="w-3.5 h-3.5" %}
                                     <span class="sr-only">{% translate "Edit" %}</span>
                                 </button>
@@ -353,7 +355,9 @@
                                 <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
                                 <button type="button"
                                         class="btn btn-secondary"
-                                        onclick="document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-display-{{ row.companion.slug }}').style.display='block'">
+                                        data-action="swap-visibility"
+                                        data-hide="companion-edit-{{ row.companion.slug }}"
+                                        data-show="companion-display-{{ row.companion.slug }}">
                                     {% icon "x-mark" class="w-4 h-4" %}
                                     {% translate "Cancel" %}
                                 </button>
