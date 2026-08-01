@@ -31,18 +31,12 @@
     </div>
     {% if track_view %}
         <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ track_view.confirmed_count }}/{{ track_view.scheduled_count }}</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "confirmed program items in this track" %}</div>
-            </div>
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ track_view.facilitator_count }}</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "facilitators in this track" %}</div>
-            </div>
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ track_view.unclaimed_facilitator_count }}</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "facilitators nobody handles" %}</div>
-            </div>
+            {% translate "confirmed program items in this track" as t_track_confirmed %}
+            {% include "components/stat_card.html" with value=track_view.confirmed_count of=track_view.scheduled_count label=t_track_confirmed %}
+            {% translate "facilitators in this track" as t_track_facilitators %}
+            {% include "components/stat_card.html" with value=track_view.facilitator_count label=t_track_facilitators %}
+            {% translate "facilitators nobody handles" as t_track_unclaimed %}
+            {% include "components/stat_card.html" with value=track_view.unclaimed_facilitator_count label=t_track_unclaimed %}
         </div>
         {% if track_view.facilitators %}
             <div class="flex flex-col gap-3">
@@ -64,22 +58,14 @@
         {% include "panel/parts/confirmation-orphan-warning.html" with count=track_view.without_facilitator_count %}
     {% else %}
         <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ dashboard.confirmed_count }}/{{ dashboard.scheduled_count }}</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "confirmed program items" %}</div>
-            </div>
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ dashboard.progress_pct }}%</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "confirmation progress" %}</div>
-            </div>
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ dashboard.claimed_facilitator_count }}</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "facilitators taken on" %}</div>
-            </div>
-            <div class="rounded-xl border border-border bg-bg-tertiary p-3">
-                <div class="text-2xl font-semibold tabular-nums">{{ dashboard.unclaimed_facilitator_count }}</div>
-                <div class="mt-0.5 text-xs text-foreground-muted">{% translate "facilitators nobody handles" %}</div>
-            </div>
+            {% translate "confirmed program items" as t_confirmed %}
+            {% include "components/stat_card.html" with value=dashboard.confirmed_count of=dashboard.scheduled_count label=t_confirmed %}
+            {% translate "confirmation progress" as t_progress %}
+            {% include "components/stat_card.html" with value=dashboard.progress_pct suffix="%" label=t_progress %}
+            {% translate "facilitators taken on" as t_claimed %}
+            {% include "components/stat_card.html" with value=dashboard.claimed_facilitator_count label=t_claimed %}
+            {% translate "facilitators nobody handles" as t_unclaimed %}
+            {% include "components/stat_card.html" with value=dashboard.unclaimed_facilitator_count label=t_unclaimed %}
         </div>
         <section class="mb-8">
             <h2 class="mb-3 text-base font-semibold">{% translate "By organizer" %}</h2>

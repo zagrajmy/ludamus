@@ -4,8 +4,14 @@
 action endpoint, which would be a useless place to send a claim back to.
 {% endcomment %}
 {% url 'panel:timetable-confirmations-confirm' slug=current_event.slug as confirm_url %}
+{% comment %}
+Every confirm form inside swaps this whole card, so the target and the swap are
+set once here and inherited by the forms below.
+{% endcomment %}
 <details id="facilitator-card-{{ facilitator.pk }}"
          class="card overflow-hidden {% if facilitator.is_fully_confirmed %}bg-bg-tertiary{% endif %}"
+         hx-target="#facilitator-card-{{ facilitator.pk }}"
+         hx-swap="outerHTML"
          {% if not facilitator.is_fully_confirmed %}open{% endif %}>
     <summary class="flex cursor-pointer flex-wrap items-center gap-3 p-4">
         <span class="font-semibold">{{ facilitator.display_name }}</span>
@@ -35,9 +41,7 @@ action endpoint, which would be a useless place to send a claim back to.
                 </form>
             {% endif %}
             {% if facilitator.scheduled_count and not facilitator.is_fully_confirmed %}
-                <form hx-post="{{ confirm_url }}"
-                      hx-target="#facilitator-card-{{ facilitator.pk }}"
-                      hx-swap="outerHTML">
+                <form hx-post="{{ confirm_url }}">
                     {% csrf_token %}
                     <input type="hidden" name="scope" value="facilitator">
                     <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
@@ -67,9 +71,7 @@ action endpoint, which would be a useless place to send a claim back to.
                             {% icon "clipboard-document" variant="solid" class="size-4" %}
                             {{ t_copy }}
                         {% endtessera_copy %}
-                        <form hx-post="{{ confirm_url }}"
-                              hx-target="#facilitator-card-{{ facilitator.pk }}"
-                              hx-swap="outerHTML">
+                        <form hx-post="{{ confirm_url }}">
                             {% csrf_token %}
                             <input type="hidden" name="scope" value="email">
                             <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
@@ -95,11 +97,7 @@ action endpoint, which would be a useless place to send a claim back to.
                     {% for session in status_group.sessions %}
                         <div class="flex items-start gap-2.5 rounded-xl px-2.5 py-2 hover:bg-bg-tertiary">
                             {% if session.agenda_item_pk %}
-                                <form class="flex"
-                                      hx-post="{{ confirm_url }}"
-                                      hx-trigger="change"
-                                      hx-target="#facilitator-card-{{ facilitator.pk }}"
-                                      hx-swap="outerHTML">
+                                <form class="flex" hx-post="{{ confirm_url }}" hx-trigger="change">
                                     {% csrf_token %}
                                     <input type="hidden" name="scope" value="session">
                                     <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">

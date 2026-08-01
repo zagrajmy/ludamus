@@ -1,6 +1,5 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
@@ -30,10 +29,7 @@ from ludamus.pacts.legacy import (
     SessionStatus,
     TrackRepositoryProtocol,
 )
-from ludamus.specs.confirmations import SCHEDULED_STATUS, STATUS_ORDER
-
-if TYPE_CHECKING:
-    from ludamus.pacts.services import TransactionProtocol
+from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
 
 
 def is_proposal_active(event: EventDTO) -> bool:
@@ -68,13 +64,11 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
     def __init__(
         self,
         *,
-        transaction: TransactionProtocol,
         facilitators: FacilitatorRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         tracks: TrackRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
     ) -> None:
-        self._transaction = transaction
         self._facilitators = facilitators
         self._agenda_items = agenda_items
         self._tracks = tracks
@@ -85,24 +79,25 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
             event_pk, track_pk
         )
         orphans = self._agenda_items.count_without_facilitator(event_pk, track_pk)
-        if not facilitator_rows:
-            return ConfirmationTrackViewDTO(
-                facilitators=[],
-                facilitator_count=0,
-                unclaimed_facilitator_count=0,
-                scheduled_count=0,
-                confirmed_count=0,
-                progress_pct=0,
-                without_facilitator_count=orphans,
+        # Nobody in the block means nothing to look up: the assembly below
+        # already yields an empty view, it just does not need three queries.
+        session_rows = (
+            self._sessions.list_confirmation_rows(
+                event_pk, [row["pk"] for row in facilitator_rows]
             )
-
-        session_rows = self._sessions.list_confirmation_rows(
-            event_pk, [row["pk"] for row in facilitator_rows]
+            if facilitator_rows
+            else []
         )
         session_pks = [row["session_pk"] for row in session_rows]
-        track_names = self._sessions.list_track_names_by_session(session_pks)
-        facilitator_names = self._sessions.list_facilitator_names_by_session(
-            session_pks
+        track_names = (
+            self._sessions.list_track_names_by_session(session_pks)
+            if session_pks
+            else {}
+        )
+        facilitator_names = (
+            self._sessions.list_facilitator_names_by_session(session_pks)
+            if session_pks
+            else {}
         )
 
         by_facilitator: dict[int, list[ConfirmationSessionRow]] = defaultdict(list)
@@ -149,6 +144,10 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         row = self._read_facilitator_in_event(
             event_pk=event_pk, facilitator_pk=facilitator_pk
         )
+        # `track_pk` comes from the form, so it gets the same treatment as the
+        # facilitator: a block of another event never reaches the render.
+        if self._tracks.read(track_pk).event_id != event_pk:
+            raise NotFoundError
         sessions = self._sessions.list_confirmation_rows(event_pk, [facilitator_pk])
         session_pks = [session["session_pk"] for session in sessions]
         return _facilitator(
@@ -176,14 +175,14 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         self._read_facilitator_in_event(
             event_pk=event_pk, facilitator_pk=facilitator_pk
         )
-        with self._transaction.atomic():
-            matched = self._agenda_items.set_confirmed_for_facilitator(
-                event_pk=event_pk,
-                facilitator_pk=facilitator_pk,
-                confirmed=confirmed,
-                contact_email=contact_email,
-                agenda_item_pk=agenda_item_pk,
-            )
+        # One UPDATE, so no transaction to open around it.
+        matched = self._agenda_items.set_confirmed_for_facilitator(
+            event_pk=event_pk,
+            facilitator_pk=facilitator_pk,
+            confirmed=confirmed,
+            contact_email=contact_email,
+            agenda_item_pk=agenda_item_pk,
+        )
         # Naming one item and hitting nothing means the item is not this
         # facilitator's (or not placed at all) — say so instead of reporting a
         # write that never happened. A scope-wide call legitimately matches none.
@@ -210,10 +209,11 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         manager_names = self._tracks.list_manager_names_by_event(event_pk)
         without_facilitator = self._agenda_items.count_without_facilitator(event_pk)
 
-        # Organizer rows partition the event's facilitators, so their scheduled
-        # counts sum to the event total without double counting.
-        scheduled = sum(row["scheduled_count"] for row in organizer_rows)
-        confirmed = sum(row["confirmed_count"] for row in organizer_rows)
+        # Straight off the items: a session run by two facilitators lands in
+        # two organizer rows, so summing those rows would count it twice.
+        totals = self._agenda_items.count_event_totals(event_pk)
+        scheduled = totals["scheduled_count"]
+        confirmed = totals["confirmed_count"]
         return ConfirmationDashboardDTO(
             organizers=[_organizer_row(row) for row in organizer_rows],
             tracks=[
@@ -299,12 +299,9 @@ def _email_group(
     )
 
 
+# A typed key, because a lambda here would be an implicit `Any` parameter.
 def _email_sort_key(email: str) -> tuple[bool, str]:
     return (not email, email)
-
-
-def _sorted_emails(groups: dict[str, list[ConfirmationSessionRow]]) -> list[str]:
-    return sorted(groups, key=_email_sort_key)
 
 
 def _facilitator(
@@ -319,14 +316,10 @@ def _facilitator(
     # sessions become counts: there is nothing to tick, and pending detail may
     # still change before a decision.
     listed: dict[str, list[ConfirmationSessionRow]] = defaultdict(list)
-    unplaced = pending = 0
+    counted: Counter[SessionStatus] = Counter()
     for session in sessions:
-        if session["agenda_item_pk"] is not None:
-            listed[session["contact_email"]].append(session)
-        elif session["status"] == SessionStatus.PENDING:
-            pending += 1
-        elif session["status"] == SessionStatus.ACCEPTED:
-            unplaced += 1
+        if session["agenda_item_pk"] is None and session["status"] in COUNTED_UNPLACED:
+            counted[session["status"]] += 1
         else:
             listed[session["contact_email"]].append(session)
 
@@ -348,12 +341,12 @@ def _facilitator(
             )
             # An address-less group sorts last: it is the one needing a fix,
             # not the one to start reading from.
-            for email in _sorted_emails(listed)
+            for email in sorted(listed, key=_email_sort_key)
         ],
         scheduled_count=scheduled_count,
         confirmed_count=confirmed_count,
-        unplaced_count=unplaced,
-        pending_count=pending,
+        unplaced_count=counted[SessionStatus.ACCEPTED],
+        pending_count=counted[SessionStatus.PENDING],
         is_fully_confirmed=bool(scheduled_count) and confirmed_count == scheduled_count,
     )
 

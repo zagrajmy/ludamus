@@ -146,6 +146,7 @@ def main() -> None:
         ("harbour-wizards", "Wizards of the Pier", ADA_EMAIL, track, False, 13),
         ("harbour-club-night", "Club Night", ADA_CLUB_EMAIL, side_track, False, 16),
     ]
+    placed_sessions: dict[str, Session] = {}
     for slug, title, email, session_track, confirmed, hour in placed:
         session = _session(
             event=event,
@@ -157,6 +158,7 @@ def main() -> None:
             email=email,
             facilitator=ada,
         )
+        placed_sessions[slug] = session
         AgendaItem.objects.get_or_create(
             session=session,
             defaults={
@@ -168,7 +170,7 @@ def main() -> None:
         )
     # Ada's Club Night sits in the side programme but must still surface on the
     # main programme's card, labelled with its own block.
-    Session.objects.get(slug="harbour-club-night").tracks.add(track)
+    placed_sessions["harbour-club-night"].tracks.add(track)
 
     # Listed without a checkbox: nothing to confirm, still worth mentioning.
     for slug, title, status in (

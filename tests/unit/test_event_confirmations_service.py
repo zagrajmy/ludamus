@@ -1,14 +1,14 @@
 from ludamus.mills.event import EventConfirmationsService
-from ludamus.pacts.legacy import ConfirmationCountsRow
+from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 _ADA = 11
 _BEN = 12
 _RPG_TRACK = 21
 _TALKS_TRACK = 22
 
-_BOTH_ORGANIZERS_SCHEDULED = 12
-_BOTH_ORGANIZERS_CONFIRMED = 7
-_BOTH_ORGANIZERS_PCT = 58
+_EVENT_SCHEDULED = 11
+_EVENT_CONFIRMED = 7
+_EVENT_PCT = 64
 _UNCLAIMED_FACILITATORS = 5
 _CLAIMED_FACILITATORS = 3
 _FULLY_CONFIRMED_PCT = 100
@@ -41,10 +41,16 @@ class FakeFacilitators:
 
 class FakeAgendaItems:
     def __init__(
-        self, rows: list[ConfirmationCountsRow], without_facilitator: int = 0
+        self,
+        rows: list[ConfirmationCountsRow],
+        without_facilitator: int = 0,
+        totals: ConfirmationTotalsRow | None = None,
     ) -> None:
         self._rows = rows
         self._without_facilitator = without_facilitator
+        self._totals = totals or ConfirmationTotalsRow(
+            scheduled_count=0, confirmed_count=0
+        )
         self.calls: list[int] = []
 
     def count_confirmations_by_track(
@@ -56,6 +62,10 @@ class FakeAgendaItems:
     def count_without_facilitator(self, event_pk: int) -> int:
         self.calls.append(event_pk)
         return self._without_facilitator
+
+    def count_event_totals(self, event_pk: int) -> ConfirmationTotalsRow:
+        self.calls.append(event_pk)
+        return self._totals
 
 
 class FakeTracks:
@@ -74,12 +84,12 @@ def _service(
     track_rows: list[ConfirmationCountsRow] | None = None,
     manager_names: dict[int, list[str]] | None = None,
     without_facilitator: int = 0,
+    totals: ConfirmationTotalsRow | None = None,
 ) -> tuple[EventConfirmationsService, FakeFacilitators, FakeAgendaItems, FakeTracks]:
     facilitators = FakeFacilitators(organizer_rows or [])
-    agenda_items = FakeAgendaItems(track_rows or [], without_facilitator)
+    agenda_items = FakeAgendaItems(track_rows or [], without_facilitator, totals)
     tracks = FakeTracks(manager_names or {})
     service = EventConfirmationsService(
-        transaction=None,
         facilitators=facilitators,
         agenda_items=agenda_items,
         tracks=tracks,
@@ -89,19 +99,24 @@ def _service(
 
 
 class TestDashboard:
-    def test_totals_sum_the_organizer_partition(self):
+    def test_totals_come_from_the_items_not_from_the_organizer_rows(self):
+        # The rows add up to 12 because one item is run by two facilitators
+        # claimed by different organizers. The event has 11.
         service, _, _, _ = _service(
             organizer_rows=[
                 _row(key=_ADA, name="Ada", facilitators=3, scheduled=8, confirmed=6),
                 _row(key=_BEN, name="Ben", facilitators=2, scheduled=4, confirmed=1),
-            ]
+            ],
+            totals=ConfirmationTotalsRow(
+                scheduled_count=_EVENT_SCHEDULED, confirmed_count=_EVENT_CONFIRMED
+            ),
         )
 
         dashboard = service.dashboard(1)
 
-        assert dashboard.scheduled_count == _BOTH_ORGANIZERS_SCHEDULED
-        assert dashboard.confirmed_count == _BOTH_ORGANIZERS_CONFIRMED
-        assert dashboard.progress_pct == _BOTH_ORGANIZERS_PCT
+        assert dashboard.scheduled_count == _EVENT_SCHEDULED
+        assert dashboard.confirmed_count == _EVENT_CONFIRMED
+        assert dashboard.progress_pct == _EVENT_PCT
 
     def test_unclaimed_row_counts_apart_from_claimed(self):
         service, _, _, _ = _service(
@@ -122,7 +137,8 @@ class TestDashboard:
         service, _, _, _ = _service(
             organizer_rows=[
                 _row(key=_ADA, name="Ada", facilitators=2, scheduled=0, confirmed=0)
-            ]
+            ],
+            totals=ConfirmationTotalsRow(scheduled_count=0, confirmed_count=0),
         )
 
         dashboard = service.dashboard(1)
@@ -171,5 +187,5 @@ class TestDashboard:
         service.dashboard(42)
 
         assert facilitators.calls == [42]
-        assert agenda_items.calls == [42, 42]
+        assert agenda_items.calls == [42, 42, 42]
         assert tracks.calls == [42]

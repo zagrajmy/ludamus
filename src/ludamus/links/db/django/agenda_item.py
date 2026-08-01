@@ -13,7 +13,7 @@ from ludamus.pacts import (
     NotFoundError,
     SessionStatus,
 )
-from ludamus.pacts.legacy import ConfirmationCountsRow
+from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -134,7 +134,13 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
             Track.objects.filter(event_id=event_pk)
             .values("pk", "name")
             .annotate(
-                facilitator_count=Count("sessions__facilitators", distinct=True),
+                # Only facilitators with a placed session, so the column agrees
+                # with the cards the row links to.
+                facilitator_count=Count(
+                    "sessions__facilitators",
+                    filter=Q(sessions__agenda_item__isnull=False),
+                    distinct=True,
+                ),
                 scheduled_count=scheduled_item_count(),
                 confirmed_count=confirmed_item_count(),
             )
@@ -150,6 +156,18 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
             )
             for row in rows
         ]
+
+    @staticmethod
+    def count_event_totals(event_pk: int) -> ConfirmationTotalsRow:
+        # Counted over the items themselves. Adding up the per-organizer rows
+        # would count an item once per facilitator who runs it.
+        row = AgendaItem.objects.filter(session__event_id=event_pk).aggregate(
+            scheduled=Count("pk"),
+            confirmed=Count("pk", filter=Q(session_confirmed=True)),
+        )
+        return ConfirmationTotalsRow(
+            scheduled_count=row["scheduled"], confirmed_count=row["confirmed"]
+        )
 
     @staticmethod
     def set_confirmed_for_facilitator(

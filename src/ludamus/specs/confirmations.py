@@ -8,11 +8,14 @@ from ludamus.pacts.legacy import SessionStatus
 SCHEDULED_STATUS = "scheduled"
 
 # Reading order inside one contact email: what can be confirmed first, then
-# what is still undecided, then what is settled and negative.
+# what is settled. Accepted and pending never appear — an unplaced session in
+# either state is counted rather than listed, and a placed one is "scheduled".
 STATUS_ORDER = (
     SCHEDULED_STATUS,
     str(SessionStatus.ON_HOLD),
     str(SessionStatus.REJECTED),
-    str(SessionStatus.ACCEPTED),
-    str(SessionStatus.PENDING),
 )
+
+# The other half of that rule: unplaced and in one of these states means a
+# count, not a row. Nothing to tick, and pending detail may still change.
+COUNTED_UNPLACED = (SessionStatus.PENDING, SessionStatus.ACCEPTED)

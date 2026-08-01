@@ -937,6 +937,11 @@ class ConfirmationCountsRow(TypedDict):
     confirmed_count: int
 
 
+class ConfirmationTotalsRow(TypedDict):
+    scheduled_count: int
+    confirmed_count: int
+
+
 class ConfirmationFacilitatorRow(TypedDict):
     pk: int
     display_name: str
@@ -990,6 +995,8 @@ class AgendaItemRepositoryProtocol(Protocol):
     def confirm_all_by_track(track_pk: int) -> None: ...
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
+    @staticmethod
+    def count_event_totals(event_pk: int) -> ConfirmationTotalsRow: ...
     @staticmethod
     def set_confirmed_for_facilitator(
         *,

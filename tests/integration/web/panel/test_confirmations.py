@@ -7,11 +7,16 @@ from ludamus.links.db.django.models import Facilitator, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
+    ConfirmationEmailGroupDTO,
+    ConfirmationFacilitatorDTO,
     ConfirmationOrganizerRowDTO,
+    ConfirmationSessionDTO,
+    ConfirmationStatusGroupDTO,
     ConfirmationTrackRowDTO,
+    ConfirmationTrackViewDTO,
 )
 from ludamus.pacts.legacy import TrackDTO
-from tests.integration.conftest import AgendaItemFactory, SessionFactory
+from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
@@ -29,7 +34,7 @@ def _tab_urls(event):
     }
 
 
-def _empty_stats():
+def _stats(**overrides):
     return {
         "hosts_count": 0,
         "pending_proposals": 0,
@@ -37,7 +42,56 @@ def _empty_stats():
         "scheduled_sessions": 0,
         "total_proposals": 0,
         "total_sessions": 0,
-    }
+    } | overrides
+
+
+def _empty_dashboard(**overrides):
+    return ConfirmationDashboardDTO(
+        **{
+            "organizers": [],
+            "tracks": [],
+            "scheduled_count": 0,
+            "confirmed_count": 0,
+            "progress_pct": 0,
+            "claimed_facilitator_count": 0,
+            "unclaimed_facilitator_count": 0,
+            "without_facilitator_count": 0,
+        }
+        | overrides
+    )
+
+
+def _empty_track_view(**overrides):
+    return ConfirmationTrackViewDTO(
+        **{
+            "facilitators": [],
+            "facilitator_count": 0,
+            "unclaimed_facilitator_count": 0,
+            "scheduled_count": 0,
+            "confirmed_count": 0,
+            "progress_pct": 0,
+            "without_facilitator_count": 0,
+        }
+        | overrides
+    )
+
+
+def _session_dto(session, item=None, **overrides):
+    return ConfirmationSessionDTO(
+        **{
+            "session_pk": session.pk,
+            "title": session.title,
+            "category_name": session.category.name,
+            "room_name": item.space.name if item else "",
+            "start_time": item.start_time if item else None,
+            "end_time": item.end_time if item else None,
+            "agenda_item_pk": item.pk if item else None,
+            "is_confirmed": bool(item and item.session_confirmed),
+            "co_facilitator_names": [],
+            "other_track_names": [],
+        }
+        | overrides
+    )
 
 
 class TestConfirmationsPageView:
@@ -46,6 +100,25 @@ class TestConfirmationsPageView:
     @staticmethod
     def get_url(event):
         return reverse("panel:timetable-confirmations", kwargs={"slug": event.slug})
+
+    @classmethod
+    def expected_context(cls, event, **overrides):
+        return {
+            "current_event": EventDTO.model_validate(event),
+            "events": [EventDTO.model_validate(event)],
+            "is_proposal_active": False,
+            "stats": _stats(),
+            "active_nav": "timetable",
+            "all_tracks": [],
+            "managed_track_pks": set(),
+            "filter_track_pk": None,
+            "dashboard": _empty_dashboard(),
+            "track_view": None,
+            "slug": event.slug,
+            "next_url": cls.get_url(event),
+            "tab_urls": _tab_urls(event),
+            "active_tab": "confirmations",
+        } | overrides
 
     def test_redirects_anonymous_user_to_login(self, client, event):
         url = self.get_url(event)
@@ -92,33 +165,7 @@ class TestConfirmationsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable-confirmations.html",
-            context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": _empty_stats(),
-                "active_nav": "timetable",
-                "all_tracks": [],
-                "managed_track_pks": set(),
-                "filter_track_pk": None,
-                "dashboard": ConfirmationDashboardDTO(
-                    organizers=[],
-                    tracks=[],
-                    scheduled_count=0,
-                    confirmed_count=0,
-                    progress_pct=0,
-                    claimed_facilitator_count=0,
-                    unclaimed_facilitator_count=0,
-                    without_facilitator_count=0,
-                ),
-                "track_view": None,
-                "slug": event.slug,
-                "next_url": reverse(
-                    "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                ),
-                "tab_urls": _tab_urls(event),
-                "active_tab": "confirmations",
-            },
+            context_data=self.expected_context(event),
         )
 
     def test_counts_confirmed_of_scheduled_per_organizer_and_track(
@@ -143,45 +190,119 @@ class TestConfirmationsPageView:
 
         # `?track=` empty keeps the event-wide dashboard: a manager of exactly
         # one track would otherwise land straight on that track's list.
-        response = authenticated_client.get(f"{self.get_url(event)}?track=")
+        url = f"{self.get_url(event)}?track="
+        response = authenticated_client.get(url)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["dashboard"] == ConfirmationDashboardDTO(
-            organizers=[
-                ConfirmationOrganizerRowDTO(
-                    organizer_id=None,
-                    organizer_name="",
-                    facilitator_count=1,
-                    scheduled_count=1,
-                    confirmed_count=0,
-                    progress_pct=0,
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=3,
+                    scheduled_sessions=3,
+                    total_proposals=3,
+                    total_sessions=3,
                 ),
-                ConfirmationOrganizerRowDTO(
-                    organizer_id=active_user.pk,
-                    organizer_name=active_user.name,
-                    facilitator_count=1,
-                    scheduled_count=2,
-                    confirmed_count=1,
-                    progress_pct=50,
-                ),
-            ],
-            tracks=[
-                ConfirmationTrackRowDTO(
-                    track_pk=track.pk,
-                    track_name="RPG",
-                    manager_names=[active_user.name],
-                    facilitator_count=2,
+                all_tracks=[TrackDTO.model_validate(track)],
+                managed_track_pks={track.pk},
+                next_url=url,
+                dashboard=_empty_dashboard(
+                    organizers=[
+                        ConfirmationOrganizerRowDTO(
+                            organizer_id=None,
+                            organizer_name="",
+                            facilitator_count=1,
+                            scheduled_count=1,
+                            confirmed_count=0,
+                            progress_pct=0,
+                        ),
+                        ConfirmationOrganizerRowDTO(
+                            organizer_id=active_user.pk,
+                            organizer_name=active_user.name,
+                            facilitator_count=1,
+                            scheduled_count=2,
+                            confirmed_count=1,
+                            progress_pct=50,
+                        ),
+                    ],
+                    tracks=[
+                        ConfirmationTrackRowDTO(
+                            track_pk=track.pk,
+                            track_name="RPG",
+                            manager_names=[active_user.name],
+                            facilitator_count=2,
+                            scheduled_count=3,
+                            confirmed_count=1,
+                            progress_pct=33,
+                        )
+                    ],
                     scheduled_count=3,
                     confirmed_count=1,
                     progress_pct=33,
-                )
-            ],
-            scheduled_count=3,
-            confirmed_count=1,
-            progress_pct=33,
-            claimed_facilitator_count=1,
-            unclaimed_facilitator_count=1,
-            without_facilitator_count=0,
+                    claimed_facilitator_count=1,
+                    unclaimed_facilitator_count=1,
+                ),
+            ),
+        )
+
+    def test_totals_count_a_co_facilitated_item_once(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        other_organizer = UserFactory(username="other-organizer", name="Zoe Other")
+        mine = Facilitator.objects.create(
+            event=event, display_name="Ada", slug="ada", organizer=active_user
+        )
+        theirs = Facilitator.objects.create(
+            event=event, display_name="Ben", slug="ben", organizer=other_organizer
+        )
+        session = SessionFactory(category=proposal_category, status="accepted")
+        session.facilitators.add(mine, theirs)
+        AgendaItemFactory(session=session, session_confirmed=True)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        # Both organizer rows report the item, each correctly. Adding the rows
+        # up would report two program items where the event has one.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=1,
+                    scheduled_sessions=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
+                dashboard=_empty_dashboard(
+                    organizers=[
+                        ConfirmationOrganizerRowDTO(
+                            organizer_id=active_user.pk,
+                            organizer_name=active_user.name,
+                            facilitator_count=1,
+                            scheduled_count=1,
+                            confirmed_count=1,
+                            progress_pct=100,
+                        ),
+                        ConfirmationOrganizerRowDTO(
+                            organizer_id=other_organizer.pk,
+                            organizer_name="Zoe Other",
+                            facilitator_count=1,
+                            scheduled_count=1,
+                            confirmed_count=1,
+                            progress_pct=100,
+                        ),
+                    ],
+                    scheduled_count=1,
+                    confirmed_count=1,
+                    progress_pct=100,
+                    claimed_facilitator_count=2,
+                ),
+            ),
         )
 
     def test_reports_scheduled_sessions_that_have_no_facilitator(
@@ -193,8 +314,23 @@ class TestConfirmationsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["dashboard"].without_facilitator_count == 1
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=1,
+                    scheduled_sessions=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
+                dashboard=_empty_dashboard(
+                    scheduled_count=1, without_facilitator_count=1
+                ),
+            ),
+        )
 
     def test_selecting_a_track_keeps_it_in_context(
         self, authenticated_client, active_user, sphere, event
@@ -204,11 +340,22 @@ class TestConfirmationsPageView:
             event=event, name="RPG", slug="rpg", is_public=True
         )
 
-        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+        url = f"{self.get_url(event)}?track={track.pk}"
+        response = authenticated_client.get(url)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["filter_track_pk"] == track.pk
-        assert response.context["all_tracks"] == [TrackDTO.model_validate(track)]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                all_tracks=[TrackDTO.model_validate(track)],
+                filter_track_pk=track.pk,
+                dashboard=None,
+                track_view=_empty_track_view(),
+                next_url=url,
+            ),
+        )
 
     def test_auto_selects_the_single_track_the_user_manages(
         self, authenticated_client, active_user, sphere, event
@@ -221,9 +368,19 @@ class TestConfirmationsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["filter_track_pk"] == track.pk
-        assert response.context["managed_track_pks"] == {track.pk}
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                all_tracks=[TrackDTO.model_validate(track)],
+                managed_track_pks={track.pk},
+                filter_track_pk=track.pk,
+                dashboard=None,
+                track_view=_empty_track_view(),
+            ),
+        )
 
     def test_track_view_lists_only_facilitators_scheduled_in_that_track(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -239,20 +396,72 @@ class TestConfirmationsPageView:
         elsewhere = Facilitator.objects.create(
             event=event, display_name="Ben", slug="ben"
         )
+        items = {}
         for facilitator, session_track in ((listed, track), (elsewhere, other)):
             session = SessionFactory(category=proposal_category, status="accepted")
             session.facilitators.add(facilitator)
             session.tracks.add(session_track)
-            AgendaItemFactory(session=session)
+            items[facilitator.pk] = AgendaItemFactory(session=session)
 
-        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+        url = f"{self.get_url(event)}?track={track.pk}"
+        response = authenticated_client.get(url)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["dashboard"] is None
-        track_view = response.context["track_view"]
-        assert [f.display_name for f in track_view.facilitators] == ["Ada"]
-        assert track_view.scheduled_count == 1
-        assert track_view.confirmed_count == 0
+        item = items[listed.pk]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=2,
+                    scheduled_sessions=2,
+                    total_proposals=2,
+                    total_sessions=2,
+                ),
+                all_tracks=[
+                    TrackDTO.model_validate(track),
+                    TrackDTO.model_validate(other),
+                ],
+                filter_track_pk=track.pk,
+                dashboard=None,
+                next_url=url,
+                track_view=ConfirmationTrackViewDTO(
+                    facilitators=[
+                        ConfirmationFacilitatorDTO(
+                            display_name="Ada",
+                            organizer_name="",
+                            organizer_id=None,
+                            pk=listed.pk,
+                            slug="ada",
+                            email_groups=[
+                                ConfirmationEmailGroupDTO(
+                                    contact_email=item.session.contact_email,
+                                    status_groups=[
+                                        ConfirmationStatusGroupDTO(
+                                            status="scheduled",
+                                            sessions=[_session_dto(item.session, item)],
+                                        )
+                                    ],
+                                    confirmable_count=1,
+                                )
+                            ],
+                            scheduled_count=1,
+                            confirmed_count=0,
+                            unplaced_count=0,
+                            pending_count=0,
+                            is_fully_confirmed=False,
+                        )
+                    ],
+                    facilitator_count=1,
+                    unclaimed_facilitator_count=1,
+                    scheduled_count=1,
+                    confirmed_count=0,
+                    progress_pct=0,
+                    without_facilitator_count=0,
+                ),
+            ),
+        )
 
     def test_track_view_groups_a_facilitators_program(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -272,7 +481,7 @@ class TestConfirmationsPageView:
         )
         scheduled.facilitators.add(facilitator)
         scheduled.tracks.add(track)
-        AgendaItemFactory(session=scheduled, session_confirmed=True)
+        item = AgendaItemFactory(session=scheduled, session_confirmed=True)
         for title, status in (("Later", "accepted"), ("Idea", "pending")):
             counted = SessionFactory(
                 category=proposal_category,
@@ -291,18 +500,66 @@ class TestConfirmationsPageView:
         on_hold.facilitators.add(facilitator)
         on_hold.tracks.add(track)
 
-        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+        url = f"{self.get_url(event)}?track={track.pk}"
+        response = authenticated_client.get(url)
 
-        assert response.status_code == HTTPStatus.OK
-        card = response.context["track_view"].facilitators[0]
-        assert card.organizer_name == active_user.name
-        assert card.unplaced_count == 1
-        assert card.pending_count == 1
-        assert card.is_fully_confirmed
-        groups = card.email_groups[0].status_groups
-        assert [group.status for group in groups] == ["scheduled", "on_hold"]
-        assert [s.title for s in groups[0].sessions] == ["Dragons"]
-        assert [s.title for s in groups[1].sessions] == ["Maybe"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=4,
+                    pending_proposals=1,
+                    scheduled_sessions=1,
+                    total_proposals=4,
+                    total_sessions=2,
+                ),
+                all_tracks=[TrackDTO.model_validate(track)],
+                filter_track_pk=track.pk,
+                dashboard=None,
+                next_url=url,
+                track_view=ConfirmationTrackViewDTO(
+                    facilitators=[
+                        ConfirmationFacilitatorDTO(
+                            display_name="Ada",
+                            organizer_name=active_user.name,
+                            organizer_id=active_user.pk,
+                            pk=facilitator.pk,
+                            slug="ada",
+                            email_groups=[
+                                ConfirmationEmailGroupDTO(
+                                    contact_email="ada@example.com",
+                                    status_groups=[
+                                        ConfirmationStatusGroupDTO(
+                                            status="scheduled",
+                                            sessions=[_session_dto(scheduled, item)],
+                                        ),
+                                        ConfirmationStatusGroupDTO(
+                                            status="on_hold",
+                                            sessions=[_session_dto(on_hold)],
+                                        ),
+                                    ],
+                                    confirmable_count=1,
+                                )
+                            ],
+                            scheduled_count=1,
+                            confirmed_count=1,
+                            unplaced_count=1,
+                            pending_count=1,
+                            is_fully_confirmed=True,
+                        )
+                    ],
+                    facilitator_count=1,
+                    unclaimed_facilitator_count=0,
+                    scheduled_count=1,
+                    confirmed_count=1,
+                    progress_pct=100,
+                    without_facilitator_count=0,
+                ),
+            ),
+        )
 
     def test_track_view_is_empty_when_nothing_is_scheduled_in_the_track(
         self, authenticated_client, active_user, sphere, event
@@ -312,11 +569,22 @@ class TestConfirmationsPageView:
             event=event, name="RPG", slug="rpg", is_public=True
         )
 
-        response = authenticated_client.get(f"{self.get_url(event)}?track={track.pk}")
+        url = f"{self.get_url(event)}?track={track.pk}"
+        response = authenticated_client.get(url)
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["track_view"].facilitators == []
-        assert response.context["track_view"].progress_pct == 0
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                all_tracks=[TrackDTO.model_validate(track)],
+                filter_track_pk=track.pk,
+                dashboard=None,
+                track_view=_empty_track_view(),
+                next_url=url,
+            ),
+        )
 
     def test_unconfirmed_agenda_item_is_not_counted_as_confirmed(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -331,6 +599,32 @@ class TestConfirmationsPageView:
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["dashboard"].confirmed_count == 0
-        assert response.context["dashboard"].scheduled_count == 1
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable-confirmations.html",
+            context_data=self.expected_context(
+                event,
+                stats=_stats(
+                    hosts_count=1,
+                    scheduled_sessions=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
+                dashboard=_empty_dashboard(
+                    organizers=[
+                        ConfirmationOrganizerRowDTO(
+                            organizer_id=active_user.pk,
+                            organizer_name=active_user.name,
+                            facilitator_count=1,
+                            scheduled_count=1,
+                            confirmed_count=0,
+                            progress_pct=0,
+                        )
+                    ],
+                    scheduled_count=1,
+                    confirmed_count=0,
+                    claimed_facilitator_count=1,
+                ),
+            ),
+        )

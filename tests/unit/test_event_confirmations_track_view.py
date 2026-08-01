@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import UTC, datetime
 
 import pytest
@@ -10,6 +9,7 @@ from ludamus.pacts.legacy import (
     FacilitatorDTO,
     NotFoundError,
     SessionStatus,
+    TrackDTO,
 )
 
 _ADA = 11
@@ -127,7 +127,6 @@ def _service(
     )
     session_repo = FakeSessions(sessions or [], track_names, facilitator_names)
     service = EventConfirmationsService(
-        transaction=None,
         facilitators=facilitator_repo,
         agenda_items=FakeAgendaCounts(without_facilitator),
         tracks=None,
@@ -138,16 +137,6 @@ def _service(
 
 _EVENT = 1
 _FOREIGN_EVENT = 2
-
-
-class FakeTransaction:
-    def __init__(self) -> None:
-        self.entered = 0
-
-    @contextmanager
-    def atomic(self):
-        self.entered += 1
-        yield
 
 
 class FakeFacilitatorReads:
@@ -181,22 +170,68 @@ class FakeAgendaWrites:
 
 def _write_service(
     *, event_id: int | None = _EVENT, matched: int = 1
-) -> tuple[EventConfirmationsService, FakeAgendaWrites, FakeTransaction]:
+) -> tuple[EventConfirmationsService, FakeAgendaWrites]:
     agenda_items = FakeAgendaWrites(matched)
-    transaction = FakeTransaction()
     service = EventConfirmationsService(
-        transaction=transaction,
         facilitators=FakeFacilitatorReads(event_id=event_id),
         agenda_items=agenda_items,
         tracks=None,
         sessions=None,
     )
-    return service, agenda_items, transaction
+    return service, agenda_items
+
+
+class FakeTrackReads:
+    def __init__(self, *, event_id: int) -> None:
+        self._event_id = event_id
+
+    def read(self, pk: int) -> TrackDTO:
+        now = datetime(2026, 8, 1, tzinfo=UTC)
+        return TrackDTO(
+            creation_time=now,
+            event_id=self._event_id,
+            is_public=True,
+            modification_time=now,
+            name="RPG",
+            pk=pk,
+            slug="rpg",
+        )
+
+
+class TestFacilitatorCard:
+    def test_refuses_a_track_from_another_event(self):
+        service = EventConfirmationsService(
+            facilitators=FakeFacilitatorReads(event_id=_EVENT),
+            agenda_items=FakeAgendaWrites(),
+            tracks=FakeTrackReads(event_id=_FOREIGN_EVENT),
+            sessions=FakeSessions([]),
+        )
+
+        with pytest.raises(NotFoundError):
+            service.facilitator_card(
+                event_pk=_EVENT, track_pk=_RPG_TRACK, facilitator_pk=_ADA
+            )
+
+    def test_reads_the_facilitators_program_for_a_track_of_this_event(self):
+        sessions = FakeSessions([_session(session_pk=1)])
+        service = EventConfirmationsService(
+            facilitators=FakeFacilitatorReads(event_id=_EVENT),
+            agenda_items=FakeAgendaWrites(),
+            tracks=FakeTrackReads(event_id=_EVENT),
+            sessions=sessions,
+        )
+
+        card = service.facilitator_card(
+            event_pk=_EVENT, track_pk=_RPG_TRACK, facilitator_pk=_ADA
+        )
+
+        assert card.pk == _ADA
+        assert card.scheduled_count == 1
 
 
 class TestSetConfirmed:
-    def test_writes_the_named_scope_inside_a_transaction(self):
-        service, agenda_items, transaction = _write_service()
+    def test_writes_the_named_scope(self):
+        service, agenda_items = _write_service()
 
         service.set_confirmed(
             event_pk=_EVENT,
@@ -215,10 +250,9 @@ class TestSetConfirmed:
                 "agenda_item_pk": 100,
             }
         ]
-        assert transaction.entered == 1
 
     def test_refuses_a_facilitator_from_another_event_without_writing(self):
-        service, agenda_items, _ = _write_service(event_id=_FOREIGN_EVENT)
+        service, agenda_items = _write_service(event_id=_FOREIGN_EVENT)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
@@ -226,7 +260,7 @@ class TestSetConfirmed:
         assert not agenda_items.calls
 
     def test_refuses_an_unknown_facilitator_without_writing(self):
-        service, agenda_items, _ = _write_service(event_id=None)
+        service, agenda_items = _write_service(event_id=None)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
@@ -234,7 +268,7 @@ class TestSetConfirmed:
         assert not agenda_items.calls
 
     def test_naming_an_item_that_matches_nothing_is_an_error(self):
-        service, _, _ = _write_service(matched=0)
+        service, _ = _write_service(matched=0)
 
         with pytest.raises(NotFoundError):
             service.set_confirmed(
@@ -242,7 +276,7 @@ class TestSetConfirmed:
             )
 
     def test_a_scope_wide_call_matching_nothing_is_fine(self):
-        service, _, _ = _write_service(matched=0)
+        service, _ = _write_service(matched=0)
 
         service.set_confirmed(event_pk=_EVENT, facilitator_pk=_ADA, confirmed=True)
 
