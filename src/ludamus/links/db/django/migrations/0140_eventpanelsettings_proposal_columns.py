@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0136_alter_event_logo_alter_sphere_logo")]
+    dependencies = [("db_main", "0139_facilitator_ident")]
 
     operations = [
         migrations.AddField(

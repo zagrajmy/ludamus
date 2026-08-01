@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0139_purge_blank_field_values")]
+    dependencies = [("db_main", "0138_purge_blank_field_values")]
 
     operations = [
         migrations.AddField(

@@ -24,7 +24,7 @@ def purge_blank_field_values(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0138_facilitator_organizer")]
+    dependencies = [("db_main", "0137_facilitator_organizer")]
 
     operations = [
         migrations.RunPython(purge_blank_field_values, migrations.RunPython.noop)
