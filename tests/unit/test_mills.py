@@ -333,38 +333,22 @@ class TestBuildPanelStats:
                 pending_proposals=pending,
                 scheduled_sessions=scheduled,
                 total_proposals=15,
-                unique_host_ids={1, 2, 3},
+                hosts_count=3,
                 rooms_count=4,
             )
         )
 
         assert stats.total_sessions == pending + scheduled
 
-    def test_counts_unique_hosts(self) -> None:
-        hosts = {10, 20, 30, 40, 50}
-
-        stats = build_panel_stats(
-            EventStatsData(
-                pending_proposals=0,
-                scheduled_sessions=0,
-                total_proposals=0,
-                unique_host_ids=hosts,
-                rooms_count=0,
-            )
-        )
-
-        assert stats.hosts_count == len(hosts)
-
     def test_maps_every_field(self) -> None:
-        pending, scheduled, total, rooms = 3, 7, 10, 5
-        hosts = {1, 2}
+        pending, scheduled, total, rooms, hosts = 3, 7, 10, 5, 2
 
         stats = build_panel_stats(
             EventStatsData(
                 pending_proposals=pending,
                 scheduled_sessions=scheduled,
                 total_proposals=total,
-                unique_host_ids=hosts,
+                hosts_count=hosts,
                 rooms_count=rooms,
             )
         )
@@ -374,7 +358,7 @@ class TestBuildPanelStats:
         assert stats.scheduled_sessions == scheduled
         assert stats.total_proposals == total
         assert stats.rooms_count == rooms
-        assert stats.hosts_count == len(hosts)
+        assert stats.hosts_count == hosts
         assert stats.total_sessions == pending + scheduled
 
     def test_handles_empty_hosts(self) -> None:
@@ -383,7 +367,7 @@ class TestBuildPanelStats:
                 pending_proposals=0,
                 scheduled_sessions=0,
                 total_proposals=0,
-                unique_host_ids=set(),
+                hosts_count=0,
                 rooms_count=0,
             )
         )

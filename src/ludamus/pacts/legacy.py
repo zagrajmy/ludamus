@@ -357,6 +357,17 @@ class TrackListItemDTO(BaseModel):
     manager_names: list[str]
 
 
+class TrackSessionCountsDTO(BaseModel):
+    # A track's sessions-per-status breakdown, plus how many accepted ones are
+    # placed on the agenda. Feeds the overview progress bars without loading
+    # session rows.
+    pending: int = 0
+    accepted: int = 0
+    scheduled: int = 0
+    on_hold: int = 0
+    rejected: int = 0
+
+
 class TrackCreateData(TypedDict):
     event_pk: int
     name: str
@@ -747,7 +758,7 @@ class EventStatsData(BaseModel):
     pending_proposals: int
     scheduled_sessions: int
     total_proposals: int
-    unique_host_ids: set[int]
+    hosts_count: int
     rooms_count: int
 
 
@@ -852,6 +863,8 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]: ...
     @staticmethod
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]: ...
+    @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None: ...
     @staticmethod
     def replace_facilitators_in_sessions(
@@ -889,11 +902,7 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]: ...
     @staticmethod
-    def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
-    @staticmethod
-    def list_track_pks_by_sessions(
-        session_pks: Iterable[int],
-    ) -> dict[int, list[int]]: ...
+    def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
     @staticmethod
     def list_manager_names_by_tracks(
         track_pks: Iterable[int],
@@ -914,13 +923,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def list_overlapping_in_space(
         space_pk: int,
-        start_time: datetime,
-        end_time: datetime,
-        exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]: ...
-    @staticmethod
-    def list_overlapping_by_facilitator(
-        facilitator_pk: int,
         start_time: datetime,
         end_time: datetime,
         exclude_session_pk: int | None = None,
