@@ -30,14 +30,12 @@
                 {% endfor %}
             </ul>
             <div class="flex flex-wrap items-center gap-2">
-                <select data-column-keys-select
-                        aria-label="{{ label }}"
-                        class="w-full max-w-xs truncate rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                {% select data_column_keys_select="1" aria_label=label class="max-w-xs truncate" %}
                     <option value="">{% translate "Add column…" %}</option>
                     {% for col in available %}
                         {% if col not in selected %}<option value="{{ col }}">{{ col }}</option>{% endif %}
                     {% endfor %}
-                </select>
+                {% end_select %}
                 <button type="button"
                         data-column-keys-add
                         class="btn btn-secondary inline-flex items-center">
