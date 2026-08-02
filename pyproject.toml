@@ -100,7 +100,8 @@ skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
-ignore-words-list = 'fallow,adres,afterall'
+# 'blok' is Polish for 'track' — the agreed translation, see the copy reference.
+ignore-words-list = 'fallow,adres,afterall,blok'
 
 # COVERAGE
 

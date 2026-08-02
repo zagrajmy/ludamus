@@ -43,7 +43,13 @@ PYTHONPATH = "src"
 PACKAGE = "ludamus"
 SRC_PATHS = "src"
 TEST_PATHS = "tests"
-SCRIPT_PATHS = ".claude scripts"
+# Enumerated rather than a bare `.claude`, which also contains
+# `.claude/worktrees/<agent-id>/` — a git-ignored checkout of this whole repo,
+# virtualenv included, on any machine that has run a Claude Code agent. Pylint
+# and vulture have no gitignore awareness, so `.claude` cost pylint minutes per
+# run and made `mise run lint` fail outright on vulture findings from worktree
+# site-packages. Everything tracked under `.claude` lives in these two dirs.
+SCRIPT_PATHS = "scripts .claude/hooks .claude/skills"
 TOML_PATHS = "*.toml .taplo.toml docker/*.toml"
 
 [bootstrap.packages]
