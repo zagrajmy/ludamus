@@ -396,14 +396,14 @@ urlpatterns = [
         name="facilitator-edit",
     ),
     path(
-        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/flag",
-        facilitators.FacilitatorFlagActionView.as_view(),
-        name="facilitator-flag",
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/delete",
+        facilitators.FacilitatorDeleteActionView.as_view(),
+        name="facilitator-delete",
     ),
     path(
-        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unflag",
-        facilitators.FacilitatorUnflagActionView.as_view(),
-        name="facilitator-unflag",
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/restore",
+        facilitators.FacilitatorRestoreActionView.as_view(),
+        name="facilitator-restore",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",

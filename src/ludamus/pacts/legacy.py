@@ -78,6 +78,7 @@ class FacilitatorDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     accreditation_type: str
+    deleted_at: datetime | None = None
     display_name: str
     event_id: int
     ident: str = ""
@@ -113,8 +114,8 @@ class FacilitatorListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     accreditation_type: str
+    deleted_at: datetime | None = None
     display_name: str
-    flagged_for_deletion: bool = False
     organizer_id: int | None = None
     # Annotated by `list_by_event`; null when nobody took the facilitator on.
     organizer_name: str | None = None
@@ -1242,8 +1243,6 @@ class FacilitatorRepositoryProtocol(Protocol):
     def list_by_event(
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]: ...
-    @staticmethod
-    def set_flag(pk: int, *, flagged: bool) -> None: ...
     @staticmethod
     def claim(pk: int, organizer_id: int) -> bool: ...
     @staticmethod

@@ -892,7 +892,10 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
-        qs = Facilitator.objects.filter(event_id=event_id).annotate(
+        manager = (
+            Facilitator.all_objects if filters.get("deleted") else Facilitator.objects
+        )
+        qs = manager.filter(event_id=event_id).annotate(
             session_count=Count("sessions", distinct=True),
             organizer_name=F("organizer__name"),
         )
@@ -914,8 +917,8 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if accreditation := filters.get("accreditation"):
             qs = qs.filter(accreditation_type=accreditation)
 
-        if filters.get("flagged"):
-            qs = qs.filter(flagged_for_deletion=True)
+        if filters.get("deleted"):
+            qs = qs.filter(deleted_at__isnull=False)
 
         if filters.get("organizer_unassigned"):
             qs = qs.filter(organizer__isnull=True)
@@ -928,10 +931,6 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
         ordered = _order_facilitators(qs, filters.get("sort") or "name")
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
-
-    @staticmethod
-    def set_flag(pk: int, *, flagged: bool) -> None:
-        Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
 
     @staticmethod
     def claim(pk: int, organizer_id: int) -> bool:

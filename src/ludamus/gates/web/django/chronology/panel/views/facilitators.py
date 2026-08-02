@@ -203,7 +203,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         return FacilitatorListQuery(
             search=self.request.GET.get("search", "").strip(),
             accreditation=(accreditation if accreditation in AccreditationType else ""),
-            flagged=self.request.GET.get("flagged") == "true",
+            deleted=self.request.GET.get("deleted") == "true",
             organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
             current_user_id=self.request.context.current_user_id,
             sort=self.request.GET.get("sort", "").strip() or "name",
@@ -247,13 +247,13 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         }
         context["filter_search"] = query.search
         context["filter_accreditation"] = query.accreditation or None
-        context["filter_flagged"] = query.flagged
+        context["filter_deleted"] = query.deleted
         context["filter_organizer"] = query.organizer
         context["filter_sort"] = query.sort
         context["filters_active"] = bool(
             query.search
             or query.accreditation
-            or query.flagged
+            or query.deleted
             or query.organizer
             or list_context.field_filters
         )
@@ -621,25 +621,25 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
         return reverse("panel:facilitators", kwargs={"slug": slug})
 
 
-class FacilitatorFlagActionView(_FacilitatorActionView):
-    """Flag a facilitator for deletion (POST only)."""
+class FacilitatorDeleteActionView(_FacilitatorActionView):
+    """Delete a facilitator, reversibly (POST only)."""
 
-    success_message = gettext_lazy("Facilitator flagged for deletion.")
+    success_message = gettext_lazy("Facilitator deleted.")
 
     def _apply(self, event_id: int, facilitator_slug: str) -> None:
-        self.request.services.facilitator_panel.set_flag(
-            event_id=event_id, facilitator_slug=facilitator_slug, flagged=True
+        self.request.services.facilitator_panel.delete(
+            event_id=event_id, facilitator_slug=facilitator_slug
         )
 
 
-class FacilitatorUnflagActionView(_FacilitatorActionView):
-    """Clear a facilitator's deletion flag (POST only)."""
+class FacilitatorRestoreActionView(_FacilitatorActionView):
+    """Bring a deleted facilitator back (POST only)."""
 
-    success_message = gettext_lazy("Facilitator unflagged.")
+    success_message = gettext_lazy("Facilitator restored.")
 
     def _apply(self, event_id: int, facilitator_slug: str) -> None:
-        self.request.services.facilitator_panel.set_flag(
-            event_id=event_id, facilitator_slug=facilitator_slug, flagged=False
+        self.request.services.facilitator_panel.restore(
+            event_id=event_id, facilitator_slug=facilitator_slug
         )
 
 

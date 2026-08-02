@@ -85,8 +85,8 @@
                             {% endwith %}
                         {% endfor %}
                         <div class="flex items-center pb-2">
-                            {% translate "Flagged for deletion only" as t_flagged %}
-                            {% include "components/checkbox-field.html" with name="flagged" id="filter-flagged" value="true" checked=filter_flagged label=t_flagged only %}
+                            {% translate "Deleted only" as t_deleted %}
+                            {% include "components/checkbox-field.html" with name="deleted" id="filter-deleted" value="true" checked=filter_deleted label=t_deleted only %}
                         </div>
                         <div class="flex items-center gap-2">
                             {% translate "Filter" as t_filter %}
@@ -113,7 +113,7 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for facilitator in facilitators %}
-                        <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+                        <tr class="hover:bg-bg-tertiary {% if facilitator.deleted_at %}bg-danger/5{% endif %}">
                             {% for column in columns %}
                                 {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}
                                     {# The first column carries the link to the facilitator, whichever column the organizer put there. #}
@@ -123,9 +123,9 @@
                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                                aria-label="{{ facilitator.display_name }}"
                                                class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
-                                            {% if facilitator.flagged_for_deletion %}
+                                            {% if facilitator.deleted_at %}
                                                 <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
-                                                    {% translate "Flagged" %}
+                                                    {% translate "Deleted" %}
                                                 </span>
                                             {% endif %}
                                         {% else %}
@@ -178,28 +178,30 @@
                                             </button>
                                         </form>
                                     {% endif %}
-                                    {% if facilitator.flagged_for_deletion %}
+                                    {% if facilitator.deleted_at %}
                                         <form method="post"
-                                              action="{% url 'panel:facilitator-unflag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                              action="{% url 'panel:facilitator-restore' slug=current_event.slug facilitator_slug=facilitator.slug %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             <button type="submit"
-                                                    title="{% translate "Remove deletion flag" %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Remove deletion flag from {{ name }}{% endblocktranslate %}"
+                                                    title="{% translate "Restore" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Restore {{ name }}{% endblocktranslate %}"
                                                     class="text-foreground-muted hover:text-foreground inline-flex items-center">
                                                 {% icon "arrow-uturn-left" class="w-4 h-4" %}
                                             </button>
                                         </form>
                                     {% else %}
                                         <form method="post"
-                                              action="{% url 'panel:facilitator-flag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                              action="{% url 'panel:facilitator-delete' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                              data-confirm="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}? They disappear from the program; you can restore them later.{% endblocktranslate %}"
+                                              data-confirm-action="{% translate "Delete" %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             <button type="submit"
-                                                    title="{% translate "Flag for deletion" %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Flag {{ name }} for deletion{% endblocktranslate %}"
+                                                    title="{% translate "Delete" %}"
+                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}{% endblocktranslate %}"
                                                     class="text-foreground-muted hover:text-danger inline-flex items-center">
-                                                {% icon "flag" class="w-4 h-4" %}
+                                                {% icon "trash" class="w-4 h-4" %}
                                             </button>
                                         </form>
                                     {% endif %}

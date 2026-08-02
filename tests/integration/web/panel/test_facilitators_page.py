@@ -1,5 +1,6 @@
 """Integration tests for /panel/event/<slug>/facilitators/ page."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 import pytest
@@ -22,6 +23,7 @@ from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 _PAGE_SIZE = 50
 _SEED_COUNT = 60
 _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
@@ -98,7 +100,7 @@ def _base_context(event):
         **_event_context(event),
         "filter_search": "",
         "filter_accreditation": None,
-        "filter_flagged": False,
+        "filter_deleted": False,
         "filter_organizer": "",
         "filter_sort": "name",
         "filters_active": False,
@@ -443,28 +445,28 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_flagged_filter(self, authenticated_client, active_user, sphere, event):
+    def test_deleted_filter(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
         Facilitator.objects.create(
             event=event,
-            display_name="Flagged",
-            slug="flagged",
+            display_name="Deleted",
+            slug="deleted",
             user=None,
-            flagged_for_deletion=True,
+            deleted_at=_DELETED_AT,
         )
         Facilitator.objects.create(
             event=event, display_name="Normal", slug="normal", user=None
         )
 
-        response = authenticated_client.get(self.get_url(event), {"flagged": "true"})
+        response = authenticated_client.get(self.get_url(event), {"deleted": "true"})
 
         expected = [
             FacilitatorListItemDTO(
                 accreditation_type="none",
-                display_name="Flagged",
-                flagged_for_deletion=True,
+                deleted_at=_DELETED_AT,
+                display_name="Deleted",
                 pk=response.context["facilitators"][0].pk,
-                slug="flagged",
+                slug="deleted",
                 user_id=None,
                 session_count=0,
             )
@@ -478,8 +480,47 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
-                "filter_flagged": True,
+                "filter_deleted": True,
                 "filters_active": True,
+            },
+        )
+
+    def test_the_list_leaves_out_deleted_facilitators(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        Facilitator.objects.create(
+            event=event,
+            display_name="Deleted",
+            slug="deleted",
+            user=None,
+            deleted_at=_DELETED_AT,
+        )
+        Facilitator.objects.create(
+            event=event, display_name="Normal", slug="normal", user=None
+        )
+
+        response = authenticated_client.get(self.get_url(event))
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Normal",
+                pk=response.context["facilitators"][0].pk,
+                slug="normal",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
             },
         )
 
@@ -1032,7 +1073,7 @@ class TestFacilitatorsPageView:
 
 
 class TestFacilitatorActions:
-    """Flag / unflag / mark-as-guest POST actions."""
+    """Delete / restore / mark-as-guest POST actions."""
 
     @staticmethod
     def _facilitator(event, **kwargs):
@@ -1047,8 +1088,8 @@ class TestFacilitatorActions:
         )
 
     _ACTION_NAMES = (
-        "panel:facilitator-flag",
-        "panel:facilitator-unflag",
+        "panel:facilitator-delete",
+        "panel:facilitator-restore",
         "panel:facilitator-mark-guest",
         "panel:facilitator-assign-organizer",
         "panel:facilitator-unassign-organizer",
@@ -1078,39 +1119,58 @@ class TestFacilitatorActions:
             url="/",
         )
 
-    def test_flag(self, authenticated_client, active_user, sphere, event):
+    def test_delete(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
         facilitator = self._facilitator(event)
 
         response = authenticated_client.post(
-            self._url("panel:facilitator-flag", event, facilitator)
+            self._url("panel:facilitator-delete", event, facilitator)
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Facilitator flagged for deletion.")],
+            messages=[(messages.SUCCESS, "Facilitator deleted.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()
-        assert facilitator.flagged_for_deletion is True
+        assert facilitator.deleted_at is not None
 
-    def test_unflag(self, authenticated_client, active_user, sphere, event):
+    def test_deleting_an_already_deleted_facilitator_reports_it_missing(
+        self, authenticated_client, active_user, sphere, event
+    ):
         sphere.managers.add(active_user)
-        facilitator = self._facilitator(event, flagged_for_deletion=True)
+        facilitator = self._facilitator(event, deleted_at=_DELETED_AT)
 
         response = authenticated_client.post(
-            self._url("panel:facilitator-unflag", event, facilitator)
+            self._url("panel:facilitator-delete", event, facilitator)
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Facilitator unflagged.")],
+            messages=[(messages.ERROR, "Facilitator not found.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()
-        assert facilitator.flagged_for_deletion is False
+        assert facilitator.deleted_at == _DELETED_AT
+
+    def test_restore(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event, deleted_at=_DELETED_AT)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-restore", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator restored.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
 
     def test_mark_guest(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
@@ -1304,24 +1364,25 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.organizer_id is None
 
-    def test_flag_preserves_next(
+    def test_delete_preserves_next(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         facilitator = self._facilitator(event)
         next_url = (
             reverse("panel:facilitators", kwargs={"slug": event.slug})
-            + "?flagged=true&sort=-name"
+            + "?deleted=true&sort=-name"
         )
 
         response = authenticated_client.post(
-            self._url("panel:facilitator-flag", event, facilitator), {"next": next_url}
+            self._url("panel:facilitator-delete", event, facilitator),
+            {"next": next_url},
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Facilitator flagged for deletion.")],
+            messages=[(messages.SUCCESS, "Facilitator deleted.")],
             url=next_url,
         )
 
@@ -1330,7 +1391,7 @@ class TestFacilitatorActions:
     ):
         sphere.managers.add(active_user)
         url = reverse(
-            "panel:facilitator-flag",
+            "panel:facilitator-delete",
             kwargs={"slug": "nonexistent", "facilitator_slug": "ghost"},
         )
 
@@ -1343,12 +1404,12 @@ class TestFacilitatorActions:
             url=reverse("panel:index"),
         )
 
-    def test_flag_missing_facilitator(
+    def test_delete_missing_facilitator(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         url = reverse(
-            "panel:facilitator-flag",
+            "panel:facilitator-delete",
             kwargs={"slug": event.slug, "facilitator_slug": "ghost"},
         )
 
@@ -1362,15 +1423,15 @@ class TestFacilitatorActions:
         )
 
     @pytest.mark.parametrize(
-        ("action", "flagged"),
+        ("action", "deleted_at"),
         (
-            ("facilitator-flag", False),
-            ("facilitator-unflag", True),
-            ("facilitator-mark-guest", False),
+            ("facilitator-delete", None),
+            ("facilitator-restore", _DELETED_AT),
+            ("facilitator-mark-guest", None),
         ),
     )
     def test_action_on_facilitator_of_another_event_is_not_found(
-        self, action, flagged, authenticated_client, active_user, sphere, event
+        self, action, deleted_at, authenticated_client, active_user, sphere, event
     ):
         # Each action starts from the state it would change, so an unchanged
         # facilitator proves the foreign event was rejected, not that the write
@@ -1380,7 +1441,7 @@ class TestFacilitatorActions:
         foreign = self._facilitator(
             other_event,
             accreditation_type=AccreditationType.STANDARD,
-            flagged_for_deletion=flagged,
+            deleted_at=deleted_at,
         )
 
         response = authenticated_client.post(
@@ -1397,7 +1458,7 @@ class TestFacilitatorActions:
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         foreign.refresh_from_db()
-        assert foreign.flagged_for_deletion is flagged
+        assert foreign.deleted_at == deleted_at
         assert foreign.accreditation_type == AccreditationType.STANDARD
 
 

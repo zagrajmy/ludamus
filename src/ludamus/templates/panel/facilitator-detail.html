@@ -34,6 +34,17 @@
                     <li class="text-foreground font-medium">{{ facilitator.display_name }}</li>
                 </ol>
             </nav>
+            {% if facilitator.deleted_at %}
+                <div class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm">
+                    <span class="text-danger">{% translate "This facilitator is deleted — they show up nowhere in the program." %}</span>
+                    <form method="post"
+                          action="{% url 'panel:facilitator-restore' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                        {% csrf_token %}
+                        {% translate "Restore" as t_restore %}
+                        {% tessera_button t_restore variant="secondary" icon="arrow-uturn-left" %}
+                    </form>
+                </div>
+            {% endif %}
             <div class="card mb-6">
                 <div class="card-body">
                     <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitator Details" %}</h3>

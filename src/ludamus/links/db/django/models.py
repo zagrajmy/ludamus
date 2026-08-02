@@ -771,9 +771,6 @@ class Facilitator(SoftDeleteModel):
         blank=True,
         related_name="organized_facilitators",
     )
-    # Reversible triage marker: organizers flag likely duplicates/removals, then
-    # act on them (merge or delete) as a separate deliberate step.
-    flagged_for_deletion = models.BooleanField(default=False)
     # Free-form organizer note, never shown to attendees.
     internal_comment = models.TextField(blank=True, default="")
 

@@ -375,7 +375,9 @@ class FacilitatorActionError(Exception):
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     accreditation: str | None
-    flagged: bool | None
+    # True lists the deleted facilitators instead of the live ones — the two
+    # never mix, so a restore is always a deliberate visit to the bin.
+    deleted: bool | None
     field_filters: dict[int, str | bool] | None
     organizer_id: int | None
     organizer_unassigned: bool | None
@@ -420,7 +422,7 @@ class FacilitatorListQuery:
 
     search: str = ""
     accreditation: str = ""
-    flagged: bool = False
+    deleted: bool = False
     # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
     # nobody" can never both be asked for. `current_user_id` is who "mine"
     # means, not a filter of its own.
@@ -471,9 +473,8 @@ class FacilitatorPanelServiceProtocol(Protocol):
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
     def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
-    def set_flag(
-        self, *, event_id: int, facilitator_slug: str, flagged: bool
-    ) -> None: ...
+    def delete(self, *, event_id: int, facilitator_slug: str) -> None: ...
+    def restore(self, *, event_id: int, facilitator_slug: str) -> None: ...
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int
     ) -> None: ...

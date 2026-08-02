@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-01 17:51+0200\n"
+"POT-Creation-Date: 2026-08-02 08:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -643,37 +643,30 @@ msgid "%(name)s (manages their own enrollment)"
 msgstr "%(name)s (zarządza swoimi zapisami)"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Seat held (awaiting their approval): {}"
 msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Guests you bring: {}"
 msgstr "Goście, których zabierasz: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Bring fewer "
 "guests or use the waiting list for account holders."
@@ -682,7 +675,6 @@ msgstr ""
 "Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -1066,7 +1058,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1165,12 +1156,12 @@ msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Facilitator flagged for deletion."
-msgstr "Twórca programu oznaczony do usunięcia."
+msgid "Facilitator deleted."
+msgstr "Twórca programu usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Facilitator unflagged."
-msgstr "Usunięto oznaczenie do usunięcia."
+msgid "Facilitator restored."
+msgstr "Twórca programu przywrócony."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator marked as guest."
@@ -1763,7 +1754,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -1772,7 +1762,6 @@ msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -4189,6 +4178,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/panel/_space_tree_node.html
 #: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -6632,6 +6622,16 @@ msgid "e.g., Jan Kowalski"
 msgstr "np. Jan Kowalski"
 
 #: src/ludamus/templates/panel/facilitator-detail.html
+msgid "This facilitator is deleted — they show up nowhere in the program."
+msgstr "Ten twórca programu jest usunięty — nie pojawia się nigdzie w programie."
+
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Restore"
+msgstr "Przywróć"
+
+#: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
 "Cached name from the submission wizard. The canonical byline is the "
 "proposal's display name."
@@ -6745,8 +6745,8 @@ msgid "Nobody"
 msgstr "Nikt"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Flagged for deletion only"
-msgstr "Tylko oznaczeni do usunięcia"
+msgid "Deleted only"
+msgstr "Tylko usunięci"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
@@ -6760,8 +6760,8 @@ msgid "Clear"
 msgstr "Wyczyść"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Flagged"
-msgstr "Oznaczony"
+msgid "Deleted"
+msgstr "Usunięty"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -6804,22 +6804,21 @@ msgid "Mark %(name)s as guest"
 msgstr "Oznacz jako gościa: %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Remove deletion flag"
-msgstr "Usuń oznaczenie do usunięcia"
+#, python-format
+msgid "Restore %(name)s"
+msgstr "Przywróć twórcę %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
-msgid "Remove deletion flag from %(name)s"
-msgstr "Usuń oznaczenie do usunięcia: %(name)s"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Flag for deletion"
-msgstr "Oznacz do usunięcia"
+msgid ""
+"Delete %(name)s? They disappear from the program; you can restore them later."
+msgstr ""
+"Usunąć twórcę %(name)s? Zniknie z programu; możesz go później przywrócić."
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
-msgid "Flag %(name)s for deletion"
-msgstr "Oznacz do usunięcia: %(name)s"
+msgid "Delete %(name)s"
+msgstr "Usuń twórcę %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
@@ -8025,10 +8024,6 @@ msgstr "Brak przesłanych zgłoszeń."
 msgid "Recently deleted"
 msgstr "Ostatnio usunięte"
 
-#: src/ludamus/templates/panel/proposals.html
-msgid "Restore"
-msgstr "Przywróć"
-
 #: src/ludamus/templates/panel/session-field-create.html
 msgid "New Session Field"
 msgstr "Nowe pole punktu programu"
@@ -8511,6 +8506,32 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
+
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
+
+#~ msgid "Flagged for deletion only"
+#~ msgstr "Tylko oznaczeni do usunięcia"
+
+#~ msgid "Flagged"
+#~ msgstr "Oznaczony"
+
+#~ msgid "Remove deletion flag"
+#~ msgstr "Usuń oznaczenie do usunięcia"
+
+#, python-format
+#~ msgid "Remove deletion flag from %(name)s"
+#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#~ msgid "Flag for deletion"
+#~ msgstr "Oznacz do usunięcia"
+
+#, python-format
+#~ msgid "Flag %(name)s for deletion"
+#~ msgstr "Oznacz do usunięcia: %(name)s"
+
 #~ msgid ""
 #~ "Reimport will overwrite any manual edits to the imported fields on this "
 #~ "proposal. Continue?"
@@ -8526,9 +8547,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
-
-#~ msgid "Facilitator released."
-#~ msgstr "Twórca programu zwolniony."
 
 #~ msgid "Only this facilitator's organizer can release it."
 #~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
@@ -8547,10 +8565,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Release"
 #~ msgstr "Zwolnij"
-
-#, python-format
-#~ msgid "Release %(name)s"
-#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""

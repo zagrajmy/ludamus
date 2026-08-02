@@ -116,7 +116,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         filters: FacilitatorListFilters = {
             "search": query.search or None,
             "accreditation": query.accreditation or None,
-            "flagged": query.flagged or None,
+            "deleted": query.deleted or None,
             "field_filters": field_filters or None,
             "organizer_id": (
                 query.current_user_id if query.organizer == "mine" else None
@@ -202,11 +202,17 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         ):
             raise FacilitatorActionError(OrganizerActionRefusal.NOT_ORGANIZER)
 
-    def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
+    def delete(self, *, event_id: int, facilitator_slug: str) -> None:
         facilitator = self._facilitators.read_by_event_and_slug(
             event_id, facilitator_slug
         )
-        self._facilitators.set_flag(facilitator.pk, flagged=flagged)
+        self._facilitators.delete(facilitator.pk)
+
+    def restore(self, *, event_id: int, facilitator_slug: str) -> None:
+        facilitator = self._facilitators.read_by_event_and_slug(
+            event_id, facilitator_slug
+        )
+        self._facilitators.restore(facilitator.pk)
 
     def set_accreditation(
         self,
