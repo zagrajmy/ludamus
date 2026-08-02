@@ -175,4 +175,33 @@ test.describe("CSP enforcement doesn't break converted inline handlers", () => {
     await expect(page).toHaveURL(new RegExp(`[?&]space=${value}`));
     await assertNoCspViolations(page);
   });
+
+  test("print-scope picker opens the scoped printout in a new tab", async ({ page }) => {
+    await page.goto("/panel/event/kapitularz-2025-anonymized/print/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const scope = page.getByLabel("Print timetable for a venue or area");
+    const [popup] = await Promise.all([
+      page.waitForEvent("popup"),
+      scope.selectOption({ index: 1 }),
+    ]);
+
+    await expect(popup).toHaveURL(/[?&]scope=\d+/);
+    await popup.close();
+    // The picker resets itself so the same scope can be opened twice.
+    await expect(scope).toHaveValue("");
+    await assertNoCspViolations(page);
+  });
+
+  test("panel printout's Print button", async ({ page }) => {
+    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/timetable/", {
+      waitUntil: "domcontentloaded",
+    });
+
+    await page.getByRole("button", { name: "Print", exact: true }).click();
+
+    expect(await page.evaluate(() => window.__printCalls)).toBe(1);
+    await assertNoCspViolations(page);
+  });
 });

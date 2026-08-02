@@ -260,12 +260,9 @@
                                     <span class="sidebar-label">{{ t_timetable }}</span>
                                 </a>
                                 {% translate "Print Materials" as t_print %}
-                                {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
-                                <a href="{% url 'web:chronology:event-print' slug=current_event.slug %}"
-                                   target="_blank"
-                                   rel="noopener"
+                                <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
                                    title="{{ t_print }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
                                     {% icon "printer" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_print }}</span>
                                 </a>

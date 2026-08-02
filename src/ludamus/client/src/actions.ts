@@ -17,6 +17,14 @@ const swapVisibility = (el: HTMLElement): void => {
   setDisplay(el.dataset.show, "block");
 };
 
+// A picker whose options are URLs: pick one, open it in a new tab, then fall
+// back to the placeholder so the same option can be picked again.
+const openInNewTab = (select: HTMLSelectElement): void => {
+  if (!select.value) return;
+  globalThis.open(select.value, "_blank", "noopener");
+  select.selectedIndex = 0;
+};
+
 const syncExpandedRequired = (box: HTMLInputElement): void => {
   box.setAttribute("aria-expanded", box.checked ? "true" : "false");
   const id = box.dataset.requiredTarget;
@@ -48,6 +56,9 @@ document.addEventListener("change", (e) => {
   const el = (e.target as Element | null)?.closest<HTMLElement>("[data-action]");
   if (!el) return;
   switch (el.dataset.action) {
+    case "open-in-new-tab":
+      openInNewTab(el as HTMLSelectElement);
+      break;
     case "submit-form":
       (el as HTMLInputElement).form?.requestSubmit();
       break;
