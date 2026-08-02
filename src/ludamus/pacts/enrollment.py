@@ -9,7 +9,7 @@ notifier, scheduler) so their decisions stay unit-testable with fakes.
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Self
 
 from pydantic import BaseModel, ConfigDict
 
@@ -421,26 +421,56 @@ class AnonymousEventDTO(BaseModel):
     active_windows: list[AnonymousEnrollmentWindowSnapshot]
 
 
-class AnonymousSessionContextDTO(BaseModel):
+class AnonymousSessionDTO(BaseModel):
     session_id: int
     event_id: int
     event_slug: str
     has_agenda_item: bool
     participants_limit: int
     eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
-    # Filled by AnonymousEnrollmentService from eligible_windows.
-    allows_anonymous_enrollment: bool = False
     title: str
     display_name: str
     description: str
     min_age: int
     enrolled_count: int
     waiting_count: int
-    effective_participants_limit: int = 0
     # None when the session has no agenda item (nowhere assigned yet).
     space_name: str | None
     start_time: datetime | None
     end_time: datetime | None
+
+
+class AnonymousSessionContextDTO(AnonymousSessionDTO):
+    allows_anonymous_enrollment: bool
+    effective_participants_limit: int
+
+    @classmethod
+    def from_session(
+        cls,
+        *,
+        session: AnonymousSessionDTO,
+        allows_anonymous_enrollment: bool,
+        effective_participants_limit: int,
+    ) -> Self:
+        return cls(
+            session_id=session.session_id,
+            event_id=session.event_id,
+            event_slug=session.event_slug,
+            title=session.title,
+            display_name=session.display_name,
+            description=session.description,
+            min_age=session.min_age,
+            participants_limit=session.participants_limit,
+            eligible_windows=session.eligible_windows,
+            enrolled_count=session.enrolled_count,
+            waiting_count=session.waiting_count,
+            allows_anonymous_enrollment=allows_anonymous_enrollment,
+            effective_participants_limit=effective_participants_limit,
+            has_agenda_item=session.has_agenda_item,
+            space_name=session.space_name,
+            start_time=session.start_time,
+            end_time=session.end_time,
+        )
 
 
 class AnonymousSeatingDTO(BaseModel):
@@ -514,7 +544,7 @@ class AnonymousEnrollmentRepositoryProtocol(Protocol):
     @staticmethod
     def read_session(
         *, session_id: int, event_slug: str, site_id: int
-    ) -> AnonymousSessionContextDTO: ...
+    ) -> AnonymousSessionDTO: ...
 
     @staticmethod
     def read_participation_status(

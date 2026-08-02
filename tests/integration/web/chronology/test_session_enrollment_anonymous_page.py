@@ -1,6 +1,5 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
@@ -21,12 +20,7 @@ from ludamus.pacts.enrollment import (
     AnonymousSessionContextDTO,
 )
 from ludamus.pacts.legacy import NotificationKind
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    EnrollmentConfigFactory,
-    EventFactory,
-    SessionFactory,
-)
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
 
 
@@ -994,62 +988,4 @@ class TestSessionEnrollmentAnonymousPageView:
                 )
             ],
             url="/",
-        )
-
-    def test_post_waitlists_when_open_window_capacity_is_exhausted(
-        self, agenda_item, anonymous_user_factory, client, sphere
-    ):
-        event = agenda_item.session.event
-        now = datetime.now(UTC)
-        EnrollmentConfigFactory(
-            event=event,
-            start_time=now - timedelta(hours=1),
-            end_time=now + timedelta(hours=1),
-            percentage_slots=100,
-            restrict_to_configured_users=True,
-            allow_anonymous_enrollment=False,
-        )
-        EnrollmentConfigFactory(
-            event=event,
-            start_time=now - timedelta(hours=1),
-            end_time=now + timedelta(hours=1),
-            percentage_slots=20,
-            restrict_to_configured_users=False,
-            allow_anonymous_enrollment=True,
-        )
-        session = agenda_item.session
-        session.participants_limit = 100
-        session.save()
-        for _ in range(20):
-            SessionParticipation.objects.create(
-                session=session,
-                user=anonymous_user_factory(),
-                status=SessionParticipationStatus.CONFIRMED,
-            )
-        user = anonymous_user_factory()
-        _activate_anonymous_client(
-            client, sphere=sphere, event=event, user_code=_anonymous_user_code(user)
-        )
-
-        response = client.post(
-            self.get_url(session.id, session.event.slug), data={"name": "late"}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.SUCCESS,
-                    (
-                        "Session is full. You have been added to the waiting list for: "
-                        f"{session.title}"
-                    ),
-                )
-            ],
-            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
-        )
-        assert (
-            SessionParticipation.objects.get(session=session, user=user).status
-            == SessionParticipationStatus.WAITING
         )

@@ -15,6 +15,7 @@ from ludamus.pacts.enrollment import (
     AnonymousLoadDTO,
     AnonymousSeatingDTO,
     AnonymousSessionContextDTO,
+    AnonymousSessionDTO,
 )
 from ludamus.pacts.legacy import NotFoundError, SessionParticipationStatus
 
@@ -73,7 +74,7 @@ def _user(name="Ala") -> UserDTO:
     )
 
 
-def _session_ctx(**overrides) -> AnonymousSessionContextDTO:
+def _session_ctx(**overrides) -> AnonymousSessionDTO:
     values = {
         "session_id": _SESSION_ID,
         "event_id": _EVENT_ID,
@@ -92,7 +93,7 @@ def _session_ctx(**overrides) -> AnonymousSessionContextDTO:
         "end_time": datetime(2026, 7, 1, 12, tzinfo=UTC),
     }
     values.update(overrides)
-    return AnonymousSessionContextDTO(**values)
+    return AnonymousSessionDTO(**values)
 
 
 class FakeUsers:
@@ -320,11 +321,10 @@ class TestGetEnrollPage:
 
         page = service.get_enroll_page(_request())
 
-        assert page.session == session.model_copy(
-            update={
-                "allows_anonymous_enrollment": True,
-                "effective_participants_limit": 10,
-            }
+        assert page.session == AnonymousSessionContextDTO.from_session(
+            session=session,
+            allows_anonymous_enrollment=True,
+            effective_participants_limit=10,
         )
         assert page.anonymous_code == _CODE
         assert page.needs_user_data is True
@@ -384,6 +384,17 @@ class TestEnroll:
         assert result.outcome == AnonymousEnrollOutcome.WAITLISTED
         assert repo.waiting == [(_SESSION_ID, _USER_PK)]
         assert not repo.confirmed
+
+    def test_rejects_when_enrollment_closes_before_seating_lock(self):
+        repo = FakeRepo(session=_session_ctx(), seating=_seating(eligible_windows=[]))
+        service = _service(repo=repo)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.enroll(_request(), "Ala")
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED
+        assert not repo.confirmed
+        assert not repo.waiting
 
     def test_conflict_short_circuits(self):
         repo = FakeRepo(session=_session_ctx(), conflicts=True)

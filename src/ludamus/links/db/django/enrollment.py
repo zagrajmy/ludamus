@@ -34,7 +34,7 @@ from ludamus.pacts.enrollment import (
     AnonymousEventDTO,
     AnonymousLoadDTO,
     AnonymousSeatingDTO,
-    AnonymousSessionContextDTO,
+    AnonymousSessionDTO,
     EnrollmentParticipationRepositoryProtocol,
     EnrollmentWindowDTO,
     EnrollmentWindowRepositoryProtocol,
@@ -463,7 +463,7 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
     @staticmethod
     def read_session(
         *, session_id: int, event_slug: str, site_id: int
-    ) -> AnonymousSessionContextDTO:
+    ) -> AnonymousSessionDTO:
         try:
             session = (
                 Session.objects.select_related("event", "agenda_item__space")
@@ -478,7 +478,7 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             raise NotFoundError from exception
         event = session.event
         has_agenda_item = hasattr(session, "agenda_item")
-        return AnonymousSessionContextDTO(
+        return AnonymousSessionDTO(
             session_id=session.pk,
             event_id=event.pk,
             event_slug=event.slug,
