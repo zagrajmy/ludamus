@@ -18,18 +18,14 @@ from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.printing import (
-    AreaScheduleQueryDTO,
-    DoorCardsQueryDTO,
-    PrintTimetableQueryDTO,
-)
+from ludamus.pacts.printing import PrintQueryDTO
 
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import EventDTO
-    from ludamus.pacts.printing import PrintOptionDTO, PrintSessionListDocumentDTO
+    from ludamus.pacts.printing import PrintOptionDTO
     from ludamus.pacts.venues import PrintScopeDTO
 
     type _LazyStr = str | _StrPromise
@@ -57,11 +53,11 @@ class MaterialSpec:
     def show_track_control(self) -> bool:
         return self.scope_kind == "track"
 
-    # The "with descriptions" toggle swaps the timetable grid or the door
+    # The "with descriptions" capability swaps the timetable grid or the door
     # cards for the per-space descriptions pages; the session list carries
     # descriptions already.
     @property
-    def show_descriptions_control(self) -> bool:
+    def supports_descriptions(self) -> bool:
         return self.document_kind in {"timetable", "door_cards"}
 
     # Timetables and door cards cover a time window; the session list doesn't.
@@ -142,17 +138,6 @@ class _ResolvedRange:
     window: tuple[datetime, datetime] | None
 
 
-@dataclass(frozen=True)
-class _DocumentQuery:
-    # Everything the selected document's build call needs; which of the four
-    # documents gets built is the document_kind's call, not the query's.
-    event_pk: int
-    tz: tzinfo
-    print_scope: _PrintScope
-    confirmed_only: bool
-    time_range: tuple[datetime, datetime] | None
-
-
 class PublicEventPrintView(View):
     request: RootRequest
     template_name = "chronology/print.html"
@@ -213,21 +198,37 @@ class PublicEventPrintView(View):
         # is scoped.
         document_kind: DocumentKind = (
             "area_schedule"
-            if descriptions and material_spec.show_descriptions_control
+            if descriptions and material_spec.supports_descriptions
             else material_spec.document_kind
         )
 
-        documents = self._build_documents(
-            document_kind=document_kind,
-            query=_DocumentQuery(
-                event_pk=event.pk,
-                tz=tz,
-                print_scope=print_scope,
-                confirmed_only=confirmed_only,
-                time_range=resolved_range.window,
-            ),
-            session_list_candidate=session_list_candidate,
-        )
+        # One context slot per document kind; the three unselected ones stay
+        # None so the template picks its branch by presence.
+        documents: dict[str, object] = {
+            "timetable": None,
+            "area_schedule": None,
+            "session_list": None,
+            "door_cards": None,
+        }
+        if document_kind == "session_list":
+            documents["session_list"] = session_list_candidate
+        else:
+            build = {
+                "timetable": service.build_timetable,
+                "area_schedule": service.build_area_schedule,
+                "door_cards": service.build_door_cards,
+            }[document_kind]
+            documents[document_kind] = build(
+                PrintQueryDTO(
+                    event_pk=event.pk,
+                    tz=tz,
+                    scope_space_pks=print_scope.space_pks,
+                    track_pk=print_scope.track_pk,
+                    scope_name=print_scope.name,
+                    confirmed_only=confirmed_only,
+                    time_range=resolved_range.window,
+                )
+            )
 
         event_url = request.build_absolute_uri(
             reverse("web:chronology:event", kwargs={"slug": slug})
@@ -240,7 +241,10 @@ class PublicEventPrintView(View):
             {
                 "event": event,
                 "logo": event.logo_url or sphere.logo_url,
-                **documents,
+                "timetable": documents["timetable"],
+                "area_schedule": documents["area_schedule"],
+                "session_list": documents["session_list"],
+                "door_cards": documents["door_cards"],
                 "qr_svg": qr_svg(event_url, xmldecl=False),
                 "print_scopes": request.services.venues.list_print_scopes(event.pk),
                 "tracks": tracks,
@@ -248,7 +252,7 @@ class PublicEventPrintView(View):
                 "material": material_spec.value,
                 "show_scope_control": material_spec.show_scope_control,
                 "show_track_control": material_spec.show_track_control,
-                "show_descriptions_control": material_spec.show_descriptions_control,
+                "show_descriptions_control": material_spec.supports_descriptions,
                 "show_range_controls": material_spec.show_range_controls,
                 "show_unconfirmed_control": panel_user,
                 "descriptions": descriptions,
@@ -268,60 +272,6 @@ class PublicEventPrintView(View):
         else:
             patch_cache_control(response, private=True, max_age=5)
         return response
-
-    def _build_documents(
-        self,
-        *,
-        document_kind: DocumentKind,
-        query: _DocumentQuery,
-        session_list_candidate: PrintSessionListDocumentDTO | None,
-    ) -> dict[str, object]:
-        # One template slot per document kind; the three unselected ones stay
-        # None so the template picks the branch by presence.
-        service = self.request.services.print_materials
-        documents: dict[str, object] = {
-            "timetable": None,
-            "area_schedule": None,
-            "session_list": None,
-            "door_cards": None,
-        }
-        if document_kind == "session_list":
-            documents["session_list"] = session_list_candidate
-        elif document_kind == "door_cards":
-            documents["door_cards"] = service.build_door_cards(
-                DoorCardsQueryDTO(
-                    event_pk=query.event_pk,
-                    tz=query.tz,
-                    scope_space_pks=query.print_scope.space_pks,
-                    scope_name=query.print_scope.name,
-                    confirmed_only=query.confirmed_only,
-                    time_range=query.time_range,
-                )
-            )
-        elif document_kind == "area_schedule":
-            documents["area_schedule"] = service.build_area_schedule(
-                AreaScheduleQueryDTO(
-                    event_pk=query.event_pk,
-                    time_range=query.time_range,
-                    scope_space_pks=query.print_scope.space_pks,
-                    track_pk=query.print_scope.track_pk,
-                    scope_name=query.print_scope.name,
-                    confirmed_only=query.confirmed_only,
-                )
-            )
-        else:
-            documents["timetable"] = service.build_timetable(
-                PrintTimetableQueryDTO(
-                    event_pk=query.event_pk,
-                    tz=query.tz,
-                    scope_space_pks=query.print_scope.space_pks,
-                    track_pk=query.print_scope.track_pk,
-                    scope_name=query.print_scope.name,
-                    confirmed_only=query.confirmed_only,
-                    time_range=query.time_range,
-                )
-            )
-        return documents
 
     def _resolve_material(
         self, available_materials: tuple[MaterialSpec, ...]

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-02 10:31+0200\n"
+"POT-Creation-Date: 2026-08-02 10:57+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3722,6 +3722,7 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/print.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
@@ -4377,6 +4378,10 @@ msgstr "Brak stron"
 #: src/ludamus/templates/chronology/print.html
 msgid "Print preview"
 msgstr "Podgląd wydruku"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "No sessions scheduled yet."
+msgstr "Nie zaplanowano jeszcze żadnych punktów programu."
 
 #: src/ludamus/templates/chronology/print.html
 msgid "No confirmed sessions scheduled yet."

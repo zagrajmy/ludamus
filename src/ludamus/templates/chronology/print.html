@@ -214,7 +214,14 @@
                                 <section class="{{ sheet_class }}">
                                     {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
                                     <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
-                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
                                 </section>
                             {% endfor %}
                         {% elif door_cards %}
@@ -235,17 +242,25 @@
                                         {{ card.day|date:"l, j E" }}
                                     </h3>
                                     <table class="w-full border-collapse">
-                                        {% for entry in card.entries %}
-                                            <tr class="border-b-[0.5pt] border-neutral-200">
-                                                <td class="w-[28mm] whitespace-nowrap py-[2mm] pr-[3mm] align-top tabular-nums">
-                                                    {{ entry.start_time|time:"H:i" }}–{{ entry.end_time|time:"H:i" }}
-                                                </td>
-                                                <td class="py-[2mm] align-top">
-                                                    <strong>{{ entry.session.title }}</strong>
-                                                    {% if entry.session.presenter_name %}<div class="text-neutral-500">{{ entry.session.presenter_name }}</div>{% endif %}
-                                                </td>
+                                        <thead class="sr-only">
+                                            <tr>
+                                                <th scope="col">{% translate "Time" %}</th>
+                                                <th scope="col">{% translate "Session" %}</th>
                                             </tr>
-                                        {% endfor %}
+                                        </thead>
+                                        <tbody>
+                                            {% for entry in card.entries %}
+                                                <tr class="border-b-[0.5pt] border-neutral-200">
+                                                    <td class="w-[28mm] whitespace-nowrap py-[2mm] pr-[3mm] align-top tabular-nums">
+                                                        {{ entry.start_time|time:"H:i" }}–{{ entry.end_time|time:"H:i" }}
+                                                    </td>
+                                                    <td class="py-[2mm] align-top">
+                                                        <strong>{{ entry.session.title }}</strong>
+                                                        {% if entry.session.presenter_name %}<div class="text-neutral-500">{{ entry.session.presenter_name }}</div>{% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
                                     </table>
                                 </section>
                             {% empty %}
@@ -302,7 +317,14 @@
                                         {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
                                     </div>
                                 {% empty %}
-                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
                                 {% endfor %}
                             </section>
                         {% else %}

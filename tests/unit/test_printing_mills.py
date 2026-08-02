@@ -2,11 +2,7 @@ from datetime import UTC, date, datetime
 
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO, TimeSlotDTO
-from ludamus.pacts.printing import (
-    AreaScheduleQueryDTO,
-    DoorCardsQueryDTO,
-    PrintTimetableQueryDTO,
-)
+from ludamus.pacts.printing import PrintQueryDTO
 
 
 def _event():
@@ -106,16 +102,16 @@ def _service(*, spaces, items, slots, tracks=None):
 
 
 def _door_cards(service, **kwargs):
-    return service.build_door_cards(DoorCardsQueryDTO(event_pk=1, tz=UTC, **kwargs))
+    return service.build_door_cards(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
 def _timetable(service, **kwargs):
-    return service.build_timetable(PrintTimetableQueryDTO(event_pk=1, tz=UTC, **kwargs))
+    return service.build_timetable(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
 def _area_schedule(service, window, **kwargs):
     return service.build_area_schedule(
-        AreaScheduleQueryDTO(event_pk=1, time_range=window, **kwargs)
+        PrintQueryDTO(event_pk=1, tz=UTC, time_range=window, **kwargs)
     )
 
 
@@ -192,7 +188,8 @@ class TestBuildDoorCards:
         items = [_item(1, 1, 9, 10, title="Larp", confirmed=False)]
         service = _service(spaces=spaces, items=items, slots=slots)
 
-        document = _door_cards(service)
+        # The manager toggle: only an explicit opt-in prints pending sessions.
+        document = _door_cards(service, confirmed_only=False)
 
         entries = document.cards[0].entries
         assert entries[0].session is not None
@@ -487,7 +484,7 @@ class TestBuildAreaSchedule:
         items = [_item(1, 1, 10, 11, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = service.build_area_schedule(AreaScheduleQueryDTO(event_pk=1))
+        document = service.build_area_schedule(PrintQueryDTO(event_pk=1, tz=UTC))
 
         assert document.range_start == _event().start_time
         assert document.range_end == _event().end_time

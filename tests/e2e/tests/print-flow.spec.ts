@@ -104,7 +104,7 @@ test.describe("Print page for managers", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
-  test("manager can pull unconfirmed sessions onto the printout", async ({ page }) => {
+  test("the unconfirmed-sessions toggle applies itself to the URL", async ({ page }) => {
     await page.goto(printUrl);
 
     const box = page.getByLabel("Include unconfirmed sessions");

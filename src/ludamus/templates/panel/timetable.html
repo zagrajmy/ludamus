@@ -64,8 +64,8 @@
         </div>
         <div class="flex items-center gap-2 flex-wrap ml-auto">
             {% translate "Print" as t_print %}
-            {# The public print page is the one canonical print page — scope, time window and materials all live there. #}
-            <a href="{% url 'web:chronology:event-print' slug=current_event.slug %}"
+            {# The public print page is the one canonical print page — this link carries the schedule's current track and day filters over. #}
+            <a href="{{ print_url }}"
                target="_blank"
                rel="noopener"
                class="filter-toggle inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150">

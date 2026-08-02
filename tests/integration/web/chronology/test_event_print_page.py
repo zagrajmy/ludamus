@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import localdate
 
-from ludamus.gates.web.django.event.print import MATERIAL_SPECS
+from ludamus.gates.web.django.event.print import MATERIAL_SPECS_BY_VALUE
 from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.printing import (
@@ -34,6 +34,10 @@ from tests.integration.utils import (
     assert_response,
     assert_response_404,
 )
+
+
+def _specs(*values):
+    return tuple(MATERIAL_SPECS_BY_VALUE[value] for value in values)
 
 
 def _scope(space, name=None):
@@ -140,6 +144,9 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
         assert_cache_control(response, {"public", "max-age=300"})
+        # The same URL serves a manager variant; only Vary: Cookie keeps a
+        # shared cache from handing it to the wrong audience.
+        assert "Cookie" in response.headers.get("Vary", "")
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content
@@ -292,7 +299,6 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response, panel_access=True, print_scopes=[_scope(space)])
         assert_cache_control(response, {"private", "max-age=5"})
-        assert session.title in response.content.decode()
 
     def test_scoped_to_node_shows_logo_capacity_and_scope_name(
         self, client, event, session, space
@@ -480,7 +486,9 @@ class TestPublicEventPrintView:
                 "descriptions": False,
                 "unconfirmed": False,
                 "material": "track-timetable",
-                "material_options": MATERIAL_SPECS[:2] + MATERIAL_SPECS[-1:],
+                "material_options": _specs(
+                    "timetable", "track-timetable", "door-cards"
+                ),
                 "print_scopes": [_scope(space)],
                 "qr_svg": response.context_data["qr_svg"],
                 "range_hours": None,
@@ -528,7 +536,7 @@ class TestPublicEventPrintView:
                 "descriptions": False,
                 "unconfirmed": False,
                 "material": "timetable",
-                "material_options": MATERIAL_SPECS[:1] + MATERIAL_SPECS[-1:],
+                "material_options": _specs("timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
                 "qr_svg": response.context_data["qr_svg"],
                 "range_hours": None,
@@ -577,7 +585,6 @@ class TestPublicEventPrintView:
         )
         assert response.context_data["material"] == "timetable"
         assert response.context_data["selected_scope"] == str(space.pk)
-        assert session.title in response.content.decode()
 
     def test_track_timetable_scoped_to_selected_track(
         self, client, event, session, space
@@ -605,7 +612,9 @@ class TestPublicEventPrintView:
                 "descriptions": False,
                 "unconfirmed": False,
                 "material": "track-timetable",
-                "material_options": MATERIAL_SPECS[:2] + MATERIAL_SPECS[-1:],
+                "material_options": _specs(
+                    "timetable", "track-timetable", "door-cards"
+                ),
                 "print_scopes": [_scope(space)],
                 "qr_svg": response.context_data["qr_svg"],
                 "range_hours": None,
@@ -656,22 +665,21 @@ class TestPublicEventPrintView:
         )
         assert response.context_data["material"] == "track-timetable"
         assert response.context_data["selected_track"] == "main-track"
-        assert session.title in response.content.decode()
 
     def test_door_cards_material_renders_one_card_per_room_and_day(
         self, client, event, session, space
     ):
         # Participant-facing cards: a room with nothing scheduled gets no card.
-        SpaceFactory(event=event, name="Empty Hall")
+        empty_hall = SpaceFactory(event=event, name="Empty Hall")
         _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug), {"material": "door-cards"})
 
-        _assert_print_ok(
-            response,
-            material="door-cards",
-            print_scopes=list(response.context_data["print_scopes"]),
+        # Both rooms are root leaves, listed in (order, name) order.
+        expected_scopes = sorted(
+            [_scope(space), _scope(empty_hall)], key=lambda scope: scope.name
         )
+        _assert_print_ok(response, material="door-cards", print_scopes=expected_scopes)
         assert response.context_data["timetable"] is None
         assert response.context_data["door_cards"] == DoorCardsDocumentDTO(
             event_name=event.name,
@@ -794,6 +802,7 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response, panel_access=True)
         assert_cache_control(response, {"private", "max-age=5"})
+        assert "Cookie" in response.headers.get("Vary", "")
         event.refresh_from_db()
         assert event.printables_last_printed_at is not None
 

@@ -1,11 +1,11 @@
 """Printing subdomain business logic.
 
-Assembles printable materials (per-room door cards, a printed timetable, and
-description-rich per-area time-range pages) from scheduled agenda items. The
-organizer-facing materials include every scheduled session; passing
-``confirmed_only=True`` (the public ``/print`` page) keeps only confirmed ones.
-Empty timetable cells render as explicit gaps; door cards are participant-facing
-and list only rooms and hours that actually hold a session.
+Assembles the printable materials of the public ``/print`` page (per-room-and-day
+door cards, a printed timetable, and description-rich per-area time-range pages)
+from scheduled agenda items. Queries default to confirmed sessions only;
+``confirmed_only=False`` (the sphere managers' toggle) also includes the
+unconfirmed ones. Empty timetable cells render as explicit gaps; door cards are
+participant-facing and list only rooms and hours that actually hold a session.
 """
 
 from __future__ import annotations
@@ -16,23 +16,21 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.printing import (
     AreaScheduleDocumentDTO,
-    AreaScheduleQueryDTO,
     AreaScheduleSessionDTO,
     AreaScheduleSpaceDTO,
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
-    DoorCardsQueryDTO,
     PrintablesReadyNotification,
     PrintablesReminderServiceProtocol,
     PrintOptionDTO,
+    PrintQueryDTO,
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
     PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
-    PrintTimetableQueryDTO,
     PrintTimetableRowDTO,
 )
 
@@ -133,9 +131,11 @@ class PrintMaterialsService:
             for track in self._tracks.list_public_by_event(event_pk)
         ]
 
-    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO:
+    def build_door_cards(self, query: PrintQueryDTO) -> DoorCardsDocumentDTO:
         event = self._events.read(query.event_pk)
-        spaces = self._scoped_spaces(query.event_pk, query.scope_space_pks, None)
+        spaces = self._scoped_spaces(
+            query.event_pk, query.scope_space_pks, query.track_pk
+        )
         items = self._agenda_items.list_by_event(query.event_pk)
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
@@ -178,9 +178,7 @@ class PrintMaterialsService:
             cards=cards,
         )
 
-    def build_timetable(
-        self, query: PrintTimetableQueryDTO
-    ) -> PrintTimetableDocumentDTO:
+    def build_timetable(self, query: PrintQueryDTO) -> PrintTimetableDocumentDTO:
         event = self._events.read(query.event_pk)
         spaces = self._scoped_spaces(
             query.event_pk, query.scope_space_pks, query.track_pk
@@ -259,9 +257,7 @@ class PrintMaterialsService:
             pages=pages,
         )
 
-    def build_area_schedule(
-        self, query: AreaScheduleQueryDTO
-    ) -> AreaScheduleDocumentDTO:
+    def build_area_schedule(self, query: PrintQueryDTO) -> AreaScheduleDocumentDTO:
         event = self._events.read(query.event_pk)
         range_start, range_end = query.time_range or (event.start_time, event.end_time)
         spaces = self._scoped_spaces(
@@ -305,7 +301,7 @@ class PrintMaterialsService:
         )
 
     def build_session_list(
-        self, event_pk: int, *, confirmed_only: bool = False
+        self, event_pk: int, *, confirmed_only: bool = True
     ) -> PrintSessionListDocumentDTO | None:
         tracks = self._tracks.list_public_by_event(event_pk)
         slots = self._time_slots.list_by_event(event_pk)

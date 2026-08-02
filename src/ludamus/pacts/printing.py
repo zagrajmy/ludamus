@@ -1,8 +1,9 @@
 """Printing subdomain DTOs and protocols.
 
-Read-only document shapes for organizer-facing printable materials
-(per-room door cards, a printed timetable). Rendered as print-styled HTML
-pages in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
+Read-only document shapes for the printable materials on the public
+``/print`` page: a timetable grid, per-room-and-day door cards, per-space
+descriptions pages, and a session list. Rendered as print-styled HTML pages
+in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
 """
 
 from __future__ import annotations
@@ -25,36 +26,20 @@ class PrintSessionDTO(BaseModel):
     presenter_name: str
 
 
+# One query shape for every printable document; a builder ignores the fields
+# its document doesn't use (door cards take no track, the area schedule no tz).
 @dataclass(frozen=True)
-class PrintTimetableQueryDTO:
+class PrintQueryDTO:
     event_pk: int
     tz: tzinfo
     scope_space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None
-    confirmed_only: bool = False
+    # Confirmed-only is the safe default: unconfirmed sessions reach paper
+    # only when a caller deliberately asks for them.
+    confirmed_only: bool = True
+    # None means the whole event; the mills default to the event bounds.
     time_range: tuple[datetime, datetime] | None = None
-
-
-@dataclass(frozen=True)
-class DoorCardsQueryDTO:
-    event_pk: int
-    tz: tzinfo
-    scope_space_pks: frozenset[int] | None = None
-    scope_name: str | None = None
-    confirmed_only: bool = False
-    time_range: tuple[datetime, datetime] | None = None
-
-
-@dataclass(frozen=True)
-class AreaScheduleQueryDTO:
-    event_pk: int
-    # None means the whole event; the mill defaults to the event bounds.
-    time_range: tuple[datetime, datetime] | None = None
-    scope_space_pks: frozenset[int] | None = None
-    track_pk: int | None = None
-    scope_name: str | None = None
-    confirmed_only: bool = False
 
 
 class DoorCardEntryDTO(BaseModel):
@@ -205,13 +190,9 @@ class PrintablesReminderServiceProtocol(Protocol):
 
 class PrintMaterialsServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]: ...
-    def build_door_cards(self, query: DoorCardsQueryDTO) -> DoorCardsDocumentDTO: ...
-    def build_timetable(
-        self, query: PrintTimetableQueryDTO
-    ) -> PrintTimetableDocumentDTO: ...
-    def build_area_schedule(
-        self, query: AreaScheduleQueryDTO
-    ) -> AreaScheduleDocumentDTO: ...
+    def build_door_cards(self, query: PrintQueryDTO) -> DoorCardsDocumentDTO: ...
+    def build_timetable(self, query: PrintQueryDTO) -> PrintTimetableDocumentDTO: ...
+    def build_area_schedule(self, query: PrintQueryDTO) -> AreaScheduleDocumentDTO: ...
     def build_session_list(
-        self, event_pk: int, *, confirmed_only: bool = False
+        self, event_pk: int, *, confirmed_only: bool = True
     ) -> PrintSessionListDocumentDTO | None: ...
