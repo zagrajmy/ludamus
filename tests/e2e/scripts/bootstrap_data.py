@@ -357,6 +357,43 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
+# A seat held on an event with no enrollment config: the window that let the
+# viewer in has shut, but giving the seat up has to stay possible so it can
+# reach the next person. Driven by resign-after-close.auth.spec.ts.
+def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
+    event = _create_event(
+        sphere,
+        name="Closed Enrollment Convention",
+        slug="closed-enrollment",
+        description="Enrollment window already shut.",
+        start_offset=timedelta(days=20),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Closed Venue", slug="closed-venue")
+    area = _create_area(venue, name="Closed Area", slug="closed-area")
+    space = _create_space(area, name="Closed Room", slug="closed-room", capacity=5)
+    session = Session.objects.create(
+        event=event,
+        display_name="Closed GM",
+        title="Late Resignation Demo",
+        slug="late-resignation-demo",
+        description="A session whose enrollment window has already closed.",
+        participants_limit=5,
+        min_age=0,
+    )
+    AgendaItem.objects.create(
+        space=space,
+        session=session,
+        session_confirmed=True,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=2),
+    )
+    SessionParticipation.objects.create(
+        session=session, user=tester, status=SessionParticipationStatus.CONFIRMED.value
+    )
+
+
 # Dedicated event for the backoffice panel e2e tests. panel.spec mutates
 # venues, CFP config and facilitators, so it gets its own event — keeping
 # autumn-open read-only for the public-page specs makes the suite safe to run
@@ -483,7 +520,7 @@ def main() -> None:
     _ensure_spheres_for_all_sites()
 
     # Test user for authenticated e2e tests
-    _create_test_user()
+    tester = _create_test_user()
 
     superuser = User.objects.create_superuser(
         username="admin",
@@ -501,6 +538,9 @@ def main() -> None:
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
+
+    # Seat held after the enrollment window shut, for the late-resignation e2e.
+    _create_closed_enrollment_scenario(sphere, tester=tester)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(

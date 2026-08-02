@@ -100,6 +100,15 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return self.effective_participants_limit == 0
 
     @property
+    def shows_enrollment_actions(self) -> bool:
+        # Giving up a seat stays possible after the enrollment window shuts —
+        # the seat still goes to the next person waiting. Without this the
+        # footer disappears and an enrolled viewer is stuck with the seat.
+        if self.is_enrollment_available:
+            return True
+        return (self.user_enrolled or self.user_waiting) and not self.is_ended
+
+    @property
     def spots_left(self) -> int:
         if self.effective_participants_limit == 0:
             return sys.maxsize

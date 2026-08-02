@@ -263,3 +263,8 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: `mise run test:py -- PATHS` appends the paths to the task's fixed
+  'pytest -n auto tests/integration tests/unit', so a targeted run silently
+  becomes the whole suite. Had to kill it and call .venv/bin/pytest directly.
+  Calling pytest directly then needs `PYTHONPATH=src` and `. ./.env.test`
+  sourced by hand — two more retries before a targeted run started.

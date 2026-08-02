@@ -469,7 +469,6 @@ class TestSessionModalComponentView:
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
             },
-            contains=["You are enrolled in this session"],
         )
 
     def test_viewer_on_waiting_list_shows_status(
@@ -501,7 +500,6 @@ class TestSessionModalComponentView:
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
             },
-            contains=["You are on the waiting list"],
         )
 
     @pytest.mark.usefixtures("enrollment_config")

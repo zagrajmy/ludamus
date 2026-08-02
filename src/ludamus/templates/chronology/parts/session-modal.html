@@ -142,13 +142,15 @@
                     {% endif %}
                 </div>
                 <!-- Enrollment Status for Authenticated Users -->
-                {% if current_user and data.user_enrolled %}
+                {# Only when the footer has no state badge of its own (past #}
+                {# sessions), so the two never repeat the same sentence. #}
+                {% if not data.shows_enrollment_actions and current_user and data.user_enrolled %}
                     <div class="pt-4 border-t border-border">
                         <div class="alert alert-success inline-flex items-center gap-2 text-sm">
                             {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You are enrolled in this session" %}
                         </div>
                     </div>
-                {% elif current_user and data.user_waiting %}
+                {% elif not data.shows_enrollment_actions and current_user and data.user_waiting %}
                     <div class="pt-4 border-t border-border">
                         <div class="alert alert-warning inline-flex items-center gap-2 text-sm">
                             {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "You are on the waiting list" %}
@@ -236,7 +238,7 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
-    {% if data.is_enrollment_available or data.can_edit %}
+    {% if data.shows_enrollment_actions or data.can_edit %}
         <!-- Footer -->
         {# data-morph + the modal surface colour give the footer its own opaque #}
         {# view-transition group, so the description no longer paints over the #}
@@ -261,7 +263,7 @@
                     <button type="button" class="btn btn-secondary text-sm" disabled>
                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Session full" %}
                     </button>
-                {% elif data.is_enrollment_available and not event_banned %}
+                {% elif data.shows_enrollment_actions and not event_banned %}
                     {% if current_user %}
                         {# current_user is always an ACTIVE user (the profile context #}
                         {# processor only resolves active accounts), so enrollment #}

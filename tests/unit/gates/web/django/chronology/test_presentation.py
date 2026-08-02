@@ -89,6 +89,35 @@ class TestSessionDataSpotsScarce:
         assert data.spots_scarce is False
 
 
+class TestSessionDataShowsEnrollmentActions:
+    def test_open_enrollment_shows_actions(self):
+        data = _make_session_data(is_enrollment_available=True)
+
+        assert data.shows_enrollment_actions
+
+    def test_closed_enrollment_hides_actions_for_outsider(self):
+        data = _make_session_data(is_enrollment_available=False)
+
+        assert not data.shows_enrollment_actions
+
+    def test_closed_enrollment_keeps_actions_for_enrolled_viewer(self):
+        data = _make_session_data(is_enrollment_available=False, user_enrolled=True)
+
+        assert data.shows_enrollment_actions
+
+    def test_closed_enrollment_keeps_actions_for_waiting_viewer(self):
+        data = _make_session_data(is_enrollment_available=False, user_waiting=True)
+
+        assert data.shows_enrollment_actions
+
+    def test_ended_session_hides_actions_for_enrolled_viewer(self):
+        data = _make_session_data(
+            is_enrollment_available=False, user_enrolled=True, is_ended=True
+        )
+
+        assert not data.shows_enrollment_actions
+
+
 class TestSessionDataWaitingCount:
     def test_default_is_zero(self):
         data = _make_session_data()
