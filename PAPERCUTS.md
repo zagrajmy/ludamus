@@ -256,3 +256,8 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: Polled api.github.com from a bash loop to wait for CI; the egress
+  proxy 403s it, so the loop parsed an error body as "no checks pending" and
+  reported all-green while the test job was still running. Use the GitHub MCP
+  tools for CI state in a sandbox — curl to api.github.com fails silently enough
+  to look like success.
