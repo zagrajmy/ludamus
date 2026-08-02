@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ludamus.pacts import DependencyInjectorProtocol
-    from ludamus.pacts.venues import PrintScopeOptionDTO
 
 
 class PanelRequest(EventPanelRequest):
@@ -66,10 +65,6 @@ class EventContextMixin(EventPanelContextMixin):
             all_tracks, key=lambda t: (t.pk not in managed_pks, t.name)
         )
         return sorted_tracks, managed_pks, filter_track_pk
-
-    def get_print_scopes(self, event_pk: int) -> list[PrintScopeOptionDTO]:
-        # Non-leaf tree nodes selectable as print scopes.
-        return self.request.services.venues.list_print_scopes(event_pk)
 
 
 def cfp_tab_urls(slug: str) -> dict[str, str]:

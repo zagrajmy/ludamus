@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-02 10:53+0200\n"
+"POT-Creation-Date: 2026-08-02 21:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1462,11 +1462,6 @@ msgstr "Nie można usunąć pola używanego w kategoriach."
 msgid "Personal data field deleted successfully."
 msgstr "Pole danych osobowych zostało usunięte."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/print.py
-#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
-msgid "Space not found."
-msgstr "Przestrzeń nie została znaleziona."
-
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Fix the facilitator personal data below before saving."
 msgstr "Popraw dane osobowe twórców programu poniżej, zanim zapiszesz."
@@ -1700,6 +1695,10 @@ msgstr "Blok programowy został zaktualizowany."
 #: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
 msgid "Track deleted."
 msgstr "Blok programowy usunięty."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/venues.py
+msgid "Space not found."
+msgstr "Przestrzeń nie została znaleziona."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/venues.py
 msgid "Space created successfully."
@@ -2176,7 +2175,6 @@ msgstr "Kategoria została zaktualizowana."
 
 #: src/ludamus/gates/web/django/event/print.py
 #: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/print/timetable.html
 msgid "Timetable"
 msgstr "Harmonogram"
 
@@ -2187,6 +2185,10 @@ msgstr "Harmonogram bloku"
 #: src/ludamus/gates/web/django/event/print.py
 msgid "Session list"
 msgstr "Lista punktów programu"
+
+#: src/ludamus/gates/web/django/event/print.py
+msgid "Door cards"
+msgstr "Tabliczki na drzwi"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
@@ -2405,7 +2407,7 @@ msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/panel/print/door-cards.html
+#: src/ludamus/templates/chronology/print.html
 msgid "Capacity"
 msgstr "Pojemność"
 
@@ -2529,7 +2531,6 @@ msgstr "Nieprawidłowy wybór kategorii."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Hours"
 msgstr "Godziny"
 
@@ -3585,7 +3586,6 @@ msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/content-log.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/print/timetable.html
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Time"
 msgstr "Czas"
@@ -3722,6 +3722,7 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/print.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
@@ -4333,7 +4334,6 @@ msgid "Login to Enroll"
 msgstr "Zaloguj się, aby się zapisać"
 
 #: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/print/base.html
 #: src/ludamus/templates/panel/timetable.html
 msgid "Print"
 msgstr "Drukuj"
@@ -4356,13 +4356,16 @@ msgstr "Z opisami"
 
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
-#: src/ludamus/templates/panel/parts/print-controls.html
 msgid "Start"
 msgstr "Początek"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "until event end"
 msgstr "do końca wydarzenia"
+
+#: src/ludamus/templates/chronology/print.html
+msgid "Include unconfirmed sessions"
+msgstr "Uwzględnij niepotwierdzone punkty programu"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Table of contents"
@@ -4377,8 +4380,16 @@ msgid "Print preview"
 msgstr "Podgląd wydruku"
 
 #: src/ludamus/templates/chronology/print.html
+msgid "No sessions scheduled yet."
+msgstr "Nie zaplanowano jeszcze żadnych punktów programu."
+
+#: src/ludamus/templates/chronology/print.html
 msgid "No confirmed sessions scheduled yet."
 msgstr "Nie zaplanowano jeszcze żadnych potwierdzonych punktów programu."
+
+#: src/ludamus/templates/chronology/print.html
+msgid "No rooms to print."
+msgstr "Brak sal do wydruku."
 
 #: src/ludamus/templates/chronology/print.html
 msgid "Program details"
@@ -6103,7 +6114,6 @@ msgid "Venues"
 msgstr "Lokalizacje"
 
 #: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/print-materials.html
 msgid "Print Materials"
 msgstr "Materiały do druku"
 
@@ -7239,11 +7249,6 @@ msgstr ""
 "Nie ma jeszcze żadnych integracji. Dodaj jedną, aby to wydarzenie mogło "
 "komunikować się przez zewnętrzny system."
 
-#: src/ludamus/templates/panel/parts/_print-scope-control.html
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Whole event…"
-msgstr "Całe wydarzenie…"
-
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 #, python-format
 msgid "Handled by %(name)s"
@@ -7472,22 +7477,6 @@ msgid ""
 msgstr ""
 "Nie znaleziono pytań źródłowych. Sprawdź połączenie tej integracji w sekcji "
 "Ustawienia → Integracje."
-
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Print timetable"
-msgstr "Drukuj harmonogram"
-
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Print timetable for a venue or area"
-msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
-
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Print door cards for a venue or area"
-msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
-
-#: src/ludamus/templates/panel/parts/print-controls.html
-msgid "Print door cards"
-msgstr "Drukuj tabliczki na drzwi"
 
 #: src/ludamus/templates/panel/parts/proposal-duration.html
 msgid "Custom duration"
@@ -7883,34 +7872,6 @@ msgid ""
 msgstr ""
 "Nie zdefiniowano pól danych osobowych. Dodaj pola, aby zbierać informacje o "
 "twórcach."
-
-#: src/ludamus/templates/panel/print-materials.html
-msgid ""
-"Open a print-ready page, then use your browser to save it as a PDF or print "
-"it. Use the scope menu to print a single space — a room, a floor, or a whole "
-"building. Door cards can be limited to a time window — leave the start empty "
-"to print the whole event."
-msgstr ""
-"Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub wydrukuj w "
-"przeglądarce. Użyj menu zakresu, aby wydrukować pojedynczą przestrzeń — "
-"salę, piętro lub cały budynek. Tabliczki na drzwi można ograniczyć do "
-"przedziału czasowego — zostaw pusty początek, aby wydrukować całe wydarzenie."
-
-#: src/ludamus/templates/panel/print/base.html
-msgid "or press Ctrl+P (⌘P on Mac)"
-msgstr "lub naciśnij Ctrl+P (⌘P na Macu)"
-
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "Door cards"
-msgstr "Tabliczki na drzwi"
-
-#: src/ludamus/templates/panel/print/door-cards.html
-msgid "No rooms to print."
-msgstr "Brak sal do wydruku."
-
-#: src/ludamus/templates/panel/print/timetable.html
-msgid "No time slots scheduled."
-msgstr "Nie zaplanowano przedziałów czasowych."
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Proposal Details"
@@ -8693,6 +8654,36 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Whole event…"
+#~ msgstr "Całe wydarzenie…"
+
+#~ msgid "Print timetable"
+#~ msgstr "Drukuj harmonogram"
+
+#~ msgid "Print timetable for a venue or area"
+#~ msgstr "Drukuj harmonogram dla lokalizacji lub strefy"
+
+#~ msgid "Print door cards for a venue or area"
+#~ msgstr "Drukuj tabliczki na drzwi dla lokalizacji lub strefy"
+
+#~ msgid ""
+#~ "Open a print-ready page, then use your browser to save it as a PDF or "
+#~ "print it. Use the scope menu to print a single space — a room, a floor, "
+#~ "or a whole building. Door cards can be limited to a time window — leave "
+#~ "the start empty to print the whole event."
+#~ msgstr ""
+#~ "Otwórz stronę gotową do druku, a następnie zapisz ją jako PDF lub "
+#~ "wydrukuj w przeglądarce. Użyj menu zakresu, aby wydrukować pojedynczą "
+#~ "przestrzeń — salę, piętro lub cały budynek. Tabliczki na drzwi można "
+#~ "ograniczyć do przedziału czasowego — zostaw pusty początek, aby "
+#~ "wydrukować całe wydarzenie."
+
+#~ msgid "or press Ctrl+P (⌘P on Mac)"
+#~ msgstr "lub naciśnij Ctrl+P (⌘P na Macu)"
+
+#~ msgid "No time slots scheduled."
+#~ msgstr "Nie zaplanowano przedziałów czasowych."
 
 #~ msgid ""
 #~ "Reimport will overwrite any manual edits to the imported fields on this "
