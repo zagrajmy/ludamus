@@ -13,6 +13,7 @@ from tests.integration.web.panel.helpers import (
     make_timetable_session,
     panel_context,
     schedule_session,
+    timetable_tab_urls,
 )
 
 
@@ -70,21 +71,7 @@ class TestTimetableOverviewPageView:
                 "track_progress": [],
                 "capacity_hours": _empty_capacity_hours(),
                 "slug": event.slug,
-                "tab_urls": {
-                    "timetable": reverse(
-                        "panel:timetable", kwargs={"slug": event.slug}
-                    ),
-                    "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-                    "overview": reverse(
-                        "panel:timetable-overview", kwargs={"slug": event.slug}
-                    ),
-                    "problems": reverse(
-                        "panel:timetable-problems", kwargs={"slug": event.slug}
-                    ),
-                    "confirmations": reverse(
-                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": timetable_tab_urls(event),
                 "active_tab": "overview",
             },
         )
@@ -164,21 +151,7 @@ class TestTimetableOverviewPageView:
                 ],
                 "capacity_hours": _empty_capacity_hours(),
                 "slug": event.slug,
-                "tab_urls": {
-                    "timetable": reverse(
-                        "panel:timetable", kwargs={"slug": event.slug}
-                    ),
-                    "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-                    "overview": reverse(
-                        "panel:timetable-overview", kwargs={"slug": event.slug}
-                    ),
-                    "problems": reverse(
-                        "panel:timetable-problems", kwargs={"slug": event.slug}
-                    ),
-                    "confirmations": reverse(
-                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": timetable_tab_urls(event),
                 "active_tab": "overview",
             },
         )

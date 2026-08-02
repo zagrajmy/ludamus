@@ -234,6 +234,18 @@ def cfp_tab_urls(event):
     }
 
 
+def timetable_tab_urls(event):
+    return {
+        "timetable": reverse("panel:timetable", kwargs={"slug": event.slug}),
+        "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
+        "overview": reverse("panel:timetable-overview", kwargs={"slug": event.slug}),
+        "problems": reverse("panel:timetable-problems", kwargs={"slug": event.slug}),
+        "confirmations": reverse(
+            "panel:timetable-confirmations", kwargs={"slug": event.slug}
+        ),
+    }
+
+
 def assert_facilitator_not_found(response: HttpResponse, event) -> None:
     assert_response(
         response,

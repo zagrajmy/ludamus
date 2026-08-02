@@ -19,6 +19,7 @@ from tests.integration.web.panel.helpers import (
     make_overlapping_sessions,
     make_timetable_session,
     schedule_session,
+    timetable_tab_urls,
 )
 
 ONE_SCHEDULED_SESSION_STATS = {
@@ -49,19 +50,7 @@ class TestTimetableProblemsPageView:
             "conflicts_grouped": conflicts_grouped,
             "slot_violations": slot_violations,
             "slug": event.slug,
-            "tab_urls": {
-                "timetable": reverse("panel:timetable", kwargs={"slug": event.slug}),
-                "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-                "overview": reverse(
-                    "panel:timetable-overview", kwargs={"slug": event.slug}
-                ),
-                "problems": reverse(
-                    "panel:timetable-problems", kwargs={"slug": event.slug}
-                ),
-                "confirmations": reverse(
-                    "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                ),
-            },
+            "tab_urls": timetable_tab_urls(event),
             "active_tab": "problems",
         }
 

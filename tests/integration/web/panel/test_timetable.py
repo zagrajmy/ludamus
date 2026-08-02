@@ -23,6 +23,7 @@ from tests.integration.web.panel.helpers import (
     panel_context,
     schedule_outside_preferred_slot,
     schedule_session,
+    timetable_tab_urls,
 )
 
 
@@ -41,18 +42,6 @@ def _scopes(*spaces):
 
 def _scheduled_stats(count):
     return {"rooms_count": 1, "scheduled_sessions": count, "total_sessions": count}
-
-
-def _tab_urls(event):
-    return {
-        "timetable": reverse("panel:timetable", kwargs={"slug": event.slug}),
-        "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-        "overview": reverse("panel:timetable-overview", kwargs={"slug": event.slug}),
-        "problems": reverse("panel:timetable-problems", kwargs={"slug": event.slug}),
-        "confirmations": reverse(
-            "panel:timetable-confirmations", kwargs={"slug": event.slug}
-        ),
-    }
 
 
 # The grid is a deep DTO whose spaces carry DB timestamps and whose time labels
@@ -74,7 +63,7 @@ def _page_context(event, *, stats=None, **overrides):
         "slot_violation_session_pks": set(),
         "date_selection": "all",
         "slug": event.slug,
-        "tab_urls": _tab_urls(event),
+        "tab_urls": timetable_tab_urls(event),
         "active_tab": "timetable",
         "print_scopes": [],
         **overrides,
