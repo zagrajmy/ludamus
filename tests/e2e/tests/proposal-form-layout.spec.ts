@@ -1,14 +1,19 @@
 import { expect, test } from "./helpers/fixtures";
 
-// The form used to be a CSS multi-column masonry. Cards carrying
-// break-inside-avoid overflowed the balanced column box, so the tall column
-// painted over the footer and the page ended mid-content.
-const columnLefts = async (page: import("@playwright/test").Page) =>
-  page
-    .locator("#proposal-form .card")
-    .evaluateAll((cards) => [
-      ...new Set(cards.map((card) => Math.round(card.getBoundingClientRect().left))),
-    ]);
+// The form used to be a CSS multi-column masonry, and the tall column painted
+// over the footer. Read the layout mode itself, not how many cards the event's
+// data happens to render: multicol computes grid-template-columns: none, grid
+// computes one px track per column.
+//
+// Only the column contract is pinned. The overlap it caused is not: measuring
+// the lowest card's bottom against the footer passes on the pre-fix markup too
+// (Chromium expands the multicol box to its tallest column), so an assertion
+// about it would read as coverage without ever failing.
+const columnCount = async (page: import("@playwright/test").Page) =>
+  page.locator("#proposal-form").evaluate((form) => {
+    const { display, gridTemplateColumns } = getComputedStyle(form);
+    return display === "grid" ? gridTemplateColumns.split(" ").length : 0;
+  });
 
 test.describe("Proposal form layout", () => {
   test.beforeEach(async ({ page }) => {
@@ -18,20 +23,17 @@ test.describe("Proposal form layout", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
-  test("keeps three columns wide, one narrow, and never covers the footer", async ({ page }) => {
+  test("keeps three columns wide, two medium, one narrow", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/panel/event/frostfire-con/proposals/create/");
     await expect(page.locator("#proposal-form")).toBeVisible();
 
-    expect(await columnLefts(page)).toHaveLength(3);
+    expect(await columnCount(page)).toBe(3);
 
-    const form = await page.locator("#proposal-form").boundingBox();
-    const footer = await page.locator("footer").boundingBox();
-    expect(form).not.toBeNull();
-    expect(footer).not.toBeNull();
-    expect(form!.y + form!.height).toBeLessThanOrEqual(footer!.y + 1);
+    await page.setViewportSize({ width: 1100, height: 900 });
+    expect(await columnCount(page)).toBe(2);
 
     await page.setViewportSize({ width: 480, height: 900 });
-    expect(await columnLefts(page)).toHaveLength(1);
+    expect(await columnCount(page)).toBe(1);
   });
 });
