@@ -10,8 +10,6 @@ if TYPE_CHECKING:
 
 register = template.Library()
 
-DOCUMENT_TITLE_VARIABLE = "document_title"
-
 
 @register.simple_tag(takes_context=True)
 def meta_image_url(context: template.Context, url: str = "") -> str:
@@ -27,9 +25,13 @@ class DocumentTitleNode(template.Node):
     # and a block can't hand its output to a variable, so capture it here. The
     # inner nodes escape their own output; collapsing whitespace only drops the
     # newlines the template's indentation left behind, so the result stays safe.
+    #
+    # The name lands in the context the tag was reached with, so the tag belongs
+    # at the top level of the page shell, ahead of every {{ document_title }}
+    # that reads it. Nested inside a block it would be popped with that block.
     def render(self, context: template.Context) -> str:
         rendered = self.nodelist.render(context)
-        context[DOCUMENT_TITLE_VARIABLE] = SafeString(" ".join(rendered.split()))
+        context["document_title"] = SafeString(" ".join(rendered.split()))
         return ""
 
 
