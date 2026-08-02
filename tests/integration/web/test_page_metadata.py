@@ -11,6 +11,12 @@ PRODUCT_PITCH = (
     "A convention without spreadsheet chaos. Programme proposals, a schedule of"
     " rooms and tracks, sign-ups with seat limits and a waitlist."
 )
+LANDING_TITLE = "Zagrajmy — from a speaker's proposal to the printout on the room door"
+LANDING_PITCH = (
+    "Zagrajmy runs your event programme: proposals, review, the schedule, the"
+    " event page, enrollment with waiting lists, and print."
+    " Write to us: kontakt@zagrajmy.net"
+)
 
 
 def _head(response, pattern):
@@ -59,7 +65,7 @@ class TestPageTitle:
     def test_root_sphere_title_omits_the_brand_tail(self, client, sphere):
         response = _get_ok(client, reverse("web:events"), ["index.html"])
 
-        assert _title(response) == f"Events • {sphere.name}"
+        assert _title(response) == f"{LANDING_TITLE} • {sphere.name}"
 
     def test_sub_sphere_title_ends_with_the_brand(
         self, client, sphere, non_root_sphere
@@ -78,7 +84,7 @@ class TestMetaDescription:
     def test_brand_domain_pitches_the_product(self, client):
         response = _get_ok(client, reverse("web:events"), ["index.html"])
 
-        assert _descriptions(response) == [PRODUCT_PITCH] * 3
+        assert _descriptions(response) == [LANDING_PITCH] * 3
 
     def test_sphere_subdomain_names_the_sphere_instead(self, client, non_root_sphere):
         response = _get_ok(

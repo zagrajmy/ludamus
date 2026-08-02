@@ -52,6 +52,7 @@ export default defineConfig({
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
         index: resolve(rootDir, "src/index.css"),
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
+        landing: resolve(rootDir, "src/landing.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),

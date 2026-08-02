@@ -1,0 +1,487 @@
+{% load i18n %}
+<section class="bg-background text-foreground group-has-[#aud-gracz:checked]/aud:hidden"
+         id="zapisy-grupowe"
+         aria-labelledby="p1-heading">
+    <style>
+        /* ---------- animation machine: 14s loop ----------
+       beat 1 @2s: Marek cancels -> 7/8, nothing promotes, amber caption
+       beat 2 @6s: Wojtek cancels -> 6/8; @7.2s Ala+Ola promote together,
+       Basia renumbers 3 -> 1, counter 8/8; long rest; soft reset @13s. */
+        .p1-fold {
+            overflow: hidden;
+            max-height: 40px;
+            margin-bottom: .375rem;
+        }
+
+        .p1-groupfold {
+            overflow: hidden;
+            max-height: 130px;
+            margin-bottom: .375rem;
+        }
+
+        .p1-group .p1-fold:last-child {
+            margin-bottom: 0;
+        }
+
+        /* stacked crossfading values */
+        .p1-swap {
+            display: inline-grid;
+            vertical-align: baseline;
+        }
+
+        .p1-swap>span {
+            grid-area: 1 / 1;
+            justify-self: center;
+        }
+
+        /* caption under the card */
+        .p1-cap {
+            position: relative;
+            display: grid;
+            min-height: 3.5rem;
+            margin-top: .875rem;
+        }
+
+        .p1-cap>p {
+            grid-area: 1 / 1;
+            margin: 0;
+            font-size: .875rem;
+            line-height: 1.45;
+            border-radius: .75rem;
+            padding: .5625rem .8125rem;
+            font-weight: 500;
+        }
+
+        .p1-cap1 {
+            background: var(--color-warning-bg);
+            border: 1px solid var(--color-warning-light);
+            color: var(--color-warning-text);
+        }
+
+        .p1-cap2 {
+            background: var(--color-success-bg);
+            border: 1px solid var(--color-success-light);
+            color: var(--color-success-text);
+        }
+
+        /* base = post-promotion end state (also the reduced-motion resting state) */
+        .p1-out {
+            max-height: 0;
+            opacity: 0;
+            margin-bottom: 0;
+        }
+
+        .p1-n7,
+        .p1-n6,
+        .p1-old,
+        .p1-cap1 {
+            opacity: 0;
+        }
+
+        .p1-n8,
+        .p1-new,
+        .p1-cap2 {
+            opacity: 1;
+        }
+
+        .p1-anim .p1-out1 {
+            animation: p1-out1 14s ease infinite;
+        }
+
+        .p1-anim .p1-out2 {
+            animation: p1-out2 14s ease infinite;
+        }
+
+        .p1-anim .p1-grpout {
+            animation: p1-grpout 14s ease infinite;
+        }
+
+        .p1-anim .p1-in {
+            animation: p1-in 14s ease infinite;
+        }
+
+        .p1-anim .p1-n8 {
+            animation: p1-n8 14s ease infinite;
+        }
+
+        .p1-anim .p1-n7 {
+            animation: p1-n7 14s ease infinite;
+        }
+
+        .p1-anim .p1-n6 {
+            animation: p1-n6 14s ease infinite;
+        }
+
+        .p1-anim .p1-old {
+            animation: p1-old 14s ease infinite;
+        }
+
+        .p1-anim .p1-new {
+            animation: p1-new 14s ease infinite;
+        }
+
+        .p1-anim .p1-cap1 {
+            animation: p1-cap1 14s ease infinite;
+        }
+
+        .p1-anim .p1-cap2 {
+            animation: p1-cap2 14s ease infinite;
+        }
+
+        @keyframes p1-out1 {
+
+            0%,
+            14.2% {
+                opacity: 1;
+                max-height: 40px;
+                margin-bottom: .375rem;
+            }
+
+            18.6%,
+            93% {
+                opacity: 0;
+                max-height: 0;
+                margin-bottom: 0;
+            }
+
+            100% {
+                opacity: 1;
+                max-height: 40px;
+                margin-bottom: .375rem;
+            }
+        }
+
+        @keyframes p1-out2 {
+
+            0%,
+            42.8% {
+                opacity: 1;
+                max-height: 40px;
+                margin-bottom: .375rem;
+            }
+
+            47%,
+            93% {
+                opacity: 0;
+                max-height: 0;
+                margin-bottom: 0;
+            }
+
+            100% {
+                opacity: 1;
+                max-height: 40px;
+                margin-bottom: .375rem;
+            }
+        }
+
+        @keyframes p1-grpout {
+
+            0%,
+            51.3% {
+                opacity: 1;
+                max-height: 130px;
+                margin-bottom: .375rem;
+            }
+
+            58.6%,
+            93% {
+                opacity: 0;
+                max-height: 0;
+                margin-bottom: 0;
+            }
+
+            100% {
+                opacity: 1;
+                max-height: 130px;
+                margin-bottom: .375rem;
+            }
+        }
+
+        @keyframes p1-in {
+
+            0%,
+            51.3% {
+                opacity: 0;
+                max-height: 0;
+                margin-bottom: 0;
+                transform: translateY(-4px);
+            }
+
+            58.6%,
+            93.5% {
+                opacity: 1;
+                max-height: 40px;
+                margin-bottom: .375rem;
+                transform: translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                max-height: 0;
+                margin-bottom: 0;
+                transform: translateY(-4px);
+            }
+        }
+
+        @keyframes p1-n8 {
+
+            0%,
+            18.5% {
+                opacity: 1;
+            }
+
+            18.6%,
+            58.5% {
+                opacity: 0;
+            }
+
+            58.7%,
+            100% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes p1-n7 {
+
+            0%,
+            18.5% {
+                opacity: 0;
+            }
+
+            18.7%,
+            46.9% {
+                opacity: 1;
+            }
+
+            47.1%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes p1-n6 {
+
+            0%,
+            46.9% {
+                opacity: 0;
+            }
+
+            47.1%,
+            58.5% {
+                opacity: 1;
+            }
+
+            58.7%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes p1-old {
+
+            0%,
+            58.5% {
+                opacity: 1;
+            }
+
+            58.7%,
+            93% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes p1-new {
+
+            0%,
+            58.5% {
+                opacity: 0;
+            }
+
+            58.7%,
+            93% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes p1-cap1 {
+
+            0%,
+            21% {
+                opacity: 0;
+            }
+
+            23.5%,
+            50% {
+                opacity: 1;
+            }
+
+            52.5%,
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes p1-cap2 {
+
+            0%,
+            59% {
+                opacity: 0;
+            }
+
+            61.5%,
+            91% {
+                opacity: 1;
+            }
+
+            95.5%,
+            100% {
+                opacity: 0;
+            }
+        }
+    </style>
+    <div class="max-w-6xl mx-auto px-5 py-[4.5rem] grid grid-cols-1 min-[920px]:grid-cols-[5fr_6fr] gap-11 min-[920px]:gap-16 items-center">
+        <div class="min-w-0">
+            <p class="mb-3 text-[0.8125rem] font-semibold tracking-[0.08em] uppercase text-secondary-hover">
+                {% translate "Enrollment and waiting lists" %}
+            </p>
+            <h2 class="mb-4 text-[clamp(1.75rem,4.5vw,2.5rem)] leading-[1.12] font-bold tracking-[-0.02em]"
+                id="p1-heading">{% translate "A group waits together and enters together" %}</h2>
+            <p class="text-[1.0625rem] leading-[1.6] text-foreground-secondary max-w-[34rem] [&_strong]:text-foreground [&_strong]:font-semibold">
+                {% blocktranslate trimmed %}
+                    Friends enroll in a programme item as <strong>one group</strong>.
+                    When seats run out, the whole group joins the waiting list, and seats
+                    are assigned in submission order. The group enters only when it fits
+                    in whole, <strong>always in its place in line</strong>.
+                {% endblocktranslate %}
+            </p>
+        </div>
+        <div class="min-w-0 max-w-[470px] w-full mx-auto">
+            {# Participants-tab replica: deliberately a light "screenshot" in both themes #}
+            <div class="p1-anim bg-[#fdfcfb] border border-[#e4ddd6] rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_-18px_rgba(61,55,50,0.25)] overflow-hidden"
+                 aria-hidden="true">
+                <div class="flex items-center justify-between gap-4 px-[1.125rem] py-[0.875rem] border-b border-[#e4ddd6]">
+                    <span class="font-semibold text-[0.9375rem] text-[#252220]">{% translate "Board game prototyping workshop" %}</span>
+                    <span class="text-[#737373] text-[1.125rem] leading-none">×</span>
+                </div>
+                <div class="flex gap-1 px-3 border-b border-[#e4ddd6] text-[0.8125rem] font-medium">
+                    <span class="inline-flex items-center gap-[0.375rem] px-2 py-[0.625rem] text-[#737373] border-b-2 border-transparent -mb-px">
+                        <svg class="w-3.5 h-3.5 flex-none" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clip-rule="evenodd" />
+                        </svg>
+                        {% translate "Info" %}
+                    </span>
+                    <span class="inline-flex items-center gap-[0.375rem] px-2 py-[0.625rem] text-[#e53e20] font-semibold border-b-2 border-[#f85a3c] -mb-px">
+                        <svg class="w-3.5 h-3.5 flex-none" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM1.49 15.326a.78.78 0 0 1-.358-.442 3 3 0 0 1 4.308-3.516 6.484 6.484 0 0 0-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 0 1-2.07-.655ZM16.44 15.98a4.97 4.97 0 0 0 2.07-.654.78.78 0 0 0 .357-.442 3 3 0 0 0-4.308-3.517 6.484 6.484 0 0 1 1.907 3.96 2.32 2.32 0 0 1-.026.654ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM5.304 16.19a.844.844 0 0 1-.277-.71 5 5 0 0 1 9.947 0 .843.843 0 0 1-.277.71A6.975 6.975 0 0 1 10 18a6.974 6.974 0 0 1-4.696-1.81Z" />
+                        </svg>
+                        {% translate "Participants" %}
+                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-[#f0ece8] text-[#5c534a]"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>
+                        <span class="p1-swap inline-flex items-center justify-center min-w-5 px-[0.3125rem] py-px rounded-md text-[0.6875rem] font-semibold tabular-nums leading-[1.2] bg-[#fef3c7] text-[#92400e]"><span class="p1-old">+3</span><span class="p1-new">+1</span></span>
+                    </span>
+                </div>
+                <div class="px-[1.125rem] pt-4 pb-[1.125rem]">
+                    <p class="mb-2 text-[0.8125rem] font-semibold text-[#5c534a] tabular-nums">
+                        {% translate "Enrolled" context "landing group demo" %} (<span class="p1-swap"><span class="p1-n8">8</span><span class="p1-n7">7</span><span class="p1-n6">6</span></span>/8)
+                    </p>
+                    <div class="p1-fold p1-out p1-out1">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#eff6ff] text-[#1e40af]">MA</span>Marek
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdfa] text-[#0f766e]">ZO</span>Zosia
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdf4] text-[#166534]">KU</span>Kuba
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#fef5f3] text-[#9a3412]">HA</span>Hania
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0ece8] text-[#5c534a]">TO</span>Tomek
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#eff6ff] text-[#1e40af]">AN</span>Ania
+                        </div>
+                    </div>
+                    <div class="p1-fold p1-out p1-out2">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdfa] text-[#0f766e]">WO</span>Wojtek
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#fef5f3] text-[#9a3412]">MA</span>Magda
+                        </div>
+                    </div>
+                    <div class="p1-fold p1-in">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdf4] text-[#166534]">AL</span>Ala
+                        </div>
+                    </div>
+                    <div class="p1-fold p1-in">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="w-6 h-6 flex-none rounded-full border border-white/85 grid place-items-center text-[0.625rem] font-semibold tracking-[0.02em] bg-[#f0fdfa] text-[#0f766e]">OL</span>Ola
+                        </div>
+                    </div>
+                    <p class="mt-4 mb-2 text-[0.8125rem] font-semibold text-[#5c534a] tabular-nums">{% translate "Waiting list" %}</p>
+                    <div class="p1-groupfold p1-out p1-grpout">
+                        <div class="relative border border-[#5eead4] bg-[#f0fdfa]/55 rounded-[0.8125rem] p-[0.3125rem] mt-[0.375rem]">
+                            <span class="absolute -top-[0.5625rem] right-[0.625rem] text-[0.65rem] font-semibold tracking-[0.03em] text-[#0f766e] bg-[#f0fdfa] border border-[#5eead4] rounded-full px-[0.4375rem] leading-4">{% translate "group" %}</span>
+                            <div class="p1-fold">
+                                <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                                    <span class="w-6 h-6 flex-none rounded-[0.4375rem] bg-[#fef3c7] border border-[#fde68a] text-[#92400e] grid place-items-center text-xs font-bold tabular-nums">1</span>Ala<span class="ml-auto text-xs font-normal text-[#737373] tabular-nums whitespace-nowrap">{% translate "4 Jul, 14:31" %}</span>
+                                </div>
+                            </div>
+                            <div class="p1-fold">
+                                <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                                    <span class="w-6 h-6 flex-none rounded-[0.4375rem] bg-[#fef3c7] border border-[#fde68a] text-[#92400e] grid place-items-center text-xs font-bold tabular-nums">2</span>Ola<span class="ml-auto text-xs font-normal text-[#737373] tabular-nums whitespace-nowrap">{% translate "4 Jul, 14:31" %}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p1-fold">
+                        <div class="flex items-center gap-[0.5625rem] bg-[#f7f5f3] rounded-[0.625rem] px-[0.625rem] py-[0.375rem] text-sm font-medium text-[#252220]">
+                            <span class="p1-swap w-6 h-6 flex-none rounded-[0.4375rem] bg-[#fef3c7] border border-[#fde68a] text-[#92400e] place-items-center text-xs font-bold tabular-nums"><span class="p1-old">3</span><span class="p1-new">1</span></span>
+                            Basia<span class="ml-auto text-xs font-normal text-[#737373] tabular-nums whitespace-nowrap">{% translate "4 Jul, 15:02" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p1-cap p1-anim" aria-hidden="true">
+                <p class="p1-cap1">{% translate "The group needs two seats. Nobody splits it up, and nobody skips past it." %}</p>
+                <p class="p1-cap2">
+                    {% translate "Two seats free up: Ala and Ola enter together, and Basia moves to the front of the queue." %}
+                </p>
+            </div>
+            <p class="sr-only">
+                {% blocktranslate trimmed %}
+                    An animated demonstration of the waiting list: the programme item is
+                    full (8/8), and Ala and Ola wait in the queue as one group, with Basia
+                    in third place. When one person cancels (7/8), nobody enters: the
+                    group needs two seats and nobody splits it up or skips past it. Only
+                    when a second person cancels (6/8) do Ala and Ola enter the enrolled
+                    list together (8/8), and Basia moves from third to first place in the
+                    queue.
+                {% endblocktranslate %}
+            </p>
+        </div>
+    </div>
+</section>

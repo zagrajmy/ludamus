@@ -405,7 +405,7 @@ class TestEventsPageView:
                 "view": ANY,
             },
             template_name=["index.html"],
-            contains=["landing-hero-heading", "walkthrough-heading"],
+            contains=["landing-hero-heading", "scena-heading", "g-hero-heading"],
         )
 
     def test_landing_sections_hidden_on_sphere_domain(self, client, non_root_sphere):
@@ -421,7 +421,7 @@ class TestEventsPageView:
                 "view": ANY,
             },
             template_name=["index.html"],
-            not_contains=["landing-hero-heading", "walkthrough-heading"],
+            not_contains=["landing-hero-heading", "scena-heading", "g-hero-heading"],
         )
 
     def test_unpublished_event_hidden_for_anonymous(self, client, sphere):

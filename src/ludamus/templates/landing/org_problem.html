@@ -1,0 +1,19 @@
+{% load i18n %}
+<section class="bg-bg-secondary border-y border-border py-12 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="landing-problem-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        <h2 id="landing-problem-heading"
+            class="reveal text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] max-w-[24ch]">
+            {% translate "Your event programme should not live in five places" %}
+        </h2>
+        <p class="reveal mt-4 text-[1.08rem] text-foreground-secondary max-w-[38rem]">
+            {% translate "Proposals in a form. Decisions in email. Room changes in a spreadsheet. Attendee questions in chat. You can survive one event like that, but it is a bad way to work." %}
+        </p>
+        <div class="reveal mt-6 flex flex-wrap gap-2" aria-hidden="true">
+            <span class="text-sm font-medium text-foreground-secondary bg-bg-tertiary border border-border rounded-full px-[0.875rem] py-[0.3rem]"><s class="text-foreground-muted decoration-primary decoration-2">{% translate "form" context "landing chaos chip" %}</s></span>
+            <span class="text-sm font-medium text-foreground-secondary bg-bg-tertiary border border-border rounded-full px-[0.875rem] py-[0.3rem]"><s class="text-foreground-muted decoration-primary decoration-2">{% translate "email" context "landing chaos chip" %}</s></span>
+            <span class="text-sm font-medium text-foreground-secondary bg-bg-tertiary border border-border rounded-full px-[0.875rem] py-[0.3rem]"><s class="text-foreground-muted decoration-primary decoration-2">{% translate "spreadsheet" context "landing chaos chip" %}</s></span>
+            <span class="text-sm font-medium text-foreground-secondary bg-bg-tertiary border border-border rounded-full px-[0.875rem] py-[0.3rem]"><s class="text-foreground-muted decoration-primary decoration-2">{% translate "chat" context "landing chaos chip" %}</s></span>
+        </div>
+    </div>
+</section>

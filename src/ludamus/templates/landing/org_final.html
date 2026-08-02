@@ -1,0 +1,35 @@
+{% load i18n %}
+{% load tessera %}
+<section class="pt-16 pb-4 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="final-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        {# the closing card stays dark in both themes, deliberately #}
+        {# [&_code] keeps the copy chip readable on the always-dark card in the light theme #}
+        <div class="reveal bg-[#252220] text-[#fdfcfb] rounded-3xl px-8 py-14 text-center [&_:focus-visible]:outline-[#fdfcfb] [&_code]:text-[#fdfcfb]">
+            <h2 id="final-heading"
+                class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-[#fdfcfb]">
+                {% translate "Have an event to run?" %}
+            </h2>
+            <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem]">
+                {% translate "Write to us. We will map your process into Zagrajmy and prepare a first version of your event to click through." %}
+            </p>
+            <div class="mt-[2.2rem] flex flex-wrap items-center justify-center gap-4 max-[26rem]:*:w-full">
+                <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
+                   href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
+                {% tessera_copy_chip "kontakt@zagrajmy.net" %}
+            </div>
+            <p class="mt-4 text-[0.95rem] text-[#a69a8c] flex items-start justify-center gap-2 max-w-[34rem] mx-auto">
+                <svg class="flex-none mt-[0.2rem]"
+                     width="16"
+                     height="16"
+                     viewBox="0 0 16 16"
+                     fill="none"
+                     aria-hidden="true">
+                    <path d="M8 1.5 13.5 4v4c0 3.2-2.3 5.7-5.5 6.5C4.8 13.7 2.5 11.2 2.5 8V4L8 1.5Z" stroke="#2dd4b3" stroke-width="1.5" stroke-linejoin="round" />
+                    <path d="m5.8 8 1.6 1.6 2.8-3" stroke="#2dd4b3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                {% translate "We reply with a concrete plan for setting up your event. No commitment." %}
+            </p>
+        </div>
+    </div>
+</section>

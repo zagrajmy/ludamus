@@ -1,0 +1,189 @@
+{% load i18n %}
+{% load tessera %}
+<section class="pt-10 pb-[4.5rem] max-[30rem]:pt-6 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="landing-hero-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        <p class="ld d1 inline-block text-[0.8rem] font-semibold tracking-[0.09em] uppercase text-primary-hover bg-primary-light border border-primary-light px-[0.8rem] py-[0.3rem] rounded-full mb-6">
+            {% translate "For conference and meetup organizers" %}
+        </p>
+        <h1 id="landing-hero-heading"
+            class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
+            {% translate "Run a conference or meetup" %}
+            <span class="strike-phrase">{% translate "without spreadsheet chaos" %}
+                <svg viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M6 14 C 80 18, 150 10, 224 14 S 288 12, 295 13" stroke-width="5" vector-effect="non-scaling-stroke" />
+                </svg>
+            </span>
+        </h1>
+        <p class="ld d3 mt-[1.4rem] text-[clamp(1.05rem,2vw,1.25rem)] text-foreground-secondary max-w-xl">
+            {% translate "Bring the event. We help set up proposals, programme, enrollment, and the public page in Zagrajmy." %}
+        </p>
+        <div class="ld d4 mt-[2.2rem] flex flex-wrap items-center gap-4 max-[26rem]:*:w-full">
+            <a class="btn btn-primary"
+               href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
+            <a class="btn btn-secondary" href="#events">{% translate "Browse events" %}</a>
+            <span class="text-[0.9375rem] text-foreground-muted">{% translate "or write to" %} {% tessera_copy_chip "kontakt@zagrajmy.net" %}</span>
+        </div>
+        <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
+            <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
+               href="{% url 'web:notice-board:index' %}">{% translate "Or run an Encounter at zagrajmy.net/encounters" %}</a>
+        </p>
+        <!-- the signature: before / after -->
+        <div class="ld d5 mt-12 grid grid-cols-[1.08fr_auto_1fr] items-stretch gap-6 max-[56rem]:grid-cols-1 max-[56rem]:gap-5">
+            <div>
+                <p class="text-xs font-semibold tracking-[0.1em] uppercase text-foreground-muted mb-[0.625rem] flex items-center gap-2 after:content-[''] after:h-px after:flex-1 after:bg-border">
+                    {% translate "Before" %} <span aria-hidden="true">— program_FINAL_2(1).xlsx</span>
+                </p>
+                {% translate "A caricature of a spreadsheet full of errors, crossed out in red like an editor's proof" as t_sheet %}
+                <div class="relative" role="img" aria-label="{{ t_sheet }}">
+                    <div class="sheet">
+                        <div class="overflow-x-auto">
+                            <table aria-hidden="true">
+                                <colgroup>
+                                    <col class="rowno">
+                                    <col class="c-a">
+                                    <col class="c-b">
+                                    <col class="c-c">
+                                    <col class="c-d">
+                                    <col class="c-e">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th class="rowno"></th>
+                                        <th>A</th>
+                                        <th>B</th>
+                                        <th>C</th>
+                                        <th>D</th>
+                                        <th>E</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="rowno">1</td>
+                                        <td>{% translate "Opening talk" %}</td>
+                                        <td>10:00</td>
+                                        <td>{% translate "Room A" %}</td>
+                                        <td class="comm">{% translate "ok? who confirms" %}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="rowno">2</td>
+                                        <td>{% translate "Self-publishing — Piotrek" %}</td>
+                                        <td>10:00</td>
+                                        <td class="yell shout">{% translate "room?? CHANGED" %}</td>
+                                        <td class="comm">{% translate "asked in chat" %}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="dup">
+                                        <td class="rowno">3</td>
+                                        <td>{% translate "self publishing guide" %}</td>
+                                        <td>10;00</td>
+                                        <td>{% translate "Room B" %}</td>
+                                        <td class="comm">{% translate "duplicate?" %}</td>
+                                        <td class="err">{% translate "#REF!" %}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="rowno">4</td>
+                                        <td>{% translate "Prototyping workshop" %}</td>
+                                        <td>12:00</td>
+                                        <td>{% translate "Workshop rm." %}</td>
+                                        <td class="shout">{% translate "12/12 DO NOT ADD" %}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="dup">
+                                        <td class="rowno">5</td>
+                                        <td>{% translate "Prototyping workshop" %}</td>
+                                        <td>12:00</td>
+                                        <td class="comm">{% translate "workshop room??" %}</td>
+                                        <td class="yell">{% translate "Ala+Ola+2? see DM" %}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="rowno">6</td>
+                                        <td>{% translate "Miniature painting" %}</td>
+                                        <td>15:00</td>
+                                        <td>{% translate "Room A" %}</td>
+                                        <td class="selcell">{% translate "free: 3? 5?" %}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="rowno">7</td>
+                                        <td>{% translate "Publisher Q&A" %}</td>
+                                        <td>15:00</td>
+                                        <td class="err">{% translate "Room B ⚠ clash" %}</td>
+                                        <td class="shout">{% translate "see email 12.02!!" %}</td>
+                                        <td class="err">{% translate "#REF!" %}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="sheet-tabs" aria-hidden="true">
+                            <span>program_v7</span><span>program_FINAL</span><span class="cur">ver_FINAL_2(1)</span>
+                        </div>
+                    </div>
+                    <svg class="strike-big"
+                         viewBox="0 0 420 300"
+                         preserveAspectRatio="none"
+                         aria-hidden="true">
+                        <path d="M 26 278 C 110 236, 208 148, 300 76 S 390 22, 402 14" stroke-width="9" vector-effect="non-scaling-stroke" />
+                    </svg>
+                </div>
+            </div>
+            <div class="self-center text-primary flex items-center justify-center pt-6 max-[56rem]:p-0 max-[56rem]:rotate-90 max-[56rem]:justify-self-center"
+                 aria-hidden="true">
+                <svg class="w-10 h-10"
+                     viewBox="0 0 40 40"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="3"
+                     stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <path d="M6 20 H 32 M 23 11 L 32 20 L 23 29" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold tracking-[0.1em] uppercase text-secondary-hover mb-[0.625rem] flex items-center gap-2 after:content-[''] after:h-px after:flex-1 after:bg-border">
+                    {% translate "After — in Zagrajmy" %}
+                </p>
+                <div class="flex flex-col gap-[0.875rem]">
+                    <p class="text-sm font-semibold text-foreground-secondary flex flex-wrap gap-x-2 gap-y-1 items-baseline mb-[0.125rem]">
+                        {% translate "Board Game Days 2026" %} <span class="font-normal text-foreground-muted">{% translate "Sat–Sun, 14–15 March" %}</span>
+                    </p>
+                    <article class="card px-4 py-[0.875rem]">
+                        <div class="flex justify-between gap-3 items-start">
+                            <h3 class="text-[0.9375rem] font-semibold tracking-[-0.01em] leading-[1.3]">{% translate "Opening talk" %}</h3>
+                            <span class="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-success-bg text-success-text">{% translate "Accepted" %}</span>
+                        </div>
+                        <p class="mt-1.5 text-[0.8125rem] text-foreground-muted flex flex-wrap gap-x-2 gap-y-1 items-center tabular-nums">
+                            <span>10:00</span><span class="text-border">·</span><span>{% translate "Room A" %}</span>
+                        </p>
+                    </article>
+                    <article class="card px-4 py-[0.875rem]">
+                        <div class="flex justify-between gap-3 items-start">
+                            <h3 class="text-[0.9375rem] font-semibold tracking-[-0.01em] leading-[1.3]">
+                                {% translate "Board game prototyping workshop" %}
+                            </h3>
+                            <span class="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-bg-tertiary text-foreground-secondary">{% translate "Full · 12/12" %}</span>
+                        </div>
+                        <p class="mt-1.5 text-[0.8125rem] text-foreground-muted flex flex-wrap gap-x-2 gap-y-1 items-center tabular-nums">
+                            <span>12:00</span><span class="text-border">·</span><span>{% translate "Workshop room" %}</span><span class="text-border">·</span><span class="text-foreground-secondary">Radowit</span>
+                        </p>
+                        <a class="mt-2 inline-block text-[0.8125rem] font-medium text-primary-hover hover:underline hover:underline-offset-[3px]"
+                           href="#zapisy-grupowe">{% translate "Join the waiting list" %}</a>
+                    </article>
+                    <article class="card px-4 py-[0.875rem]">
+                        <div class="flex justify-between gap-3 items-start">
+                            <h3 class="text-[0.9375rem] font-semibold tracking-[-0.01em] leading-[1.3]">
+                                {% translate "Painting miniatures for beginners" %}
+                            </h3>
+                            <span class="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap shrink-0 bg-secondary-light text-secondary-hover">{% translate "3 spots free" %}</span>
+                        </div>
+                        <p class="mt-1.5 text-[0.8125rem] text-foreground-muted flex flex-wrap gap-x-2 gap-y-1 items-center tabular-nums">
+                            <span>15:00</span><span class="text-border">·</span><span>{% translate "Room A" %}</span>
+                        </p>
+                    </article>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

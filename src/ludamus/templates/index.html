@@ -1,87 +1,62 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load tessera %}
+{% load django_vite %}
 {% block title %}
     {% if current_site and root_site and current_site.domain == root_site.domain %}
-        {% translate "Zagrajmy - conference and meetup programme planning" %}
+        {% translate "Zagrajmy — from a speaker's proposal to the printout on the room door" %}
     {% else %}
         {% translate "Events" %}
     {% endif %}
 {% endblock title %}
 {% block meta_description %}
     {% if current_site and root_site and current_site.domain == root_site.domain %}
-        {% translate "We help organizers collect proposals, build the programme, publish event pages, and run enrollment in one place." %}
+        {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
     {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock meta_description %}
 {% block og_description %}
     {% if current_site and root_site and current_site.domain == root_site.domain %}
-        {% translate "We help organizers collect proposals, build the programme, publish event pages, and run enrollment in one place." %}
+        {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
     {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock og_description %}
 {% block twitter_description %}
     {% if current_site and root_site and current_site.domain == root_site.domain %}
-        {% translate "We help organizers collect proposals, build the programme, publish event pages, and run enrollment in one place." %}
+        {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
     {% else %}
         {{ block.super }}
     {% endif %}
 {% endblock twitter_description %}
 {% block header %}
 {% endblock header %}
-{% block body %}
-    {# The organizer pitch belongs to the root domain only; sphere pages keep the plain event list. #}
+{% comment %}
+    The organizer/player pitch belongs to the root domain only, and its
+    full-bleed strips need a main without the shell's max-width; sphere pages
+    keep the default main region with the plain event list.
+{% endcomment %}
+{% block main_region %}
     {% if current_site and root_site and current_site.domain == root_site.domain %}
-        {% include "landing/hero.html" %}
-        {% include "landing/walkthrough.html" %}
-    {% endif %}
-    {% if announcements %}
-        <section id="announcements"
-                 class="mb-12"
-                 aria-labelledby="announcements-heading">
-            <h2 id="announcements-heading"
-                class="text-2xl font-bold mb-6 text-foreground">{% translate "Organization announcements" %}</h2>
-            <div class="space-y-4">
-                {% for announcement in announcements %}
-                    <article class="card p-6">
-                        <h3 class="text-lg font-semibold text-foreground mb-2">{{ announcement.title }}</h3>
-                        <p class="text-foreground-secondary whitespace-pre-line">{{ announcement.content }}</p>
-                    </article>
-                {% endfor %}
-            </div>
-        </section>
-    {% endif %}
-    <div id="events">
-        {% if upcoming_events or past_events %}
-            {% if upcoming_events %}
-                <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Upcoming events" %}</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                    {% for event in upcoming_events %}
-                        {% include "components/event_card.html" with event=event %}
-                    {% endfor %}
-                </div>
-            {% endif %}
-            {% if past_events %}
-                <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Past events" %}</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for event in past_events %}
-                        {% include "components/event_card.html" with event=event variant="past" %}
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% else %}
-            <div class="text-center py-16">
-                <div class="text-foreground-muted">
-                    <div class="mb-4">{% icon "calendar-days" class="w-16 h-16 mx-auto opacity-50" %}</div>
-                    <p class="text-xl font-medium mb-2">{% translate "No events available" %}</p>
-                    <p class="text-sm">{% translate "There are currently no events scheduled. Please check back later!" %}</p>
-                </div>
-            </div>
+        {% if messages %}
+            <div class="flash-region"
+                 role="region"
+                 aria-live="polite"
+                 aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
         {% endif %}
-    </div>
-    {% if current_site and root_site and current_site.domain == root_site.domain %}
-        <div class="mt-16">{% include "landing/pitch.html" %}</div>
+        <main class="grow flex flex-col w-full mb-8">
+            {% include "landing/landing.html" %}
+            <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 w-full">{% include "_index_events.html" %}</div>
+        </main>
+    {% else %}
+        {{ block.super }}
     {% endif %}
+{% endblock main_region %}
+{% block body %}
+    {% include "_index_events.html" %}
 {% endblock body %}
+{% block extra_scripts %}
+    {% if current_site and root_site and current_site.domain == root_site.domain %}
+        {% vite_asset 'src/landing.ts' %}
+    {% endif %}
+{% endblock extra_scripts %}
