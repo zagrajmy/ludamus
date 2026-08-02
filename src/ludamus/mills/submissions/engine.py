@@ -588,6 +588,32 @@ class ImportEngine:
     def _resolve_facilitator(
         self, *, event_id: int, ident: str, display_name: str
     ) -> int:
+        matched = self._match_facilitator(
+            event_id=event_id, ident=ident, display_name=display_name
+        )
+        if matched is not None:
+            # The source row still names them, so a deleted facilitator comes
+            # back rather than colliding with the slug and ident their dead row
+            # keeps reserved.
+            self._repos.facilitators.restore(matched)
+            return matched
+        return self._repos.facilitators.create(
+            {
+                "display_name": display_name,
+                "event_id": event_id,
+                "slug": generate_unique_slug(
+                    display_name,
+                    lambda s: self._repos.facilitators.slug_exists(event_id, s),
+                    fallback="facilitator",
+                ),
+                "ident": ident,
+                "user_id": None,
+            }
+        ).pk
+
+    def _match_facilitator(
+        self, *, event_id: int, ident: str, display_name: str
+    ) -> int | None:
         # An empty `ident` means the recipe names no key columns: dedup on the
         # display-name slug alone, as imports did before identities existed.
         if (
@@ -614,19 +640,7 @@ class ImportEngine:
                 return existing.pk
             if not ident:
                 return existing.pk
-        return self._repos.facilitators.create(
-            {
-                "display_name": display_name,
-                "event_id": event_id,
-                "slug": generate_unique_slug(
-                    display_name,
-                    lambda s: self._repos.facilitators.slug_exists(event_id, s),
-                    fallback="facilitator",
-                ),
-                "ident": ident,
-                "user_id": None,
-            }
-        ).pk
+        return None
 
     def _save_personal_data(
         self,

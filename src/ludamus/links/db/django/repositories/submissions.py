@@ -107,10 +107,11 @@ def _field_dto(
     )
 
 
-def _readable_facilitators() -> QuerySet[Facilitator]:
+def _readable_facilitators(*, include_deleted: bool = False) -> QuerySet[Facilitator]:
     # Every single-facilitator read carries the organizer's name, so a page
     # that shows it needs no second lookup through the user repo.
-    return Facilitator.objects.annotate(organizer_name=F("organizer__name"))
+    manager = Facilitator.all_objects if include_deleted else Facilitator.objects
+    return manager.annotate(organizer_name=F("organizer__name"))
 
 
 def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
@@ -838,8 +839,13 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO:
+        # Identity lookup: reaches dead rows too, since they keep holding their
+        # slug (see the model's constraint note). Callers showing the row to a
+        # user check `deleted_at`.
         try:
-            facilitator = _readable_facilitators().get(event_id=event_id, slug=slug)
+            facilitator = _readable_facilitators(include_deleted=True).get(
+                event_id=event_id, slug=slug
+            )
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
@@ -856,15 +862,19 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def find_id_by_ident(event_id: int, ident: str) -> int | None:
+        # Identity lookup: dead rows keep their ident reserved, so they have to
+        # match here rather than collide at insert time.
         return (
-            Facilitator.objects.filter(event_id=event_id, ident=ident)
+            Facilitator.all_objects.filter(event_id=event_id, ident=ident)
             .values_list("id", flat=True)
             .first()
         )
 
     @staticmethod
     def set_ident(pk: int, ident: str) -> None:
-        Facilitator.objects.filter(id=pk).update(ident=ident)
+        # Identity write, so it lands on dead rows too — the import stamps an
+        # ident on a match it is about to restore.
+        Facilitator.all_objects.filter(id=pk).update(ident=ident)
 
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO:
@@ -944,11 +954,27 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def delete(pk: int) -> None:
-        Facilitator.objects.filter(pk=pk).delete()
+        # Reach through `all_objects` so an already-dead row raises NotFound
+        # instead of silently re-stamping `deleted_at`.
+        try:
+            facilitator = Facilitator.all_objects.get(pk=pk, deleted_at__isnull=True)
+        except Facilitator.DoesNotExist as exc:
+            raise NotFoundError from exc
+        facilitator.soft_delete()
+
+    @staticmethod
+    def restore(pk: int) -> None:
+        # Idempotent on purpose: the import calls it on every matched row and
+        # an alive facilitator must cost nothing but a no-op UPDATE.
+        Facilitator.all_objects.filter(pk=pk, deleted_at__isnull=False).update(
+            deleted_at=None
+        )
 
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool:
-        return Facilitator.objects.filter(event_id=event_id, slug=slug).exists()
+        # Identity lookup: a dead row still owns its slug, so generated slugs
+        # must step around it.
+        return Facilitator.all_objects.filter(event_id=event_id, slug=slug).exists()
 
 
 class PersonalDataFieldValueRepository(PersonalDataFieldValueRepositoryProtocol):

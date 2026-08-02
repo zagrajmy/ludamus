@@ -1260,6 +1260,30 @@ class TestProposalImportService(_ImportServiceMocks):
         )
         assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
 
+    def test_run_restores_a_matched_facilitator(
+        self, service, event_integrations, sessions, facilitators
+    ):
+        # A deleted facilitator still holds its ident and slug, so the match
+        # comes back to life instead of the run minting a colliding row.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        )
+        facilitators.find_id_by_ident.return_value = 55
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_not_called()
+        facilitators.restore.assert_called_once_with(55)
+        assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
+
     def test_run_adopts_a_pre_ident_facilitator_and_stamps_the_ident(
         self, service, event_integrations, sessions, facilitators
     ):

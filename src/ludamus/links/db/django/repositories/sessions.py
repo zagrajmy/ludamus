@@ -608,8 +608,12 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:
         ids = list(session_ids)
+        # The through table has no manager of its own, so the deleted-facilitator
+        # filter the `facilitators` accessor applies has to be spelled out here.
         rows = (
-            Session.facilitators.through.objects.filter(session_id__in=ids)
+            Session.facilitators.through.objects.filter(
+                session_id__in=ids, facilitator__deleted_at__isnull=True
+            )
             .select_related("facilitator")
             .order_by("facilitator__display_name")
         )

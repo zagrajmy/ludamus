@@ -736,7 +736,7 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class Facilitator(models.Model):
+class Facilitator(SoftDeleteModel):
     """Program creator / session facilitator, decoupled from User accounts."""
 
     event = models.ForeignKey(
@@ -781,6 +781,10 @@ class Facilitator(models.Model):
         db_table = "facilitator"
         verbose_name = _("Twórca programu")
         verbose_name_plural = _("Twórcy programu")
+        # Both uniques count deleted rows too, so a dead facilitator keeps
+        # holding its slug and ident. Identity lookups therefore go through
+        # `all_objects` — matching a dead row and restoring it beats colliding
+        # with a reservation the alive-only manager cannot see.
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"

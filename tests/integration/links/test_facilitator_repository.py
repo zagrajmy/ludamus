@@ -1,5 +1,8 @@
+import pytest
+
 from ludamus.links.db.django.models import Facilitator
 from ludamus.links.db.django.repositories.submissions import FacilitatorRepository
+from ludamus.pacts import NotFoundError
 from tests.integration.conftest import EventFactory, UserFactory
 
 
@@ -83,6 +86,67 @@ class TestFacilitatorRepositoryRelease:
         released = FacilitatorRepository.release(facilitator.pk, organizer_id=None)
 
         assert released is False
+
+
+class TestFacilitatorRepositorySoftDelete:
+    def test_delete_stamps_the_row_and_hides_it_from_the_default_manager(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        FacilitatorRepository.delete(facilitator.pk)
+
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is not None
+        assert not Facilitator.objects.filter(pk=facilitator.pk).exists()
+
+    def test_deleting_an_already_deleted_facilitator_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.delete(facilitator.pk)
+        stamped_at = Facilitator.all_objects.get(pk=facilitator.pk).deleted_at
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.delete(facilitator.pk)
+
+        assert Facilitator.all_objects.get(pk=facilitator.pk).deleted_at == stamped_at
+
+    def test_a_deleted_facilitator_keeps_holding_its_slug(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.delete(facilitator.pk)
+
+        assert FacilitatorRepository.slug_exists(event.pk, "alice") is True
+
+    def test_a_deleted_facilitator_still_matches_by_ident(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.set_ident(facilitator.pk, "ident-1")
+        FacilitatorRepository.delete(facilitator.pk)
+
+        assert (
+            FacilitatorRepository.find_id_by_ident(event.pk, "ident-1")
+            == facilitator.pk
+        )
+
+    def test_restore_brings_a_deleted_facilitator_back(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.delete(facilitator.pk)
+
+        FacilitatorRepository.restore(facilitator.pk)
+
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
+        assert Facilitator.objects.filter(pk=facilitator.pk).exists()
+
+    def test_restoring_a_live_facilitator_changes_nothing(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        FacilitatorRepository.restore(facilitator.pk)
+
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
 
 
 class TestFacilitatorRepositoryRead:
