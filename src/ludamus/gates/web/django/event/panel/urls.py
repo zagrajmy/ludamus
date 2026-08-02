@@ -19,6 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     tracks,
     venues,
 )
+from ludamus.gates.web.django.chronology.panel.views import print as print_views
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
@@ -100,6 +101,16 @@ _timetable_urlpatterns = [
         "confirmations/do/confirm",
         confirmations.ConfirmationsConfirmActionView.as_view(),
         name="timetable-confirmations-confirm",
+    ),
+    path(
+        "print/timetable/",
+        print_views.TimetablePrintView.as_view(material="timetable"),
+        name="timetable-print",
+    ),
+    path(
+        "print/door-cards/",
+        print_views.TimetablePrintView.as_view(material="door-cards"),
+        name="timetable-print-door-cards",
     ),
 ]
 
@@ -446,6 +457,11 @@ urlpatterns = [
         name="discount-delete",
     ),
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
+    path(
+        "event/<slug:slug>/print/",
+        print_views.PrintMaterialsPageView.as_view(),
+        name="print-materials",
+    ),
     path(
         "event/<slug:slug>/settings/integrations/check/",
         integrations.IntegrationCheckActionView.as_view(),

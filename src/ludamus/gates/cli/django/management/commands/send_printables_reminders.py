@@ -4,8 +4,8 @@ Manual entry point for ``PrintablesReminderService.send_due_reminders``. The
 primary path is the in-system DBOS schedule (``inits.dbos_scheduler``); with
 ``SCHEDULER_MODE=cron`` run this daily via external cron instead.
 Finds every event starting within the reminder lead time whose organizers
-have not opened the print page and have not already been reminded, then emails
-each sphere manager a link to the event's print page. Safe to run
+have not opened a print page and have not already been reminded, then emails
+each sphere manager a link to the panel's print-materials hub. Safe to run
 repeatedly — each event is reminded once.
 """
 
