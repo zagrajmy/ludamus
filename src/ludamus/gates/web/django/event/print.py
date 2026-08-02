@@ -18,7 +18,7 @@ from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.printing import AreaScheduleQueryDTO, PrintTimetableQueryDTO
+from ludamus.pacts.printing import PrintQueryDTO
 
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     type _LazyStr = str | _StrPromise
 
 
-DocumentKind = Literal["area_schedule", "session_list", "timetable"]
+DocumentKind = Literal["area_schedule", "door_cards", "session_list", "timetable"]
 ScopeKind = Literal["event", "scope", "track"]
 
 
@@ -53,16 +53,23 @@ class MaterialSpec:
     def show_track_control(self) -> bool:
         return self.scope_kind == "track"
 
-    # Timetables take a time range and a "with descriptions" toggle (which
-    # swaps the grid for a per-space list); the session list takes neither.
+    # The "with descriptions" capability swaps the timetable grid or the door
+    # cards for the per-space descriptions pages; the session list carries
+    # descriptions already.
     @property
-    def show_timetable_controls(self) -> bool:
-        return self.document_kind == "timetable"
+    def supports_descriptions(self) -> bool:
+        return self.document_kind in {"timetable", "door_cards"}
+
+    # Timetables and door cards cover a time window; the session list doesn't.
+    @property
+    def show_range_controls(self) -> bool:
+        return self.document_kind in {"timetable", "door_cards"}
 
 
 TIMETABLE = "timetable"
 TRACK_TIMETABLE = "track-timetable"
 SESSION_LIST = "session-list"
+DOOR_CARDS = "door-cards"
 # Retired material value still reachable from old bookmarks; maps to the
 # timetable material with the descriptions checkbox ticked.
 LEGACY_DESCRIPTIONS_MATERIAL = "timetable-descriptions"
@@ -77,6 +84,7 @@ MATERIAL_SPECS = (
     MaterialSpec(
         SESSION_LIST, _("Session list"), "session_list", requires_session_list=True
     ),
+    MaterialSpec(DOOR_CARDS, _("Door cards"), "door_cards", scope_kind="scope"),
 )
 MATERIAL_SPECS_BY_VALUE = {spec.value: spec for spec in MATERIAL_SPECS}
 
@@ -145,7 +153,8 @@ class PublicEventPrintView(View):
             raise Http404 from exc
 
         published = is_event_published(event)
-        if not published and not has_panel_access(request):
+        panel_user = has_panel_access(request)
+        if not published and not panel_user:
             raise Http404
 
         scope_pk = _scope_pk(request.GET.get("scope"))
@@ -154,18 +163,27 @@ class PublicEventPrintView(View):
         except NotFoundError as exc:
             raise Http404 from exc
 
+        if panel_user:
+            # A manager opening the print page is our signal that this event's
+            # organizers have printed, which suppresses the pre-event reminder.
+            request.services.printables_reminder.mark_printed(event.pk)
+
         tz = get_current_timezone()
         resolved_range = self._resolve_range(event, tz)
         descriptions = (
             request.GET.get("descriptions") == "1"
             or request.GET.get("material") == LEGACY_DESCRIPTIONS_MATERIAL
         )
+        # Only sphere managers may pull unconfirmed sessions onto paper; for
+        # everyone else the param is ignored, not an error.
+        unconfirmed = panel_user and request.GET.get("unconfirmed") == "1"
+        confirmed_only = not unconfirmed
 
         service = request.services.print_materials
         tracks = service.list_tracks(event.pk)
         selected_track = self._selected_track(tracks)
         session_list_candidate = service.build_session_list(
-            event.pk, confirmed_only=True
+            event.pk, confirmed_only=confirmed_only
         )
         material_options = _available_materials(
             session_list_available=session_list_candidate is not None,
@@ -175,39 +193,39 @@ class PublicEventPrintView(View):
         print_scope = _resolve_print_scope(
             material=material_spec, scope=scope, track=selected_track
         )
-        # The descriptions toggle swaps the timetable grid for the per-space
-        # descriptions list; the material still names what is scoped.
+        # The descriptions toggle swaps the timetable grid or the door cards
+        # for the per-space descriptions pages; the material still names what
+        # is scoped.
         document_kind: DocumentKind = (
             "area_schedule"
-            if descriptions and material_spec.document_kind == "timetable"
+            if descriptions and material_spec.supports_descriptions
             else material_spec.document_kind
         )
 
-        timetable = None
-        area_schedule = None
-        session_list = None
+        # One context slot per document kind; the three unselected ones stay
+        # None so the template picks its branch by presence.
+        documents: dict[str, object] = {
+            "timetable": None,
+            "area_schedule": None,
+            "session_list": None,
+            "door_cards": None,
+        }
         if document_kind == "session_list":
-            session_list = session_list_candidate
-        elif document_kind == "area_schedule":
-            area_schedule = service.build_area_schedule(
-                AreaScheduleQueryDTO(
-                    event_pk=event.pk,
-                    time_range=resolved_range.window,
-                    scope_space_pks=print_scope.space_pks,
-                    track_pk=print_scope.track_pk,
-                    scope_name=print_scope.name,
-                    confirmed_only=True,
-                )
-            )
+            documents["session_list"] = session_list_candidate
         else:
-            timetable = service.build_timetable(
-                PrintTimetableQueryDTO(
+            build = {
+                "timetable": service.build_timetable,
+                "area_schedule": service.build_area_schedule,
+                "door_cards": service.build_door_cards,
+            }[document_kind]
+            documents[document_kind] = build(
+                PrintQueryDTO(
                     event_pk=event.pk,
                     tz=tz,
                     scope_space_pks=print_scope.space_pks,
                     track_pk=print_scope.track_pk,
                     scope_name=print_scope.name,
-                    confirmed_only=True,
+                    confirmed_only=confirmed_only,
                     time_range=resolved_range.window,
                 )
             )
@@ -223,9 +241,10 @@ class PublicEventPrintView(View):
             {
                 "event": event,
                 "logo": event.logo_url or sphere.logo_url,
-                "timetable": timetable,
-                "area_schedule": area_schedule,
-                "session_list": session_list,
+                "timetable": documents["timetable"],
+                "area_schedule": documents["area_schedule"],
+                "session_list": documents["session_list"],
+                "door_cards": documents["door_cards"],
                 "qr_svg": qr_svg(event_url, xmldecl=False),
                 "print_scopes": request.services.venues.list_print_scopes(event.pk),
                 "tracks": tracks,
@@ -233,8 +252,11 @@ class PublicEventPrintView(View):
                 "material": material_spec.value,
                 "show_scope_control": material_spec.show_scope_control,
                 "show_track_control": material_spec.show_track_control,
-                "show_timetable_controls": material_spec.show_timetable_controls,
+                "show_descriptions_control": material_spec.supports_descriptions,
+                "show_range_controls": material_spec.show_range_controls,
+                "show_unconfirmed_control": panel_user,
                 "descriptions": descriptions,
+                "unconfirmed": unconfirmed,
                 "selected_scope": str(scope_pk) if scope_pk is not None else "",
                 "selected_track": selected_track.slug if selected_track else "",
                 "range_start_value": (
@@ -243,7 +265,9 @@ class PublicEventPrintView(View):
                 "range_hours": resolved_range.hours,
             },
         )
-        if published:
+        # A manager's page differs from the public one (extra materials, the
+        # unconfirmed toggle), so it must never land in a shared cache.
+        if published and not panel_user:
             patch_cache_control(response, public=True, max_age=300)
         else:
             patch_cache_control(response, private=True, max_age=5)
