@@ -5,6 +5,7 @@ from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
+from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Track
 from ludamus.pacts.venues import PrintScopeOptionDTO
@@ -20,11 +21,19 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     empty_grid,
+    grid_with,
     panel_context,
     schedule_outside_preferred_slot,
     schedule_session,
+    session_position,
     timetable_tab_urls,
 )
+
+# The `event` fixture starts at UTC midnight and Warsaw is a whole-hour offset,
+# so a slot starting with the event puts the grid's first time label — and its
+# day — on the hour.
+SLOT_MINUTES = 120
+HOUR_MINUTES = 60
 
 
 def _base_context(event, **stats):
@@ -44,10 +53,10 @@ def _scheduled_stats(count):
     return {"rooms_count": 1, "scheduled_sessions": count, "total_sessions": count}
 
 
-# The grid is a deep DTO whose spaces carry DB timestamps and whose time labels
-# come from the event's timezone, so rebuilding it here would mean restating the
-# view's own scheduling maths. Tests that care about it pass grid=ANY and assert
-# the parts they exercise on the next lines; every other key is pinned exactly.
+def _day_start(event):
+    return localtime(event.start_time)
+
+
 def _page_context(event, *, stats=None, **overrides):
     return {
         **_base_context(event, **(stats or {})),
@@ -117,21 +126,22 @@ class TestTimetablePageView:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=_page_context(
-                event, stats={"rooms_count": 1}, grid=ANY, print_scopes=_scopes(space)
+                event,
+                stats={"rooms_count": 1},
+                grid=grid_with(
+                    spaces=[space],
+                    day_start=_day_start(event),
+                    total_minutes=SLOT_MINUTES,
+                ),
+                print_scopes=_scopes(space),
             ),
         )
-        grid = response.context["grid"]
-        assert len(grid.spaces) == 1
-        assert grid.spaces[0].pk == space.pk
-        assert len(grid.time_labels) > 0
-        assert grid.date_selection == "all"
-        assert grid.available_dates == [grid.days[0].date]
         assert time_slot is not None
 
     def test_grid_contains_scheduled_session(
         self, panel_client, event, session, space, time_slot
     ):
-        schedule_session(session=session, space=space, start=event.start_time)
+        item = schedule_session(session=session, space=space, start=event.start_time)
 
         response = panel_client.get(self.get_url(event))
 
@@ -140,13 +150,23 @@ class TestTimetablePageView:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=_page_context(
-                event, stats=_scheduled_stats(1), grid=ANY, print_scopes=_scopes(space)
+                event,
+                stats=_scheduled_stats(1),
+                grid=grid_with(
+                    spaces=[space],
+                    day_start=_day_start(event),
+                    total_minutes=SLOT_MINUTES,
+                    sessions_by_space={
+                        space.pk: [
+                            session_position(
+                                item, start_minutes=0, duration_minutes=HOUR_MINUTES
+                            )
+                        ]
+                    },
+                ),
+                print_scopes=_scopes(space),
             ),
         )
-        grid = response.context["grid"]
-        col = next(c for c in grid.days[0].columns if c.space.pk == space.pk)
-        assert len(col.sessions) == 1
-        assert col.sessions[0].agenda_item.session_title == session.title
         assert time_slot is not None
 
     def test_all_days_render_side_by_side_with_canonical_url_state(
@@ -231,7 +251,7 @@ class TestTimetablePageView:
     def test_grid_session_is_draggable_with_placement_data(
         self, panel_client, event, session, space, time_slot
     ):
-        schedule_session(session=session, space=space, start=event.start_time)
+        item = schedule_session(session=session, space=space, start=event.start_time)
 
         response = panel_client.get(self.get_url(event))
 
@@ -240,7 +260,21 @@ class TestTimetablePageView:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=_page_context(
-                event, stats=_scheduled_stats(1), grid=ANY, print_scopes=_scopes(space)
+                event,
+                stats=_scheduled_stats(1),
+                grid=grid_with(
+                    spaces=[space],
+                    day_start=_day_start(event),
+                    total_minutes=SLOT_MINUTES,
+                    sessions_by_space={
+                        space.pk: [
+                            session_position(
+                                item, start_minutes=0, duration_minutes=HOUR_MINUTES
+                            )
+                        ]
+                    },
+                ),
+                print_scopes=_scopes(space),
             ),
         )
         content = response.content.decode()
@@ -255,7 +289,7 @@ class TestTimetablePageView:
     ):
         start = event.start_time
         end = start + timedelta(hours=1)
-        AgendaItemFactory(
+        item = AgendaItemFactory(
             session=session,
             space=space,
             start_time=start,
@@ -270,7 +304,21 @@ class TestTimetablePageView:
             HTTPStatus.OK,
             template_name="panel/timetable.html",
             context_data=_page_context(
-                event, stats=_scheduled_stats(1), grid=ANY, print_scopes=_scopes(space)
+                event,
+                stats=_scheduled_stats(1),
+                grid=grid_with(
+                    spaces=[space],
+                    day_start=_day_start(event),
+                    total_minutes=SLOT_MINUTES,
+                    sessions_by_space={
+                        space.pk: [
+                            session_position(
+                                item, start_minutes=0, duration_minutes=HOUR_MINUTES
+                            )
+                        ]
+                    },
+                ),
+                print_scopes=_scopes(space),
             ),
         )
         content = response.content.decode()
@@ -294,16 +342,13 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": 2},
-                grid=ANY,
+                grid=grid_with(spaces=[space]),
                 print_scopes=ANY,
                 all_tracks=ANY,
                 filter_track_pk=track.pk,
             ),
         )
-        grid = response.context["grid"]
-        space_pks = [s.pk for s in grid.spaces]
-        assert space.pk in space_pks
-        assert other_space.pk not in space_pks
+        assert other_space is not None
 
     def test_auto_selects_single_managed_track(
         self, panel_client, active_user, event, space
@@ -324,16 +369,14 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": 2},
-                grid=ANY,
+                grid=grid_with(spaces=[space]),
                 print_scopes=ANY,
                 all_tracks=ANY,
                 filter_track_pk=track.pk,
                 managed_track_pks={track.pk},
             ),
         )
-        grid = response.context["grid"]
-        space_pks = [s.pk for s in grid.spaces]
-        assert other_space.pk not in space_pks
+        assert other_space is not None
 
     # Only a non-numeric room_page falls back to 1; a numeric out-of-range one
     # reaches the context as given, while grid.page stays clamped.
@@ -359,8 +402,13 @@ class TestTimetablePageView:
         room_count = 2 * TIMETABLE_ROOM_PAGE_SIZE + 1
         expected_pages = math.ceil(room_count / TIMETABLE_ROOM_PAGE_SIZE)
         middle_page = 2
-        for _ in range(room_count):
-            SpaceFactory(event=event)
+        # Named so the repository's (order, name) ordering — and therefore
+        # which rooms land on page 2 — is unambiguous.
+        rooms = [
+            SpaceFactory(event=event, name=f"Room {index:02d}")
+            for index in range(room_count)
+        ]
+        page_start = (middle_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
 
         response = panel_client.get(self.get_url(event), {"room_page": middle_page})
 
@@ -371,14 +419,18 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 stats={"rooms_count": room_count},
-                grid=ANY,
+                grid=grid_with(
+                    spaces=rooms[page_start : page_start + TIMETABLE_ROOM_PAGE_SIZE],
+                    day_start=_day_start(event),
+                    total_minutes=SLOT_MINUTES,
+                    page=middle_page,
+                    total_pages=expected_pages,
+                    total_spaces=room_count,
+                ),
                 print_scopes=ANY,
                 room_page=middle_page,
             ),
         )
-        grid = response.context["grid"]
-        assert grid.page == middle_page
-        assert grid.total_pages == expected_pages
         assert time_slot is not None
 
     def test_grid_marks_session_outside_preferred_slot(
@@ -404,7 +456,15 @@ class TestTimetablePageView:
                     "total_proposals": 1,
                     "total_sessions": 2,
                 },
-                grid=ANY,
+                # The session's only preferred slot — 4 hours after the event
+                # start — is also the event's only slot, so the grid spans that
+                # slot alone and the session, scheduled at the event start,
+                # falls outside every rendered column.
+                grid=grid_with(
+                    spaces=[space],
+                    day_start=localtime(event.start_time + timedelta(hours=4)),
+                    total_minutes=SLOT_MINUTES,
+                ),
                 print_scopes=_scopes(space),
                 categories=ANY,
                 slot_violation_session_pks={session.pk},

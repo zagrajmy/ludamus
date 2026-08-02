@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import (
     EventIntegration,
     Facilitator,
@@ -16,11 +17,16 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionDTO
+from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionDTO, SpaceDTO
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
     IntegrationKind,
+    SessionPositionDTO,
+    SpaceColumnDTO,
+    SpaceGroupDTO,
+    TimeLabelDTO,
+    TimetableDayGridDTO,
     TimetableGridDTO,
 )
 from ludamus.pacts.crowd import UserDTO
@@ -208,20 +214,77 @@ def assign_payload(*, session, space, start, end):
     }
 
 
-def empty_grid():
+def grid_with(
+    *,
+    spaces,
+    day_start=None,
+    total_minutes=0,
+    sessions_by_space=None,
+    page=1,
+    total_pages=1,
+    total_spaces=None,
+):
+    # The expected timetable grid for a single rendered day of top-level rooms.
+    # Callers pass the day's first label time and its span in minutes rather
+    # than the slots, so no test re-derives the view's slot-window bounds.
+    space_dtos = [SpaceDTO.model_validate(space) for space in spaces]
+    sessions = sessions_by_space or {}
+    labels = (
+        [
+            TimeLabelDTO(
+                time=day_start + timedelta(minutes=offset), offset_minutes=offset
+            )
+            for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
+        ]
+        if day_start
+        else []
+    )
+    days = (
+        [
+            TimetableDayGridDTO(
+                date=day_start.date(),
+                columns=[
+                    SpaceColumnDTO(space=space, sessions=sessions.get(space.pk, []))
+                    for space in space_dtos
+                ],
+                event_start_iso=day_start.isoformat(),
+            )
+        ]
+        if day_start
+        else []
+    )
     return TimetableGridDTO(
-        spaces=[],
-        groups=[],
-        days=[],
-        time_labels=[],
-        total_minutes=0,
+        spaces=space_dtos,
+        groups=(
+            [SpaceGroupDTO(parent_pk=None, parent_name="", span=len(space_dtos))]
+            if space_dtos
+            else []
+        ),
+        days=days,
+        time_labels=labels,
+        total_minutes=total_minutes,
         slot_minutes=TIMETABLE_SLOT_MINUTES,
         snap_minutes=TIMETABLE_SNAP_MINUTES,
-        page=1,
-        total_pages=1,
-        total_spaces=0,
-        total_columns=0,
-        available_dates=[],
+        page=page,
+        total_pages=total_pages,
+        total_spaces=len(space_dtos) if total_spaces is None else total_spaces,
+        total_columns=len(space_dtos) * len(days),
+        available_dates=[day.date for day in days],
+    )
+
+
+def empty_grid():
+    return grid_with(spaces=[])
+
+
+def session_position(item, *, start_minutes, duration_minutes):
+    # These tests assert where an agenda item lands in the grid; the item's own
+    # field mapping is the repository's contract, tested there, so read it back
+    # instead of restating a dozen fields.
+    return SessionPositionDTO(
+        agenda_item=AgendaItemRepository.read(item.pk),
+        start_minutes=start_minutes,
+        duration_minutes=duration_minutes,
     )
 
 
