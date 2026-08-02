@@ -892,12 +892,36 @@ class TestPublicEventPrintView:
         )
 
         _assert_print_ok(
-            response, material="door-cards", range_hours=3, print_scopes=[_scope(space)]
+            response,
+            material="door-cards",
+            range_hours=3,
+            print_scopes=[_scope(space)],
+            timetable=None,
+            door_cards=DoorCardsDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name=None,
+                cards=[
+                    DoorCardDTO(
+                        space_name=space.name,
+                        capacity=space.capacity,
+                        day=localdate(event.start_time),
+                        entries=[
+                            DoorCardEntryDTO(
+                                start_time=event.start_time,
+                                end_time=event.start_time + timedelta(hours=1),
+                                session=PrintSessionDTO(
+                                    title=session.title,
+                                    presenter_name=session.display_name,
+                                ),
+                            )
+                        ],
+                    )
+                ],
+            ),
         )
-        cards = response.context_data["door_cards"].cards
-        assert [[e.session.title for e in card.entries] for card in cards] == [
-            [session.title]
-        ]
 
     def test_manager_can_include_unconfirmed_sessions(
         self, authenticated_client, active_user, sphere, event, session, space
@@ -914,17 +938,43 @@ class TestPublicEventPrintView:
         response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
 
         _assert_print_ok(
-            response, unconfirmed=True, panel_access=True, print_scopes=[_scope(space)]
+            response,
+            unconfirmed=True,
+            panel_access=True,
+            print_scopes=[_scope(space)],
+            timetable=PrintTimetableDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name=None,
+                is_complete=False,
+                pages=[
+                    PrintTimetablePageDTO(
+                        day=event.start_time.date(),
+                        space_names=[space.name],
+                        rows=[
+                            PrintTimetableRowDTO(
+                                start_time=event.start_time,
+                                end_time=event.start_time + timedelta(hours=1),
+                                cells=[
+                                    PrintTimetableCellDTO(
+                                        sessions=[
+                                            PrintSessionDTO(
+                                                title=session.title,
+                                                presenter_name=session.display_name,
+                                            )
+                                        ]
+                                    )
+                                ],
+                            )
+                        ],
+                        space_range_name=None,
+                    )
+                ],
+            ),
         )
         assert_cache_control(response, {"private", "max-age=5"})
-        titles = [
-            s.title
-            for page in response.context_data["timetable"].pages
-            for row in page.rows
-            for cell in row.cells
-            for s in cell.sessions
-        ]
-        assert titles == [session.title]
 
     def test_unconfirmed_param_is_ignored_for_participants(
         self, client, event, session, space

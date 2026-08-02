@@ -2,9 +2,9 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
-{% block title_prefix %}
-    {{ proposal.title }} - {% translate "Proposals" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {{ proposal.title }} • {% translate "Proposals" %}
+{% endblock title %}
 {% block page_title %}
     {{ proposal.title }}
 {% endblock page_title %}

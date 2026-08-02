@@ -277,3 +277,7 @@ If you fix a papercut, remove it.
 - 2026-08-02: mise run test:e2e -- tests/print-flow.spec.ts → the existing
   hours-window case flaked once under five-worker contention after the new
   regression case passed; rerunning the regression alone passed.
+- 2026-08-02: mise run lint printed 'Finished in 198s' with every check green,
+  then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
+  child (sandbox egress is slow); had to pstree and kill -9 the mise process to
+  get the shell back.

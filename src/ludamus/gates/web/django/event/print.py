@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple, assert_never
 
 from django.http import Http404, HttpResponse
 from django.template.response import TemplateResponse
@@ -228,8 +228,10 @@ class PublicEventPrintView(View):
                 timetable = service.build_timetable(query)
             elif document_kind == "area_schedule":
                 area_schedule = service.build_area_schedule(query)
-            else:
+            elif document_kind == "door_cards":
                 door_cards = service.build_door_cards(query)
+            else:
+                assert_never(document_kind)
 
         event_url = request.build_absolute_uri(
             reverse("web:chronology:event", kwargs={"slug": slug})
