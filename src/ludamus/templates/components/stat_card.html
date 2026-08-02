@@ -1,0 +1,9 @@
+{% comment %}
+One number and what it means. `of` renders the number as a fraction (pass it
+even when both sides are zero, so `0/0` still reads as a fraction), `suffix`
+appends a unit such as `%`.
+{% endcomment %}
+<div class="rounded-xl border border-border bg-bg-tertiary p-3">
+    <div class="text-2xl font-semibold tabular-nums">{{ value }}{% if of is not None %}/{{ of }}{% endif %}{{ suffix|default:"" }}</div>
+    <div class="mt-0.5 text-xs text-foreground-muted">{{ label }}</div>
+</div>

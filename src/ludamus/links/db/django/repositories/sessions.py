@@ -3,12 +3,13 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, Exists, OuterRef, Q, QuerySet
+from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     AgendaItem,
     Event,
+    Facilitator,
     Session,
     SessionFieldValue,
     SessionParticipationStatus,
@@ -54,6 +55,7 @@ from ludamus.pacts.chronology import (
     SessionModalSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import ConfirmationSessionRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -571,6 +573,73 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             )
             for s in qs.order_by("-creation_time")
         ]
+
+    @staticmethod
+    def list_confirmation_rows(
+        event_pk: int, facilitator_pks: list[int]
+    ) -> list[ConfirmationSessionRow]:
+        # One row per (facilitator, session) pair — the page groups by
+        # facilitator, so the fan-out is the shape it wants. Placed sessions
+        # sort first, chronologically; the rest fall back to their title.
+        rows = (
+            Session.objects.filter(event_id=event_pk, facilitators__in=facilitator_pks)
+            .values(
+                "pk",
+                "title",
+                "status",
+                "contact_email",
+                "category__name",
+                "facilitators__pk",
+                "agenda_item__pk",
+                "agenda_item__session_confirmed",
+                "agenda_item__start_time",
+                "agenda_item__end_time",
+                "agenda_item__space__name",
+            )
+            .order_by(F("agenda_item__start_time").asc(nulls_last=True), "title", "pk")
+        )
+        return [
+            ConfirmationSessionRow(
+                facilitator_pk=row["facilitators__pk"],
+                session_pk=row["pk"],
+                title=row["title"],
+                status=SessionStatus(row["status"]),
+                contact_email=row["contact_email"],
+                category_name=row["category__name"] or "",
+                agenda_item_pk=row["agenda_item__pk"],
+                is_confirmed=bool(row["agenda_item__session_confirmed"]),
+                start_time=row["agenda_item__start_time"],
+                end_time=row["agenda_item__end_time"],
+                room_name=row["agenda_item__space__name"] or "",
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def list_track_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]:
+        names: dict[int, dict[int, str]] = {}
+        rows = Track.objects.filter(sessions__in=session_pks).values_list(
+            "sessions__pk", "pk", "name"
+        )
+        for session_pk, track_pk, name in rows:
+            names.setdefault(session_pk, {})[track_pk] = name
+        return names
+
+    @staticmethod
+    def list_facilitator_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]:
+        names: dict[int, dict[int, str]] = {}
+        rows = (
+            Facilitator.objects.filter(sessions__in=session_pks)
+            .order_by("display_name")
+            .values_list("sessions__pk", "pk", "display_name")
+        )
+        for session_pk, facilitator_pk, name in rows:
+            names.setdefault(session_pk, {})[facilitator_pk] = name
+        return names
 
     @staticmethod
     def read_track_ids(session_id: int) -> list[int]:

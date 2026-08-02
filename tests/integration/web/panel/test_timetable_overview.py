@@ -108,6 +108,9 @@ class TestTimetableOverviewPageView:
                     "problems": reverse(
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
+                    "confirmations": reverse(
+                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
+                    ),
                 },
                 "active_tab": "overview",
             },
@@ -206,6 +209,9 @@ class TestTimetableOverviewPageView:
                     ),
                     "problems": reverse(
                         "panel:timetable-problems", kwargs={"slug": event.slug}
+                    ),
+                    "confirmations": reverse(
+                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
                     ),
                 },
                 "active_tab": "overview",

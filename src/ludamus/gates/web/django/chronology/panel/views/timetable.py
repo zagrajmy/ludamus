@@ -40,12 +40,15 @@ def _parse_iso_duration_minutes(iso: str) -> int:
     return hours * 60 + minutes
 
 
-def _timetable_tab_urls(slug: str) -> dict[str, str]:
+def timetable_tab_urls(slug: str) -> dict[str, str]:
     return {
         "timetable": reverse("panel:timetable", kwargs={"slug": slug}),
         "log": reverse("panel:timetable-log", kwargs={"slug": slug}),
         "overview": reverse("panel:timetable-overview", kwargs={"slug": slug}),
         "problems": reverse("panel:timetable-problems", kwargs={"slug": slug}),
+        "confirmations": reverse(
+            "panel:timetable-confirmations", kwargs={"slug": slug}
+        ),
     }
 
 
@@ -129,7 +132,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "timetable"
         context["print_scopes"] = self.get_print_scopes(current_event.pk)
         return TemplateResponse(self.request, "panel/timetable.html", context)
@@ -496,7 +499,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
         context["track_progress"] = overview.track_progress(current_event.pk)
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "overview"
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)
 
@@ -526,7 +529,7 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["slot_violations"] = slot_violations
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "problems"
         return TemplateResponse(self.request, "panel/timetable-problems.html", context)
 
@@ -560,7 +563,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["spaces"] = spaces
         context["space_pk"] = space_pk
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "log"
         return TemplateResponse(self.request, "panel/timetable-log.html", context)
 

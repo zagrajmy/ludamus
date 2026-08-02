@@ -1,0 +1,175 @@
+{% load i18n tessera confirmation_tags %}
+{% comment %}
+`next_url` comes from the view: on an HTMX re-render the request path is the
+action endpoint, which would be a useless place to send a claim back to.
+{% endcomment %}
+{% url 'panel:timetable-confirmations-confirm' slug=current_event.slug as confirm_url %}
+{% comment %}
+Every confirm form inside swaps this whole card, so the target and the swap are
+set once here and inherited by the forms below.
+{% endcomment %}
+<details id="facilitator-card-{{ facilitator.pk }}"
+         class="card overflow-hidden {% if facilitator.is_fully_confirmed %}bg-bg-tertiary{% endif %}"
+         hx-target="#facilitator-card-{{ facilitator.pk }}"
+         hx-swap="outerHTML"
+         {% if not facilitator.is_fully_confirmed %}open{% endif %}>
+    <summary class="flex cursor-pointer flex-wrap items-center gap-3 p-4">
+        <span class="font-semibold">{{ facilitator.display_name }}</span>
+        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums {% if facilitator.is_fully_confirmed %}bg-success-bg text-success-text{% else %}bg-bg-tertiary text-foreground-muted{% endif %}">
+            {{ facilitator.confirmed_count }}/{{ facilitator.scheduled_count }}
+        </span>
+        <span class="ml-auto flex flex-wrap items-center gap-2 text-sm">
+            {% if facilitator.organizer_id %}
+                <span class="text-foreground-secondary">
+                    {% blocktranslate with name=facilitator.organizer_name %}Handled by {{ name }}{% endblocktranslate %}
+                </span>
+                <form method="post"
+                      action="{% url 'panel:facilitator-unassign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    {% translate "Step down" as t_step_down %}
+                    {% tessera_button t_step_down variant="secondary" button_type="submit" size="sm" %}
+                </form>
+            {% else %}
+                <span class="text-warning-text">{% translate "Nobody handles this facilitator" %}</span>
+                <form method="post"
+                      action="{% url 'panel:facilitator-assign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    {% translate "Take this on" as t_take_on %}
+                    {% tessera_button t_take_on variant="primary" button_type="submit" size="sm" %}
+                </form>
+            {% endif %}
+            {% if facilitator.scheduled_count and not facilitator.is_fully_confirmed %}
+                <form hx-post="{{ confirm_url }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="scope" value="facilitator">
+                    <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
+                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    <input type="hidden" name="confirmed" value="true">
+                    {% translate "Confirm everything" as t_confirm_all %}
+                    {% tessera_button t_confirm_all variant="secondary" button_type="submit" size="sm" %}
+                </form>
+            {% endif %}
+        </span>
+    </summary>
+    <div class="flex flex-col gap-4 border-t border-border p-4">
+        {% for group in facilitator.email_groups %}
+            <div class="flex flex-col gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    {% if group.contact_email %}
+                        {% tessera_copy_chip group.contact_email %}
+                    {% else %}
+                        <span class="text-sm italic text-warning-text">{% translate "No contact address" %}</span>
+                    {% endif %}
+                    {% if group.confirmable_count %}
+                        <span class="ml-auto flex items-center gap-2">
+                            {% confirmation_copy_text group as copy_payload %}
+                            {% translate "Copy details" as t_copy %}
+                            {% tessera_copy copy_payload class="w-auto" %}
+                            {% icon "clipboard-document" variant="solid" class="size-4" %}
+                            {{ t_copy }}
+                        {% endtessera_copy %}
+                        <form hx-post="{{ confirm_url }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="scope" value="email">
+                            <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
+                            <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                            <input type="hidden" name="contact_email" value="{{ group.contact_email }}">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                            <input type="hidden" name="confirmed" value="true">
+                            {% blocktranslate count count=group.confirmable_count trimmed asvar t_confirm_group %}
+                                Confirm this one
+                            {% plural %}
+                                Confirm these {{ count }}
+                            {% endblocktranslate %}
+                            {% tessera_button t_confirm_group variant="secondary" button_type="submit" size="sm" %}
+                        </form>
+                    </span>
+                {% endif %}
+            </div>
+            {% for status_group in group.status_groups %}
+                <div class="flex flex-col gap-1">
+                    <div class="mt-1 flex items-center gap-2">
+                        {% include "panel/parts/confirmation-status-badge.html" with status=status_group.status %}
+                    </div>
+                    {% for session in status_group.sessions %}
+                        <div class="flex items-start gap-2.5 rounded-xl px-2.5 py-2 hover:bg-bg-tertiary">
+                            {% if session.agenda_item_pk %}
+                                <form class="flex" hx-post="{{ confirm_url }}" hx-trigger="change">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="scope" value="session">
+                                    <input type="hidden" name="facilitator_pk" value="{{ facilitator.pk }}">
+                                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
+                                    <input type="hidden"
+                                           name="agenda_item_pk"
+                                           value="{{ session.agenda_item_pk }}">
+                                    <input type="hidden" name="next" value="{{ next_url }}">
+                                    {# Unchecking sends no `confirmed` at all — that absence is the undo. #}
+                                    <input type="checkbox"
+                                           name="confirmed"
+                                           value="true"
+                                           class="mt-0.5 size-4 accent-primary"
+                                           aria-label="{% translate "Confirmed" %}"
+                                           {% if session.is_confirmed %}checked{% endif %}>
+                                </form>
+                            {% endif %}
+                            <div class="min-w-0">
+                                <div class="font-medium">{{ session.title }}</div>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-foreground-muted">
+                                    {% if session.category_name %}<span>{{ session.category_name }}</span>{% endif %}
+                                    {% if session.agenda_item_pk %}
+                                        <span class="opacity-50">·</span>
+                                        <span>{{ session.room_name }}</span>
+                                        <span class="opacity-50">·</span>
+                                        <span class="tabular-nums">{{ session.start_time|date:"D H:i" }}–{{ session.end_time|date:"H:i" }}</span>
+                                    {% else %}
+                                        <span class="opacity-50">·</span>
+                                        <span class="italic">{% translate "no place in the schedule" %}</span>
+                                    {% endif %}
+                                    {% if session.co_facilitator_names %}
+                                        <span class="opacity-50">·</span>
+                                        <span class="text-foreground-secondary">
+                                            {% blocktranslate with names=session.co_facilitator_names|join:", " %}with {{ names }}{% endblocktranslate %}
+                                        </span>
+                                    {% endif %}
+                                    {% for track_name in session.other_track_names %}
+                                        <span class="inline-flex items-center rounded-full border border-border bg-bg-tertiary px-1.5 py-0.5 text-xs text-foreground-secondary">
+                                            {{ track_name }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+    {% if facilitator.pending_count or facilitator.unplaced_count %}
+        <div class="flex flex-wrap gap-2">
+            {% if facilitator.pending_count %}
+                <div class="flex items-center gap-2 rounded-xl bg-warning-bg px-2.5 py-2 text-sm text-warning-text">
+                    {% icon "clock" class="size-4 shrink-0" %}
+                    {% blocktranslate count count=facilitator.pending_count trimmed %}
+                        {{ count }} program item awaits a decision
+                    {% plural %}
+                        {{ count }} program items await a decision
+                    {% endblocktranslate %}
+                </div>
+            {% endif %}
+            {% if facilitator.unplaced_count %}
+                <div class="flex items-center gap-2 rounded-xl bg-bg-tertiary px-2.5 py-2 text-sm text-foreground-secondary">
+                    {% icon "calendar" class="size-4 shrink-0" %}
+                    {% blocktranslate count count=facilitator.unplaced_count trimmed %}
+                        {{ count }} accepted program item has no place in the schedule yet
+                    {% plural %}
+                        {{ count }} accepted program items have no place in the schedule yet
+                    {% endblocktranslate %}
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+</details>
