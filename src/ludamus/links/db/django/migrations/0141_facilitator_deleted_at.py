@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0139_facilitator_ident")]
+    dependencies = [("db_main", "0140_alter_event_auto_confirm_sessions")]
 
     operations = [
         migrations.AddField(

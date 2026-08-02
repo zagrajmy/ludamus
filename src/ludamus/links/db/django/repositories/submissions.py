@@ -990,10 +990,6 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         ]
 
     @staticmethod
-    def set_flag(pk: int, *, flagged: bool) -> None:
-        Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
-
-    @staticmethod
     def claim(pk: int, organizer_id: int) -> bool:
         # Conditional update, so two organizers clicking at the same moment
         # cannot both win: the loser's UPDATE matches no row.
