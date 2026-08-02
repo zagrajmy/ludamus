@@ -477,7 +477,7 @@ class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
-    auto_confirm_sessions: bool = True
+    auto_confirm_sessions: bool = False
     cover_image_url: str = ""
     description: str
     end_time: datetime
@@ -792,6 +792,18 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read_presenter(session_id: int) -> UserDTO | None: ...
     @staticmethod
+    def list_confirmation_rows(
+        event_pk: int, facilitator_pks: list[int]
+    ) -> list[ConfirmationSessionRow]: ...
+    @staticmethod
+    def list_track_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]: ...
+    @staticmethod
+    def list_facilitator_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]: ...
+    @staticmethod
     def lock(pk: int) -> None: ...
     @staticmethod
     def update(pk: int, data: SessionUpdateData) -> None: ...
@@ -905,9 +917,57 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
     @staticmethod
+    def list_manager_names_by_event(event_pk: int) -> dict[int, list[str]]: ...
+    @staticmethod
     def list_manager_names_by_tracks(
         track_pks: Iterable[int],
     ) -> dict[int, list[str]]: ...
+
+
+class ConfirmationCountsRow(TypedDict):
+    """One aggregate row: who or what, and its confirmed-of-scheduled counts.
+
+    `key` is the grouping id — organizer id (None when nobody claimed the
+    facilitators) or track pk.
+    """
+
+    key: int | None
+    name: str
+    facilitator_count: int
+    scheduled_count: int
+    confirmed_count: int
+
+
+class ConfirmationTotalsRow(TypedDict):
+    scheduled_count: int
+    confirmed_count: int
+
+
+class ConfirmationFacilitatorRow(TypedDict):
+    pk: int
+    display_name: str
+    slug: str
+    organizer_id: int | None
+    organizer_name: str
+
+
+class ConfirmationSessionRow(TypedDict):
+    """One (facilitator, session) pair, flattened for the confirmations page.
+
+    Agenda-item columns are None for a session with no place in the timetable.
+    """
+
+    facilitator_pk: int
+    session_pk: int
+    title: str
+    status: SessionStatus
+    contact_email: str
+    category_name: str
+    agenda_item_pk: int | None
+    is_confirmed: bool
+    start_time: datetime | None
+    end_time: datetime | None
+    room_name: str
 
 
 class AgendaItemRepositoryProtocol(Protocol):
@@ -934,6 +994,23 @@ class AgendaItemRepositoryProtocol(Protocol):
     def confirm_all_by_event(event_pk: int) -> None: ...
     @staticmethod
     def confirm_all_by_track(track_pk: int) -> None: ...
+    @staticmethod
+    def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
+    @staticmethod
+    def count_event_totals(event_pk: int) -> ConfirmationTotalsRow: ...
+    @staticmethod
+    def set_confirmed_for_facilitator(
+        *,
+        event_pk: int,
+        facilitator_pk: int,
+        confirmed: bool,
+        contact_email: str | None = None,
+        agenda_item_pk: int | None = None,
+    ) -> int: ...
+    @staticmethod
+    def count_without_facilitator(
+        event_pk: int, track_pk: int | None = None
+    ) -> int: ...
     @staticmethod
     def delete(pk: int) -> None: ...
 
@@ -1249,6 +1326,14 @@ class FacilitatorRepositoryProtocol(Protocol):
     def claim(pk: int, organizer_id: int) -> bool: ...
     @staticmethod
     def release(pk: int, *, organizer_id: int | None) -> bool: ...
+    @staticmethod
+    def count_confirmations_by_organizer(
+        event_pk: int,
+    ) -> list[ConfirmationCountsRow]: ...
+    @staticmethod
+    def list_with_scheduled_session_in_track(
+        event_pk: int, track_pk: int
+    ) -> list[ConfirmationFacilitatorRow]: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

@@ -342,8 +342,9 @@ class Event(models.Model):
     # "Players" (gaming events), on → "Participants" (general events).
     use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
-    # turn off for a draft → confirm workflow on large events.
-    auto_confirm_sessions = models.BooleanField(default=True)
+    # off by default, so placing an item never stands in for the
+    # facilitator confirming it.
+    auto_confirm_sessions = models.BooleanField(default=False)
 
     class Meta:
         db_table = "event"

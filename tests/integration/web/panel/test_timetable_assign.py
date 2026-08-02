@@ -195,6 +195,8 @@ class TestTimetableAssignView:
         self, authenticated_client, active_user, sphere, event, proposal_category
     ):
         sphere.managers.add(active_user)
+        event.auto_confirm_sessions = True
+        event.save()
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,

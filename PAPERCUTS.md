@@ -271,3 +271,7 @@ If you fix a papercut, remove it.
   test dies with 'browserContext.newPage: Test timeout' during page setup, while
   chromium passes. Makes a full 'mise run test:e2e' unusable locally; had to run
   --project=chromium to get a signal.
+- 2026-08-02: mise run lint printed 'Finished in 198s' with every check green,
+  then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
+  child (sandbox egress is slow); had to pstree and kill -9 the mise process to
+  get the shell back.
