@@ -266,7 +266,14 @@
                             {% empty %}
                                 <section class="{{ sheet_class }}">
                                     {% include "chronology/parts/print_header.html" with scope_name=door_cards.scope_name show_full_schedule_label=True %}
-                                    <p class="italic text-neutral-500">{% translate "No rooms to print." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
                                 </section>
                             {% endfor %}
                         {% elif area_schedule %}
