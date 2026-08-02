@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% comment %}Printables are organizer pages: the event takes the sphere's slot
+in the title, same as the rest of the panel.{% endcomment %}
 {% block title %}
-    {{ document.event_name }}
     {% block document_name %}
     {% endblock document_name %}
 {% endblock title %}
+{% block title_suffix %}
+    • {{ document.event_name }}
+{% endblock title_suffix %}
 {% block meta_description %}{{ document.event_description|default:document.event_name }}{% endblock meta_description %}
 {% block og_description %}{{ document.event_description|default:document.event_name }}{% endblock og_description %}
 {% block twitter_description %}{{ document.event_description|default:document.event_name }}{% endblock twitter_description %}

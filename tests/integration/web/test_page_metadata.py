@@ -87,16 +87,34 @@ class TestPageTitle:
 
         assert _title(response) == f"Events • {non_root_sphere.name} • Zagrajmy"
 
-    def test_panel_page_title_reads_like_the_rest_of_the_site(
-        self, manager_client, sphere, event
-    ):
+    def test_panel_page_title_names_the_event_it_manages(self, manager_client, event):
         response = _get_ok(
             manager_client,
             reverse("panel:event-index", kwargs={"slug": event.slug}),
             "panel/index.html",
         )
 
-        assert _title(response) == f"Dashboard • {sphere.name}"
+        assert _title(response) == f"Dashboard • {event.name}"
+
+    def test_sphere_wide_panel_page_keeps_the_sphere(self, manager_client, sphere):
+        response = _get_ok(
+            manager_client,
+            reverse("multiverse:panel:sphere-settings"),
+            "multiverse/panel/sphere-settings.html",
+        )
+
+        assert _title(response) == f"Sphere settings • {sphere.name}"
+
+    def test_print_document_title_names_the_document_and_the_event(
+        self, manager_client, event
+    ):
+        response = _get_ok(
+            manager_client,
+            reverse("panel:timetable-print-door-cards", kwargs={"slug": event.slug}),
+            "panel/print/door-cards.html",
+        )
+
+        assert _title(response) == f"Door cards • {event.name}"
 
     # A dash in a title reads as a second kind of separator next to the bullets
     # the standard already uses, and eats more room in a tab than "•" does.
@@ -123,16 +141,14 @@ class TestLinkPreviewTitle:
 
         assert _titles(response) == [f"Kapitularz • {sphere.name}"] * 3
 
-    def test_matches_the_document_title_in_the_panel(
-        self, manager_client, sphere, event
-    ):
+    def test_matches_the_document_title_in_the_panel(self, manager_client, event):
         response = _get_ok(
             manager_client,
             reverse("panel:proposals", kwargs={"slug": event.slug}),
             "panel/proposals.html",
         )
 
-        assert _titles(response) == [f"Proposals • {sphere.name}"] * 3
+        assert _titles(response) == [f"Proposals • {event.name}"] * 3
 
 
 class TestMetaDescription:

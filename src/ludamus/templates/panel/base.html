@@ -4,6 +4,17 @@
 {% load static %}
 {% load django_vite %}
 {% load tessera %}
+{% comment %}An organizer runs one panel page per event, not per sphere: the
+event is what tells two tabs apart, so it takes the sphere's slot in the title.
+Sphere-wide pages (settings, announcements, connections) have no event and keep
+the sphere.{% endcomment %}
+{% block title_suffix %}
+    {% if current_event %}
+        • {{ current_event.name }}
+    {% elif current_sphere %}
+        • {{ current_sphere.name }}
+    {% endif %}
+{% endblock title_suffix %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
     {# the translation catalog instead of hardcoding locale logic client-side. #}

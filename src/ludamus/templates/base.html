@@ -23,9 +23,10 @@
         {% comment %}Title standard: "{page name} • {sphere name} • Zagrajmy",
         bullets all the way down — never a dash, which reads as a second kind of
         separator and costs more room. Pages set block title; pages whose name IS
-        the sphere (landing) empty out title_suffix instead. The root sphere is
-        Zagrajmy, so it takes no brand tail. Captured once here so the document
-        title and the link-preview titles below can never drift apart.{% endcomment %}
+        the sphere (landing) empty out title_suffix instead, and panel pages swap
+        it for the event they manage. The root sphere is Zagrajmy, so it takes no
+        brand tail. Captured once here so the document title and the link-preview
+        titles below can never drift apart.{% endcomment %}
         {% document_title %}
             {% block title %}
             {% endblock title %}
