@@ -490,6 +490,19 @@ class TestBuildAreaSchedule:
         assert document.range_end == _event().end_time
         assert [s.title for s in document.spaces[0].sessions] == ["RPG"]
 
+    def test_no_range_does_not_clip_sessions_to_event_bounds(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 10, 11, title="Beyond declared end", confirmed=True, day=2)
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = service.build_area_schedule(PrintQueryDTO(event_pk=1, tz=UTC))
+
+        assert [s.title for s in document.spaces[0].sessions] == ["Beyond declared end"]
+        assert document.range_start == _event().start_time
+        assert document.range_end == items[0].end_time
+
     def test_track_scopes_spaces(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [_item(1, 1, 10, 11, title="Tracked", confirmed=True)]

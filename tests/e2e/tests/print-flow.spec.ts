@@ -92,6 +92,16 @@ test.describe("Print page controls", () => {
     // No room+day is printed twice.
     expect(new Set(labels).size).toBe(labels.length);
   });
+
+  test("door cards with descriptions render program details", async ({ page }) => {
+    await page.goto(`${printUrl}?material=door-cards`);
+
+    await page.getByLabel("With descriptions").check();
+
+    await expect(page).toHaveURL(/descriptions=1/);
+    await expect(page.getByRole("heading", { name: "Program details" }).first()).toBeVisible();
+    await expect(page.getByText("Rpg: Archive open tournament 110", { exact: true })).toBeVisible();
+  });
 });
 
 test.describe("Print page for managers", () => {

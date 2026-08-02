@@ -167,9 +167,15 @@ class TestTimetablePageView:
         )
 
         base = reverse("web:chronology:event-print", kwargs={"slug": event.slug})
-        assert response.context["print_url"] == (
+        expected_print_url = (
             f"{base}?material=track-timetable&track=main-track"
             f"&start={day.isoformat()}T00%3A00&hours=24"
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data={**response.context_data, "print_url": expected_print_url},
         )
 
     def test_grid_shows_spaces_and_time_labels(

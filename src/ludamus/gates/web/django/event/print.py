@@ -25,7 +25,13 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import EventDTO
-    from ludamus.pacts.printing import PrintOptionDTO
+    from ludamus.pacts.printing import (
+        AreaScheduleDocumentDTO,
+        DoorCardsDocumentDTO,
+        PrintOptionDTO,
+        PrintSessionListDocumentDTO,
+        PrintTimetableDocumentDTO,
+    )
     from ludamus.pacts.venues import PrintScopeDTO
 
     type _LazyStr = str | _StrPromise
@@ -202,33 +208,28 @@ class PublicEventPrintView(View):
             else material_spec.document_kind
         )
 
-        # One context slot per document kind; the three unselected ones stay
-        # None so the template picks its branch by presence.
-        documents: dict[str, object] = {
-            "timetable": None,
-            "area_schedule": None,
-            "session_list": None,
-            "door_cards": None,
-        }
+        timetable: PrintTimetableDocumentDTO | None = None
+        area_schedule: AreaScheduleDocumentDTO | None = None
+        session_list: PrintSessionListDocumentDTO | None = None
+        door_cards: DoorCardsDocumentDTO | None = None
         if document_kind == "session_list":
-            documents["session_list"] = session_list_candidate
+            session_list = session_list_candidate
         else:
-            build = {
-                "timetable": service.build_timetable,
-                "area_schedule": service.build_area_schedule,
-                "door_cards": service.build_door_cards,
-            }[document_kind]
-            documents[document_kind] = build(
-                PrintQueryDTO(
-                    event_pk=event.pk,
-                    tz=tz,
-                    scope_space_pks=print_scope.space_pks,
-                    track_pk=print_scope.track_pk,
-                    scope_name=print_scope.name,
-                    confirmed_only=confirmed_only,
-                    time_range=resolved_range.window,
-                )
+            query = PrintQueryDTO(
+                event_pk=event.pk,
+                tz=tz,
+                scope_space_pks=print_scope.space_pks,
+                track_pk=print_scope.track_pk,
+                scope_name=print_scope.name,
+                confirmed_only=confirmed_only,
+                time_range=resolved_range.window,
             )
+            if document_kind == "timetable":
+                timetable = service.build_timetable(query)
+            elif document_kind == "area_schedule":
+                area_schedule = service.build_area_schedule(query)
+            else:
+                door_cards = service.build_door_cards(query)
 
         event_url = request.build_absolute_uri(
             reverse("web:chronology:event", kwargs={"slug": slug})
@@ -241,10 +242,10 @@ class PublicEventPrintView(View):
             {
                 "event": event,
                 "logo": event.logo_url or sphere.logo_url,
-                "timetable": documents["timetable"],
-                "area_schedule": documents["area_schedule"],
-                "session_list": documents["session_list"],
-                "door_cards": documents["door_cards"],
+                "timetable": timetable,
+                "area_schedule": area_schedule,
+                "session_list": session_list,
+                "door_cards": door_cards,
                 "qr_svg": qr_svg(event_url, xmldecl=False),
                 "print_scopes": request.services.venues.list_print_scopes(event.pk),
                 "tracks": tracks,

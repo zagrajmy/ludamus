@@ -11,11 +11,15 @@ from ludamus.gates.web.django.event.print import MATERIAL_SPECS_BY_VALUE
 from ludamus.links.db.django.models import Space, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.printing import (
+    AreaScheduleDocumentDTO,
+    AreaScheduleSessionDTO,
+    AreaScheduleSpaceDTO,
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
     PrintOptionDTO,
     PrintSessionDTO,
+    PrintSessionListDocumentDTO,
     PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
@@ -54,6 +58,33 @@ def _confirmed_item(event, session, space):
     )
 
 
+def _area_schedule_document(*, event, session, space):
+    return AreaScheduleDocumentDTO(
+        event_name=event.name,
+        event_description=event.description,
+        event_start=event.start_time,
+        event_end=event.end_time,
+        range_start=event.start_time,
+        range_end=event.end_time,
+        scope_name=None,
+        spaces=[
+            AreaScheduleSpaceDTO(
+                space_name=space.name,
+                capacity=space.capacity,
+                sessions=[
+                    AreaScheduleSessionDTO(
+                        title=session.title,
+                        presenter_name=session.display_name,
+                        description=session.description,
+                        start_time=event.start_time,
+                        end_time=event.start_time + timedelta(hours=1),
+                    )
+                ],
+            )
+        ],
+    )
+
+
 def _assert_print_ok(
     response,
     *,
@@ -68,6 +99,10 @@ def _assert_print_ok(
     tracks_available=False,
     panel_access=False,
     print_scopes=None,
+    timetable=ANY,
+    area_schedule=ANY,
+    session_list=ANY,
+    door_cards=ANY,
 ):
     if print_scopes is None:
         print_scopes = []
@@ -101,10 +136,10 @@ def _assert_print_ok(
         context_data={
             "event": ANY,
             "logo": logo,
-            "timetable": ANY,
-            "area_schedule": ANY,
-            "session_list": ANY,
-            "door_cards": ANY,
+            "timetable": timetable,
+            "area_schedule": area_schedule,
+            "session_list": session_list,
+            "door_cards": door_cards,
             "qr_svg": ctx["qr_svg"],
             "print_scopes": print_scopes,
             "tracks": ANY,
@@ -681,30 +716,35 @@ class TestPublicEventPrintView:
         expected_scopes = sorted(
             [_scope(space), _scope(empty_hall)], key=lambda scope: scope.name
         )
-        _assert_print_ok(response, material="door-cards", print_scopes=expected_scopes)
-        assert response.context_data["timetable"] is None
-        assert response.context_data["door_cards"] == DoorCardsDocumentDTO(
-            event_name=event.name,
-            event_description=event.description,
-            event_start=event.start_time,
-            event_end=event.end_time,
-            scope_name=None,
-            cards=[
-                DoorCardDTO(
-                    space_name=space.name,
-                    capacity=space.capacity,
-                    day=localdate(event.start_time),
-                    entries=[
-                        DoorCardEntryDTO(
-                            start_time=event.start_time,
-                            end_time=event.start_time + timedelta(hours=1),
-                            session=PrintSessionDTO(
-                                title=session.title, presenter_name=session.display_name
-                            ),
-                        )
-                    ],
-                )
-            ],
+        _assert_print_ok(
+            response,
+            material="door-cards",
+            print_scopes=expected_scopes,
+            timetable=None,
+            door_cards=DoorCardsDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name=None,
+                cards=[
+                    DoorCardDTO(
+                        space_name=space.name,
+                        capacity=space.capacity,
+                        day=localdate(event.start_time),
+                        entries=[
+                            DoorCardEntryDTO(
+                                start_time=event.start_time,
+                                end_time=event.start_time + timedelta(hours=1),
+                                session=PrintSessionDTO(
+                                    title=session.title,
+                                    presenter_name=session.display_name,
+                                ),
+                            )
+                        ],
+                    )
+                ],
+            ),
         )
 
     def test_door_cards_without_scheduled_rooms_render_the_empty_sheet(
@@ -712,8 +752,19 @@ class TestPublicEventPrintView:
     ):
         response = client.get(self._url(event.slug), {"material": "door-cards"})
 
-        _assert_print_ok(response, material="door-cards")
-        assert response.context_data["door_cards"].cards == []
+        _assert_print_ok(
+            response,
+            material="door-cards",
+            timetable=None,
+            door_cards=DoorCardsDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name=None,
+                cards=[],
+            ),
+        )
 
     def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_timetable(
         self, authenticated_client, active_user, sphere, event
@@ -722,8 +773,20 @@ class TestPublicEventPrintView:
 
         response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
 
-        _assert_print_ok(response, unconfirmed=True, panel_access=True)
-        assert response.context_data["timetable"].pages == []
+        _assert_print_ok(
+            response,
+            unconfirmed=True,
+            panel_access=True,
+            timetable=PrintTimetableDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name=None,
+                is_complete=False,
+                pages=[],
+            ),
+        )
 
     def test_empty_session_list_renders_empty_state(self, client, event, space):
         Track.objects.create(
@@ -743,8 +806,16 @@ class TestPublicEventPrintView:
             session_list_available=True,
             tracks_available=True,
             print_scopes=[_scope(space)],
+            timetable=None,
+            session_list=PrintSessionListDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name="Focused Track",
+                sessions=[],
+            ),
         )
-        assert response.context_data["session_list"].sessions == []
 
     def test_empty_session_list_with_unconfirmed_toggle(
         self, authenticated_client, active_user, sphere, event, space
@@ -771,8 +842,16 @@ class TestPublicEventPrintView:
             tracks_available=True,
             panel_access=True,
             print_scopes=[_scope(space)],
+            timetable=None,
+            session_list=PrintSessionListDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name="Focused Track",
+                sessions=[],
+            ),
         )
-        assert response.context_data["session_list"].sessions == []
 
     def test_door_cards_with_descriptions_swap_to_the_area_schedule(
         self, client, event, session, space
@@ -788,9 +867,12 @@ class TestPublicEventPrintView:
             material="door-cards",
             descriptions=True,
             print_scopes=[_scope(space)],
+            timetable=None,
+            area_schedule=_area_schedule_document(
+                event=event, session=session, space=space
+            ),
+            door_cards=None,
         )
-        assert response.context_data["door_cards"] is None
-        assert response.context_data["area_schedule"] is not None
 
     def test_door_cards_limited_to_time_window(self, client, event, session, space):
         _confirmed_item(event, session, space)
@@ -857,9 +939,20 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug), {"unconfirmed": "1"})
 
-        _assert_print_ok(response, print_scopes=[_scope(space)])
+        _assert_print_ok(
+            response,
+            print_scopes=[_scope(space)],
+            timetable=PrintTimetableDocumentDTO(
+                event_name=event.name,
+                event_description=event.description,
+                event_start=event.start_time,
+                event_end=event.end_time,
+                scope_name=None,
+                is_complete=False,
+                pages=[],
+            ),
+        )
         assert_cache_control(response, {"public", "max-age=300"})
-        assert response.context_data["timetable"].pages == []
 
     def test_manager_visit_is_privately_cached_and_marks_printed(
         self, authenticated_client, active_user, sphere, event

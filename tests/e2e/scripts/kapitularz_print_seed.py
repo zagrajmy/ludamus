@@ -173,7 +173,9 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
             "keeping host, participant, or session identities."
         ),
         start_time=event_start,
-        end_time=event_start + timedelta(days=2, hours=13),
+        # Deliberately stale: the final day's programme continues after 13:00.
+        # Untouched print ranges must follow scheduled content, not this bound.
+        end_time=event_start + timedelta(days=2, hours=3),
         publication_time=timezone.now() - timedelta(days=2),
     )
     EnrollmentConfig.objects.create(

@@ -268,21 +268,26 @@ class PrintMaterialsService:
             if query.track_pk is not None
             else self._agenda_items.list_by_event(query.event_pk)
         )
+        if query.time_range is not None:
+            items = [item for item in items if _overlaps(item, *query.time_range)]
         grouped = self._group_by_space(items, confirmed_only=query.confirmed_only)
 
         space_dtos: list[AreaScheduleSpaceDTO] = []
         for space in spaces:
-            sessions = [
-                AreaScheduleSessionDTO(
-                    title=item.session_title,
-                    presenter_name=item.presenter_name,
-                    description=item.session_description,
-                    start_time=item.start_time,
-                    end_time=item.end_time,
+            sessions: list[AreaScheduleSessionDTO] = []
+            for item in grouped.get(space.pk, []):
+                sessions.append(
+                    AreaScheduleSessionDTO(
+                        title=item.session_title,
+                        presenter_name=item.presenter_name,
+                        description=item.session_description,
+                        start_time=item.start_time,
+                        end_time=item.end_time,
+                    )
                 )
-                for item in grouped.get(space.pk, [])
-                if _overlaps(item, range_start, range_end)
-            ]
+                if query.time_range is None:
+                    range_start = min(range_start, item.start_time)
+                    range_end = max(range_end, item.end_time)
             space_dtos.append(
                 AreaScheduleSpaceDTO(
                     space_name=space.name, capacity=space.capacity, sessions=sessions
