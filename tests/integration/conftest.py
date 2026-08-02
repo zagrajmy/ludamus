@@ -5,7 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
-from factory import Faker, LazyAttribute, LazyAttributeSequence, Sequence, SubFactory
+from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
@@ -90,18 +90,12 @@ class UserFactory(DjangoModelFactory):
 class SiteFactory(DjangoModelFactory):
     class Meta:
         model = Site
-        django_get_or_create = ("domain",)
 
-    # Sphere.site is a OneToOneField, and this factory gets-or-creates by domain,
-    # so two Sites built from the same Faker company name collapse into one and
-    # the second Sphere hits "UNIQUE constraint failed: sphere.site_id". Faker
-    # repeats freely — and pytest-randomly reseeds per test — so whether that
-    # happens depends on how many objects a run built first. The sequence makes
-    # the domain unique per generated Site; passing an explicit domain still
-    # gets-or-creates, which is what the callers that share a Site rely on.
-    domain = LazyAttributeSequence(
-        lambda o, n: f"{o.name.lower().replace(' ', '-')}-{n}.testserver"
-    )
+    # Site.domain is unique and Sphere.site is a OneToOneField, so every
+    # generated Site needs a domain of its own. Deriving it from name would not
+    # do: Faker repeats company names, and two spheres landing on one Site fail
+    # as "UNIQUE constraint failed: sphere.site_id", pointing at the wrong table.
+    domain = Sequence(lambda n: f"site-{n}.testserver")
     name = Faker("company")
 
 
