@@ -98,7 +98,7 @@ test.describe("Panel print pages", () => {
 
     // A sheet torn off the stack still names its event, so every page repeats
     // the header rather than only the first one carrying it.
-    const sheets = page.locator("section.sheet");
+    const sheets = page.locator("main").getByRole("group");
     expect(await sheets.count()).toBeGreaterThan(1);
     for (const sheet of await sheets.all()) {
       await expect(sheet.getByText(eventName).first()).toBeVisible();
@@ -108,21 +108,26 @@ test.describe("Panel print pages", () => {
   test("door cards render one card per room and day", async ({ page }) => {
     await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/door-cards/");
 
-    // Only rooms with sessions get a card; Miniature Painting always has some,
-    // spread over the three seeded days, so it gets one sheet per day.
-    const roomHeadings = page.getByRole("heading", { name: "Miniature Painting", exact: true });
-    await expect(roomHeadings.first()).toBeVisible();
-    expect(await roomHeadings.count()).toBeGreaterThan(1);
+    // Miniature Painting is the only room in its track and the seed schedules
+    // it on all three days, so it gets exactly three sheets — one per day.
+    await expect(
+      page.getByRole("heading", { name: "Miniature Painting", exact: true }),
+    ).toHaveCount(3);
     await expect(page.getByText("Capacity: 18").first()).toBeVisible();
 
     // One h1 for the document, then one room and one day per sheet.
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    const cards = page.locator("section.sheet");
-    expect(await cards.count()).toBeGreaterThan(0);
+    const cards = page.locator("main").getByRole("group");
+    const labels: string[] = [];
     for (const card of await cards.all()) {
-      await expect(card.getByRole("heading", { level: 2 })).toHaveCount(1);
-      await expect(card.getByRole("heading", { level: 3 })).toHaveCount(1);
+      const room = card.getByRole("heading", { level: 2 });
+      const day = card.getByRole("heading", { level: 3 });
+      await expect(room).toHaveCount(1);
+      await expect(day).toHaveCount(1);
       await expect(card.getByText(eventName).first()).toBeVisible();
+      labels.push(`${await room.innerText()}|${await day.innerText()}`);
     }
+    // No room+day is printed twice.
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

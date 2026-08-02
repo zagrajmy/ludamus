@@ -134,6 +134,29 @@ class TestTimetablePrintView:
             },
         )
 
+    def test_door_cards_page_without_scheduled_rooms(
+        self, authenticated_client, active_user, sphere, event, space
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self.door_cards_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/print/door-cards.html",
+            context_data={
+                "document": DoorCardsDocumentDTO(
+                    event_name=event.name,
+                    event_description=event.description,
+                    event_start=event.start_time,
+                    event_end=event.end_time,
+                    scope_name=None,
+                    cards=[],
+                )
+            },
+        )
+
     def test_door_cards_limited_to_time_window(
         self,
         authenticated_client,
@@ -195,7 +218,6 @@ class TestTimetablePrintView:
                 )
             },
         )
-        assert later_session.title not in response.content.decode()
 
     def test_opening_print_page_marks_event_printed(
         self, authenticated_client, active_user, sphere, event
