@@ -1,6 +1,0 @@
-{# Repeated on every printed sheet: a page torn off the stack still names its event. #}
-<div class="doc-header">
-    <div class="event-name">{{ document.event_name }}</div>
-    <div class="event-dates">{{ document.event_start|date:"j E Y" }}–{{ document.event_end|date:"j E Y" }}</div>
-    {% if document.scope_name %}<div class="scope-name">{{ document.scope_name }}</div>{% endif %}
-</div>

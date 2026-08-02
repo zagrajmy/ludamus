@@ -65,48 +65,9 @@ test.describe("Print page controls", () => {
     await expect(page.getByLabel("With descriptions")).toBeChecked();
     await expect(page.getByRole("heading", { name: "Program details" }).first()).toBeVisible();
   });
-});
 
-test.describe("Panel print pages", () => {
-  test.beforeEach(async ({ page }) => {
-    // Log in via Django admin as the manager user (same flow as panel.spec.ts;
-    // domcontentloaded because Firefox occasionally never fires `load` here).
-    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
-    await page.getByLabel("Username:").fill("e2e-manager");
-    await page.getByLabel("Password:").fill("e2e-manager-123");
-    await page.getByRole("button", { name: /Log in/i }).click();
-  });
-
-  test("print materials hub offers timetable and door cards", async ({ page }) => {
-    await page.goto("/panel/event/kapitularz-2025-anonymized/print/");
-
-    await expect(page.getByRole("heading", { name: "Print Materials" })).toBeVisible();
-    await expect(page.getByText("Print timetable").first()).toBeVisible();
-    await expect(page.getByText("Print door cards").first()).toBeVisible();
-  });
-
-  test("panel timetable printout shows session-time rows", async ({ page }) => {
-    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/timetable/");
-
-    await expect(page.getByText(eventName).first()).toBeVisible();
-    await expect(
-      page.getByRole("columnheader", { name: "Time", exact: true }).first(),
-    ).toBeVisible();
-    // Session times, not 4-hour availability slots: an 11:00–13:00 session
-    // renders as its own row.
-    await expect(page.getByRole("cell", { name: /11:00–13:00/ }).first()).toBeVisible();
-
-    // A sheet torn off the stack still names its event, so every page repeats
-    // the header rather than only the first one carrying it.
-    const sheets = page.locator("main").getByRole("group");
-    expect(await sheets.count()).toBeGreaterThan(1);
-    for (const sheet of await sheets.all()) {
-      await expect(sheet.getByText(eventName).first()).toBeVisible();
-    }
-  });
-
-  test("door cards render one card per room and day", async ({ page }) => {
-    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/door-cards/");
+  test("door cards print one sheet per room and day", async ({ page }) => {
+    await page.goto(`${printUrl}?material=door-cards`);
 
     // Miniature Painting is the only room in its track and the seed schedules
     // it on all three days, so it gets exactly three sheets — one per day.
@@ -115,9 +76,10 @@ test.describe("Panel print pages", () => {
     ).toHaveCount(3);
     await expect(page.getByText("Capacity: 18").first()).toBeVisible();
 
-    // One h1 for the document, then one room and one day per sheet.
-    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    const cards = page.locator("main").getByRole("group");
+    // One room and one day per sheet, the event named on every sheet — a card
+    // torn off the stack still says where and when it belongs.
+    const preview = page.getByRole("region", { name: "Print preview" });
+    const cards = preview.getByRole("group");
     const labels: string[] = [];
     for (const card of await cards.all()) {
       const room = card.getByRole("heading", { level: 2 });
@@ -129,5 +91,41 @@ test.describe("Panel print pages", () => {
     }
     // No room+day is printed twice.
     expect(new Set(labels).size).toBe(labels.length);
+  });
+});
+
+test.describe("Print page for managers", () => {
+  test.beforeEach(async ({ page }) => {
+    // Log in via Django admin as the manager user (same flow as panel.spec.ts;
+    // domcontentloaded because Firefox occasionally never fires `load` here).
+    await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
+    await page.getByLabel("Username:").fill("e2e-manager");
+    await page.getByLabel("Password:").fill("e2e-manager-123");
+    await page.getByRole("button", { name: /Log in/i }).click();
+  });
+
+  test("manager can pull unconfirmed sessions onto the printout", async ({ page }) => {
+    await page.goto(printUrl);
+
+    const box = page.getByLabel("Include unconfirmed sessions");
+    await box.check();
+
+    await expect(page).toHaveURL(/unconfirmed=1/);
+    await expect(page.getByLabel("Include unconfirmed sessions")).toBeChecked();
+  });
+
+  test("panel links lead to the canonical print page", async ({ page }) => {
+    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/");
+
+    // Sidebar "Print Materials" and the schedule toolbar "Print" both point at
+    // the public print page — the panel renders no print pages of its own.
+    await expect(page.getByRole("link", { name: "Print Materials" })).toHaveAttribute(
+      "href",
+      printUrl,
+    );
+    await expect(page.getByRole("link", { name: "Print", exact: true })).toHaveAttribute(
+      "href",
+      printUrl,
+    );
   });
 });

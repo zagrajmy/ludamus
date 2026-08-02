@@ -146,7 +146,6 @@ class TestTimetablePageView:
                     ),
                 },
                 "active_tab": "timetable",
-                "print_scopes": [],
             },
         )
         assert response.context["grid"].spaces == []

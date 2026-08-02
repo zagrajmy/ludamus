@@ -168,7 +168,7 @@ class PrintablesReminderDTO(BaseModel):
     event_name: str
     event_slug: str
     # Site domain of the owning sphere — the notifier composes the absolute
-    # print-materials link from it (sphere sites live on different domains).
+    # print-page link from it (sphere sites live on different domains).
     sphere_domain: str
     recipients: list[PrintablesReminderRecipientDTO]
 

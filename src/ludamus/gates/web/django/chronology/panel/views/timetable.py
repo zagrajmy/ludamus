@@ -134,7 +134,6 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["slug"] = slug
         context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "timetable"
-        context["print_scopes"] = self.get_print_scopes(current_event.pk)
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 
