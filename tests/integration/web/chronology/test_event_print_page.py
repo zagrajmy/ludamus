@@ -671,6 +671,8 @@ class TestPublicEventPrintView:
     ):
         # Participant-facing cards: a room with nothing scheduled gets no card.
         empty_hall = SpaceFactory(event=event, name="Empty Hall")
+        space.capacity = 18
+        space.save(update_fields=["capacity"])
         _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug), {"material": "door-cards"})
@@ -704,6 +706,73 @@ class TestPublicEventPrintView:
                 )
             ],
         )
+
+    def test_door_cards_without_scheduled_rooms_render_the_empty_sheet(
+        self, client, event
+    ):
+        response = client.get(self._url(event.slug), {"material": "door-cards"})
+
+        _assert_print_ok(response, material="door-cards")
+        assert response.context_data["door_cards"].cards == []
+
+    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_timetable(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
+
+        _assert_print_ok(response, unconfirmed=True, panel_access=True)
+        assert response.context_data["timetable"].pages == []
+
+    def test_empty_session_list_renders_empty_state(self, client, event, space):
+        Track.objects.create(
+            event=event, name="Focused Track", slug="focused-track", is_public=True
+        )
+        TimeSlotFactory(
+            event=event,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=2),
+        )
+
+        response = client.get(self._url(event.slug), {"material": "session-list"})
+
+        _assert_print_ok(
+            response,
+            material="session-list",
+            session_list_available=True,
+            tracks_available=True,
+            print_scopes=[_scope(space)],
+        )
+        assert response.context_data["session_list"].sessions == []
+
+    def test_empty_session_list_with_unconfirmed_toggle(
+        self, authenticated_client, active_user, sphere, event, space
+    ):
+        sphere.managers.add(active_user)
+        Track.objects.create(
+            event=event, name="Focused Track", slug="focused-track", is_public=True
+        )
+        TimeSlotFactory(
+            event=event,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=2),
+        )
+
+        response = authenticated_client.get(
+            self._url(event.slug), {"material": "session-list", "unconfirmed": "1"}
+        )
+
+        _assert_print_ok(
+            response,
+            material="session-list",
+            unconfirmed=True,
+            session_list_available=True,
+            tracks_available=True,
+            panel_access=True,
+            print_scopes=[_scope(space)],
+        )
+        assert response.context_data["session_list"].sessions == []
 
     def test_door_cards_with_descriptions_swap_to_the_area_schedule(
         self, client, event, session, space
