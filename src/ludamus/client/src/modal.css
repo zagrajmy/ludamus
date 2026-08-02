@@ -143,15 +143,43 @@
     calc(var(--vt-morph-duration) * 0.35) both;
 }
 
-::view-transition-new(morph-desc-label),
-::view-transition-new(morph-venue) {
+::view-transition-new(morph-desc-label) {
   animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.4) var(--vt-morph-ease)
+    calc(var(--vt-morph-duration) * 0.5) both;
+}
+
+/* The venue gets its own ramp rather than sharing the one above. It is small,
+   secondary text with no counterpart on the card, so a bare opacity fade over
+   0.4 of the morph reads as switching on rather than arriving. Resolving it out
+   of a blur gives the eye something to track, and running to exactly 1.0 (0.5
+   delay + 0.5 duration) lands it as the morph settles without extending the
+   transition — the pseudo-elements live until the longest animation on them
+   ends. Safari rasterises `filter` on a view-transition snapshot; the page-blur
+   keyframes below already rely on that. */
+::view-transition-new(morph-venue) {
+  animation: vt-venue-in calc(var(--vt-morph-duration) * 0.5) var(--vt-morph-ease)
     calc(var(--vt-morph-duration) * 0.5) both;
 }
 
 @keyframes vt-chrome-in {
   from {
     opacity: 0;
+  }
+}
+
+/* 8px, not the 4px the backdrop uses: this is 14px secondary text, and at 4px
+   the frames are almost indistinguishable from a plain fade. Both ends are
+   written out because interpolating a blur against an implicit `none` relies on
+   filter list-identity rules, and being explicit costs one line. */
+@keyframes vt-venue-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
   }
 }
 
