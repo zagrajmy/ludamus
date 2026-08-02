@@ -8,11 +8,12 @@ page exists only so you know where the machinery lives.
 The SessionStart hook (`.claude/hooks/session-start.sh`, remote sessions only)
 sets `MISE_ENV=sandbox`, which makes mise load `mise.sandbox.toml` on top of
 `mise.toml`. Its `[tool_alias]` table remaps each GitHub-release tool to a
-reachable backend at the version already pinned in `mise.toml`: hk via cargo,
-shellcheck/hadolint via PyPI binary wheels, actionlint/dockerfmt via the Go
-module proxy (the sandbox image ships the rust and go toolchains these
-backends compile with). The hook apt-installs python3.14 and pipx first (the
-image preconfigures the deadsnakes PPA — on images without it the apt step
+reachable backend: hk via cargo, shellcheck/hadolint via PyPI binary wheels,
+actionlint/dockerfmt via the Go module proxy (the sandbox image ships the rust
+and go toolchains these backends compile with). Versions come from `mise.toml`
+except for dockerfmt, shellcheck and hadolint, which `mise.sandbox.toml`
+re-pins for the reasons below. The hook apt-installs python3.14 and pipx first
+(the image preconfigures the deadsnakes PPA — on images without it the apt step
 fails and the hook warns). aube and ast-grep need no substitute; mise.toml
 installs them from npm everywhere (the unscoped `aube` npm package is
 squatted — only `@endevco/aube` is ours; prod's `docker/mise.toml`
@@ -32,9 +33,16 @@ revision to the upstream version (shellcheck-py 0.11.0.1 wraps shellcheck
 which matches nothing — `mise install` then fails outright and takes every
 `mise run` down with it. `mise.sandbox.toml` carries a minor-version pin for
 those two tools (`shellcheck = "0.11"`), which mise prefix-resolves to the
-newest wrapper rev of that upstream release. They are the only pins besides
-dockerfmt's that are duplicated outside `mise.toml`, and they only need
-touching when `mise.toml` moves off that minor version.
+newest wrapper rev of that upstream release. With dockerfmt's, that makes
+three pins duplicated outside `mise.toml` and nothing that checks them against
+each other — dockerfmt's had already drifted two patches behind. Bump both
+copies together whenever `mise.toml` moves.
+
+Loosening `mise.toml` to `shellcheck = "0.11"` would delete all three lines,
+since mise passes a full `X.Y.Z` through verbatim but prefix-resolves `X.Y`.
+That is only safe if `X.Y` also prefix-resolves through the default aqua
+backend laptops and CI use, which needs `api.github.com` and so cannot be
+checked from a sandbox. Verify it on a laptop before making the change.
 
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
 `@playwright/test` pin, and Playwright launches only the pinned build, so the
