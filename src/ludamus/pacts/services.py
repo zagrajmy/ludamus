@@ -41,6 +41,7 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.event import (
+        EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
@@ -122,6 +123,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
     def event_settings(self) -> EventSettingsServiceProtocol: ...
     @property

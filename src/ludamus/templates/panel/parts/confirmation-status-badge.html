@@ -1,0 +1,10 @@
+{% load i18n %}
+{% if status == "scheduled" %}
+    <span class="inline-flex items-center rounded-full bg-info-bg px-2.5 py-0.5 text-xs font-medium text-info-text">{% translate "Scheduled" %}</span>
+{% elif status == "on_hold" %}
+    <span class="inline-flex items-center rounded-full bg-bg-tertiary px-2.5 py-0.5 text-xs font-medium text-foreground-muted">{% translate "On hold" %}</span>
+{% elif status == "rejected" %}
+    <span class="inline-flex items-center rounded-full bg-danger-bg px-2.5 py-0.5 text-xs font-medium text-danger-text">{% translate "Rejected" %}</span>
+{% elif status == "accepted" %}
+    <span class="inline-flex items-center rounded-full bg-success-bg px-2.5 py-0.5 text-xs font-medium text-success-text">{% translate "Accepted" %}</span>
+{% endif %}

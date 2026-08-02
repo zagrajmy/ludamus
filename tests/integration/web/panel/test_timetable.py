@@ -49,6 +49,9 @@ def _tab_urls(event):
         "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
         "overview": reverse("panel:timetable-overview", kwargs={"slug": event.slug}),
         "problems": reverse("panel:timetable-problems", kwargs={"slug": event.slug}),
+        "confirmations": reverse(
+            "panel:timetable-confirmations", kwargs={"slug": event.slug}
+        ),
     }
 
 

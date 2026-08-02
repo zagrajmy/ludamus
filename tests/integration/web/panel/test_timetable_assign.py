@@ -151,6 +151,8 @@ class TestTimetableAssignView:
     def test_assigns_session_and_returns_204(
         self, panel_client, event, proposal_category
     ):
+        event.auto_confirm_sessions = True
+        event.save()
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
