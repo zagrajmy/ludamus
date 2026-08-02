@@ -7,8 +7,10 @@
        name="{{ name }}"
        {% if value|default:"" %}value="{{ value }}"{% endif %}
        {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}
+       {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
        {% if checked|default:False or value in checked_values %}checked{% endif %}
        {% if disabled|default:False %}disabled{% endif %}
        {% if aria_controls|default:"" %}aria-controls="{{ aria_controls }}"{% endif %}
        {% if aria_expanded|default:"" %}aria-expanded="{{ aria_expanded }}"{% endif %}
-       {% if hx_on_change|default:"" %}hx-on:change="{{ hx_on_change }}"{% endif %}>
+       {% if data_action|default:"" %}data-action="{{ data_action }}"{% endif %}
+       {% if data_required_target|default:"" %}data-required-target="{{ data_required_target }}"{% endif %}>

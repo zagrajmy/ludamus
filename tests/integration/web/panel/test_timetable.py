@@ -120,6 +120,7 @@ class TestTimetablePageView:
                 **_base_context(event),
                 "room_page": 1,
                 "grid": _empty_grid(),
+                "conflicts": [],
                 "conflict_session_pks": set(),
                 "conflicts_count": 0,
                 "categories": [],
@@ -139,6 +140,9 @@ class TestTimetablePageView:
                     ),
                     "problems": reverse(
                         "panel:timetable-problems", kwargs={"slug": event.slug}
+                    ),
+                    "confirmations": reverse(
+                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
                     ),
                 },
                 "active_tab": "timetable",

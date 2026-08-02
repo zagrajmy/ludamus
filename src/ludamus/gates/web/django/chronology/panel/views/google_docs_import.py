@@ -28,7 +28,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     import_tab_urls,
 )
-from ludamus.mills.submissions.mapping import MissingUniqueKeyColumnsError, slugify
+from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.submissions import (
     DurationSpec,
@@ -838,13 +838,14 @@ class EventImportRunPageView(_ImportTabView):
             )
             context["header_row"] = settings.header_row
             context["unique_key_columns"] = settings.unique_key_columns
+            context["facilitator_key_columns"] = settings.facilitator_key_columns
             context["available_columns"] = available
             context["fields_imported"] = bool(cached)
             context["fields_count"] = len(cached)
             mappings = [t for t in settings.questions.values() if t.to or t.ignore]
             context["mapping_total"] = len(mappings)
             context["mapping_confirmed"] = sum(1 for t in mappings if t.confirmed)
-            context["no_unique_keys_label"] = _("No columns selected.")
+            context["no_columns_label"] = _("No columns selected.")
         return TemplateResponse(self.request, "panel/import-run.html", context)
 
 
@@ -948,6 +949,11 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
             for col in self.request.POST.getlist("unique_key_columns")
             if (stripped := col.strip())
         ]
+        settings.facilitator_key_columns = [
+            stripped
+            for col in self.request.POST.getlist("facilitator_key_columns")
+            if (stripped := col.strip())
+        ]
         self.request.services.event_integrations.save_settings(
             event_id=current_event.pk,
             pk=active.pk,
@@ -967,8 +973,8 @@ class EventImportSettingsSaveView(PanelAccessMixin, EventContextMixin, View):
 
 def _missing_columns_message(columns: list[str]) -> str:
     return _(
-        "Import aborted: unique-key columns not found in the sheet: %(columns)s. "
-        "Fix the unique-key selection on the run tab, then try again."
+        "Import aborted: key columns not found in the sheet: %(columns)s. "
+        "Fix the key-column selection on the run tab, then try again."
     ) % {"columns": ", ".join(columns)}
 
 
@@ -1003,7 +1009,7 @@ class EventImportRunActionView(_ImportActionView):
             result = self.request.services.proposals_import.run(
                 sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
             )
-        except MissingUniqueKeyColumnsError as exc:
+        except MissingKeyColumnsError as exc:
             messages.error(self.request, _missing_columns_message(exc.columns))
             return
         messages.success(
@@ -1031,7 +1037,7 @@ class EventImportTestRowActionView(_ImportActionView):
             result = self.request.services.proposals_import.run_sample(
                 sphere_id=sphere_id, event_id=event_pk, integration_pk=integration_pk
             )
-        except MissingUniqueKeyColumnsError as exc:
+        except MissingKeyColumnsError as exc:
             messages.error(self.request, _missing_columns_message(exc.columns))
             return
         if result.created:

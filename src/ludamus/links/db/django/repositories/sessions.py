@@ -3,12 +3,13 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, Exists, OuterRef, Q, QuerySet
+from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     AgendaItem,
     Event,
+    Facilitator,
     Session,
     SessionFieldValue,
     SessionParticipationStatus,
@@ -44,6 +45,7 @@ from ludamus.pacts import (
     SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
+    TrackSessionCountsDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
@@ -53,6 +55,7 @@ from ludamus.pacts.chronology import (
     SessionModalSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import ConfirmationSessionRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -206,12 +209,15 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
+        # add(), not set(): the session is brand new, so there is nothing to
+        # diff against — set() would first read back the (empty) relation,
+        # which turns bulk imports into a query per created session.
         if time_slot_ids:
-            session.time_slots.set(time_slot_ids)
+            session.time_slots.add(*time_slot_ids)
         if facilitator_ids:
-            session.facilitators.set(facilitator_ids)
+            session.facilitators.add(*facilitator_ids)
         if track_ids:
-            session.tracks.set(track_ids)
+            session.tracks.add(*track_ids)
         return session.pk
 
     @staticmethod
@@ -569,6 +575,73 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         ]
 
     @staticmethod
+    def list_confirmation_rows(
+        event_pk: int, facilitator_pks: list[int]
+    ) -> list[ConfirmationSessionRow]:
+        # One row per (facilitator, session) pair — the page groups by
+        # facilitator, so the fan-out is the shape it wants. Placed sessions
+        # sort first, chronologically; the rest fall back to their title.
+        rows = (
+            Session.objects.filter(event_id=event_pk, facilitators__in=facilitator_pks)
+            .values(
+                "pk",
+                "title",
+                "status",
+                "contact_email",
+                "category__name",
+                "facilitators__pk",
+                "agenda_item__pk",
+                "agenda_item__session_confirmed",
+                "agenda_item__start_time",
+                "agenda_item__end_time",
+                "agenda_item__space__name",
+            )
+            .order_by(F("agenda_item__start_time").asc(nulls_last=True), "title", "pk")
+        )
+        return [
+            ConfirmationSessionRow(
+                facilitator_pk=row["facilitators__pk"],
+                session_pk=row["pk"],
+                title=row["title"],
+                status=SessionStatus(row["status"]),
+                contact_email=row["contact_email"],
+                category_name=row["category__name"] or "",
+                agenda_item_pk=row["agenda_item__pk"],
+                is_confirmed=bool(row["agenda_item__session_confirmed"]),
+                start_time=row["agenda_item__start_time"],
+                end_time=row["agenda_item__end_time"],
+                room_name=row["agenda_item__space__name"] or "",
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def list_track_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]:
+        names: dict[int, dict[int, str]] = {}
+        rows = Track.objects.filter(sessions__in=session_pks).values_list(
+            "sessions__pk", "pk", "name"
+        )
+        for session_pk, track_pk, name in rows:
+            names.setdefault(session_pk, {})[track_pk] = name
+        return names
+
+    @staticmethod
+    def list_facilitator_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]:
+        names: dict[int, dict[int, str]] = {}
+        rows = (
+            Facilitator.objects.filter(sessions__in=session_pks)
+            .order_by("display_name")
+            .values_list("sessions__pk", "pk", "display_name")
+        )
+        for session_pk, facilitator_pk, name in rows:
+            names.setdefault(session_pk, {})[facilitator_pk] = name
+        return names
+
+    @staticmethod
     def read_track_ids(session_id: int) -> list[int]:
         return list(
             Track.objects.filter(sessions__id=session_id).values_list("id", flat=True)
@@ -600,8 +673,29 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         session.time_slots.set(time_slot_ids)
 
     @staticmethod
-    def clear_field_values(session_id: int) -> None:
-        SessionFieldValue.objects.filter(session_id=session_id).delete()
+    def read_facilitators_by_sessions(
+        session_ids: Iterable[int],
+    ) -> dict[int, list[FacilitatorDTO]]:
+        ids = list(session_ids)
+        rows = (
+            Session.facilitators.through.objects.filter(session_id__in=ids)
+            .select_related("facilitator")
+            .order_by("facilitator__display_name")
+        )
+        result: dict[int, list[FacilitatorDTO]] = {sid: [] for sid in ids}
+        for row in rows:
+            result[row.session_id].append(
+                FacilitatorDTO.model_validate(row.facilitator)
+            )
+        return result
+
+    @staticmethod
+    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
+        return dict(
+            Session.objects.filter(pk__in=session_ids).values_list(
+                "pk", "participants_limit"
+            )
+        )
 
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
@@ -611,6 +705,42 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
         return [FacilitatorDTO.model_validate(f) for f in session.facilitators.all()]
+
+    @staticmethod
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
+        rows = (
+            Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
+            .values("tracks__pk")
+            .annotate(
+                pending=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.PENDING)
+                ),
+                accepted=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ACCEPTED)
+                ),
+                scheduled=Count(
+                    "pk",
+                    distinct=True,
+                    filter=Q(status=SessionStatus.ACCEPTED, agenda_item__isnull=False),
+                ),
+                on_hold=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ON_HOLD)
+                ),
+                rejected=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.REJECTED)
+                ),
+            )
+        )
+        return {
+            row["tracks__pk"]: TrackSessionCountsDTO(
+                pending=row["pending"],
+                accepted=row["accepted"],
+                scheduled=row["scheduled"],
+                on_hold=row["on_hold"],
+                rejected=row["rejected"],
+            )
+            for row in rows
+        }
 
     @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:

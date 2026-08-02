@@ -1,3 +1,4 @@
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {# Compact schedule for big events: a dense chronological ledger (or the #}
@@ -26,7 +27,9 @@
                                  id="slot-{{ hour.start|date:'Ymd-H' }}"
                                  data-slot-hour="{{ hour.start|date:'Ymd-H' }}">
                                 <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">{{ hour.start|time:"H:i" }}</div>
-                                <div class="session-grid divide-y divide-border/60">
+                                {# Not divide-y: it draws a stray divider under the last visible #}
+                                {# row when session-filters.ts hides the rows after it (index.css). #}
+                                <div class="session-grid divide-y-visible">
                                     {% for data in hour.sessions %}
                                         {% include "chronology/_compact_session_row.html" %}
                                     {% endfor %}
@@ -62,7 +65,7 @@
 {# already parsed, lands before first paint — the deferred module in #}
 {# event-timeline.ts (which saves this key on view-tab clicks) would flash a #}
 {# frame at scrollTop 0 first. #}
-<script>
+<script{% nonce %}>
     (() => {
         const saved = sessionStorage.getItem(`schedule-scroll:${location.pathname}`);
         if (saved === null) return;

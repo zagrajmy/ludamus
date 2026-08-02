@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.proposals import PersonalDataCard
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -33,7 +34,9 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     FacilitatorListItemDTO,
-    PersonalDataFieldDTO,
+    FieldAnswer,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     SessionDTO,
     TimeSlotDTO,
     TrackDTO,
@@ -46,9 +49,10 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+CUSTOM_DURATION_MINUTES = 45
 
 
 def _make_session(event, **kwargs):
@@ -99,6 +103,38 @@ def _facilitator_dto(facilitator, *, session_count=0):
         slug=facilitator.slug,
         user_id=None,
     )
+
+
+def _edit_page_response(event, session):
+    # The whole rendered-page expectation for an edit GET of one pending
+    # session, so a test can focus on the form values it cares about.
+    return {
+        "template_name": "panel/proposal-form.html",
+        "context_data": {
+            **_base_context(event),
+            "stats": {
+                "hosts_count": 0,
+                "pending_proposals": 1,
+                "rooms_count": 0,
+                "scheduled_sessions": 0,
+                "total_proposals": 1,
+                "total_sessions": 1,
+            },
+            "proposal": SessionDTO.model_validate(session),
+            "form": ANY,
+            "all_facilitators": [],
+            "assigned_facilitator_pks": set(),
+            "field_descriptors": [],
+            "orphan_values": [],
+            "fields_url": _fields_url(event, session.pk),
+            "cancel_url": _cancel_url(event, session.pk),
+            "all_tracks": [],
+            "assigned_track_pks": set(),
+            "all_time_slots": [],
+            "assigned_time_slot_pks": set(),
+            "facilitator_personal_data": [],
+        },
+    }
 
 
 def _base_context(event):
@@ -168,6 +204,36 @@ class TestProposalEditPageView:
             messages=[(messages.ERROR, "Event not found.")],
             url=reverse("panel:index"),
         )
+
+    def test_get_preselects_a_stored_preset_duration(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, duration="PT1H")
+        session.category.durations = ["PT1H", "PT2H"]
+        session.category.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
+        form = response.context["form"]
+        assert form.initial["duration"] == "PT1H"
+
+    def test_get_preselects_custom_for_a_duration_outside_the_presets(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event, duration="PT1H45M")
+        session.category.durations = ["PT1H"]
+        session.category.save()
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
+        initial = response.context["form"].initial
+        assert initial["duration"] == "custom"
+        assert initial["duration_hours"] == 1
+        assert initial["duration_minutes"] == CUSTOM_DURATION_MINUTES
 
     def test_get_redirects_when_proposal_not_found(
         self, authenticated_client, active_user, sphere, event
@@ -371,7 +437,8 @@ class TestProposalEditPageView:
                 "contact_email": "",
                 "participants_limit": new_limit,
                 "min_age": new_min_age,
-                "duration": "2h",
+                "duration_hours": 2,
+                "duration_minutes": 30,
             },
         )
 
@@ -390,7 +457,7 @@ class TestProposalEditPageView:
         assert session.description == "Updated description"
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
-        assert session.duration == "2h"
+        assert session.duration == "PT2H30M"
 
     def test_post_surfaces_db_error_as_form_error(
         self, authenticated_client, active_user, sphere, event, monkeypatch
@@ -569,7 +636,7 @@ class TestProposalEditPageView:
                 "contact_email": "",
                 "participants_limit": raised_limit,
                 "min_age": 0,
-                "duration": "2h",
+                "duration_hours": 2,
             },
         )
 
@@ -962,12 +1029,11 @@ class TestProposalEditPageView:
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [
-                    (
-                        FacilitatorDTO.model_validate(facilitator),
-                        f"facilitator_{facilitator.pk}_personal",
-                        [
-                            (
-                                PersonalDataFieldDTO(
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
                                     allow_custom=False,
                                     field_type="text",
                                     help_text="",
@@ -981,13 +1047,13 @@ class TestProposalEditPageView:
                                     question="Your nickname?",
                                     slug="nick",
                                 ),
-                                None,
-                            )
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(),
+                            }
                         ],
                     )
                 ],
             },
-            contains=["Alice", f'name="facilitator_{facilitator.pk}_personal_nick"'],
         )
 
     def test_post_saves_facilitator_personal_data(
@@ -1043,6 +1109,10 @@ class TestProposalEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["vegan", "gluten-free"]):
+            PersonalDataFieldOption.objects.create(
+                field=field, label=value, value=value, order=order
+            )
 
         authenticated_client.post(
             self.get_url(event, session.pk),
@@ -1147,6 +1217,204 @@ class TestProposalEditPageView:
         )
         assert stored.value == ["vegan", "no peanuts"]
 
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator,
+            event=event,
+            field=field,
+            value=["vegan", "no peanuts"],
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [_facilitator_dto(facilitator, session_count=1)],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=True,
+                                    field_type="select",
+                                    help_text="",
+                                    is_multiple=True,
+                                    is_public=False,
+                                    max_length=50,
+                                    name="Diet",
+                                    options=[
+                                        OrganizerFieldOptionDTO(
+                                            label="Vegan",
+                                            order=0,
+                                            pk=option.pk,
+                                            value="vegan",
+                                        )
+                                    ],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any dietary needs?",
+                                    slug="diet",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                # The stored write-in comes back split: the
+                                # option on the control, the rest beside it.
+                                "answer": FieldAnswer(
+                                    value=["vegan"], custom_value="no peanuts"
+                                ),
+                            }
+                        ],
+                    )
+                ],
+            },
+        )
+
+    def test_post_with_only_invalid_personal_data_reports_it_on_the_form(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=5,
+            order=0,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "New title",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                # Longer than the field allows, so only the personal-data form
+                # is invalid — the proposal form itself has nothing to report.
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": FormErrorsMatcher(
+                    __all__=["Fix the facilitator personal data below before saving."]
+                ),
+                "all_facilitators": [_facilitator_dto(facilitator, session_count=1)],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=False,
+                                    field_type="text",
+                                    help_text="",
+                                    is_multiple=False,
+                                    is_public=False,
+                                    max_length=5,
+                                    name="Allergy",
+                                    options=[],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any allergy?",
+                                    slug="allergy",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(
+                                    value="Peanuts",
+                                    errors=[
+                                        (
+                                            "Ensure this value has at most 5 "
+                                            "characters (it has 7)."
+                                        )
+                                    ],
+                                ),
+                            }
+                        ],
+                        has_errors=True,
+                    )
+                ],
+            },
+        )
+        session.refresh_from_db()
+        assert session.title == "Test Session"
+
     def test_invalid_post_preserves_submitted_personal_data(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1182,12 +1450,11 @@ class TestProposalEditPageView:
 
         assert response.context["form"].errors
         assert response.context["facilitator_personal_data"] == [
-            (
-                FacilitatorDTO.model_validate(facilitator),
-                f"facilitator_{facilitator.pk}_personal",
-                [
-                    (
-                        PersonalDataFieldDTO(
+            PersonalDataCard(
+                facilitator=FacilitatorDTO.model_validate(facilitator),
+                descriptors=[
+                    {
+                        "field": OrganizerFieldDTO(
                             allow_custom=False,
                             field_type="text",
                             help_text="",
@@ -1201,8 +1468,9 @@ class TestProposalEditPageView:
                             question="Any allergy?",
                             slug="allergy",
                         ),
-                        "Peanuts",
-                    )
+                        "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                        "answer": FieldAnswer(value="Peanuts"),
+                    }
                 ],
             )
         ]
@@ -1314,6 +1582,75 @@ class TestProposalEditPageView:
 
         sfv = SessionFieldValue.objects.get(session=session, field=field)
         assert sfv.value is True
+
+    def test_post_stores_no_row_for_a_field_left_blank(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, field)
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "   ",
+            },
+        )
+
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=field
+        ).exists()
+
+    def test_post_blanking_an_answered_field_keeps_the_row_empty(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, field)
+        SessionFieldValue.objects.create(
+            session=session, field=field, value="Pathfinder"
+        )
+
+        authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "",
+            },
+        )
+
+        # The row survives as an explicit empty answer, so a later import
+        # treats the field as answered and will not refill it.
+        assert list(
+            SessionFieldValue.objects.filter(session=session, field=field).values_list(
+                "value", flat=True
+            )
+        ) == [""]
 
     def test_post_saves_multiple_session_field(
         self, authenticated_client, active_user, sphere, event

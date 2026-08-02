@@ -5,35 +5,16 @@ from typing import TYPE_CHECKING
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 
-from ludamus.mills.field_values import merge_custom
-
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-    from ludamus.pacts import EventDTO, PersonalDataFieldDTO, SessionFieldDTO
+    from ludamus.pacts import EventDTO
 
 
 def is_event_published(event: EventDTO) -> bool:
     return (
         event.publication_time is not None
         and event.publication_time <= datetime.now(tz=UTC)
-    )
-
-
-def parse_dynamic_field_value(
-    *, request: HttpRequest, field: PersonalDataFieldDTO | SessionFieldDTO, key: str
-) -> str | list[str] | bool:
-    if field.field_type == "checkbox":
-        return request.POST.get(key) == "true"
-    chosen = (
-        request.POST.getlist(key) if field.is_multiple else request.POST.get(key, "")
-    )
-    if not field.allow_custom:
-        return chosen
-    return merge_custom(
-        chosen=chosen,
-        custom=request.POST.get(f"{key}_custom", ""),
-        is_multiple=field.is_multiple,
     )
 
 

@@ -23,19 +23,17 @@ Use these status values: `Not started`, `In progress`, `Passed`, `Failed`, or
 
 ## Known risks from source review
 
-1. Offer emails appear to contain only a relative path such as
-   `/offer/<token>/claim/`. `DjangoUserNotifier._deliver` sends
-   `notification.url` without adding the sphere's scheme and host. An email
-   without a directly usable
-   `https://skytower.zagrajmy.net/offer/<token>/claim/` link fails this test.
+1. Emails carry an absolute link: `DjangoUserNotifier._deliver` resolves the
+   sphere host from the notification and mails
+   `https://skytower.zagrajmy.net/offer/<token>/claim/`. Verify the host in the
+   received mail — a relative or wrong-sphere link fails this test.
 2. Email delivery uses `fail_silently=True`. Application logs alone cannot prove
    delivery; the message must reach Gmail.
 3. Existing browser coverage tests automatic wait-list promotion, not the
    `OFFER_CLAIM` path.
 4. The backoffice panel cannot create the sphere's first event. Create the event
-   through Django admin or a production shell. The organizer's category form
-   also omits `promotion_mode` and `offer_claim_window`; configure both through
-   Django admin or the shell.
+   through Django admin or a production shell. `promotion_mode` and
+   `offer_claim_window` are on the panel's category settings page.
 
 ## Safety rules
 

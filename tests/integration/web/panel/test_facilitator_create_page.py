@@ -11,14 +11,14 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, PersonalDataFieldDTO
+from ludamus.pacts import EventDTO, FieldAnswer, OrganizerFieldDTO
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
 def _field_dto(field):
-    return PersonalDataFieldDTO(
+    return OrganizerFieldDTO(
         field_type=field.field_type,
         is_multiple=field.is_multiple,
         name=field.name,
@@ -99,7 +99,7 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "personal_fields": []},
+            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
@@ -166,7 +166,7 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "personal_fields": []},
+            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
         )
         assert response.context["form"].errors
 
@@ -243,7 +243,7 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "personal_fields": []},
+            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
         )
         assert response.context["form"].errors["accreditation_type"]
         assert response.context["form"].errors["accreditation_type"][0] in (
@@ -272,9 +272,14 @@ class TestFacilitatorCreatePageView:
             context_data={
                 **_base_context(event),
                 "form": ANY,
-                "personal_fields": [(_field_dto(field), None)],
+                "field_descriptors": [
+                    {
+                        "field": _field_dto(field),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(),
+                    }
+                ],
             },
-            contains='name="personal_vegan"',
         )
 
     def test_post_saves_personal_data_field_values(

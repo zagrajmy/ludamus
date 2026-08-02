@@ -18,10 +18,7 @@
             <p class="mb-4 text-sm text-foreground-muted">
                 {% blocktranslate with name=node.name %}Copies "{{ name }}" and everything inside it into the chosen event as a new top-level space.{% endblocktranslate %}
             </p>
-            <form method="post"
-                  action=""
-                  class="space-y-4"
-                  onsubmit="this.querySelector('button[type=submit]').disabled = true">
+            <form method="post" action="" class="space-y-4" data-submit-once>
                 {% csrf_token %}
                 {% tessera_form form %}
                 <div class="flex justify-end gap-2 border-t border-border pt-4">

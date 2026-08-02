@@ -1,5 +1,6 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY, Mock, patch
 
@@ -34,6 +35,17 @@ from tests.integration.conftest import (
     sponsor_user,
 )
 from tests.integration.utils import assert_response, input_tag
+
+
+def _open_window(event, *, percentage_slots):
+    now = datetime.now(UTC)
+    return EnrollmentConfig.objects.create(
+        event=event,
+        start_time=now - timedelta(days=1),
+        end_time=now + timedelta(days=5),
+        percentage_slots=percentage_slots,
+        restrict_to_configured_users=False,
+    )
 
 
 def _party_context(viewer):
@@ -1173,6 +1185,159 @@ class TestSessionEnrollPageView:
             url=f"/event/{event.slug}/",
         )
 
+    def test_post_open_window_admits_a_viewer_the_restricted_window_excludes(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+
+        response = staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
+            url=f"/event/{event.slug}/",
+        )
+
+    def test_post_seats_come_from_the_open_window_not_the_restricted_one(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            user=UserFactory(),
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
+        )
+
+        participation = SessionParticipation.objects.get(
+            user=staff_user, session=agenda_item.session
+        )
+        assert participation.status == SessionParticipationStatus.WAITING
+
+    def test_post_one_click_seats_come_from_the_open_window_too(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        SessionParticipation.objects.create(
+            user=UserFactory(),
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert not SessionParticipation.objects.filter(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+
+    def test_post_a_freed_seat_does_not_invent_headroom_past_the_open_window(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        for _seat in range(4):
+            SessionParticipation.objects.create(
+                user=UserFactory(),
+                session=agenda_item.session,
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+
+        response = staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{companion.id}": "cancel", f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            messages=[
+                (
+                    messages.ERROR,
+                    (
+                        "Not enough spots available. 1 spots requested, 0 available. "
+                        "Please use waiting list for some users."
+                    ),
+                )
+            ],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()
+
+    def test_post_restricted_pool_still_costs_a_slot_beside_an_open_window(
+        self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
+    ):
+        PartyMembership.objects.filter(member=companion).delete()
+        sponsor_user(leader=staff_user, member=companion)
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=staff_user.email,
+            allowed_slots=1,
+        )
+        SessionParticipation.objects.create(
+            user=companion,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        _open_window(event, percentage_slots=20)
+
+        staff_client.post(
+            self._get_url(agenda_item.session.pk, agenda_item.session.event.slug),
+            data={f"user_{staff_user.id}": "enroll"},
+        )
+
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=agenda_item.session
+        ).exists()
+
     def test_post_restrict_to_configured_users_config_exists_too_many_enrollment2(
         self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
     ):
@@ -1827,10 +1992,7 @@ class TestSessionEnrollPageView:
             messages=[
                 (
                     messages.ERROR,
-                    (
-                        "Select a valid choice. "
-                        "enroll is not one of the available choices."
-                    ),
+                    "Test User cannot enroll: enrollment access permission required",
                 ),
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
@@ -1942,8 +2104,8 @@ class TestSessionEnrollPageView:
                 (
                     messages.ERROR,
                     (
-                        "Select a valid choice. "
-                        "enroll is not one of the available choices."
+                        f"{companion.name} cannot enroll: enrollment access "
+                        "permission required"
                     ),
                 ),
                 (messages.WARNING, "Please review the enrollment options below."),

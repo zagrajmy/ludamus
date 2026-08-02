@@ -80,12 +80,9 @@
                                 <div>{% tessera_field form.contact_email %}</div>
                             </div>
                             <div>{% tessera_field form.description %}</div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>{% tessera_field form.participants_limit %}</div>
-                                <div>{% tessera_field form.min_age %}</div>
-                            </div>
-                            {# Free text when the category configures no durations, a picker when it does. #}
-                            {% tessera_field form.duration %}
+                            {# Participants limit and duration live in the swapped #}
+                            {# region below: the category rebuilds them, min age it doesn't. #}
+                            <div>{% tessera_field form.min_age %}</div>
                         </div>
                     </div>
                 </div>
@@ -156,14 +153,15 @@
                                 {% translate "Personal-data answers for each assigned facilitator." %}
                             </p>
                             <div class="space-y-3">
-                                {% for facilitator, name_prefix, items in facilitator_personal_data %}
-                                    <details class="border border-border rounded-lg">
-                                        <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ facilitator.display_name }}</summary>
+                                {% for card in facilitator_personal_data %}
+                                    <details class="border border-border rounded-lg"
+                                             {% if card.has_errors %}open{% endif %}>
+                                        <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ card.facilitator.display_name }}</summary>
                                         <div class="px-4 pb-4 pt-2">
                                             <input type="hidden"
                                                    name="personal_data_facilitator_ids"
-                                                   value="{{ facilitator.pk }}">
-                                            {% include "panel/_personal_data_fields.html" with fields=items name_prefix=name_prefix %}
+                                                   value="{{ card.facilitator.pk }}">
+                                            {% include "panel/_personal_data_fields.html" with descriptors=card.descriptors %}
                                         </div>
                                     </details>
                                 {% endfor %}

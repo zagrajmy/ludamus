@@ -8,11 +8,9 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.mills.field_values import split_stored
 
 if TYPE_CHECKING:
-    from ludamus.mills.field_values import FieldAnswer
-    from ludamus.pacts import PersonalDataFieldDTO, SessionDTO, SessionFieldDTO
+    from ludamus.pacts import SessionDTO
     from ludamus.pacts.submissions import FacilitatorColumnDTO
 
 register = template.Library()
@@ -177,18 +175,26 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
     return str(value)
 
 
-@register.filter
-def custom_values(
-    value: FieldAnswer | None, field: SessionFieldDTO | PersonalDataFieldDTO
-) -> str:
-    # Write-in part of a stored answer — what matches no configured option —
-    # joined for the companion custom input.
-    _chosen, custom = split_stored(
-        stored=value,
-        known={option.value for option in field.options},
-        is_multiple=field.is_multiple,
-    )
-    return custom
+def parse_duration(iso_duration: str) -> tuple[int, int]:
+    """Split an ISO 8601 duration into hours and minutes.
+
+    Returns:
+        (hours, minutes), both 0 for anything unparsable.
+    """
+    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso_duration or "")):
+        return 0, 0
+    return int(match.group(1) or 0), int(match.group(2) or 0)
+
+
+def build_duration(*, hours: int, minutes: int) -> str:
+    """Compose an ISO 8601 duration, empty when both parts are zero.
+
+    Returns:
+        A string like "PT1H30M", "PT45M" or "".
+    """
+    if not hours and not minutes:
+        return ""
+    return "PT" + (f"{hours}H" if hours else "") + (f"{minutes}M" if minutes else "")
 
 
 @register.filter
@@ -204,11 +210,7 @@ def format_duration(iso_duration: str) -> str:
     if not iso_duration:
         return ""
 
-    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso_duration)):
-        return iso_duration
-
-    hours = int(match.group(1)) if match.group(1) else 0
-    minutes = int(match.group(2)) if match.group(2) else 0
+    hours, minutes = parse_duration(iso_duration)
 
     if hours and minutes:
         return f"{hours}h {minutes}min"

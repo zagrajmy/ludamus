@@ -29,7 +29,10 @@ test.describe("interface sound toggle", () => {
     await pressToggle(page);
     await expect(toggle(page)).not.toBeChecked();
 
-    await page.reload();
+    // domcontentloaded, not load: the persisted state is applied by the deferred
+    // module script, and waiting for `load` makes the test hostage to the
+    // third-party font requests the page fires.
+    await page.reload({ waitUntil: "domcontentloaded" });
 
     await expect(toggle(page)).not.toBeChecked();
   });

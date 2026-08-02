@@ -1,4 +1,16 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
+
+// A page can offer several write-ins, so each is named after its own question.
+const customValue = (page: Page, question: string) =>
+  page.getByLabel(`Custom value for: ${question}`, { exact: true });
+
+// By role, not by label: a required field's label carries "(required)" and a
+// non-public one "organizers only", and getByLabel does not normalize the
+// markup's whitespace for a regex. The accessible name is normalized, and
+// anchoring keeps the companion's "Custom value for: …" out.
+const systemInput = (page: Page) => page.getByRole("textbox", { name: /^Which system\?/ });
 
 test.describe("Write-in answers", () => {
   test("carries a write-in alongside the picked options", async ({ page }) => {
@@ -16,8 +28,16 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page.getByLabel(/duration/i).selectOption("PT1H");
-    await page.getByRole("checkbox", { name: "Horror" }).check();
-    await page.getByLabel("Or type a custom value").fill("krew; przemoc");
+    await page
+      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("checkbox", { name: "Comedy" })
+      .check();
+    await systemInput(page).fill("Fate");
+    await page
+      .getByRole("group", { name: /Any trigger warnings\?/ })
+      .getByRole("checkbox", { name: "Horror" })
+      .check();
+    await customValue(page, "Any trigger warnings?").fill("krew; przemoc");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
@@ -34,8 +54,16 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/max participants/i).fill("4");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page.getByLabel(/duration/i).selectOption("PT1H");
-    await page.getByRole("checkbox", { name: "Horror" }).check();
-    await page.getByLabel("Or type a custom value").fill("krew");
+    await page
+      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("checkbox", { name: "Comedy" })
+      .check();
+    await systemInput(page).fill("Fate");
+    await page
+      .getByRole("group", { name: /Any trigger warnings\?/ })
+      .getByRole("checkbox", { name: "Horror" })
+      .check();
+    await customValue(page, "Any trigger warnings?").fill("krew");
     await page.getByRole("button", { name: /Continue/ }).click();
 
     const wizard = page.locator('[id="wizard-content"]');
@@ -45,8 +73,12 @@ test.describe("Write-in answers", () => {
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
     // The saved write-in comes back as a removable chip; the input is empty.
     await expect(page.getByRole("button", { name: "Remove: krew" })).toBeVisible();
-    await expect(page.getByLabel("Or type a custom value")).toHaveValue("");
-    await expect(page.getByRole("checkbox", { name: "Horror" })).toBeChecked();
+    await expect(customValue(page, "Any trigger warnings?")).toHaveValue("");
+    await expect(
+      page
+        .getByRole("group", { name: /Any trigger warnings\?/ })
+        .getByRole("checkbox", { name: "Horror" }),
+    ).toBeChecked();
   });
 
   test("commits chips on Enter, removes them, and submits the joined value", async ({ page }) => {
@@ -58,7 +90,7 @@ test.describe("Write-in answers", () => {
     const wizard = page.locator('[id="wizard-content"]');
     await expect(wizard.getByRole("heading", { name: "Session Details" })).toBeVisible();
 
-    const writeIn = page.getByLabel("Or type a custom value");
+    const writeIn = customValue(page, "Any trigger warnings?");
     await writeIn.fill("krew");
     await writeIn.press("Enter");
     // Enter committed a chip instead of submitting the step.
@@ -76,7 +108,15 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
     await page.getByLabel(/duration/i).selectOption("PT1H");
-    await page.getByRole("checkbox", { name: "Horror" }).check();
+    await page
+      .getByRole("group", { name: /What tone should players expect\?/ })
+      .getByRole("checkbox", { name: "Comedy" })
+      .check();
+    await systemInput(page).fill("Fate");
+    await page
+      .getByRole("group", { name: /Any trigger warnings\?/ })
+      .getByRole("checkbox", { name: "Horror" })
+      .check();
     await page.getByRole("button", { name: /Continue/ }).click();
 
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();

@@ -342,8 +342,9 @@ class Event(models.Model):
     # "Players" (gaming events), on → "Participants" (general events).
     use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
-    # turn off for a draft → confirm workflow on large events.
-    auto_confirm_sessions = models.BooleanField(default=True)
+    # off by default, so placing an item never stands in for the
+    # facilitator confirming it.
+    auto_confirm_sessions = models.BooleanField(default=False)
 
     class Meta:
         db_table = "event"
@@ -403,14 +404,17 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
-    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        eligible_configs = [
+    def get_eligible_enrollment_configs(
+        self, session: Session
+    ) -> list[EnrollmentConfig]:
+        return [
             config
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
 
-        if not eligible_configs:
+    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
+        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
             return None
 
         return max(eligible_configs, key=lambda c: c.percentage_slots)
@@ -748,6 +752,11 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    # Import identity key (hash of the operator-chosen facilitator key columns).
+    # Empty for facilitators that weren't imported or predate the key-column
+    # setting; those fall back to slug dedup and are stamped on first reimport.
+    # Never shown to users.
+    ident = models.CharField(max_length=64, default="", blank=True)
     accreditation_type = models.CharField(
         max_length=20,
         choices=[(t.value, t.name.title()) for t in AccreditationType],
@@ -776,6 +785,11 @@ class Facilitator(models.Model):
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"
+            ),
+            models.UniqueConstraint(
+                fields=("event", "ident"),
+                condition=~Q(ident=""),
+                name="facilitator_unique_ident_per_event",
             ),
         )
 

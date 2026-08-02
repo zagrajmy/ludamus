@@ -12,13 +12,8 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import (
-    PersonalDataFieldDTO,
-    PromotionMode,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -79,14 +74,23 @@ class ImportRow:
         return dict(self._data)
 
     def get_value(self, header: str, default: str = "") -> str:
-        candidates = {
+        # Whitespace-only cells count as absent, so a deduped column pair
+        # where one side is blank resolves to the filled one instead of
+        # reading as a conflict and skipping the whole row. Conflicts are
+        # judged on stripped text — "D&D" and " D&D " are one answer, not a
+        # conflict — but the cell comes back raw, and deliberately so:
+        # `Session.ident` hashes what this method returns, so trimming here
+        # would re-hash every already-imported row whose key cell carried
+        # padding and fork it into a second session. `field_answer()` trims what
+        # actually gets stored.
+        matches = [
             value
             for key, value in self._data.items()
-            if value and _row_header_matches(key, header)
-        }
-        if len(candidates) > 1:
+            if value.strip() and _row_header_matches(key, header)
+        ]
+        if len(candidates := {value.strip() for value in matches}) > 1:
             raise DuplicateValueError(header, sorted(candidates))
-        return next(iter(candidates), default)
+        return matches[0] if matches else default
 
     def has_column(self, header: str) -> bool:
         # Whether the source row carries this column at all (even when empty),
@@ -188,11 +192,27 @@ class ImportSettings(BaseModel):
     # chosen from it: the form schema alone can't offer the metadata columns
     # (timestamp, auto-collected email), whose wording follows the form's
     # locale, so those are mapped like any other column.
+    # `facilitator_key_columns` names the column headers whose values identify a
+    # facilitator across rows and re-fetches (e.g. an email column). Dedup keys
+    # on their hash rather than the display name, so a renamed facilitator stays
+    # one record. Empty keeps the legacy display-name (slug) dedup.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
+    facilitator_key_columns: list[str] = []
     sheet_headers: list[str] = []
+
+
+def is_empty_answer(*, value: str | list[str] | bool | None) -> bool:
+    # No answer was given: a blank (or whitespace-only) text cell, or a
+    # multi-select with nothing picked. `False` and `0` are answers — an
+    # unchecked checkbox means "No" — and stay.
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, list):
+        return not value
+    return value is None
 
 
 class AccreditationType(StrEnum):
@@ -331,7 +351,7 @@ class PersonalDataFieldFormContextDTO:
 class PersonalDataFieldEditContextDTO:
     """Read aggregate for the personal-data-field edit form."""
 
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
@@ -421,7 +441,7 @@ class FacilitatorColumnDTO:
     """
 
     key: str
-    field: PersonalDataFieldDTO | None = None
+    field: OrganizerFieldDTO | None = None
 
 
 @dataclass
@@ -429,7 +449,7 @@ class FacilitatorListContextDTO:
     """Read aggregate for the panel's facilitator list."""
 
     facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[PersonalDataFieldDTO]
+    filterable_fields: list[OrganizerFieldDTO]
     field_filters: dict[int, str | bool]
     columns: list[FacilitatorColumnDTO]
 
@@ -507,10 +527,10 @@ class ProposalCategorySettingsData(BaseModel):
 
 class ProposalCategoryEditContextDTO(BaseModel):
     category: ProposalCategoryDTO
-    available_fields: list[PersonalDataFieldDTO]
+    available_fields: list[OrganizerFieldDTO]
     field_requirements: dict[int, bool]
     field_order: list[int]
-    available_session_fields: list[SessionFieldDTO]
+    available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
     available_time_slots: list[TimeSlotDTO]
@@ -557,7 +577,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         event_pk: int,
         data: SessionFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,
@@ -582,7 +602,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,

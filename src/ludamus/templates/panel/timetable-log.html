@@ -1,4 +1,5 @@
 {% extends "panel/base.html" %}
+{% load django_vite %}
 {% load i18n %}
 {% load tessera %}
 {% block title_prefix %}
@@ -11,12 +12,14 @@
     {% tab_shell "panel/_timetable_tabs.html" %}
     {% tab_shell_body %}
     <!-- Filters -->
-    <form method="get" class="mb-4 flex flex-wrap gap-3 items-end">
+    <form method="get"
+          data-autosubmit
+          class="mb-4 flex flex-wrap gap-3 items-end">
         <div>
-            <label class="block text-xs text-foreground-muted mb-1">{% translate "Room" %}</label>
-            <select name="space"
-                    class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    onchange="this.form.submit()">
+            <label for="space-filter" class="block text-xs text-foreground-muted mb-1">{% translate "Room" %}</label>
+            <select id="space-filter"
+                    name="space"
+                    class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">{% translate "All" %}</option>
                 {% for space in spaces %}
                     <option value="{{ space.pk }}"
@@ -34,7 +37,7 @@
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-neutral-200 text-left">
+                    <tr class="border-b border-border text-left">
                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Time" %}</th>
                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "User" %}</th>
                         <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Action" %}</th>
@@ -45,7 +48,7 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     {% for log in logs %}
-                        <tr class="hover:bg-neutral-50">
+                        <tr class="hover:bg-bg-tertiary">
                             <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
                             <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
                             <td class="py-2 pr-4">
@@ -98,3 +101,6 @@
 {% end_tab_shell_body %}
 {% end_tab_shell %}
 {% endblock content %}
+{% block extra_scripts %}
+    {% vite_asset 'src/filter-autosubmit.ts' %}
+{% endblock extra_scripts %}

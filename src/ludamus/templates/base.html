@@ -1,3 +1,4 @@
+{% load csp_tags %}
 {% load i18n %}
 {% load static %}
 {% load django_vite %}
@@ -9,6 +10,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="htmx-config" content="{&quot;allowEval&quot;:false}">
         {% comment %}One value, three tags: a block can't hand its output to a
         variable. Object pages override all three with one shared expression or
         partial. Sphere subdomains name the sphere; the brand domain pitches the
@@ -52,21 +54,18 @@
             {% endblock title_suffix %}
             {% if not is_root_sphere %}• Zagrajmy{% endif %}
         </title>
-        {% comment %}Chrome/Safari don't apply an SVG favicon's internal
-        prefers-color-scheme media query in the tab, so we swap the href to a
-        baked dark variant from JS. This follows the OS setting (matchMedia),
-        not the in-app theme switch, so the icon always matches the tab bar.
-        {% endcomment %}
-        <link rel="icon"
-              type="image/svg+xml"
-              href="{% static favicon %}"
-              data-favicon-light="{% static favicon %}"
-              data-favicon-dark="{% static favicon_dark %}">
+        {% comment %}Dark tab bars are handled by prefers-color-scheme rules
+        inside the SVGs themselves; the .ico covers pre-26 Safari and agents
+        that request /favicon.ico blindly.{% endcomment %}
+        <link rel="icon" type="image/svg+xml" href="{% static favicon %}">
         <link rel="alternate icon"
               type="image/x-icon"
               href="{% static 'favicon.ico' %}">
-        <!-- Theme + favicon initialization (before CSS to prevent flash) -->
-        <script>
+        {% comment %}Theme + favicon initialization (before CSS to prevent
+        flash). Also the first nonce tag on every page that extends base.html,
+        which is what generates the request's CSP nonce — every later script
+        reuses it.{% endcomment %}
+        <script{% nonce %}>
             (function() {
                 var theme = localStorage.getItem('theme');
                 if (theme === 'light') {
@@ -76,18 +75,6 @@
                 } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                     document.documentElement.classList.add('dark');
                 }
-
-                // Follow the OS colour scheme for the tab icon (Chrome/Safari
-                // ignore an SVG favicon's internal prefers-color-scheme query).
-                var link = document.querySelector('link[rel="icon"][data-favicon-dark]');
-                if (!link) return;
-                var mq = window.matchMedia('(prefers-color-scheme: dark)');
-
-                function applyFavicon() {
-                    link.href = mq.matches ? link.dataset.faviconDark : link.dataset.faviconLight;
-                }
-                applyFavicon();
-                mq.addEventListener('change', applyFavicon);
             })();
         </script>
         {% vite_hmr_client %}
@@ -181,6 +168,7 @@
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
+        {% vite_asset 'src/actions.ts' %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         {% vite_asset 'src/sound.ts' %}

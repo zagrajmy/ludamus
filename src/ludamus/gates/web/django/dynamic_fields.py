@@ -2,23 +2,29 @@
 
 from __future__ import annotations
 
-import operator
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.mills.field_values import FieldAnswer, merge_custom, split_stored
+from ludamus.mills.field_values import merge_custom, split_stored
+from ludamus.pacts import FieldAnswer
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
+
+    from django.http import QueryDict
 
     from ludamus.pacts import (
-        PersonalDataFieldDTO,
+        FieldDescriptor,
+        FieldValue,
+        OrganizerFieldDTO,
         PersonalFieldRequirementDTO,
-        SessionFieldDTO,
         SessionFieldRequirementDTO,
     )
+
+type Requirement = PersonalFieldRequirementDTO | SessionFieldRequirementDTO
+type WizardData = dict[str, FieldValue | int]
 
 
 class CustomAnswerFormMixin(forms.Form):
@@ -35,44 +41,37 @@ class CustomAnswerFormMixin(forms.Form):
         return self.cleaned_data
 
 
-def offers_custom_input(field: PersonalDataFieldDTO | SessionFieldDTO) -> bool:
-    # A checkbox has nothing to customise; every other type with allow_custom
-    # gets the companion write-in.
-    return field.allow_custom and field.field_type != "checkbox"
-
-
-def build_field_from_requirement(
+def build_field(
+    *,
     fields: dict[str, forms.Field],
     field_key: str,
-    req: PersonalFieldRequirementDTO | SessionFieldRequirementDTO,
+    field_def: OrganizerFieldDTO,
+    is_required: bool,
 ) -> None:
-    # Shared by the proposal wizard and the organizer panel so a category's
-    # configured fields render identically in both. The label is the field's
-    # question — the wording the proposer is actually asked — since the panel
-    # renders these through tessera_field rather than hand-rolled labels.
-    field_def = req.field
+    # Shared by the proposal wizard, the organizer panel and every other page
+    # that offers an organizer-defined field, so one field renders and
+    # validates identically wherever it appears. The label is the field's
+    # question — the wording the proposer is actually asked.
     label = field_def.question
     help_text = field_def.help_text
-    offers_custom = offers_custom_input(field_def)
-    max_len = field_def.max_length if field_def.max_length > 0 else None
-    is_required = req.is_required and not offers_custom
+    max_len = field_def.length_limit
+    control_required = field_def.control_required(is_required=is_required)
 
     if field_def.field_type == "select":
-        raw_options = [(o.value, o.label, o.order) for o in field_def.options]
-        raw_options.sort(key=operator.itemgetter(2, 1))
-        choices = [("", "---")] + [(val, label) for val, label, _order in raw_options]
-
         if field_def.is_multiple:
             fields[field_key] = forms.MultipleChoiceField(
                 label=label,
                 help_text=help_text,
-                choices=choices[1:],  # no blank for multi
-                required=is_required,
+                choices=field_def.choices[1:],  # no blank for multi
+                required=control_required,
                 widget=forms.CheckboxSelectMultiple,
             )
         else:
             fields[field_key] = forms.ChoiceField(
-                label=label, help_text=help_text, choices=choices, required=is_required
+                label=label,
+                help_text=help_text,
+                choices=field_def.choices,
+                required=control_required,
             )
 
     elif field_def.field_type == "checkbox":
@@ -82,50 +81,166 @@ def build_field_from_requirement(
         )
     else:
         fields[field_key] = forms.CharField(
-            label=label, help_text=help_text, required=is_required, max_length=max_len
+            label=label,
+            help_text=help_text,
+            required=control_required,
+            max_length=max_len,
         )
 
-    if offers_custom:
+    if field_def.offers_custom_input:
         fields[f"{field_key}_custom"] = forms.CharField(
             label=_("Or type a custom value"), required=False, max_length=max_len
         )
 
 
-type WizardData = dict[str, FieldAnswer | int | None]
+def build_dynamic_fields(
+    *, fields: dict[str, forms.Field], requirements: Sequence[Requirement], prefix: str
+) -> tuple[str, ...]:
+    # Returns the keys whose requirement the choice field alone can no longer
+    # enforce, for CustomAnswerFormMixin to check as a pair.
+    for req in requirements:
+        build_field(
+            fields=fields,
+            field_key=f"{prefix}_{req.field.slug}",
+            field_def=req.field,
+            is_required=req.is_required,
+        )
+    return tuple(
+        f"{prefix}_{req.field.slug}"
+        for req in requirements
+        if req.is_required and req.field.offers_custom_input
+    )
+
+
+def requirement_fields(
+    requirements: Sequence[Requirement],
+) -> list[tuple[OrganizerFieldDTO, bool]]:
+    return [(req.field, req.is_required) for req in requirements]
+
+
+def dynamic_fields_form(
+    *,
+    prefix: str,
+    fields: Sequence[tuple[OrganizerFieldDTO, bool]],
+    data: QueryDict | None = None,
+    initial: Mapping[str, FieldValue] | None = None,
+) -> forms.Form:
+    # Every page offering organizer-defined fields validates them through a
+    # real form, so choice, length and required rules are enforced server-side
+    # rather than per page.
+    form_fields: dict[str, forms.Field] = {}
+    for field_def, is_required in fields:
+        build_field(
+            fields=form_fields,
+            field_key=f"{prefix}_{field_def.slug}",
+            field_def=field_def,
+            is_required=is_required,
+        )
+    form_class: type[forms.Form] = type(
+        "DynamicFieldsForm",
+        (CustomAnswerFormMixin,),
+        {
+            **form_fields,
+            "custom_required_keys": tuple(
+                f"{prefix}_{field_def.slug}"
+                for field_def, is_required in fields
+                if is_required and field_def.offers_custom_input
+            ),
+        },
+    )
+    # Answers arrive keyed by slug, as every page stores them. A write-in is
+    # stored as one value; it goes back out split across the control and its
+    # companion input, the way the proposal wizard renders it.
+    stored = initial or {}
+    return form_class(
+        data,
+        initial=unfold_custom_answers(
+            stored={
+                f"{prefix}_{field_def.slug}": stored.get(field_def.slug)
+                for field_def, _is_required in fields
+            },
+            fields=[field_def for field_def, _is_required in fields],
+            prefix=prefix,
+        ),
+    )
+
+
+def answered_value(
+    *, prefix: str, field_def: OrganizerFieldDTO, form: forms.Form
+) -> str | list[str] | bool:
+    # The companion input stands in for the main control when the organizer
+    # allows a value outside the offered options; for a multi-value field it
+    # adds to the chosen options rather than replacing them.
+    key = f"{prefix}_{field_def.slug}"
+    value = form.cleaned_data.get(key)
+    if not field_def.offers_custom_input:
+        return value if value is not None else ""
+    return merge_custom(
+        chosen=value,
+        custom=str(form.cleaned_data.get(f"{key}_custom") or ""),
+        is_multiple=field_def.is_multiple,
+    )
+
+
+def field_descriptors(
+    *, prefix: str, fields: Sequence[tuple[OrganizerFieldDTO, bool]], form: forms.Form
+) -> list[FieldDescriptor]:
+    # Template-facing view of a page's fields. Everything the markup needs
+    # comes off the DTO, so every page hands this straight to the
+    # `dynamic_field` tag instead of re-deriving the shapes per template.
+    descriptors: list[FieldDescriptor] = []
+    for field_def, is_required in fields:
+        field_key = f"{prefix}_{field_def.slug}"
+        # Checkboxes get no companion input even with allow_custom.
+        custom_key = f"{field_key}_custom"
+        has_custom = custom_key in form.fields
+        descriptor: FieldDescriptor = {
+            "field": field_def,
+            "name_prefix": prefix,
+            "answer": FieldAnswer(
+                value=form[field_key].value(),
+                custom_value=(form[custom_key].value() or "" if has_custom else ""),
+                errors=[str(error) for error in form[field_key].errors],
+                # Kept apart from the control's own errors: a write-in that
+                # fails needs the message beside the input that holds it.
+                custom_errors=(
+                    [str(error) for error in form[custom_key].errors]
+                    if has_custom
+                    else []
+                ),
+                is_required=is_required,
+            ),
+        }
+        descriptors.append(descriptor)
+    return descriptors
 
 
 def unfold_custom_answers(
-    *,
-    stored: WizardData,
-    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
-    prefix: str,
+    *, stored: WizardData, fields: Sequence[OrganizerFieldDTO], prefix: str
 ) -> WizardData:
-    keys = {f"{prefix}_{req.field.slug}" for req in requirements}
+    keys = {f"{prefix}_{field_def.slug}" for field_def in fields}
     initial: WizardData = dict(stored)
-    for req in requirements:
-        key = f"{prefix}_{req.field.slug}"
+    for field_def in fields:
+        key = f"{prefix}_{field_def.slug}"
         value = initial.get(key)
-        if req.field.field_type != "select" or not isinstance(value, str | list):
+        if field_def.field_type != "select" or not isinstance(value, str | list):
             continue
         chosen, custom = split_stored(
             stored=value,
-            known={option.value for option in req.field.options},
-            is_multiple=req.field.is_multiple,
+            known={option.value for option in field_def.options},
+            is_multiple=field_def.is_multiple,
         )
         initial[key] = chosen
         custom_key = f"{key}_custom"
         # When another field is slugged like this one's companion, the write-in
         # has nowhere to go — better lost than written over a real answer.
-        if custom and req.field.allow_custom and custom_key not in keys:
+        if custom and field_def.allow_custom and custom_key not in keys:
             initial[custom_key] = custom
     return initial
 
 
 def fold_custom_answers(
-    *,
-    cleaned: WizardData,
-    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
-    prefix: str,
+    *, cleaned: WizardData, requirements: Sequence[Requirement], prefix: str
 ) -> WizardData:
     keys = {f"{prefix}_{req.field.slug}" for req in requirements}
     # Minus the real keys: a field slugged "triggers_custom" alongside
@@ -133,7 +248,7 @@ def fold_custom_answers(
     companions = {
         f"{prefix}_{req.field.slug}_custom"
         for req in requirements
-        if offers_custom_input(req.field)
+        if req.field.offers_custom_input
     } - keys
     folded: WizardData = {
         key: value for key, value in cleaned.items() if key not in companions
@@ -150,56 +265,3 @@ def fold_custom_answers(
             is_multiple=req.field.is_multiple,
         )
     return folded
-
-
-def build_dynamic_fields(
-    *,
-    fields: dict[str, forms.Field],
-    requirements: Sequence[PersonalFieldRequirementDTO | SessionFieldRequirementDTO],
-    prefix: str,
-) -> tuple[str, ...]:
-    # Returns the keys whose requirement the choice field alone can no longer
-    # enforce, for CustomAnswerFormMixin to check as a pair.
-    for req in requirements:
-        build_field_from_requirement(fields, f"{prefix}_{req.field.slug}", req)
-    return tuple(
-        f"{prefix}_{req.field.slug}"
-        for req in requirements
-        if req.is_required and offers_custom_input(req.field)
-    )
-
-
-def field_descriptors(
-    prefix: str,
-    requirements: (
-        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
-    ),
-    form: forms.Form,
-) -> list[dict[str, object]]:
-    # Template-facing view of a category's fields: pairs each requirement with
-    # its bound field so the wizard and the panel render them the same way.
-    descriptors = []
-    for req in requirements:
-        field_key = f"{prefix}_{req.field.slug}"
-        desc: dict[str, object] = {
-            "key": field_key,
-            "bound_field": form[field_key],
-            "name": req.field.question,
-            "slug": req.field.slug,
-            "field_type": req.field.field_type,
-            "help_text": req.field.help_text,
-            "is_required": req.is_required,
-            "is_multiple": req.field.is_multiple,
-            "allow_custom": req.field.allow_custom,
-            "offers_custom": offers_custom_input(req.field),
-            "max_length": req.field.max_length,
-            "is_public": req.field.is_public,
-            "icon": getattr(req.field, "icon", ""),
-        }
-        # Checkboxes get no companion input even when allow_custom is set.
-        custom_key = f"{field_key}_custom"
-        desc["custom_bound_field"] = (
-            form[custom_key] if custom_key in form.fields else None
-        )
-        descriptors.append(desc)
-    return descriptors
