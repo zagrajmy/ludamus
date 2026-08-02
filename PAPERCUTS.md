@@ -263,6 +263,20 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-01: mise run lint fails locally on lint:hk: oxlint can't build
+  src/ludamus/client/oxlint.config.ts because eslint-plugin-sonarjs isn't
+  installed in the local node_modules (CI is fine). Same failure on a clean
+  tree, so it's env drift, not a code problem — had to stash and re-run to prove
+  my change was innocent.
+- 2026-08-02: mise run check → lint:vulture recursively scanned
+  .claude/worktrees/*/.venv created by review agents, then failed on third-party
+  packages instead of project code.
+- 2026-08-02: mise run shots with a query-string URL → mise preserved literal
+  shell quotes in usage_targets, so the generated URL contained apostrophes and
+  curl rejected it; direct agent-browser worked.
+- 2026-08-02: mise run test:e2e -- tests/print-flow.spec.ts → the existing
+  hours-window case flaked once under five-worker contention after the new
+  regression case passed; rerunning the regression alone passed.
 - 2026-08-02: mise run lint printed 'Finished in 198s' with every check green,
   then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
   child (sandbox egress is slow); had to pstree and kill -9 the mise process to
