@@ -100,7 +100,7 @@
     <div class="flex flex-col lg:flex-row gap-4 items-start">
         <!-- Left column: browse-or-detail pane stacked above conflicts foldable -->
         <div class="flex flex-col gap-3 w-full lg:w-72 lg:flex-none">
-            {% include "panel/parts/timetable-browse-pane.html" with search="" %}
+            {% include "panel/parts/timetable-browse-pane.html" %}
             <details id="conflicts-fold"
                      class="card p-3"
                      {% if conflicts_count %}open{% endif %}>
@@ -119,7 +119,7 @@
                 {% endcomment %}
                 <div id="conflict-panel"
                      class="mt-2"
-                     hx-get="{% url 'panel:timetable-conflicts-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}"
+                     hx-get="{% url 'panel:timetable-conflicts-part' slug=current_event.slug %}{% querystring %}"
                      hx-swap="innerHTML"
                      hx-trigger="timetableChanged from:body">
                     {% include "panel/parts/timetable-conflict-panel.html" %}
@@ -132,7 +132,7 @@
                  data-assign-url="{% url 'panel:timetable-assign' slug=current_event.slug %}"
                  data-confirm-move="{% translate "This program item is confirmed. Moving it will clear the confirmation." %}"
                  data-confirm-move-action="{% translate "Move" %}"
-                 hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page }}"
+                 hx-get="{% url 'panel:timetable-grid-part' slug=current_event.slug %}{% querystring %}"
                  hx-swap="innerHTML"
                  hx-trigger="timetableChanged from:body">{% include "panel/parts/timetable-grid.html" %}</div>
         </div>

@@ -126,6 +126,7 @@ class TestTimetablePageView:
                 "categories": [],
                 "category_pk": None,
                 "max_duration_minutes": None,
+                "search": "",
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
                 "date_selection": "all",
@@ -147,6 +148,18 @@ class TestTimetablePageView:
             },
         )
         assert response.context["grid"].spaces == []
+
+    def test_search_query_param_reaches_the_context(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.get(
+            self.get_url(event), {"search": " dragons "}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["search"] == "dragons"
 
     def test_grid_shows_spaces_and_time_labels(
         self, authenticated_client, active_user, sphere, event, space, time_slot

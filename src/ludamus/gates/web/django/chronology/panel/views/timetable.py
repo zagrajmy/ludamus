@@ -126,6 +126,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["categories"] = categories
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
+        context["search"] = self.request.GET.get("search", "").strip()
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
         context["slug"] = slug
