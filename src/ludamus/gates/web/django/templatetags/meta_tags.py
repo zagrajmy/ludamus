@@ -25,7 +25,6 @@ class DocumentTitleNode(template.Node):
     # and a block can't hand its output to a variable, so capture it here. The
     # inner nodes escape their own output; collapsing whitespace only drops the
     # newlines the template's indentation left behind, so the result stays safe.
-    #
     # The name lands in the context the tag was reached with, so the tag belongs
     # at the top level of the page shell, ahead of every {{ document_title }}
     # that reads it. Nested inside a block it would be popped with that block.
