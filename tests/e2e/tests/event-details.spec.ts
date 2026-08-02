@@ -136,6 +136,38 @@ test.describe("Event detail page", () => {
     expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
   });
 
+  // Fetched dialogs are cached in the DOM, so without a reset a reopen inherits
+  // the last visit's scroll offset — and the morph captures the modal at open,
+  // so the card appears to expand into an already-scrolled panel.
+  test("reopening a session modal starts at the top of the panel", async ({ page }) => {
+    const open = async () => {
+      await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+      await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
+      await settleViewTransitions(page);
+    };
+    const panel = page.locator("dialog[open] .tab-panel[data-active]");
+
+    await open();
+    // The seeded description is short; give the panel something to scroll.
+    await page.locator("dialog[open] [data-session-description]").evaluate((element) => {
+      element.innerHTML = Array.from(
+        { length: 30 },
+        (_, index) => `<p>Scrollable paragraph ${index + 1}.</p>`,
+      ).join("");
+    });
+    await panel.evaluate((element) => {
+      element.scrollTop = 400;
+    });
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeHidden();
+    await settleViewTransitions(page);
+
+    await open();
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBe(0);
+  });
+
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
     browser,
     browserName,

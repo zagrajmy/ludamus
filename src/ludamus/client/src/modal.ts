@@ -194,6 +194,25 @@ const dismissDialog = (dialog: HTMLDialogElement): void => {
   });
 };
 
+/**
+ * Fetched dialogs are cached in the DOM, so a reopen inherits wherever the last
+ * visit left the panel scrolled. That is worse than a cosmetic glitch here: the
+ * morph captures the modal's new state at open, so a stale offset is baked into
+ * the animation's destination and the card appears to expand into a modal that
+ * is already scrolled.
+ *
+ * Reset on open rather than on close. A closed dialog is `display: none`, where
+ * `scrollTop` is a no-op, so a close-side reset would have to run *before*
+ * `close()` and would visibly jerk the content mid-animation. This must also
+ * run after `showModal()` for the same reason — the element needs a box before
+ * the offset can be written.
+ */
+const resetModalScroll = (dialog: HTMLDialogElement): void => {
+  for (const element of dialog.querySelectorAll<HTMLElement>("*")) {
+    if (element.scrollTop !== 0) element.scrollTop = 0;
+  }
+};
+
 const openModal = async (
   id: string,
   { animate = true, replaceHistory = false, updateUrl = true } = {},
@@ -220,11 +239,13 @@ const openModal = async (
           setMorph(card, false);
           card.style.transition = "none";
           dialog.showModal();
+          resetModalScroll(dialog);
           setMorph(dialog, true);
         },
       });
     } else {
       dialog.showModal();
+      resetModalScroll(dialog);
       suppressSessionCard(id);
     }
   }
