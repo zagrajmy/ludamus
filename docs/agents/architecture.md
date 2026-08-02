@@ -318,6 +318,11 @@ group, no ownership split.
   context through repository protocols; focused page services own page reads and
   writes. Legacy pages still use `PanelService` for cascade-safe deletion and
   time-slot validation until they migrate.
+- **Confirmations tab:** `EventConfirmationsService` (`mills/event.py`) tracks
+  post-schedule confirmation — an event dashboard, and per track the
+  facilitator → contact email → session status tree the organiser works
+  through. Its reads are flat repository rows assembled in Python, so the query
+  count stays constant; grouping order lives in `specs/confirmations.py`.
 
 <!-- markdownlint-disable MD013 -->
 
@@ -333,6 +338,7 @@ group, no ownership split.
 | Time slots | `panel/views/time_slots.py` | `time-slot*.html` |
 | Tracks | `panel/views/tracks.py` | `track-*.html` |
 | Venues (Space tree) | `panel/views/venues.py` | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
+| Confirmations | `event/panel/views/confirmations.py` | `timetable-confirmations.html`, `parts/confirmation-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 

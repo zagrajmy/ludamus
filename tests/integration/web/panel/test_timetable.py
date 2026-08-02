@@ -141,6 +141,9 @@ class TestTimetablePageView:
                     "problems": reverse(
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
+                    "confirmations": reverse(
+                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
+                    ),
                 },
                 "active_tab": "timetable",
                 "print_scopes": [],

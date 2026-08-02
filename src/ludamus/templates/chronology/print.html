@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load django_vite i18n tessera %}
 {% block title %}
-    {{ event.name }} — {% translate "Print" %}
+    {{ event.name }} • {% translate "Print" %}
 {% endblock title %}
 {% block body_class %}
     app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
