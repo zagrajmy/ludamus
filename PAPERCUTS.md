@@ -263,3 +263,11 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: mise run shots fails on this machine: Chrome aborts with 'No
+  usable sandbox' before writing DevToolsActivePort. Playwright (test:e2e)
+  launches fine, so the wrapper needs --no-sandbox or a note pointing at the e2e
+  screenshots instead.
+- 2026-08-02: Firefox e2e project cannot launch on this machine: every firefox
+  test dies with 'browserContext.newPage: Test timeout' during page setup, while
+  chromium passes. Makes a full 'mise run test:e2e' unusable locally; had to run
+  --project=chromium to get a signal.
