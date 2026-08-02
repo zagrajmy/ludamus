@@ -181,6 +181,7 @@ class UnscheduledSessionFilter(BaseModel):
     max_duration_minutes: int | None = None
     category_pk: int | None = None
     available_on: date | None = None
+    facilitator_pks: set[int] = set()
 
 
 class SessionListItemDTO(BaseModel):

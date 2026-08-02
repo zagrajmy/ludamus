@@ -1,0 +1,27 @@
+{% load i18n %}
+{# The option rows of components/multiselect-filter.html, on their own so a #}
+{# server-searched picker can swap just this region per keystroke. #}
+{% for option in options %}
+    <label class="multiselect-option flex items-center gap-2 rounded-md py-2 pe-2 text-sm hover:bg-foreground/5"
+           style="--depth: {{ option.depth|default:0 }}"
+           data-search="{{ option.label|lower }}">
+        {% include "components/checkbox-field.html" with name=name value=option.value checked_values=selected_values label="" aria_label=option.label only %}
+        <span class="min-w-0 wrap-anywhere">
+            <span class="block text-foreground">{{ option.label }}</span>
+            {% if option.meta %}<span class="block text-xs text-foreground-muted">{{ option.meta }}</span>{% endif %}
+        </span>
+    </label>
+{% empty %}
+    <p class="py-2 text-sm text-foreground-muted">
+        {% if not search_url %}
+            {% translate "Nothing to filter by yet." %}
+        {% elif searched %}
+            {% translate "Nothing matches your search." %}
+        {% else %}
+            {% translate "Type a name to find someone." %}
+        {% endif %}
+    </p>
+{% endfor %}
+{% if has_more %}
+    <p class="pt-2 text-xs text-foreground-muted">{% translate "More matches than fit — keep typing to narrow them." %}</p>
+{% endif %}

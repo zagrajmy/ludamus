@@ -165,7 +165,7 @@ def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
     )
 
 
-def _build_column_values(
+def build_column_values(
     *,
     panel: FacilitatorPanelServiceProtocol,
     facilitators: Sequence[FacilitatorListItemDTO],
@@ -227,7 +227,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             list_context.facilitators, _FACILITATORS_PAGE_SIZE
         ).get_page(self.request.GET.get("page"))
 
-        column_values = _build_column_values(
+        column_values = build_column_values(
             panel=self.request.services.facilitator_panel,
             facilitators=list(page_obj.object_list),
             columns=list_context.columns,
@@ -512,7 +512,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_tab_urls(slug)
         context["facilitators"] = list_context.facilitators
         context["columns"] = list_context.columns
-        context["column_values"] = _build_column_values(
+        context["column_values"] = build_column_values(
             panel=self.request.services.facilitator_panel,
             facilitators=list_context.facilitators,
             columns=list_context.columns,

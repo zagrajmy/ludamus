@@ -6,6 +6,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -183,6 +184,38 @@ class TestTimetableSessionListPartView:
         session_pks = [s.pk for s in response.context["sessions"]]
         assert matching.pk in session_pks
         assert other.pk not in session_pks
+
+    def test_facilitator_filter_narrows_the_unassigned_list(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        hers = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            title="HTMX Magic Workshop",
+            participants_limit=10,
+            min_age=0,
+        )
+        theirs = SessionFactory(
+            category=proposal_category,
+            status="accepted",
+            title="Board Games Evening",
+            participants_limit=10,
+            min_age=0,
+        )
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        hers.facilitators.add(alice)
+
+        response = authenticated_client.get(
+            self.get_url(event), {"facilitator": str(alice.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        session_pks = [s.pk for s in response.context["sessions"]]
+        assert hers.pk in session_pks
+        assert theirs.pk not in session_pks
 
     def test_category_filter(
         self, authenticated_client, active_user, sphere, event, proposal_category

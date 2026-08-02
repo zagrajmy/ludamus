@@ -887,6 +887,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             organizer_name=F("organizer__name"),
         )
 
+        if pks := filters.get("pks"):
+            qs = qs.filter(pk__in=pks)
+
         if search := filters.get("search"):
             # Text personal-data values are stored JSON-encoded; match both the
             # raw string and its JSON-escaped form (mirrors proposals search).

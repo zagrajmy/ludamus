@@ -374,6 +374,7 @@ class FacilitatorActionError(Exception):
 
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
+    pks: set[int] | None
     accreditation: str | None
     flagged: bool | None
     field_filters: dict[int, str | bool] | None
@@ -466,6 +467,9 @@ class FacilitatorPanelServiceProtocol(Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def list_by_pks(
+        self, *, event_id: int, pks: set[int]
+    ) -> list[FacilitatorListItemDTO]: ...
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...

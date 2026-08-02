@@ -380,6 +380,86 @@ class TestSpaceFilter:
         assert grid.spaces == []
 
 
+class TestFacilitatorFilter:
+    @pytest.fixture
+    def uow(self):
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        uow = MagicMock()
+        uow.spaces.list_by_event.return_value = [
+            SpaceDTO(
+                capacity=None,
+                creation_time=now,
+                modification_time=now,
+                name="Room 1",
+                order=0,
+                pk=1,
+                slug="room-1",
+            )
+        ]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow.agenda_items.list_by_event.return_value = [
+            _make_item(pk=1, session_id=1),
+            _make_item(
+                pk=2,
+                session_id=2,
+                start_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            ),
+        ]
+        return uow
+
+    @staticmethod
+    def _session_pks(grid):
+        return [
+            pos.agenda_item.session_id
+            for day in grid.days
+            for col in day.columns
+            for pos in col.sessions
+        ]
+
+    def test_no_facilitator_picked_keeps_every_item(self, uow):
+        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert self._session_pks(grid) == [1, 2]
+
+    def test_picking_a_facilitator_keeps_only_their_items(self, uow):
+        uow.sessions.list_by_facilitator.return_value = [MagicMock(pk=2)]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
+        )
+
+        assert self._session_pks(grid) == [2]
+        uow.sessions.list_by_facilitator.assert_called_once_with(7)
+
+    def test_several_facilitators_union_their_items(self, uow):
+        uow.sessions.list_by_facilitator.side_effect = [
+            [MagicMock(pk=1)],
+            [MagicMock(pk=2)],
+        ]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7, 8})
+        )
+
+        assert self._session_pks(grid) == [1, 2]
+
+    def test_facilitator_with_nothing_scheduled_empties_the_grid(self, uow):
+        uow.sessions.list_by_facilitator.return_value = []
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
+        )
+
+        assert self._session_pks(grid) == []
+
+
 class TestRevertChange:
     @pytest.fixture
     def mock_uow(self):

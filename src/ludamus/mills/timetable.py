@@ -22,12 +22,12 @@ from ludamus.pacts.chronology import (
     HeatmapDayDTO,
     HeatmapDTO,
     HeatmapRowDTO,
+    MultiselectOptionDTO,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
     SpaceColumnDTO,
-    SpaceFilterOptionDTO,
     SpaceGroupDTO,
     TimeLabelDTO,
     TimetableDayGridDTO,
@@ -124,16 +124,16 @@ def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
     return leaves
 
 
-def _space_options_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceFilterOptionDTO]:
+def _space_options_in_tree_order(nodes: list[SpaceDTO]) -> list[MultiselectOptionDTO]:
     children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
     for node in nodes:
         children[node.parent_id].append(node)
 
-    options: list[SpaceFilterOptionDTO] = []
+    options: list[MultiselectOptionDTO] = []
 
     def walk(node: SpaceDTO, depth: int) -> None:
         options.append(
-            SpaceFilterOptionDTO(value=node.pk, label=node.name, depth=depth)
+            MultiselectOptionDTO(value=node.pk, label=node.name, depth=depth)
         )
         for kid in children.get(node.pk, []):
             walk(kid, depth + 1)
@@ -171,7 +171,7 @@ class TimetableService:
             self._spaces_by_event[event_pk] = self._uow.spaces.list_by_event(event_pk)
         return self._spaces_by_event[event_pk]
 
-    def space_filter_options(self, event_pk: int) -> list[SpaceFilterOptionDTO]:
+    def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]:
         return _space_options_in_tree_order(self._spaces(event_pk))
 
     def build_grid(
@@ -220,6 +220,17 @@ class TimetableService:
             if track_pk is not None
             else self._uow.agenda_items.list_by_event(event_pk)
         )
+        if filters.facilitator_pks:
+            # ponytail: one lookup per picked facilitator, each returning that
+            # person's sessions across every event before we intersect with
+            # this event's items. Fine for the handful a filter bar can hold;
+            # add a scoped repo query if someone starts picking dozens.
+            facilitated = {
+                session.pk
+                for facilitator_pk in filters.facilitator_pks
+                for session in self._uow.sessions.list_by_facilitator(facilitator_pk)
+            }
+            all_items = [item for item in all_items if item.session_id in facilitated]
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
         )

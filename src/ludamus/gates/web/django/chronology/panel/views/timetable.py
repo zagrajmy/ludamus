@@ -19,6 +19,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
+from ludamus.gates.web.django.chronology.panel.views.facilitators import (
+    build_column_values,
+)
+from ludamus.gates.web.django.templatetags.cfp_tags import facilitator_column_label
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -31,9 +35,11 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     DateSelection,
+    MultiselectOptionDTO,
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.submissions import FacilitatorListQuery
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -53,12 +59,25 @@ def _timetable_tab_urls(slug: str) -> dict[str, str]:
     }
 
 
-_BACK_URL_KEYS = ("track", "category", "max_duration", "search", "date")
+_BACK_URL_KEYS = (
+    "track",
+    "category",
+    "max_duration",
+    "search",
+    "date",
+    "space",
+    "facilitator",
+)
 
 
 def _build_back_url(slug: str, query: QueryDict) -> str:
     base = reverse("panel:timetable-browse-pane-part", kwargs={"slug": slug})
-    params = [(key, query[key]) for key in _BACK_URL_KEYS if query.get(key, "").strip()]
+    params = [
+        (key, value)
+        for key in _BACK_URL_KEYS
+        for value in query.getlist(key)
+        if value.strip()
+    ]
     return f"{base}?{urlencode(params)}" if params else base
 
 
@@ -68,6 +87,61 @@ def _parse_pks(query: QueryDict, key: str) -> set[int]:
 
 def _as_pk(raw: str) -> int | None:
     return int(raw) if (raw := raw.strip()).isdigit() else None
+
+
+_FACILITATOR_OPTION_LIMIT = 25
+
+
+def _facilitator_options(
+    *, request: PanelRequest, event_pk: int, search: str, pinned: set[int]
+) -> tuple[list[MultiselectOptionDTO], bool]:
+    # Already-picked people come back in every response whether or not they
+    # match the query: the rows *are* the form controls, so one dropping out of
+    # the list would silently drop it from the filter about to be submitted.
+    # Both reads are pk- or text-filtered in SQL -- an event's whole roster is
+    # never listed to fill a picker.
+    panel = request.services.facilitator_panel
+    user_id = request.context.current_user_id
+    chosen = panel.list_by_pks(event_id=event_pk, pks=pinned)
+    matches = (
+        [
+            f
+            for f in panel.list_context(
+                event_id=event_pk,
+                query=FacilitatorListQuery(search=search, current_user_id=user_id),
+            ).facilitators
+            if f.pk not in pinned
+        ]
+        if search
+        else []
+    )
+    has_more = len(matches) > _FACILITATOR_OPTION_LIMIT
+
+    # columns_context resolves the organizer's chosen columns without listing
+    # anyone, so an unsearched picker costs no roster query at all.
+    columns = panel.columns_context(event_pk).chosen
+    ordered = [*chosen, *matches[:_FACILITATOR_OPTION_LIMIT]]
+    values = build_column_values(panel=panel, facilitators=ordered, columns=columns)
+    options = []
+    for facilitator in ordered:
+        # The first configured column names the row; the rest become a meta
+        # line. They carry their own labels because, unlike in the facilitator
+        # table, there are no column headers here to read them against -- a
+        # bare "None · 2 · —" says nothing about who this is. Placeholders are
+        # dropped for the same reason.
+        cells = [
+            (facilitator_column_label(column), cell)
+            for column in columns
+            if (cell := values[facilitator.pk][column.key]) not in {"", "—"}
+        ]
+        options.append(
+            MultiselectOptionDTO(
+                value=facilitator.pk,
+                label=cells[0][1] if cells else facilitator.display_name,
+                meta=" · ".join(f"{label}: {cell}" for label, cell in cells[1:]),
+            )
+        )
+    return options, has_more
 
 
 def _parse_date_selection(raw: str | None) -> DateSelection:
@@ -110,6 +184,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
 
         space_pks = _parse_pks(self.request.GET, "space")
+        facilitator_pks = _parse_pks(self.request.GET, "facilitator")
 
         uow = self.request.di.uow
         timetable_service = TimetableService(uow)
@@ -121,6 +196,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
                 track_pk=filter_track_pk,
                 date_selection=date_selection,
                 space_pks=space_pks,
+                facilitator_pks=facilitator_pks,
             ),
         )
         conflict_service = ConflictDetectionService(uow)
@@ -149,6 +225,13 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         context["filter_space_pks"] = space_pks
+        context["facilitator_options"], _more = _facilitator_options(
+            request=self.request,
+            event_pk=current_event.pk,
+            search="",
+            pinned=facilitator_pks,
+        )
+        context["filter_facilitator_pks"] = facilitator_pks
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
         context["slug"] = slug
@@ -188,6 +271,7 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
                 available_on=(
                     date_selection if isinstance(date_selection, date) else None
                 ),
+                facilitator_pks=_parse_pks(self.request.GET, "facilitator"),
             ),
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
@@ -242,6 +326,40 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
         }
         return TemplateResponse(
             self.request, "panel/parts/timetable-browse-pane.html", context
+        )
+
+
+class TimetableFacilitatorOptionsPartView(PanelAccessMixin, EventContextMixin, View):
+    """HTMX partial: searched option rows for the facilitator filter."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        selected = _parse_pks(self.request.GET, "facilitator")
+        search = self.request.GET.get("q", "").strip()
+        options, has_more = _facilitator_options(
+            request=self.request,
+            event_pk=current_event.pk,
+            search=search,
+            pinned=selected,
+        )
+
+        context = {
+            "options": options,
+            "has_more": has_more,
+            "searched": bool(search),
+            "name": "facilitator",
+            "selected_values": selected,
+            "search_url": reverse(
+                "panel:timetable-facilitator-options-part", kwargs={"slug": slug}
+            ),
+        }
+        return TemplateResponse(
+            self.request, "components/multiselect-filter-options.html", context
         )
 
 
@@ -324,6 +442,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
                 track_pk=filter_track_pk,
                 date_selection=date_selection,
                 space_pks=_parse_pks(self.request.GET, "space"),
+                facilitator_pks=_parse_pks(self.request.GET, "facilitator"),
             ),
         )
         slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(

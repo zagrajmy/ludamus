@@ -2,12 +2,14 @@
 {% load tessera %}
 {# Multi-select filter in a disclosure popover, with search over the options. #}
 {# Variables: id, name, label, search_label, options (each .value/.label, #}
-{# optional .depth), selected_values (collection -- boxes tick themselves), #}
-{# clear_url. #}
-{# The whole option list ships in the DOM and narrows client-side, so typing #}
-{# costs no round trip. Selections apply on the Apply button, not on tick: #}
-{# the enclosing filter form reloads the page, and one reload per checkbox #}
-{# would make picking a handful of rooms unusable. #}
+{# optional .depth/.meta), selected_values (collection -- boxes tick #}
+{# themselves), clear_url, search_url (optional). #}
+{# Without search_url the whole option list ships in the DOM and narrows #}
+{# client-side, so typing costs no round trip. With it, the option rows are #}
+{# swapped in per keystroke instead -- for a list too long, too private, or #}
+{# too wide to ship whole. Either way, selections apply on the Apply button, #}
+{# not on tick: the enclosing filter form reloads the page, and one reload #}
+{# per checkbox would make picking a handful unusable. #}
 <div class="relative" data-menu data-multiselect-filter>
     <button type="button"
             data-menu-button
@@ -26,20 +28,18 @@
             <div data-multiselect-search>
                 {% include "components/text-field.html" with name="" id=id|add:"-search" placeholder=t_search aria_label=search_label autocomplete="off" only %}
             </div>
-            <div role="group"
+            {# aria-live only where rows are genuinely replaced. Client-side #}
+            {# narrowing just hides them, and announcing every keystroke of #}
+            {# your own typing is noise. #}
+            <div id="{{ id }}-options"
+                 role="group"
                  aria-label="{{ label }}"
                  data-multiselect-options
+                 {% if search_url %}aria-live="polite" data-multiselect-url="{{ search_url }}"{% endif %}
+                 {# The first render is never truncated: static lists ship whole #}
+                 {# and a searched one starts at just the already-picked rows. #}
                  class="mt-2 max-h-64 overflow-y-auto">
-                {% for option in options %}
-                    <label class="multiselect-option flex items-center gap-2 rounded-md py-2 pe-2 text-sm hover:bg-foreground/5"
-                           style="--depth: {{ option.depth|default:0 }}"
-                           data-search="{{ option.label|lower }}">
-                        {% include "components/checkbox-field.html" with name=name value=option.value checked_values=selected_values label="" aria_label=option.label only %}
-                        <span class="min-w-0 wrap-anywhere text-foreground">{{ option.label }}</span>
-                    </label>
-                {% empty %}
-                    <p class="py-2 text-sm text-foreground-muted">{% translate "Nothing to filter by yet." %}</p>
-                {% endfor %}
+                {% include "components/multiselect-filter-options.html" with has_more=False searched=False %}
             </div>
             <p data-multiselect-empty
                hidden

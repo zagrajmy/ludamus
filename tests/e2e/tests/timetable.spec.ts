@@ -587,7 +587,9 @@ test.describe("Timetable", () => {
 
     await page.getByRole("button", { name: "Rooms" }).click();
 
-    const panel = page.locator("[data-multiselect-filter] [data-menu-panel]");
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Rooms" })
+      .locator("[data-menu-panel]");
     // Branches are offered alongside leaves, so a floor can be picked whole.
     await expect(panel.getByRole("group", { name: "Rooms" })).toContainText("Meadowbrook Pavilion");
 
@@ -609,7 +611,9 @@ test.describe("Timetable", () => {
   test("picking a branch keeps its rooms, and Clear restores all of them", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/?space=");
 
-    const panel = page.locator("[data-multiselect-filter] [data-menu-panel]");
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Rooms" })
+      .locator("[data-menu-panel]");
 
     await page.getByRole("button", { name: "Rooms" }).click();
     await panel.getByRole("checkbox", { name: "Festival Hall" }).check();
@@ -624,6 +628,67 @@ test.describe("Timetable", () => {
 
     await expect(page.getByRole("button", { name: "Rooms" })).not.toContainText("1");
     expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
+  });
+
+  // --- Facilitator filter ---
+
+  test("facilitator filter searches on the server and narrows the grid", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await page.getByRole("button", { name: "Facilitators" }).click();
+
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Facilitators" })
+      .locator("[data-menu-panel]");
+
+    // Nothing is offered until you type -- the roster is never shipped whole.
+    await expect(panel.getByText("Type a name to find someone.")).toBeVisible();
+
+    await panel.getByPlaceholder("Search…").fill("Alice");
+    const option = panel.getByRole("checkbox", { name: /Alice/ });
+    await expect(option).toBeVisible({ timeout: 10000 });
+
+    await page.screenshot({
+      path: "test-results/timetable-facilitator-filter-open.png",
+      fullPage: true,
+    });
+
+    await option.check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page.getByRole("button", { name: "Facilitators" })).toContainText("1");
+
+    // Alice's items stay on the grid; Bob's are gone from it and from the
+    // unassigned list.
+    const sessionList = page.getByRole("region", { name: "Sessions to assign" });
+    await expect(sessionList.getByText("Dungeon Crawl")).toBeVisible({ timeout: 10000 });
+    await expect(sessionList.getByText("All Days Workshop")).toHaveCount(0);
+  });
+
+  test("a picked facilitator stays picked across a second search", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await page.getByRole("button", { name: "Facilitators" }).click();
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Facilitators" })
+      .locator("[data-menu-panel]");
+    const search = panel.getByPlaceholder("Search…");
+
+    await search.fill("Alice");
+    await panel.getByRole("checkbox", { name: /Alice/ }).check();
+
+    // The rows are the form controls, so a second search must bring the first
+    // pick back with it or Apply would quietly lose it.
+    await search.fill("Bob");
+    await expect(panel.getByRole("checkbox", { name: /Bob/ })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(panel.getByRole("checkbox", { name: /Alice/ })).toBeChecked();
+
+    await panel.getByRole("checkbox", { name: /Bob/ }).check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page.getByRole("button", { name: "Facilitators" })).toContainText("2");
   });
 
   // --- Assign and Unassign Flow ---

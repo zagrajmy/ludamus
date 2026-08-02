@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import (
         FacilitatorListFilters,
+        FacilitatorListItemDTO,
         FacilitatorListQuery,
         FacilitatorPanelRepos,
     )
@@ -97,6 +98,16 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         self._personal_data_field_values = repos.personal_data_field_values
         self._facilitator_change_logs = repos.facilitator_change_logs
         self._panel_settings = repos.panel_settings
+
+    def list_by_pks(
+        self, *, event_id: int, pks: set[int]
+    ) -> list[FacilitatorListItemDTO]:
+        # Named people, not a view of the list: a picker showing what is
+        # already chosen needs exactly these rows and none of the list page's
+        # filtering, sorting or field resolution.
+        if not pks:
+            return []
+        return self._facilitators.list_by_event(event_id, {"pks": pks})
 
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery

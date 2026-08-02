@@ -7,7 +7,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Track
+from ludamus.links.db.django.models import Facilitator, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import TimetableGridDTO
 from ludamus.specs.timetable import (
@@ -129,6 +129,8 @@ class TestTimetablePageView:
                 "search": "",
                 "space_options": [],
                 "filter_space_pks": set(),
+                "facilitator_options": [],
+                "filter_facilitator_pks": set(),
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
                 "date_selection": "all",
@@ -407,6 +409,82 @@ class TestTimetablePageView:
             ("Building A", 0),
             ("Room 1", 1),
         ]
+
+    def test_filters_the_grid_by_facilitator(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        start = event.start_time
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+        other = SessionFactory(category=session.category, event=event)
+        AgendaItemFactory(
+            session=other,
+            space=space,
+            start_time=start + timedelta(hours=1),
+            end_time=start + timedelta(hours=2),
+        )
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(alice)
+
+        response = authenticated_client.get(
+            self.get_url(event), {"facilitator": str(alice.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        grid = response.context["grid"]
+        col = next(c for c in grid.days[0].columns if c.space.pk == space.pk)
+        assert [pos.agenda_item.session_id for pos in col.sessions] == [session.pk]
+        assert response.context["filter_facilitator_pks"] == {alice.pk}
+        assert time_slot is not None
+
+    def test_facilitator_from_another_event_empties_the_grid(
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        session,
+        space,
+        time_slot,
+    ):
+        sphere.managers.add(active_user)
+        start = event.start_time
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
+        foreign = Facilitator.objects.create(
+            event=EventFactory(sphere=sphere),
+            display_name="Alice",
+            slug="alice",
+            user=None,
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"facilitator": str(foreign.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        grid = response.context["grid"]
+        assert all(not col.sessions for col in grid.days[0].columns)
+        assert response.context["facilitator_options"] == []
+        assert time_slot is not None
 
     def test_auto_selects_single_managed_track(
         self, authenticated_client, active_user, sphere, event, space

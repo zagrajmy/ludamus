@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-02 08:45+0200\n"
+"POT-Creation-Date: 2026-08-02 10:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2858,6 +2858,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-form.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "Facilitators"
 msgstr "Twórcy programu"
 
@@ -4606,18 +4607,27 @@ msgstr "Usuń obraz"
 msgid "Remove file"
 msgstr "Usuń plik"
 
+#: src/ludamus/templates/components/multiselect-filter-options.html
+msgid "Nothing to filter by yet."
+msgstr "Nie ma jeszcze czego filtrować."
+
+#: src/ludamus/templates/components/multiselect-filter-options.html
+#: src/ludamus/templates/components/multiselect-filter.html
+msgid "Nothing matches your search."
+msgstr "Nic nie pasuje do wyszukiwania."
+
+#: src/ludamus/templates/components/multiselect-filter-options.html
+msgid "Type a name to find someone."
+msgstr "Wpisz nazwę, aby kogoś znaleźć."
+
+#: src/ludamus/templates/components/multiselect-filter-options.html
+msgid "More matches than fit — keep typing to narrow them."
+msgstr "Więcej wyników, niż się mieści — pisz dalej, aby je zawęzić."
+
 #: src/ludamus/templates/components/multiselect-filter.html
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Search…"
 msgstr "Szukaj…"
-
-#: src/ludamus/templates/components/multiselect-filter.html
-msgid "Nothing to filter by yet."
-msgstr "Nie ma jeszcze czego filtrować."
-
-#: src/ludamus/templates/components/multiselect-filter.html
-msgid "Nothing matches your search."
-msgstr "Nic nie pasuje do wyszukiwania."
 
 #: src/ludamus/templates/components/multiselect-filter.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -7235,6 +7245,7 @@ msgid "Search by name…"
 msgstr "Szukaj po nazwie…"
 
 #: src/ludamus/templates/panel/parts/facilitator-picker.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "Search facilitators by name"
 msgstr "Szukaj twórców programu po nazwie"
 
