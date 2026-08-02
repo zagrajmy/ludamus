@@ -1,9 +1,9 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {{ facilitator.display_name }} - {% translate "Facilitators" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {{ facilitator.display_name }} • {% translate "Facilitators" %}
+{% endblock title %}
 {% block page_title %}
     {{ facilitator.display_name }}
 {% endblock page_title %}

@@ -268,3 +268,7 @@ If you fix a papercut, remove it.
   sonarjs@3.0.6_.../node_modules/eslint-plugin-sonarjs is extracted without a
   package.json (only cjs/docs/types), and 'aube install' reports 'already up to
   date' so it never repairs it. Blocks every commit touching a .ts file.
+- 2026-08-02: mise run lint printed 'Finished in 198s' with every check green,
+  then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
+  child (sandbox egress is slow); had to pstree and kill -9 the mise process to
+  get the shell back.

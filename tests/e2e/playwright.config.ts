@@ -102,6 +102,7 @@ export default defineConfig({
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
+        /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
         /sphere-logo\.spec\.ts/,
@@ -124,7 +125,20 @@ export default defineConfig({
         // internet, no HTTPS_PROXY) keeps Firefox CSP coverage.
         ...(proxyServer ? [/csp-violations\.spec\.ts/] : []),
       ],
-      use: { ...devices["Desktop Firefox"] },
+      use: {
+        ...devices["Desktop Firefox"],
+        // In sandboxed dev containers the runtime denies unprivileged user
+        // namespaces, so every Firefox content process dies on startup
+        // ("Sandbox: writing /proc/self/uid_map: EACCES", then SIGSEGV) and
+        // newPage() hangs until the test times out — whichever spec happens
+        // to run first is the one that "fails". The kernel sysctls still
+        // report userns as allowed, so there is nothing to feature-detect;
+        // gate on the same proxy signal the CSP exclusion above uses. Real
+        // CI (no HTTPS_PROXY) keeps Firefox's content sandbox on.
+        ...(proxyServer
+          ? { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }
+          : {}),
+      },
     },
     ...(skipIos
       ? []
