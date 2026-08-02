@@ -1012,7 +1012,7 @@ class TestEventPageView:
         absolute_url = event.cover_image_url
         assert absolute_url.startswith("http")
         assert absolute_url in content
-        assert "zagrajmy.net/static/logo.png" not in content
+        assert "zagrajmy.net/static/og-image.jpg" not in content
         assert f"testserver{absolute_url}" not in content
 
     def test_session_card_hides_age_pill_when_min_age_zero(

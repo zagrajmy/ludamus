@@ -179,7 +179,7 @@ class TestMetaImage:
 
         assert (
             _meta_raw(response, "property", "og:image")
-            == "http://testserver/static/logo.png"
+            == "http://testserver/static/og-image.jpg"
         )
 
     def test_event_cover_wins_over_the_brand_image(self, client, sphere):

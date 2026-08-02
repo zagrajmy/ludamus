@@ -299,6 +299,11 @@ for target in ${usage_targets:-}; do
 done
 '''
 
+[tasks.og-image]
+description = "Re-render the link-preview card to src/ludamus/static/og-image.jpg from scripts/og-image/template.html"
+dir = "{{ config_root }}"
+run = "node scripts/og-image/build.mjs"
+
 [tasks.kill]
 description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
 run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
