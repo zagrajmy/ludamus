@@ -968,6 +968,89 @@ class TestProposalsPageView:
             contains=f'<input type="hidden" name="category" value="{category.pk}">',
         )
 
+    def test_track_form_carries_search_and_field_filters_forward(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="My Track", slug="my-track", is_public=True
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="What system?",
+            slug="system",
+            field_type="select",
+        )
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name="Mysterious Stranger",
+            title="Session A",
+            slug="session-a",
+            participants_limit=5,
+            status="pending",
+        )
+        SessionFieldValue.objects.create(session=session, field=field, value="D&D 5e")
+
+        response = authenticated_client.get(
+            self.get_url(event), {"search": "Mysterious", f"field_{field.pk}": "D&D 5e"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **_base_context(event),
+                "deleted_proposals": [],
+                "stats": {
+                    "hosts_count": 1,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposals": [
+                    SessionListItemDTO(
+                        pk=session.pk,
+                        title="Session A",
+                        display_name="Mysterious Stranger",
+                        category_name="RPG",
+                        status=SessionStatus.PENDING,
+                        creation_time=session.creation_time,
+                        is_scheduled=False,
+                    )
+                ],
+                "session_fields": [
+                    OrganizerFieldDTO(
+                        pk=field.pk,
+                        name="System",
+                        question="What system?",
+                        slug="system",
+                        field_type="select",
+                        order=0,
+                    )
+                ],
+                "filter_fields": {field.pk: "D&D 5e"},
+                "filter_search": "Mysterious",
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "managed_track_pks": set(),
+                "filter_track_pk": None,
+                "filter_track_multi": False,
+                "filter_track_value": "",
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "filter_category_pk": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
+                "statuses": _STATUSES,
+            },
+        )
+
     def test_filters_by_numeric_track_param(
         self, authenticated_client, active_user, sphere, event
     ):
