@@ -39,11 +39,14 @@ touching when `mise.toml` moves off that minor version.
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
 `@playwright/test` pin, and Playwright launches only the pinned build, so the
 hook's `mise run test:e2e:install` is load-bearing rather than a no-op. When
-its `--with-deps` apt step breaks (image PPA metadata drift), the hook retries
-one browser at a time — the image ships Chromium's and Firefox's OS libs but
-not WebKit's, so a single bare `playwright install` downloads all three and
-then exits non-zero on WebKit's host-library check, throwing away the two that
-did work. Per-browser, only WebKit is reported unavailable.
+its `--with-deps` apt step breaks (image PPA metadata drift), the hook re-runs
+`aube install` (the task's first step, and another way for it to fail) and
+then installs one browser at a time. A single bare `playwright install`
+downloads the browsers in one sequential loop and rethrows the first download
+failure, so every browser queued behind the failure is skipped; per-browser
+runs isolate it and report only what is genuinely unavailable. Missing OS libs
+don't enter into it — the image ships no WebKit libs, but the host-requirement
+check is caught and printed as a warning and the install still exits 0.
 
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
 runs as the pre-commit hook. Laptops never load `mise.sandbox.toml` — nothing
