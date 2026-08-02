@@ -298,7 +298,9 @@
                 {% endif %}
             {% else %}
                 <div class="card p-8 text-center">
-                    {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
+                    {# The pending default means an empty page no longer proves an #}
+                    {# empty event, so ask the event's own count which state to show. #}
+                    {% if stats.total_proposals %}
                         <p class="text-foreground-muted mb-4">{% translate "No proposals match the current filters." %}</p>
                         {% if filter_status %}
                             {% querystring status="all" as all_statuses_url %}

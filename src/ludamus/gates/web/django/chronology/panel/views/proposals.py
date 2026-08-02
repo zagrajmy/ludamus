@@ -231,7 +231,7 @@ STATUS_ALL = "all"
 def _safe_next(request: PanelRequest) -> str | None:
     next_url = request.POST.get("next") or request.GET.get("next") or ""
     if next_url and url_has_allowed_host_and_scheme(
-        next_url, allowed_hosts={request.get_host()}
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         return next_url
     return None
@@ -807,9 +807,11 @@ class ProposalFormPageView(_ProposalFormBase):
         context["proposal"] = session
         context["form"] = prepared.form
         context["cancel_url"] = (
-            reverse("panel:proposal-detail", args=[slug, proposal_id])
+            _proposal_detail_url(
+                request=self.request, slug=slug, proposal_id=proposal_id
+            )
             if proposal_id is not None
-            else reverse("panel:proposals", args=[slug])
+            else _back_to_proposals(self.request, slug)
         )
 
         sessions = self.request.di.uow.sessions
@@ -1015,7 +1017,9 @@ class ProposalFormPageView(_ProposalFormBase):
 
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect(
-            "panel:proposal-detail", slug=current_event.slug, proposal_id=session.pk
+            _proposal_detail_url(
+                request=self.request, slug=current_event.slug, proposal_id=session.pk
+            )
         )
 
     def _write_content_edit(

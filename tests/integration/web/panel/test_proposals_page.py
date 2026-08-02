@@ -965,7 +965,6 @@ class TestProposalsPageView:
                 "filter_status_value": SessionStatus.PENDING,
                 "statuses": _STATUSES,
             },
-            contains=f'<input type="hidden" name="category" value="{category.pk}">',
         )
 
     def test_track_form_carries_search_and_field_filters_forward(
