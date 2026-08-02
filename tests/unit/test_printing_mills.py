@@ -136,7 +136,8 @@ class TestBuildDoorCards:
         spaces = [_space(1, "Alfa", 0)]
         items = [
             _item(1, 1, 9, 10, title="RPG", confirmed=True, day=2),
-            _item(2, 1, 9, 10, title="Larp", confirmed=True, day=1),
+            _item(2, 1, 14, 15, title="Wieczorny", confirmed=True, day=1),
+            _item(3, 1, 9, 10, title="Larp", confirmed=True, day=1),
         ]
         service = _service(spaces=spaces, items=items, slots=[])
 
@@ -147,7 +148,7 @@ class TestBuildDoorCards:
             ("Alfa", date(2026, 6, 2)),
         ]
         assert [[e.session.title for e in c.entries] for c in document.cards] == [
-            ["Larp"],
+            ["Larp", "Wieczorny"],
             ["RPG"],
         ]
 

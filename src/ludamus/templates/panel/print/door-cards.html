@@ -3,13 +3,18 @@
 {% block body %}
     {% for card in document.cards %}
         {# one A4 page per card: a card hangs on the door for one day #}
-        <section class="sheet print:break-after-page last:print:break-after-auto">
+        <section class="sheet print:break-after-page last:print:break-after-auto"
+                 role="group"
+                 aria-labelledby="card-{{ forloop.counter }}-room card-{{ forloop.counter }}-day">
             {% include "panel/print/parts/doc-header.html" %}
-            <h2 style="font-size: 26pt; margin: 0 0 1mm 0;">{{ card.space_name }}</h2>
+            <h2 id="card-{{ forloop.counter }}-room"
+                style="font-size: 26pt;
+                       margin: 0 0 1mm 0">{{ card.space_name }}</h2>
             {% if card.capacity %}
                 <p style="margin: 0 0 1mm 0; color: #6b7280;">{% translate "Capacity" %}: {{ card.capacity }}</p>
             {% endif %}
-            <h3 style="font-size: 12pt;
+            <h3 id="card-{{ forloop.counter }}-day"
+                style="font-size: 12pt;
                        margin: 5mm 0 2mm 0;
                        border-bottom: 0.5pt solid #d1d5db">{{ card.day|date:"l, j E" }}</h3>
             <table style="width: 100%; border-collapse: collapse;">

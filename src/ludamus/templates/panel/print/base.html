@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n tessera %}
 {% block title %}
     {{ document.event_name }}
 {% endblock title %}
@@ -16,7 +16,9 @@
         /* Document typography + white paper are scoped to the sheet so they
            never touch the site navbar/footer that now wrap this page, and so
            the sheet prints white regardless of the active light/dark theme.
-           One .sheet is one printed page. */
+           A .sheet starts a printed page; content taller than the paper still
+           spills onto an unheadered continuation page — nothing caps it yet
+           (#767). */
         .sheet {
             font-family: sans-serif;
             color: #111827;
@@ -50,26 +52,6 @@
         .empty {
             color: #9ca3af;
             font-style: italic;
-        }
-
-        .toolbar {
-            margin: 0 0 12px;
-        }
-
-        .print-btn {
-            font: 600 14px sans-serif;
-            padding: 8px 16px;
-            border: 1px solid #111827;
-            border-radius: 8px;
-            background: #111827;
-            color: #fff;
-            cursor: pointer;
-        }
-
-        .print-hint {
-            margin-left: 10px;
-            font: 14px sans-serif;
-            color: #6b7280;
         }
 
         @media screen {
@@ -116,9 +98,11 @@
         <div class="print-doc">
             {# The sheets repeat their header, so the document's one heading is here. #}
             <h1 class="sr-only">{{ document.event_name }}</h1>
-            <div class="toolbar no-print">
-                <button type="button" class="print-btn" data-action="print">{% translate "Print" %}</button>
-                <span class="print-hint">{% translate "or press Ctrl+P (⌘P on Mac)" %}</span>
+            {# Theme-aware tokens: the toolbar sits on the page, not on the white sheet. #}
+            <div class="no-print mb-3 flex flex-wrap items-center gap-3">
+                {% translate "Print" as t_print %}
+                {% tessera_button t_print button_type="button" icon="printer" data_action="print" full_width_mobile=False %}
+                <span class="text-sm text-foreground-secondary">{% translate "or press Ctrl+P (⌘P on Mac)" %}</span>
             </div>
             {% block body %}
             {% endblock body %}
