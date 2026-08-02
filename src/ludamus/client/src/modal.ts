@@ -201,16 +201,31 @@ const dismissDialog = (dialog: HTMLDialogElement): void => {
  * the animation's destination and the card appears to expand into a modal that
  * is already scrolled.
  *
- * Reset on open rather than on close. A closed dialog is `display: none`, where
- * `scrollTop` is a no-op, so a close-side reset would have to run *before*
- * `close()` and would visibly jerk the content mid-animation. This must also
- * run after `showModal()` for the same reason — the element needs a box before
- * the offset can be written.
+ * Reset on open, not on close, because opening has one choke point and closing
+ * has none — `closeModal` alone branches twice, `dismissDialog` branches again,
+ * and Esc or a `form[method=dialog]` closes the dialog without reaching either.
+ * `session-edit.ts` already shows what that costs: it binds its `close` listener
+ * over `document.querySelectorAll` at parse time, so the lazily fetched dialogs
+ * this function exists for never run it.
+ *
+ * A closed dialog is also `display: none`, and `scrollTop` is a no-op on an
+ * element with no layout box, so a reset after `close()` would silently do
+ * nothing. Same rule puts this after `showModal()` rather than before it.
  */
 const resetModalScroll = (dialog: HTMLDialogElement): void => {
+  // Not a class selector: the tab panels are the only scrollers in the rendered
+  // markup, but htmx swaps the edit form's own `overflow-y-auto` body in at
+  // runtime, and a dialog closed mid-edit keeps it (see above).
   for (const element of dialog.querySelectorAll<HTMLElement>("*")) {
     if (element.scrollTop !== 0) element.scrollTop = 0;
   }
+};
+
+// Both open paths need `showModal()` and the reset in that order, and the order
+// is load-bearing, so it lives here rather than in a comment at each call site.
+const presentDialog = (dialog: HTMLDialogElement): void => {
+  dialog.showModal();
+  resetModalScroll(dialog);
 };
 
 const openModal = async (
@@ -238,14 +253,12 @@ const openModal = async (
           suppressSessionCard(id);
           setMorph(card, false);
           card.style.transition = "none";
-          dialog.showModal();
-          resetModalScroll(dialog);
+          presentDialog(dialog);
           setMorph(dialog, true);
         },
       });
     } else {
-      dialog.showModal();
-      resetModalScroll(dialog);
+      presentDialog(dialog);
       suppressSessionCard(id);
     }
   }

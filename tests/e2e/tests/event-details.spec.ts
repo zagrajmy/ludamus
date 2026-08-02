@@ -166,6 +166,11 @@ test.describe("Event detail page", () => {
 
     await open();
     await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBe(0);
+    // Without this the assertion above also passes when the reopened panel is
+    // simply too short to scroll — i.e. if modals ever stop being cached.
+    expect(await panel.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+      true,
+    );
   });
 
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
