@@ -46,7 +46,13 @@ def _base_context(event, **stats):
 
 
 def _scopes(*spaces):
-    return [PrintScopeOptionDTO(pk=space.pk, name=space.name) for space in spaces]
+    # Every space is a printable scope, labelled by its tree path — a plain
+    # name for the flat spaces here — and listed in the repository's
+    # (order, name) order, so callers may pass them in any order.
+    return [
+        PrintScopeOptionDTO(pk=space.pk, name=space.name)
+        for space in sorted(spaces, key=lambda space: (space.order, space.name))
+    ]
 
 
 def _scheduled_stats(count):
@@ -343,12 +349,12 @@ class TestTimetablePageView:
                 event,
                 stats={"rooms_count": 2},
                 grid=grid_with(spaces=[space]),
-                print_scopes=ANY,
+                # The track filters the grid, not the print scopes.
+                print_scopes=_scopes(space, other_space),
                 all_tracks=ANY,
                 filter_track_pk=track.pk,
             ),
         )
-        assert other_space is not None
 
     def test_auto_selects_single_managed_track(
         self, panel_client, active_user, event, space
@@ -370,13 +376,12 @@ class TestTimetablePageView:
                 event,
                 stats={"rooms_count": 2},
                 grid=grid_with(spaces=[space]),
-                print_scopes=ANY,
+                print_scopes=_scopes(space, other_space),
                 all_tracks=ANY,
                 filter_track_pk=track.pk,
                 managed_track_pks={track.pk},
             ),
         )
-        assert other_space is not None
 
     # Only a non-numeric room_page falls back to 1; a numeric out-of-range one
     # reaches the context as given, while grid.page stays clamped.
@@ -427,7 +432,8 @@ class TestTimetablePageView:
                     total_pages=expected_pages,
                     total_spaces=room_count,
                 ),
-                print_scopes=ANY,
+                # Paging the grid doesn't page the print scopes.
+                print_scopes=_scopes(*rooms),
                 room_page=middle_page,
             ),
         )
