@@ -42,7 +42,9 @@ for (const select of document.querySelectorAll<HTMLSelectElement>("select[data-n
   select.addEventListener("change", () => {
     // Same-origin guard: option values are server-rendered, but never let a
     // stray javascript:/external URL through.
-    const url = new URL(select.value, globalThis.location.origin);
+    // Base is href, not origin: values are bare query strings ("?page_size=50")
+    // and must keep the current path.
+    const url = new URL(select.value, globalThis.location.href);
     if (url.origin === globalThis.location.origin) globalThis.location.assign(url);
   });
 }
