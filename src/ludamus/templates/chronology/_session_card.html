@@ -49,8 +49,8 @@
                 </div>
             </header>
             {% if data.session.description %}
+                {# Deliberately not a morph group: see session-modal.html. #}
                 <p class="pointer-events-auto select-text text-sm mb-2 line-clamp-3 text-foreground-primary"
-                   data-morph="desc"
                    data-session-description>{{ data.session.description }}</p>
             {% endif %}
             <div class="relative" data-morph="tags">{% include "chronology/session_tags.html" %}</div>

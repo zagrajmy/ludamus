@@ -61,7 +61,11 @@
                     <div class="flex flex-1 items-center gap-3 flex-wrap min-w-0">
                         <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
                         {% if data.location_label %}
-                            <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
+                            {# The room sits beside a name that is still flying in from #}
+                            {# the card, so at its final spot it reads as arriving alone. #}
+                            {# Its own group lets it land with the other static labels. #}
+                            <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted"
+                                  data-morph="venue">
                                 {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
                                 <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
                             </span>
@@ -81,10 +85,17 @@
                     <div class="mb-6">
                         <h3 class="font-semibold mb-2 text-foreground-secondary"
                             data-morph="desc-label">{% translate "About this session" %}</h3>
-                        {# leading-5 matches the card excerpt's text-sm leading, so #}
-                        {# the description keeps its rhythm across the morph. #}
+                        {# Deliberately NOT a morph group. A named element is hoisted #}
+                        {# into the view-transition layer whole and unclipped, so a #}
+                        {# description longer than the dialog spilled past its bottom #}
+                        {# edge for the length of the morph. Left unnamed it stays in #}
+                        {# the dialog's own snapshot, which the dialog's #}
+                        {# overflow-hidden clips. Nesting it under the dialog's group #}
+                        {# would keep the morph and the clip, but view-transition-group #}
+                        {# is Chromium-only and this ships to Safari. #}
+                        {# leading-5 matches the card excerpt's text-sm leading. #}
                         <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
-                             data-morph="desc">{{ data.session.description|render_markdown }}</div>
+                             data-session-description>{{ data.session.description|render_markdown }}</div>
                     </div>
                 {% endif %}
                 {% if data.field_values %}

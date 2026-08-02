@@ -87,8 +87,7 @@
 ::view-transition-group(session-morph),
 ::view-transition-group(morph-title),
 ::view-transition-group(morph-host),
-::view-transition-group(morph-avatar),
-::view-transition-group(morph-desc) {
+::view-transition-group(morph-avatar) {
   animation-duration: var(--vt-morph-duration);
   animation-timing-function: var(--vt-morph-ease);
 }
@@ -108,13 +107,12 @@
   mix-blend-mode: normal;
 }
 
-/* Card content that the modal re-renders elsewhere (or drops) is cut the moment
-   the morph starts. Without this the card's tag pills and its meta row keep
-   painting under the description as it grows past them — the container snapshot
-   they belong to fades over 55% of the morph, which is long enough to read. */
+/* Card content the modal re-renders elsewhere (or drops) is cut the moment the
+   morph starts, rather than lingering in the container snapshot as it fades out
+   over 55% of the morph — long enough to read through the modal arriving on top
+   of it. Same treatment the title and host already get. */
 ::view-transition-old(morph-title),
 ::view-transition-old(morph-host),
-::view-transition-old(morph-desc),
 ::view-transition-old(morph-tags),
 ::view-transition-old(morph-meta),
 ::view-transition-old(morph-time) {
@@ -139,7 +137,8 @@
     calc(var(--vt-morph-duration) * 0.35) both;
 }
 
-::view-transition-new(morph-desc-label) {
+::view-transition-new(morph-desc-label),
+::view-transition-new(morph-venue) {
   animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.4) var(--vt-morph-ease)
     calc(var(--vt-morph-duration) * 0.5) both;
 }
@@ -260,12 +259,10 @@
   ::view-transition-group(morph-title),
   ::view-transition-group(morph-host),
   ::view-transition-group(morph-avatar),
-  ::view-transition-group(morph-desc),
   ::view-transition-old(session-morph),
   ::view-transition-new(session-morph),
   ::view-transition-old(morph-title),
   ::view-transition-old(morph-host),
-  ::view-transition-old(morph-desc),
   ::view-transition-old(morph-tags),
   ::view-transition-old(morph-meta),
   ::view-transition-old(morph-time),
@@ -273,6 +270,7 @@
   ::view-transition-new(morph-avatar),
   ::view-transition-new(morph-tabs),
   ::view-transition-new(morph-desc-label),
+  ::view-transition-new(morph-venue),
   ::view-transition-new(morph-footer) {
     animation: none;
   }

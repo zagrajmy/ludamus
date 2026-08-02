@@ -283,7 +283,7 @@ test.describe("Event detail page", () => {
     // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
       const description = document.querySelector(
-        `#session-${id} [id^="info-"] [data-morph="desc"]`,
+        `#session-${id} [id^="info-"] [data-session-description]`,
       );
       if (!description) throw new Error("Missing session description");
       description.innerHTML = Array.from(
