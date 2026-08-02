@@ -180,7 +180,7 @@ env = { _.file = '.env.e2e' }
 
 [tasks."test:postgres"]
 description = "Run PostgreSQL-only tests (row locking / concurrency) on real Postgres"
-run = "python -m pytest -m postgres tests/integration"
+run = "pytest -m postgres tests/integration"
 env.ALLOWED_HOSTS = ".testserver"
 env.AUTH0_CLIENT_ID = "test-auth0-client-id"
 env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
@@ -206,7 +206,7 @@ env.SCHEDULER_MODE = "cron"
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
-run = "python -m pytest --gremlins tests"
+run = "pytest --gremlins tests"
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 ## Complex

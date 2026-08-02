@@ -11,11 +11,11 @@
 
 ["format:black"]
 description = "Format Python code with Black"
-run = "python -m black {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
+run = "black {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
 
 ["format:ruff"]
 description = "Lint Python with Ruff and auto-fix violations"
-run = "python -m ruff check --fix {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
+run = "ruff check --fix {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
 
 ["format:taplo"]
 description = "Format TOML files"
@@ -29,7 +29,7 @@ run = [{ task = "format:taplo" }, { task = "format:black" }, { task = "format:ru
 
 ["lint:black"]
 description = "Check Python code with Black"
-run = "python -m black --check {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
+run = "black --check {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
 
 ["lint:codespell"]
 description = "Find typos in source and test files"
@@ -41,19 +41,19 @@ run = "lint-imports --config=pyproject.toml"
 
 ["lint:mypy"]
 description = "Type-check Python source with mypy"
-run = "python -m mypy {{ env.SRC_PATHS }}"
+run = "mypy {{ env.SRC_PATHS }}"
 env = { _.file = '.env.test' }
 
 ["lint:pylint"]
 description = "Run Pylint on source, scripts and tests (duplicate-code disabled for tests)"
 run = [
-    "python -m pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }}",
-    "python -m pylint -j 0 --disable=duplicate-code {{ env.TEST_PATHS }}",
+    "pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }}",
+    "pylint -j 0 --disable=duplicate-code {{ env.TEST_PATHS }}",
 ]
 
 ["lint:ruff"]
 description = "Check Python with Ruff"
-run = "python -m ruff check --no-fix {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
+run = "ruff check --no-fix {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"
 
 ["lint:taplo"]
 description = "Check TOML files"
@@ -103,7 +103,7 @@ run = [
 
 ["test:unit"]
 description = "Run unit tests"
-run = "python -m pytest -n auto {{ env.TEST_PATHS }}/unit"
+run = "pytest -n auto {{ env.TEST_PATHS }}/unit"
 env = { _.file = '.env.test' }
 
 ["test:unit:cov"]
@@ -122,7 +122,7 @@ env = { _.file = '.env.test' }
 
 ["test:int"]
 description = "Run integration tests"
-run = "python -m pytest -n auto {{ env.TEST_PATHS }}/integration"
+run = "pytest -n auto {{ env.TEST_PATHS }}/integration"
 env = { _.file = '.env.test' }
 
 ["test:int:cov"]
@@ -141,7 +141,7 @@ env = { _.file = '.env.test' }
 
 ["test:py"]
 description = "Run all Python tests"
-run = "python -m pytest -n auto {{ env.TEST_PATHS }}/integration {{ env.TEST_PATHS }}/unit"
+run = "pytest -n auto {{ env.TEST_PATHS }}/integration {{ env.TEST_PATHS }}/unit"
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.unit" }
 
 ["test:py:cov"]

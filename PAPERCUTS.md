@@ -242,6 +242,12 @@ If you fix a papercut, remove it.
   assumed the binary exists, so every provisioning step warned-and-skipped and
   the session looked half-provisioned. Installed it from mise.run (reachable
   through the proxy) and added a self-install step to the hook.
+- 2026-07-31: every mise task resolves its Python tool from PATH, so any shell
+  that puts ~/.local/bin ahead of the mise shims gets the image's uv-installed
+  pytest/mypy/black instead of .venv's. 'mise run test:py' then dies with
+  ModuleNotFoundError: No module named 'django'. Took a while to spot because
+  the traceback points at tests/conftest.py, not at the wrong interpreter.
+  session-start.sh orders PATH correctly; nothing enforces it elsewhere.
 - 2026-08-01: mise run test:int -- tests/foo/test_x.py doesn't narrow: the task
   hardcodes the integration path and appends args, so pytest gets two paths and
   runs the whole suite. Had to use `-k name` and wait ~2.5 min for
