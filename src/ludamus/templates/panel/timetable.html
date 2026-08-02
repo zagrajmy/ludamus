@@ -64,21 +64,14 @@
         </div>
         <div class="flex items-center gap-2 flex-wrap ml-auto">
             {% translate "Print" as t_print %}
-            <div class="relative" data-menu>
-                <button type="button"
-                        data-menu-button
-                        aria-expanded="false"
-                        aria-haspopup="true"
-                        class="filter-toggle inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150">
-                    {% icon "printer" class="size-4" %}
-                    <span class="hidden sm:inline">{{ t_print }}</span>
-                </button>
-                <div data-menu-panel hidden class="absolute right-0 mt-1 z-40">
-                    <div {% include "components/menu_surface.html" with extra_class="flex flex-col gap-2 rounded-2xl border border-border bg-bg-secondary p-3 shadow-xl" %}>
-                        {% include "panel/parts/print-controls.html" %}
-                    </div>
-                </div>
-            </div>
+            {# The public print page is the one canonical print page — this link carries the schedule's current track and day filters over. #}
+            <a href="{{ print_url }}"
+               target="_blank"
+               rel="noopener"
+               class="filter-toggle inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150">
+                {% icon "printer" class="size-4" %}
+                <span class="hidden sm:inline">{{ t_print }}</span>
+            </a>
             {% if filter_track_pk %}
                 <form hx-post="{% url 'panel:timetable-confirm-block' slug=current_event.slug %}"
                       hx-swap="none">
