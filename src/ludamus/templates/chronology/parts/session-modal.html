@@ -100,7 +100,9 @@
                         {# overflow-hidden clips. Nesting it under the dialog's group #}
                         {# would keep the morph and the clip, but view-transition-group #}
                         {# is Chromium-only and this ships to Safari. #}
-                        {# leading-5 matches the card excerpt's text-sm leading. #}
+                        {# leading-5 is the card excerpt's text-sm leading, kept #}
+                        {# here so a session reads at the same density in both #}
+                        {# places rather than loosening to prose-sm's 1.71. #}
                         <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
                              data-session-description>{{ data.session.description|render_markdown }}</div>
                     </div>
@@ -256,9 +258,12 @@
     {% endif %}
     {% if data.is_enrollment_available or data.can_edit %}
         <!-- Footer -->
-        {# data-morph + the modal surface colour give the footer its own opaque #}
-        {# view-transition group, so the description no longer paints over the #}
-        {# enroll button while it grows into place. #}
+        {# A new-only view-transition group: with no old geometry to interpolate #}
+        {# it renders at final layout for the whole morph instead of stretching #}
+        {# with the container snapshot, so the enroll controls stay crisp and #}
+        {# still while the modal grows behind them. bg-bg-secondary is the modal's #}
+        {# own surface colour — invisible at rest, but the snapshot underneath is #}
+        {# mid-cross-fade with the card and would otherwise show through. #}
         <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
              data-morph="footer"
              data-session-footer="{{ data.session.pk }}">

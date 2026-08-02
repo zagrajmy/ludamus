@@ -107,10 +107,12 @@
   mix-blend-mode: normal;
 }
 
-/* Card content the modal re-renders elsewhere (or drops) is cut the moment the
-   morph starts, rather than lingering in the container snapshot as it fades out
-   over 55% of the morph — long enough to read through the modal arriving on top
-   of it. Same treatment the title and host already get. */
+/* Each of these carries its own name, so it is lifted out of the card's snapshot
+   into a group of its own, and an old-only group is appended after
+   session-morph — it paints on top of the arriving modal, not behind it. None of
+   them appears in the paired-group timing above either, so without this they
+   would sit crisply legible over the new modal for the UA's default 0.25s fade.
+   Cut them at the start instead. Same treatment the title and host already get. */
 ::view-transition-old(morph-title),
 ::view-transition-old(morph-host),
 ::view-transition-old(morph-tags),
@@ -120,9 +122,13 @@
   opacity: 0;
 }
 
-/* Modal chrome with no card counterpart is captured as a new-only group, which
-   the spec appends after every paired group — so these paint above the morphing
-   description and, being opaque, finally occlude it. */
+/* Modal chrome with no card counterpart is captured as a new-only group. A
+   new-only group has no old geometry to interpolate, so it renders at its final
+   layout for the whole morph instead of being stretched along with the container
+   snapshot — which is what keeps the footer's controls crisp and still while the
+   modal grows behind them. It carries the modal's surface colour because that
+   snapshot underneath is mid-cross-fade with the card and would otherwise show
+   through. */
 ::view-transition-new(morph-footer) {
   animation-duration: var(--vt-morph-duration);
   animation-timing-function: var(--vt-morph-ease);
@@ -255,23 +261,8 @@
       display 0.2s allow-discrete;
   }
 
-  ::view-transition-group(session-morph),
-  ::view-transition-group(morph-title),
-  ::view-transition-group(morph-host),
-  ::view-transition-group(morph-avatar),
-  ::view-transition-old(session-morph),
-  ::view-transition-new(session-morph),
-  ::view-transition-old(morph-title),
-  ::view-transition-old(morph-host),
-  ::view-transition-old(morph-tags),
-  ::view-transition-old(morph-meta),
-  ::view-transition-old(morph-time),
-  ::view-transition-old(morph-avatar),
-  ::view-transition-new(morph-avatar),
-  ::view-transition-new(morph-tabs),
-  ::view-transition-new(morph-desc-label),
-  ::view-transition-new(morph-venue),
-  ::view-transition-new(morph-footer) {
-    animation: none;
-  }
+  /* No morph rules here on purpose. `canMorph` in modal.ts refuses to start a
+     session morph under reduced motion, so no session-morph / morph-* name is
+     ever applied and every such selector would be dead. The gate lives in the
+     JS because it also has to pick the non-animated open path. */
 }

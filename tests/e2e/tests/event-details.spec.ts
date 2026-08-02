@@ -3,6 +3,10 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./helpers/fixtures";
 import { createIosModalContext } from "./helpers/ios-modal";
 
+// Chromium/Firefox only: WebKit does not expose ::view-transition pseudo-element
+// animations to document.getAnimations(), so this resolves immediately there
+// rather than actually waiting for the morph. Don't read a WebKit pass as
+// evidence the transition settled.
 const settleViewTransitions = (page: Page): Promise<void> =>
   page
     .waitForFunction(
@@ -86,10 +90,10 @@ test.describe("Event detail page", () => {
     await expect(card).not.toHaveClass(/session-suppressed/);
   });
 
-  // Whether the morph *feels* right is not assertable; that the modal's chrome
-  // still animates on its own delayed groups is. Losing those groups is what
-  // put the enroll footer under the growing description and crossed the tab bar
-  // with the flying title.
+  // Whether the morph *feels* right is not assertable; the shape of its groups
+  // is. Two invariants matter: the description must NOT be a group — naming it
+  // hoists it out unclipped and it spills past the dialog — and the labels the
+  // title flies past must come in behind it.
   test("modal chrome morphs on its own groups, staggered behind the title", async ({ page }) => {
     const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
     test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
@@ -121,8 +125,12 @@ test.describe("Event detail page", () => {
       return Object.fromEntries(entries);
     });
 
-    // The footer has to be opaque from the first frame to occlude the
-    // description; the labels the title flies past must not be.
+    // Naming the description hoists it out of the dialog's snapshot, past the
+    // clip that keeps it inside — the bug this guards.
+    expect(delays[pseudoOf("desc")]).toBeUndefined();
+
+    // The footer renders at final layout throughout, so it has nothing to wait
+    // for; the labels the title flies past do.
     expect(delays[pseudoOf("footer")]).toBe(0);
     expect(delays[pseudoOf("tabs")]).toBeGreaterThan(0);
     expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
