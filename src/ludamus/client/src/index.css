@@ -350,24 +350,27 @@ button {
   --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* smooth-shadow-ring hairlines read the house border token — our neutrals are
-   warm, and the plugin's default semi-transparent black renders cool grey
-   against them. Mirrors all three plugin selectors (:root, the
-   prefers-color-scheme media rule, .dark) so this wins each cascade branch;
-   var() resolves per-theme, so one value covers light and dark. */
+/* smooth-shadow-ring hairlines: translucent warm, tuned to the border token.
+   The plugin's default semi-transparent black renders cool grey against our
+   warm neutrals, and the opaque token itself would kill the dissolve — so
+   these composite to the border color instead. Derivation per channel:
+   α·C + (1−α)·bg = target. Light: --color-border (warm-300 #e4ddd6) on white
+   at α = 20% → rgb(120 85 50). Dark: neutral-700 #404040 on the #0a0a0a page
+   at α = 22% → white. Re-derive if the border token retunes. Mirrors all
+   three plugin selectors so this wins each cascade branch. */
 :root {
-  --smooth-ring-color: var(--color-border);
+  --smooth-ring-color: rgb(120 85 50 / 20%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light):not([data-theme="light"]) {
-    --smooth-ring-color: var(--color-border);
+    --smooth-ring-color: rgb(255 255 255 / 22%);
   }
 }
 
 .dark,
 [data-theme="dark"] {
-  --smooth-ring-color: var(--color-border);
+  --smooth-ring-color: rgb(255 255 255 / 22%);
 }
 
 :focus-visible {

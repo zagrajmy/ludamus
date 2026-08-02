@@ -65,6 +65,7 @@ visibility badges, …). Prefer including those over re-creating their markup.
   `smooth-shadow-ring-md`; no edge wanted → plain `smooth-shadow-{size}`.
   Don't add a `border`/`ring` on top — the ring is already in there. Tint via
   `shadow-{color}` (shadow) and `smooth-ring-{color}` (ring). Globally the
-  ring reads `var(--color-border)` (index.css) so hairlines stay warm and flip
-  with the theme — don't re-tint per element without a reason.
+  ring is a translucent warm tone derived to composite to `--color-border`
+  (see the `--smooth-ring-color` block in index.css) and flips with the
+  theme — don't re-tint per element without a reason.
 - One brand font (Outfit) by design — don't add a second.
