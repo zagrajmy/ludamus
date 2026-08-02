@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-01 17:51+0200\n"
+"POT-Creation-Date: 2026-08-02 10:53+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2176,6 +2176,7 @@ msgstr "Kategoria została zaktualizowana."
 
 #: src/ludamus/gates/web/django/event/print.py
 #: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/print/timetable.html
 msgid "Timetable"
 msgstr "Harmonogram"
 
@@ -7898,6 +7899,10 @@ msgstr ""
 #: src/ludamus/templates/panel/print/base.html
 msgid "or press Ctrl+P (⌘P on Mac)"
 msgstr "lub naciśnij Ctrl+P (⌘P na Macu)"
+
+#: src/ludamus/templates/panel/print/door-cards.html
+msgid "Door cards"
+msgstr "Tabliczki na drzwi"
 
 #: src/ludamus/templates/panel/print/door-cards.html
 msgid "No rooms to print."

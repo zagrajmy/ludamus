@@ -1,14 +1,13 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
+{% block title %}
     {% if node %}
         {% translate "Edit space" %}
     {% else %}
         {% translate "New space" %}
     {% endif %}
-    -
-{% endblock title_prefix %}
+{% endblock title %}
 {% block page_title %}
     {% if node %}
         {% translate "Edit space" %}

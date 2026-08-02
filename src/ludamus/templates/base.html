@@ -12,22 +12,37 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="htmx-config" content="{&quot;allowEval&quot;:false}">
         {% comment %}One value, three tags: a block can't hand its output to a
-        variable. Object pages override all three with one shared expression or
-        partial. Sphere subdomains name the sphere; the brand domain pitches the
-        product.{% endcomment %}
+        variable, so object pages override all three description blocks with one
+        shared expression. Sphere subdomains name the sphere; the brand domain
+        pitches the product.{% endcomment %}
         {% if not is_root_sphere %}
             {% blocktranslate asvar default_description with sphere=current_sphere.name %}Programme and sign-ups for {{ sphere }}.{% endblocktranslate %}
         {% else %}
             {% translate "A convention without spreadsheet chaos. Programme proposals, a schedule of rooms and tracks, sign-ups with seat limits and a waitlist." as default_description %}
         {% endif %}
+        {% comment %}Title standard: "{page name} • {sphere name} • Zagrajmy",
+        bullets all the way down — never a dash, which reads as a second kind of
+        separator and costs more room. Pages set block title; pages whose name IS
+        the sphere (landing) empty out title_suffix instead, and panel pages swap
+        it for the event they manage. The root sphere is Zagrajmy, so it takes no
+        brand tail. Captured once here so the document title and the link-preview
+        titles below can never drift apart.{% endcomment %}
+        {% document_title %}
+            {% block title %}
+            {% endblock title %}
+            {% block title_suffix %}
+                {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
+            {% endblock title_suffix %}
+            {% if not is_root_sphere %}• Zagrajmy{% endif %}
+        {% enddocument_title %}
+        <title>{{ document_title }}</title>
         <meta name="description"
               content="{% block meta_description %}{{ default_description }}{% endblock meta_description %}">
         <!-- Open Graph / Facebook -->
         <meta property="og:type" content="website">
         <meta property="og:url" content="{{ request.build_absolute_uri }}">
         <meta property="og:site_name" content="{{ current_sphere.name }}">
-        <meta property="og:title"
-              content="{% block og_title %}{{ current_sphere.name }}{% endblock og_title %}">
+        <meta property="og:title" content="{{ document_title }}">
         <meta property="og:description"
               content="{% block og_description %}{{ default_description }}{% endblock og_description %}">
         {% comment %}Not the sphere logo: it may be an SVG, which every link
@@ -36,24 +51,11 @@
               content="{% block og_image %}{% meta_image_url %}{% endblock og_image %}">
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:title"
-              content="{% block twitter_title %}{{ current_sphere.name }}{% endblock twitter_title %}">
+        <meta name="twitter:title" content="{{ document_title }}">
         <meta name="twitter:description"
               content="{% block twitter_description %}{{ default_description }}{% endblock twitter_description %}">
         <meta name="twitter:image"
               content="{% block twitter_image %}{% meta_image_url %}{% endblock twitter_image %}">
-        {% comment %}Title standard: "{page name} • {sphere name} • Zagrajmy".
-        Pages set block title; pages whose name IS the sphere (landing) empty
-        out title_suffix instead. The root sphere is Zagrajmy, so it takes no
-        brand tail.{% endcomment %}
-        <title>
-            {% block title %}
-            {% endblock title %}
-            {% block title_suffix %}
-                {% if current_sphere %}• {{ current_sphere.name }}{% endif %}
-            {% endblock title_suffix %}
-            {% if not is_root_sphere %}• Zagrajmy{% endif %}
-        </title>
         {% comment %}Dark tab bars are handled by prefers-color-scheme rules
         inside the SVGs themselves; the .ico covers pre-26 Safari and agents
         that request /favicon.ico blindly.{% endcomment %}

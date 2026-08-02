@@ -1,13 +1,13 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
+{% block title %}
     {% if proposal %}
-        {% translate "Edit Proposal" %} -
+        {% translate "Edit Proposal" %}
     {% else %}
-        {% translate "Create Session" %} -
+        {% translate "Create Session" %}
     {% endif %}
-{% endblock title_prefix %}
+{% endblock title %}
 {% block page_title %}
     {% if proposal %}
         {{ proposal.title }}
