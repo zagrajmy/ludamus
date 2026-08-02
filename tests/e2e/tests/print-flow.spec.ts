@@ -65,9 +65,36 @@ test.describe("Print page controls", () => {
     await expect(page.getByLabel("With descriptions")).toBeChecked();
     await expect(page.getByRole("heading", { name: "Program details" }).first()).toBeVisible();
   });
+
+  test("door cards print one sheet per room and day", async ({ page }) => {
+    await page.goto(`${printUrl}?material=door-cards`);
+
+    // Miniature Painting is the only room in its track and the seed schedules
+    // it on all three days, so it gets exactly three sheets — one per day.
+    await expect(
+      page.getByRole("heading", { name: "Miniature Painting", exact: true }),
+    ).toHaveCount(3);
+    await expect(page.getByText("Capacity: 18").first()).toBeVisible();
+
+    // One room and one day per sheet, the event named on every sheet — a card
+    // torn off the stack still says where and when it belongs.
+    const preview = page.getByRole("region", { name: "Print preview" });
+    const cards = preview.getByRole("group");
+    const labels: string[] = [];
+    for (const card of await cards.all()) {
+      const room = card.getByRole("heading", { level: 2 });
+      const day = card.getByRole("heading", { level: 3 });
+      await expect(room).toHaveCount(1);
+      await expect(day).toHaveCount(1);
+      await expect(card.getByText(eventName).first()).toBeVisible();
+      labels.push(`${await room.innerText()}|${await day.innerText()}`);
+    }
+    // No room+day is printed twice.
+    expect(new Set(labels).size).toBe(labels.length);
+  });
 });
 
-test.describe("Panel print pages", () => {
+test.describe("Print page for managers", () => {
   test.beforeEach(async ({ page }) => {
     // Log in via Django admin as the manager user (same flow as panel.spec.ts;
     // domcontentloaded because Firefox occasionally never fires `load` here).
@@ -77,33 +104,28 @@ test.describe("Panel print pages", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
-  test("print materials hub offers timetable and door cards", async ({ page }) => {
-    await page.goto("/panel/event/kapitularz-2025-anonymized/print/");
+  test("the unconfirmed-sessions toggle applies itself to the URL", async ({ page }) => {
+    await page.goto(printUrl);
 
-    await expect(page.getByRole("heading", { name: "Print Materials" })).toBeVisible();
-    await expect(page.getByText("Print timetable").first()).toBeVisible();
-    await expect(page.getByText("Print door cards").first()).toBeVisible();
+    const box = page.getByLabel("Include unconfirmed sessions");
+    await box.check();
+
+    await expect(page).toHaveURL(/unconfirmed=1/);
+    await expect(page.getByLabel("Include unconfirmed sessions")).toBeChecked();
   });
 
-  test("panel timetable printout shows session-time rows", async ({ page }) => {
-    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/timetable/");
+  test("panel links lead to the canonical print page", async ({ page }) => {
+    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/");
 
-    await expect(page.getByText(eventName).first()).toBeVisible();
-    await expect(
-      page.getByRole("columnheader", { name: "Time", exact: true }).first(),
-    ).toBeVisible();
-    // Session times, not 4-hour availability slots: an 11:00–13:00 session
-    // renders as its own row.
-    await expect(page.getByRole("cell", { name: /11:00–13:00/ }).first()).toBeVisible();
-  });
-
-  test("door cards render one card per room with its hours", async ({ page }) => {
-    await page.goto("/panel/event/kapitularz-2025-anonymized/timetable/print/door-cards/");
-
-    // Only rooms with sessions get a card; Miniature Painting always has some.
-    await expect(
-      page.getByRole("heading", { name: "Miniature Painting", exact: true }).first(),
-    ).toBeVisible();
-    await expect(page.getByText("Capacity: 18").first()).toBeVisible();
+    // Sidebar "Print Materials" and the schedule toolbar "Print" both point at
+    // the public print page — the panel renders no print pages of its own.
+    await expect(page.getByRole("link", { name: "Print Materials" })).toHaveAttribute(
+      "href",
+      printUrl,
+    );
+    await expect(page.getByRole("link", { name: "Print", exact: true })).toHaveAttribute(
+      "href",
+      printUrl,
+    );
   });
 });

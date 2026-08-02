@@ -2,11 +2,7 @@ from datetime import UTC, date, datetime
 
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO, TimeSlotDTO
-from ludamus.pacts.printing import (
-    AreaScheduleQueryDTO,
-    DoorCardsQueryDTO,
-    PrintTimetableQueryDTO,
-)
+from ludamus.pacts.printing import PrintQueryDTO
 
 
 def _event():
@@ -106,16 +102,16 @@ def _service(*, spaces, items, slots, tracks=None):
 
 
 def _door_cards(service, **kwargs):
-    return service.build_door_cards(DoorCardsQueryDTO(event_pk=1, tz=UTC, **kwargs))
+    return service.build_door_cards(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
 def _timetable(service, **kwargs):
-    return service.build_timetable(PrintTimetableQueryDTO(event_pk=1, tz=UTC, **kwargs))
+    return service.build_timetable(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
 def _area_schedule(service, window, **kwargs):
     return service.build_area_schedule(
-        AreaScheduleQueryDTO(event_pk=1, time_range=window, **kwargs)
+        PrintQueryDTO(event_pk=1, tz=UTC, time_range=window, **kwargs)
     )
 
 
@@ -131,6 +127,26 @@ class TestBuildDoorCards:
         document = _door_cards(service)
 
         assert [c.space_name for c in document.cards] == ["Alfa", "Bravo"]
+
+    def test_a_room_used_on_two_days_gets_a_card_per_day(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="RPG", confirmed=True, day=2),
+            _item(2, 1, 14, 15, title="Wieczorny", confirmed=True, day=1),
+            _item(3, 1, 9, 10, title="Larp", confirmed=True, day=1),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = _door_cards(service)
+
+        assert [(c.space_name, c.day) for c in document.cards] == [
+            ("Alfa", date(2026, 6, 1)),
+            ("Alfa", date(2026, 6, 2)),
+        ]
+        assert [[e.session.title for e in c.entries] for c in document.cards] == [
+            ["Larp", "Wieczorny"],
+            ["RPG"],
+        ]
 
     def test_time_range_keeps_overlapping_entries_and_drops_empty_rooms(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
@@ -149,7 +165,7 @@ class TestBuildDoorCards:
         )
 
         assert [c.space_name for c in document.cards] == ["Alfa"]
-        entries = document.cards[0].days[0].entries
+        entries = document.cards[0].entries
         assert [entry.session.title for entry in entries] == ["RPG"]
 
     def test_empty_slots_and_sessionless_spaces_are_omitted(self):
@@ -163,7 +179,7 @@ class TestBuildDoorCards:
         document = _door_cards(service)
 
         assert [c.space_name for c in document.cards] == ["Alfa"]
-        entries = document.cards[0].days[0].entries
+        entries = document.cards[0].entries
         assert [e.session.title for e in entries] == ["RPG"]
 
     def test_includes_unconfirmed_scheduled_session(self):
@@ -172,9 +188,10 @@ class TestBuildDoorCards:
         items = [_item(1, 1, 9, 10, title="Larp", confirmed=False)]
         service = _service(spaces=spaces, items=items, slots=slots)
 
-        document = _door_cards(service)
+        # The manager toggle: only an explicit opt-in prints pending sessions.
+        document = _door_cards(service, confirmed_only=False)
 
-        entries = document.cards[0].days[0].entries
+        entries = document.cards[0].entries
         assert entries[0].session is not None
         assert entries[0].session.title == "Larp"
 
@@ -467,7 +484,7 @@ class TestBuildAreaSchedule:
         items = [_item(1, 1, 10, 11, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = service.build_area_schedule(AreaScheduleQueryDTO(event_pk=1))
+        document = service.build_area_schedule(PrintQueryDTO(event_pk=1, tz=UTC))
 
         assert document.range_start == _event().start_time
         assert document.range_end == _event().end_time
