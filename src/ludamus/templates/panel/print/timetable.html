@@ -1,5 +1,8 @@
 {% extends "panel/print/base.html" %}
 {% load i18n %}
+{% block document_name %}
+    • {% translate "Timetable" %}
+{% endblock document_name %}
 {% block extra_style %}
     <style>
         @page {

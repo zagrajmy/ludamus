@@ -4,13 +4,6 @@
 {% load static %}
 {% load django_vite %}
 {% load tessera %}
-{% block title %}
-    {% block title_prefix %}
-    {% endblock title_prefix %}
-    {{ current_sphere.name }}
-{% endblock title %}
-{% block title_suffix %}
-{% endblock title_suffix %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
     {# the translation catalog instead of hardcoding locale logic client-side. #}

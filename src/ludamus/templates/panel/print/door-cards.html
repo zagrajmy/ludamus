@@ -1,5 +1,8 @@
 {% extends "panel/print/base.html" %}
 {% load i18n %}
+{% block document_name %}
+    • {% translate "Door cards" %}
+{% endblock document_name %}
 {% block body %}
     {% for card in document.cards %}
         {# one A4 page per room #}
