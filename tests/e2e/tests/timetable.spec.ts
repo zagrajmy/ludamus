@@ -541,6 +541,36 @@ test.describe("Timetable", () => {
     await expect(page.locator("#assign-mode-banner")).toHaveClass(/hidden/);
   });
 
+  test("assignment mode makes the filter bar inert", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await expect(
+      page.getByRole("region", { name: "Sessions to assign" }).getByText("RPG Introduction"),
+    ).toBeVisible({ timeout: 10000 });
+
+    const filterBar = page.locator("#filter-bar");
+    await expect(filterBar).not.toHaveAttribute("inert", /.*/);
+
+    await page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator("[data-session-pk]", {
+        hasText: "RPG Introduction",
+      })
+      .click();
+
+    const leftPane = page.locator("#left-pane");
+    await expect(leftPane.getByText("Session details")).toBeVisible({ timeout: 5000 });
+
+    await leftPane.getByRole("button", { name: "Assign" }).click();
+
+    // Filters would submit the page and drop the armed session.
+    await expect(filterBar).toHaveAttribute("inert", /.*/);
+
+    await page.keyboard.press("Escape");
+
+    await expect(filterBar).not.toHaveAttribute("inert", /.*/);
+  });
+
   // --- Assign and Unassign Flow ---
 
   test("assigns a session by clicking grid column", async ({ page }) => {

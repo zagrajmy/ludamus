@@ -20,6 +20,8 @@ let dragging: Placement | null = null;
 
 const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!;
 
+const filterBar = (): HTMLElement | null => document.getElementById("filter-bar");
+
 const grid = (): HTMLElement => document.getElementById("timetable-grid")!;
 
 const dayGrids = (): NodeListOf<HTMLElement> =>
@@ -168,10 +170,21 @@ function markColumnsActive(active: boolean): void {
   for (const col of columns()) col.classList.toggle("assign-mode-active", active);
 }
 
+// Every filter control submits the page, which would drop the armed session
+// on the floor. `inert` takes the whole bar out of pointer, keyboard and AT
+// reach in one attribute -- no per-control `disabled` bookkeeping to undo.
+function markFiltersInert(inert: boolean): void {
+  const bar = filterBar();
+  if (!bar) return;
+  bar.toggleAttribute("inert", inert);
+  bar.classList.toggle("opacity-50", inert);
+}
+
 function enterAssignMode(placement: Placement): void {
   armed = placement;
   banner().classList.remove("hidden");
   markColumnsActive(true);
+  markFiltersInert(true);
   renderPreferredSlotOverlays();
 }
 
@@ -179,6 +192,7 @@ function exitAssignMode(): void {
   armed = null;
   banner().classList.add("hidden");
   markColumnsActive(false);
+  markFiltersInert(false);
   clearPreferredSlotOverlays();
   hideHoverPreview();
 }
@@ -379,6 +393,7 @@ document.body.addEventListener("htmx:afterSwap", () => {
   if (armed) {
     banner().classList.remove("hidden");
     markColumnsActive(true);
+    markFiltersInert(true);
     renderPreferredSlotOverlays();
   }
 });
