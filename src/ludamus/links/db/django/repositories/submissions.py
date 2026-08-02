@@ -5,6 +5,10 @@ from django.db.models import Count, F, Max, OuterRef, Prefetch, Q, QuerySet, Sub
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
+from ludamus.links.db.django.agenda_item import (
+    confirmed_item_count,
+    scheduled_item_count,
+)
 from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
@@ -50,6 +54,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TimeSlotRequirementDTO,
 )
+from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationFacilitatorRow
 from ludamus.pacts.submissions import (
     FacilitatorListFilters,
     ImportLogEntryCreateData,
@@ -855,6 +860,18 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
+    def find_id_by_ident(event_id: int, ident: str) -> int | None:
+        return (
+            Facilitator.objects.filter(event_id=event_id, ident=ident)
+            .values_list("id", flat=True)
+            .first()
+        )
+
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None:
+        Facilitator.objects.filter(id=pk).update(ident=ident)
+
+    @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO:
         try:
             facilitator = Facilitator.objects.get(pk=pk)
@@ -906,6 +923,58 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
         ordered = _order_facilitators(qs, filters.get("sort") or "name")
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
+
+    @staticmethod
+    def count_confirmations_by_organizer(event_pk: int) -> list[ConfirmationCountsRow]:
+        # Grouping by organizer folds every unclaimed facilitator into a single
+        # `organizer_id=None` row — the backlog nobody took on.
+        rows = (
+            Facilitator.objects.filter(event_id=event_pk)
+            .values("organizer_id", "organizer__name")
+            .annotate(
+                facilitator_count=Count("pk", distinct=True),
+                scheduled_count=scheduled_item_count(),
+                confirmed_count=confirmed_item_count(),
+            )
+            .order_by("organizer__name")
+        )
+        return [
+            ConfirmationCountsRow(
+                key=row["organizer_id"],
+                name=row["organizer__name"] or "",
+                facilitator_count=row["facilitator_count"],
+                scheduled_count=row["scheduled_count"],
+                confirmed_count=row["confirmed_count"],
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def list_with_scheduled_session_in_track(
+        event_pk: int, track_pk: int
+    ) -> list[ConfirmationFacilitatorRow]:
+        # Who the block makes this organizer responsible for: at least one
+        # session of theirs is both in the block and placed in the timetable.
+        rows = (
+            Facilitator.objects.filter(
+                event_id=event_pk,
+                sessions__tracks=track_pk,
+                sessions__agenda_item__isnull=False,
+            )
+            .values("pk", "display_name", "slug", "organizer_id", "organizer__name")
+            .distinct()
+            .order_by("display_name", "pk")
+        )
+        return [
+            ConfirmationFacilitatorRow(
+                pk=row["pk"],
+                display_name=row["display_name"],
+                slug=row["slug"],
+                organizer_id=row["organizer_id"],
+                organizer_name=row["organizer__name"] or "",
+            )
+            for row in rows
+        ]
 
     @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None:

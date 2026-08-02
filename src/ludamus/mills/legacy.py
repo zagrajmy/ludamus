@@ -36,6 +36,7 @@ from ludamus.pacts import (
     UploadedFileProtocol,
     WizardData,
 )
+from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
@@ -387,6 +388,11 @@ class ProposeSessionService:
             slug = key.removeprefix("session_")
             if slug.endswith("_custom"):
                 continue
+            # A question the submitter left blank stores no row: the proposal
+            # is new, so absence can only mean "never answered". Checked before
+            # the field lookup — a blank never needs the query.
+            if is_empty_answer(value=value):
+                continue
             try:
                 field_dto = self._uow.session_fields.read_by_slug(event_id, slug)
             except NotFoundError:
@@ -408,6 +414,8 @@ class ProposeSessionService:
                 continue
             slug = key.removeprefix("personal_")
             if slug.endswith("_custom"):
+                continue
+            if is_empty_answer(value=value):
                 continue
             try:
                 field_dto = self._uow.personal_data_fields.read_by_slug(event_id, slug)
@@ -443,20 +451,6 @@ class PanelService:
 
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
-
-    def delete_category(self, category_pk: int) -> bool:
-        """Delete a proposal category if it has no proposals.
-
-        Args:
-            category_pk: The category primary key.
-
-        Returns:
-            True if deleted, False if category has proposals.
-        """
-        if self._uow.proposal_categories.has_proposals(category_pk):
-            return False
-        self._uow.proposal_categories.delete(category_pk)
-        return True
 
     def delete_session_field(self, field_pk: int) -> bool:
         """Delete a session field if not used by session types.

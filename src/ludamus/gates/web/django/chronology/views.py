@@ -69,7 +69,6 @@ if TYPE_CHECKING:
         AuthenticatedRequestContext,
         EventDTO,
         EventProposalSettingsDTO,
-        FieldValue,
         OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionSelfEditContext,
@@ -295,7 +294,7 @@ def _personal_context(
         for slug, value in service.get_saved_personal_data(event.pk).items()
     }
     initial = unfold_custom_answers(
-        stored=stored, requirements=requirements, prefix="personal"
+        stored=stored, fields=[req.field for req in requirements], prefix="personal"
     )
 
     initial["contact_email"] = wizard.get(
@@ -380,7 +379,7 @@ def _render_details(
     wizard = request.session.get(_session_key(event.slug), {})
     initial = unfold_custom_answers(
         stored=wizard.get("session_data", {}),
-        requirements=requirements,
+        fields=[req.field for req in requirements],
         prefix="session",
     )
     if "display_name" not in initial:
@@ -942,15 +941,11 @@ class SessionEditView(LoginRequiredMixin, View):
     def _fields_form(
         ctx: SessionSelfEditContext, data: QueryDict | None = None
     ) -> forms.Form:
-        initial: dict[str, FieldValue] = {
-            f"{_SESSION_FIELD_PREFIX}_{field.slug}": current
-            for field, current in ctx.session_fields
-        }
         return dynamic_fields_form(
             prefix=_SESSION_FIELD_PREFIX,
             fields=_session_field_pairs(ctx),
             data=data,
-            initial=initial,
+            initial={field.slug: current for field, current in ctx.session_fields},
         )
 
     def get(

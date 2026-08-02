@@ -50,6 +50,7 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.submissions import is_empty_answer
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -70,7 +71,17 @@ if TYPE_CHECKING:
         SessionFieldValueDTO,
     )
 
-    FacilitatorPersonalData = list[tuple[FacilitatorDTO, str, list[FieldDescriptor]]]
+
+@dataclass(frozen=True)
+class PersonalDataCard:
+    facilitator: FacilitatorDTO
+    descriptors: list[FieldDescriptor]
+    # A card is collapsed until it has something to say: the page opens the one
+    # that is wrong rather than guessing from a page-wide error.
+    has_errors: bool = False
+
+
+FacilitatorPersonalData = list[PersonalDataCard]
 
 
 def _facilitator_prefix(facilitator_id: int) -> str:
@@ -84,12 +95,11 @@ def _facilitator_fields_form(
     data: QueryDict | None = None,
     values: Mapping[str, FieldValue] | None = None,
 ) -> forms.Form:
-    stored = values or {}
     return dynamic_fields_form(
         prefix=prefix,
         fields=[(field, False) for field in fields],
         data=data,
-        initial={f"{prefix}_{field.slug}": stored.get(field.slug) for field in fields},
+        initial=values or {},
     )
 
 
@@ -181,7 +191,9 @@ def collect_session_field_values(
     form: forms.Form,
 ) -> list[SessionFieldValueData]:
     # Only the category's own fields are read back; a value the category no
-    # longer asks for is left untouched rather than blanked.
+    # longer asks for is left untouched rather than blanked. Blanks are kept
+    # in the list — on an edit they blank an answer that exists, and the write
+    # path is what drops the ones that would create an empty row.
     folded = fold_custom_answers(
         cleaned=form.cleaned_data, requirements=requirements, prefix="session"
     )
@@ -197,6 +209,12 @@ def collect_session_field_values(
         )
     return values
 
+
+# The personal-data blocks are separate forms, so their errors never reach the
+# page's error summary on their own — this says why the save didn't happen.
+PERSONAL_DATA_ERROR = gettext_lazy(
+    "Fix the facilitator personal data below before saving."
+)
 
 _PROPOSALS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
 
@@ -519,7 +537,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
                 for req in requirements
                 if req.field.pk in stored
             },
-            requirements=requirements,
+            fields=[req.field for req in requirements],
             prefix="session",
         )
         return form_class(initial=initial)
@@ -630,19 +648,25 @@ class ProposalFormPageView(_ProposalFormBase):
         if not fields:
             return []
         assigned = self.request.di.uow.sessions.read_facilitators(proposal_id)
+        # One query for every assigned facilitator's answers instead of one
+        # lookup per facilitator.
+        values_by_facilitator = (
+            self.request.di.uow.personal_data_field_values.list_values_for_facilitators(
+                [f.pk for f in assigned], [f.pk for f in fields]
+            )
+        )
         result: FacilitatorPersonalData = []
         for facilitator in assigned:
-            personal_data_field_values = self.request.di.uow.personal_data_field_values
-            values = personal_data_field_values.read_for_facilitator_event(
-                facilitator.pk, event_pk
-            )
             prefix = _facilitator_prefix(facilitator.pk)
-            form = _facilitator_fields_form(prefix=prefix, fields=fields, values=values)
+            form = _facilitator_fields_form(
+                prefix=prefix,
+                fields=fields,
+                values=values_by_facilitator.get(facilitator.pk, {}),
+            )
             result.append(
-                (
-                    facilitator,
-                    prefix,
-                    _descriptors(prefix=prefix, fields=fields, form=form),
+                PersonalDataCard(
+                    facilitator=facilitator,
+                    descriptors=_descriptors(prefix=prefix, fields=fields, form=form),
                 )
             )
         return result
@@ -661,10 +685,10 @@ class ProposalFormPageView(_ProposalFormBase):
                 prefix=prefix, fields=fields, data=self.request.POST
             )
             result.append(
-                (
-                    facilitator,
-                    prefix,
-                    _descriptors(prefix=prefix, fields=fields, form=form),
+                PersonalDataCard(
+                    facilitator=facilitator,
+                    descriptors=_descriptors(prefix=prefix, fields=fields, form=form),
+                    has_errors=not form.is_valid(),
                 )
             )
         return result
@@ -843,8 +867,9 @@ class ProposalFormPageView(_ProposalFormBase):
         # picker is not a form field, so the rule is enforced here and reported
         # through the form's own error channel.
         facilitator_ids = self._collect_facilitator_ids(current_event.pk) or []
-        personal_data_valid = self._personal_data_is_valid(current_event.pk)
-        if not form.is_valid() or not facilitator_ids or not personal_data_valid:
+        # No personal-data check here: a proposal that does not exist yet has no
+        # facilitators to render cards for, so the create page never posts any.
+        if not form.is_valid() or not facilitator_ids:
             if not facilitator_ids:
                 form.add_error(None, _("Please select at least one facilitator."))
             return self._render(context, prepared)
@@ -908,12 +933,19 @@ class ProposalFormPageView(_ProposalFormBase):
                 session_data, facilitator_ids=facilitator_ids
             )
             if requirements:
-                self.request.di.uow.sessions.save_field_values(
-                    proposal_id,
-                    collect_session_field_values(
+                # A brand-new proposal has no answers yet, so a blank input is
+                # "never answered" and stores no row.
+                answered = [
+                    value
+                    for value in collect_session_field_values(
                         session_id=proposal_id, requirements=requirements, form=form
-                    ),
-                )
+                    )
+                    if not is_empty_answer(value=value["value"])
+                ]
+                if answered:
+                    self.request.di.uow.sessions.save_field_values(
+                        proposal_id, answered
+                    )
             if track_ids:
                 self.request.di.uow.sessions.set_session_tracks(proposal_id, track_ids)
             if time_slot_ids:
@@ -929,7 +961,10 @@ class ProposalFormPageView(_ProposalFormBase):
         prepared: _Prepared,
     ) -> HttpResponse:
         form = prepared.form
-        if not form.is_valid() or not self._personal_data_is_valid(current_event.pk):
+        personal_data_valid = self._personal_data_is_valid(current_event.pk)
+        if not form.is_valid() or not personal_data_valid:
+            if not personal_data_valid:
+                form.add_error(None, PERSONAL_DATA_ERROR)
             return self._render(context, prepared)
 
         try:
@@ -1296,9 +1331,10 @@ class ContentLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "proposals"
         context["slug"] = slug
         service = self.request.services.session_content_edit
-        context["logs"] = service.list_log(current_event.pk)
+        logs = service.list_log(current_event.pk)
+        context["logs"] = logs
         context["field_names"] = service.list_field_names(current_event.pk)
-        context["revertible_pks"] = service.revertible_log_pks(current_event.pk)
+        context["revertible_pks"] = service.revertible_log_pks(current_event.pk, logs)
         facilitator_service = self.request.services.personal_data_field_values
         context["facilitator_logs"] = facilitator_service.list_log(current_event.pk)
         context["facilitator_field_names"] = facilitator_service.list_field_names(

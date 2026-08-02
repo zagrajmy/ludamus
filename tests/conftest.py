@@ -3,6 +3,7 @@ import zoneinfo
 
 import pytest
 from django.db import connection
+from zeal import zeal_context
 
 from tests.template_checks import MissingTemplateVariableFilter
 
@@ -46,6 +47,14 @@ def _fail_on_missing_template_variables():
 
     logger.removeFilter(filter_instance)
     logger.setLevel(original_level)
+
+
+@pytest.fixture(autouse=True)
+def _zeal_n_plus_one_detection():
+    # The zeal middleware only monitors request paths; this covers tests that
+    # drive services and repositories directly.
+    with zeal_context():
+        yield
 
 
 @pytest.fixture

@@ -627,7 +627,7 @@ test.describe("Timetable", () => {
 
   test("confirms and unconfirms a scheduled session", async ({ page }) => {
     // Assign "Storytelling Workshop" so a scheduled item exists. Auto-confirm
-    // is on by default, so the freshly scheduled item starts confirmed.
+    // is off by default, so the freshly scheduled item starts unconfirmed.
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
     await page
@@ -655,25 +655,23 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(
-      leftPane.getByRole("button", {
-        name: "Undo confirmation",
-      }),
-    ).toBeVisible({ timeout: 5000 });
-
-    // Undo — the button flips to the "Confirm program item" state.
-    await leftPane.getByRole("button", { name: "Undo confirmation" }).click();
     await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
       timeout: 5000,
     });
 
-    // Confirm again — the button returns to the "Undo confirmation" state.
+    // Confirm — the button flips to the "Undo confirmation" state.
     await leftPane.getByRole("button", { name: "Confirm program item" }).click();
     await expect(
       leftPane.getByRole("button", {
         name: "Undo confirmation",
       }),
     ).toBeVisible({ timeout: 5000 });
+
+    // Undo — the button returns to the "Confirm program item" state.
+    await leftPane.getByRole("button", { name: "Undo confirmation" }).click();
+    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
+      timeout: 5000,
+    });
 
     // Restore shared seed state: unassign so "Storytelling Workshop" returns
     // to the unscheduled list. The suite runs serially against a persistent
@@ -689,13 +687,16 @@ test.describe("Timetable", () => {
   test("conflict panel loads and shows conflict status", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 
-    // Wait for the conflict panel HTMX load — it shows either "All clear" or a
-    // conflict count. The fold only auto-opens when there ARE conflicts, so on
-    // a clean grid the status sits in a collapsed <details>; assert the panel
-    // loaded its status (textContent) rather than requiring it to be visible.
+    // The panel is server-rendered with the page and shows either "All clear"
+    // or a conflict count. The fold only auto-opens when there ARE conflicts,
+    // so on a clean grid the status sits in a collapsed <details>; assert the
+    // status text is present rather than requiring it to be visible.
     await expect(page.locator("#conflict-panel")).toContainText(/All clear|conflict/, {
       timeout: 10000,
     });
+    // A multi-line {# #} is not a comment to Django — it leaks into the fold
+    // as literal text, and the status match above still passes.
+    await expect(page.locator("#conflicts-fold")).not.toContainText("{#");
   });
 
   // --- Activity Log ---

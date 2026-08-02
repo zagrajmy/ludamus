@@ -1,8 +1,8 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
-{% block title_prefix %}
-    {% translate "Delete announcement" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Delete announcement" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Delete announcement" %}
 {% endblock page_title %}
@@ -20,7 +20,7 @@
         </p>
         <form method="post"
               action="{% url 'multiverse:panel:announcement-delete' pk=announcement.pk %}"
-              onsubmit="this.querySelector('button[type=submit]').disabled = true">
+              data-submit-once>
             {% csrf_token %}
             <div class="flex justify-end gap-2">
                 <a href="{% url 'multiverse:panel:announcements' %}"

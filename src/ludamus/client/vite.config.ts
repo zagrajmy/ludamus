@@ -35,6 +35,7 @@ export default defineConfig({
     outDir: resolve(rootDir, "../static/vite"),
     rollupOptions: {
       input: {
+        actions: resolve(rootDir, "src/actions.ts"),
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
@@ -54,6 +55,8 @@ export default defineConfig({
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
+        "nav-progress": resolve(rootDir, "src/nav-progress.ts"),
+        "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),

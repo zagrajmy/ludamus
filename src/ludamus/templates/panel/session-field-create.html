@@ -1,9 +1,10 @@
 {% extends "panel/base.html" %}
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "New Session Field" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "New Session Field" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "New Session Field" %}
 {% endblock page_title %}
@@ -158,7 +159,7 @@
                             <span class="ml-2 text-sm text-foreground-secondary">{% translate "Show on public session card" %}</span>
                         </label>
                     </div>
-                    <script>
+                    <script{% nonce %}>
                         document.addEventListener('DOMContentLoaded', function() {
                             const fieldType = document.getElementById('id_field_type');
                             const optionsContainer = document.getElementById('options-container');

@@ -1,10 +1,11 @@
 {% extends "panel/base.html" %}
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
-{% block title_prefix %}
-    {% translate "Merge Facilitators" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Merge Facilitators" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Merge Facilitators" %}
 {% endblock page_title %}
@@ -113,7 +114,7 @@
             </div>
         </div>
     </form>
-    <script>
+    <script{% nonce %}>
         (function() {
             const searchInput = document.getElementById('facilitator-search');
             const rows = document.querySelectorAll('.facilitator-row');

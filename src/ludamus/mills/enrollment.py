@@ -9,6 +9,7 @@ the ticket API.
 
 from __future__ import annotations
 
+import logging
 import math
 import secrets
 import sys
@@ -235,6 +236,9 @@ class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
             raise InvalidEnrollmentWindowError
 
 
+logger = logging.getLogger(__name__)
+
+
 class WaitlistPromotionService:
     def __init__(
         self,
@@ -260,8 +264,20 @@ class WaitlistPromotionService:
 
         with self._transaction.atomic():
             if (state := self._participations.lock_and_read_state(session_id)) is None:
+                logger.info(
+                    "Session %s promotes nobody: it is gone, unscheduled, or "
+                    "outside every enrollment window",
+                    session_id,
+                )
                 return result
             if not (parties := select_promotable_parties(state)):
+                logger.info(
+                    "Session %s promotes nobody: %s seats free, %s waiting, mode %s",
+                    session_id,
+                    state.available_seats,
+                    len(state.waiting),
+                    state.promotion_mode.value,
+                )
                 return result
             if state.promotion_mode == PromotionMode.AUTO:
                 self._confirm(parties, state, result, promotions)

@@ -1,11 +1,12 @@
 {% extends "panel/base.html" %}
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
 {% load django_vite %}
-{% block title_prefix %}
-    {% translate "Configure Category" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Configure Category" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Configure Category" %}
 {% endblock page_title %}
@@ -184,7 +185,7 @@
                 {% translate "h" as hour_suffix %}
                 {% translate "min" as minute_suffix %}
                 {% translate "No durations configured yet." as no_durations_text %}
-                <script>
+                <script{% nonce %}>
                     (function() {
                         const hoursInput = document.getElementById('duration-hours');
                         const minutesInput = document.getElementById('duration-minutes');
@@ -396,7 +397,7 @@
                            class="text-sm text-primary hover:text-primary/80">{% translate "Configure time slots" %}</a>
                     </div>
                 {% endif %}
-                <script>
+                <script{% nonce %}>
                     window.__fieldPickerI18n = {
                         chosen: "{% translate 'Chosen' %}",
                         available: "{% translate 'Available' %}",
@@ -406,7 +407,7 @@
                         noFieldsSelected: "{% translate 'No fields selected.' %}",
                     };
                 </script>
-                <script>
+                <script{% nonce %}>
                     (function() {
                         const i18n = window.__fieldPickerI18n;
 

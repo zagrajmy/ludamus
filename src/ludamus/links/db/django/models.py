@@ -342,8 +342,9 @@ class Event(models.Model):
     # "Players" (gaming events), on → "Participants" (general events).
     use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
-    # turn off for a draft → confirm workflow on large events.
-    auto_confirm_sessions = models.BooleanField(default=True)
+    # off by default, so placing an item never stands in for the
+    # facilitator confirming it.
+    auto_confirm_sessions = models.BooleanField(default=False)
 
     class Meta:
         db_table = "event"
@@ -751,6 +752,11 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    # Import identity key (hash of the operator-chosen facilitator key columns).
+    # Empty for facilitators that weren't imported or predate the key-column
+    # setting; those fall back to slug dedup and are stamped on first reimport.
+    # Never shown to users.
+    ident = models.CharField(max_length=64, default="", blank=True)
     accreditation_type = models.CharField(
         max_length=20,
         choices=[(t.value, t.name.title()) for t in AccreditationType],
@@ -779,6 +785,11 @@ class Facilitator(models.Model):
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"
+            ),
+            models.UniqueConstraint(
+                fields=("event", "ident"),
+                condition=~Q(ident=""),
+                name="facilitator_unique_ident_per_event",
             ),
         )
 

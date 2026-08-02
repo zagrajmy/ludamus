@@ -165,6 +165,10 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: test_event_page.py::test_query_count_constant_in_session_count
+  flaked once under parallel run with 'UNIQUE constraint failed: sphere.site_id'
+  — passed on re-run, looks like a test-isolation collision between sphere/site
+  fixtures
 - 2026-07-24: Committed from a new git worktree → hook startup failed because
   the copied mise.toml was untrusted; trust was required before hooks could run.
 - 2026-07-24: Used agent-browser find role link with an exact Log in name → it
@@ -234,3 +238,46 @@ If you fix a papercut, remove it.
   django_vite's cached manifest kept serving deleted hashed JS, pages silently
   lost their scripts until a manual server restart. Fixed test:e2e:serve to
   watch manifest.json and bounce itself.
+- 2026-07-30: Web-sandbox image shipped without mise entirely; session-start.sh
+  assumed the binary exists, so every provisioning step warned-and-skipped and
+  the session looked half-provisioned. Installed it from mise.run (reachable
+  through the proxy) and added a self-install step to the hook.
+- 2026-07-31: sandbox: 'mise install' wedges on pipx:shellcheck-py@0.11.0 /
+  hadolint-py@2.14.0 (PyPI only ships .0.1 wrapper revs) and session-start.sh's
+  trim-retry did not self-heal, so every 'mise run' aborted until I exported
+  MISE_DISABLE_TOOLS=shellcheck,hadolint.
+- 2026-07-31: sandbox: /opt/pw-browsers lags the pinned @playwright/test 1.58.2
+  (has chromium-1194, needs 1208 / webkit-2248), and session-start.sh reported
+  'Playwright install failed'. The whole e2e suite fails with "Executable
+  doesn't exist" until you run npx playwright install --with-deps chromium
+  firefox webkit by hand.
+- 2026-07-31: 'mise run test:py' resolves pytest from PATH, so a uv-installed
+  ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
+  ModuleNotFoundError: No module named 'django'. Took a while to spot because
+  the traceback points at tests/conftest.py, not at the wrong interpreter.
+- 2026-08-01: mise run test:int -- tests/foo/test_x.py doesn't narrow: the task
+  hardcodes the integration path and appends args, so pytest gets two paths and
+  runs the whole suite. Had to use `-k name` and wait ~2.5 min for
+  collection+run instead of 5s.
+- 2026-08-01: git push over SSH fails with 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
+  credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-01: mise run lint fails locally on lint:hk: oxlint can't build
+  src/ludamus/client/oxlint.config.ts because eslint-plugin-sonarjs isn't
+  installed in the local node_modules (CI is fine). Same failure on a clean
+  tree, so it's env drift, not a code problem — had to stash and re-run to prove
+  my change was innocent.
+- 2026-08-02: mise run check → lint:vulture recursively scanned
+  .claude/worktrees/*/.venv created by review agents, then failed on third-party
+  packages instead of project code.
+- 2026-08-02: mise run shots with a query-string URL → mise preserved literal
+  shell quotes in usage_targets, so the generated URL contained apostrophes and
+  curl rejected it; direct agent-browser worked.
+- 2026-08-02: mise run test:e2e -- tests/print-flow.spec.ts → the existing
+  hours-window case flaked once under five-worker contention after the new
+  regression case passed; rerunning the regression alone passed.
+- 2026-08-02: mise run lint printed 'Finished in 198s' with every check green,
+  then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
+  child (sandbox egress is slow); had to pstree and kill -9 the mise process to
+  get the shell back.

@@ -3,9 +3,9 @@
 {% load tessera %}
 {% load cfp_tags %}
 {% load django_vite %}
-{% block title_prefix %}
-    {% translate "Proposals" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Proposals" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Proposals" %}
 {% endblock page_title %}
@@ -24,7 +24,9 @@
         {% tessera_button t_log href=log_url variant="secondary" icon="clock" %}
     {% endif %}
     {% if all_tracks %}
-        <form method="get" class="flex items-center gap-2 flex-shrink-0">
+        <form method="get"
+              data-autosubmit
+              class="flex items-center gap-2 flex-shrink-0">
             {% for field in session_fields %}
                 <input type="hidden"
                        name="field_{{ field.pk }}"
@@ -45,7 +47,6 @@
             </label>
             <select id="track-scope"
                     name="track"
-                    onchange="this.form.submit()"
                     class="px-3 py-1.5 border border-border rounded-lg text-sm bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">{% translate "All tracks" %}</option>
                 <option value="multi" {% if filter_track_multi %}selected{% endif %}>{% translate "Multiple tracks" %}</option>
