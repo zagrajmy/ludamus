@@ -29,7 +29,11 @@ from ludamus.pacts import (
     NotFoundError,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.chronology import DateSelection, SessionPlacement
+from ludamus.pacts.chronology import (
+    DateSelection,
+    SessionPlacement,
+    TimetableGridFilter,
+)
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -56,6 +60,14 @@ def _build_back_url(slug: str, query: QueryDict) -> str:
     base = reverse("panel:timetable-browse-pane-part", kwargs={"slug": slug})
     params = [(key, query[key]) for key in _BACK_URL_KEYS if query.get(key, "").strip()]
     return f"{base}?{urlencode(params)}" if params else base
+
+
+def _parse_pks(query: QueryDict, key: str) -> set[int]:
+    return {value for raw in query.getlist(key) if (value := _as_pk(raw)) is not None}
+
+
+def _as_pk(raw: str) -> int | None:
+    return int(raw) if (raw := raw.strip()).isdigit() else None
 
 
 def _parse_date_selection(raw: str | None) -> DateSelection:
@@ -97,13 +109,19 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         max_dur_raw = self.request.GET.get("max_duration", "").strip()
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
 
+        space_pks = _parse_pks(self.request.GET, "space")
+
         uow = self.request.di.uow
-        grid = TimetableService(uow).build_grid(
+        timetable_service = TimetableService(uow)
+        grid = timetable_service.build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
-            track_pk=filter_track_pk,
             space_page=room_page,
-            date_selection=date_selection,
+            filters=TimetableGridFilter(
+                track_pk=filter_track_pk,
+                date_selection=date_selection,
+                space_pks=space_pks,
+            ),
         )
         conflict_service = ConflictDetectionService(uow)
         conflicts = conflict_service.list_all_for_track(
@@ -127,6 +145,10 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
         context["search"] = self.request.GET.get("search", "").strip()
+        context["space_options"] = timetable_service.space_filter_options(
+            current_event.pk
+        )
+        context["filter_space_pks"] = space_pks
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
         context["slug"] = slug
@@ -297,9 +319,12 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
         grid = TimetableService(uow).build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
-            track_pk=filter_track_pk,
             space_page=room_page,
-            date_selection=date_selection,
+            filters=TimetableGridFilter(
+                track_pk=filter_track_pk,
+                date_selection=date_selection,
+                space_pks=_parse_pks(self.request.GET, "space"),
+            ),
         )
         slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
             event_pk=current_event.pk, track_pk=filter_track_pk

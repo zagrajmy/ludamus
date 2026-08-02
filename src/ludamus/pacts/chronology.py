@@ -407,7 +407,24 @@ class TimetableDayGridDTO(BaseModel):
     event_start_iso: str
 
 
+class SpaceFilterOptionDTO(BaseModel):
+    # One row of the space filter: any node of the tree is selectable, and
+    # picking a branch means every leaf under it. `depth` drives the indent.
+    # value/label rather than pk/name -- this is the multiselect-filter
+    # component's option contract, not a space.
+    value: int
+    label: str
+    depth: int
+
+
 type DateSelection = date | Literal["all"]
+
+
+class TimetableGridFilter(BaseModel):
+    # What the filter bar narrows the grid by. Empty means "everything".
+    track_pk: int | None = None
+    date_selection: DateSelection = "all"
+    space_pks: set[int] = set()
 
 
 class TimetableGridDTO(BaseModel):

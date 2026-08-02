@@ -8,6 +8,12 @@ const DEBOUNCE_MS = 1000;
 const serialize = (form: HTMLFormElement): string =>
   [...new FormData(form)].map(([key, value]) => `${key}=${String(value)}`).join("&");
 
+// A multi-select popover applies on its own Apply button: auto-submitting per
+// tick would reload the page under a user still picking, and its search box is
+// a local narrowing control that must never reach the server.
+const isSelfApplying = (event: Event): boolean =>
+  (event.target as Element | null)?.closest("[data-multiselect-filter]") != null;
+
 for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosubmit]")) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSubmitted = serialize(form);
@@ -24,9 +30,13 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosub
     timer = setTimeout(submit, delay);
   };
 
-  form.addEventListener("change", () => schedule(0));
+  form.addEventListener("change", (event) => {
+    if (!isSelfApplying(event)) schedule(0);
+  });
   form.addEventListener("input", (event) => {
-    if (event.target instanceof HTMLInputElement) schedule(DEBOUNCE_MS);
+    if (event.target instanceof HTMLInputElement && !isSelfApplying(event)) {
+      schedule(DEBOUNCE_MS);
+    }
   });
   form.addEventListener("submit", () => {
     // Enter-key submits bypass `submit()`; sync state so a later blur

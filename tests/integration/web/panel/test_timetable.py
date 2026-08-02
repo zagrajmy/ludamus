@@ -127,6 +127,8 @@ class TestTimetablePageView:
                 "category_pk": None,
                 "max_duration_minutes": None,
                 "search": "",
+                "space_options": [],
+                "filter_space_pks": set(),
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
                 "slot_violation_session_pks": set(),
                 "date_selection": "all",
@@ -359,6 +361,52 @@ class TestTimetablePageView:
         space_pks = [s.pk for s in grid.spaces]
         assert space.pk in space_pks
         assert other_space.pk not in space_pks
+
+    def test_filters_by_space_branch(
+        self, authenticated_client, active_user, sphere, event, space
+    ):
+        sphere.managers.add(active_user)
+        floor = SpaceFactory(event=event, name="Floor 2")
+        room = SpaceFactory(event=event, name="Room 201", parent=floor)
+
+        response = authenticated_client.get(
+            self.get_url(event), {"space": str(floor.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert [s.pk for s in response.context["grid"].spaces] == [room.pk]
+        assert response.context["filter_space_pks"] == {floor.pk}
+        assert space.pk not in [s.pk for s in response.context["grid"].spaces]
+
+    def test_space_from_another_event_narrows_to_nothing(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        SpaceFactory(event=event, name="Ours")
+        foreign_space = SpaceFactory(event=EventFactory(sphere=sphere), name="Theirs")
+
+        response = authenticated_client.get(
+            self.get_url(event), {"space": str(foreign_space.pk)}
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["grid"].spaces == []
+        assert [o.label for o in response.context["space_options"]] == ["Ours"]
+
+    def test_space_options_carry_the_whole_tree_with_depth(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        building = SpaceFactory(event=event, name="Building A")
+        SpaceFactory(event=event, name="Room 1", parent=building)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert [(o.label, o.depth) for o in response.context["space_options"]] == [
+            ("Building A", 0),
+            ("Room 1", 1),
+        ]
 
     def test_auto_selects_single_managed_track(
         self, authenticated_client, active_user, sphere, event, space

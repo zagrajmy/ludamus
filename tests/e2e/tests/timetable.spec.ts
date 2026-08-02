@@ -186,13 +186,16 @@ test.describe("Timetable", () => {
   });
 
   // Read off the page instead of restating bootstrap_timetable.py: every column
-  // names itself after its room. Groups are also how a fieldset and a details
-  // surface, so only the named ones are ours -- and every later lookup asks for
-  // a specific room, which those two can never answer to.
-  const roomColumns = (page: Page, room: string) => page.getByRole("group", { name: room });
+  // names itself after its room. Scoped to the calendar because a group is also
+  // how a fieldset, a details surface, and the room filter's option list
+  // surface -- and that filter is named after rooms too.
+  const calendar = (page: Page) => page.locator(".timetable-calendar");
+
+  const roomColumns = (page: Page, room: string) =>
+    calendar(page).getByRole("group", { name: room });
 
   const roomNames = async (page: Page) => {
-    const names = await page
+    const names = await calendar(page)
       .getByRole("group")
       .evaluateAll((groups) => [
         ...new Set(groups.map((group) => group.getAttribute("aria-label")).filter(Boolean)),
@@ -218,7 +221,7 @@ test.describe("Timetable", () => {
   const expectAlignedColumns = async (page: Page, rooms: string[]) => {
     expect(rooms.length, "rooms to check").toBeGreaterThan(0);
     for (const room of rooms) {
-      const labels = page.getByText(room, { exact: true });
+      const labels = page.locator(".timetable-room-cell").getByText(room, { exact: true });
       const columns = roomColumns(page, room);
       const dayCount = await columns.count();
       expect(dayCount, `columns for ${room}`).toBeGreaterThan(0);
@@ -252,6 +255,7 @@ test.describe("Timetable", () => {
     // after it off the column it labels.
     expect(rooms.length, "a room left to check after renaming the first").toBeGreaterThan(1);
     await page
+      .locator(".timetable-room-cell")
       .getByText(rooms[0], { exact: true })
       .first()
       .evaluate((name) => {
@@ -289,6 +293,7 @@ test.describe("Timetable", () => {
         .first()
         .boundingBox())!;
       const name = (await page
+        .locator(".timetable-room-cell")
         .getByText(rooms[grabbed - 1], { exact: true })
         .first()
         .boundingBox())!;
@@ -305,7 +310,9 @@ test.describe("Timetable", () => {
     await expectWidth(resized);
 
     await page.reload();
-    await expect(page.getByText(rooms[0], { exact: true }).first()).toBeVisible();
+    await expect(
+      page.locator(".timetable-room-cell").getByText(rooms[0], { exact: true }).first(),
+    ).toBeVisible();
     await expectWidth(resized);
 
     // Every border resizes, but one handle carries focus and the ARIA contract,
@@ -569,6 +576,54 @@ test.describe("Timetable", () => {
     await page.keyboard.press("Escape");
 
     await expect(filterBar).not.toHaveAttribute("inert", /.*/);
+  });
+
+  // --- Room filter ---
+
+  test("room filter narrows the grid to the picked room", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
+
+    await page.getByRole("button", { name: "Rooms" }).click();
+
+    const panel = page.locator("[data-multiselect-filter] [data-menu-panel]");
+    // Branches are offered alongside leaves, so a floor can be picked whole.
+    await expect(panel.getByRole("group", { name: "Rooms" })).toContainText("Meadowbrook Pavilion");
+
+    await page.screenshot({
+      path: "test-results/timetable-room-filter-open.png",
+      fullPage: true,
+    });
+
+    await panel.getByPlaceholder("Search…").fill("willow");
+    await expect(panel.getByText("Garden Table", { exact: true })).toBeHidden();
+
+    await panel.getByRole("checkbox", { name: "Willow Table" }).check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page.getByRole("button", { name: "Rooms" })).toContainText("1");
+    expect(await roomNames(page)).toEqual(["Willow Table"]);
+  });
+
+  test("picking a branch keeps its rooms, and Clear restores all of them", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?space=");
+
+    const panel = page.locator("[data-multiselect-filter] [data-menu-panel]");
+
+    await page.getByRole("button", { name: "Rooms" }).click();
+    await panel.getByRole("checkbox", { name: "Festival Hall" }).check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    // Festival Hall is a branch: both of its rooms stay.
+    await expect(page.getByRole("button", { name: "Rooms" })).toContainText("1");
+    expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
+
+    await page.getByRole("button", { name: "Rooms" }).click();
+    await panel.getByRole("link", { name: "Clear" }).click();
+
+    await expect(page.getByRole("button", { name: "Rooms" })).not.toContainText("1");
+    expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
   });
 
   // --- Assign and Unassign Flow ---

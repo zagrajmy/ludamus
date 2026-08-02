@@ -17,7 +17,6 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
-    DateSelection,
     HeatmapCellDTO,
     HeatmapCellStatus,
     HeatmapDayDTO,
@@ -28,10 +27,12 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     SessionPositionDTO,
     SpaceColumnDTO,
+    SpaceFilterOptionDTO,
     SpaceGroupDTO,
     TimeLabelDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
+    TimetableGridFilter,
     TrackProgressDTO,
 )
 from ludamus.specs.timetable import (
@@ -123,20 +124,68 @@ def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
     return leaves
 
 
+def _space_options_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceFilterOptionDTO]:
+    children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
+    for node in nodes:
+        children[node.parent_id].append(node)
+
+    options: list[SpaceFilterOptionDTO] = []
+
+    def walk(node: SpaceDTO, depth: int) -> None:
+        options.append(
+            SpaceFilterOptionDTO(value=node.pk, label=node.name, depth=depth)
+        )
+        for kid in children.get(node.pk, []):
+            walk(kid, depth + 1)
+
+    for root in children.get(None, []):
+        walk(root, 0)
+    return options
+
+
+def _within_selected_spaces(nodes: list[SpaceDTO], selected: set[int]) -> set[int]:
+    # A branch stands for every leaf beneath it, so a leaf survives when the
+    # selection names it or any of its ancestors.
+    parent_by_pk = {node.pk: node.parent_id for node in nodes}
+    kept: set[int] = set()
+    for node in nodes:
+        pk: int | None = node.pk
+        while pk is not None:
+            if pk in selected:
+                kept.add(node.pk)
+                break
+            pk = parent_by_pk.get(pk)
+    return kept
+
+
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
+        self._spaces_by_event: dict[int, list[SpaceDTO]] = {}
+
+    def _spaces(self, event_pk: int) -> list[SpaceDTO]:
+        # The page builds the grid and the space filter's options from the same
+        # tree; the instance lives for one request, so read it once. Nothing
+        # this service writes touches spaces, so there is nothing to invalidate.
+        if event_pk not in self._spaces_by_event:
+            self._spaces_by_event[event_pk] = self._uow.spaces.list_by_event(event_pk)
+        return self._spaces_by_event[event_pk]
+
+    def space_filter_options(self, event_pk: int) -> list[SpaceFilterOptionDTO]:
+        return _space_options_in_tree_order(self._spaces(event_pk))
 
     def build_grid(
         self,
         *,
         event_pk: int,
         tz: tzinfo,
-        track_pk: int | None = None,
         space_page: int = 1,
-        date_selection: DateSelection = "all",
+        filters: TimetableGridFilter | None = None,
     ) -> TimetableGridDTO:
-        all_nodes = self._uow.spaces.list_by_event(event_pk)
+        filters = filters or TimetableGridFilter()
+        track_pk = filters.track_pk
+        date_selection = filters.date_selection
+        all_nodes = self._spaces(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = _leaves_in_tree_order(all_nodes)
         if track_pk is not None:
@@ -144,6 +193,11 @@ class TimetableService:
             leaf_spaces = [
                 space for space in leaf_spaces if space.pk in track_space_pks
             ]
+        if filters.space_pks:
+            # Only pks belonging to this event's tree can match, so a stale or
+            # foreign id in the URL narrows nothing rather than leaking a space.
+            kept = _within_selected_spaces(all_nodes, filters.space_pks)
+            leaf_spaces = [space for space in leaf_spaces if space.pk in kept]
 
         total_spaces = len(leaf_spaces)
         total_pages = max(1, math.ceil(total_spaces / TIMETABLE_ROOM_PAGE_SIZE))

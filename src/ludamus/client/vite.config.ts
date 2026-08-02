@@ -55,6 +55,7 @@ export default defineConfig({
         "info-popover": resolve(rootDir, "src/info-popover.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
+        "multiselect-filter": resolve(rootDir, "src/multiselect-filter.ts"),
         "nav-progress": resolve(rootDir, "src/nav-progress.ts"),
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),

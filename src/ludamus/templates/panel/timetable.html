@@ -25,9 +25,9 @@
     {% csrf_token %}
     {% tab_shell "panel/_timetable_tabs.html" %}
     {% tab_shell_body %}
-    <!-- Filter bar: track + date + category chips + duration chips -->
+    <!-- Filter bar: track + date + room + category chips + duration chips -->
     <div id="filter-bar" class="mb-4 flex items-center gap-4 flex-wrap">
-        {% if all_tracks or grid.available_dates|length > 1 %}
+        {% if all_tracks or grid.available_dates|length > 1 or space_options|length > 1 %}
             <form method="get"
                   action="{% url 'panel:timetable' slug=current_event.slug %}"
                   data-autosubmit
@@ -56,6 +56,18 @@
                                     {% if grid.date_selection == d %}selected{% endif %}>{{ d|date:"D, M j" }}</option>
                         {% endfor %}
                     {% end_select %}
+                {% endif %}
+                {% comment %}
+                    Rooms paginate five to a page, so on a large venue this picker
+                    -- not the pager -- is how you get to the part of the building
+                    you are scheduling. Branches are selectable: pick a floor and
+                    every room under it stays.
+                {% endcomment %}
+                {% if space_options|length > 1 %}
+                    {% translate "Rooms" as t_rooms %}
+                    {% translate "Search rooms" as t_search_rooms %}
+                    {% querystring space=None as clear_spaces_url %}
+                    {% include "components/multiselect-filter.html" with id="timetable-space" name="space" label=t_rooms search_label=t_search_rooms options=space_options selected_values=filter_space_pks clear_url=clear_spaces_url only %}
                 {% endif %}
             </form>
         {% endif %}
@@ -143,4 +155,5 @@
 {% block extra_scripts %}
     {% vite_asset 'src/timetable.ts' %}
     {% vite_asset 'src/filter-autosubmit.ts' %}
+    {% vite_asset 'src/multiselect-filter.ts' %}
 {% endblock extra_scripts %}
