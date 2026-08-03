@@ -2,13 +2,13 @@ import math
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
+from urllib.parse import urlencode
 
 import pytest
 from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts.venues import PrintScopeOptionDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -45,14 +45,9 @@ def _base_context(event, **stats):
     }
 
 
-def _scopes(*spaces):
-    # Every space is a printable scope, labelled by its tree path — a plain
-    # name for the flat spaces here — and listed in the repository's
-    # (order, name) order, so callers may pass them in any order.
-    return [
-        PrintScopeOptionDTO(pk=space.pk, name=space.name)
-        for space in sorted(spaces, key=lambda space: (space.order, space.name))
-    ]
+def _print_url(event, **params):
+    base = reverse("web:chronology:event-print", kwargs={"slug": event.slug})
+    return f"{base}?{urlencode(params)}" if params else base
 
 
 def _scheduled_stats(count):
@@ -80,7 +75,7 @@ def _page_context(event, *, stats=None, **overrides):
         "slug": event.slug,
         "tab_urls": timetable_tab_urls(event),
         "active_tab": "timetable",
-        "print_scopes": [],
+        "print_url": _print_url(event),
         **overrides,
     }
 
@@ -122,6 +117,31 @@ class TestTimetablePageView:
         )
         assert response.context["grid"].spaces == []
 
+    def test_print_link_carries_track_and_day_filters(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        day = time_slot.start_time.date()
+
+        response = authenticated_client.get(
+            self.get_url(event), {"track": track.pk, "date": day.isoformat()}
+        )
+
+        base = reverse("web:chronology:event-print", kwargs={"slug": event.slug})
+        expected_print_url = (
+            f"{base}?material=track-timetable&track=main-track"
+            f"&start={day.isoformat()}T00%3A00&hours=24"
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data={**response.context_data, "print_url": expected_print_url},
+        )
+
     def test_grid_shows_spaces_and_time_labels(
         self, panel_client, event, space, time_slot
     ):
@@ -139,7 +159,6 @@ class TestTimetablePageView:
                     day_start=_day_start(event),
                     total_minutes=SLOT_MINUTES,
                 ),
-                print_scopes=_scopes(space),
             ),
         )
         assert time_slot is not None
@@ -170,7 +189,6 @@ class TestTimetablePageView:
                         ]
                     },
                 ),
-                print_scopes=_scopes(space),
             ),
         )
         assert time_slot is not None
@@ -280,7 +298,6 @@ class TestTimetablePageView:
                         ]
                     },
                 ),
-                print_scopes=_scopes(space),
             ),
         )
         content = response.content.decode()
@@ -324,7 +341,6 @@ class TestTimetablePageView:
                         ]
                     },
                 ),
-                print_scopes=_scopes(space),
             ),
         )
         content = response.content.decode()
@@ -349,12 +365,15 @@ class TestTimetablePageView:
                 event,
                 stats={"rooms_count": 2},
                 grid=grid_with(spaces=[space]),
-                # The track filters the grid, not the print scopes.
-                print_scopes=_scopes(space, other_space),
+                # The track filter is carried into the print link.
+                print_url=_print_url(
+                    event, material="track-timetable", track=track.slug
+                ),
                 all_tracks=ANY,
                 filter_track_pk=track.pk,
             ),
         )
+        assert other_space is not None
 
     def test_auto_selects_single_managed_track(
         self, panel_client, active_user, event, space
@@ -376,12 +395,15 @@ class TestTimetablePageView:
                 event,
                 stats={"rooms_count": 2},
                 grid=grid_with(spaces=[space]),
-                print_scopes=_scopes(space, other_space),
+                print_url=_print_url(
+                    event, material="track-timetable", track=track.slug
+                ),
                 all_tracks=ANY,
                 filter_track_pk=track.pk,
                 managed_track_pks={track.pk},
             ),
         )
+        assert other_space is not None
 
     # Only a non-numeric room_page falls back to 1; a numeric out-of-range one
     # reaches the context as given, while grid.page stays clamped.
@@ -432,8 +454,6 @@ class TestTimetablePageView:
                     total_pages=expected_pages,
                     total_spaces=room_count,
                 ),
-                # Paging the grid doesn't page the print scopes.
-                print_scopes=_scopes(*rooms),
                 room_page=middle_page,
             ),
         )
@@ -471,7 +491,6 @@ class TestTimetablePageView:
                     day_start=localtime(event.start_time + timedelta(hours=4)),
                     total_minutes=SLOT_MINUTES,
                 ),
-                print_scopes=_scopes(space),
                 categories=ANY,
                 slot_violation_session_pks={session.pk},
             ),

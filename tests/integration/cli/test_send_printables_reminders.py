@@ -32,7 +32,7 @@ class TestSendPrintablesReminders:
         email = mailoutbox[0]
         assert email.to == [active_user.email]
         assert event.name in email.subject
-        path = reverse("panel:print-materials", kwargs={"slug": event.slug})
+        path = reverse("web:chronology:event-print", kwargs={"slug": event.slug})
         assert f"https://{sphere.site.domain}{path}" in email.body
         notification = Notification.objects.get(recipient=active_user)
         assert notification.kind == NotificationKind.PRINTABLES_READY.value

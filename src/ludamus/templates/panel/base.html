@@ -4,12 +4,16 @@
 {% load static %}
 {% load django_vite %}
 {% load tessera %}
-{% block title %}
-    {% block title_prefix %}
-    {% endblock title_prefix %}
-    {{ current_sphere.name }}
-{% endblock title %}
+{% comment %}An organizer runs one panel page per event, not per sphere: the
+event is what tells two tabs apart, so it takes the sphere's slot in the title.
+Sphere-wide pages (settings, announcements, connections) have no event and keep
+the sphere.{% endcomment %}
 {% block title_suffix %}
+    {% if current_event %}
+        • {{ current_event.name }}
+    {% elif current_sphere %}
+        • {{ current_sphere.name }}
+    {% endif %}
 {% endblock title_suffix %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
@@ -260,9 +264,12 @@
                                     <span class="sidebar-label">{{ t_timetable }}</span>
                                 </a>
                                 {% translate "Print Materials" as t_print %}
-                                <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
+                                {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
+                                <a href="{% url 'web:chronology:event-print' slug=current_event.slug %}"
+                                   target="_blank"
+                                   rel="noopener"
                                    title="{{ t_print }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary rounded-lg transition hover:duration-0">
                                     {% icon "printer" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_print }}</span>
                                 </a>

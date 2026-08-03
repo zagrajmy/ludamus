@@ -119,7 +119,27 @@ env = { _.file = '.env.test' }
 
 ["test:int"]
 description = "Run integration tests"
-run = "pytest -n auto {{ env.TEST_PATHS }}/integration"
+usage = '''
+arg "[pytest_args]" var=#true double_dash="optional"
+'''
+run = '''
+python - <<'PY'
+import os
+import shlex
+
+args = shlex.split(os.environ.get("usage_pytest_args", ""))
+integration_root = os.path.abspath(
+    os.path.join(os.environ["TEST_PATHS"], "integration")
+)
+has_target = any(
+    os.path.commonpath((integration_root, os.path.abspath(arg.split("::", 1)[0])))
+    == integration_root
+    for arg in args
+)
+targets = [] if has_target else [integration_root]
+os.execvp("pytest", ["pytest", "-n", "auto", *targets, *args])
+PY
+'''
 env = { _.file = '.env.test' }
 
 ["test:int:cov"]
