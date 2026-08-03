@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-03 13:23+0200\n"
+"POT-Creation-Date: 2026-08-03 13:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3193,6 +3193,7 @@ msgstr "Powiadomienia"
 msgid "Dismiss"
 msgstr "Zamknij"
 
+#. Translators: keep both links inside the sentence — reorder freely around them (PL: "dostępny na licencji …").
 #: src/ludamus/templates/base.html
 #, python-format
 msgid ""

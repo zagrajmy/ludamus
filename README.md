@@ -64,5 +64,4 @@ modified version of this software as a network service, you must offer its
 source to the users of that service.
 
 Copyright © 2025–2026 Radosław Ganczarek (fancysnake) and Piotr
-Monwid-Olechnowicz (hasparus). The site footer credits the handles to keep it
-to one line; these are the same two people.
+Monwid-Olechnowicz (hasparus).
