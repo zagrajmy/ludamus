@@ -26,14 +26,15 @@ without a shim after `mise install` gets its install purged and reinstalled
 through the alias. Pre-baked layouts that happen to satisfy the alias (hk)
 are kept as is.
 
-PyPI wrapper packages add one more failure mode: they append a packaging
-revision to the upstream version (shellcheck-py 0.11.0.1 wraps shellcheck
-0.11.0), and mise passes a full `X.Y.Z` pin to uv verbatim as `==X.Y.Z`,
-which matches nothing. The hook's last resort covers it: any aliased tool
-still shimless after the reinstall is retried with its mise.toml pin trimmed
-one segment (`shellcheck@0.11`), which mise prefix-resolves to the wrapper's
-version and links back to the pinned one. Bumping a pin in `mise.toml` needs
-no sandbox-side edit.
+PyPI wrapper packages add one more failure mode, handled in `mise.toml`
+rather than here: they append a packaging revision to the upstream version
+(shellcheck-py 0.11.0.1 wraps shellcheck 0.11.0), and mise passes an exact
+`X.Y.Z` pin to uv verbatim as `==X.Y.Z`, which matches nothing on PyPI. So
+shellcheck and hadolint are pinned as `prefix:0.11.0` / `prefix:2.14.0`:
+mise resolves a prefix against the registry, picking the wrapper in sandboxes
+and the identical exact version on the GitHub-release backends laptops use.
+Keep the `prefix:` when bumping either pin; a bare `X.Y.Z` wedges every
+sandbox `mise install`.
 
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
 `@playwright/test` pin, so the hook runs `mise run test:e2e:install`; when its
