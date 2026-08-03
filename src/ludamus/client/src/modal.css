@@ -122,13 +122,30 @@
   opacity: 0;
 }
 
-/* Modal chrome with no card counterpart is captured as a new-only group. A
-   new-only group has no old geometry to interpolate, so it renders at its final
-   layout for the whole morph instead of being stretched along with the container
-   snapshot — which is what keeps the footer's controls crisp and still while the
-   modal grows behind them. It carries the modal's surface colour because that
-   snapshot underneath is mid-cross-fade with the card and would otherwise show
-   through. */
+/* Chrome that exists only in the modal is captured as a new-only group, and a
+   new-only group has no old geometry to interpolate — it renders at its final
+   layout for the entire morph. On a wide viewport the sheet is still a third of
+   its final width at that point, so the footer's button reads as floating in
+   space next to it rather than belonging to it.
+
+   Nesting the group inside session-morph puts it back under the container's
+   transform and clip, so it travels and crops with the sheet. The elements keep
+   their names, which is what separates this from simply dropping the names: the
+   stagger below still applies, and the tab bar still waits for the title to fly
+   past instead of painting over it.
+
+   Level 2, and no WebKit support yet — Safari drops the declaration and keeps
+   today's flat behaviour. That degrades well because the cost is proportional to
+   how much the sheet moves sideways, and on a phone it barely does: the dialog
+   is near full-width, so the card grows ~11% in width against ~108% in height
+   and the footer lands roughly where the sheet already is. */
+[data-morph="tabs"],
+[data-morph="footer"] {
+  view-transition-group: nearest;
+}
+
+/* The footer carries the modal's surface colour because the container snapshot
+   underneath is mid-cross-fade with the card and would otherwise show through. */
 ::view-transition-new(morph-footer) {
   animation-duration: var(--vt-morph-duration);
   animation-timing-function: var(--vt-morph-ease);

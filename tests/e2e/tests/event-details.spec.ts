@@ -129,11 +129,42 @@ test.describe("Event detail page", () => {
     // clip that keeps it inside — the bug this guards.
     expect(delays[pseudoOf("desc")]).toBeUndefined();
 
-    // The footer renders at final layout throughout, so it has nothing to wait
-    // for; the labels the title flies past do.
+    // The footer travels with the sheet (see the nesting test below), so it has
+    // nothing to wait for; the labels the title flies past do.
     expect(delays[pseudoOf("footer")]).toBe(0);
     expect(delays[pseudoOf("tabs")]).toBeGreaterThan(0);
     expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
+  });
+
+  // The split that keeps the morph coherent. Chrome with a counterpart on the
+  // card has two layouts to travel between, so it flies on its own group; chrome
+  // that only exists in the modal has none, and a new-only group renders at final
+  // layout for the whole morph — the footer's button ends up hanging in space
+  // beside a sheet that is still a third of its final width. Nesting puts it back
+  // under the container's transform and clip.
+  test("modal-only chrome morphs nested inside the sheet", async ({ page }) => {
+    const supportsNesting = await page.evaluate(() =>
+      CSS.supports("view-transition-group", "nearest"),
+    );
+    test.skip(!supportsNesting, "Browser does not implement view-transition-group");
+
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
+    await settleViewTransitions(page);
+
+    const groups = await page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll<HTMLElement>("dialog[open] [data-morph]")].map((element) => [
+          element.dataset.morph,
+          getComputedStyle(element).viewTransitionGroup,
+        ]),
+      ),
+    );
+
+    expect(groups.tabs).toBe("nearest");
+    expect(groups.footer).toBe("nearest");
+    expect(groups.title).toBe("normal");
+    expect(groups.host).toBe("normal");
   });
 
   // Fetched dialogs are cached in the DOM, so without a reset a reopen inherits
