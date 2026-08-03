@@ -407,20 +407,26 @@ test.describe("Anonymous code modal", () => {
 
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
-    await flash.getByRole("button", { name: "Dismiss" }).click();
-    await expect(flash).toHaveAttribute("data-flash-closing", "true");
     // The exit fades opacity over 260ms and hard-removes the flash ~360ms after
-    // the click. Sample densely across that whole window so a delayed transition
-    // start (under CI/parallel load) is still caught before the element is gone.
-    await expect
-      .poll(
-        () => flash.evaluate((element) => Number.parseFloat(getComputedStyle(element).opacity)),
-        {
-          timeout: 2000,
-          intervals: [50],
-        },
-      )
-      .toBeLessThan(1);
+    // the click, and the ease front-loads the fade into the first frames.
+    // Polling from the runner races that: one round trip can straddle the whole
+    // fade and the next lands on a detached element. Record every frame inside
+    // the page instead, starting before the click.
+    await flash.evaluate((element) => {
+      const samples: number[] = [];
+      (globalThis as unknown as { flashOpacitySamples: number[] }).flashOpacitySamples = samples;
+      const tick = (): void => {
+        if (!element.isConnected) return;
+        samples.push(Number.parseFloat(getComputedStyle(element).opacity));
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+    await flash.getByRole("button", { name: "Dismiss" }).click();
     await expect(flash).toHaveCount(0);
+    const fade = await page.evaluate(
+      () => (globalThis as unknown as { flashOpacitySamples: number[] }).flashOpacitySamples,
+    );
+    expect(Math.min(...fade)).toBeLessThan(1);
   });
 });
