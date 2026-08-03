@@ -3,12 +3,20 @@ from django.utils import timezone
 
 
 def flag_to_deleted_at(apps, schema_editor):
-    # The deletion flag always meant "gone as far as the program is concerned",
-    # so flagged rows become deleted ones. Reversible: a dead row flags again.
+    # The flag was a triage marker, not a deletion: flagged facilitators stayed
+    # live, on their sessions and in every picker. Carrying one over to
+    # `deleted_at` therefore takes a name out of the program, so only the
+    # flagged rows running no session convert — exactly the ones an organizer
+    # can delete by hand now. A flagged facilitator still on a session keeps
+    # its byline and only loses the marker, which nothing else read.
+    # Reversible: a dead row flags again.
     facilitator = apps.get_model("db_main", "Facilitator")
+    running_a_session = facilitator.objects.filter(
+        sessions__isnull=False, sessions__deleted_at__isnull=True
+    ).values("pk")
     facilitator.objects.filter(
         flagged_for_deletion=True, deleted_at__isnull=True
-    ).update(deleted_at=timezone.now())
+    ).exclude(pk__in=running_a_session).update(deleted_at=timezone.now())
 
 
 def deleted_at_to_flag(apps, schema_editor):

@@ -86,6 +86,9 @@ _ORGANIZER_REFUSALS: dict[OrganizerActionRefusal, _StrPromise] = {
     OrganizerActionRefusal.NOT_ORGANIZER: gettext_lazy(
         "Only the person handling this facilitator can step down."
     ),
+    OrganizerActionRefusal.HAS_SESSIONS: gettext_lazy(
+        "This facilitator runs sessions. Remove them from the sessions first."
+    ),
 }
 
 
@@ -276,7 +279,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         try:
-            facilitator = self.request.di.uow.facilitators.read_by_event_and_slug(
+            # The one page that shows a deleted facilitator: it carries the
+            # restore banner.
+            facilitator = self.request.di.uow.facilitators.read_including_deleted(
                 current_event.pk, facilitator_slug
             )
         except NotFoundError:

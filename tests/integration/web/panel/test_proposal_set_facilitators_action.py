@@ -1,5 +1,6 @@
 """Integration tests for the proposal set-facilitators action."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
@@ -11,6 +12,7 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 
 def _make_session(event, **kwargs):
@@ -124,6 +126,34 @@ class TestProposalSetFacilitatorsActionView:
         response = authenticated_client.post(
             self.get_url(event, session.pk),
             data={"facilitator_ids": [foreign_facilitator.pk]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators updated.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        assert not session.facilitators.exists()
+
+    def test_post_ignores_a_deleted_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        deleted = Facilitator.objects.create(
+            event=event,
+            display_name="Gone",
+            slug="gone",
+            user=None,
+            deleted_at=_DELETED_AT,
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk), data={"facilitator_ids": [deleted.pk]}
         )
 
         assert_response(

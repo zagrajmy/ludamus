@@ -190,6 +190,14 @@
                                                 {% icon "arrow-uturn-left" class="w-4 h-4" %}
                                             </button>
                                         </form>
+                                    {% elif facilitator.session_count %}
+                                        <button type="button"
+                                                disabled
+                                                title="{% translate "This facilitator runs sessions. Remove them from the sessions first." %}"
+                                                aria-label="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}{% endblocktranslate %}"
+                                                class="text-foreground-muted/40 cursor-not-allowed inline-flex items-center">
+                                            {% icon "trash" class="w-4 h-4" %}
+                                        </button>
                                     {% else %}
                                         <form method="post"
                                               action="{% url 'panel:facilitator-delete' slug=current_event.slug facilitator_slug=facilitator.slug %}"
@@ -205,11 +213,13 @@
                                             </button>
                                         </form>
                                     {% endif %}
-                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                       class="text-primary hover:text-primary/80 inline-flex items-center">
-                                        {% icon "pencil-square" class="w-4 h-4 mr-1" %}
-                                        {% translate "Edit" %}
-                                    </a>
+                                    {% if not facilitator.deleted_at %}
+                                        <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                           class="text-primary hover:text-primary/80 inline-flex items-center">
+                                            {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                            {% translate "Edit" %}
+                                        </a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>

@@ -362,6 +362,7 @@ class OrganizerActionRefusal(StrEnum):
     ALREADY_YOURS = "already_yours"
     ALREADY_FREE = "already_free"
     NOT_ORGANIZER = "not_organizer"
+    HAS_SESSIONS = "has_sessions"
 
 
 class FacilitatorActionError(Exception):

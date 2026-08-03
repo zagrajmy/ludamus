@@ -203,13 +203,19 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise FacilitatorActionError(OrganizerActionRefusal.NOT_ORGANIZER)
 
     def delete(self, *, event_id: int, facilitator_slug: str) -> None:
+        # A facilitator running sessions cannot be deleted: their byline would
+        # vanish from the program with nothing on the session saying why. The
+        # sessions go first, or the facilitator stays.
         facilitator = self._facilitators.read_by_event_and_slug(
             event_id, facilitator_slug
         )
-        self._facilitators.delete(facilitator.pk)
+        if self._facilitators.has_sessions(facilitator.pk):
+            raise FacilitatorActionError(OrganizerActionRefusal.HAS_SESSIONS)
+        self._facilitators.soft_delete(facilitator.pk)
 
     def restore(self, *, event_id: int, facilitator_slug: str) -> None:
-        facilitator = self._facilitators.read_by_event_and_slug(
+        # The only write that reads a dead row on purpose.
+        facilitator = self._facilitators.read_including_deleted(
             event_id, facilitator_slug
         )
         self._facilitators.restore(facilitator.pk)

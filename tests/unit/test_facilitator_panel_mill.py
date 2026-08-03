@@ -189,3 +189,40 @@ class TestOrganizerStepDown:
         )
 
         assert facilitators.released_with is None
+
+
+_FACILITATOR_PK = 7
+
+
+class FakeDeletionRepo:
+    def __init__(self, *, has_sessions=False):
+        self._has_sessions = has_sessions
+        self.soft_deleted = _NOT_CALLED
+
+    def read_by_event_and_slug(self, _event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+
+    def has_sessions(self, _pk):
+        return self._has_sessions
+
+    def soft_delete(self, pk):
+        self.soft_deleted = pk
+
+
+class TestFacilitatorDeletion:
+    def test_a_facilitator_running_sessions_is_not_deleted(self):
+        facilitators = FakeDeletionRepo(has_sessions=True)
+        service = _organizer_service(facilitators)
+
+        refusal = _refusal(lambda: service.delete(event_id=1, facilitator_slug="alice"))
+
+        assert refusal == OrganizerActionRefusal.HAS_SESSIONS
+        assert facilitators.soft_deleted is _NOT_CALLED
+
+    def test_a_facilitator_without_sessions_is_deleted(self):
+        facilitators = FakeDeletionRepo()
+        service = _organizer_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice")
+
+        assert facilitators.soft_deleted == _FACILITATOR_PK

@@ -18,16 +18,28 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import EventDTO, FacilitatorListItemDTO, OrganizerFieldDTO
 from ludamus.pacts.submissions import FacilitatorColumnDTO
-from tests.integration.conftest import EventFactory, UserFactory
+from tests.integration.conftest import (
+    EventFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    UserFactory,
+)
 from tests.integration.utils import PageMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+_HAS_SESSIONS_ERROR = (
+    "This facilitator runs sessions. Remove them from the sessions first."
+)
 
 _DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 _PAGE_SIZE = 50
 _SEED_COUNT = 60
 _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
 _TOTAL_PAGES = 2
+
+
+def _session(event):
+    return SessionFactory(category=ProposalCategoryFactory(event=event), event=event)
 
 
 def _tab_urls(event):
@@ -447,7 +459,7 @@ class TestFacilitatorsPageView:
 
     def test_deleted_filter(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)
-        Facilitator.objects.create(
+        deleted = Facilitator.objects.create(
             event=event,
             display_name="Deleted",
             slug="deleted",
@@ -465,7 +477,7 @@ class TestFacilitatorsPageView:
                 accreditation_type="none",
                 deleted_at=_DELETED_AT,
                 display_name="Deleted",
-                pk=response.context["facilitators"][0].pk,
+                pk=deleted.pk,
                 slug="deleted",
                 user_id=None,
                 session_count=0,
@@ -496,7 +508,7 @@ class TestFacilitatorsPageView:
             user=None,
             deleted_at=_DELETED_AT,
         )
-        Facilitator.objects.create(
+        normal = Facilitator.objects.create(
             event=event, display_name="Normal", slug="normal", user=None
         )
 
@@ -506,7 +518,7 @@ class TestFacilitatorsPageView:
             FacilitatorListItemDTO(
                 accreditation_type="none",
                 display_name="Normal",
-                pk=response.context["facilitators"][0].pk,
+                pk=normal.pk,
                 slug="normal",
                 user_id=None,
                 session_count=0,
@@ -1136,6 +1148,48 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.deleted_at is not None
 
+    def test_delete_is_refused_while_the_facilitator_runs_a_session(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+        _session(event).facilitators.add(facilitator)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-delete", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, _HAS_SESSIONS_ERROR)],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
+
+    def test_delete_goes_through_once_the_session_is_deleted(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+        session = _session(event)
+        session.facilitators.add(facilitator)
+        session.soft_delete()
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-delete", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator deleted.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is not None
+
     def test_deleting_an_already_deleted_facilitator_reports_it_missing(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -1171,6 +1225,58 @@ class TestFacilitatorActions:
         )
         facilitator.refresh_from_db()
         assert facilitator.deleted_at is None
+
+    def test_restoring_a_live_facilitator_reports_it_missing(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-restore", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
+
+    @pytest.mark.parametrize(
+        "action",
+        (
+            "facilitator-mark-guest",
+            "facilitator-assign-organizer",
+            "facilitator-unassign-organizer",
+        ),
+    )
+    def test_action_on_a_deleted_facilitator_is_not_found(
+        self, action, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(
+            event, deleted_at=_DELETED_AT, organizer=active_user
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                f"panel:{action}",
+                kwargs={"slug": event.slug, "facilitator_slug": facilitator.slug},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == AccreditationType.NONE
+        assert facilitator.organizer_id == active_user.pk
 
     def test_mark_guest(self, authenticated_client, active_user, sphere, event):
         sphere.managers.add(active_user)

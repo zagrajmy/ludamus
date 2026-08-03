@@ -1,5 +1,6 @@
 """Integration tests for the facilitator edit page."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -24,6 +25,7 @@ from tests.integration.conftest import UserFactory
 from tests.integration.utils import FormErrorsMatcher, assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 
 def _make_facilitator(event, **kwargs):
@@ -109,6 +111,44 @@ class TestFacilitatorEditPageView:
             messages=[(messages.ERROR, "Facilitator not found.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
+
+    def test_get_redirects_for_a_deleted_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, deleted_at=_DELETED_AT)
+
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+
+    def test_post_redirects_for_a_deleted_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = _make_facilitator(
+            event, deleted_at=_DELETED_AT, internal_comment="untouched"
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={"accreditation_type": "honorary", "internal_comment": "changed"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == "none"
+        assert facilitator.internal_comment == "untouched"
 
     def test_get_ok_for_sphere_manager(
         self, authenticated_client, active_user, sphere, event

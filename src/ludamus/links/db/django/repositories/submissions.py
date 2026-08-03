@@ -112,11 +112,10 @@ def _field_dto(
     )
 
 
-def _readable_facilitators(*, include_deleted: bool = False) -> QuerySet[Facilitator]:
+def _readable_facilitators() -> QuerySet[Facilitator]:
     # Every single-facilitator read carries the organizer's name, so a page
     # that shows it needs no second lookup through the user repo.
-    manager = Facilitator.all_objects if include_deleted else Facilitator.objects
-    return manager.annotate(organizer_name=F("organizer__name"))
+    return Facilitator.objects.annotate(organizer_name=F("organizer__name"))
 
 
 def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
@@ -844,13 +843,22 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO:
-        # Identity lookup: reaches dead rows too, since they keep holding their
-        # slug (see the model's constraint note). Callers showing the row to a
-        # user check `deleted_at`.
         try:
-            facilitator = _readable_facilitators(include_deleted=True).get(
-                event_id=event_id, slug=slug
-            )
+            facilitator = _readable_facilitators().get(event_id=event_id, slug=slug)
+        except Facilitator.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return FacilitatorDTO.model_validate(facilitator)
+
+    @staticmethod
+    def read_including_deleted(event_id: int, slug: str) -> FacilitatorDTO:
+        # The two callers that mean "the row holding this slug", alive or not:
+        # the detail page rendering the restore banner, and the import matching
+        # a slug a dead row still reserves. Every other read stays alive-only,
+        # so a write path handed a deleted slug gets NotFound.
+        try:
+            facilitator = Facilitator.all_objects.annotate(
+                organizer_name=F("organizer__name")
+            ).get(event_id=event_id, slug=slug)
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
@@ -866,13 +874,15 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
-    def find_id_by_ident(event_id: int, ident: str) -> int | None:
-        # Identity lookup: dead rows keep their ident reserved, so they have to
-        # match here rather than collide at insert time.
+    def find_by_ident(event_id: int, ident: str) -> FacilitatorDTO | None:
+        # Reaches dead rows, which keep their ident reserved: the import has to
+        # match one rather than collide at insert time. The caller reads
+        # `deleted_at` off the match to decide whether to restore it.
+        facilitator = Facilitator.all_objects.filter(
+            event_id=event_id, ident=ident
+        ).first()
         return (
-            Facilitator.all_objects.filter(event_id=event_id, ident=ident)
-            .values_list("id", flat=True)
-            .first()
+            None if facilitator is None else FacilitatorDTO.model_validate(facilitator)
         )
 
     @staticmethod
@@ -897,11 +907,16 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
-        manager = (
-            Facilitator.all_objects if filters.get("deleted") else Facilitator.objects
-        )
-        qs = manager.filter(event_id=event_id).annotate(
-            session_count=Count("sessions", distinct=True),
+        # Deleted and live never mix, so a restore is always a deliberate visit
+        # to the bin.
+        qs = Facilitator.all_objects.filter(
+            event_id=event_id, deleted_at__isnull=not filters.get("deleted")
+        ).annotate(
+            # Deleted sessions no longer name their facilitator anywhere, so
+            # they must not hold a deletion up either.
+            session_count=Count(
+                "sessions", filter=Q(sessions__deleted_at__isnull=True), distinct=True
+            ),
             organizer_name=F("organizer__name"),
         )
 
@@ -921,9 +936,6 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
         if accreditation := filters.get("accreditation"):
             qs = qs.filter(accreditation_type=accreditation)
-
-        if filters.get("deleted"):
-            qs = qs.filter(deleted_at__isnull=False)
 
         if filters.get("organizer_unassigned"):
             qs = qs.filter(organizer__isnull=True)
@@ -1009,7 +1021,21 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return bool(qs.update(organizer=None))
 
     @staticmethod
+    def has_sessions(pk: int) -> bool:
+        # `sessions__isnull=False` keeps the join inner: on its own the
+        # `deleted_at IS NULL` half is satisfied by the empty outer join too.
+        return Facilitator.all_objects.filter(
+            pk=pk, sessions__isnull=False, sessions__deleted_at__isnull=True
+        ).exists()
+
+    @staticmethod
     def delete(pk: int) -> None:
+        # Destroys the row. The merge is the only caller: a source that merged
+        # away was never a separate person, so it leaves no restorable trace.
+        Facilitator.all_objects.filter(pk=pk).delete()
+
+    @staticmethod
+    def soft_delete(pk: int) -> None:
         # Reach through `all_objects` so an already-dead row raises NotFound
         # instead of silently re-stamping `deleted_at`.
         try:
@@ -1020,11 +1046,13 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def restore(pk: int) -> None:
-        # Idempotent on purpose: the import calls it on every matched row and
-        # an alive facilitator must cost nothing but a no-op UPDATE.
-        Facilitator.all_objects.filter(pk=pk, deleted_at__isnull=False).update(
-            deleted_at=None
-        )
+        # Missing or already alive -> NotFound, so a restore that changed
+        # nothing never reports success.
+        try:
+            facilitator = Facilitator.all_objects.get(pk=pk, deleted_at__isnull=False)
+        except Facilitator.DoesNotExist as exc:
+            raise NotFoundError from exc
+        facilitator.restore()
 
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool:
