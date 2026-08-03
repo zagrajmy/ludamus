@@ -26,20 +26,29 @@ without a shim after `mise install` gets its install purged and reinstalled
 through the alias. Pre-baked layouts that happen to satisfy the alias (hk)
 are kept as is.
 
-PyPI wrapper packages add one more failure mode: they append a packaging
-revision to the upstream version (shellcheck-py 0.11.0.1 wraps shellcheck
-0.11.0), and mise passes a full `X.Y.Z` pin to uv verbatim as `==X.Y.Z`,
-which matches nothing. The hook's last resort covers it: any aliased tool
-still shimless after the reinstall is retried with its mise.toml pin trimmed
-one segment (`shellcheck@0.11`), which mise prefix-resolves to the wrapper's
-version and links back to the pinned one. Bumping a pin in `mise.toml` needs
-no sandbox-side edit.
+PyPI wrapper packages add one more failure mode, handled in `mise.toml`
+rather than here: they append a packaging revision to the upstream version
+(shellcheck-py 0.11.0.1 wraps shellcheck 0.11.0), and mise passes an exact
+`X.Y.Z` pin to uv verbatim as `==X.Y.Z`, which matches nothing on PyPI. So
+shellcheck and hadolint are pinned as `prefix:0.11.0` / `prefix:2.14.0`:
+mise resolves a prefix against the registry, picking the wrapper in sandboxes
+and the identical exact version on the GitHub-release backends laptops use.
+Keep the `prefix:` when bumping either pin; a bare `X.Y.Z` wedges every
+sandbox `mise install`.
 
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
-`@playwright/test` pin, so the hook runs `mise run test:e2e:install`; when its
-`--with-deps` apt step breaks (image PPA metadata drift), it falls back to a
-plain `playwright install` — the Playwright CDN is reachable through the
-proxy and the image already ships Chromium's OS libs.
+`@playwright/test` pin, and Playwright launches only the pinned build, so the
+hook's `mise run test:e2e:install` is load-bearing rather than a no-op. When
+that task fails for any reason — its `--with-deps` apt step hitting image PPA
+metadata drift is the usual one, but `aube install` runs first and a browser
+download can fail on its own — the hook re-runs `aube install` and then
+installs one browser at a time via `test:e2e:install:browser`. A single bare
+`playwright install` downloads the browsers in one sequential loop and rethrows
+the first download failure, so every browser queued behind the failure is
+skipped; per-browser runs isolate it and report only what is genuinely
+unavailable. Missing OS libs don't enter into it — the image ships no WebKit
+libs, but the host-requirement check is caught and printed as a warning and the
+install still exits 0. The Playwright CDN itself is reachable through the proxy.
 
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
 runs as the pre-commit hook. Laptops never load `mise.sandbox.toml` — nothing
