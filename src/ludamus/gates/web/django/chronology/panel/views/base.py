@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.urls import reverse
 from django.utils.text import slugify
+from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin as EventPanelContextMixin,
@@ -15,11 +16,17 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelAccessMixin,
     EventPanelRequest,
 )
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
-    from ludamus.pacts import DependencyInjectorProtocol
+    from ludamus.pacts import DependencyInjectorProtocol, FacilitatorListItemDTO
+    from ludamus.pacts.submissions import (
+        FacilitatorColumnDTO,
+        FacilitatorPanelServiceProtocol,
+    )
 
 
 class PanelRequest(EventPanelRequest):
@@ -113,3 +120,54 @@ def make_unique_slug(
             break
         slug = f"{base_slug}-{token_urlsafe(3)}"
     return slug
+
+
+def _format_field_value(*, value: str | list[str] | bool | None) -> str:
+    if isinstance(value, bool):
+        return _("Yes") if value else _("No")
+    if isinstance(value, list):
+        return ", ".join(value)
+    return value or ""
+
+
+def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
+    if key == "name":
+        return facilitator.display_name
+    if key == "linked":
+        return _("Linked") if facilitator.user_id else _("None")
+    if key == "sessions":
+        return str(facilitator.session_count)
+    if key == "organizer":
+        return facilitator.organizer_name or "—"
+    return str(
+        ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
+    )
+
+
+def build_column_values(
+    *,
+    panel: FacilitatorPanelServiceProtocol,
+    facilitators: Sequence[FacilitatorListItemDTO],
+    columns: Sequence[FacilitatorColumnDTO],
+) -> dict[int, dict[str, str]]:
+    raw_values = panel.column_values(
+        facilitator_ids=[f.pk for f in facilitators],
+        field_ids=[column.field.pk for column in columns if column.field is not None],
+    )
+    # One ready-to-render string per (facilitator, column), so the template
+    # renders every column the same way whatever the organizer chose. Lives
+    # here rather than on either page because the facilitator list and the
+    # timetable's facilitator picker both render these cells.
+    return {
+        facilitator.pk: {
+            column.key: (
+                _format_field_value(
+                    value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
+                )
+                if column.field is not None
+                else _builtin_cell(key=column.key, facilitator=facilitator)
+            )
+            for column in columns
+        }
+        for facilitator in facilitators
+    }

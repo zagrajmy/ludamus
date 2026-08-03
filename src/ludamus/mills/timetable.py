@@ -105,50 +105,45 @@ def _position_sessions(
     return positions
 
 
-def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+def _walk_tree(nodes: list[SpaceDTO]) -> list[tuple[SpaceDTO, int]]:
+    # Pre-order (node, depth). The grid's leaves, the picker's options and the
+    # ancestor walk all read off this one traversal; a node whose parent_id
+    # names nothing never gets walked, so unreachable rows stay out of all
+    # three.
     children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
     for node in nodes:
         children[node.parent_id].append(node)
 
-    leaves: list[SpaceDTO] = []
-
-    def walk(node: SpaceDTO) -> None:
-        if kids := children.get(node.pk, []):
-            for kid in kids:
-                walk(kid)
-        else:
-            leaves.append(node)
-
-    for root in children.get(None, []):
-        walk(root)
-    return leaves
-
-
-def _space_options_in_tree_order(nodes: list[SpaceDTO]) -> list[MultiselectOptionDTO]:
-    children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
-    for node in nodes:
-        children[node.parent_id].append(node)
-
-    options: list[MultiselectOptionDTO] = []
+    walked: list[tuple[SpaceDTO, int]] = []
 
     def walk(node: SpaceDTO, depth: int) -> None:
-        options.append(
-            MultiselectOptionDTO(value=node.pk, label=node.name, depth=depth)
-        )
+        walked.append((node, depth))
         for kid in children.get(node.pk, []):
             walk(kid, depth + 1)
 
     for root in children.get(None, []):
         walk(root, 0)
-    return options
+    return walked
 
 
-def _within_selected_spaces(nodes: list[SpaceDTO], selected: set[int]) -> set[int]:
+def _leaves(walked: list[tuple[SpaceDTO, int]]) -> list[SpaceDTO]:
+    parent_pks = {node.parent_id for node, _ in walked}
+    return [node for node, _ in walked if node.pk not in parent_pks]
+
+
+def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+    # For the callers that want only the bookable rooms and never the tree.
+    return _leaves(_walk_tree(nodes))
+
+
+def _within_selected_spaces(
+    walked: list[tuple[SpaceDTO, int]], selected: set[int]
+) -> set[int]:
     # A branch stands for every leaf beneath it, so a leaf survives when the
     # selection names it or any of its ancestors.
-    parent_by_pk = {node.pk: node.parent_id for node in nodes}
+    parent_by_pk = {node.pk: node.parent_id for node, _ in walked}
     kept: set[int] = set()
-    for node in nodes:
+    for node, _ in walked:
         pk: int | None = node.pk
         while pk is not None:
             if pk in selected:
@@ -161,18 +156,24 @@ def _within_selected_spaces(nodes: list[SpaceDTO], selected: set[int]) -> set[in
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
-        self._spaces_by_event: dict[int, list[SpaceDTO]] = {}
+        self._walked_event_pk: int | None = None
+        self._walked: list[tuple[SpaceDTO, int]] = []
 
-    def _spaces(self, event_pk: int) -> list[SpaceDTO]:
+    def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
         # The page builds the grid and the space filter's options from the same
-        # tree; the instance lives for one request, so read it once. Nothing
-        # this service writes touches spaces, so there is nothing to invalidate.
-        if event_pk not in self._spaces_by_event:
-            self._spaces_by_event[event_pk] = self._uow.spaces.list_by_event(event_pk)
-        return self._spaces_by_event[event_pk]
+        # tree; the instance lives for one request and sees one event, so read
+        # and walk it once. Nothing this service writes touches spaces, so
+        # there is nothing to invalidate.
+        if self._walked_event_pk != event_pk:
+            self._walked = _walk_tree(self._uow.spaces.list_by_event(event_pk))
+            self._walked_event_pk = event_pk
+        return self._walked
 
     def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]:
-        return _space_options_in_tree_order(self._spaces(event_pk))
+        return [
+            MultiselectOptionDTO(value=node.pk, label=node.name, depth=depth)
+            for node, depth in self._tree(event_pk)
+        ]
 
     def build_grid(
         self,
@@ -185,9 +186,9 @@ class TimetableService:
         filters = filters or TimetableGridFilter()
         track_pk = filters.track_pk
         date_selection = filters.date_selection
-        all_nodes = self._spaces(event_pk)
-        node_name_by_pk = {node.pk: node.name for node in all_nodes}
-        leaf_spaces = _leaves_in_tree_order(all_nodes)
+        walked = self._tree(event_pk)
+        node_name_by_pk = {node.pk: node.name for node, _ in walked}
+        leaf_spaces = _leaves(walked)
         if track_pk is not None:
             track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
             leaf_spaces = [
@@ -196,7 +197,7 @@ class TimetableService:
         if filters.space_pks:
             # Only pks belonging to this event's tree can match, so a stale or
             # foreign id in the URL narrows nothing rather than leaking a space.
-            kept = _within_selected_spaces(all_nodes, filters.space_pks)
+            kept = _within_selected_spaces(walked, filters.space_pks)
             leaf_spaces = [space for space in leaf_spaces if space.pk in kept]
 
         total_spaces = len(leaf_spaces)
@@ -215,22 +216,19 @@ class TimetableService:
         dates_to_render = (
             available_dates if date_selection == "all" else [date_selection]
         )
+        # The unscheduled list filters by facilitator in SQL, so the grid does
+        # too -- same one clause, and a foreign pk is scoped out by the query
+        # rather than by happening to intersect with nothing.
+        facilitator_pks = filters.facilitator_pks
         all_items = (
-            self._uow.agenda_items.list_by_track(track_pk)
+            self._uow.agenda_items.list_by_track(
+                track_pk, facilitator_pks=facilitator_pks
+            )
             if track_pk is not None
-            else self._uow.agenda_items.list_by_event(event_pk)
+            else self._uow.agenda_items.list_by_event(
+                event_pk, facilitator_pks=facilitator_pks
+            )
         )
-        if filters.facilitator_pks:
-            # ponytail: one lookup per picked facilitator, each returning that
-            # person's sessions across every event before we intersect with
-            # this event's items. Fine for the handful a filter bar can hold;
-            # add a scoped repo query if someone starts picking dozens.
-            facilitated = {
-                session.pk
-                for facilitator_pk in filters.facilitator_pks
-                for session in self._uow.sessions.list_by_facilitator(facilitator_pk)
-            }
-            all_items = [item for item in all_items if item.session_id in facilitated]
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
         )

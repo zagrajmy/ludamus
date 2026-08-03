@@ -10,7 +10,10 @@
 {# too wide to ship whole. Either way, selections apply on the Apply button, #}
 {# not on tick: the enclosing filter form reloads the page, and one reload #}
 {# per checkbox would make picking a handful unusable. #}
-<div class="relative" data-menu data-multiselect-filter>
+<div class="relative"
+     data-menu
+     data-multiselect-filter
+     data-autosubmit-ignore>
     <button type="button"
             data-menu-button
             aria-expanded="false"

@@ -287,3 +287,7 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-03: mise run lint-client fails locally with 'Cannot find module
+  eslint-plugin-sonarjs' — the dep resolves to an 'invalid' link under
+  node_modules/.aube. CI is fine; only the local run is blocked, so frontend
+  lint can't be verified before pushing.

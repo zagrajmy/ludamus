@@ -6,6 +6,7 @@ from ludamus.pacts.submissions import (
     FacilitatorActionError,
     FacilitatorColumnDTO,
     FacilitatorColumnsContextDTO,
+    FacilitatorFilterOptionsDTO,
     FacilitatorListContextDTO,
     FacilitatorPanelServiceProtocol,
     OrganizerActionRefusal,
@@ -21,7 +22,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.submissions import (
         FacilitatorListFilters,
-        FacilitatorListItemDTO,
         FacilitatorListQuery,
         FacilitatorPanelRepos,
     )
@@ -99,15 +99,35 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         self._facilitator_change_logs = repos.facilitator_change_logs
         self._panel_settings = repos.panel_settings
 
-    def list_by_pks(
-        self, *, event_id: int, pks: set[int]
-    ) -> list[FacilitatorListItemDTO]:
-        # Named people, not a view of the list: a picker showing what is
-        # already chosen needs exactly these rows and none of the list page's
-        # filtering, sorting or field resolution.
-        if not pks:
-            return []
-        return self._facilitators.list_by_event(event_id, {"pks": pks})
+    def filter_options(
+        self, *, event_id: int, search: str, pinned: set[int], limit: int
+    ) -> FacilitatorFilterOptionsDTO:
+        # Already-picked people come back whether or not they match the query:
+        # the rows *are* the form controls, so one dropping out of the list
+        # would silently drop it from the filter about to be submitted.
+        chosen = (
+            self._facilitators.list_by_event(event_id, {"pks": pinned})
+            if pinned
+            else []
+        )
+        # One row past the limit is the whole evidence for "there are more".
+        matches = (
+            self._facilitators.list_by_event(
+                event_id, {"search": search, "limit": limit + len(pinned) + 1}
+            )
+            if search
+            else []
+        )
+        fresh = [f for f in matches if f.pk not in pinned]
+        # The columns are read here rather than through columns_context so the
+        # field set and the panel settings are each read once per request.
+        fields = self._personal_data_fields.list_by_event(event_id)
+        settings = self._panel_settings.read_or_create(event_id)
+        return FacilitatorFilterOptionsDTO(
+            facilitators=[*chosen, *fresh[:limit]],
+            columns=_resolve_columns(keys=settings.facilitator_columns, fields=fields),
+            has_more=len(fresh) > limit,
+        )
 
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery

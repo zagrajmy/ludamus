@@ -76,7 +76,7 @@
                     organizer configured for the facilitator list.
             {% endcomment %}
             {% translate "Facilitators" as t_facilitators %}
-            {% translate "Search facilitators by name" as t_search_facilitators %}
+            {% translate "Search facilitators" as t_search_facilitators %}
             {% querystring facilitator=None as clear_facilitators_url %}
             {% url 'panel:timetable-facilitator-options-part' slug=current_event.slug as facilitator_options_url %}
             {% include "components/multiselect-filter.html" with id="timetable-facilitator" name="facilitator" label=t_facilitators search_label=t_search_facilitators options=facilitator_options selected_values=filter_facilitator_pks clear_url=clear_facilitators_url search_url=facilitator_options_url only %}

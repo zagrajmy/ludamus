@@ -18,6 +18,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    build_column_values,
     facilitator_tab_urls,
     make_unique_slug,
 )
@@ -53,18 +54,9 @@ if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import (
-        FacilitatorListItemDTO,
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-    )
+    from ludamus.pacts import FieldDescriptor, FieldValue, OrganizerFieldDTO
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.submissions import (
-        FacilitatorColumnDTO,
-        FacilitatorListContextDTO,
-        FacilitatorPanelServiceProtocol,
-    )
+    from ludamus.pacts.submissions import FacilitatorListContextDTO
 
 
 _FACILITATORS_PAGE_SIZE = 50  # ponytail: revisit after dogfooding
@@ -141,55 +133,6 @@ def _read_user(request: PanelRequest, user_id: int | None) -> UserDTO | None:
         return request.di.uow.active_users.read_by_id(user_id)
     except NotFoundError:
         return None
-
-
-def _format_field_value(*, value: str | list[str] | bool | None) -> str:
-    if isinstance(value, bool):
-        return _("Yes") if value else _("No")
-    if isinstance(value, list):
-        return ", ".join(value)
-    return value or ""
-
-
-def _builtin_cell(*, key: str, facilitator: FacilitatorListItemDTO) -> str:
-    if key == "name":
-        return facilitator.display_name
-    if key == "linked":
-        return _("Linked") if facilitator.user_id else _("None")
-    if key == "sessions":
-        return str(facilitator.session_count)
-    if key == "organizer":
-        return facilitator.organizer_name or "—"
-    return str(
-        ACCREDITATION_TYPE_LABELS[AccreditationType(facilitator.accreditation_type)]
-    )
-
-
-def build_column_values(
-    *,
-    panel: FacilitatorPanelServiceProtocol,
-    facilitators: Sequence[FacilitatorListItemDTO],
-    columns: Sequence[FacilitatorColumnDTO],
-) -> dict[int, dict[str, str]]:
-    raw_values = panel.column_values(
-        facilitator_ids=[f.pk for f in facilitators],
-        field_ids=[column.field.pk for column in columns if column.field is not None],
-    )
-    # One ready-to-render string per (facilitator, column), so the template
-    # renders every column the same way whatever the organizer chose.
-    return {
-        facilitator.pk: {
-            column.key: (
-                _format_field_value(
-                    value=raw_values.get(facilitator.pk, {}).get(column.field.slug)
-                )
-                if column.field is not None
-                else _builtin_cell(key=column.key, facilitator=facilitator)
-            )
-            for column in columns
-        }
-        for facilitator in facilitators
-    }
 
 
 class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):

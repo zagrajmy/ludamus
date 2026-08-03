@@ -8,11 +8,12 @@ const DEBOUNCE_MS = 1000;
 const serialize = (form: HTMLFormElement): string =>
   [...new FormData(form)].map(([key, value]) => `${key}=${String(value)}`).join("&");
 
-// A multi-select popover applies on its own Apply button: auto-submitting per
-// tick would reload the page under a user still picking, and its search box is
-// a local narrowing control that must never reach the server.
+// A control inside [data-autosubmit-ignore] applies on its own terms -- a
+// multi-select popover has an Apply button, and its search box narrows the
+// list locally and must never reach the server. Auto-submitting per tick would
+// reload the page under someone still picking.
 const isSelfApplying = (event: Event): boolean =>
-  (event.target as Element | null)?.closest("[data-multiselect-filter]") != null;
+  (event.target as Element | null)?.closest("[data-autosubmit-ignore]") != null;
 
 for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosubmit]")) {
   let timer: ReturnType<typeof setTimeout> | undefined;

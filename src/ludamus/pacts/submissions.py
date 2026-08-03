@@ -381,6 +381,7 @@ class FacilitatorListFilters(TypedDict, total=False):
     organizer_id: int | None
     organizer_unassigned: bool | None
     sort: str | None
+    limit: int | None
 
 
 class EventPanelSettingsDTO(BaseModel):
@@ -463,13 +464,22 @@ class FacilitatorColumnsContextDTO:
     available: list[FacilitatorColumnDTO]
 
 
+@dataclass
+class FacilitatorFilterOptionsDTO:
+    """Read aggregate for one page of a facilitator filter's option rows."""
+
+    facilitators: list[FacilitatorListItemDTO]
+    columns: list[FacilitatorColumnDTO]
+    has_more: bool
+
+
 class FacilitatorPanelServiceProtocol(Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
-    def list_by_pks(
-        self, *, event_id: int, pks: set[int]
-    ) -> list[FacilitatorListItemDTO]: ...
+    def filter_options(
+        self, *, event_id: int, search: str, pinned: set[int], limit: int
+    ) -> FacilitatorFilterOptionsDTO: ...
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...

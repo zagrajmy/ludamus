@@ -166,7 +166,7 @@ class TestBuildGridOverlappingSessions:
             60,
         ]
         assert grid.date_selection == "all"
-        uow.agenda_items.list_by_event.assert_called_once_with(1)
+        uow.agenda_items.list_by_event.assert_called_once_with(1, facilitator_pks=set())
 
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
         uow = MagicMock()
@@ -423,35 +423,45 @@ class TestFacilitatorFilter:
             for pos in col.sessions
         ]
 
-    def test_no_facilitator_picked_keeps_every_item(self, uow):
+    def test_no_facilitator_picked_asks_for_every_item(self, uow):
         grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC)
 
         assert self._session_pks(grid) == [1, 2]
+        uow.agenda_items.list_by_event.assert_called_once_with(1, facilitator_pks=set())
 
-    def test_picking_a_facilitator_keeps_only_their_items(self, uow):
-        uow.sessions.list_by_facilitator.return_value = [MagicMock(pk=2)]
+    def test_picking_a_facilitator_narrows_the_query(self, uow):
+        uow.agenda_items.list_by_event.return_value = [_make_item(pk=1, session_id=1)]
 
         grid = TimetableService(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
         )
 
-        assert self._session_pks(grid) == [2]
-        uow.sessions.list_by_facilitator.assert_called_once_with(7)
+        assert self._session_pks(grid) == [1]
+        uow.agenda_items.list_by_event.assert_called_once_with(1, facilitator_pks={7})
 
-    def test_several_facilitators_union_their_items(self, uow):
-        uow.sessions.list_by_facilitator.side_effect = [
-            [MagicMock(pk=1)],
-            [MagicMock(pk=2)],
-        ]
-
-        grid = TimetableService(uow).build_grid(
+    def test_several_facilitators_reach_the_query_as_one_set(self, uow):
+        TimetableService(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7, 8})
         )
 
-        assert self._session_pks(grid) == [1, 2]
+        uow.agenda_items.list_by_event.assert_called_once_with(
+            1, facilitator_pks={7, 8}
+        )
+
+    def test_a_track_filter_carries_the_facilitators_too(self, uow):
+        uow.agenda_items.list_by_track.return_value = []
+        uow.tracks.list_space_pks.return_value = [1]
+
+        TimetableService(uow).build_grid(
+            event_pk=1,
+            tz=UTC,
+            filters=TimetableGridFilter(track_pk=3, facilitator_pks={7}),
+        )
+
+        uow.agenda_items.list_by_track.assert_called_once_with(3, facilitator_pks={7})
 
     def test_facilitator_with_nothing_scheduled_empties_the_grid(self, uow):
-        uow.sessions.list_by_facilitator.return_value = []
+        uow.agenda_items.list_by_event.return_value = []
 
         grid = TimetableService(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})

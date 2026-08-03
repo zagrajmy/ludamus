@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, QueryDict
@@ -19,8 +19,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-)
-from ludamus.gates.web.django.chronology.panel.views.facilitators import (
     build_column_values,
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import facilitator_column_label
@@ -40,7 +38,6 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
-from ludamus.pacts.submissions import FacilitatorListQuery
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
@@ -99,56 +96,48 @@ def _as_pk(raw: str) -> int | None:
 _FACILITATOR_OPTION_LIMIT = 25
 
 
+class _FacilitatorOptions(NamedTuple):
+    options: list[MultiselectOptionDTO]
+    has_more: bool
+
+
 def _facilitator_options(
     *, request: PanelRequest, event_pk: int, search: str, pinned: set[int]
-) -> tuple[list[MultiselectOptionDTO], bool]:
-    # Already-picked people come back in every response whether or not they
-    # match the query: the rows *are* the form controls, so one dropping out of
-    # the list would silently drop it from the filter about to be submitted.
-    # Both reads are pk- or text-filtered in SQL -- an event's whole roster is
-    # never listed to fill a picker.
+) -> _FacilitatorOptions:
+    # Formatting only -- which people come back, and why the already-picked
+    # ones always do, is the service's business.
     panel = request.services.facilitator_panel
-    user_id = request.context.current_user_id
-    chosen = panel.list_by_pks(event_id=event_pk, pks=pinned)
-    matches = (
-        [
-            f
-            for f in panel.list_context(
-                event_id=event_pk,
-                query=FacilitatorListQuery(search=search, current_user_id=user_id),
-            ).facilitators
-            if f.pk not in pinned
-        ]
-        if search
-        else []
+    found = panel.filter_options(
+        event_id=event_pk, search=search, pinned=pinned, limit=_FACILITATOR_OPTION_LIMIT
     )
-    has_more = len(matches) > _FACILITATOR_OPTION_LIMIT
-
-    # columns_context resolves the organizer's chosen columns without listing
-    # anyone, so an unsearched picker costs no roster query at all.
-    columns = panel.columns_context(event_pk).chosen
-    ordered = [*chosen, *matches[:_FACILITATOR_OPTION_LIMIT]]
-    values = build_column_values(panel=panel, facilitators=ordered, columns=columns)
+    values = build_column_values(
+        panel=panel, facilitators=found.facilitators, columns=found.columns
+    )
     options = []
-    for facilitator in ordered:
-        # The first configured column names the row; the rest become a meta
-        # line. They carry their own labels because, unlike in the facilitator
-        # table, there are no column headers here to read them against -- a
-        # bare "None · 2 · —" says nothing about who this is. Placeholders are
-        # dropped for the same reason.
+    for facilitator in found.facilitators:
+        # Whichever columns the organizer configured become a meta line under
+        # the name. They carry their own labels because, unlike in the
+        # facilitator table, there are no column headers here to read them
+        # against -- a bare "None · 2 · —" says nothing about who this is.
+        # Placeholders are dropped for the same reason.
         cells = [
             (facilitator_column_label(column), cell)
-            for column in columns
-            if (cell := values[facilitator.pk][column.key]) not in {"", "—"}
+            for column in found.columns
+            # The name is the row's label, never a meta cell repeating it.
+            if column.key != "name"
+            and (cell := values[facilitator.pk][column.key]) not in {"", "—"}
         ]
         options.append(
             MultiselectOptionDTO(
                 value=facilitator.pk,
-                label=cells[0][1] if cells else facilitator.display_name,
-                meta=" · ".join(f"{label}: {cell}" for label, cell in cells[1:]),
+                # Always the display name: an organizer is free to order the
+                # list's columns however they like, and a picker labelling
+                # people by session count or phone number names nobody.
+                label=facilitator.display_name,
+                meta=" · ".join(f"{label}: {cell}" for label, cell in cells),
             )
         )
-    return options, has_more
+    return _FacilitatorOptions(options=options, has_more=found.has_more)
 
 
 def _print_url(
@@ -204,10 +193,8 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        category_pk_raw = self.request.GET.get("category", "").strip()
-        category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
-        max_dur_raw = self.request.GET.get("max_duration", "").strip()
-        max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        category_pk = _as_pk(self.request.GET.get("category", ""))
+        max_duration_minutes = _as_pk(self.request.GET.get("max_duration", ""))
 
         space_pks = _parse_pks(self.request.GET, "space")
         facilitator_pks = _parse_pks(self.request.GET, "facilitator")
@@ -251,12 +238,14 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         context["filter_space_pks"] = space_pks
-        context["facilitator_options"], _more = _facilitator_options(
+        # An unsearched picker shows exactly the already-picked rows, so there
+        # is never a "more matches" tail to report on this path.
+        context["facilitator_options"] = _facilitator_options(
             request=self.request,
             event_pk=current_event.pk,
             search="",
             pinned=facilitator_pks,
-        )
+        ).options
         context["filter_facilitator_pks"] = facilitator_pks
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
@@ -285,10 +274,8 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
         _, _, filter_track_pk = self.get_track_filter_context(current_event.pk)
 
         search = self.request.GET.get("search", "").strip() or None
-        category_pk_raw = self.request.GET.get("category", "").strip()
-        category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
-        max_dur_raw = self.request.GET.get("max_duration", "").strip()
-        max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        category_pk = _as_pk(self.request.GET.get("category", ""))
+        max_duration_minutes = _as_pk(self.request.GET.get("max_duration", ""))
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         uow = self.request.di.uow
@@ -339,10 +326,8 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
 
         _, _, filter_track_pk = self.get_track_filter_context(current_event.pk)
 
-        category_pk_raw = self.request.GET.get("category", "").strip()
-        category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
-        max_dur_raw = self.request.GET.get("max_duration", "").strip()
-        max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        category_pk = _as_pk(self.request.GET.get("category", ""))
+        max_duration_minutes = _as_pk(self.request.GET.get("max_duration", ""))
         search = self.request.GET.get("search", "").strip()
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
@@ -721,8 +706,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
 
         uow = self.request.di.uow
 
-        space_pk_raw = self.request.GET.get("space", "").strip()
-        space_pk = int(space_pk_raw) if space_pk_raw.isdigit() else None
+        space_pk = _as_pk(self.request.GET.get("space", ""))
 
         logs = uow.schedule_change_logs.list_by_event(
             current_event.pk, space_pk=space_pk

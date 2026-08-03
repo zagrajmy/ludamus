@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
+from ludamus.pacts.legacy import ProposalCategoryDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -212,10 +213,28 @@ class TestTimetableSessionListPartView:
             self.get_url(event), {"facilitator": str(alice.pk)}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        session_pks = [s.pk for s in response.context["sessions"]]
-        assert hers.pk in session_pks
-        assert theirs.pk not in session_pks
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-list.html",
+            context_data={
+                # Which sessions came back is the point of this test, so the
+                # list is pinned by pk below rather than rebuilt DTO by DTO.
+                "sessions": ANY,
+                "has_more": False,
+                "limit": UNSCHEDULED_LIST_LIMIT,
+                "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
+                "search": "",
+                "category_pk": None,
+                "max_duration_minutes": None,
+                "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
+        )
+        assert [s.pk for s in response.context_data["sessions"]] == [hers.pk]
+        assert theirs.pk is not None
 
     def test_category_filter(
         self, authenticated_client, active_user, sphere, event, proposal_category

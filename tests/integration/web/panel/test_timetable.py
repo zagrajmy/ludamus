@@ -9,7 +9,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import TimetableGridDTO
+from ludamus.pacts.chronology import MultiselectOptionDTO, TimetableGridDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -42,6 +42,60 @@ def _empty_grid():
         total_columns=0,
         available_dates=[],
     )
+
+
+def _page_context(event, *, stats=None, **overrides):
+    # The timetable page's whole context, so a test states what it changes and
+    # every other key still has to hold. The grid is left unpinned only where
+    # spelling out the expected geometry would mean reimplementing the layout
+    # algorithm inside the test.
+    base = _base_context(event)
+    return {
+        **base,
+        "stats": {**base["stats"], **(stats or {})},
+        "room_page": 1,
+        "grid": _empty_grid(),
+        "conflicts": [],
+        "conflict_session_pks": set(),
+        "conflicts_count": 0,
+        "categories": [],
+        "category_pk": None,
+        "max_duration_minutes": None,
+        "search": "",
+        "space_options": [],
+        "filter_space_pks": set(),
+        "facilitator_options": [],
+        "filter_facilitator_pks": set(),
+        "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
+        "slot_violation_session_pks": set(),
+        "date_selection": "all",
+        "slug": event.slug,
+        "tab_urls": {
+            "timetable": reverse("panel:timetable", kwargs={"slug": event.slug}),
+            "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
+            "overview": reverse(
+                "panel:timetable-overview", kwargs={"slug": event.slug}
+            ),
+            "problems": reverse(
+                "panel:timetable-problems", kwargs={"slug": event.slug}
+            ),
+            "confirmations": reverse(
+                "panel:timetable-confirmations", kwargs={"slug": event.slug}
+            ),
+        },
+        "active_tab": "timetable",
+        "print_url": reverse("web:chronology:event-print", kwargs={"slug": event.slug}),
+        **overrides,
+    }
+
+
+def _scheduled_session_pks(response):
+    return [
+        pos.agenda_item.session_id
+        for day in response.context_data["grid"].days
+        for col in day.columns
+        for pos in col.sessions
+    ]
 
 
 def _base_context(event):
@@ -116,47 +170,8 @@ class TestTimetablePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data={
-                **_base_context(event),
-                "room_page": 1,
-                "grid": _empty_grid(),
-                "conflicts": [],
-                "conflict_session_pks": set(),
-                "conflicts_count": 0,
-                "categories": [],
-                "category_pk": None,
-                "max_duration_minutes": None,
-                "search": "",
-                "space_options": [],
-                "filter_space_pks": set(),
-                "facilitator_options": [],
-                "filter_facilitator_pks": set(),
-                "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
-                "slot_violation_session_pks": set(),
-                "date_selection": "all",
-                "slug": event.slug,
-                "tab_urls": {
-                    "timetable": reverse(
-                        "panel:timetable", kwargs={"slug": event.slug}
-                    ),
-                    "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-                    "overview": reverse(
-                        "panel:timetable-overview", kwargs={"slug": event.slug}
-                    ),
-                    "problems": reverse(
-                        "panel:timetable-problems", kwargs={"slug": event.slug}
-                    ),
-                    "confirmations": reverse(
-                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                    ),
-                },
-                "active_tab": "timetable",
-                "print_url": reverse(
-                    "web:chronology:event-print", kwargs={"slug": event.slug}
-                ),
-            },
+            context_data=_page_context(event),
         )
-        assert response.context["grid"].spaces == []
 
     def test_search_query_param_reaches_the_context(
         self, authenticated_client, active_user, sphere, event
@@ -167,8 +182,12 @@ class TestTimetablePageView:
             self.get_url(event), {"search": " dragons "}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["search"] == "dragons"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=_page_context(event, search="dragons"),
+        )
 
     def test_print_link_carries_track_and_day_filters(
         self, authenticated_client, active_user, sphere, event, space, time_slot
@@ -398,6 +417,9 @@ class TestTimetablePageView:
         self, authenticated_client, active_user, sphere, event, space
     ):
         sphere.managers.add(active_user)
+        # Named so the picker's order is the tree's, not a generated name's.
+        space.name = "Aula"
+        space.save()
         floor = SpaceFactory(event=event, name="Floor 2")
         room = SpaceFactory(event=event, name="Room 201", parent=floor)
 
@@ -405,40 +427,80 @@ class TestTimetablePageView:
             self.get_url(event), {"space": str(floor.pk)}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [s.pk for s in response.context["grid"].spaces] == [room.pk]
-        assert response.context["filter_space_pks"] == {floor.pk}
-        assert space.pk not in [s.pk for s in response.context["grid"].spaces]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=_page_context(
+                event,
+                grid=ANY,
+                space_options=[
+                    MultiselectOptionDTO(value=space.pk, label="Aula", depth=0),
+                    MultiselectOptionDTO(value=floor.pk, label="Floor 2", depth=0),
+                    MultiselectOptionDTO(value=room.pk, label="Room 201", depth=1),
+                ],
+                filter_space_pks={floor.pk},
+                stats={"rooms_count": 1 + 2},  # the fixture space, floor, room
+            ),
+        )
+        assert [s.pk for s in response.context_data["grid"].spaces] == [room.pk]
 
     def test_space_from_another_event_narrows_to_nothing(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        SpaceFactory(event=event, name="Ours")
-        foreign_space = SpaceFactory(event=EventFactory(sphere=sphere), name="Theirs")
+        ours = SpaceFactory(event=event, name="Ours")
+        other_event = EventFactory(sphere=sphere)
+        foreign_space = SpaceFactory(event=other_event, name="Theirs")
 
         response = authenticated_client.get(
             self.get_url(event), {"space": str(foreign_space.pk)}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["grid"].spaces == []
-        assert [o.label for o in response.context["space_options"]] == ["Ours"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=_page_context(
+                event,
+                # The sphere's events come back newest first.
+                events=[
+                    EventDTO.model_validate(other_event),
+                    EventDTO.model_validate(event),
+                ],
+                space_options=[
+                    MultiselectOptionDTO(value=ours.pk, label="Ours", depth=0)
+                ],
+                filter_space_pks={foreign_space.pk},
+                stats={"rooms_count": 1},  # the foreign one belongs elsewhere
+            ),
+        )
 
     def test_space_options_carry_the_whole_tree_with_depth(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         building = SpaceFactory(event=event, name="Building A")
-        SpaceFactory(event=event, name="Room 1", parent=building)
+        room = SpaceFactory(event=event, name="Room 1", parent=building)
 
         response = authenticated_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert [(o.label, o.depth) for o in response.context["space_options"]] == [
-            ("Building A", 0),
-            ("Room 1", 1),
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=_page_context(
+                event,
+                grid=ANY,
+                space_options=[
+                    MultiselectOptionDTO(
+                        value=building.pk, label="Building A", depth=0
+                    ),
+                    MultiselectOptionDTO(value=room.pk, label="Room 1", depth=1),
+                ],
+                stats={"rooms_count": 1 + 1},  # the building and its room
+            ),
+        )
 
     def test_filters_the_grid_by_facilitator(
         self,
@@ -474,11 +536,34 @@ class TestTimetablePageView:
             self.get_url(event), {"facilitator": str(alice.pk)}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        grid = response.context["grid"]
-        col = next(c for c in grid.days[0].columns if c.space.pk == space.pk)
-        assert [pos.agenda_item.session_id for pos in col.sessions] == [session.pk]
-        assert response.context["filter_facilitator_pks"] == {alice.pk}
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=_page_context(
+                event,
+                grid=ANY,
+                space_options=[
+                    MultiselectOptionDTO(value=space.pk, label=space.name, depth=0)
+                ],
+                filter_facilitator_pks={alice.pk},
+                facilitator_options=[
+                    # No columns configured for the event, so the picker falls
+                    # back to every built-in one under the name.
+                    MultiselectOptionDTO(
+                        value=alice.pk,
+                        label="Alice",
+                        meta="Linked User: None · Sessions: 1 · Accreditation: None",
+                    )
+                ],
+                stats={
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1 + 1,  # hers and the other one
+                    "total_sessions": 1 + 1,
+                },
+            ),
+        )
+        assert _scheduled_session_pks(response) == [session.pk]
         assert time_slot is not None
 
     def test_facilitator_from_another_event_empties_the_grid(
@@ -499,21 +584,35 @@ class TestTimetablePageView:
             start_time=start,
             end_time=start + timedelta(hours=1),
         )
+        other_event = EventFactory(sphere=sphere)
         foreign = Facilitator.objects.create(
-            event=EventFactory(sphere=sphere),
-            display_name="Alice",
-            slug="alice",
-            user=None,
+            event=other_event, display_name="Alice", slug="alice", user=None
         )
 
         response = authenticated_client.get(
             self.get_url(event), {"facilitator": str(foreign.pk)}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        grid = response.context["grid"]
-        assert all(not col.sessions for col in grid.days[0].columns)
-        assert response.context["facilitator_options"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data=_page_context(
+                event,
+                grid=ANY,
+                # The sphere's events come back newest first.
+                events=[
+                    EventDTO.model_validate(other_event),
+                    EventDTO.model_validate(event),
+                ],
+                space_options=[
+                    MultiselectOptionDTO(value=space.pk, label=space.name, depth=0)
+                ],
+                filter_facilitator_pks={foreign.pk},
+                stats={"rooms_count": 1, "scheduled_sessions": 1, "total_sessions": 1},
+            ),
+        )
+        assert _scheduled_session_pks(response) == []
         assert time_slot is not None
 
     def test_auto_selects_single_managed_track(

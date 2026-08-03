@@ -177,7 +177,7 @@ function markFiltersInert(inert: boolean): void {
   const bar = filterBar();
   if (!bar) return;
   bar.toggleAttribute("inert", inert);
-  bar.classList.toggle("opacity-50", inert);
+  bar.classList.toggle("filter-bar-inert", inert);
 }
 
 function enterAssignMode(placement: Placement): void {

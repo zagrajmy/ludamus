@@ -925,6 +925,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
 
         ordered = _order_facilitators(qs, filters.get("sort") or "name")
+        # A picker asks for one row more than it shows, so "there are more"
+        # costs no extra COUNT -- and a one-letter search never drags the whole
+        # roster into memory to throw most of it away.
+        if limit := filters.get("limit"):
+            ordered = ordered[:limit]
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
 
     @staticmethod
