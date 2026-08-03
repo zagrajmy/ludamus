@@ -30,8 +30,14 @@ markdownlint-cli2 = "0.23.1"
 "npm:@endevco/aube" = { version = "1.31.0", npm_args = "--ignore-scripts=false" }
 hk = "1.51.0"
 actionlint = "1.7.12"
-shellcheck = "0.11.0"
-hadolint = "2.14.0"
+# `prefix:` (not a bare "0.11.0"): in sandboxes these two resolve to PyPI
+# wrappers that append a packaging revision to the upstream version
+# (shellcheck-py 0.11.0.1 wraps shellcheck 0.11.0). mise hands an exact pin to
+# uv verbatim as `==0.11.0`, which matches nothing there; a prefix pin resolves
+# against the registry and picks the wrapper. On GitHub-release backends the
+# prefix matches the exact version, so laptops keep installing 0.11.0/2.14.0.
+shellcheck = "prefix:0.11.0"
+hadolint = "prefix:2.14.0"
 "github:reteps/dockerfmt" = "0.5.4"
 pipx = "1.16.0"
 

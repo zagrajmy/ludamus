@@ -37,7 +37,7 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        {# Form-level errors live here, outside the column flow, so they show #}
+        {# Form-level errors live here, outside the grid, so they show #}
         {# whichever cards the event's data happens to render. #}
         {% if form.non_field_errors %}
             <div class="px-4 pt-4 lg:px-6 lg:pt-6">{% tessera_errors form %}</div>
@@ -45,131 +45,127 @@
         <form id="proposal-form"
               method="post"
               enctype="multipart/form-data"
-              class="p-4 lg:p-6 columns-1 lg:columns-2 xl:columns-3 gap-6">
+              class="p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
             {% csrf_token %}
-            <div class="contents">
-                <div class="card break-inside-avoid mb-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Details" %}</h3>
+                    <div class="space-y-6">
+                        <div>{% tessera_field form.title %}</div>
+                        <div>
+                            <div class="flex items-center gap-1 mb-1">
+                                {% translate "Category" as t_category %}
+                                {% include "components/label.html" with for_id="id_category_id" text=t_category required=True only %}
+                                <span id="category-spinner"
+                                      class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
+                                      role="status"
+                                      aria-label="{% translate "Loading" %}"></span>
+                            </div>
+                            {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors aria-describedby=form.category_id.errors|yesno:"id_category_id_errors," %}
+                                {% for value, label in form.category_id.field.choices %}
+                                    <option value="{{ value }}"
+                                            {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            {% end_select %}
+                            {% if form.category_id.errors %}
+                                <p id="id_category_id_errors" class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>
+                            {% endif %}
+                        </div>
+                        <div>{% tessera_field form.cover_image %}</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>{% tessera_field form.display_name %}</div>
+                            <div>{% tessera_field form.contact_email %}</div>
+                        </div>
+                        <div>{% tessera_field form.description %}</div>
+                        {# Participants limit and duration live in the swapped #}
+                        {# region below: the category rebuilds them, min age it doesn't. #}
+                        <div>{% tessera_field form.min_age %}</div>
+                    </div>
+                </div>
+            </div>
+            {% include "panel/parts/proposal-session-fields.html" %}
+            {% if all_facilitators %}
+                <div class="card">
                     <div class="card-body">
-                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Details" %}</h3>
-                        <div class="space-y-6">
-                            <div>{% tessera_field form.title %}</div>
-                            <div>
-                                <div class="flex items-center gap-1 mb-1">
-                                    {% translate "Category" as t_category %}
-                                    {% include "components/label.html" with for_id="id_category_id" text=t_category required=True only %}
-                                    <span id="category-spinner"
-                                          class="htmx-indicator inline-block h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
-                                          role="status"
-                                          aria-label="{% translate "Loading" %}"></span>
-                                </div>
-                                {% select name="category_id" id="id_category_id" hx-get=fields_url hx-target="#proposal-session-fields" hx-swap="outerHTML" hx-indicator="#category-spinner" has_errors=form.category_id.errors aria-describedby=form.category_id.errors|yesno:"id_category_id_errors," %}
-                                    {% for value, label in form.category_id.field.choices %}
-                                        <option value="{{ value }}"
-                                                {% if form.category_id.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>
-                                            {{ label }}
-                                        </option>
-                                    {% endfor %}
-                                {% end_select %}
-                                {% if form.category_id.errors %}
-                                    <p id="id_category_id_errors" class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>
-                                {% endif %}
-                            </div>
-                            <div>{% tessera_field form.cover_image %}</div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>{% tessera_field form.display_name %}</div>
-                                <div>{% tessera_field form.contact_email %}</div>
-                            </div>
-                            <div>{% tessera_field form.description %}</div>
-                            {# Participants limit and duration live in the swapped #}
-                            {# region below: the category rebuilds them, min age it doesn't. #}
-                            <div>{% tessera_field form.min_age %}</div>
+                        <input type="hidden" name="facilitators_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">
+                            {% translate "Facilitators" %}
+                            {% if not proposal %}<span class="text-danger ml-0.5">*</span>{% endif %}
+                        </h3>
+                        {% include "panel/parts/facilitator-picker.html" %}
+                    </div>
+                </div>
+            {% elif not proposal %}
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">
+                            {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
+                        </h3>
+                        <p class="text-sm text-foreground-muted">
+                            {% translate "This event has no facilitators yet." %}
+                            {# New tab: the proposal being typed here has no draft storage. #}
+                            <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
+                               target="_blank"
+                               rel="noopener"
+                               class="text-primary underline hover:no-underline ml-1">{% translate "Create one first" %}</a>
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+            {% if all_tracks %}
+                <div class="card">
+                    <div class="card-body">
+                        <input type="hidden" name="tracks_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Tracks" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Assign this proposal to one or more programme tracks." %}
+                        </p>
+                        <div class="space-y-2">
+                            {% for t in all_tracks %}
+                                <label class="flex items-center gap-2 py-2 text-sm">
+                                    {% include "components/checkbox-field.html" with name="track_ids" value=t.pk checked_values=assigned_track_pks label="" only %}
+                                    {{ t.name }}
+                                </label>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
-                {% include "panel/parts/proposal-session-fields.html" %}
-            </div>
-            <div class="contents">
-                {% if all_facilitators %}
-                    <div class="card break-inside-avoid mb-6">
-                        <div class="card-body">
-                            <input type="hidden" name="facilitators_submitted" value="1">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">
-                                {% translate "Facilitators" %}
-                                {% if not proposal %}<span class="text-danger ml-0.5">*</span>{% endif %}
-                            </h3>
-                            {% include "panel/parts/facilitator-picker.html" %}
+            {% endif %}
+            {% if all_time_slots %}
+                <div class="card">
+                    <div class="card-body">
+                        <input type="hidden" name="time_slots_submitted" value="1">
+                        {% include "panel/parts/time-slot-picker.html" %}
+                    </div>
+                </div>
+            {% endif %}
+            {% if facilitator_personal_data %}
+                <div class="card">
+                    <div class="card-body">
+                        <input type="hidden" name="personal_data_submitted" value="1">
+                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitator personal data" %}</h3>
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Personal-data answers for each assigned facilitator." %}
+                        </p>
+                        <div class="space-y-3">
+                            {% for card in facilitator_personal_data %}
+                                <details class="border border-border rounded-lg"
+                                         {% if card.has_errors %}open{% endif %}>
+                                    <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ card.facilitator.display_name }}</summary>
+                                    <div class="px-4 pb-4 pt-2">
+                                        <input type="hidden"
+                                               name="personal_data_facilitator_ids"
+                                               value="{{ card.facilitator.pk }}">
+                                        {% include "panel/_personal_data_fields.html" with descriptors=card.descriptors %}
+                                    </div>
+                                </details>
+                            {% endfor %}
                         </div>
                     </div>
-                {% elif not proposal %}
-                    <div class="card break-inside-avoid mb-6">
-                        <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">
-                                {% translate "Facilitators" %}<span class="text-danger ml-0.5">*</span>
-                            </h3>
-                            <p class="text-sm text-foreground-muted">
-                                {% translate "This event has no facilitators yet." %}
-                                {# New tab: the proposal being typed here has no draft storage. #}
-                                <a href="{% url 'panel:facilitator-create' slug=current_event.slug %}"
-                                   target="_blank"
-                                   rel="noopener"
-                                   class="text-primary underline hover:no-underline ml-1">{% translate "Create one first" %}</a>
-                            </p>
-                        </div>
-                    </div>
-                {% endif %}
-                {% if all_tracks %}
-                    <div class="card break-inside-avoid mb-6">
-                        <div class="card-body">
-                            <input type="hidden" name="tracks_submitted" value="1">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Tracks" %}</h3>
-                            <p class="text-sm text-foreground-muted mb-4">
-                                {% translate "Assign this proposal to one or more programme tracks." %}
-                            </p>
-                            <div class="space-y-2">
-                                {% for t in all_tracks %}
-                                    <label class="flex items-center gap-2 py-2 text-sm">
-                                        {% include "components/checkbox-field.html" with name="track_ids" value=t.pk checked_values=assigned_track_pks label="" only %}
-                                        {{ t.name }}
-                                    </label>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-                {% if all_time_slots %}
-                    <div class="card break-inside-avoid mb-6">
-                        <div class="card-body">
-                            <input type="hidden" name="time_slots_submitted" value="1">
-                            {% include "panel/parts/time-slot-picker.html" %}
-                        </div>
-                    </div>
-                {% endif %}
-                {% if facilitator_personal_data %}
-                    <div class="card break-inside-avoid mb-6">
-                        <div class="card-body">
-                            <input type="hidden" name="personal_data_submitted" value="1">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Facilitator personal data" %}</h3>
-                            <p class="text-sm text-foreground-muted mb-4">
-                                {% translate "Personal-data answers for each assigned facilitator." %}
-                            </p>
-                            <div class="space-y-3">
-                                {% for card in facilitator_personal_data %}
-                                    <details class="border border-border rounded-lg"
-                                             {% if card.has_errors %}open{% endif %}>
-                                        <summary class="cursor-pointer px-4 py-2 text-sm font-medium text-foreground">{{ card.facilitator.display_name }}</summary>
-                                        <div class="px-4 pb-4 pt-2">
-                                            <input type="hidden"
-                                                   name="personal_data_facilitator_ids"
-                                                   value="{{ card.facilitator.pk }}">
-                                            {% include "panel/_personal_data_fields.html" with descriptors=card.descriptors %}
-                                        </div>
-                                    </details>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
         </form>
     {% endif %}
 {% endblock content %}
