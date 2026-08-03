@@ -15,13 +15,15 @@ disable_tools = ["python", "pipx", "github:reteps/dockerfmt"]
 [tool_alias]
 hk = "cargo:hk"
 # The pipx wrappers version as <upstream>.<wrapper-rev> (0.11.0.1 wraps
-# 0.11.0), so mise.toml's exact pins never match PyPI; session-start.sh
-# retries shimless aliased tools with the pin trimmed one segment.
+# 0.11.0), which is why mise.toml pins these two with `prefix:` — an exact pin
+# reaches uv as `==0.11.0` and matches nothing on PyPI.
 shellcheck = "pipx:shellcheck-py"
 actionlint = "go:github.com/rhysd/actionlint/cmd/actionlint"
 hadolint = "pipx:hadolint-py"
 
 # dockerfmt can't be aliased (its mise.toml key is already a full backend
-# spec), so it keeps the one duplicated pin in this file.
+# spec), so it keeps the one duplicated pin in this file. Bump it together with
+# mise.toml's — nothing checks that they agree, and they had already drifted
+# (sandboxes ran 0.5.2 against laptops' 0.5.4).
 [tools]
-"go:github.com/reteps/dockerfmt" = "v0.5.2"
+"go:github.com/reteps/dockerfmt" = "v0.5.4"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, QueryDict
@@ -40,6 +41,9 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
 )
 from ludamus.pacts.submissions import FacilitatorListQuery
+
+if TYPE_CHECKING:
+    from ludamus.pacts.legacy import TrackDTO
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -147,6 +151,25 @@ def _facilitator_options(
     return options, has_more
 
 
+def _print_url(
+    *,
+    slug: str,
+    tracks: list[TrackDTO],
+    track_pk: int | None,
+    date_selection: DateSelection,
+) -> str:
+    # The print page is preset to the schedule's current view: an active track
+    # filter prints that track, a picked day prints that day — the filters the
+    # organizer already dialed in aren't wasted.
+    params: list[tuple[str, str]] = []
+    if (track := next((t for t in tracks if t.pk == track_pk), None)) is not None:
+        params += [("material", "track-timetable"), ("track", track.slug)]
+    if date_selection != "all":
+        params += [("start", f"{date_selection.isoformat()}T00:00"), ("hours", "24")]
+    base = reverse("web:chronology:event-print", kwargs={"slug": slug})
+    return f"{base}?{urlencode(params)}" if params else base
+
+
 def _parse_date_selection(raw: str | None) -> DateSelection:
     if raw == "all":
         return "all"
@@ -240,7 +263,12 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["slug"] = slug
         context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "timetable"
-        context["print_scopes"] = self.get_print_scopes(current_event.pk)
+        context["print_url"] = _print_url(
+            slug=slug,
+            tracks=sorted_tracks,
+            track_pk=filter_track_pk,
+            date_selection=grid.date_selection,
+        )
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 

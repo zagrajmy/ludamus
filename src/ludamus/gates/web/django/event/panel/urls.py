@@ -19,10 +19,10 @@ from ludamus.gates.web.django.chronology.panel.views import (
     tracks,
     venues,
 )
-from ludamus.gates.web.django.chronology.panel.views import print as print_views
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
+    print_redirects,
     proposal_category_settings,
 )
 
@@ -109,12 +109,12 @@ _timetable_urlpatterns = [
     ),
     path(
         "print/timetable/",
-        print_views.TimetablePrintView.as_view(material="timetable"),
+        print_redirects.LegacyPrintRedirectView.as_view(material="timetable"),
         name="timetable-print",
     ),
     path(
         "print/door-cards/",
-        print_views.TimetablePrintView.as_view(material="door-cards"),
+        print_redirects.LegacyPrintRedirectView.as_view(material="door-cards"),
         name="timetable-print-door-cards",
     ),
 ]
@@ -464,7 +464,7 @@ urlpatterns = [
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
     path(
         "event/<slug:slug>/print/",
-        print_views.PrintMaterialsPageView.as_view(),
+        print_redirects.LegacyPrintRedirectView.as_view(),
         name="print-materials",
     ),
     path(

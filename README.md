@@ -56,3 +56,12 @@ Production sets `EMAIL_URL=smtp+tls://user:pass@host:587`.
 ### Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## License
+
+[AGPL-3.0](LICENSE), version 3 only — no "or later" clause. If you run a
+modified version of this software as a network service, you must offer its
+source to the users of that service.
+
+Copyright © 2025–2026 Radosław Ganczarek (fancysnake) and Piotr
+Monwid-Olechnowicz (hasparus).
