@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventSettings, SessionField
+from ludamus.pacts.fields import OrganizerFieldDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -23,6 +24,36 @@ def _create_session_field(event, name="Test Field", slug="test-field", **kwargs)
         question=f"What is {name}?",
         **(defaults | kwargs),
     )
+
+
+def _expected_field(field):
+    # Every column _create_session_field leaves at its model default is spelled
+    # out, so a changed default can't slip through as an equal DTO.
+    return OrganizerFieldDTO(
+        allow_custom=False,
+        field_type="text",
+        help_text="",
+        icon="",
+        is_multiple=False,
+        is_public=True,
+        max_length=50,
+        name=field.name,
+        options=[],
+        order=0,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
+
+
+def _expected_context(event, *, fields):
+    return {
+        **panel_context(event, active_nav="settings"),
+        "active_tab": "display",
+        "tab_urls": settings_tab_urls(event.slug),
+        "fields": fields,
+        "filterable_field_ids": [],
+    }
 
 
 class TestEventDisplaySettingsPageViewGet:
@@ -49,13 +80,7 @@ class TestEventDisplaySettingsPageViewGet:
             response,
             HTTPStatus.OK,
             template_name="panel/display-settings.html",
-            context_data={
-                **panel_context(event, active_nav="settings"),
-                "active_tab": "display",
-                "tab_urls": settings_tab_urls(event.slug),
-                "fields": [],
-                "filterable_field_ids": [],
-            },
+            context_data=_expected_context(event, fields=[]),
         )
 
     def test_shows_session_fields(self, panel_client, event):
@@ -63,17 +88,25 @@ class TestEventDisplaySettingsPageViewGet:
 
         response = panel_client.get(self.get_url(event))
 
-        assert len(response.context["fields"]) == 1
-        assert response.context["fields"][0].pk == field.pk
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/display-settings.html",
+            context_data=_expected_context(event, fields=[_expected_field(field)]),
+        )
 
     def test_excludes_non_public_fields(self, panel_client, event):
-        _create_session_field(event, name="Public", slug="public", is_public=True)
+        public = _create_session_field(event, name="Public", slug="public")
         _create_session_field(event, name="Private", slug="private", is_public=False)
 
         response = panel_client.get(self.get_url(event))
 
-        field_names = [f.name for f in response.context["fields"]]
-        assert field_names == ["Public"]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/display-settings.html",
+            context_data=_expected_context(event, fields=[_expected_field(public)]),
+        )
 
     def test_redirects_on_invalid_slug(self, panel_client):
         url = reverse("panel:event-display-settings", kwargs={"slug": "bad-slug"})
