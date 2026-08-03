@@ -59,7 +59,8 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE). If you run a modified version of this software as
-a network service, you must offer its source to the users of that service.
+[AGPL-3.0](LICENSE), version 3 only — no "or later" clause. If you run a
+modified version of this software as a network service, you must offer its
+source to the users of that service.
 
 Copyright © 2025–2026 Radosław Ganczarek, Piotr Monwid-Olechnowicz.

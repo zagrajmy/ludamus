@@ -13,7 +13,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "AGPL-3.0-or-later",
+  "license": "AGPL-3.0-only",
   "devDependencies": {
     "@hasparus/oxlint-config": "^0.1.1",
     "@hasparus/tailwind": "1.1.8",
