@@ -144,14 +144,16 @@
                                 {% include "components/theme_switcher.html" %}
                             </div>
                             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
-                                <p class="text-center sm:text-left">
+                                {% comment %}One sentence, one msgid: Polish
+                                reorders it ("dostępny na licencji …"), so the
+                                links have to sit inside the translated unit.
+                                Their styling rides on the paragraph so a class
+                                tweak can't fuzzy the translation.{% endcomment %}
+                                <p class="text-center sm:text-left [&_a]:text-primary [&_a]:hover:underline">
                                     © {% now "Y" %} Radosław Ganczarek, Piotr Monwid-Olechnowicz.
-                                    <a href="https://github.com/zagrajmy/ludamus"
-                                       class="hover:underline text-primary">Source code</a>
-                                    available under
-                                    <a href="https://github.com/zagrajmy/ludamus/blob/main/LICENSE"
-                                       class="hover:underline text-primary">AGPL-3.0</a>
-                                    license.
+                                    {% blocktranslate trimmed with source_url="https://github.com/zagrajmy/ludamus" license_url="https://github.com/zagrajmy/ludamus/blob/main/LICENSE" %}
+                                        <a href="{{ source_url }}">Source code</a> available under <a href="{{ license_url }}">AGPL-3.0 or later</a> license.
+                                    {% endblocktranslate %}
                                 </p>
                                 <div class="flex flex-wrap justify-center sm:justify-end gap-4">
                                     <a href="{% url 'web:brand' %}" class="hover:underline text-primary">{% translate "Brand" %}</a>
