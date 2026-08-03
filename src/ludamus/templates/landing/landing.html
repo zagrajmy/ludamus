@@ -4,22 +4,6 @@
     {# CSS-only audience switch: the radios drive the org/player sections via group-has on this root. #}
     <input class="sr-only" type="radio" name="landing-aud" id="aud-org" checked>
     <input class="sr-only" type="radio" name="landing-aud" id="aud-gracz">
-    {% translate "Choose page view" as t_switch %}
-    {# Top-right corner of the hero: zero-height row on sm+ so the pills overlap the hero's top padding; stacked above it on phones. #}
-    <div class="ld d0 max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)] flex items-start justify-center pt-5 sm:justify-end sm:h-0 sm:overflow-visible relative z-10"
-         role="group"
-         aria-label="{{ t_switch }}">
-        <div class="inline-flex gap-[0.2rem] bg-bg-tertiary border border-border rounded-full p-[0.22rem]">
-            <label for="aud-org"
-                   class="cursor-pointer select-none text-[0.86rem] font-semibold text-foreground-secondary px-[0.85rem] py-[0.32rem] rounded-full transition-colors hover:text-foreground group-has-[#aud-org:checked]/aud:bg-bg-secondary group-has-[#aud-org:checked]/aud:text-foreground group-has-[#aud-org:checked]/aud:shadow-sm group-has-[#aud-org:focus-visible]/aud:outline-2 group-has-[#aud-org:focus-visible]/aud:outline-primary group-has-[#aud-org:focus-visible]/aud:outline-offset-2">
-                {% translate "For organizers" %}
-            </label>
-            <label for="aud-gracz"
-                   class="cursor-pointer select-none text-[0.86rem] font-semibold text-foreground-secondary px-[0.85rem] py-[0.32rem] rounded-full transition-colors hover:text-foreground group-has-[#aud-gracz:checked]/aud:bg-bg-secondary group-has-[#aud-gracz:checked]/aud:text-foreground group-has-[#aud-gracz:checked]/aud:shadow-sm group-has-[#aud-gracz:focus-visible]/aud:outline-2 group-has-[#aud-gracz:focus-visible]/aud:outline-primary group-has-[#aud-gracz:focus-visible]/aud:outline-offset-2">
-                {% translate "For players" %}
-            </label>
-        </div>
-    </div>
     {% include "landing/org_hero.html" %}
     {% include "landing/org_problem.html" %}
     {% include "landing/scena.html" %}
