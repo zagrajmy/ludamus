@@ -3,8 +3,13 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import cached_property
 from typing import TYPE_CHECKING, Self, TypedDict
 
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    EnrollActions,
+    build_enroll_actions,
+)
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
@@ -99,14 +104,15 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     def is_unlimited(self) -> bool:
         return self.effective_participants_limit == 0
 
-    @property
-    def shows_enrollment_actions(self) -> bool:
-        # Giving up a seat stays possible after the enrollment window shuts —
-        # the seat still goes to the next person waiting. Without this the
-        # footer disappears and an enrolled viewer is stuck with the seat.
-        if self.is_enrollment_available:
-            return True
-        return (self.user_enrolled or self.user_waiting) and not self.is_ended
+    @cached_property
+    def enroll_actions(self) -> EnrollActions | None:
+        return build_enroll_actions(
+            is_enrollment_available=self.is_enrollment_available,
+            is_ended=self.is_ended,
+            is_full=self.is_full,
+            user_enrolled=self.user_enrolled,
+            user_waiting=self.user_waiting,
+        )
 
     @property
     def spots_left(self) -> int:

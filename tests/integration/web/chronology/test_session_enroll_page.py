@@ -13,6 +13,7 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     SessionUserParticipationData,
+    build_enroll_actions,
 )
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
@@ -2403,18 +2404,20 @@ class TestSessionEnrollInline:
         user_enrolled=False,
         user_waiting=False,
         is_full=False,
+        is_enrollment_available=True,
         enroll_error="",
     ):
         return {
             "event_slug": session.event.slug,
             "session_pk": session.pk,
             "viewer_pk": viewer_pk,
-            "can_act": True,
-            "is_enrollment_available": True,
-            "user_enrolled": user_enrolled,
-            "user_waiting": user_waiting,
-            "is_full": is_full,
-            "is_unlimited": False,
+            "actions": build_enroll_actions(
+                is_enrollment_available=is_enrollment_available,
+                is_ended=False,
+                is_full=is_full,
+                user_enrolled=user_enrolled,
+                user_waiting=user_waiting,
+            ),
             "enroll_error": enroll_error,
         }
 
@@ -2471,6 +2474,37 @@ class TestSessionEnrollInline:
             messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
             contains=['value="enroll"'],
             not_contains=['value="cancel"'],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=session
+        ).exists()
+
+    def test_htmx_cancel_without_enrollment_config_leaves_nothing_to_do(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # No enrollment_config fixture: the window is shut, so the swapped-back
+        # fragment offers no way in — the same decision the modal's GET makes.
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "cancel"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session, viewer_pk=staff_user.id, is_enrollment_available=False
+            ),
+            messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
         )
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session

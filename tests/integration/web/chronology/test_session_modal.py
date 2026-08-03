@@ -440,7 +440,7 @@ class TestSessionModalComponentView:
             contains=["Mystery Host"],
         )
 
-    def test_viewer_enrolled_shows_status(
+    def test_viewer_enrolled_reaches_the_context(
         self, authenticated_client, active_user, agenda_item, event
     ):
         participation = SessionParticipation.objects.create(
@@ -471,7 +471,7 @@ class TestSessionModalComponentView:
             },
         )
 
-    def test_viewer_on_waiting_list_shows_status(
+    def test_viewer_on_waiting_list_reaches_the_context(
         self, authenticated_client, active_user, agenda_item, event
     ):
         participation = SessionParticipation.objects.create(

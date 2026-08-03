@@ -34,6 +34,7 @@ from ludamus.gates.web.django.access import PanelAccess, has_panel_access, panel
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
+    build_enroll_actions,
 )
 from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
@@ -1052,11 +1053,15 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _render_enroll_actions(
         self, session: Session, *, enroll_error: str = ""
     ) -> HttpResponse:
-        # The single card-footer fragment the event page swaps in place after an
+        # The single modal-footer fragment the page swaps in place after an
         # inline (HX-Request) self-enroll; state is re-read fresh from the DB.
+        # build_enroll_actions is the same decision the modal's GET renders, so
+        # the two paths cannot drift.
         viewer_pk = self.request.context.current_user_id
-        viewer_participations = SessionParticipation.objects.filter(
-            session=session, user_id=viewer_pk
+        statuses = set(
+            SessionParticipation.objects.filter(
+                session=session, user_id=viewer_pk
+            ).values_list("status", flat=True)
         )
         return TemplateResponse(
             self.request,
@@ -1065,20 +1070,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "event_slug": session.event.slug,
                 "session_pk": session.pk,
                 "viewer_pk": viewer_pk,
-                "can_act": True,
-                "is_enrollment_available": session.is_enrollment_available,
-                "user_enrolled": (
-                    viewer_participations.filter(
-                        status=SessionParticipationStatus.CONFIRMED
-                    ).exists()
+                "actions": build_enroll_actions(
+                    is_enrollment_available=session.is_enrollment_available,
+                    is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
+                    is_full=session.is_full,
+                    user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
+                    user_waiting=SessionParticipationStatus.WAITING in statuses,
                 ),
-                "user_waiting": (
-                    viewer_participations.filter(
-                        status=SessionParticipationStatus.WAITING
-                    ).exists()
-                ),
-                "is_full": session.is_full,
-                "is_unlimited": session.effective_participants_limit == 0,
                 "enroll_error": enroll_error,
             },
         )

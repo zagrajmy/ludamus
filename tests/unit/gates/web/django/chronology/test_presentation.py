@@ -4,6 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    build_enroll_actions,
+)
 from ludamus.gates.web.django.chronology.event_presentation import SessionData
 from ludamus.gates.web.django.chronology.schedule import (
     build_schedule_days,
@@ -89,33 +92,22 @@ class TestSessionDataSpotsScarce:
         assert data.spots_scarce is False
 
 
-class TestSessionDataShowsEnrollmentActions:
-    def test_open_enrollment_shows_actions(self):
-        data = _make_session_data(is_enrollment_available=True)
+class TestSessionDataEnrollActions:
+    def test_delegates_to_the_builder(self):
+        data = _make_session_data(is_enrollment_available=True, user_enrolled=True)
 
-        assert data.shows_enrollment_actions
-
-    def test_closed_enrollment_hides_actions_for_outsider(self):
-        data = _make_session_data(is_enrollment_available=False)
-
-        assert not data.shows_enrollment_actions
-
-    def test_closed_enrollment_keeps_actions_for_enrolled_viewer(self):
-        data = _make_session_data(is_enrollment_available=False, user_enrolled=True)
-
-        assert data.shows_enrollment_actions
-
-    def test_closed_enrollment_keeps_actions_for_waiting_viewer(self):
-        data = _make_session_data(is_enrollment_available=False, user_waiting=True)
-
-        assert data.shows_enrollment_actions
-
-    def test_ended_session_hides_actions_for_enrolled_viewer(self):
-        data = _make_session_data(
-            is_enrollment_available=False, user_enrolled=True, is_ended=True
+        assert data.enroll_actions == build_enroll_actions(
+            is_enrollment_available=True,
+            is_ended=False,
+            is_full=data.is_full,
+            user_enrolled=True,
+            user_waiting=False,
         )
 
-        assert not data.shows_enrollment_actions
+    def test_closed_enrollment_leaves_an_outsider_without_actions(self):
+        data = _make_session_data(is_enrollment_available=False)
+
+        assert data.enroll_actions is None
 
 
 class TestSessionDataWaitingCount:

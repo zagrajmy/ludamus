@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-02 18:06+0200\n"
+"POT-Creation-Date: 2026-08-03 16:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -781,6 +781,46 @@ msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
+
+#: src/ludamus/gates/web/django/chronology/enrollment_presentation.py
+msgid ""
+"This session is full — cancelling hands your seat to the next person "
+"waiting. Cancel anyway?"
+msgstr ""
+"Ten punkt programu jest pełny — anulowanie przekaże Twoje miejsce następnej "
+"osobie z listy oczekujących. Anulować mimo to?"
+
+#: src/ludamus/gates/web/django/chronology/enrollment_presentation.py
+msgid ""
+"Enrollment is closed — your seat goes to the next person waiting and you "
+"cannot take it back. Cancel anyway?"
+msgstr ""
+"Zapisy są zamknięte — Twoje miejsce przejmie następna osoba z listy "
+"oczekujących i nie odzyskasz go. Anulować mimo to?"
+
+#: src/ludamus/gates/web/django/chronology/enrollment_presentation.py
+msgid ""
+"Enrollment is closed — once you give up your seat you cannot take it back. "
+"Cancel anyway?"
+msgstr ""
+"Zapisy są zamknięte — gdy oddasz swoje miejsce, nie odzyskasz go. Anulować "
+"mimo to?"
+
+#: src/ludamus/gates/web/django/chronology/enrollment_presentation.py
+msgid "Enroll with others…"
+msgstr "Zapisz się z innymi…"
+
+#: src/ludamus/gates/web/django/chronology/enrollment_presentation.py
+msgid "Manage the seats you booked for others…"
+msgstr "Zarządzaj miejscami zapisanymi dla innych…"
+
+#: src/ludamus/gates/web/django/chronology/enrollment_presentation.py
+msgid ""
+"Enrollment is closed — once you leave the waiting list you cannot rejoin it. "
+"Leave anyway?"
+msgstr ""
+"Zapisy są zamknięte — gdy opuścisz listę oczekujących, nie wrócisz na nią. "
+"Opuścić mimo to?"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -4260,44 +4300,12 @@ msgid "You're enrolled"
 msgstr "Jesteś zapisany/a"
 
 #: src/ludamus/templates/chronology/parts/session-enroll-actions.html
-msgid ""
-"Enrollment is closed — once you give up your seat you cannot take it back. "
-"Cancel anyway?"
-msgstr ""
-"Zapisy są zamknięte — gdy oddasz swoje miejsce, nie odzyskasz go. Anulować "
-"mimo to?"
-
-#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
-msgid ""
-"This session is full — cancelling hands your seat to the next person "
-"waiting. Cancel anyway?"
-msgstr ""
-"Ten punkt programu jest pełny — anulowanie przekaże Twoje miejsce następnej "
-"osobie z listy oczekujących. Anulować mimo to?"
-
-#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
-msgid ""
-"Enrollment is closed — once you leave the waiting list you cannot rejoin it. "
-"Leave anyway?"
-msgstr ""
-"Zapisy są zamknięte — gdy opuścisz listę oczekujących, nie wrócisz na nią. "
-"Opuścić mimo to?"
-
-#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "Leave"
 msgstr "Opuść"
 
 #: src/ludamus/templates/chronology/parts/session-enroll-actions.html
-msgid "Enroll with others…"
-msgstr "Zapisz się z innymi…"
-
-#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "with others"
 msgstr "z innymi"
-
-#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
-msgid "Manage the seats you booked for others…"
-msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Could not open the editor. Please try again."
