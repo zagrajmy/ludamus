@@ -3,7 +3,7 @@ import { expect, test } from "./helpers/fixtures";
 /**
  * The tab title is what the browser shows and what a shared link previews as.
  * Both come from one captured value, so these assert the rendered result:
- * "{page} • {sphere or event} • {brand}", bullets only, never a dash.
+ * Titles name the current page and its event or sphere, using bullets only.
  */
 test.describe("Page titles", () => {
   test("names the page, then the sphere, and shares under the same title", async ({ page }) => {
@@ -18,7 +18,7 @@ test.describe("Page titles", () => {
     await expect(twitterTitle).toHaveAttribute("content", await page.title());
   });
 
-  test("names the event an organizer manages, not their sphere", async ({ page }) => {
+  test("names an organizer's event in panel and print titles", async ({ page }) => {
     await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
     await page.getByLabel("Username:").fill("e2e-manager");
     await page.getByLabel("Password:").fill("e2e-manager-123");
@@ -28,8 +28,8 @@ test.describe("Page titles", () => {
 
     await expect(page).toHaveTitle(/^Proposals • Frostfire Game Convention/);
 
-    await page.goto("/panel/event/frostfire-con/timetable/print/door-cards/");
+    await page.goto("/event/frostfire-con/print/?material=door-cards");
 
-    await expect(page).toHaveTitle(/^Door cards • Frostfire Game Convention/);
+    await expect(page).toHaveTitle("Frostfire Game Convention • Print • Root Domain Sphere");
   });
 });

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.printing import (
         AreaScheduleDocumentDTO,
         DoorCardsDocumentDTO,
+        PrintMaterialsServiceProtocol,
         PrintOptionDTO,
         PrintSessionListDocumentDTO,
         PrintTimetableDocumentDTO,
@@ -144,6 +145,32 @@ class _ResolvedRange:
     window: tuple[datetime, datetime] | None
 
 
+@dataclass(frozen=True)
+class _PrintDocuments:
+    timetable: PrintTimetableDocumentDTO | None = None
+    area_schedule: AreaScheduleDocumentDTO | None = None
+    session_list: PrintSessionListDocumentDTO | None = None
+    door_cards: DoorCardsDocumentDTO | None = None
+
+
+def _build_print_documents(
+    *,
+    service: PrintMaterialsServiceProtocol,
+    document_kind: DocumentKind,
+    query: PrintQueryDTO,
+    session_list: PrintSessionListDocumentDTO | None,
+) -> _PrintDocuments:
+    if document_kind == "session_list":
+        return _PrintDocuments(session_list=session_list)
+    if document_kind == "timetable":
+        return _PrintDocuments(timetable=service.build_timetable(query))
+    if document_kind == "area_schedule":
+        return _PrintDocuments(area_schedule=service.build_area_schedule(query))
+    if document_kind == "door_cards":
+        return _PrintDocuments(door_cards=service.build_door_cards(query))
+    assert_never(document_kind)
+
+
 class PublicEventPrintView(View):
     request: RootRequest
     template_name = "chronology/print.html"
@@ -208,14 +235,10 @@ class PublicEventPrintView(View):
             else material_spec.document_kind
         )
 
-        timetable: PrintTimetableDocumentDTO | None = None
-        area_schedule: AreaScheduleDocumentDTO | None = None
-        session_list: PrintSessionListDocumentDTO | None = None
-        door_cards: DoorCardsDocumentDTO | None = None
-        if document_kind == "session_list":
-            session_list = session_list_candidate
-        else:
-            query = PrintQueryDTO(
+        documents = _build_print_documents(
+            service=service,
+            document_kind=document_kind,
+            query=PrintQueryDTO(
                 event_pk=event.pk,
                 tz=tz,
                 scope_space_pks=print_scope.space_pks,
@@ -223,15 +246,9 @@ class PublicEventPrintView(View):
                 scope_name=print_scope.name,
                 confirmed_only=confirmed_only,
                 time_range=resolved_range.window,
-            )
-            if document_kind == "timetable":
-                timetable = service.build_timetable(query)
-            elif document_kind == "area_schedule":
-                area_schedule = service.build_area_schedule(query)
-            elif document_kind == "door_cards":
-                door_cards = service.build_door_cards(query)
-            else:
-                assert_never(document_kind)
+            ),
+            session_list=session_list_candidate,
+        )
 
         event_url = request.build_absolute_uri(
             reverse("web:chronology:event", kwargs={"slug": slug})
@@ -244,10 +261,10 @@ class PublicEventPrintView(View):
             {
                 "event": event,
                 "logo": event.logo_url or sphere.logo_url,
-                "timetable": timetable,
-                "area_schedule": area_schedule,
-                "session_list": session_list,
-                "door_cards": door_cards,
+                "timetable": documents.timetable,
+                "area_schedule": documents.area_schedule,
+                "session_list": documents.session_list,
+                "door_cards": documents.door_cards,
                 "qr_svg": qr_svg(event_url, xmldecl=False),
                 "print_scopes": request.services.venues.list_print_scopes(event.pk),
                 "tracks": tracks,

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-02 21:52+0200\n"
+"POT-Creation-Date: 2026-08-03 13:33+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3192,6 +3192,16 @@ msgstr "Powiadomienia"
 #: src/ludamus/templates/components/flash-messages.html
 msgid "Dismiss"
 msgstr "Zamknij"
+
+#. Translators: keep both links inside the sentence — reorder freely around them (PL: "dostępny na licencji …").
+#: src/ludamus/templates/base.html
+#, python-format
+msgid ""
+"<a href=\"%(source_url)s\">Source code</a> available under <a "
+"href=\"%(license_url)s\">AGPL-3.0</a>."
+msgstr ""
+"<a href=\"%(source_url)s\">Kod źródłowy</a> dostępny na <a "
+"href=\"%(license_url)s\">licencji AGPL-3.0</a>."
 
 #: src/ludamus/templates/base.html
 msgid "Brand"
