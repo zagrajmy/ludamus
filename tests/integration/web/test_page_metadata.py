@@ -106,15 +106,16 @@ class TestPageTitle:
         assert _title(response) == f"Sphere settings • {sphere.name}"
 
     def test_print_document_title_names_the_document_and_the_event(
-        self, manager_client, event
+        self, manager_client, event, sphere
     ):
         response = _get_ok(
             manager_client,
-            reverse("panel:timetable-print-door-cards", kwargs={"slug": event.slug}),
-            "panel/print/door-cards.html",
+            f'{reverse("web:chronology:event-print", kwargs={"slug": event.slug})}'
+            "?material=door-cards",
+            "chronology/print.html",
         )
 
-        assert _title(response) == f"Door cards • {event.name}"
+        assert _title(response) == f"{event.name} • Print • {sphere.name}"
 
     # A dash in a title reads as a second kind of separator next to the bullets
     # the standard already uses, and eats more room in a tab than "•" does.

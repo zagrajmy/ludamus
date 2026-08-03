@@ -144,11 +144,12 @@
                                 {% include "components/theme_switcher.html" %}
                             </div>
                             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-foreground-muted">
-                                <p class="text-center sm:text-left">
-                                    © {% now "Y" %} Radosław Ganczarek.
-                                    <a href="https://github.com/zagrajmy/ludamus"
-                                       class="hover:underline text-primary">Source code</a>
-                                    available under BSD-3-Clause license.
+                                <p class="text-center sm:text-left [&_a]:text-primary [&_a]:hover:underline">
+                                    © 2025–{% now "Y" %} fancysnake &amp; hasparus.
+                                    {# Translators: keep both links inside the sentence — reorder freely around them (PL: "dostępny na licencji …"). #}
+                                    {% blocktranslate trimmed with source_url="https://github.com/zagrajmy/ludamus" license_url="https://github.com/zagrajmy/ludamus/blob/main/LICENSE" %}
+                                        <a href="{{ source_url }}">Source code</a> available under <a href="{{ license_url }}">AGPL-3.0</a>.
+                                    {% endblocktranslate %}
                                 </p>
                                 <div class="flex flex-wrap justify-center sm:justify-end gap-4">
                                     <a href="{% url 'web:brand' %}" class="hover:underline text-primary">{% translate "Brand" %}</a>
