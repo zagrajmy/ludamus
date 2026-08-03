@@ -136,13 +136,11 @@ test.describe("Event detail page", () => {
     expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
   });
 
-  // The split that keeps the morph coherent. Chrome with a counterpart on the
-  // card has two layouts to travel between, so it flies on its own group; chrome
-  // that only exists in the modal has none, and a new-only group renders at final
-  // layout for the whole morph — the footer's button ends up hanging in space
-  // beside a sheet that is still a third of its final width. Nesting puts it back
+  // The tab bar exists only in the modal, so it has no old geometry and a
+  // new-only group renders at final layout for the whole morph — it would sit
+  // there while the sheet is still a fraction of its final width. Nesting puts it
   // under the container's transform and clip.
-  test("modal-only chrome morphs nested inside the sheet", async ({ page }) => {
+  test("the modal tab bar morphs nested inside the sheet", async ({ page }) => {
     const supportsNesting = await page.evaluate(() =>
       CSS.supports("view-transition-group", "nearest"),
     );
@@ -162,9 +160,50 @@ test.describe("Event detail page", () => {
     );
 
     expect(groups.tabs).toBe("nearest");
-    expect(groups.footer).toBe("nearest");
+    // Nesting fixes where a group is drawn, not where it starts from. The footer
+    // is paired instead (below), and nesting it too would fight that.
+    expect(groups.footer).toBe("normal");
+    // These have counterparts on the card, so they have to fly free to travel
+    // between the two layouts.
     expect(groups.title).toBe("normal");
     expect(groups.host).toBe("normal");
+  });
+
+  // Without the card-side anchor the footer is a new-only group, so it starts at
+  // its own slot inside the container — for a card in the last column, the far
+  // right of the viewport — and slides across. The anchor gives the group an old
+  // geometry on the card's bottom edge to grow out of instead.
+  test("the modal footer morphs from a zero-height anchor on the card", async ({ page }) => {
+    const card = page.getByRole("article").filter({ hasText: "Mega Strategy Lab" });
+    const anchor = card.locator('[data-morph="footer"]');
+
+    // It exists only to be captured, so it must not add height to the card.
+    expect(await anchor.evaluate((element) => element.getBoundingClientRect().height)).toBe(0);
+
+    const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
+    test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
+
+    await page.addStyleTag({ content: ":root { --vt-morph-duration: 5s; }" });
+    await card.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some((a) =>
+          (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
+        ),
+    );
+
+    const pseudos = await page.evaluate(() =>
+      document
+        .getAnimations()
+        .map((a) => (a.effect as KeyframeEffect | null)?.pseudoElement)
+        .filter((pseudo) => pseudo?.includes("morph-footer")),
+    );
+
+    // The discriminator: a group animation exists only when there are two rects
+    // to interpolate between. Drop the anchor and this pseudo disappears, leaving
+    // just ::view-transition-new — measured both ways.
+    expect(pseudos).toContain("::view-transition-group(morph-footer)");
   });
 
   // Fetched dialogs are cached in the DOM, so without a reset a reopen inherits

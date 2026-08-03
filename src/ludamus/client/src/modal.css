@@ -87,7 +87,8 @@
 ::view-transition-group(session-morph),
 ::view-transition-group(morph-title),
 ::view-transition-group(morph-host),
-::view-transition-group(morph-avatar) {
+::view-transition-group(morph-avatar),
+::view-transition-group(morph-footer) {
   animation-duration: var(--vt-morph-duration);
   animation-timing-function: var(--vt-morph-ease);
 }
@@ -122,26 +123,34 @@
   opacity: 0;
 }
 
-/* Chrome that exists only in the modal is captured as a new-only group, and a
-   new-only group has no old geometry to interpolate — it renders at its final
-   layout for the entire morph. On a wide viewport the sheet is still a third of
-   its final width at that point, so the footer's button reads as floating in
-   space next to it rather than belonging to it.
+/* The tab bar exists only in the modal, so it is captured as a new-only group —
+   no old geometry to interpolate, so it renders at its final layout for the whole
+   morph while the sheet is still a fraction of its final width. Nesting it inside
+   session-morph puts it under the container's transform and clip, so it travels
+   and crops with the sheet. It keeps its name, which is what separates this from
+   dropping the name: the stagger below still applies, so the bar still waits for
+   the title to fly past instead of painting over it.
 
-   Nesting the group inside session-morph puts it back under the container's
-   transform and clip, so it travels and crops with the sheet. The elements keep
-   their names, which is what separates this from simply dropping the names: the
-   stagger below still applies, and the tab bar still waits for the title to fly
-   past instead of painting over it.
+   The footer does not want this. Nesting fixes where a group is drawn but not
+   where it starts from, and a new-only group starts at its own slot inside the
+   container — which for a card in the last column is the far right of the
+   viewport, so the bar slid in sideways. It is paired instead: see the anchor in
+   _session_card.html.
 
-   Level 2, and no WebKit support yet — Safari drops the declaration and keeps
-   today's flat behaviour. That degrades well because the cost is proportional to
-   how much the sheet moves sideways, and on a phone it barely does: the dialog
-   is near full-width, so the card grows ~11% in width against ~108% in height
-   and the footer lands roughly where the sheet already is. */
-[data-morph="tabs"],
-[data-morph="footer"] {
+   Level 2, and no WebKit support yet — Safari drops the declaration and keeps the
+   flat behaviour for the tabs. That degrades well because the cost is
+   proportional to how far the sheet travels sideways, and on a phone it barely
+   does: the dialog is near full-width, so the card grows ~11% in width against
+   ~108% in height. */
+[data-morph="tabs"] {
   view-transition-group: nearest;
+}
+
+/* The anchor renders nothing, so its snapshot is an empty strip. Cut it rather
+   than let it cross-fade for the UA's default 0.25s over the arriving bar. */
+::view-transition-old(morph-footer) {
+  animation: none;
+  opacity: 0;
 }
 
 /* The footer carries the modal's surface colour because the container snapshot
