@@ -45,10 +45,11 @@ run = "mypy {{ env.SRC_PATHS }}"
 env = { _.file = '.env.test' }
 
 ["lint:pylint"]
-description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
+description = "Run Pylint on source, scripts and tests (duplicate-code disabled for tests)"
 run = [
-    "pylint -j 0 {{ env.SRC_PATHS }}",
-] # Change: missing {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}
+    "pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }}",
+    "pylint -j 0 --disable=duplicate-code {{ env.TEST_PATHS }}",
+]
 
 ["lint:ruff"]
 description = "Check Python with Ruff"

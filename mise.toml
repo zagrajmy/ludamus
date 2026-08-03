@@ -49,7 +49,13 @@ PYTHONPATH = "src"
 PACKAGE = "ludamus"
 SRC_PATHS = "src"
 TEST_PATHS = "tests"
-SCRIPT_PATHS = ".claude scripts"
+# Enumerated rather than a bare `.claude`, which also contains
+# `.claude/worktrees/<agent-id>/` — a git-ignored checkout of this whole repo,
+# virtualenv included, on any machine that has run a Claude Code agent. Pylint
+# and vulture have no gitignore awareness, so `.claude` cost pylint minutes per
+# run and made `mise run lint` fail outright on vulture findings from worktree
+# site-packages. Everything tracked under `.claude` lives in these two dirs.
+SCRIPT_PATHS = "scripts .claude/hooks .claude/skills"
 TOML_PATHS = "*.toml .taplo.toml docker/*.toml"
 
 [bootstrap.packages]
@@ -122,6 +128,16 @@ dir = "tests/e2e"
 [tasks."test:e2e:install"]
 description = "Install Playwright (node deps + browsers)"
 run = ["aube install", "aube exec -C tests/e2e playwright install --with-deps"]
+
+# One browser at a time, without --with-deps. The fallback session-start.sh uses
+# when the task above fails: `playwright install` walks the browsers in a single
+# sequential loop and rethrows the first download failure, so one unreachable
+# artifact skips every browser behind it. Lives here rather than inline in the
+# hook so the command and its working directory are stated once.
+[tasks."test:e2e:install:browser"]
+description = "Install a single Playwright browser (e.g. mise run test:e2e:install:browser webkit)"
+run = "aube exec -C tests/e2e playwright install"
+raw_args = true
 
 [tasks."test:e2e:prep"]
 description = "Migrate, seed fixtures, and build client for e2e tests"

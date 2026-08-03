@@ -37,10 +37,18 @@ Keep the `prefix:` when bumping either pin; a bare `X.Y.Z` wedges every
 sandbox `mise install`.
 
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
-`@playwright/test` pin, so the hook runs `mise run test:e2e:install`; when its
-`--with-deps` apt step breaks (image PPA metadata drift), it falls back to a
-plain `playwright install` — the Playwright CDN is reachable through the
-proxy and the image already ships Chromium's OS libs.
+`@playwright/test` pin, and Playwright launches only the pinned build, so the
+hook's `mise run test:e2e:install` is load-bearing rather than a no-op. When
+that task fails for any reason — its `--with-deps` apt step hitting image PPA
+metadata drift is the usual one, but `aube install` runs first and a browser
+download can fail on its own — the hook re-runs `aube install` and then
+installs one browser at a time via `test:e2e:install:browser`. A single bare
+`playwright install` downloads the browsers in one sequential loop and rethrows
+the first download failure, so every browser queued behind the failure is
+skipped; per-browser runs isolate it and report only what is genuinely
+unavailable. Missing OS libs don't enter into it — the image ships no WebKit
+libs, but the host-requirement check is caught and printed as a warning and the
+install still exits 0. The Playwright CDN itself is reachable through the proxy.
 
 After that, `mise install` is green, `mise run` tasks work unchanged, and hk
 runs as the pre-commit hook. Laptops never load `mise.sandbox.toml` — nothing

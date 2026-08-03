@@ -242,19 +242,12 @@ If you fix a papercut, remove it.
   assumed the binary exists, so every provisioning step warned-and-skipped and
   the session looked half-provisioned. Installed it from mise.run (reachable
   through the proxy) and added a self-install step to the hook.
-- 2026-07-31: sandbox: 'mise install' wedges on pipx:shellcheck-py@0.11.0 /
-  hadolint-py@2.14.0 (PyPI only ships .0.1 wrapper revs) and session-start.sh's
-  trim-retry did not self-heal, so every 'mise run' aborted until I exported
-  MISE_DISABLE_TOOLS=shellcheck,hadolint.
-- 2026-07-31: sandbox: /opt/pw-browsers lags the pinned @playwright/test 1.58.2
-  (has chromium-1194, needs 1208 / webkit-2248), and session-start.sh reported
-  'Playwright install failed'. The whole e2e suite fails with "Executable
-  doesn't exist" until you run npx playwright install --with-deps chromium
-  firefox webkit by hand.
-- 2026-07-31: 'mise run test:py' resolves pytest from PATH, so a uv-installed
-  ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
+- 2026-07-31: every mise task resolves its Python tool from PATH, so any shell
+  that puts ~/.local/bin ahead of the mise shims gets the image's uv-installed
+  pytest/mypy/black instead of .venv's. 'mise run test:py' then dies with
   ModuleNotFoundError: No module named 'django'. Took a while to spot because
   the traceback points at tests/conftest.py, not at the wrong interpreter.
+  session-start.sh orders PATH correctly; nothing enforces it elsewhere.
 - 2026-08-01: mise run test:int -- tests/foo/test_x.py doesn't narrow: the task
   hardcodes the integration path and appends args, so pytest gets two paths and
   runs the whole suite. Had to use `-k name` and wait ~2.5 min for
@@ -281,3 +274,8 @@ If you fix a papercut, remove it.
   then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
   child (sandbox egress is slow); had to pstree and kill -9 the mise process to
   get the shell back.
+- 2026-08-02: Polled api.github.com from a bash loop to wait for CI; the egress
+  proxy 403s it, so the loop parsed an error body as "no checks pending" and
+  reported all-green while the test job was still running. Use the GitHub MCP
+  tools for CI state in a sandbox — curl to api.github.com fails silently enough
+  to look like success.
