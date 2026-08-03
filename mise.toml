@@ -123,6 +123,16 @@ dir = "tests/e2e"
 description = "Install Playwright (node deps + browsers)"
 run = ["aube install", "aube exec -C tests/e2e playwright install --with-deps"]
 
+# One browser at a time, without --with-deps. The fallback session-start.sh uses
+# when the task above fails: `playwright install` walks the browsers in a single
+# sequential loop and rethrows the first download failure, so one unreachable
+# artifact skips every browser behind it. Lives here rather than inline in the
+# hook so the command and its working directory are stated once.
+[tasks."test:e2e:install:browser"]
+description = "Install a single Playwright browser (e.g. mise run test:e2e:install:browser webkit)"
+run = "aube exec -C tests/e2e playwright install"
+raw_args = true
+
 [tasks."test:e2e:prep"]
 description = "Migrate, seed fixtures, and build client for e2e tests"
 run = [

@@ -119,22 +119,23 @@ mise exec -- hk install --mise || echo "WARN: 'hk install' failed; git hooks not
 # lags whenever @playwright/test moves, and the pinned build is the only one
 # Playwright will launch — so this step is load-bearing, not a no-op.
 #
-# The task's `--with-deps` needs apt, which breaks whenever an image PPA changes
-# its metadata. Don't fall back to one bare `playwright install`: it downloads
-# the browsers in a single sequential loop and rethrows the first failure, so
-# one unreachable artifact skips every browser queued behind it. Per browser,
-# a failure is isolated and named. Missing OS libs are not the concern — the
-# image ships no WebKit libs, but the host check is caught and printed as a
-# warning, so the install still exits 0. The Playwright CDN itself is reachable
-# through the egress proxy.
+# The fallback fires on any non-zero exit from the task, not just the one that
+# prompted it: `--with-deps` needs apt, which breaks whenever an image PPA
+# changes its metadata. Don't fall back to one bare `playwright install` — it
+# downloads the browsers in a single sequential loop and rethrows the first
+# failure, so one unreachable artifact skips every browser queued behind it. Per
+# browser, a failure is isolated and named. Missing OS libs are not the concern
+# — the image ships no WebKit libs, but the host check is caught and printed as
+# a warning, so the install still exits 0. The Playwright CDN itself is
+# reachable through the egress proxy.
 #
 # `aube install` is retried first: the task runs it before the browser step, so
-# `if !` also fires when node deps are what failed, and `aube exec` without them
-# would warn three times for the wrong reason.
+# `if !` also fires when node deps are what failed, and the per-browser task
+# without them would warn three times for the wrong reason.
 if ! mise run test:e2e:install; then
   mise exec -- aube install || echo "WARN: 'aube install' failed; e2e node deps missing"
   for browser in chromium firefox webkit; do
-    mise exec -- aube exec -C tests/e2e playwright install "$browser" \
+    mise run test:e2e:install:browser "$browser" \
       || echo "WARN: Playwright $browser unavailable; specs on it will fail"
   done
 fi

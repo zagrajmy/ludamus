@@ -32,9 +32,11 @@ hadolint = "pipx:hadolint-py"
 # PyPI. `mise install` then fails outright and takes every `mise run` down with
 # it. A minor-version prefix resolves to the newest wrapper rev of that upstream
 # release, so these only need touching when mise.toml moves off 0.11 / 2.14.
-# Loosening the pin in mise.toml itself would delete all three lines, but only
-# if `X.Y` also prefix-resolves through the default aqua backend that laptops
-# and CI use — unverifiable from a sandbox where GitHub is 403'd.
+# Loosening both pins in mise.toml would delete these two lines — not dockerfmt's
+# above, which is keyed on a different backend and so is out of reach of any pin
+# in mise.toml. That is only safe if `X.Y` also prefix-resolves through the
+# default aqua backend that laptops and CI use — unverifiable from a sandbox
+# where GitHub is 403'd.
 [tools]
 "go:github.com/reteps/dockerfmt" = "v0.5.4"
 shellcheck = "0.11"

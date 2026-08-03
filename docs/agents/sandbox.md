@@ -38,18 +38,23 @@ three pins duplicated outside `mise.toml` and nothing that checks them against
 each other — dockerfmt's had already drifted two patches behind. Bump both
 copies together whenever `mise.toml` moves.
 
-Loosening `mise.toml` to `shellcheck = "0.11"` would delete all three lines,
-since mise passes a full `X.Y.Z` through verbatim but prefix-resolves `X.Y`.
-That is only safe if `X.Y` also prefix-resolves through the default aqua
-backend laptops and CI use, which needs `api.github.com` and so cannot be
-checked from a sandbox. Verify it on a laptop before making the change.
+Loosening both pins in `mise.toml` (`shellcheck = "0.11"`, `hadolint = "2.14"`)
+would delete those two lines, since mise passes a full `X.Y.Z` through verbatim
+but prefix-resolves `X.Y`. dockerfmt's line survives either way — it is keyed on
+a different backend (`go:…` here, `github:…` there) precisely because the tool
+cannot be aliased, so no pin in `mise.toml` reaches it. The loosening is only
+safe if `X.Y` also prefix-resolves through the default aqua backend laptops and
+CI use, which needs `api.github.com` and so cannot be checked from a sandbox.
+Verify it on a laptop before making the change.
 
 Playwright browsers: the image's `/opt/pw-browsers` build can lag the
 `@playwright/test` pin, and Playwright launches only the pinned build, so the
 hook's `mise run test:e2e:install` is load-bearing rather than a no-op. When
-its `--with-deps` apt step breaks (image PPA metadata drift), the hook re-runs
-`aube install` (the task's first step, and another way for it to fail) and
-then installs one browser at a time. A single bare `playwright install`
+that task fails for any reason — its `--with-deps` apt step hitting image PPA
+metadata drift is the usual one, but `aube install` runs first and a browser
+download can fail on its own — the hook re-runs `aube install` and then installs
+one browser at a time via `test:e2e:install:browser`. A single bare
+`playwright install`
 downloads the browsers in one sequential loop and rethrows the first download
 failure, so every browser queued behind the failure is skipped; per-browser
 runs isolate it and report only what is genuinely unavailable. Missing OS libs
