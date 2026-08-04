@@ -29,10 +29,11 @@ test.describe("interface sound toggle", () => {
     await pressToggle(page);
     await expect(toggle(page)).not.toBeChecked();
 
-    // domcontentloaded, not load: the persisted state is applied by the deferred
-    // module script, and waiting for `load` makes the test hostage to the
-    // third-party font requests the page fires.
-    await page.reload({ waitUntil: "domcontentloaded" });
+    // commit, not load/domcontentloaded: `load` makes the test hostage to the
+    // third-party font requests the page fires, and Firefox intermittently
+    // misses the `domcontentloaded` lifecycle event on reload and hangs. The
+    // assertion below retries, so returning at navigation commit is enough.
+    await page.reload({ waitUntil: "commit" });
 
     await expect(toggle(page)).not.toBeChecked();
   });
