@@ -279,3 +279,8 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-04: Running any mise task with cwd inside .venv/src/vekna fails with
+  'Config files in .../vekna/mise.toml are not trusted' instead of running the
+  repo task. A git-sourced Poetry dependency ships its own mise.toml into the
+  venv and mise's config discovery walks up into it. Needs a 'mise trust' note
+  in docs/agents/sandbox.md.
