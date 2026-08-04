@@ -141,7 +141,13 @@ class TestProposalSetFacilitatorsActionView:
     ):
         other_event = EventFactory(sphere=sphere)
         session = _make_session(other_event)
+        facilitator = Facilitator.objects.create(
+            event=other_event, display_name="Keeper", slug="keeper", user=None
+        )
+        session.facilitators.add(facilitator)
 
         response = panel_client.post(self.get_url(event, session.pk), data={})
 
         assert_proposal_not_found(response, event)
+        # An empty POST would clear the list if the id were acted on at all.
+        assert list(session.facilitators.all()) == [facilitator]

@@ -26,6 +26,7 @@ from ludamus.pacts import (
     EventDTO,
     FieldAnswer,
     OrganizerFieldDTO,
+    ProposalCategoryDTO,
     TimeSlotDTO,
     TrackDTO,
 )
@@ -811,11 +812,12 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             # field_descriptors carry BoundFields, which don't compare usefully.
-            # The component renders without page chrome, so no active_nav.
+            # No events, stats or active_nav: a category swap re-renders one
+            # fieldset and builds none of the page chrome.
             context_data={
-                **panel_context(event),
                 "field_descriptors": ANY,
                 "form": ANY,
+                "category": ProposalCategoryDTO.model_validate(category_b),
                 "orphan_values": [],
                 "fields_url": self.get_fields_url(event),
             },
@@ -850,7 +852,7 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
-                **panel_context(event),
+                "category": ProposalCategoryDTO.model_validate(category_b),
                 "field_descriptors": [],
                 "form": ANY,
                 "orphan_values": [],
@@ -933,9 +935,9 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
-                **panel_context(event),
                 "field_descriptors": [],
                 "form": ANY,
+                "category": None,
                 "orphan_values": [],
                 "fields_url": self.get_fields_url(event),
             },

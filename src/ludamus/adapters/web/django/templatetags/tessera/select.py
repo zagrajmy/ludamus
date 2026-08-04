@@ -21,6 +21,7 @@ class SelectNode(template.Node):
 
     # Attributes rendered bare (no ``="value"``) when truthy.
     _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
+    _TEMPLATE = "components/select.html"
 
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
@@ -44,7 +45,8 @@ class SelectNode(template.Node):
                 if value:
                     attr_parts.append(key)
                 continue
-            if not value:
+            # `value=0` is a legitimate radio value — only drop absent attrs.
+            if value is None or (isinstance(value, str) and not value):
                 continue
             # Template kwargs can't contain hyphens, so aria_*/data_* keywords
             # map onto their hyphenated attributes (aria_label -> aria-label).
@@ -52,7 +54,7 @@ class SelectNode(template.Node):
             attr_parts.append(f'{name}="{escape(str(value))}"')
 
         return render_to_string(
-            "components/select.html",
+            self._TEMPLATE,
             {
                 "attrs": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
                     " ".join(attr_parts)

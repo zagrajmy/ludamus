@@ -6,6 +6,7 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.columns import PanelColumnView
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS
 from ludamus.links.db.django.models import (
     AccreditationType,
@@ -16,7 +17,6 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
-from ludamus.pacts.submissions import FacilitatorColumnDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -27,10 +27,14 @@ from tests.integration.web.panel.helpers import (
     panel_context,
 )
 
-_PAGE_SIZE = 50
-_SEED_COUNT = 60
+_PAGE_SIZES = [10, 20, 50, 100]
+
+_PAGE_SIZE = 20
+_SEED_COUNT = 30
 _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
 _TOTAL_PAGES = 2
+_SMALL_PAGE_SIZE = 10
+_SMALL_TOTAL_PAGES = _SEED_COUNT // _SMALL_PAGE_SIZE
 
 
 def _tab_urls(event):
@@ -63,7 +67,21 @@ def _field_dto(field):
 
 
 _DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation", "organizer"]
-_DEFAULT_COLUMNS = [FacilitatorColumnDTO(key=key) for key in _DEFAULT_KEYS]
+_BUILTIN_LABELS = {
+    "name": "Display Name",
+    "linked": "Linked User",
+    "sessions": "Sessions",
+    "accreditation": "Accreditation",
+    "organizer": "Organizer",
+}
+_DEFAULT_COLUMNS = [
+    PanelColumnView(key=key, label=_BUILTIN_LABELS[key], kind="text")
+    for key in _DEFAULT_KEYS
+]
+
+
+def _field_column(field):
+    return PanelColumnView(key=f"field_{field.pk}", label=field.name, kind="text")
 
 
 def _column_values(facilitators, extra=None):
@@ -143,6 +161,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": [],
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -172,6 +191,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -209,6 +229,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -241,6 +262,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_search": "Alic",
                 "filters_active": True,
             },
@@ -286,6 +308,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_search": "alice@example",
                 "filters_active": True,
             },
@@ -317,6 +340,7 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": [],
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_search": "Reds",
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
@@ -357,6 +381,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_accreditation": "guest",
                 "filters_active": True,
             },
@@ -391,6 +416,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_sort": "-name",
             },
         )
@@ -429,6 +455,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_flagged": True,
                 "filters_active": True,
             },
@@ -476,6 +503,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_organizer": "mine",
                 "filters_active": True,
             },
@@ -516,6 +544,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_organizer": "unassigned",
                 "filters_active": True,
             },
@@ -547,6 +576,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -580,12 +610,8 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
-                "columns": [
-                    *_DEFAULT_COLUMNS,
-                    FacilitatorColumnDTO(
-                        key=f"field_{field.pk}", field=_field_dto(field)
-                    ),
-                ],
+                "page_sizes": _PAGE_SIZES,
+                "columns": [*_DEFAULT_COLUMNS, _field_column(field)],
                 "column_values": _column_values(
                     expected,
                     {facilitator.pk: {f"field_{field.pk}": "alice@example.com"}},
@@ -663,15 +689,11 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": expected,
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "columns": [
                     *_DEFAULT_COLUMNS,
-                    FacilitatorColumnDTO(
-                        key=f"field_{checkbox_field.pk}",
-                        field=_field_dto(checkbox_field),
-                    ),
-                    FacilitatorColumnDTO(
-                        key=f"field_{multi_field.pk}", field=_field_dto(multi_field)
-                    ),
+                    _field_column(checkbox_field),
+                    _field_column(multi_field),
                 ],
                 "column_values": _column_values(
                     expected,
@@ -733,6 +755,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
                 "filter_fields": {field.pk: "true"},
@@ -782,6 +805,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filters_active": True,
                 "filterable_fields": [_field_dto(field)],
                 "filter_fields": {field.pk: "Reds"},
@@ -826,6 +850,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -881,6 +906,7 @@ class TestFacilitatorsPageView:
                 "facilitators": expected,
                 "column_values": _column_values(expected),
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
                 "filter_sort": f"field_{field.pk}",
             },
         )
@@ -908,8 +934,9 @@ class TestFacilitatorsPageView:
             context_data={
                 **_base_context(event),
                 "facilitators": [],
-                "columns": [FacilitatorColumnDTO(key="name")],
+                "columns": [_DEFAULT_COLUMNS[0]],
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -926,6 +953,20 @@ class TestFacilitatorsPageView:
         assert page1.context["page_obj"].paginator.num_pages == _TOTAL_PAGES
         assert len(page2.context["facilitators"]) == _LAST_PAGE_COUNT
         assert page2.context["page_obj"].number == _TOTAL_PAGES
+
+    def test_page_size_param(self, authenticated_client, active_user, sphere, event):
+        sphere.managers.add(active_user)
+        for i in range(_SEED_COUNT):
+            Facilitator.objects.create(
+                event=event, display_name=f"F{i}", slug=f"f-{i}", user=None
+            )
+
+        smaller = authenticated_client.get(self.get_url(event), {"page_size": "10"})
+        unlisted = authenticated_client.get(self.get_url(event), {"page_size": "7"})
+
+        assert smaller.context["page_obj"].paginator.per_page == _SMALL_PAGE_SIZE
+        assert smaller.context["page_obj"].paginator.num_pages == _SMALL_TOTAL_PAGES
+        assert unlisted.context["page_obj"].paginator.per_page == _PAGE_SIZE
 
 
 class TestFacilitatorActions:
@@ -1290,11 +1331,8 @@ class TestFacilitatorColumns:
             context_data={
                 **_event_context(event, active_tab="columns"),
                 "chosen_columns": _DEFAULT_COLUMNS,
-                "available_columns": [
-                    FacilitatorColumnDTO(
-                        key=f"field_{field.pk}", field=_field_dto(field)
-                    )
-                ],
+                "available_columns": [_field_column(field)],
+                "error": None,
             },
         )
 
@@ -1309,6 +1347,7 @@ class TestFacilitatorColumns:
                 **_event_context(event, active_tab="columns"),
                 "chosen_columns": _DEFAULT_COLUMNS,
                 "available_columns": [],
+                "error": None,
             },
         )
 
@@ -1342,7 +1381,30 @@ class TestFacilitatorColumns:
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.facilitator_columns == [f"field_{field.pk}", "sessions"]
 
+    def test_post_rejects_a_selection_with_no_valid_column(self, panel_client, event):
+        # Unticking everything used to save "[]", which reads back as "use the
+        # defaults" — the organizer saw every default column return instead.
+        EventPanelSettings.objects.create(event=event, facilitator_columns=["name"])
+
+        response = panel_client.post(self._url(event), {"columns": ["bogus"]})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-columns.html",
+            context_data={
+                **_event_context(event, active_tab="columns"),
+                "chosen_columns": [_DEFAULT_COLUMNS[0]],
+                "available_columns": _DEFAULT_COLUMNS[1:],
+                "error": "Pick at least one column to show.",
+            },
+        )
+        settings = EventPanelSettings.objects.get(event=event)
+        assert settings.facilitator_columns == ["name"]
+
     def test_post_replaces_the_previous_set(self, panel_client, event):
+        # Saving is a replace, not an add: the defaults go when they aren't
+        # among the chosen keys.
         EventPanelSettings.objects.create(
             event=event, facilitator_columns=_DEFAULT_KEYS
         )

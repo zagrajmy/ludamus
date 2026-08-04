@@ -10,7 +10,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
-from ludamus.gates.web.django.chronology.panel.views.proposals import PersonalDataCard
+from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
+    PersonalDataCard,
+)
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -37,6 +39,7 @@ from ludamus.pacts import (
     FieldAnswer,
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
+    ProposalCategoryDTO,
     SessionDTO,
     TimeSlotDTO,
     TrackDTO,
@@ -822,6 +825,61 @@ class TestProposalEditPageView:
 
         assert not session.time_slots.exists()
 
+    def test_invalid_post_preserves_submitted_time_slot_selection(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "time_slots_submitted": "1",
+                "time_slot_ids": [slot.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "assigned_time_slot_pks": {slot.pk},
+                "facilitator_personal_data": [],
+            },
+        )
+        assert not session.time_slots.exists()
+
     def test_partial_post_without_time_slots_marker_preserves_time_slots(
         self, panel_client, event
     ):
@@ -1334,6 +1392,61 @@ class TestProposalEditPageView:
             )
         ]
         assert not PersonalDataFieldValue.objects.exists()
+
+    def test_invalid_post_with_personal_data_marker_and_no_fields(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
+        )
 
     def test_post_ignores_personal_data_for_facilitator_from_other_event(
         self, panel_client, sphere, event
@@ -2160,13 +2273,12 @@ class TestProposalEditFieldsComponentView:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             # field_descriptors carry BoundFields, which don't compare usefully.
-            # No active_nav: the component renders without the page chrome.
+            # No events, stats or active_nav: a category swap re-renders one
+            # fieldset and builds none of the page chrome.
             context_data={
-                **panel_context(
-                    event, pending_proposals=1, total_proposals=1, total_sessions=1
-                ),
                 "field_descriptors": ANY,
                 "form": ANY,
+                "category": ProposalCategoryDTO.model_validate(category_b),
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
             },
