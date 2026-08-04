@@ -53,6 +53,10 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.panel import (
+        FacilitatorPanelServiceProtocol,
+        ProposalPanelServiceProtocol,
+    )
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
@@ -63,7 +67,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
         CFPSessionFieldServiceProtocol,
-        FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
@@ -143,6 +146,8 @@ class ServicesProtocol(Protocol):
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
+    @property
+    def proposal_panel(self) -> ProposalPanelServiceProtocol: ...
     @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property

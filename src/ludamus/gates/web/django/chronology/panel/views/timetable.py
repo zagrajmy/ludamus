@@ -19,9 +19,12 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
-    build_column_values,
 )
-from ludamus.gates.web.django.templatetags.cfp_tags import facilitator_column_label
+from ludamus.gates.web.django.chronology.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    column_views,
+    facilitator_column_values,
+)
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -110,9 +113,10 @@ def _facilitator_options(
     found = panel.filter_options(
         event_id=event_pk, search=search, pinned=pinned, limit=_FACILITATOR_OPTION_LIMIT
     )
-    values = build_column_values(
+    values = facilitator_column_values(
         panel=panel, facilitators=found.facilitators, columns=found.columns
     )
+    labels = column_views(found.columns, FACILITATOR_COLUMNS)
     options = []
     for facilitator in found.facilitators:
         # Whichever columns the organizer configured become a meta line under
@@ -121,11 +125,11 @@ def _facilitator_options(
         # against -- a bare "None · 2 · —" says nothing about who this is.
         # Placeholders are dropped for the same reason.
         cells = [
-            (facilitator_column_label(column), cell)
-            for column in found.columns
+            (column.label, cell)
+            for column in labels
             # The name is the row's label, never a meta cell repeating it.
             if column.key != "name"
-            and (cell := values[facilitator.pk][column.key]) not in {"", "—"}
+            and (cell := values[facilitator.pk].get(column.key, "")) not in {"", "—"}
         ]
         options.append(
             MultiselectOptionDTO(

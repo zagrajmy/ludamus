@@ -21,8 +21,6 @@ if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
-        FacilitatorChangeLogRepositoryProtocol,
-        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
         FieldUsageSummary,
@@ -382,126 +380,6 @@ class FacilitatorListFilters(TypedDict, total=False):
     organizer_unassigned: bool | None
     sort: str | None
     limit: int | None
-
-
-class EventPanelSettingsDTO(BaseModel):
-    """Organizer-only backoffice settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    facilitator_columns: list[str] = []
-    pk: int
-
-
-class EventPanelSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
-    @staticmethod
-    def update_facilitator_columns(event_id: int, columns: list[str]) -> None: ...
-
-
-@dataclass
-class FacilitatorPanelRepos:
-    """The repos the panel's facilitator list reads and writes through."""
-
-    facilitators: FacilitatorRepositoryProtocol
-    personal_data_fields: PersonalDataFieldRepositoryProtocol
-    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
-    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
-    panel_settings: EventPanelSettingsRepositoryProtocol
-
-
-@dataclass
-class FacilitatorListQuery:
-    """The list's requested view: filters as the request spelled them.
-
-    `raw_field_filters` is keyed by personal-data field pk with the value
-    untouched from the query string; the service resolves it against the
-    event's own fields.
-    """
-
-    search: str = ""
-    accreditation: str = ""
-    flagged: bool = False
-    # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
-    # nobody" can never both be asked for. `current_user_id` is who "mine"
-    # means, not a filter of its own.
-    organizer: str = ""
-    current_user_id: int | None = None
-    sort: str = ""
-    raw_field_filters: dict[int, str] = field(default_factory=dict)
-
-
-@dataclass
-class FacilitatorColumnDTO:
-    """One column of the panel's facilitator list.
-
-    `key` is both the column's identity and its sort key — a built-in
-    ("name", "linked", "sessions", "accreditation") or "field_<pk>". `field`
-    is set only for personal-data columns; built-ins label themselves in the
-    template, where the rest of the list's wording lives.
-    """
-
-    key: str
-    field: OrganizerFieldDTO | None = None
-
-
-@dataclass
-class FacilitatorListContextDTO:
-    """Read aggregate for the panel's facilitator list."""
-
-    facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[OrganizerFieldDTO]
-    field_filters: dict[int, str | bool]
-    columns: list[FacilitatorColumnDTO]
-
-
-@dataclass
-class FacilitatorColumnsContextDTO:
-    """Read aggregate for the facilitator-columns chooser."""
-
-    chosen: list[FacilitatorColumnDTO]
-    available: list[FacilitatorColumnDTO]
-
-
-@dataclass
-class FacilitatorFilterOptionsDTO:
-    """Read aggregate for one page of a facilitator filter's option rows."""
-
-    facilitators: list[FacilitatorListItemDTO]
-    columns: list[FacilitatorColumnDTO]
-    has_more: bool
-
-
-class FacilitatorPanelServiceProtocol(Protocol):
-    def list_context(
-        self, *, event_id: int, query: FacilitatorListQuery
-    ) -> FacilitatorListContextDTO: ...
-    def filter_options(
-        self, *, event_id: int, search: str, pinned: set[int], limit: int
-    ) -> FacilitatorFilterOptionsDTO: ...
-    def column_values(
-        self, *, facilitator_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
-    def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
-    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
-    def set_flag(
-        self, *, event_id: int, facilitator_slug: str, flagged: bool
-    ) -> None: ...
-    def assign_organizer(
-        self, *, event_id: int, facilitator_slug: str, organizer_id: int
-    ) -> None: ...
-    def unassign_organizer(
-        self, *, event_id: int, facilitator_slug: str, organizer_id: int, force: bool
-    ) -> None: ...
-    def set_accreditation(
-        self,
-        *,
-        event_id: int,
-        facilitator_slug: str,
-        accreditation_type: str,
-        user_id: int | None = None,
-    ) -> None: ...
 
 
 class HasPk(Protocol):

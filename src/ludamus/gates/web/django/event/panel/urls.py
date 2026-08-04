@@ -5,6 +5,7 @@ from django.urls import include, path
 from ludamus.gates.web.django.chronology.panel.views import (
     bans,
     cfp,
+    columns,
     discounts,
     event_settings,
     facilitators,
@@ -12,6 +13,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     index,
     integrations,
     personal_data_fields,
+    proposal_edit,
     proposals,
     session_fields,
     time_slots,
@@ -231,12 +233,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/create/",
-        proposals.ProposalFormPageView.as_view(),
+        proposal_edit.ProposalFormPageView.as_view(),
         name="proposal-create",
     ),
     path(
         "event/<slug:slug>/proposals/create/fields/",
-        proposals.ProposalFormFieldsComponentView.as_view(),
+        proposal_edit.ProposalFormFieldsComponentView.as_view(),
         name="proposal-create-fields",
     ),
     path(
@@ -255,13 +257,23 @@ urlpatterns = [
         name="proposal-detail",
     ),
     path(
+        "event/<slug:slug>/proposals/columns/",
+        columns.ProposalColumnsPageView.as_view(),
+        name="proposal-columns",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/history/",
+        proposals.ProposalHistoryPageView.as_view(),
+        name="proposal-history",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
-        proposals.ProposalFormPageView.as_view(),
+        proposal_edit.ProposalFormPageView.as_view(),
         name="proposal-edit",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
-        proposals.ProposalFormFieldsComponentView.as_view(),
+        proposal_edit.ProposalFormFieldsComponentView.as_view(),
         name="proposal-edit-fields",
     ),
     path(
@@ -393,8 +405,13 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/facilitators/columns/",
-        facilitators.FacilitatorColumnsPageView.as_view(),
+        columns.FacilitatorColumnsPageView.as_view(),
         name="facilitator-columns",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/do/bulk-action",
+        facilitators.FacilitatorBulkActionView.as_view(),
+        name="facilitator-bulk-action",
     ),
     path(
         "event/<slug:slug>/facilitators/merge/",
@@ -405,6 +422,11 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/history/",
+        facilitators.FacilitatorHistoryPageView.as_view(),
+        name="facilitator-history",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
