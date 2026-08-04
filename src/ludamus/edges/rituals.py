@@ -30,10 +30,10 @@ released, the branch is reported blocked, and the next one starts.
 
 import shlex
 from collections import Counter
-from typing import Annotated, Literal, overload
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
-from vekna.folio.coding import CodingOpts, Session, coding
+from vekna.folio.coding import CodingOpts, CodingOutputError, Session, coding
 from vekna.folio.coding_claude import ClaudeOptions
 from vekna.folio.shell import ShellResult, shell
 from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
@@ -329,6 +329,13 @@ class Fallen(BaseModel):
     reason: str
 
 
+# The agent answered, but not in the shape that was asked for. Unlike `Fallen`
+# this is one branch's problem and not the night's: the CLI is alive, so the
+# next pull request starts with every chance of going fine.
+class Misread(BaseModel):
+    reason: str
+
+
 # Read-only in the sense that matters here: the triage has to reach `gh`, so
 # Bash is on the allowlist, and `dontAsk` denies everything outside it without
 # stopping to prompt — which matters at 3am, where a prompt is a hang.
@@ -341,44 +348,48 @@ _READING = CodingOpts(
 )
 
 
-@overload
+# Every agent call in this file goes through one of the two below, and they are
+# the only places that catch broadly. An agent dying mid-flight — a spent token
+# budget, a killed CLI — has to end the run, but the report is owed first, and
+# an exception leaving a step takes the report with it. So the failure comes
+# back as a value, and `report` raises at the end once the list is out.
+# A key means the call joins a thread, so a retry meets an agent that remembers
+# the attempt that just failed rather than reaching for it again.
+def _fallen(error: Exception) -> Fallen:
+    return Fallen(reason=f"the agent stopped mid-flight: {error}")
+
+
+# Nothing reads what the agent said back: these calls are judged by what they
+# left in the worktree, which the step that follows reads out of git. So the
+# only answer worth returning is whether the agent was still standing.
 async def _ask(
     prompt: str, *, opts: CodingOpts | None = None, key: str | None = None
-) -> str | Fallen: ...
+) -> Fallen | None:
+    session = Session.CONTINUE if key is not None else Session.NEW
+    try:
+        await coding(prompt, opts=opts, session=session, key=key)
+    except Exception as error:  # ruff: ignore [blind-except]
+        return _fallen(error)
+    return None
 
 
-@overload
-async def _ask[OutputT: BaseModel](
+async def _ask_for[OutputT: BaseModel](
     prompt: str,
     *,
     output: type[OutputT],
     opts: CodingOpts | None = None,
     key: str | None = None,
-) -> OutputT | Fallen: ...
-
-
-# Every agent call in this file goes through here, and this is the one place
-# that catches broadly. An agent dying mid-flight — a spent token budget, a
-# killed CLI — has to end the run, but the report is owed first, and an
-# exception leaving a step takes the report with it. So the failure comes back
-# as a value, and `report` raises at the end once the list is out.
-# A key means the call joins a thread, so a retry meets an agent that remembers
-# the attempt that just failed rather than reaching for it again.
-async def _ask[OutputT: BaseModel](
-    prompt: str,
-    *,
-    output: type[OutputT] | None = None,
-    opts: CodingOpts | None = None,
-    key: str | None = None,
-) -> str | OutputT | Fallen:
+) -> OutputT | Fallen | Misread:
     session = Session.CONTINUE if key is not None else Session.NEW
     try:
-        if output is None:
-            reply = await coding(prompt, opts=opts, session=session, key=key)
-            return reply.text
         return await coding(prompt, output=output, opts=opts, session=session, key=key)
+    # Caught ahead of the blind clause and answered differently: an agent whose
+    # JSON does not fit the schema is a bad answer, not a dead CLI, and ending
+    # the whole night over one would cost every pull request behind this one.
+    except CodingOutputError as error:
+        return Misread(reason=f"the agent did not answer in the shape asked: {error}")
     except Exception as error:  # ruff: ignore [blind-except]
-        return Fallen(reason=f"the agent stopped mid-flight: {error}")
+        return _fallen(error)
 
 
 # --- shell -----------------------------------------------------------------
@@ -583,12 +594,11 @@ async def resolve_conflicts(work: Work) -> Transition:
         return goto(
             set_aside, _work(work, note="the merge conflicts were not resolved")
         )
-    said = await _ask(
+    if fallen := await _ask(
         _resolve(base=work.pr.base, branch=work.pr.branch, files=unmerged.stdout),
         key=f"merge-{work.pr.number}",
-    )
-    if isinstance(said, Fallen):
-        return goto(report, _abandoned(work, said.reason))
+    ):
+        return goto(report, _abandoned(work, fallen.reason))
     # Back through this same step, which re-reads git rather than believing the
     # agent: what decides whether the conflict is gone is the index.
     return goto(resolve_conflicts, _charged(work, resolve_conflicts.name))
@@ -601,9 +611,8 @@ async def gate_check(work: Work) -> Transition:
         return goto(finish_merge, _cleared(work, gate_check.name))
     if _exhausted(work, gate_check.name):
         return goto(set_aside, _work(work, note=f"`{_DEVCHECK}` is still red"))
-    said = await _ask(_fix_gates(_said(gates)), key=f"gates-{work.pr.number}")
-    if isinstance(said, Fallen):
-        return goto(report, _abandoned(work, said.reason))
+    if fallen := await _ask(_fix_gates(_said(gates)), key=f"gates-{work.pr.number}"):
+        return goto(report, _abandoned(work, fallen.reason))
     return goto(gate_check, _charged(work, gate_check.name))
 
 
@@ -640,9 +649,8 @@ async def cover(work: Work) -> Transition:
                 set_aside,
                 _work(work, note=f"`{_COVERAGE}` still reports missing lines"),
             )
-        said = await _ask(_COVER + output, key=f"cover-{work.pr.number}")
-        if isinstance(said, Fallen):
-            return goto(report, _abandoned(work, said.reason))
+        if fallen := await _ask(_COVER + output, key=f"cover-{work.pr.number}"):
+            return goto(report, _abandoned(work, fallen.reason))
         return goto(cover, _charged(work, cover.name))
     if measured.exit_code:
         reason = f"`{_COVERAGE}` failed without naming missing lines"
@@ -679,25 +687,29 @@ async def quality_review(work: Work) -> Transition:
         return goto(read_comments, _cleared(work, quality_review.name))
     if _exhausted(work, quality_review.name):
         return goto(set_aside, _work(work, note="the quality review was never posted"))
-    said = await _ask(
+    if fallen := await _ask(
         _thermo(number=work.pr.number, base=work.pr.base),
         key=f"review-{work.pr.number}",
-    )
-    if isinstance(said, Fallen):
-        return goto(report, _abandoned(work, said.reason))
+    ):
+        return goto(report, _abandoned(work, fallen.reason))
     # Back through the same gh read: the comment is posted when gh says it is.
     return goto(quality_review, _charged(work, quality_review.name))
 
 
 @step
 async def read_comments(work: Work) -> Transition:
-    notes = await _ask(
+    notes = await _ask_for(
         f"{_TRIAGE_READ}\npull request: {work.pr.url}",
         output=TriageNotes,
         opts=_READING,
     )
     if isinstance(notes, Fallen):
         return goto(report, _abandoned(work, notes.reason))
+    # This branch loses its triage and nothing else: the run carries on, and a
+    # blocked row says why rather than a whole night ending on one bad answer.
+    if isinstance(notes, Misread):
+        unreadable = f"the triage was unreadable: {notes.reason}"
+        return goto(set_aside, _work(work, note=unreadable))
     # Nothing to triage is an answer, and the good one: the branch goes to QA.
     if not notes.items:
         return goto(mark_qa, work)
@@ -710,9 +722,8 @@ async def mark_qa(work: Work) -> Transition:
     if labelled.exit_code:
         reason = f"could not add the {_QA_LABEL} label: {_said(labelled)}"
         return goto(set_aside, _work(work, note=reason))
-    said = await _ask(_QA)
-    if isinstance(said, Fallen):
-        return goto(report, _abandoned(work, said.reason))
+    if fallen := await _ask(_QA):
+        return goto(report, _abandoned(work, fallen.reason))
     landed = await shell(_commit("docs: manual test scenarios for this branch"))
     if landed.exit_code:
         return goto(
@@ -731,9 +742,8 @@ def _counted(notes: TriageNotes) -> str:
 @step
 async def write_triage(triaged: Triaged) -> Transition:
     work = triaged.work
-    said = await _ask(_TRIAGE_FILE + triaged.notes.model_dump_json(indent=2))
-    if isinstance(said, Fallen):
-        return goto(report, _abandoned(work, said.reason))
+    if fallen := await _ask(_TRIAGE_FILE + triaged.notes.model_dump_json(indent=2)):
+        return goto(report, _abandoned(work, fallen.reason))
     landed = await shell(_commit("docs: triage of the open review comments"))
     if landed.exit_code:
         return goto(
