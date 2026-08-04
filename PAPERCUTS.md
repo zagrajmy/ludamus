@@ -265,6 +265,11 @@ If you fix a papercut, remove it.
   working-tree changes — /panel/ stays put instead of redirecting to /events/.
   It also aborts the rest of panel.spec.ts (serial mode), so 43 tests report
   'did not run'.
+- 2026-08-02: Pre-commit oxlint hook fails with 'Cannot find module eslint-
+  plugin-sonarjs'; the aube store entry node_modules/.aube/eslint-plugin-
+  sonarjs@3.0.6_.../node_modules/eslint-plugin-sonarjs is extracted without a
+  package.json (only cjs/docs/types), and 'aube install' reports 'already up to
+  date' so it never repairs it. Blocks every commit touching a .ts file.
 - 2026-08-01: mise run lint fails locally on lint:hk: oxlint can't build
   src/ludamus/client/oxlint.config.ts because eslint-plugin-sonarjs isn't
   installed in the local node_modules (CI is fine). Same failure on a clean
