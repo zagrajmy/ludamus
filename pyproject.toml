@@ -131,7 +131,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,document_title"
+custom_blocks = "select,radio,document_title"
 
 # DEPTRY
 
@@ -467,6 +467,7 @@ ignore_names = [
     "is_pending_proposal",
     "is_read",
     "is_unlimited",
+    "item_name",
     "location_label",
     "overflow_count",
     "public_tag_categories",

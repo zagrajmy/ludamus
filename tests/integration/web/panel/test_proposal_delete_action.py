@@ -99,7 +99,7 @@ class TestProposalDeleteActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session deleted.")],
+            messages=[(messages.SUCCESS, "Proposal deleted.")],
             url=reverse("panel:proposals", kwargs={"slug": event.slug}),
         )
         assert not Session.objects.filter(pk=session.pk).exists()

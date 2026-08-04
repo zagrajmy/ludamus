@@ -950,6 +950,24 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
 
     @staticmethod
+    def list_by_slugs(
+        event_id: int, facilitator_slugs: list[str]
+    ) -> list[FacilitatorListItemDTO]:
+        if not facilitator_slugs:
+            return []
+        facilitators = Facilitator.objects.filter(
+            event_id=event_id, slug__in=facilitator_slugs
+        ).annotate(session_count=Count("sessions", distinct=True))
+        by_slug = {f.slug: f for f in facilitators}
+        # The caller's order is the answer's order; a slug this event doesn't
+        # have drops out rather than raising.
+        return [
+            FacilitatorListItemDTO.model_validate(by_slug[slug])
+            for slug in facilitator_slugs
+            if slug in by_slug
+        ]
+
+    @staticmethod
     def count_confirmations_by_organizer(event_pk: int) -> list[ConfirmationCountsRow]:
         # Grouping by organizer folds every unclaimed facilitator into a single
         # `organizer_id=None` row — the backlog nobody took on.

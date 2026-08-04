@@ -22,7 +22,13 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories.sessions import SessionRepository
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, TimeSlotDTO, TrackDTO
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorListItemDTO,
+    ProposalCategoryDTO,
+    TimeSlotDTO,
+    TrackDTO,
+)
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
@@ -955,21 +961,12 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             # field_descriptors carry BoundFields, which don't compare usefully.
-            # The component renders without page chrome, so no active_nav.
+            # No events, stats or active_nav: a category swap re-renders one
+            # fieldset and builds none of the page chrome.
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
                 "field_descriptors": ANY,
                 "form": ANY,
+                "category": ProposalCategoryDTO.model_validate(category_b),
                 "orphan_values": [],
                 "fields_url": self.get_fields_url(event),
             },
@@ -1005,17 +1002,7 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
+                "category": ProposalCategoryDTO.model_validate(category_b),
                 "field_descriptors": [],
                 "form": ANY,
                 "orphan_values": [],
@@ -1084,19 +1071,9 @@ class TestProposalCreateCategoryFields:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
                 "field_descriptors": [],
                 "form": ANY,
+                "category": None,
                 "orphan_values": [],
                 "fields_url": self.get_fields_url(event),
             },

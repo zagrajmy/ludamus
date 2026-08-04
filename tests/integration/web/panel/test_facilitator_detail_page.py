@@ -64,6 +64,22 @@ def _base_context(event):
     }
 
 
+def _detail_tabs(event, facilitator_slug):
+    return {
+        "active_tab": "details",
+        "tab_urls": {
+            "details": reverse(
+                "panel:facilitator-detail",
+                kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
+            ),
+            "history": reverse(
+                "panel:facilitator-history",
+                kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
+            ),
+        },
+    }
+
+
 class TestFacilitatorDetailPageView:
     """Tests for /panel/event/<slug>/facilitators/<facilitator_slug>/ page."""
 
@@ -90,6 +106,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -114,6 +131,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -152,6 +170,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -177,11 +196,7 @@ class TestFacilitatorDetailPageView:
                     )
                 ],
             },
-            contains=[
-                '<div class="p-4">',
-                f'href="{proposal_url}"',
-                "Attached Session",
-            ],
+            contains=[f'href="{proposal_url}"', "Attached Session"],
         )
 
     def test_get_shows_linked_user_name_and_email(
@@ -199,6 +214,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": UserDTO.model_validate(linked),
                 "accreditation_type_display": "None",
@@ -224,6 +240,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": (
                     FacilitatorDTO.model_validate(facilitator).model_copy(
                         update={"organizer_name": "Olga Organizer"}
@@ -235,7 +252,6 @@ class TestFacilitatorDetailPageView:
                 "has_personal_data": False,
                 "sessions": [],
             },
-            contains="Olga Organizer",
         )
 
     def test_get_shows_no_linked_user_when_user_is_not_active(
@@ -253,6 +269,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -327,6 +344,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
@@ -373,6 +391,7 @@ class TestFacilitatorDetailPageView:
             template_name="panel/facilitator-detail.html",
             context_data={
                 **_base_context(event),
+                **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
                 "accreditation_type_display": "None",
