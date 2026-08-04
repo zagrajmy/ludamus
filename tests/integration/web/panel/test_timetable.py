@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import Track
+from ludamus.pacts import ProposalCategoryDTO, TrackDTO
 from ludamus.specs.timetable import TIMETABLE_ROOM_PAGE_SIZE
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -369,7 +370,7 @@ class TestTimetablePageView:
                 print_url=_print_url(
                     event, material="track-timetable", track=track.slug
                 ),
-                all_tracks=ANY,
+                all_tracks=[TrackDTO.model_validate(track)],
                 filter_track_pk=track.pk,
             ),
         )
@@ -398,7 +399,7 @@ class TestTimetablePageView:
                 print_url=_print_url(
                     event, material="track-timetable", track=track.slug
                 ),
-                all_tracks=ANY,
+                all_tracks=[TrackDTO.model_validate(track)],
                 filter_track_pk=track.pk,
                 managed_track_pks={track.pk},
             ),
@@ -491,7 +492,7 @@ class TestTimetablePageView:
                     day_start=localtime(event.start_time + timedelta(hours=4)),
                     total_minutes=SLOT_MINUTES,
                 ),
-                categories=ANY,
+                categories=[ProposalCategoryDTO.model_validate(proposal_category)],
                 slot_violation_session_pks={session.pk},
             ),
         )
