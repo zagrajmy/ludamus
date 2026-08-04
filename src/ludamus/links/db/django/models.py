@@ -512,6 +512,8 @@ class EnrollmentConfig(models.Model):
             True if session can be enrolled in under this config.
         """
         if self.limit_to_end_time:
+            if not hasattr(session, "agenda_item"):
+                return False
             return session.agenda_item.start_time < self.end_time
 
         return True
