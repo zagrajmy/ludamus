@@ -223,6 +223,29 @@ class PullRequest(BaseModel):
 _PULLS: TypeAdapter[list[PullRequest]] = TypeAdapter(list[PullRequest])
 
 
+# `gh pr view --json comments` hands back every comment on the pull request,
+# and only the body is wanted: the question is whether one of them is the
+# review, not who wrote it or when.
+class Comment(BaseModel):
+    body: str
+
+
+class Comments(BaseModel):
+    comments: list[Comment]
+
+
+# The heading `_thermo` asks the agent to put on the first line, and the first
+# line only. Searching the whole JSON for it instead would count a comment that
+# merely quotes the heading — a reply to the review, a triage repeating it back
+# — as the review itself, and the step whose one job is "was it posted?" would
+# answer yes on the strength of a substring.
+def _reviewed(comments: Comments) -> bool:
+    return any(
+        comment.body.lstrip().startswith(f"## {_THERMO_TITLE}")
+        for comment in comments.comments
+    )
+
+
 class Checked(BaseModel):
     number: int
     branch: str
@@ -244,7 +267,7 @@ class Run(BaseModel):
     stopped: str = ""
 
 
-# One pull request in flight. `budgets` dies with this object, which is what "a
+# One pull request in flight. `budgets` dies with this payload, which is what "a
 # branch change clears all budgets" means — a fresh Work is built per pull
 # request and inherits nothing.
 class Work(BaseModel):
@@ -336,9 +359,14 @@ class Misread(BaseModel):
     reason: str
 
 
+# The only constrained agent call in this file, and deliberately so: it is also
+# the only one that reads rather than writes, and the only one handed text a
+# stranger wrote. The other six exist to rewrite the worktree, pass no opts, and
+# so run at vekna's `bypassPermissions` default — which is the decision an
+# unattended run makes, since a permission prompt at 3am is a hang.
 # Read-only in the sense that matters here: the triage has to reach `gh`, so
 # Bash is on the allowlist, and `dontAsk` denies everything outside it without
-# stopping to prompt — which matters at 3am, where a prompt is a hang.
+# stopping to prompt.
 _READING = CodingOpts(
     focus_options=ClaudeOptions(
         permission_mode="dontAsk",
@@ -415,6 +443,9 @@ def _label(*, number: int, label: str) -> str:
     return f"gh pr edit {number} --add-label {_q(label)}"
 
 
+# A sort key, and it has to be spelled out: `attrgetter` is `attrgetter[Any]`
+# and a lambda's parameter is untyped, so mypy rejects both here. This is the
+# only shape of the three that carries a type.
 def _modified(pull: PullRequest) -> str:
     return pull.updated_at
 
@@ -428,22 +459,43 @@ _CONTINUE = (
 )
 
 
+# Naming the stash is only worth anything if the morning report says the name,
+# so the step that releases puts this in the row's note.
+def _stash(branch: str) -> str:
+    return f"pr_check left {branch} unfinished"
+
+
+_STASHED = "stashed"
+
+
 # What a blocked pull request leaves behind. The next one begins with a clean
 # worktree check, so an abandoned branch cannot be left dirty — and its work is
 # not ours to throw away either. A conflicted merge goes back where it was; the
 # rest goes into a named stash the report points at.
+# The dirty check is what makes the report's claim true: `git stash push` on a
+# clean tree exits 0 having saved nothing, so a note written off the exit code
+# alone would name a stash that is not there. Echoing our own marker beats
+# reading git's prose for the same answer.
 def _release(branch: str) -> str:
-    label = _q(f"pr_check left {branch} unfinished")
     return (
         "if git rev-parse -q --verify MERGE_HEAD >/dev/null; "
         "then git merge --abort; fi; "
-        f"git stash push -u -m {label}"
+        'if [ -n "$(git status --porcelain)" ]; '
+        f"then git stash push -u -m {_q(_stash(branch))} >/dev/null "
+        f"&& echo {_STASHED}; fi"
     )
 
 
+# HEAD is asked for by name first, because it is not always this branch: a
+# `set_aside` reached from a failed checkout is still standing on the base, and
+# counting `origin/<branch>..HEAD` there measures the base against the branch
+# and reports the answer as unpushed commits. A non-zero exit falls through to
+# None below, which is exactly "we could not tell".
 async def _ahead(branch: str) -> int | None:
     counted = await shell(
-        f"git rev-list --count {_q(f'origin/{branch}..HEAD')}", stream=False
+        f'test {_q(branch)} = "$(git rev-parse --abbrev-ref HEAD)" && '
+        f"git rev-list --count {_q(f'origin/{branch}..HEAD')}",
+        stream=False,
     )
     if counted.exit_code:
         return None
@@ -676,7 +728,12 @@ async def quality_review(work: Work) -> Transition:
             set_aside,
             _work(work, note=f"gh could not read the comments: {seen.stderr.strip()}"),
         )
-    if _THERMO_TITLE in seen.stdout:
+    try:
+        comments = Comments.model_validate_json(seen.stdout)
+    except ValidationError as error:
+        unreadable = f"gh returned comments this could not read: {error}"
+        return goto(set_aside, _work(work, note=unreadable))
+    if _reviewed(comments):
         # Spent means this run is what put it there — a review that was already
         # on the pull request last night is not this night's work to label.
         if _spent(work, quality_review.name):
@@ -779,9 +836,12 @@ async def finish_pr(closed: Closed) -> Transition:
 @step
 async def set_aside(work: Work) -> Transition:
     released = await shell(_release(work.pr.branch))
-    note = work.note
+    parts = [work.note]
     if released.exit_code:
-        note = f"{note}; the worktree could not be released: {_said(released)}"
+        parts.append(f"the worktree could not be released: {_said(released)}")
+    elif released.stdout.strip() == _STASHED:
+        parts.append(f'stashed as "{_stash(work.pr.branch)}"')
+    note = "; ".join(part for part in parts if part)
     row = Checked(
         number=work.pr.number,
         branch=work.pr.branch,
