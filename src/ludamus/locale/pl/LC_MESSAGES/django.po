@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 15:37+0200\n"
+"POT-Creation-Date: 2026-08-05 16:00+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2621,8 +2621,8 @@ msgid "Minimum Age"
 msgstr "Minimalny Wiek"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "That is more people than we can store."
-msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+msgid "Enter a smaller number."
+msgstr "Podaj mniejszą liczbę."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter how long the session lasts."
@@ -6288,8 +6288,12 @@ msgid "Participant Limits"
 msgstr "Limity uczestników"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Set minimum and maximum participant limits for this category."
-msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+msgid ""
+"Bounds on what a proposal submitted through the call for proposals may ask "
+"for. Your own forms in this panel are not limited by them."
+msgstr ""
+"Ograniczenia tego, o ile miejsc może poprosić zgłoszenie wysłane przez "
+"formularz zgłoszeniowy. Twoje własne formularze w panelu nie są nimi objęte."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Minimum participants"
@@ -8798,6 +8802,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+
+#~ msgid "That is more people than we can store."
+#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"

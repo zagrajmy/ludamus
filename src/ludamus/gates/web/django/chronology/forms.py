@@ -50,9 +50,10 @@ def build_session_details_form(
     max_limit: int = 0,
     durations: list[str] | None = None,
 ) -> type[forms.Form]:
-    # The only place a category's participant bounds bind: they let a category
-    # of large rooms refuse a two-person session. The organizer's panel form and
-    # a facilitator's self-edit are both deliberately unbounded.
+    # The only place a category's participant bounds bind — the panel form and a
+    # facilitator's self-edit are deliberately unbounded — so a category of large
+    # rooms can refuse a two-person session. A floor also makes the number
+    # mandatory; with neither bound the field is optional and 0 means no limit.
     participants_kwargs: dict[str, Any] = {
         "label": _("Max participants"),
         "min_value": min_limit,

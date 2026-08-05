@@ -663,10 +663,11 @@ class TestProposalEditPageView:
     def test_post_rejects_a_limit_wider_than_the_column(
         self, authenticated_client, active_user, sphere, event
     ):
-        # Unbounded is not unlimited: Postgres integer stops at 2**31-1, and the
-        # organizer should read a sentence rather than meet a 500.
+        # Unbounded is not unlimited: Postgres integer stops at 2**31-1. The
+        # field says so itself, rather than leaving the panel to fall back on
+        # its generic "couldn't save" message.
         sphere.managers.add(active_user)
-        session = _make_session(event)
+        session = _make_session(event, participants_limit=DEFAULT_SESSION_PARTICIPANTS)
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
@@ -698,7 +699,7 @@ class TestProposalEditPageView:
                 },
                 "proposal": SessionDTO.model_validate(session),
                 "form": FormErrorsMatcher(
-                    participants_limit=["That is more people than we can store."]
+                    participants_limit=["Enter a smaller number."]
                 ),
                 "all_facilitators": [],
                 "assigned_facilitator_pks": set(),

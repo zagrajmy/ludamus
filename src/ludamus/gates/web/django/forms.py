@@ -646,12 +646,14 @@ class SessionEditForm(forms.Form):
 
     def clean_participants_limit(self) -> int | None:
         # No `max_value`: a max attribute on the input is what this form set out
-        # to remove. This ceiling is storage, not policy — Postgres `integer`
-        # stops here, and without the check the save raises DataError and the
-        # organizer gets a 500 instead of a sentence.
+        # to remove. The ceiling is storage, not policy — models.Session's
+        # PositiveIntegerField is `integer` on Postgres. Without it the panel
+        # falls back to its generic "couldn't save" (the savepoint turns the
+        # DataError into DatabaseConstraintError), and the facilitator
+        # self-edit, which catches nothing, 500s.
         limit = self.cleaned_data.get("participants_limit")
         if limit is not None and limit > MAX_STORED_PARTICIPANTS_LIMIT:
-            raise ValidationError(_("That is more people than we can store."))
+            raise ValidationError(_("Enter a smaller number."))
         return limit
 
     def clean_cover_image(self) -> object:
