@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-06 01:18+0200\n"
+"POT-Creation-Date: 2026-08-06 01:30+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6116,11 +6116,8 @@ msgid "chat"
 msgstr "czat"
 
 #: src/ludamus/templates/landing/org_proof.html
-msgid ""
-"The programme and enrollment of Kapitularz and Bachanalia Fantastyczne run "
-"in Zagrajmy."
-msgstr ""
-"Program i zapisy Kapitularza i Bachanalii Fantastycznych działają w Zagrajmy."
+msgid "The programme and enrollment of these events run in Zagrajmy."
+msgstr "Program i zapisy tych wydarzeń działają w Zagrajmy."
 
 #: src/ludamus/templates/landing/org_proof.html
 msgctxt "landing stats"
