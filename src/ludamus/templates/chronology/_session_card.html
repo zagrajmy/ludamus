@@ -49,8 +49,8 @@
                 </div>
             </header>
             {% if data.session.description %}
+                {# Deliberately not a morph group: see session-modal.html. #}
                 <p class="pointer-events-auto select-text text-sm mb-2 line-clamp-3 text-foreground-primary"
-                   data-morph="desc"
                    data-session-description>{{ data.session.description }}</p>
             {% endif %}
             <div class="relative" data-morph="tags">{% include "chronology/session_tags.html" %}</div>
@@ -99,5 +99,13 @@
                 </div>
             </div>
         </div>
+        {# Anchor for the modal's footer bar, which has nothing to morph from. As #}
+        {# a new-only group it materialised at a scaled-down slot inside the card #}
+        {# and slid across to the modal — from the far right, for a card in the #}
+        {# last column. Pairing it with a zero-height strip on the card's bottom #}
+        {# edge gives the group an old geometry to interpolate from, so it grows #}
+        {# out of that edge and tracks the sheet's bottom instead. Renders #}
+        {# nothing: it exists only to be captured. #}
+        <div class="h-0" aria-hidden="true" data-morph="footer"></div>
     </div>
 </article>
