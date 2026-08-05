@@ -1,9 +1,11 @@
 import re
 from http import HTTPStatus
+from pathlib import Path
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
+import ludamus
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
 from tests.integration.utils import assert_response
 
@@ -11,11 +13,15 @@ PRODUCT_PITCH = (
     "A convention without spreadsheet chaos. Programme proposals, a schedule of"
     " rooms and tracks, sign-ups with seat limits and a waitlist."
 )
-LANDING_TITLE = "Zagrajmy — from a speaker's proposal to the printout on the room door"
+LANDING_TITLE = "Zagrajmy: from a speaker's proposal to the printout on the room door"
 LANDING_PITCH = (
     "Zagrajmy runs your event programme: proposals, review, the schedule, the"
     " event page, enrollment with waiting lists, and print."
     " Write to us: kontakt@zagrajmy.net"
+)
+TEMPLATES = Path(ludamus.__file__).parent / "templates"
+TITLE_BLOCK = re.compile(
+    r"{% block title %}(?:.*?){% endblock title %}|<title>(?:.*?)</title>", re.DOTALL
 )
 
 
@@ -38,6 +44,14 @@ def _meta_raw(response, attribute, value):
 
 def _meta(response, attribute, value):
     return " ".join(_meta_raw(response, attribute, value).split())
+
+
+def _titles(response):
+    return [
+        _title(response),
+        _meta(response, "property", "og:title"),
+        _meta(response, "name", "twitter:title"),
+    ]
 
 
 def _descriptions(response):
@@ -83,6 +97,70 @@ class TestPageTitle:
         )
 
         assert _title(response) == f"Events • {non_root_sphere.name} • Zagrajmy"
+
+    def test_panel_page_title_names_the_event_it_manages(self, manager_client, event):
+        response = _get_ok(
+            manager_client,
+            reverse("panel:event-index", kwargs={"slug": event.slug}),
+            "panel/index.html",
+        )
+
+        assert _title(response) == f"Dashboard • {event.name}"
+
+    def test_sphere_wide_panel_page_keeps_the_sphere(self, manager_client, sphere):
+        response = _get_ok(
+            manager_client,
+            reverse("multiverse:panel:sphere-settings"),
+            "multiverse/panel/sphere-settings.html",
+        )
+
+        assert _title(response) == f"Sphere settings • {sphere.name}"
+
+    def test_print_document_title_names_the_document_and_the_event(
+        self, manager_client, event, sphere
+    ):
+        response = _get_ok(
+            manager_client,
+            f'{reverse("web:chronology:event-print", kwargs={"slug": event.slug})}'
+            "?material=door-cards",
+            "chronology/print.html",
+        )
+
+        assert _title(response) == f"{event.name} • Print • {sphere.name}"
+
+    # A dash in a title reads as a second kind of separator next to the bullets
+    # the standard already uses, and eats more room in a tab than "•" does.
+    def test_no_title_separates_its_parts_with_a_dash(self):
+        offenders = [
+            f"{path.name}: {title}"
+            for path in TEMPLATES.rglob("*.html")
+            for title in TITLE_BLOCK.findall(path.read_text())
+            if "—" in title or " - " in title
+        ]
+
+        assert offenders == []
+
+
+class TestLinkPreviewTitle:
+    def test_matches_the_document_title(self, client, sphere):
+        event = EventFactory(sphere=sphere, name="Kapitularz")
+
+        response = _get_ok(
+            client,
+            reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            ["chronology/event.html"],
+        )
+
+        assert _titles(response) == [f"Kapitularz • {sphere.name}"] * 3
+
+    def test_matches_the_document_title_in_the_panel(self, manager_client, event):
+        response = _get_ok(
+            manager_client,
+            reverse("panel:proposals", kwargs={"slug": event.slug}),
+            "panel/proposals.html",
+        )
+
+        assert _titles(response) == [f"Proposals • {event.name}"] * 3
 
 
 class TestMetaDescription:

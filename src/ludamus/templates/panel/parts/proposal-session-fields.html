@@ -1,11 +1,12 @@
 {% load i18n %}
 {% load tessera %}
-<div id="proposal-session-fields"
-     class="space-y-6 break-inside-avoid mb-6">
+{# One grid cell on purpose: hx-swap="outerHTML" needs a real element to #}
+{# replace, so these cards stack together instead of each taking a cell. #}
+<div id="proposal-session-fields" class="space-y-6">
     <div class="card">
         <div class="card-body">
             <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Participants and duration" %}</h3>
-            {# Stacked, not columns: the card sits in a narrow masonry column, #}
+            {# Stacked, not columns: the card sits in a narrow grid column, #}
             {# where a two-up grid squeezes the duration steppers into a wrap. #}
             <div class="space-y-4">
                 <div>{% tessera_field form.participants_limit %}</div>

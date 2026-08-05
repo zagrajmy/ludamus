@@ -35,6 +35,7 @@ export default defineConfig({
     outDir: resolve(rootDir, "../static/vite"),
     rollupOptions: {
       input: {
+        actions: resolve(rootDir, "src/actions.ts"),
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
@@ -46,7 +47,6 @@ export default defineConfig({
         "enroll-preview": resolve(rootDir, "src/enroll-preview.ts"),
         "event-print": resolve(rootDir, "src/event-print.ts"),
         "event-timeline": resolve(rootDir, "src/event-timeline.ts"),
-        "facilitator-columns": resolve(rootDir, "src/facilitator-columns.ts"),
         "filter-autosubmit": resolve(rootDir, "src/filter-autosubmit.ts"),
         flash: resolve(rootDir, "src/flash.ts"),
         "import-recipe": resolve(rootDir, "src/import-recipe.ts"),
@@ -55,6 +55,9 @@ export default defineConfig({
         landing: resolve(rootDir, "src/landing.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
+        "nav-progress": resolve(rootDir, "src/nav-progress.ts"),
+        "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
+        "panel-columns": resolve(rootDir, "src/panel-columns.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),

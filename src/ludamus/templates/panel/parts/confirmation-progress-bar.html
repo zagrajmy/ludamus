@@ -1,0 +1,8 @@
+{% load i18n %}
+<div class="flex items-center gap-2">
+    <div class="h-2 w-24 rounded-full bg-neutral-200 dark:bg-neutral-700">
+        <div class="h-2 rounded-full {% if pct == 100 %}bg-success{% else %}bg-primary{% endif %}"
+             style="width:{{ pct }}%"></div>
+    </div>
+    <span class="text-xs tabular-nums text-foreground-muted">{{ pct }}%</span>
+</div>

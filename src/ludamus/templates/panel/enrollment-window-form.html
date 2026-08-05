@@ -1,12 +1,12 @@
 {% extends "panel/base.html" %}
 {% load i18n tessera %}
-{% block title_prefix %}
+{% block title %}
     {% if window %}
-        {% translate "Edit Enrollment Window" %} -
+        {% translate "Edit Enrollment Window" %}
     {% else %}
-        {% translate "Add Enrollment Window" %} -
+        {% translate "Add Enrollment Window" %}
     {% endif %}
-{% endblock title_prefix %}
+{% endblock title %}
 {% block page_title %}
     {% if window %}
         {% translate "Edit Enrollment Window" %}

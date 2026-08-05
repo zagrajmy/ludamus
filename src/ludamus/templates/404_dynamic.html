@@ -2,7 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% block title %}
-    {% translate "Page Not Found" %} - 404
+    {% translate "Page Not Found" %} • 404
 {% endblock title %}
 {% block header_section %}
 {% endblock header_section %}
@@ -13,7 +13,7 @@
             <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
             <p class="mb-6 text-foreground">{{ guidance }}</p>
             <div class="flex flex-col sm:flex-row gap-3">
-                <button onclick="history.back()" class="btn btn-secondary">
+                <button data-action="history-back" class="btn btn-secondary">
                     {% icon "arrow-left" class="w-5 h-5" %}
                     {% translate "Go Back" %}
                 </button>

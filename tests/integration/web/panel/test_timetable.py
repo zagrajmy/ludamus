@@ -141,12 +141,42 @@ class TestTimetablePageView:
                     "problems": reverse(
                         "panel:timetable-problems", kwargs={"slug": event.slug}
                     ),
+                    "confirmations": reverse(
+                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
+                    ),
                 },
                 "active_tab": "timetable",
-                "print_scopes": [],
+                "print_url": reverse(
+                    "web:chronology:event-print", kwargs={"slug": event.slug}
+                ),
             },
         )
         assert response.context["grid"].spaces == []
+
+    def test_print_link_carries_track_and_day_filters(
+        self, authenticated_client, active_user, sphere, event, space, time_slot
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="Main Track", slug="main-track", is_public=True
+        )
+        day = time_slot.start_time.date()
+
+        response = authenticated_client.get(
+            self.get_url(event), {"track": track.pk, "date": day.isoformat()}
+        )
+
+        base = reverse("web:chronology:event-print", kwargs={"slug": event.slug})
+        expected_print_url = (
+            f"{base}?material=track-timetable&track=main-track"
+            f"&start={day.isoformat()}T00%3A00&hours=24"
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/timetable.html",
+            context_data={**response.context_data, "print_url": expected_print_url},
+        )
 
     def test_grid_shows_spaces_and_time_labels(
         self, authenticated_client, active_user, sphere, event, space, time_slot

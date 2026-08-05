@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
+from zeal import zeal_ignore
 
 from ludamus.links.db.django.models import SessionParticipation
 from tests.integration.conftest import UserFactory
@@ -114,7 +115,12 @@ class TestShadowbanPretendFull:
         )
         page_session = response.context["session"]
         assert page_session.is_full
-        assert page_session.enrolled_count == page_session.effective_participants_limit
+        # effective_participants_limit walks event.enrollment_configs; the
+        # context instance has no prefetch, so exempt this assertion-side read
+        # from zeal instead of flagging the view under test.
+        with zeal_ignore():
+            limit = page_session.effective_participants_limit
+        assert page_session.enrolled_count == limit
         assert page_session.waiting_count == 0
 
     @pytest.mark.usefixtures("enrollment_config")

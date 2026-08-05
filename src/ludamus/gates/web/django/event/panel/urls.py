@@ -5,6 +5,7 @@ from django.urls import include, path
 from ludamus.gates.web.django.chronology.panel.views import (
     bans,
     cfp,
+    columns,
     discounts,
     event_settings,
     facilitators,
@@ -12,6 +13,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     index,
     integrations,
     personal_data_fields,
+    proposal_edit,
     proposals,
     session_fields,
     time_slots,
@@ -19,9 +21,10 @@ from ludamus.gates.web.django.chronology.panel.views import (
     tracks,
     venues,
 )
-from ludamus.gates.web.django.chronology.panel.views import print as print_views
 from ludamus.gates.web.django.event.panel.views import (
+    confirmations,
     enrollment_settings,
+    print_redirects,
     proposal_category_settings,
 )
 
@@ -92,13 +95,23 @@ _timetable_urlpatterns = [
         name="timetable-confirm-block",
     ),
     path(
+        "confirmations/",
+        confirmations.ConfirmationsPageView.as_view(),
+        name="timetable-confirmations",
+    ),
+    path(
+        "confirmations/do/confirm",
+        confirmations.ConfirmationsConfirmActionView.as_view(),
+        name="timetable-confirmations-confirm",
+    ),
+    path(
         "print/timetable/",
-        print_views.TimetablePrintView.as_view(material="timetable"),
+        print_redirects.LegacyPrintRedirectView.as_view(material="timetable"),
         name="timetable-print",
     ),
     path(
         "print/door-cards/",
-        print_views.TimetablePrintView.as_view(material="door-cards"),
+        print_redirects.LegacyPrintRedirectView.as_view(material="door-cards"),
         name="timetable-print-door-cards",
     ),
 ]
@@ -215,12 +228,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/proposals/create/",
-        proposals.ProposalFormPageView.as_view(),
+        proposal_edit.ProposalFormPageView.as_view(),
         name="proposal-create",
     ),
     path(
         "event/<slug:slug>/proposals/create/fields/",
-        proposals.ProposalFormFieldsComponentView.as_view(),
+        proposal_edit.ProposalFormFieldsComponentView.as_view(),
         name="proposal-create-fields",
     ),
     path(
@@ -239,13 +252,23 @@ urlpatterns = [
         name="proposal-detail",
     ),
     path(
+        "event/<slug:slug>/proposals/columns/",
+        columns.ProposalColumnsPageView.as_view(),
+        name="proposal-columns",
+    ),
+    path(
+        "event/<slug:slug>/proposals/<int:proposal_id>/history/",
+        proposals.ProposalHistoryPageView.as_view(),
+        name="proposal-history",
+    ),
+    path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/",
-        proposals.ProposalFormPageView.as_view(),
+        proposal_edit.ProposalFormPageView.as_view(),
         name="proposal-edit",
     ),
     path(
         "event/<slug:slug>/proposals/<int:proposal_id>/edit/fields/",
-        proposals.ProposalFormFieldsComponentView.as_view(),
+        proposal_edit.ProposalFormFieldsComponentView.as_view(),
         name="proposal-edit-fields",
     ),
     path(
@@ -377,8 +400,13 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/facilitators/columns/",
-        facilitators.FacilitatorColumnsPageView.as_view(),
+        columns.FacilitatorColumnsPageView.as_view(),
         name="facilitator-columns",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/do/bulk-action",
+        facilitators.FacilitatorBulkActionView.as_view(),
+        name="facilitator-bulk-action",
     ),
     path(
         "event/<slug:slug>/facilitators/merge/",
@@ -389,6 +417,11 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/history/",
+        facilitators.FacilitatorHistoryPageView.as_view(),
+        name="facilitator-history",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
@@ -448,7 +481,7 @@ urlpatterns = [
     path("event/<slug:slug>/timetable/", include(_timetable_urlpatterns)),
     path(
         "event/<slug:slug>/print/",
-        print_views.PrintMaterialsPageView.as_view(),
+        print_redirects.LegacyPrintRedirectView.as_view(),
         name="print-materials",
     ),
     path(

@@ -223,6 +223,15 @@ group = "typing"
 pattern = 'def get_context_data\(.*dict\[str, Any\]:'
 ranges = ["python-src"]
 
+# Import-linter contracts commented out because the codebase breaks them today.
+# Fix the imports, then uncomment the rule.
+[[metrics]]
+name = "import-linter-disabled"
+type = "regex_count"
+group = "refactoring"
+pattern = '#\s*("ludamus\.|\[\[tool\.importlinter)'
+ranges = ["config"]
+
 [[metrics]]
 name = "adapter-imports-in-gates"
 type = "regex_count"

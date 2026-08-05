@@ -48,7 +48,7 @@ def _guests(agenda_item, viewer):
         session=agenda_item.session,
         enrolled_by=viewer,
         user__user_type=UserType.ANONYMOUS,
-    )
+    ).select_related("user")
 
 
 def _page_context(viewer, agenda_item):

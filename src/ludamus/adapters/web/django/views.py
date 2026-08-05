@@ -763,9 +763,17 @@ class PartyNotices:
 def _guest_participations(
     session: Session, viewer_pk: int
 ) -> QuerySet[SessionParticipation]:
-    return SessionParticipation.objects.filter(
-        session=session, enrolled_by_id=viewer_pk, user__user_type=UserType.ANONYMOUS
-    ).order_by("pk")
+    # select_related("user"): guest removal deletes each row's throwaway user,
+    # which would otherwise lazy-load one user per removed guest.
+    return (
+        SessionParticipation.objects.filter(
+            session=session,
+            enrolled_by_id=viewer_pk,
+            user__user_type=UserType.ANONYMOUS,
+        )
+        .select_related("user")
+        .order_by("pk")
+    )
 
 
 def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:

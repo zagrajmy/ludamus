@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.db.models import Max, Prefetch
+from django.db.models import Max
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
@@ -292,7 +292,12 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             order=space.order,
             depth=1 + sum(1 for _ in space.iter_ancestors()),
             is_leaf=not space.children.exists(),
-            track_names=sorted(t.name for t in space.tracks.all()),
+            # Explicit query, not `space.tracks.all()`: _node also runs on
+            # just-created instances where nothing is prefetched, and a view
+            # can build two nodes per request (parent + new child).
+            track_names=sorted(
+                Track.objects.filter(spaces__pk=space.pk).values_list("name", flat=True)
+            ),
             children=[],
         )
 
@@ -488,38 +493,48 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
     @staticmethod
-    def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]:
-        pks = list(session_pks)
-        sessions = Session.objects.filter(pk__in=pks).prefetch_related(
-            Prefetch("tracks", queryset=Track.objects.order_by("name"))
+    def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]:
+        # Two constant queries: the session→track pairs, then the track rows.
+        # The one-query through-table walk (see read_facilitators_by_sessions)
+        # doesn't type-check here: `tracks` is declared with a lazy "Track"
+        # string reference, so django-stubs resolves the auto-created through
+        # model to Never and mypy rejects `Session.tracks.through.objects`.
+        pairs = (
+            Session.objects.filter(pk__in=session_ids, tracks__isnull=False)
+            .order_by("tracks__name")
+            .values_list("pk", "tracks__pk")
         )
-        result: dict[int, list[TrackDTO]] = {pk: [] for pk in pks}
-        for session in sessions:
-            result[session.pk] = [
-                TrackDTO.model_validate(track) for track in session.tracks.all()
-            ]
+        tracks = {
+            track.pk: TrackDTO.model_validate(track)
+            for track in Track.objects.filter(sessions__pk__in=session_ids).distinct()
+        }
+        result: dict[int, list[TrackDTO]] = {}
+        for session_pk, track_pk in pairs:
+            result.setdefault(session_pk, []).append(tracks[track_pk])
         return result
-
-    @staticmethod
-    def list_track_pks_by_sessions(session_pks: Iterable[int]) -> dict[int, list[int]]:
-        # Membership only -- no model hydration, unlike list_by_sessions.
-        result: dict[int, list[int]] = defaultdict(list)
-        rows = Track.objects.filter(sessions__pk__in=session_pks).values_list(
-            "sessions__pk", "pk"
-        )
-        for session_pk, track_pk in rows:
-            result[session_pk].append(track_pk)
-        return dict(result)
 
     @staticmethod
     def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:
-        pks = list(track_pks)
         rows = (
-            Track.managers.through.objects.filter(track_id__in=pks)
-            .select_related("user")
-            .order_by("user__name")
+            User.objects.filter(managed_tracks__pk__in=track_pks)
+            .order_by("name")
+            .values_list("managed_tracks__pk", "name")
         )
-        result: dict[int, list[str]] = {pk: [] for pk in pks}
-        for row in rows:
-            result[row.track_id].append(row.user.name)
+        result: dict[int, list[str]] = {}
+        for track_pk, name in rows:
+            result.setdefault(track_pk, []).append(name)
         return result
+
+    @staticmethod
+    def list_manager_names_by_event(event_pk: int) -> dict[int, list[str]]:
+        # Every track's managers in one query — the per-track call above turns
+        # into N+1 the moment a page lists tracks.
+        names: dict[int, list[str]] = {}
+        rows = (
+            Track.objects.filter(event_id=event_pk, managers__isnull=False)
+            .order_by("managers__name")
+            .values_list("pk", "managers__name")
+        )
+        for track_pk, name in rows:
+            names.setdefault(track_pk, []).append(name)
+        return names

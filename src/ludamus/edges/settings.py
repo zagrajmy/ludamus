@@ -71,6 +71,8 @@ env = environ.Env(
     SECRET_KEY=str,
     SUPPORT_EMAIL=(str, "support@example.com"),
     IN_TESTS=(bool, False),
+    # Escalate django-zeal N+1 findings to errors (pytest) vs log-only (e2e).
+    ZEAL_RAISE=(bool, False),
 )
 
 
@@ -146,6 +148,29 @@ if DEBUG:
     INSTALLED_APPS.append("django_browser_reload")
     MIDDLEWARE.append("django_browser_reload.middleware.BrowserReloadMiddleware")
 
+# django-zeal flags every N+1 as it happens (a related-field lazy load
+# repeated across a loop). Active everywhere except production: the dev
+# server and pytest raise so a regression cannot land unnoticed; the e2e
+# server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
+# the UI shows up in server output without failing unrelated UI tests.
+if DEBUG or IN_TESTS:
+    INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
+    MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
+    ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
+    ZEAL_SHOW_ALL_CALLERS = False
+    # Repositories fetch DTOs with `Model.objects.get(...)` per read, so two
+    # unrelated reads of the same model in one request trip zeal's repeated-
+    # get() heuristic constantly (sphere by domain + sphere by id, session +
+    # its event, ...). Those are constant per request, not per-row; keep zeal
+    # focused on the real N+1 shape — related-field lazy loads in loops.
+    # Space.parent: model validation climbs the ancestor chain on every save
+    # (same-event, cycle, and depth checks), bounded by SPACE_MAX_DEPTH — a
+    # deliberate walk, not an unbounded per-row leak.
+    ZEAL_ALLOWLIST = [
+        {"model": "*", "field": "get()"},
+        {"model": "db_main.Space", "field": "parent"},
+    ]
+
 if DEBUG and env.bool("DEBUG_TOOLBAR", default=False):
     INSTALLED_APPS.append("debug_toolbar")
     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
@@ -173,6 +198,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.template.context_processors.media",
+                "django.template.context_processors.csp",
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
@@ -308,23 +334,51 @@ INTERNAL_IPS = [
     # ...
 ]
 
-# Content-Security-Policy, report-only for now. 'unsafe-inline' in
-# script-src/style-src covers the inline theme-init/panel scripts and
-# inline style attributes; 'unsafe-eval' covers htmx hx-on:
-# attributes; img-src is broad because avatars come from arbitrary
-# Auth0/gravatar HTTPS hosts and media from GCS.
-CSP_REPORT_ONLY_POLICY: dict[str, list[str]] = {
+# Content-Security-Policy, enforcing. script-src carries a per-request
+# nonce (django.template.context_processors.csp + nonce="{{ csp_nonce }}"
+# on every inline <script>) instead of 'unsafe-inline', so an injected
+# script without the nonce is blocked by the browser, not just reported.
+# htmx's hx-on: attributes (which needed 'unsafe-eval') were replaced by
+# delegated data-action listeners in panel-chrome.ts, and the
+# htmx-config allowEval:false meta tag in base.html disables htmx's
+# Function-based eval entirely, so 'unsafe-eval' is dropped too.
+# style-src keeps 'unsafe-inline': inline style="..." attributes are
+# pervasive across the templates and nonce-ing attributes (as opposed to
+# <style> blocks) isn't supported by the CSP spec the same way — narrowing
+# that is a separate, larger effort, not covered here. It also allows
+# fonts.googleapis.com: src/ludamus/client/src/index.css @imports the
+# Outfit font's stylesheet from there — discovered by the e2e CSP-violation
+# spec (csp-violations.spec.ts) actually enforcing the policy; report-only
+# never surfaced it since nothing blocks under report-only. font-src
+# allows fonts.gstatic.com for the same reason: that stylesheet's
+# @font-face rules point at the actual font files there. img-src stays
+# broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
+# and media from GCS.
+# No report-uri/report-to is configured: there is no violation-ingestion
+# endpoint yet (plan 007's Maintenance notes flagged this as deferred).
+# Violations that slip through can only be seen via browser devtools for
+# now; wiring a collector is a separate, human-scoped follow-up.
+CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
-    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, CSP.UNSAFE_EVAL],
-    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "script-src": [CSP.SELF, CSP.NONCE],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
     "img-src": [CSP.SELF, "data:", "https:"],
-    "font-src": [CSP.SELF],
+    "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
     "connect-src": [CSP.SELF],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
 }
+
+# CSP enforcement is normally production-only (see the block below), but the
+# e2e suite needs to exercise the real enforcing header — a report-only or
+# absent policy would let a broken nonce/hx-on regression through silently.
+# ENABLE_CSP lets the root .env.e2e opt in without pulling in the rest of
+# the production-only hardening (HTTPS redirect, secure cookies, HSTS),
+# which would break the plain-HTTP e2e server. Defaults to False everywhere
+# else, so test_no_csp_headers_by_default's regression guard is unaffected.
+ENABLE_CSP = IS_PRODUCTION or env.bool("ENABLE_CSP", default=False)
 
 # Security Settings for Production
 if IS_PRODUCTION:
@@ -365,8 +419,6 @@ if IS_PRODUCTION:
     # Additional Security Settings
     SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-    SECURE_CSP_REPORT_ONLY = CSP_REPORT_ONLY_POLICY
-
     SECURE_REDIRECT_EXEMPT = [r"^healthz/"]
 
     # File Upload Security
@@ -380,6 +432,9 @@ else:
     CSRF_COOKIE_SECURE = False
     CSRF_COOKIE_HTTPONLY = True
     CSRF_COOKIE_SAMESITE = "Lax"
+
+if ENABLE_CSP:
+    SECURE_CSP = CSP_POLICY
 
 
 MEDIA_ROOT = env("MEDIA_ROOT")
