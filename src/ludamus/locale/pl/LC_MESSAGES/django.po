@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-06 00:50+0200\n"
+"POT-Creation-Date: 2026-08-06 01:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4752,6 +4752,7 @@ msgstr "Wyloguj się"
 
 #: src/ludamus/templates/components/navbar_pages.html
 #: src/ludamus/templates/index.html
+#: src/ludamus/templates/landing/org_proof.html
 msgid "Events"
 msgstr "Wydarzenia"
 
@@ -6115,16 +6116,11 @@ msgid "chat"
 msgstr "czat"
 
 #: src/ludamus/templates/landing/org_proof.html
-msgid "They trusted us"
-msgstr "Zaufali nam"
-
-#: src/ludamus/templates/landing/org_proof.html
 msgid ""
 "The programme and enrollment of Kapitularz and Bachanalia Fantastyczne run "
 "in Zagrajmy."
 msgstr ""
-"Program i zapisy Kapitularza i Bachanalii Fantastycznych działają w "
-"Zagrajmy."
+"Program i zapisy Kapitularza i Bachanalii Fantastycznych działają w Zagrajmy."
 
 #: src/ludamus/templates/landing/org_proof.html
 msgctxt "landing stats"
@@ -9754,6 +9750,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "They trusted us"
+#~ msgstr "Zaufali nam"
 
 #~ msgid "Run a conference or meetup"
 #~ msgstr "Zorganizuj konferencję albo meetup"
