@@ -103,8 +103,6 @@ class TestTimetableGridPartView:
             context_data={
                 "grid": _empty_grid(),
                 "filter_track_pk": None,
-                "conflict_session_pks": set(),
-                "slot_violation_session_pks": set(),
                 "date_selection": "all",
                 "slug": event.slug,
             },

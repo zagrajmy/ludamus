@@ -10,6 +10,7 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     IntegrationImplementationNotFoundError,
     ProposalAcceptanceService,
+    SessionConfirmationService,
     SessionContentEditService,
 )
 from ludamus.mills.timetable import TimetableService
@@ -446,6 +447,61 @@ class TestAssignUnassignScope:
 
         created = mock_uow.agenda_items.create.call_args.args[0]
         assert created["session_confirmed"] is False
+
+
+class TestSessionConfirmation:
+    """The service toggles confirmation and rejects foreign agenda items."""
+
+    @pytest.fixture
+    def agenda_items(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def sessions(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def transaction(self):
+        transaction = MagicMock()
+        transaction.atomic.return_value.__enter__.return_value = None
+        return transaction
+
+    @pytest.fixture
+    def service(self, transaction, agenda_items, sessions):
+        return SessionConfirmationService(transaction, agenda_items, sessions)
+
+    @staticmethod
+    def _event(pk):
+        event = MagicMock()
+        event.pk = pk
+        return event
+
+    def test_confirm_persists_true(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
+
+    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(1)
+
+        service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
+
+        agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
+
+    def test_rejects_agenda_item_from_another_event(
+        self, service, agenda_items, sessions
+    ):
+        agenda_items.read.return_value = _make_item(pk=7, session_id=3)
+        sessions.read_event.return_value = self._event(2)
+
+        with pytest.raises(NotFoundError):
+            service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
+
+        agenda_items.update.assert_not_called()
 
 
 class _StrictConfig(BaseModel):

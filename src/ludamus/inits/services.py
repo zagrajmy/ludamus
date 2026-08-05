@@ -21,6 +21,7 @@ from ludamus.mills.chronology import (
     EventIntegrationsService,
     ProposalAcceptanceService,
     ProposalStatusService,
+    SessionConfirmationService,
     SessionContentEditService,
     SessionDeletionService,
     SessionSelfEditService,
@@ -265,6 +266,12 @@ class Services:
             self._repos.sessions,
             self._repos.session_fields,
             self._repos.content_change_logs,
+        )
+
+    @cached_property
+    def session_confirmation(self) -> SessionConfirmationService:
+        return SessionConfirmationService(
+            self._transaction, self._repos.agenda_items, self._repos.sessions
         )
 
     @cached_property

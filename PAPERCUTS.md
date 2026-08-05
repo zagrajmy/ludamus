@@ -284,3 +284,8 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
+  python-brace-format' flags: the local xgettext strips them, but main and CI
+  both keep them. Regenerating the catalog silently drops the flags, so after
+  'mise run messages' you have to revert the catalog and hand-apply only the
+  real msgid deltas.

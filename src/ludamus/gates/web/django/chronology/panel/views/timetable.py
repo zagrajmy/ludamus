@@ -30,7 +30,13 @@ from ludamus.pacts import (
     NotFoundError,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.chronology import DateSelection, SessionPlacement
+from ludamus.pacts.chronology import (
+    ConflictDTO,
+    DateSelection,
+    GridMarksDTO,
+    PreferredSlotViolationDTO,
+    SessionPlacement,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
@@ -84,6 +90,18 @@ def _print_url(
     return f"{base}?{urlencode(params)}" if params else base
 
 
+def _grid_marks(
+    track_pk: int | None,
+    conflicts: list[ConflictDTO],
+    slot_violations: list[PreferredSlotViolationDTO],
+) -> GridMarksDTO:
+    return GridMarksDTO(
+        track_pk=track_pk,
+        conflict_session_pks=frozenset(c.session_pk for c in conflicts),
+        slot_violation_session_pks=frozenset(v.session_pk for v in slot_violations),
+    )
+
+
 def _parse_date_selection(raw: str | None) -> DateSelection:
     if raw == "all":
         return "all"
@@ -124,19 +142,19 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
 
         uow = self.request.di.uow
-        grid = TimetableService(uow).build_grid(
-            event_pk=current_event.pk,
-            tz=get_current_timezone(),
-            track_pk=filter_track_pk,
-            space_page=room_page,
-            date_selection=date_selection,
-        )
         conflict_service = ConflictDetectionService(uow)
         conflicts = conflict_service.list_all_for_track(
             event_pk=current_event.pk, track_pk=filter_track_pk
         )
         slot_violations = conflict_service.list_preferred_slot_violations(
             event_pk=current_event.pk, track_pk=filter_track_pk
+        )
+        grid = TimetableService(uow).build_grid(
+            event_pk=current_event.pk,
+            tz=get_current_timezone(),
+            marks=_grid_marks(filter_track_pk, conflicts, slot_violations),
+            space_page=room_page,
+            date_selection=date_selection,
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
 
@@ -146,9 +164,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["room_page"] = room_page
         context["grid"] = grid
         context["conflicts"] = conflicts
-        context["conflict_session_pks"] = {c.session_pk for c in conflicts}
         context["conflicts_count"] = len(conflicts)
-        context["slot_violation_session_pks"] = {v.session_pk for v in slot_violations}
         context["categories"] = categories
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
@@ -324,22 +340,27 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         uow = self.request.di.uow
+        conflict_service = ConflictDetectionService(uow)
+        # The refreshed grid carries the same warnings as the full page: the
+        # marker used to vanish on every partial swap because this view had no
+        # conflicts to hand the template.
+        conflicts = conflict_service.list_all_for_track(
+            event_pk=current_event.pk, track_pk=filter_track_pk
+        )
+        slot_violations = conflict_service.list_preferred_slot_violations(
+            event_pk=current_event.pk, track_pk=filter_track_pk
+        )
         grid = TimetableService(uow).build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
-            track_pk=filter_track_pk,
+            marks=_grid_marks(filter_track_pk, conflicts, slot_violations),
             space_page=room_page,
             date_selection=date_selection,
-        )
-        slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
         )
 
         context: dict[str, object] = {
             "grid": grid,
             "filter_track_pk": filter_track_pk,
-            "conflict_session_pks": set(),
-            "slot_violation_session_pks": {v.session_pk for v in slot_violations},
             "date_selection": grid.date_selection,
             "slug": slug,
         }
@@ -422,6 +443,38 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
                 session_pk=session_pk,
                 event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
+            )
+        except NotFoundError:
+            return HttpResponse(status=422)
+
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
+        return response
+
+
+class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
+    """POST: set confirmation on one scheduled program item."""
+
+    request: PanelRequest
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        try:
+            agenda_item_pk = int(self.request.POST["agenda_item_pk"])
+        except KeyError, ValueError:
+            return HttpResponse(status=422)
+        confirmed_raw = self.request.POST.get("confirmed")
+        if confirmed_raw not in {"true", "false"}:
+            return HttpResponse(status=422)
+
+        try:
+            self.request.services.session_confirmation.set_session_confirmed(
+                event_pk=current_event.pk,
+                agenda_item_pk=agenda_item_pk,
+                confirmed=confirmed_raw == "true",
             )
         except NotFoundError:
             return HttpResponse(status=422)

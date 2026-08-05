@@ -149,7 +149,10 @@
     top: calc(var(--offset) * var(--minute-px) + 20px);
   }
 
-  .timetable-session {
+  /* Geometry only. The interactive card keeps .timetable-session to itself:
+     the click-to-place handler treats that class as "hands off". */
+  .timetable-session,
+  .timetable-session-foreign {
     top: calc(var(--offset) * var(--minute-px) + 20px);
     height: max(20px, calc(var(--duration) * var(--minute-px)));
     min-height: max(20px, calc(var(--duration) * var(--minute-px)));

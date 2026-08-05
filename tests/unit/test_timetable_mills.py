@@ -20,6 +20,7 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
     ConflictType,
+    GridMarksDTO,
     HeatmapCellStatus,
     SessionPlacement,
 )
@@ -167,7 +168,7 @@ class TestBuildGridOverlappingSessions:
         assert grid.date_selection == "all"
         uow.agenda_items.list_by_event.assert_called_once_with(1)
 
-    def test_track_filter_still_shows_other_tracks_bookings_as_foreign(self):
+    def test_track_filter_shows_other_tracks_bookings_named_and_marked(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -203,13 +204,30 @@ class TestBuildGridOverlappingSessions:
         )
         uow.agenda_items.list_by_event.return_value = [mine, theirs]
         uow.agenda_items.list_by_track.return_value = [mine]
+        uow.sessions.list_track_names_by_session.return_value = {
+            2: {9: "Board Games Track"}
+        }
 
-        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC, track_pk=5)
+        grid = TimetableService(uow).build_grid(
+            event_pk=1,
+            tz=UTC,
+            marks=GridMarksDTO(track_pk=5, conflict_session_pks=frozenset({2})),
+        )
 
         sessions = grid.days[0].columns[0].sessions
         assert [
-            (pos.agenda_item.session_title, pos.is_foreign) for pos in sessions
-        ] == [("Mine", False), ("Theirs", True)]
+            (
+                pos.agenda_item.session_title,
+                pos.is_outside_filtered_track,
+                pos.outside_track_name,
+                pos.state,
+            )
+            for pos in sessions
+        ] == [
+            ("Mine", False, "", "normal"),
+            ("Theirs", True, "Board Games Track", "conflict"),
+        ]
+        uow.sessions.list_track_names_by_session.assert_called_once_with([2])
 
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
         uow = MagicMock()

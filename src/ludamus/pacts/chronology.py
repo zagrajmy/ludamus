@@ -227,6 +227,12 @@ class SessionContentEditServiceProtocol(Protocol):
     ) -> set[int]: ...
 
 
+class SessionConfirmationServiceProtocol(Protocol):
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None: ...
+
+
 class SessionDeletionServiceProtocol(Protocol):
     def soft_delete(
         self, event_pk: int, session_pk: int, user_pk: int | None = None
@@ -370,15 +376,35 @@ class SessionModalServiceProtocol(Protocol):
     ) -> SessionModalDTO | None: ...
 
 
+type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
+
+
+class GridMarksDTO(BaseModel):
+    # What the page already knows about the request, so every block can be
+    # marked once instead of being re-tested against page-wide sets while it
+    # renders: whose track is in focus, and what is wrong where.
+    model_config = ConfigDict(frozen=True)
+
+    track_pk: int | None = None
+    conflict_session_pks: frozenset[int] = frozenset()
+    slot_violation_session_pks: frozenset[int] = frozenset()
+
+
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
     duration_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
+    # What the block is warning about, resolved once here so the grid stops
+    # testing the same session against two page-wide sets in four places.
+    state: SessionPositionState = "normal"
     # Outside the track being filtered on: shown so the space's occupancy is
-    # honest, but not editable from here.
-    is_foreign: bool = False
+    # honest, but not editable from here. Named for the request rather than the
+    # item — the same row is inside the filter on the next request. Orthogonal
+    # to `state`: someone else's booking is the one most worth flagging.
+    is_outside_filtered_track: bool = False
+    outside_track_name: str = ""
 
 
 class TimeLabelDTO(BaseModel):

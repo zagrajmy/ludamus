@@ -121,13 +121,11 @@ class TestTimetablePageView:
                 "room_page": 1,
                 "grid": _empty_grid(),
                 "conflicts": [],
-                "conflict_session_pks": set(),
                 "conflicts_count": 0,
                 "categories": [],
                 "category_pk": None,
                 "max_duration_minutes": None,
                 "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
-                "slot_violation_session_pks": set(),
                 "date_selection": "all",
                 "slug": event.slug,
                 "tab_urls": {
@@ -429,8 +427,17 @@ class TestTimetablePageView:
         assert time_slot is not None
 
     def test_grid_marks_session_outside_preferred_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category, space
+        self,
+        authenticated_client,
+        active_user,
+        sphere,
+        event,
+        proposal_category,
+        space,
+        time_slot,
     ):
+        # `time_slot` opens the grid at the event start; without it the window
+        # only covers the preferred slot and the violating block falls off it.
         sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
@@ -451,8 +458,8 @@ class TestTimetablePageView:
         response = authenticated_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
-        assert response.context["slot_violation_session_pks"] == {session.pk}
-        assert response.context["conflict_session_pks"] == set()
+        positions = response.context["grid"].days[0].columns[0].sessions
+        assert [pos.state for pos in positions] == ["slot_violation"]
 
 
 class TestPanelBaseHeader:

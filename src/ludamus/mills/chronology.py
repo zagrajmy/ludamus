@@ -84,6 +84,29 @@ def require_session_in_event(
         raise NotFoundError
 
 
+class SessionConfirmationService:
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
+        sessions: SessionRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._agenda_items = agenda_items
+        self._sessions = sessions
+
+    def set_session_confirmed(
+        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
+    ) -> None:
+        # Keyed on the agenda item, not on a facilitator: the confirmations tab
+        # can only reach items whose session has both a facilitator and a track,
+        # so this stays the only way to settle everything else.
+        agenda_item = self._agenda_items.read(agenda_item_pk)
+        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
+        with self._transaction.atomic():
+            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
+
+
 class SessionDeletionService:
     def __init__(
         self,

@@ -18,6 +18,7 @@ from ludamus.pacts.chronology import (
     ConflictSeverity,
     ConflictType,
     DateSelection,
+    GridMarksDTO,
     HeatmapCellDTO,
     HeatmapCellStatus,
     HeatmapDayDTO,
@@ -27,6 +28,7 @@ from ludamus.pacts.chronology import (
     PreferredSlotViolationDTO,
     SessionPlacement,
     SessionPositionDTO,
+    SessionPositionState,
     SpaceColumnDTO,
     SpaceGroupDTO,
     TimeLabelDTO,
@@ -44,6 +46,8 @@ if TYPE_CHECKING:
     from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
 _WINDOWS_ACROSS_ONE_MIDNIGHT = 2
+# No track filtered, nothing flagged: the whole event, plain.
+_NO_MARKS = GridMarksDTO()
 
 
 def _slot_windows_by_grid_date(
@@ -64,10 +68,23 @@ def _slot_windows_by_grid_date(
     return grouped
 
 
+class _ResolvedMarks(NamedTuple):
+    # `GridMarksDTO` once the ownership queries have run: everything needed to
+    # colour a block and to decide whether this page may edit it.
+    own_item_pks: set[int]
+    outside_track_names: dict[int, str]
+    marks: GridMarksDTO
+
+    def state_of(self, session_pk: int) -> SessionPositionState:
+        if session_pk in self.marks.conflict_session_pks:
+            return "conflict"
+        if session_pk in self.marks.slot_violation_session_pks:
+            return "slot_violation"
+        return "normal"
+
+
 def _position_sessions(
-    items: list[AgendaItemDTO],
-    event_start: datetime,
-    own_item_pks: set[int] | None = None,
+    *, items: list[AgendaItemDTO], event_start: datetime, marks: _ResolvedMarks
 ) -> list[SessionPositionDTO]:
     if not items:
         return []
@@ -93,6 +110,7 @@ def _position_sessions(
         for index, item in enumerate(group):
             offset_min = (item.start_time - event_start).total_seconds() / 60
             duration_min = (item.end_time - item.start_time).total_seconds() / 60
+            outside = item.pk not in marks.own_item_pks
             positions.append(
                 SessionPositionDTO(
                     agenda_item=item,
@@ -100,7 +118,13 @@ def _position_sessions(
                     duration_minutes=round(duration_min),
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
-                    is_foreign=own_item_pks is not None and item.pk not in own_item_pks,
+                    state=marks.state_of(item.session_id),
+                    is_outside_filtered_track=outside,
+                    outside_track_name=(
+                        marks.outside_track_names.get(item.session_id, "")
+                        if outside
+                        else ""
+                    ),
                 )
             )
 
@@ -135,14 +159,14 @@ class TimetableService:
         *,
         event_pk: int,
         tz: tzinfo,
-        track_pk: int | None = None,
+        marks: GridMarksDTO = _NO_MARKS,
         space_page: int = 1,
         date_selection: DateSelection = "all",
     ) -> TimetableGridDTO:
         all_nodes = self._uow.spaces.list_by_event(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = _leaves_in_tree_order(all_nodes)
-        if track_pk is not None:
+        if (track_pk := marks.track_pk) is not None:
             track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
             leaf_spaces = [
                 space for space in leaf_spaces if space.pk in track_space_pks
@@ -165,15 +189,11 @@ class TimetableService:
             available_dates if date_selection == "all" else [date_selection]
         )
         # The grid always shows everything scheduled in the spaces on screen.
-        # Filtering the items by track hid the other tracks' bookings, so two
-        # tracks could be put in the same room at the same time without either
-        # organizer seeing the clash.
+        # Conflict detection already reports cross-track clashes after the fact;
+        # showing the other tracks' bookings is what makes a room's occupancy
+        # visible *before* the clash is created.
         all_items = self._uow.agenda_items.list_by_event(event_pk)
-        own_item_pks = (
-            None
-            if track_pk is None
-            else {item.pk for item in self._uow.agenda_items.list_by_track(track_pk)}
-        )
+        resolved = self._resolve_marks(all_items=all_items, marks=marks)
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
         )
@@ -199,7 +219,7 @@ class TimetableService:
                     day_range=(range_start, range_end),
                     spaces=spaces,
                     all_items=all_items,
-                    own_item_pks=own_item_pks,
+                    marks=resolved,
                 )
             )
         time_labels: list[TimeLabelDTO] = []
@@ -233,6 +253,36 @@ class TimetableService:
             date_selection=date_selection,
         )
 
+    def _resolve_marks(
+        self, *, all_items: list[AgendaItemDTO], marks: GridMarksDTO
+    ) -> _ResolvedMarks:
+        if (track_pk := marks.track_pk) is None:
+            own_item_pks = {item.pk for item in all_items}
+            outside_track_names: dict[int, str] = {}
+        else:
+            own_item_pks = {
+                item.pk for item in self._uow.agenda_items.list_by_track(track_pk)
+            }
+            # Whose booking it is, so a clash on screen names the block to talk
+            # to instead of sending the organizer off to find out.
+            outside_session_pks = [
+                item.session_id for item in all_items if item.pk not in own_item_pks
+            ]
+            names_by_session = (
+                self._uow.sessions.list_track_names_by_session(outside_session_pks)
+                if outside_session_pks
+                else {}
+            )
+            outside_track_names = {
+                session_pk: ", ".join(names.values())
+                for session_pk, names in names_by_session.items()
+            }
+        return _ResolvedMarks(
+            own_item_pks=own_item_pks,
+            outside_track_names=outside_track_names,
+            marks=marks,
+        )
+
     @staticmethod
     def _build_day_grid(
         *,
@@ -240,7 +290,7 @@ class TimetableService:
         day_range: tuple[datetime, datetime],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
-        own_item_pks: set[int] | None = None,
+        marks: _ResolvedMarks,
     ) -> TimetableDayGridDTO:
         grid_start, grid_end = day_range
 
@@ -262,7 +312,7 @@ class TimetableService:
                 SpaceColumnDTO(
                     space=space,
                     sessions=_position_sessions(
-                        items_for_space, grid_start, own_item_pks
+                        items=items_for_space, event_start=grid_start, marks=marks
                     ),
                 )
             )

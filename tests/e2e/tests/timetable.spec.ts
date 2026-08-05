@@ -200,11 +200,18 @@ test.describe("Timetable", () => {
     // one also uses. Hiding it is how two tracks end up in one room at once.
     const foreign = page.locator(".timetable-session-foreign", { hasText: "Board Game Night" });
     await expect(foreign).toBeVisible({ timeout: 10000 });
-    await expect(foreign).toHaveAttribute("title", /Scheduled by another track/);
+
+    // It names the block to talk to, not just "someone else".
+    await expect(foreign).toHaveAttribute("title", /Board Games Track/);
+    await expect(foreign).toContainText("Board Games Track");
 
     // Read-only: nothing to drag, and no session to open in the left pane.
     await expect(foreign).not.toHaveAttribute("draggable", "true");
     await expect(foreign).not.toHaveAttribute("data-session-pk", /./);
+
+    // ...and it never carries the interactive card's class, which the
+    // click-to-place handler reads as "this is a session, do not place here".
+    await expect(foreign).not.toHaveClass(/(^|\s)timetable-session(\s|$)/);
   });
 
   // Read off the page instead of restating bootstrap_timetable.py: every column
@@ -645,9 +652,9 @@ test.describe("Timetable", () => {
     });
   });
 
-  // --- Confirmation Status (read-only here; set on the confirmations tab) ---
+  // --- Confirm / Unconfirm Flow ---
 
-  test("shows confirmation status without offering to change it", async ({ page }) => {
+  test("confirms and unconfirms a scheduled session", async ({ page }) => {
     // Assign "Storytelling Workshop" so a scheduled item exists. Auto-confirm
     // is off by default, so the freshly scheduled item starts unconfirmed.
     await page.goto("/panel/event/sunhaven-festival/timetable/");
@@ -677,13 +684,21 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    // The status is shown, but nothing in this pane can change it — confirming
-    // belongs to the confirmations tab.
-    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({
+    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({ timeout: 5000 });
+
+    // Confirm — the button flips to the "Undo confirmation" state.
+    await leftPane.getByRole("button", { name: "Confirm program item" }).click();
+    await expect(
+      leftPane.getByRole("button", {
+        name: "Undo confirmation",
+      }),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Undo — the button returns to the "Confirm program item" state.
+    await leftPane.getByRole("button", { name: "Undo confirmation" }).click();
+    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
       timeout: 5000,
     });
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toHaveCount(0);
-    await expect(leftPane.getByRole("button", { name: "Undo confirmation" })).toHaveCount(0);
 
     // Restore shared seed state: unassign so "Storytelling Workshop" returns
     // to the unscheduled list. The suite runs serially against a persistent

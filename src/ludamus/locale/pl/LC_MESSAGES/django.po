@@ -7722,6 +7722,11 @@ msgid "Show session"
 msgstr "Pokaż punkt programu"
 
 #: src/ludamus/templates/panel/parts/timetable-day-grid.html
+#, python-format
+msgid "Scheduled by track: %(track)s"
+msgstr "Zaplanowane przez blok: %(track)s"
+
+#: src/ludamus/templates/panel/parts/timetable-day-grid.html
 msgid "Scheduled by another track"
 msgstr "Zaplanowane przez inny blok"
 
@@ -7799,8 +7804,16 @@ msgid "Program item confirmed"
 msgstr "Punkt programu potwierdzony"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Undo confirmation"
+msgstr "Cofnij potwierdzenie"
+
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Program item not confirmed"
 msgstr "Punkt programu niepotwierdzony"
+
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Confirm program item"
+msgstr "Potwierdź punkt programu"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Not assigned"
@@ -8778,12 +8791,6 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Undo confirmation"
-#~ msgstr "Cofnij potwierdzenie"
-
-#~ msgid "Confirm program item"
-#~ msgstr "Potwierdź punkt programu"
 
 #~ msgid "Confirm block"
 #~ msgstr "Potwierdź blok"
