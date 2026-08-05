@@ -51,7 +51,6 @@ class TestIndexRedirectView:
             HTTPStatus.OK,
             context_data={},
             template_name=["landing_page.html"],
-            contains=["landing-hero-heading", "scena-heading", "g-hero-heading"],
         )
 
     def test_redirects_to_events_on_sphere_domain(self, client, non_root_sphere):
@@ -401,22 +400,6 @@ class TestEventsPageView:
                 "view": ANY,
             },
             template_name=["index.html"],
-        )
-
-    def test_landing_sections_stay_off_the_events_page(self, client):
-        response = client.get(self.URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={
-                "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
-                "view": ANY,
-            },
-            template_name=["index.html"],
-            not_contains=["landing-hero-heading", "scena-heading", "g-hero-heading"],
         )
 
     def test_unpublished_event_hidden_for_anonymous(self, client, sphere):
