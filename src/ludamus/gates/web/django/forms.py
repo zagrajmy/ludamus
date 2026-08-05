@@ -690,9 +690,7 @@ def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
     )
 
 
-# Takes the category's durations, not the category: the participant bounds a
-# category also carries bind the submission wizard only (see
-# chronology.forms.build_session_details_form), never the organizer's own form.
+# Durations, not the category: its bounds bind build_session_details_form only.
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
