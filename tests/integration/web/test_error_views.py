@@ -185,9 +185,9 @@ class TestSemantic404Recovery:
         )
 
     def test_non_event_path_keeps_themed_404(self, client):
-        # A resolvable, non-event path that 404s (a missing flatpage) must not
-        # be swept up by the event fallback.
-        response = client.get("/page/no-such-flatpage/")
+        # A resolvable, non-event path that 404s (an encounter share code that
+        # matches nothing) must not be swept up by the event fallback.
+        response = client.get("/e/nosuchcode/")
 
         assert_response_404(response)
 

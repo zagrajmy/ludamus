@@ -31,7 +31,8 @@ local linters = new Mapping<String, Step> {
       ".agents/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
-      "src/ludamus/content/legal/**",
+      "src/ludamus/content/privacy-policy.md",
+      "src/ludamus/content/terms-of-service.md",
     )
     check = "codespell --toml=pyproject.toml {{files}}"
   }
@@ -80,14 +81,16 @@ local linters = new Mapping<String, Step> {
   }
   ["markdownlint"] {
     glob = List("**/*.md")
-    // src/ludamus/content/legal is published legal text converted verbatim, not
-    // repo documentation. Satisfying MD013/MD026/MD036 would mean rewrapping and
-    // rewording headings in a policy that's already in force.
+    // The two legal documents are published text converted verbatim, not repo
+    // documentation. Satisfying MD013/MD026/MD036 would mean rewrapping and
+    // rewording headings in a policy that's already in force. about.md is ours
+    // and stays linted.
     exclude = List(
       ".agents/**",
       ".claude/**",
       "**/node_modules/**",
-      "src/ludamus/content/legal/**",
+      "src/ludamus/content/privacy-policy.md",
+      "src/ludamus/content/terms-of-service.md",
     )
     check = "markdownlint-cli2 {{files}}"
     fix = "markdownlint-cli2 --fix {{files}}"

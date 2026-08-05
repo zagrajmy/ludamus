@@ -96,11 +96,11 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-# src/ludamus/content/legal is published Polish legal text, skipped for the same
-# reason as the *.po catalogs above: an English dictionary flags ordinary Polish
-# words. Trailing /* — codespell matches this against whole paths, and hk passes
-# files explicitly, so a bare directory name would never match.
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/legal/*'
+# The two legal documents are published Polish text, skipped for the same reason
+# as the *.po catalogs above: an English dictionary flags ordinary Polish words.
+# Named individually rather than by directory — about.md sits beside them and is
+# English, so it stays checked.
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/privacy-policy.md,src/ludamus/content/terms-of-service.md'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.

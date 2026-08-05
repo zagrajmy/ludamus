@@ -5,14 +5,15 @@ from django.http import Http404
 from django.test import RequestFactory
 from django.urls import reverse
 
-from ludamus.gates.web.django.legal import CONTENT_DIR, legal_document
+from ludamus.gates.web.django.pages import CONTENT_DIR, content_page
 from tests.integration.utils import assert_response
 
 
-class TestLegalDocumentView:
+class TestContentPageView:
     @pytest.mark.parametrize(
         ("slug", "title"),
         (
+            ("about", "About"),
             ("privacy-policy", "Privacy Policy"),
             ("terms-of-service", "Terms of Service"),
         ),
@@ -23,7 +24,7 @@ class TestLegalDocumentView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="legal/document.html",
+            template_name="content/page.html",
             context_data={
                 "title": title,
                 "document": (CONTENT_DIR / f"{slug}.md").read_text(encoding="utf-8"),
@@ -36,13 +37,15 @@ class TestLegalDocumentView:
         request = RequestFactory().get("/whatever/")
 
         with pytest.raises(Http404):
-            legal_document(request, slug="../../../etc/passwd")
+            content_page(request, slug="../../../etc/passwd")
 
 
 class TestOldFlatpageUrls:
     @pytest.mark.parametrize(
         ("old", "new"),
         (
+            ("/page//about/", "/about/"),
+            ("/page/about/", "/about/"),
             ("/page//privacy-policy/", "/privacy-policy/"),
             ("/page/privacy-policy/", "/privacy-policy/"),
             ("/page//terms-of-service/", "/terms-of-service/"),

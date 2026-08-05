@@ -2,7 +2,7 @@ import { expect, test } from "./helpers/fixtures";
 
 // The documents are Polish whatever the interface language is, so these
 // assertions read the document's own headings rather than translated chrome.
-test.describe("Legal documents", () => {
+test.describe("Content pages", () => {
   test("privacy policy renders from the markdown file", async ({ page }) => {
     await page.goto("/privacy-policy/");
 
@@ -23,6 +23,17 @@ test.describe("Legal documents", () => {
 
     await expect(page).toHaveURL(/\/privacy-policy\/$/);
     await expect(page.getByRole("heading", { name: "POLITYKA PRYWATNOŚCI" })).toBeVisible();
+  });
+
+  test("about renders from the markdown file", async ({ page }) => {
+    await page.goto("/about/");
+
+    await expect(page.getByRole("heading", { name: "About Ludamus" })).toBeVisible();
+    await expect(
+      page.getByText("Ludamus is a community platform for tabletop gaming events."),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What we offer" })).toBeVisible();
+    await expect(page.getByText("Event scheduling and management")).toBeVisible();
   });
 
   test("the footer links to both documents", async ({ page }) => {

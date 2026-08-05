@@ -114,7 +114,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "django.contrib.flatpages",
     # Third Party
     "django_extensions",
     "django_vite",
@@ -141,7 +140,6 @@ MIDDLEWARE = [
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
-    "django.contrib.flatpages.middleware.FlatpageFallbackMiddleware",
 ]
 
 if DEBUG:

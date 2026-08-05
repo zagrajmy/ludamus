@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 05:13+0200\n"
+"POT-Creation-Date: 2026-08-05 15:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2610,14 +2610,6 @@ msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
 msgid "Enter a Google Sheets link or a spreadsheet ID."
 msgstr "Podaj link do arkusza Google lub ID arkusza."
 
-#: src/ludamus/gates/web/django/legal.py src/ludamus/templates/base.html
-msgid "Privacy Policy"
-msgstr "Polityka prywatności"
-
-#: src/ludamus/gates/web/django/legal.py src/ludamus/templates/base.html
-msgid "Terms of Service"
-msgstr "Regulamin"
-
 #: src/ludamus/gates/web/django/multiverse/access.py
 msgid "You don't have permission to access the sphere panel."
 msgstr "Nie masz uprawnień do panelu sfery."
@@ -2844,6 +2836,18 @@ msgstr "Zapisano!"
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "You have been removed from this encounter."
 msgstr "Zostałeś/aś wypisany/a z tego spotkania."
+
+#: src/ludamus/gates/web/django/pages.py
+msgid "About"
+msgstr "O nas"
+
+#: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
+msgid "Privacy Policy"
+msgstr "Polityka prywatności"
+
+#: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
+msgid "Terms of Service"
+msgstr "Regulamin"
 
 #: src/ludamus/gates/web/django/panel.py
 msgid "You don't have permission to access the backoffice panel."

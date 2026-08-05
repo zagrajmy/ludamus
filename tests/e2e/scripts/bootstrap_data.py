@@ -23,9 +23,6 @@ django.setup()
 from urllib.parse import urlparse  # ruff:ignore[module-import-not-at-top-of-file]
 
 from django.conf import settings  # ruff:ignore[module-import-not-at-top-of-file]
-from django.contrib.flatpages.models import (  # ruff:ignore[module-import-not-at-top-of-file]
-    FlatPage,
-)
 from django.contrib.sessions.backends.db import (  # ruff:ignore[module-import-not-at-top-of-file]
     SessionStore,
 )
@@ -163,14 +160,6 @@ def _create_event(
         )
 
     return event
-
-
-def _create_flatpage(site: Site, *, url: str, title: str, content: str) -> FlatPage:
-    page, _ = FlatPage.objects.get_or_create(
-        url=url, defaults={"title": title, "content": content}
-    )
-    page.sites.add(site)
-    return page
 
 
 def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Space:
@@ -478,7 +467,7 @@ def main() -> None:
     sphere_domain = (
         os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
     )
-    site, sphere = _create_site(sphere_domain, name="E2E Test")
+    _, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
 
@@ -557,28 +546,6 @@ def main() -> None:
     }
     empty_state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state-empty.json"
     empty_state_path.write_text(json.dumps(empty_state, indent=2))
-
-    # Flatpages
-    _create_flatpage(
-        site,
-        url="/about/",
-        title="About Ludamus",
-        content=(
-            "<p>Ludamus is a community platform for tabletop gaming events.</p>"
-            "<h3>What we offer</h3>"
-            "<ul>"
-            "<li>Event scheduling and management</li>"
-            "<li>Session proposals from game masters</li>"
-            "<li>Player enrollment system</li>"
-            "<li>Anonymous participation options</li>"
-            "</ul>"
-            "<h3>Our Mission</h3>"
-            "<p>We believe that tabletop gaming brings people together. "
-            "Whether you're rolling dice in a dungeon crawl, negotiating trades "
-            "in a strategy game, or weaving stories in a narrative RPG, "
-            "we're here to help you find your table.</p>"
-        ),
-    )
 
     upcoming_event = _create_event(
         sphere,
