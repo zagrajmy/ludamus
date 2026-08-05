@@ -7726,10 +7726,6 @@ msgstr "Pokaż punkt programu"
 msgid "Scheduled by track: %(track)s"
 msgstr "Zaplanowane przez blok: %(track)s"
 
-#: src/ludamus/templates/panel/parts/timetable-day-grid.html
-msgid "Scheduled by another track"
-msgstr "Zaplanowane przez inny blok"
-
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
 msgid "Category:"
 msgstr "Kategoria:"

@@ -149,11 +149,7 @@
     top: calc(var(--offset) * var(--minute-px) + 20px);
   }
 
-  /* Geometry, shared by both card kinds. What .timetable-session-foreign says
-     on top of that is "read-only": no drag, no detail pane, and the
-     click-to-place handler refuses to place through it. */
-  .timetable-session,
-  .timetable-session-foreign {
+  .timetable-session {
     top: calc(var(--offset) * var(--minute-px) + 20px);
     height: max(20px, calc(var(--duration) * var(--minute-px)));
     min-height: max(20px, calc(var(--duration) * var(--minute-px)));
@@ -216,31 +212,32 @@
     z-index: 6;
   }
 
-  /* The ghost expands on hover too: a short booking clips its owner's name
-     away, and that name is the whole reason it is on screen. */
-  :is(.timetable-session, .timetable-session-foreign):is(:hover, :focus-within) {
+  .timetable-session:hover,
+  .timetable-session:focus-within {
     height: auto !important;
     z-index: 10;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
     opacity: 1;
   }
 
-  :is(.timetable-session, .timetable-session-foreign):is(:hover, :focus-within)
-    .timetable-session-body {
+  .timetable-session:hover .timetable-session-body,
+  .timetable-session:focus-within .timetable-session-body {
     height: auto;
     overflow: visible;
   }
 
-  :is(.timetable-session, .timetable-session-foreign):is(:hover, :focus-within)
-    :is(.timetable-session-title, .timetable-session-meta) {
+  .timetable-session:hover .timetable-session-title,
+  .timetable-session:focus-within .timetable-session-title,
+  .timetable-session:hover .timetable-session-meta,
+  .timetable-session:focus-within .timetable-session-meta {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
     overflow-wrap: anywhere;
   }
 
-  :is(.timetable-session, .timetable-session-foreign):is(:hover, :focus-within)
-    .timetable-session-meta.hidden {
+  .timetable-session:hover .timetable-session-meta.hidden,
+  .timetable-session:focus-within .timetable-session-meta.hidden {
     display: block;
   }
 

@@ -13,23 +13,25 @@
             {% endfor %}
             {% for pos in col.sessions %}
                 {% comment %}
-                    Another track booked this room and time: shown so the room's
-                    occupancy is honest, read-only because it is not this page's
-                    to move. The owner's name rides in the visible text rather
-                    than an aria-label -- a div carries no role for one to
-                    attach to, and it is the answer everyone needs anyway.
+                    Another track booked this room and time. Marked, not fenced
+                    off: whoever runs the schedule can switch the filter and
+                    move it anyway, so refusing the click here would buy nothing
+                    and cost a card that looks broken. The dashes and the owner
+                    line say whose it is; the card behaves like any other.
                 {% endcomment %}
-                {% if pos.is_outside_filtered_track %}
-                    {% if pos.outside_track_name %}
-                        {% blocktranslate with track=pos.outside_track_name asvar t_owner %}Scheduled by track: {{ track }}{% endblocktranslate %}
-                    {% else %}
-                        {% translate "Scheduled by another track" as t_owner %}
-                    {% endif %}
+                {% if pos.outside_track_name %}
+                    {% blocktranslate with track=pos.outside_track_name asvar t_owner %}Scheduled by track: {{ track }}{% endblocktranslate %}
                 {% endif %}
-                <div class="absolute rounded-md overflow-hidden border text-xs {% if pos.state == 'conflict' %}bg-danger-bg border-danger{% elif pos.state == 'slot_violation' %}bg-warning-bg border-warning{% else %}bg-info-bg border-info{% endif %} {% if pos.is_outside_filtered_track %}timetable-session-foreign border-dashed{% else %}timetable-session cursor-pointer opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary{% endif %}"
-                     title="{% if pos.is_outside_filtered_track %}{{ t_owner }}: {% endif %}{{ pos.agenda_item.session_title }}"
-                     {# Everything below is what makes a card editable, so the read-only one carries none of it. djlint folds the block onto one line. #}
-                     {% if not pos.is_outside_filtered_track %} tabindex="0" draggable="true" data-session-pk="{{ pos.agenda_item.session_id }}" data-duration="{{ pos.duration_minutes }}" data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}" hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}" hx-target="#left-pane" hx-swap="outerHTML" {% endif %}
+                <div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {% if pos.state == 'conflict' %}bg-danger-bg border-danger{% elif pos.state == 'slot_violation' %}bg-warning-bg border-warning{% else %}bg-info-bg border-info{% endif %} {% if pos.outside_track_name %}timetable-session-foreign border-dashed{% endif %}"
+                     tabindex="0"
+                     draggable="true"
+                     data-session-pk="{{ pos.agenda_item.session_id }}"
+                     data-duration="{{ pos.duration_minutes }}"
+                     data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
+                     title="{% if pos.outside_track_name %}{{ t_owner }}: {% endif %}{{ pos.agenda_item.session_title }}"
+                     hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}"
+                     hx-target="#left-pane"
+                     hx-swap="outerHTML"
                      style="--offset: {{ pos.start_minutes }};
                             --duration: {{ pos.duration_minutes }};
                             --lane-start: {{ pos.lane_start_pct }}%;
@@ -48,14 +50,16 @@
                             {{ pos.agenda_item.session_title|truncatechars:256 }}
                         </div>
                         {% comment %}
-                            The ghost names its owner instead of its presenter:
-                            from here the useful answer is which block to talk
+                            A named other track replaces the presenter here:
+                            from there the useful answer is which block to talk
                             to. It says so at every height -- a dashed border is
                             colour and shape alone, so the short ones would
-                            otherwise read as this track's own.
+                            otherwise read as this track's own. A session with
+                            no track at all is nobody else's, so it says
+                            nothing and renders like any other card.
                         {% endcomment %}
-                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.state == 'conflict' %}text-danger{% elif pos.state == 'slot_violation' %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 and not pos.is_outside_filtered_track %}hidden{% endif %}">
-                            {% if pos.is_outside_filtered_track %}
+                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.state == 'conflict' %}text-danger{% elif pos.state == 'slot_violation' %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 and not pos.outside_track_name %}hidden{% endif %}">
+                            {% if pos.outside_track_name %}
                                 {{ t_owner }}
                             {% else %}
                                 {{ pos.agenda_item.presenter_name }}
