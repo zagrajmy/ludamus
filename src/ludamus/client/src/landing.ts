@@ -19,3 +19,27 @@ if (org && gracz) {
     else if (location.hash === "" || location.hash === "#") org.checked = true;
   });
 }
+
+const steps = [...document.querySelectorAll<HTMLInputElement>('input[name="landing-krok"]')];
+const scena = document.querySelector(".sc");
+if (scena && steps.length > 1 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  let timer = 0;
+  const advance = () => {
+    if (document.hidden) return;
+    const current = steps.findIndex((step) => step.checked);
+    steps[(current + 1) % steps.length].checked = true;
+  };
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      clearInterval(timer);
+      if (entry.isIntersecting) timer = globalThis.setInterval(advance, 6000);
+    },
+    { threshold: 0.3 },
+  );
+  observer.observe(scena);
+  const handOver = () => {
+    clearInterval(timer);
+    observer.disconnect();
+  };
+  for (const step of steps) step.addEventListener("change", handOver);
+}

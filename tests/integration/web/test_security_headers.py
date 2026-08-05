@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from ludamus.adapters.web.django.views import EventsPageView
 from ludamus.edges.settings import CSP_POLICY
+from ludamus.pacts.event import LandingStatsDTO
 from tests.integration.utils import assert_response
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
@@ -103,7 +104,7 @@ class TestCSPNonce:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={},
+            context_data={"stats": LandingStatsDTO(events=0, sessions=0)},
             template_name=["landing_page.html"],
         )
         _assert_body_nonce_matches_header(response)

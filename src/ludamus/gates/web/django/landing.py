@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 def index_page(request: RootRequest) -> HttpResponse:
     context = request.context
     if context.current_sphere_id == context.root_sphere_id:
-        return TemplateResponse(request, ["landing_page.html"], {})
+        stats = request.services.landing.stats()
+        return TemplateResponse(request, ["landing_page.html"], {"stats": stats})
     sphere = request.services.sites.read(context.current_sphere_id)
     if sphere.default_page == SpherePage.ENCOUNTERS:
         return redirect("web:notice-board:index")

@@ -1,5 +1,4 @@
 {% load i18n %}
-{% load tessera %}
 <section class="pt-10 pb-[4.5rem] max-[30rem]:pt-6 group-has-[#aud-gracz:checked]/aud:hidden"
          aria-labelledby="landing-hero-heading">
     <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
@@ -11,7 +10,7 @@
         </div>
         <h1 id="landing-hero-heading"
             class="ld d2 text-[clamp(2rem,4.6vw,3.25rem)] font-extrabold tracking-[-0.03em] leading-[1.08] max-w-[52rem] text-balance">
-            {% translate "Run a conference or meetup" %}
+            {% translate "Event organization" %}
             <span class="strike-phrase">{% translate "without spreadsheet chaos" %}
                 <svg viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true">
                     <path d="M6 14 C 80 18, 150 10, 224 14 S 288 12, 295 13" stroke-width="5" vector-effect="non-scaling-stroke" />
@@ -24,13 +23,11 @@
         <div class="ld d4 mt-[2.2rem] flex flex-wrap items-center gap-4 max-[26rem]:*:w-full">
             <a class="btn btn-primary"
                href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
-            <a class="btn btn-secondary" href="{% url 'web:events' %}">{% translate "Browse events" %}</a>
-            <span class="text-[0.9375rem] text-foreground-muted">{% translate "or write to" %} {% tessera_copy_chip "kontakt@zagrajmy.net" %}</span>
+            <a class="btn btn-secondary"
+               href="https://kapitularz.zagrajmy.net/"
+               target="_blank"
+               rel="noopener">{% translate "See a real event's page" %}</a>
         </div>
-        <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
-            <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-               href="{% url 'web:notice-board:index' %}">{% translate "Or run an Encounter at zagrajmy.net/encounters" %}</a>
-        </p>
         <!-- the signature: before / after -->
         <div class="ld d5 mt-12 grid grid-cols-[1.08fr_auto_1fr] items-stretch gap-6 max-[56rem]:grid-cols-1 max-[56rem]:gap-5">
             <div>

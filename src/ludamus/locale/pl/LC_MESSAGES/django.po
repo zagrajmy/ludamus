@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 17:09+0200\n"
+"POT-Creation-Date: 2026-08-06 00:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5642,7 +5642,6 @@ msgid "Run an Encounter"
 msgstr "Zorganizuj Spotkanie"
 
 #: src/ludamus/templates/landing/gracz.html
-#: src/ludamus/templates/landing/org_hero.html
 msgid "Browse events"
 msgstr "Zobacz wydarzenia"
 
@@ -5806,8 +5805,8 @@ msgid "For conference and meetup organizers"
 msgstr "Dla organizatorów konferencji i meetupów"
 
 #: src/ludamus/templates/landing/org_hero.html
-msgid "Run a conference or meetup"
-msgstr "Zorganizuj konferencję albo meetup"
+msgid "Event organization"
+msgstr "Organizacja wydarzeń"
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "without spreadsheet chaos"
@@ -5822,13 +5821,8 @@ msgstr ""
 "i stronę wydarzenia w Zagrajmy."
 
 #: src/ludamus/templates/landing/org_hero.html
-#: src/ludamus/templates/landing/org_pitch.html
-msgid "or write to"
-msgstr "albo napisz na"
-
-#: src/ludamus/templates/landing/org_hero.html
-msgid "Or run an Encounter at zagrajmy.net/encounters"
-msgstr "Albo zorganizuj Spotkanie na zagrajmy.net/encounters"
+msgid "See a real event's page"
+msgstr "Zobacz stronę prawdziwego wydarzenia"
 
 #: src/ludamus/templates/landing/org_hero.html
 msgid "Before"
@@ -5985,12 +5979,21 @@ msgstr "Ile to kosztuje?"
 
 #: src/ludamus/templates/landing/org_objections.html
 msgid ""
-"Write to us and we will agree on terms matched to the scale of the event. "
-"Before you decide anything, you get a concrete written proposal from us."
+"Small meetups — free. For conventions and conferences we agree on terms "
+"matched to the scale of the event; before you decide anything, you get a "
+"concrete written proposal."
 msgstr ""
-"Napisz do nas, ustalimy wspólnie warunki dopasowane do skali wydarzenia. "
-"Zanim cokolwiek zdecydujesz, dostaniesz od nas konkretną propozycję na "
-"piśmie."
+"Małe meetupy — za darmo. Dla konwentów i konferencji ustalamy warunki do "
+"skali wydarzenia; zanim cokolwiek zdecydujesz, dostaniesz konkretną "
+"propozycję na piśmie."
+
+#: src/ludamus/templates/landing/org_objections.html
+msgid ""
+"Zagrajmy is open source (AGPL) — your data and process are not hostage to a "
+"vendor."
+msgstr ""
+"Zagrajmy jest open source (AGPL) — Twoje dane i proces nie są zakładnikiem "
+"dostawcy."
 
 #: src/ludamus/templates/landing/org_objections.html
 msgid "Organizers' words"
@@ -6073,6 +6076,10 @@ msgstr "Tak ma wyglądać Twoje kolejne wydarzenie?"
 msgid "A plan for my event"
 msgstr "Plan dla mojego wydarzenia"
 
+#: src/ludamus/templates/landing/org_pitch.html
+msgid "or write to"
+msgstr "albo napisz na"
+
 #: src/ludamus/templates/landing/org_problem.html
 msgid "Your event programme should not live in five places"
 msgstr "Program wydarzenia nie powinien mieszkać w pięciu miejscach"
@@ -6106,6 +6113,36 @@ msgstr "arkusz"
 msgctxt "landing chaos chip"
 msgid "chat"
 msgstr "czat"
+
+#: src/ludamus/templates/landing/org_proof.html
+msgid "They trusted us"
+msgstr "Zaufali nam"
+
+#: src/ludamus/templates/landing/org_proof.html
+msgid ""
+"The programme and enrollment of Kapitularz and Bachanalia Fantastyczne run "
+"in Zagrajmy."
+msgstr ""
+"Program i zapisy Kapitularza i Bachanalii Fantastycznych działają w "
+"Zagrajmy."
+
+#: src/ludamus/templates/landing/org_proof.html
+msgctxt "landing stats"
+msgid "event"
+msgid_plural "events"
+msgstr[0] "Wydarzenie"
+msgstr[1] "Wydarzenie"
+msgstr[2] "Wydarzenie"
+msgstr[3] "Wydarzenie"
+
+#: src/ludamus/templates/landing/org_proof.html
+msgctxt "landing stats"
+msgid "session"
+msgid_plural "sessions"
+msgstr[0] "Punkt programu"
+msgstr[1] "Punkty programu"
+msgstr[2] "Punktów programu"
+msgstr[3] "Punktów programu"
 
 #: src/ludamus/templates/landing/scena.html
 msgid "One event, six acts. The same programme cards play in every one."
@@ -6331,7 +6368,7 @@ msgstr "D"
 #: src/ludamus/templates/landing/spotkanie.html
 msgctxt "countdown hours"
 msgid "H"
-msgstr "H"
+msgstr "G"
 
 #: src/ludamus/templates/landing/spotkanie.html
 msgctxt "countdown minutes"
@@ -9717,6 +9754,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Run a conference or meetup"
+#~ msgstr "Zorganizuj konferencję albo meetup"
+
+#~ msgid "Or run an Encounter at zagrajmy.net/encounters"
+#~ msgstr "Albo zorganizuj Spotkanie na zagrajmy.net/encounters"
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"

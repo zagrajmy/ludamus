@@ -1,0 +1,36 @@
+{% load i18n %}
+<section class="pb-[4.5rem] group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="org-proof-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        <h2 id="org-proof-heading"
+            class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
+            {% translate "They trusted us" %}
+        </h2>
+        <p class="reveal text-[1.05rem] text-foreground-secondary max-w-[38rem] mb-5">
+            {% translate "The programme and enrollment of Kapitularz and Bachanalia Fantastyczne run in Zagrajmy." %}
+        </p>
+        <div class="reveal mb-6 flex flex-wrap gap-x-12 gap-y-4">
+            <p class="m-0">
+                <span class="block text-[2.1rem] font-extrabold tracking-[-0.02em] leading-none tabular-nums">{{ stats.events }}</span>
+                <span class="mt-1 block text-[0.9rem] text-foreground-muted">
+                    {% blocktranslate count counter=stats.events context "landing stats" trimmed %}
+                        event
+                    {% plural %}
+                        events
+                    {% endblocktranslate %}
+                </span>
+            </p>
+            <p class="m-0">
+                <span class="block text-[2.1rem] font-extrabold tracking-[-0.02em] leading-none tabular-nums">{{ stats.sessions }}</span>
+                <span class="mt-1 block text-[0.9rem] text-foreground-muted">
+                    {% blocktranslate count counter=stats.sessions context "landing stats" trimmed %}
+                        session
+                    {% plural %}
+                        sessions
+                    {% endblocktranslate %}
+                </span>
+            </p>
+        </div>
+        <div class="reveal">{% include "landing/_convention_cards.html" %}</div>
+    </div>
+</section>

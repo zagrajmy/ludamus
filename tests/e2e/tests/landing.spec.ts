@@ -5,7 +5,7 @@ test.describe("Landing", () => {
     await page.goto("/");
 
     await expect(page).toHaveTitle("Zagrajmy • conventions and events");
-    await expect(page.getByRole("heading", { name: /Run a conference or meetup/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Event organization/ })).toBeVisible();
 
     await page.getByText("For players", { exact: true }).filter({ visible: true }).click();
 
@@ -20,13 +20,13 @@ test.describe("Landing", () => {
     await page.goto("/#gracze");
 
     await expect(page.getByRole("heading", { name: /Your table, your game/ })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Run a conference or meetup/ })).toBeHidden();
+    await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();
   });
 
   test("keeps the plain event listing on /events/", async ({ page }) => {
     await page.goto("/events/");
 
     await expect(page.getByRole("heading", { name: "Upcoming events" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Run a conference or meetup/ })).toBeHidden();
+    await expect(page.getByRole("heading", { name: /Event organization/ })).toBeHidden();
   });
 });

@@ -469,10 +469,7 @@
             <p class="reveal mt-4 text-[1.05rem] text-foreground-secondary max-w-[38rem]">
                 {% translate "Zagrajmy runs the programme of real conventions: you browse the schedule, enroll in programme items, and see free seats live." %}
             </p>
-            <div class="reveal mt-6 flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center border border-border rounded-lg px-3 py-1.5 font-semibold text-foreground-secondary bg-bg-secondary">Kapitularz</span>
-                <span class="inline-flex items-center border border-border rounded-lg px-3 py-1.5 font-semibold text-foreground-secondary bg-bg-secondary">Bachanalia Fantastyczne</span>
-            </div>
+            <div class="reveal mt-6">{% include "landing/_convention_cards.html" %}</div>
             <p class="reveal mt-[1.6rem] text-[0.95rem]">
                 <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
                    href="{% url 'web:events' %}">{% translate "Browse events" %}</a>

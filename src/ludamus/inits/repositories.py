@@ -85,6 +85,10 @@ class Repositories:
         return repositories.EventRepository()
 
     @cached_property
+    def landing_stats(self) -> repositories.LandingStatsRepository:
+        return repositories.LandingStatsRepository()
+
+    @cached_property
     def event_settings(self) -> repositories.EventSettingsRepository:
         return repositories.EventSettingsRepository()
 

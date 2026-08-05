@@ -157,3 +157,17 @@ class PanelTimeSlotsServiceProtocol(Protocol):
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
     ) -> list[TimeSlotValidationError]: ...
     def delete(self, *, event_id: int, pk: int) -> bool: ...
+
+
+class LandingStatsDTO(BaseModel):
+    events: int
+    sessions: int
+
+
+class LandingStatsRepositoryProtocol(Protocol):
+    @staticmethod
+    def count_landing_stats() -> LandingStatsDTO: ...
+
+
+class LandingServiceProtocol(Protocol):
+    def stats(self) -> LandingStatsDTO: ...
