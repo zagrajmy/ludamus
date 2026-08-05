@@ -10,9 +10,6 @@ ENFORCE_HEADER = "Content-Security-Policy"
 
 
 class TestCSPReportOnlyHeader:
-    # The middleware stamps every response, so the index redirect is the
-    # simplest surface to assert headers on without replicating a rendered
-    # page's full context.
     URL = reverse("web:index")
 
     def test_header_sent_when_production_policy_active(self, client, settings):
@@ -20,7 +17,12 @@ class TestCSPReportOnlyHeader:
 
         response = client.get(self.URL)
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={},
+            template_name=["landing_page.html"],
+        )
         header = response.headers[REPORT_ONLY_HEADER]
         assert "default-src 'self'" in header
         assert "script-src 'self' 'unsafe-inline' 'unsafe-eval'" in header
@@ -31,6 +33,11 @@ class TestCSPReportOnlyHeader:
     def test_no_csp_headers_by_default(self, client):
         response = client.get(self.URL)
 
-        assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={},
+            template_name=["landing_page.html"],
+        )
         assert REPORT_ONLY_HEADER not in response.headers
         assert ENFORCE_HEADER not in response.headers

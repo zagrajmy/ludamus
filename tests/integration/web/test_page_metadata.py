@@ -65,6 +65,11 @@ class TestPageTitle:
     def test_root_sphere_title_omits_the_brand_tail(self, client, sphere):
         response = _get_ok(client, reverse("web:events"), ["index.html"])
 
+        assert _title(response) == f"Events • {sphere.name}"
+
+    def test_landing_page_titles_the_product(self, client, sphere):
+        response = _get_ok(client, reverse("web:index"), ["landing_page.html"])
+
         assert _title(response) == f"{LANDING_TITLE} • {sphere.name}"
 
     def test_sub_sphere_title_ends_with_the_brand(
@@ -83,6 +88,11 @@ class TestPageTitle:
 class TestMetaDescription:
     def test_brand_domain_pitches_the_product(self, client):
         response = _get_ok(client, reverse("web:events"), ["index.html"])
+
+        assert _descriptions(response) == [PRODUCT_PITCH] * 3
+
+    def test_landing_page_pitches_the_programme_flow(self, client):
+        response = _get_ok(client, reverse("web:index"), ["landing_page.html"])
 
         assert _descriptions(response) == [LANDING_PITCH] * 3
 

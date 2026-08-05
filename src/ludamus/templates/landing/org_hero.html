@@ -24,7 +24,7 @@
         <div class="ld d4 mt-[2.2rem] flex flex-wrap items-center gap-4 max-[26rem]:*:w-full">
             <a class="btn btn-primary"
                href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
-            <a class="btn btn-secondary" href="#events">{% translate "Browse events" %}</a>
+            <a class="btn btn-secondary" href="{% url 'web:events' %}">{% translate "Browse events" %}</a>
             <span class="text-[0.9375rem] text-foreground-muted">{% translate "or write to" %} {% tessera_copy_chip "kontakt@zagrajmy.net" %}</span>
         </div>
         <p class="ld d5 mt-[1.6rem] text-[0.95rem]">

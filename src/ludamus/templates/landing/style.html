@@ -833,6 +833,55 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
         display: block;
     }
 
+    /* Once the load choreography has played, switching the audience view must
+       not replay it: display:none -> block restarts CSS animations, so
+       landing.ts latches .ld-done after the last delay+duration. */
+    .landing.ld-done .ld {
+        animation: none;
+        opacity: 1;
+    }
+
+    /* ---------- print: everything visible, interactive chrome gone ---------- */
+    @media print {
+
+        .landing .ld,
+        .landing .reveal {
+            opacity: 1 !important;
+            animation: none !important;
+        }
+
+        .landing a.btn {
+            display: none;
+        }
+
+        .landing .stage,
+        .landing .card,
+        .landing .doorcard {
+            break-inside: avoid;
+        }
+    }
+
+    /* the email chip rides beside the primary CTA in the closing card;
+       match the button's height and radius so the pair reads balanced */
+    .landing .cta-mail [data-copy] {
+        padding: 0.625rem 1rem;
+        border-radius: 1rem;
+        border: 1px solid #5c534a;
+        background: #3d3732;
+        font-size: 1rem;
+    }
+
+    .landing .cta-mail [data-copy] code {
+        font-size: 0.9375rem;
+    }
+
+    @media print {
+        .landing .cta-mail [data-copy] {
+            background: transparent;
+            border-color: var(--color-border);
+        }
+    }
+
     /* ---------- reduced motion: everything instant ---------- */
     @media (prefers-reduced-motion: reduce) {
 

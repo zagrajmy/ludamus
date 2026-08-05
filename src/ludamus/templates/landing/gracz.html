@@ -23,7 +23,7 @@
         </div>
         <p class="ld d5 mt-[1.6rem] text-[0.95rem]">
             <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
-               href="#events">{% translate "Browse events" %}</a>
+               href="{% url 'web:events' %}">{% translate "Browse events" %}</a>
         </p>
     </div>
 </section>
@@ -224,10 +224,10 @@
                             {% translate "at Marek's, Mokotów" %}
                         </p>
                         <div class="flex justify-between items-center mt-[0.7rem]">
-                            <span class="flex">
+                            <span class="flex -space-x-[7px]">
                                 <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#f2e3d0] text-[#7a4d1d]">MK</span>
-                                <span class="g-a2 w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#e6d7f2] text-[#5b3a7e] -ml-[7px]">AN</span>
-                                <span class="g-a3 w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#f0d9e2] text-[#803a58] -ml-[7px]">JB</span>
+                                <span class="g-a2 w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#e6d7f2] text-[#5b3a7e]">AN</span>
+                                <span class="g-a3 w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#f0d9e2] text-[#803a58]">JB</span>
                             </span>
                             <span class="inline-flex items-center gap-[0.35rem] text-secondary font-semibold text-[0.86rem] tabular-nums">
                                 <svg class="w-[15px] h-[15px]"
@@ -287,10 +287,10 @@
                         {% translate "Planszówkarnia, the big table" %}
                     </p>
                     <div class="flex justify-between items-center mt-[0.7rem]">
-                        <span class="flex" aria-hidden="true">
+                        <span class="flex -space-x-[7px]" aria-hidden="true">
                             <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#d5e8f2] text-[#2b5a75]">PK</span>
-                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#d9f0dd] text-[#2d6a3f] -ml-[7px]">RA</span>
-                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#e6d7f2] text-[#5b3a7e] -ml-[7px]">OW</span>
+                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#d9f0dd] text-[#2d6a3f]">RA</span>
+                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#e6d7f2] text-[#5b3a7e]">OW</span>
                         </span>
                         <span class="inline-flex items-center gap-[0.35rem] text-secondary font-semibold text-[0.86rem] tabular-nums">
                             <svg class="w-[15px] h-[15px]"
@@ -349,9 +349,9 @@
                         {% translate "Fantasy club, room B" %}
                     </p>
                     <div class="flex justify-between items-center mt-[0.7rem]">
-                        <span class="flex" aria-hidden="true">
+                        <span class="flex -space-x-[7px]" aria-hidden="true">
                             <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#f0d9e2] text-[#803a58]">BK</span>
-                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#f2e3d0] text-[#7a4d1d] -ml-[7px]">TS</span>
+                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#f2e3d0] text-[#7a4d1d]">TS</span>
                         </span>
                         <span class="inline-flex items-center gap-[0.35rem] text-secondary font-semibold text-[0.86rem] tabular-nums">
                             <svg class="w-[15px] h-[15px]"
@@ -410,9 +410,9 @@
                         {% translate "Pionek café" %}
                     </p>
                     <div class="flex justify-between items-center mt-[0.7rem]">
-                        <span class="flex" aria-hidden="true">
+                        <span class="flex -space-x-[7px]" aria-hidden="true">
                             <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#d9f0dd] text-[#2d6a3f]">KL</span>
-                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#d5e8f2] text-[#2b5a75] -ml-[7px]">MW</span>
+                            <span class="w-6 h-6 rounded-full border-2 border-bg-secondary grid place-items-center text-[0.56rem] font-bold bg-[#d5e8f2] text-[#2b5a75]">MW</span>
                         </span>
                         <span class="inline-flex items-center gap-[0.35rem] text-secondary font-semibold text-[0.86rem] tabular-nums">
                             <svg class="w-[15px] h-[15px]"
@@ -437,22 +437,45 @@
     <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-16 pb-4"
              aria-labelledby="g-final-heading">
         <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
-            <div class="reveal bg-[#252220] text-[#fdfcfb] rounded-3xl px-8 py-14 text-center [&_:focus-visible]:outline-[#fdfcfb]">
+            <div class="reveal bg-[#252220] text-[#fdfcfb] rounded-3xl px-8 py-14 text-center [&_:focus-visible]:outline-[#fdfcfb] print:bg-transparent print:border print:border-border print:text-foreground">
                 <h2 id="g-final-heading"
-                    class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-[#fdfcfb]">
+                    class="text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] text-[#fdfcfb] print:text-foreground">
                     {% translate "Who is laying out a board today?" %}
                 </h2>
-                <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem]">
+                <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem] print:text-foreground-secondary">
                     {% translate "Run an Encounter and send friends the link. It will take you less time than setting up the board." %}
                 </p>
                 <div class="mt-[2.2rem] flex flex-wrap items-center justify-center gap-4 max-[26rem]:*:w-full">
                     <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
                        href="{% url 'web:notice-board:index' %}">{% translate "Run an Encounter" %}</a>
                 </div>
-                <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem]">
+                <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem] print:hidden">
                     {% translate "Organizing a conference or a meetup?" %} <label class="font-semibold underline underline-offset-[3px] cursor-pointer hover:text-[#fdfcfb]"
         for="aud-org">{% translate "See the organizer page" %}</label>.
                 </p>
             </div>
+        </div>
+    </section>
+    <section class="hidden group-has-[#aud-gracz:checked]/aud:block pt-12 pb-16"
+             aria-labelledby="g-conventions-heading">
+        <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+            <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
+                {% translate "Conventions" %}
+            </p>
+            <h2 id="g-conventions-heading"
+                class="reveal text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] max-w-[24ch]">
+                {% translate "Enrollment and the programme in one place" %}
+            </h2>
+            <p class="reveal mt-4 text-[1.05rem] text-foreground-secondary max-w-[38rem]">
+                {% translate "Zagrajmy runs the programme of real conventions: you browse the schedule, enroll in programme items, and see free seats live." %}
+            </p>
+            <div class="reveal mt-6 flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center border border-border rounded-lg px-3 py-1.5 font-semibold text-foreground-secondary bg-bg-secondary">Kapitularz</span>
+                <span class="inline-flex items-center border border-border rounded-lg px-3 py-1.5 font-semibold text-foreground-secondary bg-bg-secondary">Bachanalia Fantastyczne</span>
+            </div>
+            <p class="reveal mt-[1.6rem] text-[0.95rem]">
+                <a class="text-foreground-muted font-medium underline underline-offset-[3px] decoration-border hover:text-foreground"
+                   href="{% url 'web:events' %}">{% translate "Browse events" %}</a>
+            </p>
         </div>
     </section>

@@ -7,6 +7,7 @@ from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.event.print import PublicEventPrintView
+from ludamus.gates.web.django.landing import index_page
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -48,7 +49,7 @@ chronology_urls = [
 ]
 
 urlpatterns = [
-    path("", views.IndexRedirectView.as_view(), name="index"),
+    path("", index_page, name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
     path(
         "notifications/do/mark-read",

@@ -43,18 +43,29 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
 class TestIndexRedirectView:
     URL = reverse("web:index")
 
-    def test_redirects_to_events_by_default(self, client):
+    def test_renders_landing_on_root_domain(self, client):
         response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={},
+            template_name=["landing_page.html"],
+            contains=["landing-hero-heading", "scena-heading", "g-hero-heading"],
+        )
+
+    def test_redirects_to_events_on_sphere_domain(self, client, non_root_sphere):
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
 
     def test_redirects_to_encounters_when_default_page_is_encounters(
-        self, client, sphere
+        self, client, non_root_sphere
     ):
-        sphere.default_page = "encounters"
-        sphere.save()
+        non_root_sphere.default_page = "encounters"
+        non_root_sphere.save()
 
-        response = client.get(self.URL)
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(
             response, HTTPStatus.FOUND, url=reverse("web:notice-board:index")
@@ -392,24 +403,8 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_landing_sections_shown_on_root_domain(self, client):
+    def test_landing_sections_stay_off_the_events_page(self, client):
         response = client.get(self.URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={
-                "announcements": [],
-                "past_events": [],
-                "upcoming_events": [],
-                "view": ANY,
-            },
-            template_name=["index.html"],
-            contains=["landing-hero-heading", "scena-heading", "g-hero-heading"],
-        )
-
-    def test_landing_sections_hidden_on_sphere_domain(self, client, non_root_sphere):
-        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(
             response,

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-03 00:05+0200\n"
+"POT-Creation-Date: 2026-08-03 17:42+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3149,28 +3149,6 @@ msgstr "Przejdź do strony głównej"
 msgid "Still stuck? Email us at"
 msgstr "Nadal nie działa? Napisz do nas na"
 
-#: src/ludamus/templates/_index_events.html
-#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-msgid "Organization announcements"
-msgstr "Ogłoszenia organizacji"
-
-#: src/ludamus/templates/_index_events.html
-msgid "Upcoming events"
-msgstr "Nadchodzące wydarzenia"
-
-#: src/ludamus/templates/_index_events.html
-msgid "Past events"
-msgstr "Minione wydarzenia"
-
-#: src/ludamus/templates/_index_events.html
-msgid "No events available"
-msgstr "Brak dostępnych wydarzeń"
-
-#: src/ludamus/templates/_index_events.html
-msgid "There are currently no events scheduled. Please check back later!"
-msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
-
 #: src/ludamus/templates/base.html
 #, python-format
 msgid "Programme and sign-ups for %(sphere)s."
@@ -3194,7 +3172,8 @@ msgstr ""
 
 #: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
-#: src/ludamus/templates/index.html src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/landing_page.html
+#: src/ludamus/templates/panel/base.html
 msgid "Notifications"
 msgstr "Powiadomienia"
 
@@ -4747,7 +4726,7 @@ msgid "Public information"
 msgstr "Informacje publiczne"
 
 #: src/ludamus/templates/components/visibility-header.html
-#: src/ludamus/templates/landing/landing.html
+#: src/ludamus/templates/landing/_aud_switch.html
 msgid "For organizers"
 msgstr "Dla organizatorów"
 
@@ -5389,18 +5368,35 @@ msgid "Download"
 msgstr "Pobierz"
 
 #: src/ludamus/templates/index.html
-msgid "Zagrajmy — from a speaker's proposal to the printout on the room door"
-msgstr "Zagrajmy — od zgłoszenia prelegenta do wydruku na drzwiach sali"
+#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+msgid "Organization announcements"
+msgstr "Ogłoszenia organizacji"
 
 #: src/ludamus/templates/index.html
-msgid ""
-"Zagrajmy runs your event programme: proposals, review, the schedule, the "
-"event page, enrollment with waiting lists, and print. Write to us: "
-"kontakt@zagrajmy.net"
-msgstr ""
-"Zagrajmy prowadzi program wydarzenia: zgłoszenia, akceptacja, harmonogram, "
-"strona wydarzenia, zapisy z listami oczekujących i druk. Napisz: "
-"kontakt@zagrajmy.net"
+msgid "Upcoming events"
+msgstr "Nadchodzące wydarzenia"
+
+#: src/ludamus/templates/index.html
+msgid "Past events"
+msgstr "Minione wydarzenia"
+
+#: src/ludamus/templates/index.html
+msgid "No events available"
+msgstr "Brak dostępnych wydarzeń"
+
+#: src/ludamus/templates/index.html
+msgid "There are currently no events scheduled. Please check back later!"
+msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
+
+#: src/ludamus/templates/landing/_aud_switch.html
+msgid "Choose page view"
+msgstr "Wybierz widok strony"
+
+#: src/ludamus/templates/landing/_aud_switch.html
+#: src/ludamus/templates/landing/gracz.html
+msgid "For players"
+msgstr "Dla graczy"
 
 #: src/ludamus/templates/landing/druk.html
 #: src/ludamus/templates/landing/scena.html
@@ -5514,11 +5510,6 @@ msgstr "Karta na drzwi"
 #: src/ludamus/templates/landing/scena.html
 msgid "Publisher Q&A"
 msgstr "Q&A z wydawcą"
-
-#: src/ludamus/templates/landing/gracz.html
-#: src/ludamus/templates/landing/landing.html
-msgid "For players"
-msgstr "Dla graczy"
 
 #: src/ludamus/templates/landing/gracz.html
 msgid "Your table, your game,"
@@ -5655,9 +5646,21 @@ msgstr "Organizujesz konferencję albo meetup?"
 msgid "See the organizer page"
 msgstr "Zobacz stronę dla organizatorów"
 
-#: src/ludamus/templates/landing/landing.html
-msgid "Choose page view"
-msgstr "Wybierz widok strony"
+#: src/ludamus/templates/landing/gracz.html
+msgid "Conventions"
+msgstr "Konwenty"
+
+#: src/ludamus/templates/landing/gracz.html
+msgid "Enrollment and the programme in one place"
+msgstr "Zapisy i program w jednym miejscu"
+
+#: src/ludamus/templates/landing/gracz.html
+msgid ""
+"Zagrajmy runs the programme of real conventions: you browse the schedule, "
+"enroll in programme items, and see free seats live."
+msgstr ""
+"Zagrajmy prowadzi program prawdziwych konwentów: przeglądasz harmonogram, "
+"zapisujesz się na punkty programu i widzisz wolne miejsca na żywo."
 
 #: src/ludamus/templates/landing/org_final.html
 msgid "Have an event to run?"
@@ -6317,6 +6320,20 @@ msgstr ""
 "dwóch miejsc i nikt jej nie rozdziela ani nie przeskakuje. Dopiero gdy "
 "rezygnuje druga osoba (6/8), Ala i Ola wchodzą razem na listę zapisanych "
 "(8/8), a Basia przesuwa się z trzeciego na pierwsze miejsce w kolejce."
+
+#: src/ludamus/templates/landing_page.html
+msgid "Zagrajmy — from a speaker's proposal to the printout on the room door"
+msgstr "Zagrajmy — od zgłoszenia prelegenta do wydruku na drzwiach sali"
+
+#: src/ludamus/templates/landing_page.html
+msgid ""
+"Zagrajmy runs your event programme: proposals, review, the schedule, the "
+"event page, enrollment with waiting lists, and print. Write to us: "
+"kontakt@zagrajmy.net"
+msgstr ""
+"Zagrajmy prowadzi program wydarzenia: zgłoszenia, akceptacja, harmonogram, "
+"strona wydarzenia, zapisy z listami oczekujących i druk. Napisz: "
+"kontakt@zagrajmy.net"
 
 #: src/ludamus/templates/mcp/_token_reveal.html
 msgid "Copy the token now — it is shown only once."
