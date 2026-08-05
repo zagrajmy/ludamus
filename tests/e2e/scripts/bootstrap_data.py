@@ -401,6 +401,7 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
         name="RPG Proposals",
         slug="rpg-proposals",
         min_participants_limit=1,
+        max_participants_limit=6,
         durations=["PT1H"],
     )
     return event
@@ -438,6 +439,7 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
         name="Open Mic",
         slug="open-mic",
         min_participants_limit=1,
+        max_participants_limit=6,
         durations=["PT1H"],
     )
     # Open-ended by nature, so the proposer answers it by writing in: the
@@ -673,6 +675,7 @@ def main() -> None:
         name="RPG Proposals",
         slug="rpg-proposals",
         min_participants_limit=1,
+        max_participants_limit=6,
         durations=["PT1H"],
     )
     proposal_slot = TimeSlot.objects.create(

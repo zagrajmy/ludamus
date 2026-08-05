@@ -32,6 +32,7 @@ def _category() -> ProposalCategoryDTO:
         description="",
         durations=[],
         end_time=None,
+        max_participants_limit=0,
         min_participants_limit=0,
         name="RPG",
         pk=7,
@@ -75,6 +76,7 @@ def _data() -> ProposalCategorySettingsData:
         end_time=None,
         durations=["PT4H"],
         min_participants_limit=2,
+        max_participants_limit=5,
         promotion_mode=PromotionMode.OFFER_CLAIM,
         offer_claim_window=timedelta(minutes=30),
         personal_fields=RequirementSelectionDTO(
@@ -136,6 +138,7 @@ def test_update_is_atomic_and_drops_cross_event_requirements() -> None:
             "end_time": None,
             "durations": ["PT4H"],
             "min_participants_limit": 2,
+            "max_participants_limit": 5,
             "promotion_mode": PromotionMode.OFFER_CLAIM,
             "offer_claim_window": timedelta(minutes=30),
         },

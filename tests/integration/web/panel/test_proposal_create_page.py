@@ -33,6 +33,7 @@ from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+CATEGORY_B_MAX_PARTICIPANTS = 9
 BIG_LECTURE_PARTICIPANTS = 500
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
@@ -385,12 +386,16 @@ class TestProposalCreatePageView:
         )
         assert new_session.slug != "my-new-session"
 
-    def test_post_accepts_a_limit_far_above_the_category_minimum(
+    def test_post_accepts_a_limit_above_the_category_maximum(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
-            event=event, name="RPG", slug="rpg", min_participants_limit=3
+            event=event,
+            name="RPG",
+            slug="rpg",
+            min_participants_limit=3,
+            max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
         )
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -988,14 +993,18 @@ class TestProposalCreateCategoryFields:
     ):
         sphere.managers.add(active_user)
         ProposalCategory.objects.create(
-            event=event, name="A", slug="a", durations=["PT1H"]
+            event=event,
+            name="A",
+            slug="a",
+            durations=["PT1H"],
+            max_participants_limit=4,
         )
         category_b = ProposalCategory.objects.create(
             event=event,
             name="B",
             slug="b",
             durations=["PT3H"],
-            min_participants_limit=3,
+            max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
         )
 
         response = authenticated_client.get(

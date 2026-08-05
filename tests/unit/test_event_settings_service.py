@@ -60,6 +60,7 @@ def _category(pk=1, name="Talk", slug="talk"):
         description="",
         durations=[],
         end_time=None,
+        max_participants_limit=0,
         min_participants_limit=0,
         name=name,
         pk=pk,

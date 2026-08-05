@@ -388,6 +388,7 @@ def _render_details(
     form = build_session_details_form(
         requirements,
         min_limit=category.min_participants_limit,
+        max_limit=category.max_participants_limit,
         durations=category.durations,
     )(initial=initial)
 
@@ -766,6 +767,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
         form_class = build_session_details_form(
             requirements,
             min_limit=category.min_participants_limit,
+            max_limit=category.max_participants_limit,
             durations=category.durations,
         )
         form = form_class(data=request.POST)

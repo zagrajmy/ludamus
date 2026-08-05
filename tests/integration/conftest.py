@@ -183,6 +183,7 @@ class ProposalCategoryFactory(DjangoModelFactory):
     name = Faker("word")
     slug = Sequence(lambda n: f"proposal-category-{n}")
     event = SubFactory(EventFactory)
+    max_participants_limit = 20
     min_participants_limit = 2
 
 

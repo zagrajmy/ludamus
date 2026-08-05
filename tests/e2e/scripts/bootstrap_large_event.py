@@ -150,6 +150,7 @@ def main() -> None:
             event=event,
             name=name,
             slug=slugify(name),
+            max_participants_limit=8,
             min_participants_limit=1,
             durations=["PT2H"],
         )

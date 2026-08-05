@@ -43,6 +43,7 @@ def _form(page: ProposalCategoryEditContextDTO) -> ProposalCategoryForm:
             "start_time": category.start_time,
             "end_time": category.end_time,
             "min_participants_limit": category.min_participants_limit,
+            "max_participants_limit": category.max_participants_limit,
             "promotion_mode": category.promotion_mode.value,
             "offer_claim_window_minutes": int(
                 category.offer_claim_window.total_seconds() // 60
@@ -64,6 +65,7 @@ def _settings_data(
             duration for duration in request.POST.getlist("durations") if duration
         ],
         min_participants_limit=cleaned["min_participants_limit"] or 0,
+        max_participants_limit=cleaned["max_participants_limit"] or 0,
         promotion_mode=(
             PromotionMode(cleaned["promotion_mode"])
             if cleaned.get("promotion_mode")

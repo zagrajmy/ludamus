@@ -132,6 +132,7 @@ class ProposalCategoryDTO(BaseModel):
     description: str
     durations: list[str]
     end_time: datetime | None
+    max_participants_limit: int
     min_participants_limit: int
     name: str
     offer_claim_window: timedelta = timedelta(hours=24)
@@ -593,6 +594,7 @@ class ProposalCategoryData(TypedDict, total=False):
     description: str
     durations: list[str]
     end_time: datetime | None
+    max_participants_limit: int
     min_participants_limit: int
     name: str
     offer_claim_window: timedelta
