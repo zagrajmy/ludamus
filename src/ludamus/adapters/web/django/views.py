@@ -84,7 +84,6 @@ from ludamus.pacts import (
     SessionDTO,
     SessionFieldValueDTO,
     SessionStatus,
-    SpherePage,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
@@ -174,18 +173,6 @@ class StagingEmailInboxView(View):
             "staging_email_inbox.html",
             {"emails": _read_captured_emails(Path(settings.EMAIL_FILE_PATH))},
         )
-
-
-class IndexRedirectView(View):
-    request: RootRequest
-
-    def get(self, _request: RootRequest) -> HttpResponse:
-        sphere = self.request.di.uow.spheres.read(
-            self.request.context.current_sphere_id
-        )
-        if sphere.default_page == SpherePage.ENCOUNTERS:
-            return redirect("web:notice-board:index")
-        return redirect("web:events")
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")

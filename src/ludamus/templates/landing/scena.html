@@ -1,0 +1,176 @@
+{% load i18n %}
+{# One set of session cards travels through all six steps; radios + sibling CSS, no JS. #}
+<section class="pt-[clamp(2.5rem,6vh,4.5rem)] pb-[clamp(3.5rem,8vh,6rem)] group-has-[#aud-gracz:checked]/aud:hidden"
+         id="scena"
+         aria-labelledby="scena-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        <h2 id="scena-heading"
+            class="reveal font-extrabold text-[clamp(1.8rem,4vw,2.9rem)] tracking-[-0.03em] leading-[1.08] max-w-[24ch]">
+            {% translate "One event, six acts. The same programme cards play in every one." %}
+        </h2>
+        <p class="reveal mt-3 text-foreground-secondary max-w-[52ch] text-[1.05rem]">
+            {% translate "Seven programme items of Board Game Days 2026 travel before your eyes from loose proposals to a printout on the room door. Pick an act." %}
+        </p>
+        <input class="sr-only" type="radio" name="landing-krok" id="k1" checked>
+        <input class="sr-only" type="radio" name="landing-krok" id="k2">
+        <input class="sr-only" type="radio" name="landing-krok" id="k3">
+        <input class="sr-only" type="radio" name="landing-krok" id="k4">
+        <input class="sr-only" type="radio" name="landing-krok" id="k5">
+        <input class="sr-only" type="radio" name="landing-krok" id="k6">
+        <div class="sc">
+            <div class="ktabs">
+                <label for="k1"><b>01</b> {% translate "Proposals" %}</label>
+                <label for="k2"><b>02</b> {% translate "Review" context "landing walkthrough step" %}</label>
+                <label for="k3"><b>03</b> {% translate "Schedule" %}</label>
+                <label for="k4"><b>04</b> {% translate "Publish" context "landing walkthrough step" %}</label>
+                <label for="k5"><b>05</b> {% translate "Enrollment" %}</label>
+                <label for="k6"><b>06</b> {% translate "Print" context "landing walkthrough step" %}</label>
+            </div>
+            <div class="mt-[1.1rem] overflow-x-auto rounded-[1.25rem]">
+                <div class="stage">
+                    <!-- context strip -->
+                    <div class="ctx ctx1">
+                        <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "Proposal inbox" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "a form with your own questions" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "7 proposals" %}</span>
+                    </div>
+                    <div class="ctx ctx2">
+                        <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "Proposal review" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "5 accepted" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-warning-bg border-warning-light text-warning-text">{% translate "1 on hold" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-info-bg border-info-light text-info-text">{% translate "1 new" %}</span>
+                    </div>
+                    <div class="ctx ctx3">
+                        <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "Board Game Days 2026" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "Saturday, 14 March" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-danger-bg border-danger-light text-danger-text">{% translate "1 room conflict" %}</span>
+                    </div>
+                    <div class="ctx ctx4">
+                        <span class="text-[0.78rem] font-semibold text-foreground-secondary bg-bg-secondary border border-border rounded-full px-[0.9rem] py-[0.28rem] tracking-[0.01em]">zagrajmy.net/<b class="text-foreground font-bold">planszowkowe-dni-2026</b></span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-success-bg border-success-light text-success-text">{% translate "Published" context "landing scena status" %}</span>
+                    </div>
+                    <div class="ctx ctx5">
+                        <span class="text-[0.78rem] font-semibold text-foreground-secondary bg-bg-secondary border border-border rounded-full px-[0.9rem] py-[0.28rem] tracking-[0.01em]">zagrajmy.net/<b class="text-foreground font-bold">planszowkowe-dni-2026</b></span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 bg-secondary-light border-secondary-light text-secondary-hover">{% translate "Enrollment open" %}</span>
+                    </div>
+                    <div class="ctx ctx6">
+                        <span class="font-bold text-[0.95rem] tracking-[-0.01em]">{% translate "saturday-schedule.pdf" %}</span>
+                        <span class="inline-flex items-center gap-[0.35rem] text-[0.72rem] font-semibold px-[0.65rem] py-[0.18rem] rounded-full border whitespace-nowrap shrink-0 border-border bg-bg-secondary text-foreground-secondary">{% translate "A4 · ready to print" %}</span>
+                    </div>
+                    <!-- grid scaffold -->
+                    <div class="scaffold" aria-hidden="true">
+                        <span class="rh rh1">{% translate "Room A" %}</span>
+                        <span class="rh rh2">{% translate "Room B" %}</span>
+                        <span class="rh rh3">{% translate "Workshop room" %}</span>
+                        <span class="gl gl0"></span><span class="gl gl1"></span><span class="gl gl2"></span>
+                        <span class="tl tl1">10:00</span>
+                        <span class="tl tl2">12:00</span>
+                        <span class="tl tl3">15:00</span>
+                    </div>
+                    <div class="cellwarn" aria-hidden="true">
+                        <span class="absolute -top-[0.85rem] left-[0.8rem] bg-danger-bg text-danger-text border border-danger-light text-[0.66rem] font-bold tracking-[0.05em] uppercase px-[0.55rem] py-[0.1rem] rounded-full">{% translate "Room conflict" %}</span>
+                    </div>
+                    <!-- the travelling cast -->
+                    <article class="chip cA">
+                        <span class="ct">{% translate "Opening talk" %}</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                    </article>
+                    <article class="chip cB">
+                        <span class="ct">{% translate "Self-publishing: a survival guide" %}</span>
+                        <span class="ca text-[0.66rem] font-medium text-foreground-muted">Piotrek</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                    </article>
+                    <article class="chip cC">
+                        <span class="ct">{% translate "Two decades of convention mishaps" %}</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "On hold" %}</span>
+                    </article>
+                    <article class="chip cD">
+                        <span class="ct">{% translate "Board game prototyping workshop" %}</span>
+                        <span class="ca text-[0.66rem] font-medium text-foreground-muted">Radowit</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                        <span class="cap text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-warning-bg text-warning-text border-warning-light">{% translate "Full · 12/12" %}</span>
+                        <span class="wl text-[0.6rem] font-semibold text-secondary-hover underline underline-offset-2">{% translate "Join the waiting list" %}</span>
+                    </article>
+                    <article class="chip cE">
+                        <span class="ct">{% translate "Painting miniatures for beginners" %}</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                        <span class="cap text-[0.62rem] font-bold px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "3 spots free" %}</span>
+                    </article>
+                    <article class="chip cF">
+                        <span class="ct">{% translate "Publisher Q&A" %}</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-success-bg text-success-text border-success-light">{% translate "Accepted" %}</span>
+                        <span class="warnDot absolute top-[0.4rem] right-[0.45rem] w-4 h-4 rounded-full bg-danger text-white text-[0.68rem] font-extrabold leading-4 text-center"
+                              aria-hidden="true">!</span>
+                    </article>
+                    <article class="chip cG">
+                        <span class="ct">{% translate "Community meetup" %}</span>
+                        <span class="badge text-[0.6rem] font-bold tracking-[0.04em] uppercase px-2 py-[0.08rem] rounded-full border bg-info-bg text-info-text border-info-light">{% translate "New" context "landing scena status" %}</span>
+                        <span class="warnDot absolute top-[0.4rem] right-[0.45rem] w-4 h-4 rounded-full bg-danger text-white text-[0.68rem] font-extrabold leading-4 text-center"
+                              aria-hidden="true">!</span>
+                    </article>
+                    <!-- print-state door card -->
+                    <aside class="doorcard" aria-hidden="true">
+                        <span class="text-[0.68rem] font-extrabold tracking-[0.16em] uppercase text-[#5c534a]">{% translate "Workshop room" %}</span>
+                        <p class="font-extrabold text-[0.95rem] leading-[1.15] tracking-[-0.02em] mt-[0.3rem] text-[#252220]">
+                            {% translate "Board game prototyping workshop" %}
+                        </p>
+                        <p class="text-[0.7rem] font-semibold text-[#5c534a] mt-[0.35rem]">{% translate "Saturday · 12:00 · run by Radowit" %}</p>
+                    </aside>
+                </div>
+            </div>
+            <p class="hidden max-[44rem]:block text-[0.78rem] text-foreground-muted mt-2">
+                {% translate "Swipe the grid sideways to see all the rooms." %}
+            </p>
+            <div class="mt-[1.4rem] min-h-[6.5rem]">
+                <div class="opis opis1 max-w-[56ch]">
+                    <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
+                        <b class="text-primary-hover tabular-nums mr-[0.4rem]">01</b>{% translate "Proposals" %}
+                    </h3>
+                    <p class="mt-[0.35rem] text-foreground-secondary text-[0.98rem]">
+                        {% translate "Programme creators send proposals through a form with your questions. Every proposal lands straight in the event inbox." %}
+                    </p>
+                </div>
+                <div class="opis opis2 max-w-[56ch]">
+                    <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
+                        <b class="text-primary-hover tabular-nums mr-[0.4rem]">02</b>{% translate "Review" context "landing walkthrough step" %}
+                    </h3>
+                    <p class="mt-[0.35rem] text-foreground-secondary text-[0.98rem]">
+                        {% translate "You review proposals and set statuses: accepted, on hold, new. The whole team works on the same programme state." %}
+                    </p>
+                </div>
+                <div class="opis opis3 max-w-[56ch]">
+                    <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
+                        <b class="text-primary-hover tabular-nums mr-[0.4rem]">03</b>{% translate "Schedule" %}
+                    </h3>
+                    <p class="mt-[0.35rem] text-foreground-secondary text-[0.98rem]">
+                        {% translate "You build the grid from tracks, rooms, and time slots. Two programme items in Room B at 15:00? Zagrajmy highlights the conflict before attendees see it." %}
+                    </p>
+                </div>
+                <div class="opis opis4 max-w-[56ch]">
+                    <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
+                        <b class="text-primary-hover tabular-nums mr-[0.4rem]">04</b>{% translate "Publish" context "landing walkthrough step" %}
+                    </h3>
+                    <p class="mt-[0.35rem] text-foreground-secondary text-[0.98rem]">
+                        {% translate "You move the community meetup to the free workshop room and publish the event page. Attendees see the current programme at one address." %}
+                    </p>
+                </div>
+                <div class="opis opis5 max-w-[56ch]">
+                    <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
+                        <b class="text-primary-hover tabular-nums mr-[0.4rem]">05</b>{% translate "Enrollment" %}
+                    </h3>
+                    <p class="mt-[0.35rem] text-foreground-secondary text-[0.98rem]">
+                        {% translate "You open enrollment with seat limits. A full workshop runs a waiting list, and free spots are visible right away." %}
+                    </p>
+                </div>
+                <div class="opis opis6 max-w-[56ch]">
+                    <h3 class="font-bold text-[1.05rem] tracking-[-0.01em]">
+                        <b class="text-primary-hover tabular-nums mr-[0.4rem]">06</b>{% translate "Print" context "landing walkthrough step" %}
+                    </h3>
+                    <p class="mt-[0.35rem] text-foreground-secondary text-[0.98rem]">
+                        {% translate "You print the schedule and the door cards straight from the current grid. A change in the programme simply means a fresh printout." %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

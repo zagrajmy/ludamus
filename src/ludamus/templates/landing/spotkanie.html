@@ -1,0 +1,180 @@
+{% load i18n %}
+<section class="hidden group-has-[#aud-gracz:checked]/aud:block bg-background text-foreground px-5 py-[4.5rem] max-[620px]:px-4 max-[620px]:py-12"
+         aria-labelledby="e1-heading">
+    <style>
+        .e1-tickstrip {
+            display: flex;
+            flex-direction: column;
+            animation: e1-tick 10s steps(10, end) infinite;
+        }
+
+        .e1-tickstrip span {
+            height: 1em;
+            line-height: 1;
+        }
+
+        @keyframes e1-tick {
+            to {
+                transform: translateY(-10em);
+            }
+        }
+    </style>
+    <div class="max-w-[1080px] mx-auto grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-12 items-center max-[900px]:grid-cols-1 max-[900px]:gap-8">
+        <div>
+            <p class="text-[0.8rem] font-semibold tracking-[0.12em] uppercase text-primary">{% translate "The Encounter page" %}</p>
+            <h2 class="text-[clamp(1.7rem,3.5vw,2.4rem)] font-extrabold leading-[1.12] tracking-[-0.02em] mt-3 mb-4"
+                id="e1-heading">{% translate "One page instead of twenty messages" %}</h2>
+            <p class="text-[1.05rem] leading-[1.6] text-foreground-secondary">
+                {% translate "Every Encounter gets its own page: game, time, place, the participant list, and free seats in one view. The same link works as a QR code, and the countdown shows how much time is left until the game." %}
+            </p>
+        </div>
+        <div class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-4 items-start max-[620px]:grid-cols-1">
+            <span class="sr-only">
+                {% blocktranslate trimmed %}
+                    A preview of an encounter page: Brass: Birmingham on Thursday — tiles
+                    with the game, time, place, and free seats, a participant list, a
+                    countdown, and a link to share.
+                {% endblocktranslate %}
+            </span>
+            <div class="card p-5">
+                <p class="italic text-[0.85rem] text-foreground-secondary">{% translate "Piotrek invites you to an encounter" %}</p>
+                <h3 class="text-[1.3rem] font-bold tracking-[-0.01em] mt-[0.35rem] mb-4">{% translate "Brass: Birmingham on Thursday" %}</h3>
+                <div class="grid grid-cols-2 gap-[0.6rem] max-[410px]:grid-cols-1">
+                    <div class="bg-bg-tertiary rounded-xl px-[0.8rem] py-[0.7rem] flex gap-[0.6rem] items-start">
+                        <svg class="w-4 h-4 flex-none text-primary mt-[0.15rem]"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             aria-hidden="true">
+                            <rect x="4" y="4" width="16" height="16" rx="3" /><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="15" cy="15" r="1.3" fill="currentColor" stroke="none" />
+                        </svg>
+                        <div>
+                            <div class="text-[0.62rem] font-semibold tracking-[0.1em] uppercase text-foreground-muted">{% translate "Game" %}</div>
+                            <div class="text-[0.88rem] font-semibold mt-[0.1rem]">Brass: Birmingham</div>
+                        </div>
+                    </div>
+                    <div class="bg-bg-tertiary rounded-xl px-[0.8rem] py-[0.7rem] flex gap-[0.6rem] items-start">
+                        <svg class="w-4 h-4 flex-none text-primary mt-[0.15rem]"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             aria-hidden="true">
+                            <rect x="3" y="5" width="18" height="16" rx="2" />
+                            <path d="M8 3v4M16 3v4M3 10h18" />
+                        </svg>
+                        <div>
+                            <div class="text-[0.62rem] font-semibold tracking-[0.1em] uppercase text-foreground-muted">{% translate "When" %}</div>
+                            <div class="text-[0.88rem] font-semibold mt-[0.1rem]">{% translate "Thu, 9 July, 18:30" %}</div>
+                        </div>
+                    </div>
+                    <div class="bg-bg-tertiary rounded-xl px-[0.8rem] py-[0.7rem] flex gap-[0.6rem] items-start">
+                        <svg class="w-4 h-4 flex-none text-primary mt-[0.15rem]"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             aria-hidden="true">
+                            <path d="M12 21s-6-5-6-10a6 6 0 1 1 12 0c0 5-6 10-6 10z" />
+                            <circle cx="12" cy="11" r="2" />
+                        </svg>
+                        <div>
+                            <div class="text-[0.62rem] font-semibold tracking-[0.1em] uppercase text-foreground-muted">{% translate "Where" %}</div>
+                            <div class="text-[0.88rem] font-semibold mt-[0.1rem]">{% translate "Kostka café, table 4" %}</div>
+                        </div>
+                    </div>
+                    <div class="bg-bg-tertiary rounded-xl px-[0.8rem] py-[0.7rem] flex gap-[0.6rem] items-start">
+                        <svg class="w-4 h-4 flex-none text-primary mt-[0.15rem]"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             aria-hidden="true">
+                            <circle cx="9" cy="8" r="3" />
+                            <path d="M4 20c0-3 2.2-5 5-5s5 2 5 5" />
+                            <circle cx="17" cy="9" r="2.5" />
+                            <path d="M16 15.2c.3-.1.7-.2 1-.2 2.2 0 4 1.7 4 4" />
+                        </svg>
+                        <div>
+                            <div class="text-[0.62rem] font-semibold tracking-[0.1em] uppercase text-foreground-muted">{% translate "Seats" %}</div>
+                            <div class="text-[0.88rem] font-semibold mt-[0.1rem]">{% translate "2 seats left" %}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-border flex gap-[0.9rem] items-center flex-wrap">
+                    <span class="inline-flex items-center gap-[0.45rem] bg-bg-tertiary border border-border rounded-full px-[0.9rem] py-[0.45rem] text-[0.85rem] font-semibold text-foreground-secondary">
+                        <svg class="w-3.5 h-3.5 text-secondary"
+                             viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             aria-hidden="true">
+                            <path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1.5 1.5" />
+                            <path d="M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1.5-1.5" />
+                        </svg>
+                        zagrajmy.net/e/BRASS1
+                    </span>
+                    {# the QR stays white paper in both themes #}
+                    <svg class="block w-[74px] h-[74px] flex-none bg-white border border-border rounded-lg p-[7px] box-border [&_path]:fill-[#3d3732]"
+                         viewBox="0 0 60 60"
+                         aria-hidden="true">
+                        <path fill-rule="evenodd" d="M0 0h15v15H0Zm4 4v7h7V4Z" />
+                        <path fill-rule="evenodd" transform="translate(45 0)" d="M0 0h15v15H0Zm4 4v7h7V4Z" />
+                        <path fill-rule="evenodd" transform="translate(0 45)" d="M0 0h15v15H0Zm4 4v7h7V4Z" />
+                        <path d="M5 5h5v5H5ZM50 5h5v5h-5ZM5 50h5v5H5ZM25 0h5v5h-5ZM35 0h5v5h-5ZM20 5h5v5h-5ZM35 10h5v5h-5ZM25 15h5v5h-5ZM0 20h5v5H0ZM10 20h5v5h-5ZM30 20h5v5h-5ZM45 20h5v5h-5ZM55 20h5v5h-5ZM5 25h5v5H5ZM20 25h5v5h-5ZM40 25h5v5h-5ZM0 30h5v5H0ZM15 30h5v5h-5ZM30 30h5v5h-5ZM50 30h5v5h-5ZM10 35h5v5h-5ZM25 35h5v5h-5ZM45 35h5v5h-5ZM55 35h5v5h-5ZM25 45h5v5h-5ZM35 45h5v5h-5ZM50 45h5v5h-5ZM30 50h5v5h-5ZM45 55h5v5h-5ZM55 50h5v5h-5Z" />
+                    </svg>
+                    <span class="text-[0.72rem] text-foreground-muted basis-full">{% translate "The same link works as a QR code: just show your screen." %}</span>
+                </div>
+            </div>
+            <div class="grid gap-3" aria-hidden="true">
+                <span class="btn btn-primary w-full">{% translate "I'm in!" %}</span>
+                <div class="card p-5">
+                    <p class="text-[0.66rem] font-semibold tracking-[0.1em] uppercase text-foreground-muted mb-[0.6rem]">{% translate "Participants" %} (3)</p>
+                    <div class="grid gap-[0.4rem]">
+                        <div class="flex items-center gap-[0.6rem] bg-bg-tertiary rounded-[0.6rem] px-[0.6rem] py-[0.4rem] text-[0.88rem] font-medium">
+                            <span class="w-[26px] h-[26px] flex-none rounded-full border border-white grid place-items-center text-[0.62rem] font-bold tracking-[0.02em] bg-[#e6d7f2] text-[#5b3a7e]">AN</span>Ala Nowak
+                        </div>
+                        <div class="flex items-center gap-[0.6rem] bg-bg-tertiary rounded-[0.6rem] px-[0.6rem] py-[0.4rem] text-[0.88rem] font-medium">
+                            <span class="w-[26px] h-[26px] flex-none rounded-full border border-white grid place-items-center text-[0.62rem] font-bold tracking-[0.02em] bg-[#d5e8f2] text-[#2b5a75]">OW</span>Ola Wiśniewska
+                        </div>
+                        <div class="flex items-center gap-[0.6rem] bg-bg-tertiary rounded-[0.6rem] px-[0.6rem] py-[0.4rem] text-[0.88rem] font-medium">
+                            <span class="w-[26px] h-[26px] flex-none rounded-full border border-white grid place-items-center text-[0.62rem] font-bold tracking-[0.02em] bg-[#d9f0dd] text-[#2d6a3f]">RA</span>Radowit
+                        </div>
+                    </div>
+                </div>
+                <div class="card p-5 text-center">
+                    <p class="text-[0.66rem] font-semibold tracking-[0.1em] uppercase text-foreground-muted mb-[0.2rem]">
+                        {% translate "Time left until the encounter" %}
+                    </p>
+                    <div class="flex justify-center gap-4 mt-[0.35rem]">
+                        <div class="min-w-[2.2rem]">
+                            <div class="text-[1.45rem] font-bold tabular-nums leading-none h-[1em] overflow-hidden">02</div>
+                            <div class="text-[0.62rem] font-semibold text-foreground-muted mt-[0.3rem]">{% translate "D" context "countdown days" %}</div>
+                        </div>
+                        <div class="min-w-[2.2rem]">
+                            <div class="text-[1.45rem] font-bold tabular-nums leading-none h-[1em] overflow-hidden">07</div>
+                            <div class="text-[0.62rem] font-semibold text-foreground-muted mt-[0.3rem]">{% translate "H" context "countdown hours" %}</div>
+                        </div>
+                        <div class="min-w-[2.2rem]">
+                            <div class="text-[1.45rem] font-bold tabular-nums leading-none h-[1em] overflow-hidden">58</div>
+                            <div class="text-[0.62rem] font-semibold text-foreground-muted mt-[0.3rem]">{% translate "M" context "countdown minutes" %}</div>
+                        </div>
+                        <div class="min-w-[2.2rem]">
+                            <div class="text-[1.45rem] font-bold tabular-nums leading-none h-[1em] overflow-hidden">
+                                <span class="e1-tickstrip"><span>42</span><span>41</span><span>40</span><span>39</span><span>38</span><span>37</span><span>36</span><span>35</span><span>34</span><span>33</span><span>42</span></span>
+                            </div>
+                            <div class="text-[0.62rem] font-semibold text-foreground-muted mt-[0.3rem]">{% translate "S" context "countdown seconds" %}</div>
+                        </div>
+                    </div>
+                    <span class="sr-only">{% translate "2 days, 7 hours and 58 minutes left until the encounter." %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

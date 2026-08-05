@@ -13,6 +13,12 @@ PRODUCT_PITCH = (
     "A convention without spreadsheet chaos. Programme proposals, a schedule of"
     " rooms and tracks, sign-ups with seat limits and a waitlist."
 )
+LANDING_TITLE = "Zagrajmy • conventions and events"
+LANDING_PITCH = (
+    "Zagrajmy runs your event programme: proposals, review, the schedule, the"
+    " event page, enrollment with waiting lists, and print."
+    " Write to us: kontakt@zagrajmy.net"
+)
 TEMPLATES = Path(ludamus.__file__).parent / "templates"
 TITLE_BLOCK = re.compile(
     r"{% block title %}(?:.*?){% endblock title %}|<title>(?:.*?)</title>", re.DOTALL
@@ -74,6 +80,11 @@ class TestPageTitle:
         response = _get_ok(client, reverse("web:events"), ["index.html"])
 
         assert _title(response) == f"Events • {sphere.name}"
+
+    def test_landing_page_titles_the_product(self, client, sphere):
+        response = _get_ok(client, reverse("web:index"), ["landing_page.html"])
+
+        assert _title(response) == LANDING_TITLE
 
     def test_sub_sphere_title_ends_with_the_brand(
         self, client, sphere, non_root_sphere
@@ -157,6 +168,11 @@ class TestMetaDescription:
         response = _get_ok(client, reverse("web:events"), ["index.html"])
 
         assert _descriptions(response) == [PRODUCT_PITCH] * 3
+
+    def test_landing_page_pitches_the_programme_flow(self, client):
+        response = _get_ok(client, reverse("web:index"), ["landing_page.html"])
+
+        assert _descriptions(response) == [LANDING_PITCH] * 3
 
     def test_sphere_subdomain_names_the_sphere_instead(self, client, non_root_sphere):
         response = _get_ok(

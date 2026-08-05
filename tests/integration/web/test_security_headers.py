@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from ludamus.adapters.web.django.views import EventsPageView
 from ludamus.edges.settings import CSP_POLICY
+from ludamus.pacts.event import LandingStatsDTO
 from tests.integration.utils import assert_response
 
 REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only"
@@ -29,13 +30,13 @@ def _assert_body_nonce_matches_header(response) -> None:
 
 
 @pytest.fixture(name="enforced_header")
-def enforced_header_fixture(client, settings) -> str:
-    # The middleware stamps every response, so the index redirect is the
-    # simplest surface to assert headers on without replicating a rendered
-    # page's full context.
+def enforced_header_fixture(client, settings, non_root_sphere) -> str:
+    # The middleware stamps every response, so the sphere-domain index
+    # redirect is the simplest surface to assert headers on without
+    # replicating a rendered page's full context.
     settings.SECURE_CSP = CSP_POLICY
 
-    response = client.get(reverse("web:index"))
+    response = client.get(reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain)
 
     assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
     assert REPORT_ONLY_HEADER not in response.headers
@@ -61,8 +62,10 @@ class TestCSPEnforceHeader:
             header=enforced_header, name="script-src"
         )
 
-    def test_no_csp_headers_by_default(self, client):
-        response = client.get(reverse("web:index"))
+    def test_no_csp_headers_by_default(self, client, non_root_sphere):
+        response = client.get(
+            reverse("web:index"), HTTP_HOST=non_root_sphere.site.domain
+        )
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
         assert REPORT_ONLY_HEADER not in response.headers
@@ -90,6 +93,19 @@ class TestCSPNonce:
                 "view": ANY,
             },
             template_name=["index.html"],
+        )
+        _assert_body_nonce_matches_header(response)
+
+    def test_landing_page_nonce_matches_the_header(self, client, settings):
+        settings.SECURE_CSP = CSP_POLICY
+
+        response = client.get(reverse("web:index"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"stats": LandingStatsDTO(events=0, sessions=0)},
+            template_name=["landing_page.html"],
         )
         _assert_body_nonce_matches_header(response)
 

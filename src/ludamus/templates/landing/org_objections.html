@@ -1,0 +1,97 @@
+{% load i18n %}
+<section class="bg-bg-secondary border-y border-border py-16 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="objections-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
+            {% translate "Before you write" %}
+        </p>
+        <h2 id="objections-heading"
+            class="reveal text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] max-w-[24ch]">
+            {% translate "Four questions you probably have in mind" %}
+        </h2>
+        <div class="mt-9 grid grid-cols-2 max-[52rem]:grid-cols-1 gap-5">
+            <div class="reveal bg-bg-tertiary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem]">
+                <h3 class="text-[1.08rem] font-bold tracking-[-0.01em]">{% translate "What happens after the email?" %}</h3>
+                <ol class="mt-3 grid gap-[0.55rem] list-none p-0">
+                    <li class="flex gap-[0.7rem] items-baseline text-[0.92rem] text-foreground-secondary">
+                        <span class="flex-none w-[1.35rem] h-[1.35rem] rounded-full bg-primary-light text-primary-hover border border-primary-light text-[0.72rem] font-bold inline-flex items-center justify-center relative top-[0.2rem]"
+                              aria-hidden="true">1</span>
+                        {% translate "We reply and set up a short call about how your event works." %}
+                    </li>
+                    <li class="flex gap-[0.7rem] items-baseline text-[0.92rem] text-foreground-secondary">
+                        <span class="flex-none w-[1.35rem] h-[1.35rem] rounded-full bg-primary-light text-primary-hover border border-primary-light text-[0.72rem] font-bold inline-flex items-center justify-center relative top-[0.2rem]"
+                              aria-hidden="true">2</span>
+                        {% translate "We set up the first version: proposals, rooms, time slots, the page." %}
+                    </li>
+                    <li class="flex gap-[0.7rem] items-baseline text-[0.92rem] text-foreground-secondary">
+                        <span class="flex-none w-[1.35rem] h-[1.35rem] rounded-full bg-primary-light text-primary-hover border border-primary-light text-[0.72rem] font-bold inline-flex items-center justify-center relative top-[0.2rem]"
+                              aria-hidden="true">3</span>
+                        {% translate "You click through it with us and we publish when you decide it is ready." %}
+                    </li>
+                </ol>
+            </div>
+            <div class="reveal bg-bg-tertiary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem]">
+                <h3 class="text-[1.08rem] font-bold tracking-[-0.01em]">{% translate "Do I have to retype everything from spreadsheets?" %}</h3>
+                <p class="mt-[0.6rem] text-[0.95rem] text-foreground-secondary">
+                    {% translate "Zagrajmy imports the programme from Google Docs, and we help move and clean up the rest of the data. You come in with what you already have instead of starting from an empty table." %}
+                </p>
+            </div>
+            <div class="reveal bg-bg-tertiary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem]">
+                <h3 class="text-[1.08rem] font-bold tracking-[-0.01em]">{% translate "And if I run a small meetup?" %}</h3>
+                <p class="mt-[0.6rem] text-[0.95rem] text-foreground-secondary">
+                    {% translate "A meetup gets the full kit from day one: the event page, enrollment, and seat limits. Setup is one short call, and when you grow into speaker proposals and a room grid, the same process grows with you." %}
+                </p>
+            </div>
+            <div class="reveal bg-bg-tertiary border border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem]">
+                <h3 class="text-[1.08rem] font-bold tracking-[-0.01em]">{% translate "How much does it cost?" %}</h3>
+                <p class="mt-[0.6rem] text-[0.95rem] text-foreground-secondary">
+                    {% translate "Small meetups — free. For conventions and conferences we agree on terms matched to the scale of the event; before you decide anything, you get a concrete written proposal." %}
+                </p>
+                <p class="mt-[0.6rem] text-[0.95rem] text-foreground-secondary">
+                    {% translate "Zagrajmy is open source (AGPL) — your data and process are not hostage to a vendor." %}
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="py-16 group-has-[#aud-gracz:checked]/aud:hidden"
+         aria-labelledby="quotes-heading">
+    <div class="max-w-6xl mx-auto px-[clamp(1.25rem,4vw,2.5rem)]">
+        <p class="reveal text-[0.78rem] font-bold tracking-[0.11em] uppercase text-foreground-muted mb-3">
+            {% translate "Organizers' words" %}
+        </p>
+        <h2 id="quotes-heading"
+            class="reveal text-[clamp(1.6rem,3.4vw,2.3rem)] font-extrabold tracking-[-0.02em] leading-[1.12] max-w-[24ch]">
+            {% translate "This spot is waiting for organizers who have shipped a programme" %}
+        </h2>
+        <div class="mt-9 grid grid-cols-3 max-[56rem]:grid-cols-1 max-[56rem]:max-w-[30rem] gap-5">
+            <div class="reveal bg-bg-secondary border border-dashed border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-[1.1rem]">
+                <p class="italic text-foreground-muted text-[0.98rem] flex-1">{% translate "What did Zagrajmy replace for you?" %}</p>
+                <div class="flex items-center gap-[0.7rem]">
+                    <span class="w-[2.3rem] h-[2.3rem] rounded-full flex-none border-2 border-dashed border-border bg-bg-tertiary"
+                          aria-hidden="true"></span>
+                    <span class="text-[0.82rem] text-foreground-muted">{% translate "name · role · event" %}</span>
+                </div>
+            </div>
+            <div class="reveal bg-bg-secondary border border-dashed border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-[1.1rem]">
+                <p class="italic text-foreground-muted text-[0.98rem] flex-1">{% translate "Which step saved the most time?" %}</p>
+                <div class="flex items-center gap-[0.7rem]">
+                    <span class="w-[2.3rem] h-[2.3rem] rounded-full flex-none border-2 border-dashed border-border bg-bg-tertiary"
+                          aria-hidden="true"></span>
+                    <span class="text-[0.82rem] text-foreground-muted">{% translate "name · role · event" %}</span>
+                </div>
+            </div>
+            <div class="reveal bg-bg-secondary border border-dashed border-border rounded-[1.1rem] shadow-sm px-6 py-[1.4rem] flex flex-col gap-[1.1rem]">
+                <p class="italic text-foreground-muted text-[0.98rem] flex-1">{% translate "What changed for attendees?" %}</p>
+                <div class="flex items-center gap-[0.7rem]">
+                    <span class="w-[2.3rem] h-[2.3rem] rounded-full flex-none border-2 border-dashed border-border bg-bg-tertiary"
+                          aria-hidden="true"></span>
+                    <span class="text-[0.82rem] text-foreground-muted">{% translate "name · role · event" %}</span>
+                </div>
+            </div>
+        </div>
+        <p class="reveal mt-[1.4rem] text-sm text-foreground-muted max-w-xl">
+            {% translate "We are collecting quote permissions from organizers of real events. This section is waiting for their words, and we would rather wait than invent opinions." %}
+        </p>
+    </div>
+</section>
