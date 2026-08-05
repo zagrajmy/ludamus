@@ -14,7 +14,8 @@ const PNG_BYTES = Buffer.from(
   "hex",
 );
 
-const navbarAvatarImage = (page: Page) => page.locator("img[data-avatar-image]").first();
+const navbarAvatarImage = (page: Page) =>
+  page.getByRole("button", { name: "Account menu" }).locator("img");
 
 test.describe("Avatar image fallback", () => {
   test("shows the photo when it loads", async ({ page }) => {

@@ -8,6 +8,10 @@
 
 const hide = (image: HTMLImageElement): void => {
   image.hidden = true;
+  // The placeholder makes this look intentional to the user, so the console is
+  // the only trace that a provider stopped serving avatars. No URL — that's the
+  // user's identity at their avatar host.
+  console.warn("Avatar image failed to load; falling back to the initials placeholder");
 };
 
 document.addEventListener(
