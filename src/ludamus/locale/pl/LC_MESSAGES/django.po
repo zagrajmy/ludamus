@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 14:54+0200\n"
+"POT-Creation-Date: 2026-08-05 19:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -7291,13 +7291,20 @@ msgid "Go to Import run"
 msgstr "Przejdź do uruchomienia importu"
 
 #: src/ludamus/templates/panel/index.html
+msgid "Overview"
+msgstr "Przegląd"
+
+#: src/ludamus/templates/panel/index.html
 msgid "All Sessions"
 msgstr "Wszystkie punkty programu"
 
 #: src/ludamus/templates/panel/index.html
-#, python-format
-msgid "%(scheduled)s scheduled, %(pending)s pending"
-msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+msgid "scheduled"
+msgstr "zaplanowanych"
+
+#: src/ludamus/templates/panel/index.html
+msgid "pending"
+msgstr "oczekujących"
 
 #: src/ludamus/templates/panel/integration-settings.html
 msgid ""
@@ -8781,14 +8788,9 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid "Overview"
-#~ msgstr "Przegląd"
-
-#~ msgid "scheduled"
-#~ msgstr "zaplanowanych"
-
-#~ msgid "pending"
-#~ msgstr "oczekujących"
+#, python-format
+#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
+#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
 
 #~ msgid "Statistics"
 #~ msgstr "Statystyki"
