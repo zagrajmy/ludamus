@@ -46,7 +46,7 @@ test.describe("Proposal form layout", () => {
 
     const limit = page.locator("#id_participants_limit");
     await expect(limit).toBeVisible();
-    await expect(limit).not.toHaveAttribute("max", /./);
+    await expect(limit).not.toHaveAttribute("max");
 
     await limit.fill("500");
     expect(await limit.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);

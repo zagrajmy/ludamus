@@ -45,6 +45,9 @@ MAX_IMAGE_PIXELS = 24_000_000
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
+# Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
+# is wider, so an overflow only ever surfaces in production.
+MAX_STORED_PARTICIPANTS_LIMIT = 2_147_483_647
 
 
 def validate_uploaded_image_size(image: object) -> None:
@@ -641,6 +644,16 @@ class SessionEditForm(forms.Form):
     duration = forms.CharField(required=False, label=_("Duration"))
     cover_image = cover_image_field()
 
+    def clean_participants_limit(self) -> int | None:
+        # No `max_value`: a max attribute on the input is what this form set out
+        # to remove. This ceiling is storage, not policy — Postgres `integer`
+        # stops here, and without the check the save raises DataError and the
+        # organizer gets a 500 instead of a sentence.
+        limit = self.cleaned_data.get("participants_limit")
+        if limit is not None and limit > MAX_STORED_PARTICIPANTS_LIMIT:
+            raise ValidationError(_("That is more people than we can store."))
+        return limit
+
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
@@ -690,7 +703,8 @@ def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
     )
 
 
-# Durations, not the category: its bounds bind build_session_details_form only.
+# Takes durations rather than the category: a category's participant bounds bind
+# the submission wizard only (chronology.forms.build_session_details_form).
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,

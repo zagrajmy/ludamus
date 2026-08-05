@@ -13,6 +13,7 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
     PersonalDataCard,
 )
+from ludamus.gates.web.django.forms import MAX_STORED_PARTICIPANTS_LIMIT
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -59,6 +60,9 @@ CUSTOM_DURATION_MINUTES = 45
 CATEGORY_MAX_PARTICIPANTS = 9
 CATEGORY_MIN_PARTICIPANTS = 4
 LIMIT_ABOVE_CATEGORY_MAX = 500
+LIMIT_BELOW_CATEGORY_MIN = 1
+DEFAULT_SESSION_PARTICIPANTS = 5
+OVER_COLUMN_WIDTH = MAX_STORED_PARTICIPANTS_LIMIT + 1
 
 
 def _make_session(event, **kwargs):
@@ -625,7 +629,7 @@ class TestProposalEditPageView:
             event=event,
             name="Lectures",
             slug="lectures",
-            min_participants_limit=4,
+            min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
             max_participants_limit=CATEGORY_MAX_PARTICIPANTS,
         )
         session = _make_session(event, category=bounded)
@@ -656,6 +660,62 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.participants_limit == LIMIT_ABOVE_CATEGORY_MAX
 
+    def test_post_rejects_a_limit_wider_than_the_column(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Unbounded is not unlimited: Postgres integer stops at 2**31-1, and the
+        # organizer should read a sentence rather than meet a 500.
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": OVER_COLUMN_WIDTH,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": FormErrorsMatcher(
+                    participants_limit=["That is more people than we can store."]
+                ),
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "facilitator_personal_data": [],
+            },
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == DEFAULT_SESSION_PARTICIPANTS
+
     def test_post_accepts_a_limit_below_the_category_minimum(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -668,7 +728,9 @@ class TestProposalEditPageView:
             slug="lectures",
             min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
         )
-        session = _make_session(event, category=bounded, participants_limit=1)
+        session = _make_session(
+            event, category=bounded, participants_limit=LIMIT_BELOW_CATEGORY_MIN
+        )
 
         response = authenticated_client.post(
             self.get_url(event, session.pk),
@@ -678,7 +740,7 @@ class TestProposalEditPageView:
                 "display_name": "Host",
                 "description": "d",
                 "contact_email": "",
-                "participants_limit": 1,
+                "participants_limit": LIMIT_BELOW_CATEGORY_MIN,
                 "min_age": 0,
                 "duration_hours": 2,
             },
@@ -694,7 +756,7 @@ class TestProposalEditPageView:
             ),
         )
         session.refresh_from_db()
-        assert session.participants_limit == 1
+        assert session.participants_limit == LIMIT_BELOW_CATEGORY_MIN
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_raising_capacity_promotes_waiter(

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 14:59+0200\n"
+"POT-Creation-Date: 2026-08-05 15:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2619,6 +2619,10 @@ msgstr "Limit uczestników"
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Minimum Age"
 msgstr "Minimalny Wiek"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "That is more people than we can store."
+msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter how long the session lasts."
