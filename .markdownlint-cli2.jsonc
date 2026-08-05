@@ -2,5 +2,9 @@
   "config": {
     "MD013": { "tables": false },
     "MD024": { "siblings_only": true }
-  }
+  },
+  // Mirrors the exclude in hk.pkl. src/ludamus/content/legal is published legal
+  // text converted verbatim; satisfying MD013/MD026/MD036 would mean rewrapping
+  // lines and rewording headings in documents that are already in force.
+  "ignores": ["src/ludamus/content/legal/**"]
 }

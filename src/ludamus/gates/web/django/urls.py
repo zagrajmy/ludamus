@@ -12,7 +12,7 @@ from django.views.decorators.cache import never_cache
 from django.views.generic import RedirectView
 from django.views.static import serve
 
-from ludamus.gates.web.django.legal import legal_document
+from ludamus.gates.web.django.legal import DOCUMENTS, legal_document
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -65,17 +65,9 @@ urlpatterns: list[URLResolver | URLPattern] = [
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
     path("admin/", admin.site.urls),
-    path(
-        "privacy-policy/",
-        legal_document,
-        {"slug": "privacy-policy"},
-        name="privacy-policy",
-    ),
-    path(
-        "terms-of-service/",
-        legal_document,
-        {"slug": "terms-of-service"},
-        name="terms-of-service",
+    *(
+        path(f"{slug}/", legal_document, {"slug": slug}, name=slug)
+        for slug in DOCUMENTS
     ),
     # Both documents were flatpages under /page/, and that URL is in sent email
     # and on the Auth0 consent screen. The doubled slash is not a typo: the
@@ -83,7 +75,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     # /page//privacy-policy/. These must precede the include to win the match.
     *(
         path(old, RedirectView.as_view(url=f"/{slug}/", permanent=True))
-        for slug in ("privacy-policy", "terms-of-service")
+        for slug in DOCUMENTS
         for old in (f"page/{slug}/", f"page//{slug}/")
     ),
     # Still serving /about/ and anything else added through the admin.

@@ -7,8 +7,6 @@ from django.http import Http404
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.mills.legacy import render_markdown
-
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
 
@@ -26,12 +24,15 @@ def legal_document(request: HttpRequest, slug: str) -> HttpResponse:
     if (title := DOCUMENTS.get(slug)) is None:
         raise Http404
 
-    # Read and render per request. These are two rarely-visited pages, and a
-    # cache would only buy a millisecond while making an edited file look
-    # unchanged until the server restarts.
-    source = (CONTENT_DIR / f"{slug}.md").read_text(encoding="utf-8")
+    # Read per request. These are two rarely-visited pages, and a cache would
+    # only buy a millisecond while making an edited file look unchanged until
+    # the server restarts. The template renders the markdown, through the same
+    # filter every other prose surface uses.
     return TemplateResponse(
         request,
         "legal/document.html",
-        {"title": title, "content": render_markdown(source)},
+        {
+            "title": title,
+            "document": (CONTENT_DIR / f"{slug}.md").read_text(encoding="utf-8"),
+        },
     )

@@ -1,6 +1,4 @@
-{% extends "base.html" %}
-{% load i18n %}
-{% load tessera %}
+{% extends "document_page.html" %}
 {% block title %}
     {{ flatpage.title }}
 {% endblock title %}
@@ -9,16 +7,10 @@
 {% endblock header %}
 {% block description %}
 {% endblock description %}
-{% block body %}
-    <div class="max-w-3xl mx-auto">
-        <div class="card">
-            <div class="card-body prose max-w-none text-foreground">{{ flatpage.content|safe|linebreaks }}</div>
-        </div>
-        <div class="mt-6 text-center">
-            <a href="{% url 'web:index' %}" class="btn btn-secondary">
-                {% icon "arrow-left" class="w-4 h-4" %}
-                {% translate "Back to Home" %}
-            </a>
-        </div>
-    </div>
-{% endblock body %}
+{% comment %}linebreaks double-wraps content that is already HTML, nesting block
+tags inside paragraphs. It stays because flatpage bodies are admin-authored and
+some may be plain text that relies on it; changing that is a separate call from
+moving the legal documents out.{% endcomment %}
+{% block document %}
+    {{ flatpage.content|safe|linebreaks }}
+{% endblock document %}

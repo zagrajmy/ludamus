@@ -1,36 +1,33 @@
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.http import Http404
 from django.test import RequestFactory
 from django.urls import reverse
 
-from ludamus.gates.web.django.legal import legal_document
+from ludamus.gates.web.django.legal import CONTENT_DIR, legal_document
 from tests.integration.utils import assert_response
 
 
 class TestLegalDocumentView:
-    def test_privacy_policy(self, client):
-        response = client.get(reverse("privacy-policy"))
+    @pytest.mark.parametrize(
+        ("slug", "title"),
+        (
+            ("privacy-policy", "Privacy Policy"),
+            ("terms-of-service", "Terms of Service"),
+        ),
+    )
+    def test_renders_the_file_from_disk(self, client, slug, title):
+        response = client.get(reverse(slug))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="legal/document.html",
-            # The rendered document is thousands of characters; the e2e suite
-            # asserts what a reader actually sees.
-            context_data={"title": "Privacy Policy", "content": ANY},
-        )
-
-    def test_terms_of_service(self, client):
-        response = client.get(reverse("terms-of-service"))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="legal/document.html",
-            context_data={"title": "Terms of Service", "content": ANY},
+            context_data={
+                "title": title,
+                "document": (CONTENT_DIR / f"{slug}.md").read_text(encoding="utf-8"),
+            },
         )
 
     def test_unknown_slug_is_not_read_from_disk(self):

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 04:44+0200\n"
+"POT-Creation-Date: 2026-08-05 05:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4790,8 +4790,7 @@ msgstr "Zaloguj się ponownie"
 
 #: src/ludamus/templates/crowd/auth_error.html
 #: src/ludamus/templates/crowd/login_required.html
-#: src/ludamus/templates/flatpages/default.html
-#: src/ludamus/templates/legal/document.html
+#: src/ludamus/templates/document_page.html
 msgid "Back to Home"
 msgstr "Powrót do strony głównej"
 
