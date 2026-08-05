@@ -17,7 +17,7 @@ PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 TEMPLATE = "components/multiselect-filter-options.html"
 
 
-def _facilitator(event, name, slug):
+def _facilitator(*, event, name, slug):
     return Facilitator.objects.create(
         event=event, display_name=name, slug=slug, user=None
     )
@@ -33,7 +33,7 @@ class TestTimetableFacilitatorOptionsPartView:
         )
 
     def expected_context(
-        self, event, *, options, searched, selected_values=frozenset(), has_more=False
+        self, *, event, options, searched, selected_values=frozenset(), has_more=False
     ):
         return {
             "options": options,
@@ -67,7 +67,7 @@ class TestTimetableFacilitatorOptionsPartView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _facilitator(event, "Alice", "alice")
+        _facilitator(event=event, name="Alice", slug="alice")
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -75,14 +75,14 @@ class TestTimetableFacilitatorOptionsPartView:
             response,
             HTTPStatus.OK,
             template_name=TEMPLATE,
-            context_data=self.expected_context(event, options=[], searched=False),
+            context_data=self.expected_context(event=event, options=[], searched=False),
         )
 
     def test_a_search_with_no_matches_is_distinguishable_from_no_search(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        _facilitator(event, "Alice", "alice")
+        _facilitator(event=event, name="Alice", slug="alice")
 
         response = authenticated_client.get(self.get_url(event), {"q": "zzz"})
 
@@ -90,15 +90,15 @@ class TestTimetableFacilitatorOptionsPartView:
             response,
             HTTPStatus.OK,
             template_name=TEMPLATE,
-            context_data=self.expected_context(event, options=[], searched=True),
+            context_data=self.expected_context(event=event, options=[], searched=True),
         )
 
     def test_finds_by_display_name(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        alice = _facilitator(event, "Alice", "alice")
-        _facilitator(event, "Bob", "bob")
+        alice = _facilitator(event=event, name="Alice", slug="alice")
+        _facilitator(event=event, name="Bob", slug="bob")
         EventPanelSettings.objects.update_or_create(
             event=event, defaults={"facilitator_columns": ["name"]}
         )
@@ -110,7 +110,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event,
+                event=event,
                 options=[MultiselectOptionDTO(value=alice.pk, label="Alice")],
                 searched=True,
             ),
@@ -128,11 +128,11 @@ class TestTimetableFacilitatorOptionsPartView:
             field_type="text",
             order=0,
         )
-        alice = _facilitator(event, "Alice", "alice")
+        alice = _facilitator(event=event, name="Alice", slug="alice")
         PersonalDataFieldValue.objects.create(
             facilitator=alice, event=event, field=field, value="alice@example.com"
         )
-        _facilitator(event, "Bob", "bob")
+        _facilitator(event=event, name="Bob", slug="bob")
         EventPanelSettings.objects.update_or_create(
             event=event, defaults={"facilitator_columns": ["name", f"field_{field.pk}"]}
         )
@@ -146,7 +146,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event,
+                event=event,
                 options=[
                     MultiselectOptionDTO(
                         value=alice.pk, label="Alice", meta="Email: alice@example.com"
@@ -168,7 +168,7 @@ class TestTimetableFacilitatorOptionsPartView:
             field_type="text",
             order=0,
         )
-        alice = _facilitator(event, "Alice", "alice")
+        alice = _facilitator(event=event, name="Alice", slug="alice")
         PersonalDataFieldValue.objects.create(
             facilitator=alice, event=event, field=field, value="Kraków"
         )
@@ -185,7 +185,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event,
+                event=event,
                 options=[
                     MultiselectOptionDTO(
                         value=alice.pk, label="Alice", meta="City: Kraków"
@@ -199,8 +199,8 @@ class TestTimetableFacilitatorOptionsPartView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        alice = _facilitator(event, "Alice", "alice")
-        bob = _facilitator(event, "Bob", "bob")
+        alice = _facilitator(event=event, name="Alice", slug="alice")
+        bob = _facilitator(event=event, name="Bob", slug="bob")
         EventPanelSettings.objects.update_or_create(
             event=event, defaults={"facilitator_columns": ["name"]}
         )
@@ -214,7 +214,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event,
+                event=event,
                 options=[
                     MultiselectOptionDTO(value=alice.pk, label="Alice"),
                     MultiselectOptionDTO(value=bob.pk, label="Bob"),
@@ -228,7 +228,7 @@ class TestTimetableFacilitatorOptionsPartView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        alice = _facilitator(event, "Alice", "alice")
+        alice = _facilitator(event=event, name="Alice", slug="alice")
         EventPanelSettings.objects.update_or_create(
             event=event, defaults={"facilitator_columns": ["name"]}
         )
@@ -242,7 +242,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event,
+                event=event,
                 options=[MultiselectOptionDTO(value=alice.pk, label="Alice")],
                 searched=True,
                 selected_values={alice.pk},
@@ -253,7 +253,9 @@ class TestTimetableFacilitatorOptionsPartView:
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        foreign = _facilitator(EventFactory(sphere=sphere), "Alice", "alice")
+        foreign = _facilitator(
+            event=EventFactory(sphere=sphere), name="Alice", slug="alice"
+        )
         EventPanelSettings.objects.update_or_create(
             event=event, defaults={"facilitator_columns": ["name"]}
         )
@@ -267,7 +269,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event, options=[], searched=True, selected_values={foreign.pk}
+                event=event, options=[], searched=True, selected_values={foreign.pk}
             ),
         )
 
@@ -277,7 +279,7 @@ class TestTimetableFacilitatorOptionsPartView:
         sphere.managers.add(active_user)
         # One past the picker's limit, so the tail marker turns on.
         for index in range(26):
-            _facilitator(event, f"Ala {index:02d}", f"ala-{index}")
+            _facilitator(event=event, name=f"Ala {index:02d}", slug=f"ala-{index}")
         EventPanelSettings.objects.update_or_create(
             event=event, defaults={"facilitator_columns": ["name"]}
         )
@@ -289,7 +291,7 @@ class TestTimetableFacilitatorOptionsPartView:
             HTTPStatus.OK,
             template_name=TEMPLATE,
             context_data=self.expected_context(
-                event,
+                event=event,
                 options=[
                     MultiselectOptionDTO(value=f.pk, label=f.display_name)
                     for f in Facilitator.objects.order_by("display_name")[:25]

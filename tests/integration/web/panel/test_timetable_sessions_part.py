@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
-from ludamus.pacts.legacy import ProposalCategoryDTO
+from ludamus.pacts.legacy import ProposalCategoryDTO, UnscheduledSessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -197,7 +197,7 @@ class TestTimetableSessionListPartView:
             participants_limit=10,
             min_age=0,
         )
-        theirs = SessionFactory(
+        SessionFactory(
             category=proposal_category,
             status="accepted",
             title="Board Games Evening",
@@ -218,9 +218,17 @@ class TestTimetableSessionListPartView:
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-list.html",
             context_data={
-                # Which sessions came back is the point of this test, so the
-                # list is pinned by pk below rather than rebuilt DTO by DTO.
-                "sessions": ANY,
+                "sessions": [
+                    UnscheduledSessionDTO(
+                        pk=hers.pk,
+                        title=hers.title,
+                        display_name=hers.display_name,
+                        category_name=proposal_category.name,
+                        category_pk=proposal_category.pk,
+                        duration_minutes=0,
+                        participants_limit=10,
+                    )
+                ],
                 "has_more": False,
                 "limit": UNSCHEDULED_LIST_LIMIT,
                 "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
@@ -233,8 +241,6 @@ class TestTimetableSessionListPartView:
                 "slug": event.slug,
             },
         )
-        assert [s.pk for s in response.context_data["sessions"]] == [hers.pk]
-        assert theirs.pk is not None
 
     def test_category_filter(
         self, authenticated_client, active_user, sphere, event, proposal_category

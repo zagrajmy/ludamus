@@ -45,6 +45,8 @@
     scrolling always chains to the page when the grid cannot consume it.
     {% endcomment %}
     <div class="timetable-calendar max-h-[calc(100dvh-5rem)] overflow-auto overscroll-x-contain border border-border rounded-lg select-none"
+         role="region"
+         aria-label="{% translate 'Schedule' %}"
          data-timetable-days
          style="--grid-extent: {{ grid.total_minutes }};
                 --total-columns: {{ grid.total_columns }};

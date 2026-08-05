@@ -296,6 +296,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     def filter_options(
         self, *, event_id: int, search: str, pinned: set[int], limit: int
     ) -> FacilitatorFilterOptionsDTO:
+        # Nothing typed and nobody picked is the plain page load: there are no
+        # rows to render, so there are no columns to render them in either.
+        if not search and not pinned:
+            return FacilitatorFilterOptionsDTO(
+                facilitators=[], columns=[], has_more=False
+            )
         # Already-picked people come back whether or not they match the query:
         # the rows *are* the form controls, so one dropping out of the list
         # would silently drop it from the filter about to be submitted.

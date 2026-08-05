@@ -301,7 +301,7 @@ class TestBuildGridOverlappingSessions:
 
 class TestSpaceFilter:
     @staticmethod
-    def _space(pk, name, parent_id=None):
+    def _space(*, pk, name, parent_id=None):
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         return SpaceDTO(
             capacity=None,
@@ -319,12 +319,12 @@ class TestSpaceFilter:
         # Building 1 -> Floor 2 -> Rooms 3, 4; Building 5 -> Room 6.
         uow = MagicMock()
         uow.spaces.list_by_event.return_value = [
-            self._space(1, "Building A"),
-            self._space(2, "Floor 2", parent_id=1),
-            self._space(3, "Room 201", parent_id=2),
-            self._space(4, "Room 202", parent_id=2),
-            self._space(5, "Building B"),
-            self._space(6, "Room 1", parent_id=5),
+            self._space(pk=1, name="Building A"),
+            self._space(pk=2, name="Floor 2", parent_id=1),
+            self._space(pk=3, name="Room 201", parent_id=2),
+            self._space(pk=4, name="Room 202", parent_id=2),
+            self._space(pk=5, name="Building B"),
+            self._space(pk=6, name="Room 1", parent_id=5),
         ]
         uow.time_slots.list_by_event.return_value = [
             TimeSlotDTO(

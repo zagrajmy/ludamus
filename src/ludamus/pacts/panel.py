@@ -223,8 +223,6 @@ class FacilitatorListContextDTO:
 
 @dataclass
 class FacilitatorFilterOptionsDTO:
-    """Read aggregate for one page of a facilitator filter's option rows."""
-
     facilitators: list[FacilitatorListItemDTO]
     columns: list[PanelColumnDTO]
     has_more: bool

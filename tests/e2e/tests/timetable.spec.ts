@@ -189,7 +189,7 @@ test.describe("Timetable", () => {
   // names itself after its room. Scoped to the calendar because a group is also
   // how a fieldset, a details surface, and the room filter's option list
   // surface -- and that filter is named after rooms too.
-  const calendar = (page: Page) => page.locator(".timetable-calendar");
+  const calendar = (page: Page) => page.getByRole("region", { name: "Schedule" });
 
   const roomColumns = (page: Page, room: string) =>
     calendar(page).getByRole("group", { name: room });

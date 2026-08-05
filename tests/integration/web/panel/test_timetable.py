@@ -9,7 +9,12 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator, Track
 from ludamus.pacts import EventDTO
-from ludamus.pacts.chronology import MultiselectOptionDTO, TimetableGridDTO
+from ludamus.pacts.chronology import (
+    MultiselectOptionDTO,
+    SpaceGroupDTO,
+    TimetableGridDTO,
+)
+from ludamus.pacts.legacy import SpaceDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -27,7 +32,10 @@ from tests.integration.utils import assert_response
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 
-def _empty_grid():
+def _empty_grid(**overrides):
+    # An event with no time slots renders no days, so the grid is its room
+    # columns and nothing else -- which a test can state without restating the
+    # layout algorithm.
     return TimetableGridDTO(
         spaces=[],
         groups=[],
@@ -41,7 +49,7 @@ def _empty_grid():
         total_spaces=0,
         total_columns=0,
         available_dates=[],
-    )
+    ).model_copy(update=overrides)
 
 
 def _page_context(event, *, stats=None, **overrides):
@@ -433,7 +441,13 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=ANY,
+                grid=_empty_grid(
+                    spaces=[SpaceDTO.model_validate(room)],
+                    groups=[
+                        SpaceGroupDTO(parent_pk=floor.pk, parent_name="Floor 2", span=1)
+                    ],
+                    total_spaces=1,
+                ),
                 space_options=[
                     MultiselectOptionDTO(value=space.pk, label="Aula", depth=0),
                     MultiselectOptionDTO(value=floor.pk, label="Floor 2", depth=0),
@@ -491,7 +505,15 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=ANY,
+                grid=_empty_grid(
+                    spaces=[SpaceDTO.model_validate(room)],
+                    groups=[
+                        SpaceGroupDTO(
+                            parent_pk=building.pk, parent_name="Building A", span=1
+                        )
+                    ],
+                    total_spaces=1,
+                ),
                 space_options=[
                     MultiselectOptionDTO(
                         value=building.pk, label="Building A", depth=0
