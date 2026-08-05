@@ -46,62 +46,23 @@ class TestCreateSpaceCopyForm:
 
 
 class TestProposalCategoryFormParticipantLimits:
-    def test_valid_when_min_less_than_max(self):
-        form = ProposalCategoryForm(
-            {
-                "name": "RPG",
-                "min_participants_limit": "3",
-                "max_participants_limit": "10",
-            }
-        )
+    def test_valid_when_min_set(self):
+        form = ProposalCategoryForm({"name": "RPG", "min_participants_limit": "3"})
 
         assert form.is_valid()
 
-    def test_valid_when_both_zero(self):
-        form = ProposalCategoryForm(
-            {
-                "name": "RPG",
-                "min_participants_limit": "0",
-                "max_participants_limit": "0",
-            }
-        )
+    def test_valid_when_zero(self):
+        form = ProposalCategoryForm({"name": "RPG", "min_participants_limit": "0"})
 
         assert form.is_valid()
 
-    def test_invalid_when_min_exceeds_max(self):
-        form = ProposalCategoryForm(
-            {
-                "name": "RPG",
-                "min_participants_limit": "10",
-                "max_participants_limit": "5",
-            }
-        )
+    def test_invalid_when_negative(self):
+        form = ProposalCategoryForm({"name": "RPG", "min_participants_limit": "-1"})
 
         assert not form.is_valid()
+        assert "min_participants_limit" in form.errors
 
-    def test_valid_when_only_min_set(self):
-        form = ProposalCategoryForm(
-            {
-                "name": "RPG",
-                "min_participants_limit": "5",
-                "max_participants_limit": "0",
-            }
-        )
-
-        assert form.is_valid()
-
-    def test_valid_when_only_max_set(self):
-        form = ProposalCategoryForm(
-            {
-                "name": "RPG",
-                "min_participants_limit": "0",
-                "max_participants_limit": "10",
-            }
-        )
-
-        assert form.is_valid()
-
-    def test_valid_when_both_empty(self):
+    def test_valid_when_empty(self):
         form = ProposalCategoryForm({"name": "RPG"})
 
         assert form.is_valid()

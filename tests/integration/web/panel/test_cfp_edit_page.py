@@ -2572,11 +2572,7 @@ class TestProposalCategorySettingsPageView:
 
         response = authenticated_client.post(
             self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                "min_participants_limit": "3",
-                "max_participants_limit": "10",
-            },
+            data={"name": "RPG Sessions", "min_participants_limit": "3"},
         )
 
         assert_response(
@@ -2587,7 +2583,6 @@ class TestProposalCategorySettingsPageView:
         )
         category.refresh_from_db()
         assert category.min_participants_limit == int("3")
-        assert category.max_participants_limit == int("10")
 
     def test_post_saves_zero_limits(
         self, authenticated_client, active_user, sphere, event
@@ -2598,16 +2593,11 @@ class TestProposalCategorySettingsPageView:
             name="RPG Sessions",
             slug="rpg-sessions",
             min_participants_limit=5,
-            max_participants_limit=20,
         )
 
         response = authenticated_client.post(
             self.get_url(event, category),
-            data={
-                "name": "RPG Sessions",
-                "min_participants_limit": "0",
-                "max_participants_limit": "0",
-            },
+            data={"name": "RPG Sessions", "min_participants_limit": "0"},
         )
 
         assert_response(
@@ -2618,7 +2608,6 @@ class TestProposalCategorySettingsPageView:
         )
         category.refresh_from_db()
         assert category.min_participants_limit == 0
-        assert category.max_participants_limit == 0
 
     def test_post_empty_limits_default_to_zero(
         self, authenticated_client, active_user, sphere, event
@@ -2640,4 +2629,3 @@ class TestProposalCategorySettingsPageView:
         )
         category.refresh_from_db()
         assert category.min_participants_limit == 0
-        assert category.max_participants_limit == 0

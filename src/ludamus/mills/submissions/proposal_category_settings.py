@@ -87,7 +87,6 @@ class ProposalCategorySettingsService(ProposalCategorySettingsServiceProtocol):
                 end_time=data.end_time,
                 durations=data.durations,
                 min_participants_limit=data.min_participants_limit,
-                max_participants_limit=data.max_participants_limit,
             )
             if data.promotion_mode is not None:
                 category_data["promotion_mode"] = data.promotion_mode

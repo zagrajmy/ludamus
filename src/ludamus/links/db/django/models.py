@@ -1045,7 +1045,6 @@ class ProposalCategory(models.Model):
     start_time = models.DateTimeField(blank=True, null=True)
     end_time = models.DateTimeField(blank=True, null=True)
     # Settings
-    max_participants_limit = models.PositiveIntegerField(default=0)
     min_participants_limit = models.PositiveIntegerField(default=0)
     durations = models.JSONField(
         default=list

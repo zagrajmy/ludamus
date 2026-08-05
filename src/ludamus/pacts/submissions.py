@@ -407,7 +407,6 @@ class ProposalCategorySettingsData(BaseModel):
     end_time: datetime | None
     durations: list[str]
     min_participants_limit: int
-    max_participants_limit: int
     promotion_mode: PromotionMode | None
     offer_claim_window: timedelta | None
     personal_fields: RequirementSelectionDTO

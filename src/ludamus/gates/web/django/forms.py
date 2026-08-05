@@ -332,8 +332,13 @@ class ProposalCategoryForm(forms.Form):
     )
     start_time = forms.DateTimeField(required=False)
     end_time = forms.DateTimeField(required=False)
-    min_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
-    max_participants_limit = forms.IntegerField(required=False, min_value=0, initial=0)
+    min_participants_limit = forms.IntegerField(
+        required=False,
+        min_value=0,
+        initial=0,
+        label=_("Minimum participants"),
+        help_text=_("0 = no minimum"),
+    )
     promotion_mode = forms.ChoiceField(
         required=False,
         initial=PromotionMode.AUTO.value,
@@ -358,12 +363,6 @@ class ProposalCategoryForm(forms.Form):
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean() or {}
-        min_limit = cleaned.get("min_participants_limit") or 0
-        max_limit = cleaned.get("max_participants_limit") or 0
-        if min_limit and max_limit and min_limit > max_limit:
-            raise forms.ValidationError(
-                _("Minimum participants limit cannot exceed maximum.")
-            )
         if cleaned.get(
             "promotion_mode"
         ) == PromotionMode.OFFER_CLAIM.value and not cleaned.get(

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 05:13+0200\n"
+"POT-Creation-Date: 2026-08-05 05:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -794,7 +794,6 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/panel/cfp-edit.html
 msgid "0 = no limit"
 msgstr "0 = bez limitu"
 
@@ -2409,6 +2408,14 @@ msgid "Category name is required."
 msgstr "Nazwa kategorii jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Minimum participants"
+msgstr "Min. uczestników"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "0 = no minimum"
+msgstr "0 = bez minimum"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "When a seat becomes available"
 msgstr "Gdy zwolni się miejsce"
 
@@ -2429,10 +2436,6 @@ msgid "Minutes before an unconfirmed seat goes to the next person."
 msgstr ""
 "Liczba minut, po których niepotwierdzone miejsce przechodzi na następną "
 "osobę."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Minimum participants limit cannot exceed maximum."
-msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Set how long a held seat waits for confirmation."
@@ -6288,20 +6291,12 @@ msgid "Participant Limits"
 msgstr "Limity uczestników"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Set minimum and maximum participant limits for this category."
-msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Minimum participants"
-msgstr "Min. uczestników"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "0 = no minimum"
-msgstr "0 = bez minimum"
-
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "Maximum participants"
-msgstr "Maks. uczestników"
+msgid ""
+"How few participants a proposal in this category may ask for. The upper end "
+"is the proposer's call."
+msgstr ""
+"Najmniejsza liczba uczestników, jaką może podać zgłoszenie w tej kategorii. "
+"Górną granicę wybiera zgłaszający."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Waiting-list seats"
@@ -8794,6 +8789,15 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Minimum participants limit cannot exceed maximum."
+#~ msgstr "Minimalna liczba uczestników nie może przekraczać maksymalnej."
+
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+
+#~ msgid "Maximum participants"
+#~ msgstr "Maks. uczestników"
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"
