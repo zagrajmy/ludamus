@@ -16,7 +16,6 @@ CONTENT_DIR = Path(__file__).resolve().parents[3] / "content"
 # read of an arbitrary path under CONTENT_DIR. Every key needs a matching
 # {slug}.md beside it.
 PAGES = {
-    "about": _("About"),
     "privacy-policy": _("Privacy Policy"),
     "terms-of-service": _("Terms of Service"),
 }

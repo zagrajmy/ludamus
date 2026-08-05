@@ -13,7 +13,6 @@ class TestContentPageView:
     @pytest.mark.parametrize(
         ("slug", "title"),
         (
-            ("about", "About"),
             ("privacy-policy", "Privacy Policy"),
             ("terms-of-service", "Terms of Service"),
         ),
@@ -44,8 +43,6 @@ class TestOldFlatpageUrls:
     @pytest.mark.parametrize(
         ("old", "new"),
         (
-            ("/page//about/", "/about/"),
-            ("/page/about/", "/about/"),
             ("/page//privacy-policy/", "/privacy-policy/"),
             ("/page/privacy-policy/", "/privacy-policy/"),
             ("/page//terms-of-service/", "/terms-of-service/"),

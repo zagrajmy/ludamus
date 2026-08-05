@@ -186,8 +186,14 @@ class TestSemantic404Recovery:
 
     def test_non_event_path_keeps_themed_404(self, client):
         # A resolvable, non-event path that 404s (an encounter share code that
-        # matches nothing) must not be swept up by the event fallback.
-        response = client.get("/e/nosuchcode/")
+        # matches nothing) must not be swept up by the event fallback. Reversed
+        # rather than written out, so the test keeps proving the path resolves
+        # even if that route moves.
+        url = reverse(
+            "web:notice-board:encounter-detail", kwargs={"share_code": "nosuchcode"}
+        )
+
+        response = client.get(url)
 
         assert_response_404(response)
 
