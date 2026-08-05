@@ -334,7 +334,17 @@ test.describe("Timetable", () => {
     await expectWidth(start);
   });
 
-  test("session list loads via HTMX and shows unscheduled sessions", async ({ page }) => {
+  // Quarantined: flagged flaky by Playwright's own retry mechanism in CI run
+  // https://github.com/zagrajmy/ludamus/actions/runs/30711558802 (2026-08-01,
+  // commit 861bf289) — failed twice on
+  // `getByRole("region", { name: "Sessions to assign" }).getByText("Storytelling Workshop")`
+  // then passed on a third attempt. 8/8 isolated local runs and an attempted
+  // concurrent-load repro (alongside panel.spec.ts, which shares the same
+  // sunhaven-festival fixture) did not reproduce it, so no verified fix is
+  // landing here — see the flaky-test report in this PR's description for
+  // what was ruled out. Re-enable once it either reproduces locally or flakes
+  // again with more evidence to go on.
+  test.skip("session list loads via HTMX and shows unscheduled sessions", async ({ page }) => {
     const sessionListLoaded = page.waitForResponse(
       (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
     );
