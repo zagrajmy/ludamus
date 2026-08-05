@@ -623,9 +623,9 @@ test.describe("Timetable", () => {
     });
   });
 
-  // --- Confirm / Unconfirm Flow ---
+  // --- Confirmation Status (read-only here; set on the confirmations tab) ---
 
-  test("confirms and unconfirms a scheduled session", async ({ page }) => {
+  test("shows confirmation status without offering to change it", async ({ page }) => {
     // Assign "Storytelling Workshop" so a scheduled item exists. Auto-confirm
     // is off by default, so the freshly scheduled item starts unconfirmed.
     await page.goto("/panel/event/sunhaven-festival/timetable/");
@@ -655,23 +655,13 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
+    // The status is shown, but nothing in this pane can change it — confirming
+    // belongs to the confirmations tab.
+    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({
       timeout: 5000,
     });
-
-    // Confirm — the button flips to the "Undo confirmation" state.
-    await leftPane.getByRole("button", { name: "Confirm program item" }).click();
-    await expect(
-      leftPane.getByRole("button", {
-        name: "Undo confirmation",
-      }),
-    ).toBeVisible({ timeout: 5000 });
-
-    // Undo — the button returns to the "Confirm program item" state.
-    await leftPane.getByRole("button", { name: "Undo confirmation" }).click();
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toHaveCount(0);
+    await expect(leftPane.getByRole("button", { name: "Undo confirmation" })).toHaveCount(0);
 
     // Restore shared seed state: unassign so "Storytelling Workshop" returns
     // to the unscheduled list. The suite runs serially against a persistent

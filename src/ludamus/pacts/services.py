@@ -16,7 +16,6 @@ if TYPE_CHECKING:
         PartySessionHistoryServiceProtocol,
         ProposalAcceptanceServiceProtocol,
         ProposalStatusServiceProtocol,
-        SessionConfirmationServiceProtocol,
         SessionContentEditServiceProtocol,
         SessionDeletionServiceProtocol,
         SessionModalServiceProtocol,
@@ -140,8 +139,6 @@ class ServicesProtocol(Protocol):
     def event_integrations(self) -> EventIntegrationsServiceProtocol: ...
     @property
     def session_self_edit(self) -> SessionSelfEditServiceProtocol: ...
-    @property
-    def session_confirmation(self) -> SessionConfirmationServiceProtocol: ...
     @property
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property

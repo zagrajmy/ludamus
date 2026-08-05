@@ -227,14 +227,6 @@ class SessionContentEditServiceProtocol(Protocol):
     ) -> set[int]: ...
 
 
-class SessionConfirmationServiceProtocol(Protocol):
-    def set_session_confirmed(
-        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
-    ) -> None: ...
-    def confirm_all(self, event_pk: int) -> None: ...
-    def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
-
-
 class SessionDeletionServiceProtocol(Protocol):
     def soft_delete(
         self, event_pk: int, session_pk: int, user_pk: int | None = None
@@ -384,6 +376,9 @@ class SessionPositionDTO(BaseModel):
     duration_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
+    # Outside the track being filtered on: shown so the space's occupancy is
+    # honest, but not editable from here.
+    is_foreign: bool = False
 
 
 class TimeLabelDTO(BaseModel):

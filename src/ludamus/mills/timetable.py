@@ -65,7 +65,9 @@ def _slot_windows_by_grid_date(
 
 
 def _position_sessions(
-    items: list[AgendaItemDTO], event_start: datetime
+    items: list[AgendaItemDTO],
+    event_start: datetime,
+    own_item_pks: set[int] | None = None,
 ) -> list[SessionPositionDTO]:
     if not items:
         return []
@@ -98,6 +100,7 @@ def _position_sessions(
                     duration_minutes=round(duration_min),
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
+                    is_foreign=own_item_pks is not None and item.pk not in own_item_pks,
                 )
             )
 
@@ -161,10 +164,15 @@ class TimetableService:
         dates_to_render = (
             available_dates if date_selection == "all" else [date_selection]
         )
-        all_items = (
-            self._uow.agenda_items.list_by_track(track_pk)
-            if track_pk is not None
-            else self._uow.agenda_items.list_by_event(event_pk)
+        # The grid always shows everything scheduled in the spaces on screen.
+        # Filtering the items by track hid the other tracks' bookings, so two
+        # tracks could be put in the same room at the same time without either
+        # organizer seeing the clash.
+        all_items = self._uow.agenda_items.list_by_event(event_pk)
+        own_item_pks = (
+            None
+            if track_pk is None
+            else {item.pk for item in self._uow.agenda_items.list_by_track(track_pk)}
         )
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
@@ -191,6 +199,7 @@ class TimetableService:
                     day_range=(range_start, range_end),
                     spaces=spaces,
                     all_items=all_items,
+                    own_item_pks=own_item_pks,
                 )
             )
         time_labels: list[TimeLabelDTO] = []
@@ -231,6 +240,7 @@ class TimetableService:
         day_range: tuple[datetime, datetime],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
+        own_item_pks: set[int] | None = None,
     ) -> TimetableDayGridDTO:
         grid_start, grid_end = day_range
 
@@ -252,7 +262,7 @@ class TimetableService:
                 SpaceColumnDTO(
                     space=space,
                     sessions=_position_sessions(
-                        items_for_space, event_start=grid_start
+                        items_for_space, grid_start, own_item_pks
                     ),
                 )
             )

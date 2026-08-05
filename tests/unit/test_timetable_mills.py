@@ -167,6 +167,50 @@ class TestBuildGridOverlappingSessions:
         assert grid.date_selection == "all"
         uow.agenda_items.list_by_event.assert_called_once_with(1)
 
+    def test_track_filter_still_shows_other_tracks_bookings_as_foreign(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.tracks.list_space_pks.return_value = [1]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        mine = _make_item(
+            pk=1,
+            session_title="Mine",
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+        theirs = _make_item(
+            pk=2,
+            session_id=2,
+            session_title="Theirs",
+            start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [mine, theirs]
+        uow.agenda_items.list_by_track.return_value = [mine]
+
+        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC, track_pk=5)
+
+        sessions = grid.days[0].columns[0].sessions
+        assert [
+            (pos.agenda_item.session_title, pos.is_foreign) for pos in sessions
+        ] == [("Mine", False), ("Theirs", True)]
+
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)

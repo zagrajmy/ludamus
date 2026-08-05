@@ -66,7 +66,6 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SphereRepositoryProtocol,
         TimeSlotDTO,
-        TrackRepositoryProtocol,
     )
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.multiverse import (
@@ -83,40 +82,6 @@ def require_session_in_event(
     # the request must belong to it, or it is cross-event tampering.
     if sessions.read_event(session_pk).pk != event_pk:
         raise NotFoundError
-
-
-class SessionConfirmationService:
-    def __init__(
-        self,
-        transaction: TransactionProtocol,
-        agenda_items: AgendaItemRepositoryProtocol,
-        sessions: SessionRepositoryProtocol,
-        tracks: TrackRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._agenda_items = agenda_items
-        self._sessions = sessions
-        self._tracks = tracks
-
-    def set_session_confirmed(
-        self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
-    ) -> None:
-        agenda_item = self._agenda_items.read(agenda_item_pk)
-        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
-        with self._transaction.atomic():
-            self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
-
-    def confirm_all(self, event_pk: int) -> None:
-        with self._transaction.atomic():
-            self._agenda_items.confirm_all_by_event(event_pk)
-
-    def confirm_block(self, event_pk: int, track_pk: int) -> None:
-        # Panel access only proves you manage `event_pk`; a track named in the
-        # request must belong to it, or it is cross-event tampering.
-        if self._tracks.read(track_pk).event_id != event_pk:
-            raise NotFoundError
-        with self._transaction.atomic():
-            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class SessionDeletionService:
