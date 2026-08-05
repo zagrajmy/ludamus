@@ -83,8 +83,8 @@ local linters = new Mapping<String, Step> {
     glob = List("**/*.md")
     // The two legal documents are published text converted verbatim, not repo
     // documentation. Satisfying MD013/MD026/MD036 would mean rewrapping and
-    // rewording headings in a policy that's already in force. about.md is ours
-    // and stays linted.
+    // rewording headings in a policy that's already in force. Named individually
+    // rather than by directory, so anything else under content/ stays linted.
     exclude = List(
       ".agents/**",
       ".claude/**",
