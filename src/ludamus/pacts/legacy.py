@@ -31,10 +31,6 @@ class NotFoundError(Exception):
     pass
 
 
-class FacilitatorMergeError(Exception):
-    """Raised when a facilitator merge violates a domain invariant."""
-
-
 class RedirectError(Exception):
     def __init__(
         self, url: str, *, error: str | None = None, warning: str | None = None
@@ -107,6 +103,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     display_name: str
     internal_comment: str
     organizer_id: int | None
+    user_id: int | None
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -279,6 +276,7 @@ class SessionListFilters(TypedDict, total=False):
     category_pk: int | None
     status: SessionStatus | None
     scheduled: bool | None
+    sort: str | None
 
 
 class SessionParticipationStatus(StrEnum):
@@ -789,6 +787,8 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     @staticmethod
     def read(pk: int) -> SessionDTO: ...
     @staticmethod
+    def read_by_event(pk: int, event_id: int) -> SessionDTO: ...
+    @staticmethod
     def read_presenter(session_id: int) -> UserDTO | None: ...
     @staticmethod
     def list_confirmation_rows(
@@ -850,6 +850,10 @@ class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-method
     ) -> None: ...
     @staticmethod
     def read_field_values(session_id: int) -> list[SessionFieldValueDTO]: ...
+    @staticmethod
+    def list_field_values_for_sessions(
+        session_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     @staticmethod
     def delete_field_values_for_fields(
         session_id: int, field_ids: list[int]
@@ -1320,6 +1324,10 @@ class FacilitatorRepositoryProtocol(Protocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
+    def list_by_slugs(
+        event_id: int, facilitator_slugs: list[str]
+    ) -> list[FacilitatorListItemDTO]: ...
+    @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None: ...
     @staticmethod
     def claim(pk: int, organizer_id: int) -> bool: ...
@@ -1471,6 +1479,12 @@ class ContentChangeLogDTO(BaseModel):
     changes: list[ContentFieldChange]
     creation_time: datetime
 
+    @property
+    def item_name(self) -> str:
+        # What the shared change-log table shows for "which thing changed",
+        # whichever kind of log it is rendering.
+        return self.session_title
+
 
 class ContentChangeLogRepositoryProtocol(Protocol):
     @staticmethod
@@ -1507,6 +1521,11 @@ class FacilitatorChangeLogDTO(BaseModel):
     user_name: str
     changes: list[ContentFieldChange]
     creation_time: datetime
+
+    @property
+    def item_name(self) -> str:
+        # See ContentChangeLogDTO.item_name.
+        return self.facilitator_name
 
 
 class FacilitatorChangeLogRepositoryProtocol(Protocol):

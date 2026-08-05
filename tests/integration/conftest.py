@@ -90,9 +90,12 @@ class UserFactory(DjangoModelFactory):
 class SiteFactory(DjangoModelFactory):
     class Meta:
         model = Site
-        django_get_or_create = ("domain",)
 
-    domain = LazyAttribute(lambda o: f"{o.name.lower().replace(' ', '-')}.testserver")
+    # Site.domain is unique and Sphere.site is a OneToOneField, so every
+    # generated Site needs a domain of its own. Deriving it from name would not
+    # do: Faker repeats company names, and two spheres landing on one Site fail
+    # as "UNIQUE constraint failed: sphere.site_id", pointing at the wrong table.
+    domain = Sequence(lambda n: f"site-{n}.testserver")
     name = Faker("company")
 
 

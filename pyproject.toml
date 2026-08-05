@@ -7,7 +7,7 @@ authors = [
     { name = "hasparus", email = "hasparus@gmail.com" },
     { name = "lprasol", email = "lprasol@gmail.com" },
 ]
-license = { text = "BSD-3-Clause license" }
+license = { text = "AGPL-3.0-only" }
 readme = "README.md"
 requires-python = ">=3.14.0,<3.15"
 dynamic = ['dependencies']
@@ -100,7 +100,8 @@ skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
-ignore-words-list = 'fallow,adres,afterall'
+# 'blok' is Polish for 'track' — the agreed translation, see the copy reference.
+ignore-words-list = 'fallow,adres,afterall,blok'
 
 # COVERAGE
 
@@ -130,7 +131,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select"
+custom_blocks = "select,radio,document_title"
 
 # DEPTRY
 
@@ -466,6 +467,7 @@ ignore_names = [
     "is_pending_proposal",
     "is_read",
     "is_unlimited",
+    "item_name",
     "location_label",
     "overflow_count",
     "public_tag_categories",
@@ -518,6 +520,7 @@ ignore_names = [
 ignore_decorators = [
     "@register.filter",
     "@register.simple_tag",
+    "@register.tag",
     "@admin.register",
     "@field_validator",
 ]

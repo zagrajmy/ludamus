@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load django_vite i18n tessera %}
 {% block title %}
-    {{ event.name }} — {% translate "Print" %}
+    {{ event.name }} • {% translate "Print" %}
 {% endblock title %}
 {% block body_class %}
     app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
@@ -80,9 +80,11 @@
                                 {% end_select %}
                             </div>
                         {% endif %}
-                        {% if show_timetable_controls %}
+                        {% if show_descriptions_control %}
                             {% translate "With descriptions" as t_descriptions %}
                             {% include "components/checkbox-field.html" with name="descriptions" id="id_descriptions" label=t_descriptions value="1" checked=descriptions %}
+                        {% endif %}
+                        {% if show_range_controls %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
                                        for="id_start">{% translate "Start" %}</label>
@@ -104,6 +106,10 @@
                                        placeholder="{% translate "until event end" %}"
                                        class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
                             </div>
+                        {% endif %}
+                        {% if show_unconfirmed_control %}
+                            {% translate "Include unconfirmed sessions" as t_unconfirmed %}
+                            {% include "components/checkbox-field.html" with name="unconfirmed" id="id_unconfirmed" label=t_unconfirmed value="1" checked=unconfirmed %}
                         {% endif %}
                         <div class="grid gap-2">
                             {% translate "Print" as t_print %}
@@ -129,6 +135,16 @@
                                         <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
                                            href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
                                     {% endif %}
+                                {% endfor %}
+                            {% elif door_cards %}
+                                {% for card in door_cards.cards %}
+                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                       href="#door-card-{{ forloop.counter }}">
+                                        {{ card.space_name }}
+                                        <span class="block text-xs">{{ card.day|date:"l, j E" }}</span>
+                                    </a>
+                                {% empty %}
+                                    <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
                             {% elif session_list %}
                                 <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
@@ -198,7 +214,59 @@
                                 <section class="{{ sheet_class }}">
                                     {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
                                     <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
-                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
+                                </section>
+                            {% endfor %}
+                        {% elif door_cards %}
+                            {% for card in door_cards.cards %}
+                                {# One A4 page per card: a card hangs on the door for one day. #}
+                                <section class="{{ sheet_class }}"
+                                         id="door-card-{{ forloop.counter }}"
+                                         role="group"
+                                         aria-labelledby="door-card-{{ forloop.counter }}-room door-card-{{ forloop.counter }}-day">
+                                    {% include "chronology/parts/print_header.html" with scope_name=door_cards.scope_name show_full_schedule_label=True %}
+                                    <h2 id="door-card-{{ forloop.counter }}-room"
+                                        class="m-0 mb-[1mm] text-[26pt]">{{ card.space_name }}</h2>
+                                    {% if card.capacity %}
+                                        <p class="m-0 mb-[1mm] text-neutral-500">{% translate "Capacity" %}: {{ card.capacity }}</p>
+                                    {% endif %}
+                                    <h3 id="door-card-{{ forloop.counter }}-day"
+                                        class="m-0 mt-[5mm] mb-[2mm] border-b-[0.5pt] border-neutral-300 text-[12pt]">
+                                        {{ card.day|date:"l, j E" }}
+                                    </h3>
+                                    <table class="w-full border-collapse">
+                                        <thead class="sr-only">
+                                            <tr>
+                                                <th scope="col">{% translate "Time" %}</th>
+                                                <th scope="col">{% translate "Session" context "table column" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for entry in card.entries %}
+                                                <tr class="border-b-[0.5pt] border-neutral-200">
+                                                    <td class="w-[28mm] whitespace-nowrap py-[2mm] pr-[3mm] align-top tabular-nums">
+                                                        {{ entry.start_time|time:"H:i" }}–{{ entry.end_time|time:"H:i" }}
+                                                    </td>
+                                                    <td class="py-[2mm] align-top">
+                                                        <strong>{{ entry.session.title }}</strong>
+                                                        {% if entry.session.presenter_name %}<div class="text-neutral-500">{{ entry.session.presenter_name }}</div>{% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </section>
+                            {% empty %}
+                                <section class="{{ sheet_class }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name=door_cards.scope_name show_full_schedule_label=True %}
+                                    <p class="italic text-neutral-500">{% translate "No rooms to print." %}</p>
                                 </section>
                             {% endfor %}
                         {% elif area_schedule %}
@@ -249,7 +317,14 @@
                                         {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
                                     </div>
                                 {% empty %}
-                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
                                 {% endfor %}
                             </section>
                         {% else %}
