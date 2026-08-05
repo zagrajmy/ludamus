@@ -47,32 +47,49 @@ const railSlotAnchor = (html: string): string => {
 
 type RailHour = { label: string; rect: Rect };
 
-// The rail's hour markers are the only things on this page whose accessible
-// name ends in a time — 31 of 260 names, all of them rail hours. Matching that
-// rather than the "Jump to " prefix keeps the spec working whichever language
-// the page renders: the prefix is translated ("Przejdź do ..."), and the e2e
-// run only escapes it today because it never compiles the catalogue. It also
-// drops the <nav>'s own label, which carries no time.
+// Ending in a time is necessary but nowhere near sufficient: the schedule body
+// labels its own hour headings "11:00" too, and the first device run pressed
+// three of those (x=31, the left time gutter) instead of the rail. So pin the
+// rail's two other properties as well — it is the right-hand column, and the
+// snapshot carries nodes scrolled out of view, which is how that run came to
+// press y=-481. Matching the time rather than the "Jump to " prefix keeps this
+// working in either language: the prefix is translated ("Przejdź do ..."), and
+// the e2e run only escapes that today because it never compiles the catalogue.
 const RAIL_HOUR_LABEL = /\d{1,2}:\d{2}$/;
+const RAIL_COLUMN_FRACTION = 0.6;
 
-// Press those markers rather than a coordinate derived from the viewport. The
-// old aim, `viewport.width - 4`, was at best grazing the rail's edge: measured
-// in Chromium at 402 CSS px the rail ends at x=382, though .app-scroll's
-// `scrollbar-gutter: stable` reserves room there that iOS overlay scrollbars do
-// not, so the device figure differs. A rect from the snapshot needs no such
-// guess.
+// Press those markers rather than a coordinate derived from the viewport: the
+// old aim, `viewport.width - 4`, was a guess at where the rail sits, and a rect
+// from the snapshot is not.
 const railHourTargets = (snapshot: CaptureSnapshotResult): RailHour[] => {
+  const viewport = viewportOf(snapshot);
+  const onScreen = (rect: Rect): boolean =>
+    rect.y >= viewport.y && rect.y + rect.height <= viewport.y + viewport.height;
+  const inRailColumn = (rect: Rect): boolean =>
+    rect.x > viewport.x + viewport.width * RAIL_COLUMN_FRACTION;
+
   const hours = snapshot.nodes.flatMap((node) => {
     const label = node.label ?? "";
     if (!RAIL_HOUR_LABEL.test(label) || !node.rect) return [];
+    if (!onScreen(node.rect) || !inRailColumn(node.rect)) return [];
     return [{ label, rect: node.rect }];
   });
   if (hours.length === 0) {
+    // Name what was on screen and where, so a run that finds no rail says why
+    // rather than leaving the next reader to guess at the layout.
     const seen = snapshot.nodes
-      .flatMap((node) => (node.label ? [node.label] : []))
-      .slice(0, 12)
+      .flatMap((node) =>
+        node.label && node.rect
+          ? [`${node.label}@${Math.round(node.rect.x)},${Math.round(node.rect.y)}`]
+          : [],
+      )
+      .slice(0, 16)
       .join(" | ");
-    throw new Error(`The schedule rail exposed no hour markers to press. Saw: ${seen}`);
+    throw new Error(
+      `No hour markers in the rail column (x > ${Math.round(
+        viewport.x + viewport.width * RAIL_COLUMN_FRACTION,
+      )}) and on screen. Saw: ${seen}`,
+    );
   }
   // A handful spread down the rail: the callout is a per-element behaviour, so
   // one hour passing says little about the rest. Dedup keeps a short rail from
