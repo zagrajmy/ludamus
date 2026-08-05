@@ -47,26 +47,35 @@ const railSlotAnchor = (html: string): string => {
 
 type RailHour = { label: string; rect: Rect };
 
-// Press the rail's own hour links rather than a coordinate derived from the
-// viewport. The rail occupies x 344-382 of a 402pt screen, so the old
-// `viewport.width - 4` landed in the gutter beside it: no callout appeared
-// because nothing was pressed. Their labels ("Jump to <day> <time>") are the
-// aria-labels the rail already carries for screen readers.
+// The rail's hour markers are the only things on this page whose accessible
+// name ends in a time — 31 of 260 names, all of them rail hours. Matching that
+// rather than the "Jump to " prefix keeps the spec working whichever language
+// the page renders: the prefix is translated ("Przejdź do ..."), and the e2e
+// run only escapes it today because it never compiles the catalogue. It also
+// drops the <nav>'s own label, which carries no time.
+const RAIL_HOUR_LABEL = /\d{1,2}:\d{2}$/;
+
+// Press those markers rather than a coordinate derived from the viewport: the
+// rail occupies x 344-382 of a 402pt screen, so the old `viewport.width - 4`
+// landed in the gutter beside it and pressed nothing at all.
 const railHourTargets = (snapshot: CaptureSnapshotResult): RailHour[] => {
   const hours = snapshot.nodes.flatMap((node) => {
     const label = node.label ?? "";
-    // "Jump to time" is the <nav> itself, whose rect spans the whole rail.
-    if (!label.startsWith("Jump to ") || label === "Jump to time") return [];
-    return node.rect ? [{ label, rect: node.rect }] : [];
+    if (!RAIL_HOUR_LABEL.test(label) || !node.rect) return [];
+    return [{ label, rect: node.rect }];
   });
   if (hours.length === 0) {
-    throw new Error("The schedule rail exposed no hour links to press.");
+    throw new Error("The schedule rail exposed no hour markers to press.");
   }
   // A handful spread down the rail: the callout is a per-element behaviour, so
-  // one hour passing says little about the rest.
-  return [0.1, 0.35, 0.6, 0.85]
-    .map((fraction) => hours[Math.floor(fraction * hours.length)])
-    .filter((hour): hour is RailHour => hour !== undefined);
+  // one hour passing says little about the rest. Dedup keeps a short rail from
+  // pressing the same marker four times.
+  return [...new Set([0.1, 0.35, 0.6, 0.85].map((f) => Math.floor(f * hours.length)))].flatMap(
+    (index) => {
+      const hour = hours[index];
+      return hour ? [hour] : [];
+    },
+  );
 };
 
 const scheduleOnScreen = (snapshot: CaptureSnapshotResult): boolean => {
