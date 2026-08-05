@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {{ title }}
+{% endblock title %}
+{% comment %}The document carries its own heading, in the language it is written
+in. Repeating the translated title above it just says the same thing twice in
+two languages.{% endcomment %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    <div class="max-w-3xl mx-auto">
+        <div class="card">
+            <div class="card-body prose max-w-none text-foreground">{{ content|safe }}</div>
+        </div>
+        <div class="mt-6 text-center">
+            <a href="{% url 'web:index' %}" class="btn btn-secondary">
+                {% icon "arrow-left" class="w-4 h-4" %}
+                {% translate "Back to Home" %}
+            </a>
+        </div>
+    </div>
+{% endblock body %}
