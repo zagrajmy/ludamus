@@ -115,24 +115,35 @@ def copy_lines(*parts: object) -> str:
 
 
 @register.simple_tag
-def tessera_copy_chip(text: str, *, label: str = "", copied_label: str = "") -> str:
+def tessera_copy_chip(
+    text: str, *, label: str = "", copied_label: str = "", **kwargs: object
+) -> str:
     """Render a chip showing ``text``, the short-value copy preset.
 
     Returns:
         HTML string of the chip button and its confirmation popover.
+
+    Raises:
+        TemplateSyntaxError: On an unknown keyword argument.
 
     Usage:
         {% tessera_copy_chip "@ada" %}
     """
     label = label or gettext("Copy to clipboard")
     copied_label = copied_label or gettext("Copied!")
+    # **kwargs exists only because `class` is a reserved word; anything else is
+    # a typo (e.g. copied_lable=) and must not vanish silently.
+    classes = clsx("icon-btn gap-1.5 px-2 py-1 text-sm", kwargs.pop("class", None))
+    if kwargs:
+        msg = f"tessera_copy_chip got unknown arguments: {sorted(kwargs)}"
+        raise TemplateSyntaxError(msg)
     # The visible text is part of the accessible name (WCAG 2.5.3); the sr-only
     # label (not the aria-hidden icon) carries the copy intent.
     icon_html = render_icon(
         "clipboard", variant="outline", **{"class": "size-4 text-foreground-muted"}
     )
     return format_html(
-        '<button type="button" class="icon-btn gap-1.5 px-2 py-1 text-sm"'
+        '<button type="button" class="{classes}"'
         ' data-copy="{copy}" data-copied-label="{copied}" title="{label}">'
         '<code class="text-foreground [text-box:trim-both_cap_alphabetic]">'
         "{display}</code>"
@@ -140,6 +151,7 @@ def tessera_copy_chip(text: str, *, label: str = "", copied_label: str = "") -> 
         '<span class="sr-only">{label}</span>'
         "{popover}"
         "</button>",
+        classes=classes,
         copy=text,
         display=text,
         label=label,

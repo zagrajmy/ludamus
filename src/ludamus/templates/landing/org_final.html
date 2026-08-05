@@ -13,10 +13,11 @@
             <p class="mt-4 mx-auto max-w-[34rem] text-[#c9bfb3] text-[1.05rem] print:text-foreground-secondary">
                 {% translate "Write to us. We will map your process into Zagrajmy and prepare a first version of your event to click through." %}
             </p>
-            <div class="cta-mail mt-[2.2rem] flex flex-wrap items-center justify-center gap-4 max-[26rem]:*:w-full">
+            <div class="mt-[2.2rem] flex flex-wrap items-center justify-center gap-4 max-[26rem]:*:w-full">
                 <a class="btn btn-primary [--shade:rgba(0,0,0,0.5)]"
                    href="mailto:kontakt@zagrajmy.net?subject={% translate 'My event in Zagrajmy' %}">{% translate "Run your event with Zagrajmy" %}</a>
-                {% tessera_copy_chip "kontakt@zagrajmy.net" %}
+                {# sized to ride beside the primary CTA: match its height and radius so the pair reads balanced #}
+                {% tessera_copy_chip "kontakt@zagrajmy.net" class="px-4 py-2.5 rounded-2xl border border-[#5c534a] bg-[#3d3732] [&_code]:text-[0.9375rem] print:bg-transparent print:border-border" %}
             </div>
             <p class="mt-4 text-[0.95rem] text-[#a69a8c] flex items-start justify-center gap-2 max-w-[34rem] mx-auto print:text-foreground-secondary">
                 <svg class="flex-none mt-[0.2rem]"

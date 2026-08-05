@@ -861,27 +861,6 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
         }
     }
 
-    /* the email chip rides beside the primary CTA in the closing card;
-       match the button's height and radius so the pair reads balanced */
-    .landing .cta-mail [data-copy] {
-        padding: 0.625rem 1rem;
-        border-radius: 1rem;
-        border: 1px solid #5c534a;
-        background: #3d3732;
-        font-size: 1rem;
-    }
-
-    .landing .cta-mail [data-copy] code {
-        font-size: 0.9375rem;
-    }
-
-    @media print {
-        .landing .cta-mail [data-copy] {
-            background: transparent;
-            border-color: var(--color-border);
-        }
-    }
-
     /* ---------- reduced motion: everything instant ---------- */
     @media (prefers-reduced-motion: reduce) {
 
