@@ -31,6 +31,7 @@ local linters = new Mapping<String, Step> {
       ".agents/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
+      "src/ludamus/content/legal/**",
     )
     check = "codespell --toml=pyproject.toml {{files}}"
   }
@@ -79,7 +80,15 @@ local linters = new Mapping<String, Step> {
   }
   ["markdownlint"] {
     glob = List("**/*.md")
-    exclude = List(".agents/**", ".claude/**", "**/node_modules/**")
+    // src/ludamus/content/legal is published legal text converted verbatim, not
+    // repo documentation. Satisfying MD013/MD026/MD036 would mean rewrapping and
+    // rewording headings in a policy that's already in force.
+    exclude = List(
+      ".agents/**",
+      ".claude/**",
+      "**/node_modules/**",
+      "src/ludamus/content/legal/**",
+    )
     check = "markdownlint-cli2 {{files}}"
     fix = "markdownlint-cli2 --fix {{files}}"
   }
