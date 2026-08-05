@@ -12,16 +12,28 @@
                      style="--offset: {{ label.offset_minutes }}"></div>
             {% endfor %}
             {% for pos in col.sessions %}
-                {# Another track booked this room and time: shown so the room's
-                   occupancy is honest, read-only because it is not this page's
-                   to move. Its own class keeps it out of the way of the
-                   click-to-place handler, which skips .timetable-session. #}
-                {% if pos.outside_track_name %}
-                    {% blocktranslate with track=pos.outside_track_name asvar t_owner %}Scheduled by track: {{ track }}{% endblocktranslate %}
-                {% else %}
-                    {% translate "Scheduled by another track" as t_owner %}
+                {% comment %}
+                    Another track booked this room and time: shown so the room's
+                    occupancy is honest, read-only because it is not this page's
+                    to move. The owner's name rides in the visible text rather
+                    than an aria-label -- a div carries no role for one to
+                    attach to, and it is the answer everyone needs anyway.
+                {% endcomment %}
+                {% if pos.is_outside_filtered_track %}
+                    {% if pos.outside_track_name %}
+                        {% blocktranslate with track=pos.outside_track_name asvar t_owner %}Scheduled by track: {{ track }}{% endblocktranslate %}
+                    {% else %}
+                        {% translate "Scheduled by another track" as t_owner %}
+                    {% endif %}
                 {% endif %}
-                <div class="absolute rounded-md overflow-hidden border text-xs {% if pos.state == 'conflict' %}bg-danger-bg border-danger{% elif pos.state == 'slot_violation' %}bg-warning-bg border-warning{% else %}bg-info-bg border-info{% endif %} {% if pos.is_outside_filtered_track %}timetable-session-foreign border-dashed{% if pos.state == 'normal' %} opacity-60{% endif %}{% else %}timetable-session cursor-pointer opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary{% endif %}" {% if pos.is_outside_filtered_track %} aria-label="{{ t_owner }}: {{ pos.agenda_item.session_title }}" title="{{ t_owner }}: {{ pos.agenda_item.session_title }}" {% else %} tabindex="0" draggable="true" data-session-pk="{{ pos.agenda_item.session_id }}" data-duration="{{ pos.duration_minutes }}" data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}" title="{{ pos.agenda_item.session_title }}" hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}" hx-target="#left-pane" hx-swap="outerHTML" {% endif %} style="--offset: {{ pos.start_minutes }}; --duration: {{ pos.duration_minutes }}; --lane-start: {{ pos.lane_start_pct }}%; --lane-width: {{ pos.lane_width_pct }}%">
+                <div class="absolute rounded-md overflow-hidden border text-xs {% if pos.state == 'conflict' %}bg-danger-bg border-danger{% elif pos.state == 'slot_violation' %}bg-warning-bg border-warning{% else %}bg-info-bg border-info{% endif %} {% if pos.is_outside_filtered_track %}timetable-session-foreign border-dashed{% else %}timetable-session cursor-pointer opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary{% endif %}"
+                     title="{% if pos.is_outside_filtered_track %}{{ t_owner }}: {% endif %}{{ pos.agenda_item.session_title }}"
+                     {# Everything below is what makes a card editable, so the read-only one carries none of it. djlint folds the block onto one line. #}
+                     {% if not pos.is_outside_filtered_track %} tabindex="0" draggable="true" data-session-pk="{{ pos.agenda_item.session_id }}" data-duration="{{ pos.duration_minutes }}" data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}" hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}" hx-target="#left-pane" hx-swap="outerHTML" {% endif %}
+                     style="--offset: {{ pos.start_minutes }};
+                            --duration: {{ pos.duration_minutes }};
+                            --lane-start: {{ pos.lane_start_pct }}%;
+                            --lane-width: {{ pos.lane_width_pct }}%">
                     <div class="timetable-session-body px-1 py-0.5 h-full overflow-hidden">
                         <div class="timetable-session-title font-medium wrap-anywhere {% if pos.state == 'conflict' %}text-danger-text{% elif pos.state == 'slot_violation' %}text-warning-text{% else %}text-info-text{% endif %}">
                             {% if pos.state == "conflict" %}
@@ -35,9 +47,14 @@
                             {% endif %}
                             {{ pos.agenda_item.session_title|truncatechars:256 }}
                         </div>
-                        {# The ghost names its owner instead of its presenter: from here
-                           the useful answer is which block to talk to. #}
-                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.state == 'conflict' %}text-danger{% elif pos.state == 'slot_violation' %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 %}hidden{% endif %}">
+                        {% comment %}
+                            The ghost names its owner instead of its presenter:
+                            from here the useful answer is which block to talk
+                            to. It says so at every height -- a dashed border is
+                            colour and shape alone, so the short ones would
+                            otherwise read as this track's own.
+                        {% endcomment %}
+                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.state == 'conflict' %}text-danger{% elif pos.state == 'slot_violation' %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 and not pos.is_outside_filtered_track %}hidden{% endif %}">
                             {% if pos.is_outside_filtered_track %}
                                 {{ t_owner }}
                             {% else %}

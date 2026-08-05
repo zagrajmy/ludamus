@@ -209,9 +209,27 @@ test.describe("Timetable", () => {
     await expect(foreign).not.toHaveAttribute("draggable", "true");
     await expect(foreign).not.toHaveAttribute("data-session-pk", /./);
 
-    // ...and it never carries the interactive card's class, which the
-    // click-to-place handler reads as "this is a session, do not place here".
+    // ...and it never carries the interactive card's class.
     await expect(foreign).not.toHaveClass(/(^|\s)timetable-session(\s|$)/);
+
+    // Read-only also means it refuses a placement: the block is what says the
+    // room is taken, so clicking it is the last chance to be told so.
+    // Whichever card the pane offers -- earlier tests in this file schedule
+    // named ones, and anything still in "Sessions to assign" arms the mode.
+    await page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator("[data-session-pk]")
+      .first()
+      .click();
+    const leftPane = page.locator("#left-pane");
+    await leftPane.getByRole("button", { name: "Assign", exact: true }).click();
+    const banner = page.locator("#assign-mode-banner");
+    await expect(banner).not.toHaveClass(/hidden/);
+
+    await foreign.click();
+
+    // A placement exits assign mode; still armed means nothing was placed.
+    await expect(banner).not.toHaveClass(/hidden/);
   });
 
   // Read off the page instead of restating bootstrap_timetable.py: every column

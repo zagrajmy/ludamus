@@ -289,3 +289,8 @@ If you fix a papercut, remove it.
   both keep them. Regenerating the catalog silently drops the flags, so after
   'mise run messages' you have to revert the catalog and hand-apply only the
   real msgid deltas.
+- 2026-08-05: mise run shots fails in the Claude Code sandbox: Chrome aborts
+  with 'No usable sandbox' (unprivileged userns disabled). Playwright's own runs
+  work, so had to hand-roll a playwright-core screenshot script pointed at the
+  ms-playwright chromium binary. A --no-sandbox fallback in the shots task would
+  save the detour.

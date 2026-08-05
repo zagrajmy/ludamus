@@ -281,8 +281,10 @@ document.addEventListener("click", (e) => {
 
   // A click on a placed session selects it (detail pane + re-arm via
   // htmx:load) — it must never double as a placement click for the
-  // previously armed session.
-  if (armed && !target.closest(".timetable-session")) {
+  // previously armed session. Another track's booking is not selectable, but
+  // it still swallows the click: the room is visibly taken at that time, and
+  // clicking the block that says so is the last way to be told otherwise.
+  if (armed && !target.closest(".timetable-session, .timetable-session-foreign")) {
     const col = target.closest<HTMLElement>(".timetable-column.assign-mode-active");
     if (col) {
       const clientY = e instanceof MouseEvent ? e.clientY : col.getBoundingClientRect().top;
