@@ -7,70 +7,63 @@
 {% block page_title %}
     {% translate "Dashboard" %}
 {% endblock page_title %}
+{% comment %}The header's <h2> one line up already says Dashboard; the old
+subtitle spent the line restating it as "<event> - Overview". The event name
+alone is the part that isn't redundant.{% endcomment %}
 {% block page_subtitle %}
-    {% if current_event %}
-        {{ current_event.name }} - {% translate "Overview" %}
-    {% endif %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 p-4 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-4 lg:mb-8">
+        {% comment %}Two columns from the narrowest viewport: these cards hold a
+        label and a three-digit number, and one per row pushed the site footer
+        onto the first screen of the console. The icon is a 16px glyph beside its
+        label rather than a 48px tile — in a 4-up desktop grid the tile is a
+        rhythm device, in a 1-up phone stack it is only height.{% endcomment %}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3 sm:p-4 lg:gap-6 mb-4 lg:mb-8">
             <a href="{% url 'panel:timetable' slug=current_event.slug %}"
-               class="card p-4 lg:p-6 block ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs lg:text-sm text-foreground-muted">{% translate "All Sessions" %}</p>
-                        <p class="text-2xl lg:text-3xl font-bold text-foreground">{{ stats.total_sessions }}</p>
-                    </div>
-                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-blue-100 dark:bg-blue-100/20 rounded-lg flex items-center justify-center">
-                        {% icon "calendar" class="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 dark:text-blue-400" %}
-                    </div>
-                </div>
-                <p class="text-xs lg:text-sm text-green-600 mt-2 hidden sm:block">
-                    {{ stats.scheduled_sessions }} {% translate "scheduled" %}, {{ stats.pending_proposals }} {% translate "pending" %}
+               class="card p-3 lg:p-6 flex flex-col ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
+                <p class="flex items-start gap-1.5 text-xs leading-tight lg:text-sm min-h-8 lg:min-h-0 text-foreground-muted">
+                    {% icon "calendar" class="size-4 shrink-0 mt-px text-blue-600 dark:text-blue-400" %}
+                    {% translate "All Sessions" %}
+                </p>
+                <p class="pt-1 text-2xl lg:text-3xl font-bold text-foreground">{{ stats.total_sessions }}</p>
+                {% comment %}Kept on mobile, where the bare number has no sidebar
+                or wide header around it to borrow context from.{% endcomment %}
+                <p class="text-xs lg:text-sm text-green-600 mt-1 lg:mt-2">
+                    {% blocktranslate with scheduled=stats.scheduled_sessions pending=stats.pending_proposals %}{{ scheduled }} scheduled, {{ pending }} pending{% endblocktranslate %}
                 </p>
             </a>
             <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-               class="card p-4 lg:p-6 block ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs lg:text-sm text-foreground-muted">{% translate "Facilitators" %}</p>
-                        <p class="text-2xl lg:text-3xl font-bold text-foreground">{{ stats.hosts_count }}</p>
-                    </div>
-                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-purple-100 dark:bg-purple-100/20 rounded-lg flex items-center justify-center">
-                        {% icon "users" class="w-5 h-5 lg:w-6 lg:h-6 text-purple-600 dark:text-purple-400" %}
-                    </div>
-                </div>
+               class="card p-3 lg:p-6 flex flex-col ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
+                <p class="flex items-start gap-1.5 text-xs leading-tight lg:text-sm min-h-8 lg:min-h-0 text-foreground-muted">
+                    {% icon "users" class="size-4 shrink-0 mt-px text-purple-600 dark:text-purple-400" %}
+                    {% translate "Facilitators" %}
+                </p>
+                <p class="pt-1 text-2xl lg:text-3xl font-bold text-foreground">{{ stats.hosts_count }}</p>
             </a>
             <a href="{% url 'panel:venues' slug=current_event.slug %}"
-               class="card p-4 lg:p-6 block ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs lg:text-sm text-foreground-muted">{% translate "Rooms" %}</p>
-                        <p class="text-2xl lg:text-3xl font-bold text-foreground">{{ stats.rooms_count }}</p>
-                    </div>
-                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-green-100 dark:bg-green-100/20 rounded-lg flex items-center justify-center">
-                        {% icon "building-office" class="w-5 h-5 lg:w-6 lg:h-6 text-green-600 dark:text-green-400" %}
-                    </div>
-                </div>
+               class="card p-3 lg:p-6 flex flex-col ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
+                <p class="flex items-start gap-1.5 text-xs leading-tight lg:text-sm min-h-8 lg:min-h-0 text-foreground-muted">
+                    {% icon "building-office" class="size-4 shrink-0 mt-px text-green-600 dark:text-green-400" %}
+                    {% translate "Rooms" %}
+                </p>
+                <p class="pt-1 text-2xl lg:text-3xl font-bold text-foreground">{{ stats.rooms_count }}</p>
             </a>
             <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-               class="card p-4 lg:p-6 block ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs lg:text-sm text-foreground-muted">{% translate "Proposals" %}</p>
-                        <p class="text-2xl lg:text-3xl font-bold text-foreground">{{ stats.total_proposals }}</p>
-                    </div>
-                    <div class="w-10 h-10 lg:w-12 lg:h-12 bg-yellow-100 dark:bg-yellow-100/20 rounded-lg flex items-center justify-center">
-                        {% icon "document-text" class="w-5 h-5 lg:w-6 lg:h-6 text-yellow-600 dark:text-yellow-400" %}
-                    </div>
-                </div>
+               class="card p-3 lg:p-6 flex flex-col ring-offset-[.5px] ring-offset-background hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100">
+                <p class="flex items-start gap-1.5 text-xs leading-tight lg:text-sm min-h-8 lg:min-h-0 text-foreground-muted">
+                    {% icon "document-text" class="size-4 shrink-0 mt-px text-yellow-600 dark:text-yellow-400" %}
+                    {% translate "Proposals" %}
+                </p>
+                <p class="pt-1 text-2xl lg:text-3xl font-bold text-foreground">{{ stats.total_proposals }}</p>
             </a>
         </div>
     {% else %}
-        <div class="card p-8 text-center">
-            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+        <div class="p-3 sm:p-4">
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
         </div>
     {% endif %}
 {% endblock content %}

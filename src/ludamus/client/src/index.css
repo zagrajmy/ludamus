@@ -670,8 +670,18 @@ button:active {
     border-bottom: 1px solid var(--color-border);
   }
 
+  /* 24px is right once a card is one column of several. Full-bleed on a
+     phone it is 48px of the 440px viewport, on top of whatever the page
+     wrapper already spent — the panel stacks p-4 outside this and lands at
+     40px a side. Give the narrow viewport 16px and step up at sm. */
   .card-body {
-    padding: 1.5rem;
+    padding: 1rem;
+  }
+
+  @media (width >= 40rem) {
+    .card-body {
+      padding: 1.5rem;
+    }
   }
 }
 
