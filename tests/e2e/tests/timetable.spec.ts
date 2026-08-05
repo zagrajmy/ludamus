@@ -185,6 +185,28 @@ test.describe("Timetable", () => {
     });
   });
 
+  test("a track filter still shows another track's booking, read-only", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // The track pk belongs to the seed, so read it off the switcher.
+    const trackValue = await page
+      .getByLabel("Track:")
+      .locator("option", { hasText: "RPG Track" })
+      .first()
+      .getAttribute("value");
+    await page.goto(`/panel/event/sunhaven-festival/timetable/?track=${trackValue}&date=all`);
+
+    // "Board Game Night" belongs to the other track but occupies a room this
+    // one also uses. Hiding it is how two tracks end up in one room at once.
+    const foreign = page.locator(".timetable-session-foreign", { hasText: "Board Game Night" });
+    await expect(foreign).toBeVisible({ timeout: 10000 });
+    await expect(foreign).toHaveAttribute("title", /Scheduled by another track/);
+
+    // Read-only: nothing to drag, and no session to open in the left pane.
+    await expect(foreign).not.toHaveAttribute("draggable", "true");
+    await expect(foreign).not.toHaveAttribute("data-session-pk", /./);
+  });
+
   // Read off the page instead of restating bootstrap_timetable.py: every column
   // names itself after its room. Groups are also how a fieldset and a details
   // surface, so only the named ones are ours -- and every later lookup asks for
