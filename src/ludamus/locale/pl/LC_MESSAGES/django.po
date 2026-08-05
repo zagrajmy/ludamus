@@ -6423,8 +6423,8 @@ msgstr ""
 "(8/8), a Basia przesuwa się z trzeciego na pierwsze miejsce w kolejce."
 
 #: src/ludamus/templates/landing_page.html
-msgid "Zagrajmy: from a speaker's proposal to the printout on the room door"
-msgstr "Zagrajmy: od zgłoszenia prelegenta do wydruku na drzwiach sali"
+msgid "Zagrajmy • conventions and events"
+msgstr "Zagrajmy • konwenty i wydarzenia"
 
 #: src/ludamus/templates/landing_page.html
 msgid ""
