@@ -632,7 +632,10 @@ class SessionEditForm(forms.Form):
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(
-        required=False, min_value=0, label=_("Participants Limit")
+        required=False,
+        min_value=0,
+        label=_("Participants Limit"),
+        help_text=_("Empty or 0 means no limit."),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
     duration = forms.CharField(required=False, label=_("Duration"))
@@ -642,19 +645,6 @@ class SessionEditForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
-
-
-def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
-    # Stays optional (blank = no limit, as organizers expect) but honours the
-    # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {
-        "required": False,
-        "min_value": min_limit or 0,
-        "label": _("Participants Limit"),
-    }
-    if max_limit:
-        kwargs["max_value"] = max_limit
-    return forms.IntegerField(**kwargs)
 
 
 CUSTOM_DURATION = "custom"
@@ -716,13 +706,10 @@ def create_proposal_form(
         )
     }
 
-    if category and (
-        category.min_participants_limit or category.max_participants_limit
-    ):
-        attrs["participants_limit"] = _participants_limit_field(
-            min_limit=category.min_participants_limit,
-            max_limit=category.max_participants_limit,
-        )
+    # The category's participant bounds are a call-for-proposals guardrail for
+    # submitters. An organizer editing in the panel owns those bounds, so the
+    # inherited unbounded field stands: capping them here only produces a bare
+    # browser tooltip on a number they configured themselves.
 
     attrs["duration_hours"] = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")

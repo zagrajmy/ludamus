@@ -34,6 +34,7 @@ from tests.integration.utils import assert_response, checkbox_tag
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 CATEGORY_B_MAX_PARTICIPANTS = 9
+BIG_LECTURE_PARTICIPANTS = 500
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
     b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
@@ -384,6 +385,49 @@ class TestProposalCreatePageView:
             ),
         )
         assert new_session.slug != "my-new-session"
+
+    def test_post_accepts_a_limit_above_the_category_maximum(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(
+            event=event,
+            name="RPG",
+            slug="rpg",
+            min_participants_limit=3,
+            max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            data={
+                "facilitators_submitted": "1",
+                "facilitator_ids": [facilitator.pk],
+                "category_id": category.pk,
+                "title": "Big Lecture",
+                "display_name": "Test Host",
+                "description": "",
+                "contact_email": "",
+                "participants_limit": "500",
+                "min_age": "",
+                "duration": "",
+            },
+        )
+
+        new_session = Session.objects.get(title="Big Lecture", status="pending")
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal created successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": new_session.pk},
+            ),
+        )
+        assert new_session.participants_limit == BIG_LECTURE_PARTICIPANTS
 
     def test_post_creates_session_with_facilitator_and_redirects(
         self, authenticated_client, active_user, sphere, event
@@ -985,9 +1029,9 @@ class TestProposalCreateCategoryFields:
             ("PT3H", "3h"),
             ("custom", "Custom"),
         ]
-        assert (
-            form.fields["participants_limit"].max_value == CATEGORY_B_MAX_PARTICIPANTS
-        )
+        # The category's participant bounds only guard the submission wizard.
+        assert form.fields["participants_limit"].max_value is None
+        assert form.fields["participants_limit"].min_value == 0
 
     def test_get_renders_checkbox_field_with_allow_custom_without_companion(
         self, authenticated_client, active_user, sphere, event

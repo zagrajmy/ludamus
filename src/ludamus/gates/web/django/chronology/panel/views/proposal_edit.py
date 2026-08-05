@@ -300,9 +300,8 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             "display_name": session.display_name,
             "description": session.description,
             "contact_email": session.contact_email,
-            # 0 means "no limit", which the field renders as blank — pre-filling
-            # a literal 0 would trip a category's min_participants_limit and make
-            # the proposal uneditable.
+            # 0 means "no limit", which the field renders as blank — a literal 0
+            # in the box reads as "nobody may enrol".
             "participants_limit": session.participants_limit or None,
             "min_age": session.min_age,
             "category_id": session.category_id,

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-03 19:31+0200\n"
+"POT-Creation-Date: 2026-08-05 05:13+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2610,6 +2610,10 @@ msgstr "Email kontaktowy"
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Participants Limit"
 msgstr "Limit uczestników"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 means no limit."
+msgstr "Puste pole lub 0 oznacza brak limitu."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/anonymous_enroll.html
