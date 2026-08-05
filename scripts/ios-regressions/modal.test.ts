@@ -22,7 +22,7 @@ const {
   close,
   openUrl,
   prepareDevice,
-  assertPageReady,
+  fetchReadyPage,
 } = createIosHarness(session);
 
 const hasVisibleText = async (text: string): Promise<boolean> => {
@@ -34,10 +34,11 @@ const hasVisibleText = async (text: string): Promise<boolean> => {
 // mid-animation reports content that is about to be there as missing. It still
 // fails if the content only appears after a scroll — nothing here scrolls —
 // so the regression this guards stays guarded.
-const waitForVisibleText = async (text: string, timeoutMs: number): Promise<boolean> => {
+const waitForVisibleTexts = async (texts: string[], timeoutMs: number): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs;
   do {
-    if (await hasVisibleText(text)) return true;
+    const labels = await snapshotLabels();
+    if (texts.every((text) => labels.some((label) => label.includes(text)))) return true;
     await client.command.wait({ ...deviceOptions, durationMs: 400 });
   } while (Date.now() < deadline);
   return false;
@@ -156,7 +157,7 @@ let closeIssue: string | null = null;
 let scrollIssue: string | null = null;
 
 beforeAll(async () => {
-  await assertPageReady(eventUrl, targetTitle);
+  await fetchReadyPage(eventUrl, targetTitle);
   const udid = await prepareDevice();
 
   const initialUrl = openViaScrolledPage ? eventUrl : modalUrl;
@@ -193,9 +194,10 @@ beforeAll(async () => {
   }
 
   console.log("Checking whether modal content is initially visible...");
-  const contentInitiallyVisible =
-    (await waitForVisibleText("About this session", 5000)) &&
-    (await waitForVisibleText("Przygoda w stylu filmu", 5000));
+  const contentInitiallyVisible = await waitForVisibleTexts(
+    ["About this session", "Przygoda w stylu filmu"],
+    5000,
+  );
   if (!contentInitiallyVisible) {
     contentIssue =
       'Modal content headed by "About this session" / "Przygoda w stylu filmu" is not initially visible.';

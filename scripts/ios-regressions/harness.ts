@@ -39,14 +39,13 @@ export type IosHarness = {
   deviceOptions: IosDeviceOptions;
   takeSnapshot: () => Promise<CaptureSnapshotResult>;
   viewportOf: (snapshot: CaptureSnapshotResult) => Rect;
-  viewportRect: () => Promise<Rect>;
   close: () => Promise<void>;
   snapshotLabels: () => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
   openUrl: (url: string, udid: string) => Promise<void>;
   prepareDevice: () => Promise<string>;
-  assertPageReady: (url: URL, contains: string) => Promise<string>;
+  fetchReadyPage: (url: URL, contains: string) => Promise<string>;
 };
 
 export const createIosHarness = (session: string): IosHarness => {
@@ -66,8 +65,6 @@ export const createIosHarness = (session: string): IosHarness => {
 
   const viewportOf = (snapshot: CaptureSnapshotResult): Rect =>
     snapshot.nodes[0]?.rect ?? FALLBACK_VIEWPORT;
-
-  const viewportRect = async (): Promise<Rect> => viewportOf(await takeSnapshot());
 
   const close = async (): Promise<void> => {
     try {
@@ -177,10 +174,10 @@ export const createIosHarness = (session: string): IosHarness => {
     return udid;
   };
 
-  // Returns the page body: a caller that needs a landmark from the markup (a
-  // scrubber slot anchor, say) can read it here instead of hunting for it with
-  // gestures, which cost ~24s each on the runner.
-  const assertPageReady = async (url: URL, contains: string): Promise<string> => {
+  // Waits for the page to serve `contains`, then hands back the body. A caller
+  // that needs a landmark from the markup (a scrubber slot anchor, say) reads it
+  // here instead of hunting for it with gestures, which cost ~24s each.
+  const fetchReadyPage = async (url: URL, contains: string): Promise<string> => {
     console.log(`Checking local event page at ${url.toString()}...`);
     const deadline = Date.now() + 60000;
     let lastError = "no response";
@@ -210,13 +207,12 @@ export const createIosHarness = (session: string): IosHarness => {
     deviceOptions,
     takeSnapshot,
     viewportOf,
-    viewportRect,
     close,
     snapshotLabels,
     findNodeByLabel,
     wait,
     openUrl,
     prepareDevice,
-    assertPageReady,
+    fetchReadyPage,
   };
 };

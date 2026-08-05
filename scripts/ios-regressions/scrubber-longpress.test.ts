@@ -29,7 +29,7 @@ const {
   wait,
   openUrl,
   prepareDevice,
-  assertPageReady,
+  fetchReadyPage,
 } = createIosHarness(session);
 
 // The rail's own hour links are anchors (#slot-YYYYMMDD-HH), so Safari can land
@@ -42,7 +42,7 @@ const railSlotAnchor = (html: string): string => {
   const slots = [...html.matchAll(/data-rail-hour="([\w-]+)"/g)].map((match) => match[1]);
   if (slots.length === 0) throw new Error("The schedule rail rendered no hour anchors.");
   // A few hours in, so sessions fill the viewport above and below the rail.
-  return slots[Math.min(3, slots.length - 1)] as string;
+  return slots[Math.min(3, slots.length - 1)];
 };
 
 type RailHour = { label: string; rect: Rect };
@@ -55,9 +55,12 @@ type RailHour = { label: string; rect: Rect };
 // drops the <nav>'s own label, which carries no time.
 const RAIL_HOUR_LABEL = /\d{1,2}:\d{2}$/;
 
-// Press those markers rather than a coordinate derived from the viewport: the
-// rail occupies x 344-382 of a 402pt screen, so the old `viewport.width - 4`
-// landed in the gutter beside it and pressed nothing at all.
+// Press those markers rather than a coordinate derived from the viewport. The
+// old aim, `viewport.width - 4`, was at best grazing the rail's edge: measured
+// in Chromium at 402 CSS px the rail ends at x=382, though .app-scroll's
+// `scrollbar-gutter: stable` reserves room there that iOS overlay scrollbars do
+// not, so the device figure differs. A rect from the snapshot needs no such
+// guess.
 const railHourTargets = (snapshot: CaptureSnapshotResult): RailHour[] => {
   const hours = snapshot.nodes.flatMap((node) => {
     const label = node.label ?? "";
@@ -65,7 +68,11 @@ const railHourTargets = (snapshot: CaptureSnapshotResult): RailHour[] => {
     return [{ label, rect: node.rect }];
   });
   if (hours.length === 0) {
-    throw new Error("The schedule rail exposed no hour markers to press.");
+    const seen = snapshot.nodes
+      .flatMap((node) => (node.label ? [node.label] : []))
+      .slice(0, 12)
+      .join(" | ");
+    throw new Error(`The schedule rail exposed no hour markers to press. Saw: ${seen}`);
   }
   // A handful spread down the rail: the callout is a per-element behaviour, so
   // one hour passing says little about the rest. Dedup keeps a short rail from
@@ -96,21 +103,43 @@ const scheduleOnScreen = (snapshot: CaptureSnapshotResult): boolean => {
 // suppressed.
 const waitForSchedule = async (timeoutMs: number): Promise<CaptureSnapshotResult> => {
   const deadline = Date.now() + timeoutMs;
-  let snapshot = await takeSnapshot();
-  while (!scheduleOnScreen(snapshot) && Date.now() < deadline) {
+  let snapshot: CaptureSnapshotResult | null = null;
+  do {
+    // A snapshot taken while Safari is still launching throws; that is a state
+    // to wait out, not to end the run on.
+    try {
+      snapshot = await takeSnapshot();
+    } catch (error) {
+      console.warn("Snapshot failed while the page was settling; retrying.", error);
+    }
+    if (snapshot && scheduleOnScreen(snapshot)) return snapshot;
     await wait(500);
-    snapshot = await takeSnapshot();
-  }
-  if (!scheduleOnScreen(snapshot)) {
-    throw new Error("The slot anchor did not bring the schedule into the viewport.");
-  }
-  return snapshot;
+  } while (Date.now() < deadline);
+
+  throw new Error("The slot anchor did not bring the schedule into the viewport.");
+};
+
+// Absence is the pass here, so a snapshot taken before the callout has had time
+// to appear reads as success — the same false result the fixed wait after each
+// press used to risk. Poll instead: return as soon as something surfaces, and
+// only conclude "nothing" once the window has actually elapsed.
+const surfacedCallout = async (timeoutMs: number): Promise<string[]> => {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    await wait(500);
+    const labels = await snapshotLabels();
+    const surfaced = calloutSignals.filter((signal) =>
+      labels.some((label) => label.includes(signal)),
+    );
+    if (surfaced.length > 0) return surfaced;
+  } while (Date.now() < deadline);
+  return [];
 };
 
 let surfacedCalloutSignals: string[] = [];
 
 beforeAll(async () => {
-  const html = await assertPageReady(eventUrl, "schedule-rail");
+  const html = await fetchReadyPage(eventUrl, "schedule-rail");
   const udid = await prepareDevice();
 
   const scheduleUrl = new URL(eventUrl);
@@ -119,7 +148,7 @@ beforeAll(async () => {
   await openUrl(scheduleUrl.toString(), udid);
 
   // The settled snapshot serves both the guard and the rail geometry below.
-  const snapshot = await waitForSchedule(30_000);
+  const snapshot = await waitForSchedule(90_000);
 
   for (const hour of railHourTargets(snapshot)) {
     const x = hour.rect.x + hour.rect.width / 2;
@@ -128,11 +157,7 @@ beforeAll(async () => {
       `Long-pressing ${JSON.stringify(hour.label)} at x=${Math.round(x)} y=${Math.round(y)}...`,
     );
     await client.interactions.longPress({ ...deviceOptions, x, y, durationMs: 800 });
-    await wait(900);
-    const labels = await snapshotLabels();
-    const surfaced = calloutSignals.filter((signal) =>
-      labels.some((label) => label.includes(signal)),
-    );
+    const surfaced = await surfacedCallout(2500);
     if (surfaced.length > 0) {
       surfacedCalloutSignals = surfaced;
       break;
