@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, QueryDict
@@ -33,12 +33,13 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import (
     ConflictDTO,
     DateSelection,
-    GridMarksDTO,
-    PreferredSlotViolationDTO,
     SessionPlacement,
+    TimetableGridDTO,
+    TimetableGridQuery,
 )
 
 if TYPE_CHECKING:
+    from ludamus.pacts import UnitOfWorkProtocol
     from ludamus.pacts.legacy import TrackDTO
 
 
@@ -90,16 +91,40 @@ def _print_url(
     return f"{base}?{urlencode(params)}" if params else base
 
 
-def _grid_marks(
+class _MarkedGrid(NamedTuple):
+    grid: TimetableGridDTO
+    conflicts: list[ConflictDTO]
+
+
+def _marked_grid(
+    uow: UnitOfWorkProtocol,
+    *,
+    event_pk: int,
     track_pk: int | None,
-    conflicts: list[ConflictDTO],
-    slot_violations: list[PreferredSlotViolationDTO],
-) -> GridMarksDTO:
-    return GridMarksDTO(
-        track_pk=track_pk,
-        conflict_session_pks=frozenset(c.session_pk for c in conflicts),
-        slot_violation_session_pks=frozenset(v.session_pk for v in slot_violations),
+    space_page: int,
+    date_selection: DateSelection,
+) -> _MarkedGrid:
+    # The grid is built from the warnings, so the full page and the partial
+    # swap that replaces it have to gather them the same way -- the marker
+    # used to vanish on every swap because this was written out twice.
+    conflict_service = ConflictDetectionService(uow)
+    conflicts = conflict_service.list_all_for_track(
+        event_pk=event_pk, track_pk=track_pk
     )
+    grid = TimetableService(uow).build_grid(
+        query=TimetableGridQuery(
+            event_pk=event_pk,
+            tz=get_current_timezone(),
+            track_pk=track_pk,
+            space_page=space_page,
+            date_selection=date_selection,
+        ),
+        conflicts=conflicts,
+        slot_violations=conflict_service.list_preferred_slot_violations(
+            event_pk=event_pk, track_pk=track_pk
+        ),
+    )
+    return _MarkedGrid(grid, conflicts)
 
 
 def _parse_date_selection(raw: str | None) -> DateSelection:
@@ -142,17 +167,10 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
 
         uow = self.request.di.uow
-        conflict_service = ConflictDetectionService(uow)
-        conflicts = conflict_service.list_all_for_track(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        slot_violations = conflict_service.list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        grid = TimetableService(uow).build_grid(
+        grid, conflicts = _marked_grid(
+            uow,
             event_pk=current_event.pk,
-            tz=get_current_timezone(),
-            marks=_grid_marks(filter_track_pk, conflicts, slot_violations),
+            track_pk=filter_track_pk,
             space_page=room_page,
             date_selection=date_selection,
         )
@@ -339,24 +357,13 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        uow = self.request.di.uow
-        conflict_service = ConflictDetectionService(uow)
-        # The refreshed grid carries the same warnings as the full page: the
-        # marker used to vanish on every partial swap because this view had no
-        # conflicts to hand the template.
-        conflicts = conflict_service.list_all_for_track(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        slot_violations = conflict_service.list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        grid = TimetableService(uow).build_grid(
+        grid = _marked_grid(
+            self.request.di.uow,
             event_pk=current_event.pk,
-            tz=get_current_timezone(),
-            marks=_grid_marks(filter_track_pk, conflicts, slot_violations),
+            track_pk=filter_track_pk,
             space_page=room_page,
             date_selection=date_selection,
-        )
+        ).grid
 
         context: dict[str, object] = {
             "grid": grid,

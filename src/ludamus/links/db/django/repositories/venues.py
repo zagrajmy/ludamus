@@ -493,27 +493,6 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
     @staticmethod
-    def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]:
-        # Two constant queries: the session→track pairs, then the track rows.
-        # The one-query through-table walk (see read_facilitators_by_sessions)
-        # doesn't type-check here: `tracks` is declared with a lazy "Track"
-        # string reference, so django-stubs resolves the auto-created through
-        # model to Never and mypy rejects `Session.tracks.through.objects`.
-        pairs = (
-            Session.objects.filter(pk__in=session_ids, tracks__isnull=False)
-            .order_by("tracks__name")
-            .values_list("pk", "tracks__pk")
-        )
-        tracks = {
-            track.pk: TrackDTO.model_validate(track)
-            for track in Track.objects.filter(sessions__pk__in=session_ids).distinct()
-        }
-        result: dict[int, list[TrackDTO]] = {}
-        for session_pk, track_pk in pairs:
-            result.setdefault(session_pk, []).append(tracks[track_pk])
-        return result
-
-    @staticmethod
     def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:
         rows = (
             User.objects.filter(managed_tracks__pk__in=track_pks)

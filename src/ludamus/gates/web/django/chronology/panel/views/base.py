@@ -95,14 +95,17 @@ class EventContextMixin(EventPanelContextMixin):
             self.request.context.current_user_id, event_pk=event_pk
         )
         managed_pks = {t.pk for t in managed_tracks}
+        event_track_pks = {t.pk for t in all_tracks}
 
         track_param = self.request.GET.get("track", "").strip()
         # Panel access proves this organizer manages the event, not that a pk
-        # in the query string belongs to it — a track from another event drops
-        # back to the unfiltered view instead of reaching a repository.
+        # in the query string belongs to it. A track from another event is the
+        # unfiltered view here rather than a 404, because the switcher offers
+        # exactly these pks — a foreign one is a stale link, not tampering the
+        # organizer should be stopped on. The services check it again anyway.
         if "track" not in self.request.GET and len(managed_tracks) == 1:
             filter_track_pk: int | None = managed_tracks[0].pk
-        elif track_param.isdigit() and int(track_param) in {t.pk for t in all_tracks}:
+        elif track_param.isdigit() and int(track_param) in event_track_pks:
             filter_track_pk = int(track_param)
         else:
             filter_track_pk = None

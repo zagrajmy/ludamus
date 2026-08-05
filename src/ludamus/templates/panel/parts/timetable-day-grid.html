@@ -11,65 +11,15 @@
                 <div class="timetable-slot-line absolute left-0 right-0 border-t border-border"
                      style="--offset: {{ label.offset_minutes }}"></div>
             {% endfor %}
+            {# The state's tone is picked here, once, and the card renders it. #}
             {% for pos in col.sessions %}
-                {% comment %}
-                    Another track booked this room and time. Marked, not fenced
-                    off: whoever runs the schedule can switch the filter and
-                    move it anyway, so refusing the click here would buy nothing
-                    and cost a card that looks broken. The dashes and the owner
-                    line say whose it is; the card behaves like any other.
-                {% endcomment %}
-                {% if pos.outside_track_name %}
-                    {% blocktranslate with track=pos.outside_track_name asvar t_owner %}Scheduled by track: {{ track }}{% endblocktranslate %}
+                {% if pos.state == "conflict" %}
+                    {% include "panel/parts/timetable-session-card.html" with tone_surface="bg-danger-bg border-danger" tone_title="text-danger-text" tone_meta="text-danger" tone_icon="⚠" %}
+                {% elif pos.state == "slot_violation" %}
+                    {% include "panel/parts/timetable-session-card.html" with tone_surface="bg-warning-bg border-warning" tone_title="text-warning-text" tone_meta="text-warning" tone_icon="⏰" %}
+                {% else %}
+                    {% include "panel/parts/timetable-session-card.html" with tone_surface="bg-info-bg border-info" tone_title="text-info-text" tone_meta="text-info" tone_icon="" %}
                 {% endif %}
-                <div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {% if pos.state == 'conflict' %}bg-danger-bg border-danger{% elif pos.state == 'slot_violation' %}bg-warning-bg border-warning{% else %}bg-info-bg border-info{% endif %} {% if pos.outside_track_name %}timetable-session-foreign border-dashed{% endif %}"
-                     tabindex="0"
-                     draggable="true"
-                     data-session-pk="{{ pos.agenda_item.session_id }}"
-                     data-duration="{{ pos.duration_minutes }}"
-                     data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
-                     title="{% if pos.outside_track_name %}{{ t_owner }}: {% endif %}{{ pos.agenda_item.session_title }}"
-                     hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}"
-                     hx-target="#left-pane"
-                     hx-swap="outerHTML"
-                     style="--offset: {{ pos.start_minutes }};
-                            --duration: {{ pos.duration_minutes }};
-                            --lane-start: {{ pos.lane_start_pct }}%;
-                            --lane-width: {{ pos.lane_width_pct }}%">
-                    <div class="timetable-session-body px-1 py-0.5 h-full overflow-hidden">
-                        <div class="timetable-session-title font-medium wrap-anywhere {% if pos.state == 'conflict' %}text-danger-text{% elif pos.state == 'slot_violation' %}text-warning-text{% else %}text-info-text{% endif %}">
-                            {% if pos.state == "conflict" %}
-                                ⚠
-                            {% elif pos.state == "slot_violation" %}
-                                ⏰
-                            {% endif %}
-                            {% if pos.agenda_item.session_confirmed %}
-                                {% translate "Confirmed" as t_confirmed %}
-                                <span aria-label="{{ t_confirmed }}" title="{{ t_confirmed }}">{% icon "lock-closed" variant="mini" class="w-3 h-3 inline" %}</span>
-                            {% endif %}
-                            {{ pos.agenda_item.session_title|truncatechars:256 }}
-                        </div>
-                        {% comment %}
-                            A named other track replaces the presenter here:
-                            from there the useful answer is which block to talk
-                            to. It says so at every height -- a dashed border is
-                            colour and shape alone, so the short ones would
-                            otherwise read as this track's own. A session with
-                            no track at all is nobody else's, so it says
-                            nothing and renders like any other card.
-                        {% endcomment %}
-                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.state == 'conflict' %}text-danger{% elif pos.state == 'slot_violation' %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 and not pos.outside_track_name %}hidden{% endif %}">
-                            {% if pos.outside_track_name %}
-                                {{ t_owner }}
-                            {% else %}
-                                {{ pos.agenda_item.presenter_name }}
-                            {% endif %}
-                        </div>
-                        <div class="timetable-session-meta timetable-session-duration {% if pos.state == 'conflict' %}text-danger{% elif pos.state == 'slot_violation' %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 52 %}hidden{% endif %}">
-                            {{ pos.agenda_item.session_duration_minutes }} min
-                        </div>
-                    </div>
-                </div>
             {% endfor %}
         </div>
     {% endfor %}

@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, NamedTuple
 
+from ludamus.mills.event import require_session_in_event, require_track_in_event
 from ludamus.mills.timeslots import SlotWindow, slot_windows, slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -17,8 +18,6 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
-    DateSelection,
-    GridMarksDTO,
     HeatmapCellDTO,
     HeatmapCellStatus,
     HeatmapDayDTO,
@@ -34,6 +33,7 @@ from ludamus.pacts.chronology import (
     TimeLabelDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
+    TimetableGridQuery,
     TrackProgressDTO,
 )
 from ludamus.specs.timetable import (
@@ -43,11 +43,17 @@ from ludamus.specs.timetable import (
 )
 
 if TYPE_CHECKING:
-    from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
+    from collections.abc import Sequence
+
+    from ludamus.pacts import (
+        FacilitatorDTO,
+        SessionRepositoryProtocol,
+        SpaceDTO,
+        TimeSlotDTO,
+        UnitOfWorkProtocol,
+    )
 
 _WINDOWS_ACROSS_ONE_MIDNIGHT = 2
-# No track filtered, nothing flagged: the whole event, plain.
-_NO_MARKS = GridMarksDTO()
 
 
 def _slot_windows_by_grid_date(
@@ -68,23 +74,64 @@ def _slot_windows_by_grid_date(
     return grouped
 
 
-class _ResolvedMarks(NamedTuple):
-    # `GridMarksDTO` once the ownership queries have run: everything needed to
-    # colour a block and to decide whether this page may edit it.
-    own_item_pks: set[int]
-    outside_track_names: dict[int, str]
-    marks: GridMarksDTO
+class _TrackOwnership(NamedTuple):
+    # The one answer to "whose booking is this": session -> {track pk: name},
+    # plus the track in focus. The grid labels its cards from it and the
+    # conflict list attributes its clashes from it, so the two can't name
+    # different tracks for the same session.
+    names_by_session: dict[int, dict[int, str]]
+    current_track_pk: int | None
+
+    def is_outside(self, session_pk: int) -> bool:
+        # A session with no track at all is nobody else's booking, so it stays
+        # unmarked rather than being labelled as someone's.
+        tracks = self.names_by_session.get(session_pk, {})
+        return (
+            self.current_track_pk is not None
+            and bool(tracks)
+            and self.current_track_pk not in tracks
+        )
+
+    def other_tracks(self, session_pk: int) -> list[tuple[int, str]]:
+        return [
+            (track_pk, name)
+            for track_pk, name in self.names_by_session.get(session_pk, {}).items()
+            if track_pk != self.current_track_pk
+        ]
+
+
+def _track_ownership(
+    *,
+    sessions: SessionRepositoryProtocol,
+    session_pks: list[int],
+    current_track_pk: int | None,
+) -> _TrackOwnership:
+    names = sessions.list_track_names_by_session(session_pks) if session_pks else {}
+    return _TrackOwnership(names, current_track_pk)
+
+
+class _CardMarks(NamedTuple):
+    # Everything a card shows beyond its own row: what is wrong with it, and
+    # whether the track in focus is the one that booked it.
+    conflict_session_pks: set[int]
+    slot_violation_session_pks: set[int]
+    ownership: _TrackOwnership
 
     def state_of(self, session_pk: int) -> SessionPositionState:
-        if session_pk in self.marks.conflict_session_pks:
+        if session_pk in self.conflict_session_pks:
             return "conflict"
-        if session_pk in self.marks.slot_violation_session_pks:
+        if session_pk in self.slot_violation_session_pks:
             return "slot_violation"
         return "normal"
 
+    def outside_track_name(self, session_pk: int) -> str:
+        if not self.ownership.is_outside(session_pk):
+            return ""
+        return ", ".join(name for _, name in self.ownership.other_tracks(session_pk))
+
 
 def _position_sessions(
-    *, items: list[AgendaItemDTO], event_start: datetime, marks: _ResolvedMarks
+    *, items: list[AgendaItemDTO], event_start: datetime, marks: _CardMarks
 ) -> list[SessionPositionDTO]:
     if not items:
         return []
@@ -110,7 +157,6 @@ def _position_sessions(
         for index, item in enumerate(group):
             offset_min = (item.start_time - event_start).total_seconds() / 60
             duration_min = (item.end_time - item.start_time).total_seconds() / 60
-            outside = item.pk not in marks.own_item_pks
             positions.append(
                 SessionPositionDTO(
                     agenda_item=item,
@@ -119,12 +165,7 @@ def _position_sessions(
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
                     state=marks.state_of(item.session_id),
-                    is_outside_filtered_track=outside,
-                    outside_track_name=(
-                        marks.outside_track_names.get(item.session_id, "")
-                        if outside
-                        else ""
-                    ),
+                    outside_track_name=marks.outside_track_name(item.session_id),
                 )
             )
 
@@ -157,16 +198,19 @@ class TimetableService:
     def build_grid(
         self,
         *,
-        event_pk: int,
-        tz: tzinfo,
-        marks: GridMarksDTO = _NO_MARKS,
-        space_page: int = 1,
-        date_selection: DateSelection = "all",
+        query: TimetableGridQuery,
+        conflicts: Sequence[ConflictDTO] = (),
+        slot_violations: Sequence[PreferredSlotViolationDTO] = (),
     ) -> TimetableGridDTO:
+        # `query.track_pk` needs no event check here: both queries it reaches
+        # are already scoped to `event_pk`, so a track from elsewhere can only
+        # narrow the columns to none — never widen them.
+        event_pk, tz, track_pk = query.event_pk, query.tz, query.track_pk
+        date_selection = query.date_selection
         all_nodes = self._uow.spaces.list_by_event(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = _leaves_in_tree_order(all_nodes)
-        if (track_pk := marks.track_pk) is not None:
+        if track_pk is not None:
             track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
             leaf_spaces = [
                 space for space in leaf_spaces if space.pk in track_space_pks
@@ -174,7 +218,7 @@ class TimetableService:
 
         total_spaces = len(leaf_spaces)
         total_pages = max(1, math.ceil(total_spaces / TIMETABLE_ROOM_PAGE_SIZE))
-        space_page = max(1, min(space_page, total_pages))
+        space_page = max(1, min(query.space_page, total_pages))
         start = (space_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
@@ -193,7 +237,28 @@ class TimetableService:
         # showing the other tracks' bookings is what makes a room's occupancy
         # visible *before* the clash is created.
         all_items = self._uow.agenda_items.list_by_event(event_pk)
-        resolved = self._resolve_marks(all_items=all_items, marks=marks)
+        marks = _CardMarks(
+            # Both ends of a clash are wrong, and only one of them carries the
+            # pair: attributing it to the counterpart alone would redden the
+            # other track's card and leave the offending one blue.
+            conflict_session_pks={
+                pk
+                for conflict in conflicts
+                for pk in (conflict.subject_session_pk, conflict.session_pk)
+            },
+            slot_violation_session_pks={v.session_pk for v in slot_violations},
+            ownership=(
+                _track_ownership(
+                    sessions=self._uow.sessions,
+                    session_pks=[item.session_id for item in all_items],
+                    current_track_pk=track_pk,
+                )
+                if track_pk is not None
+                # With the whole event on screen no booking is anyone else's,
+                # so the ownership query is skipped rather than answered.
+                else _TrackOwnership({}, None)
+            ),
+        )
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
         )
@@ -219,7 +284,7 @@ class TimetableService:
                     day_range=(range_start, range_end),
                     spaces=spaces,
                     all_items=all_items,
-                    marks=resolved,
+                    marks=marks,
                 )
             )
         time_labels: list[TimeLabelDTO] = []
@@ -253,36 +318,6 @@ class TimetableService:
             date_selection=date_selection,
         )
 
-    def _resolve_marks(
-        self, *, all_items: list[AgendaItemDTO], marks: GridMarksDTO
-    ) -> _ResolvedMarks:
-        if (track_pk := marks.track_pk) is None:
-            own_item_pks = {item.pk for item in all_items}
-            outside_track_names: dict[int, str] = {}
-        else:
-            own_item_pks = {
-                item.pk for item in self._uow.agenda_items.list_by_track(track_pk)
-            }
-            # Whose booking it is, so a clash on screen names the block to talk
-            # to instead of sending the organizer off to find out.
-            outside_session_pks = [
-                item.session_id for item in all_items if item.pk not in own_item_pks
-            ]
-            names_by_session = (
-                self._uow.sessions.list_track_names_by_session(outside_session_pks)
-                if outside_session_pks
-                else {}
-            )
-            outside_track_names = {
-                session_pk: ", ".join(names.values())
-                for session_pk, names in names_by_session.items()
-            }
-        return _ResolvedMarks(
-            own_item_pks=own_item_pks,
-            outside_track_names=outside_track_names,
-            marks=marks,
-        )
-
     @staticmethod
     def _build_day_grid(
         *,
@@ -290,7 +325,7 @@ class TimetableService:
         day_range: tuple[datetime, datetime],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
-        marks: _ResolvedMarks,
+        marks: _CardMarks,
     ) -> TimetableDayGridDTO:
         grid_start, grid_end = day_range
 
@@ -372,10 +407,6 @@ class TimetableService:
             groups[-1].span += 1
         return groups
 
-    def _require_session_in_event(self, session_pk: int, event_pk: int) -> None:
-        if self._uow.sessions.read_event(session_pk).pk != event_pk:
-            raise NotFoundError
-
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         leaf_pks = {
             space.pk
@@ -393,7 +424,7 @@ class TimetableService:
         user_pk: int | None = None,
     ) -> None:
         with self._uow.atomic():
-            self._require_session_in_event(session_pk, event_pk)
+            require_session_in_event(self._uow.sessions, session_pk, event_pk)
             self._require_space_in_event(placement.space_pk, event_pk)
             self._uow.spaces.lock(placement.space_pk)
             is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
@@ -429,7 +460,7 @@ class TimetableService:
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
     ) -> None:
-        self._require_session_in_event(session_pk, event_pk)
+        require_session_in_event(self._uow.sessions, session_pk, event_pk)
         if (agenda_item := self._uow.agenda_items.read_by_session(session_pk)) is None:
             raise NotFoundError
         event = self._uow.sessions.read_event(session_pk)
@@ -560,6 +591,8 @@ class ConflictDetectionService:
         # a query per scheduled session turns one page load into thousands of
         # queries at a big event. Overlaps are checked against every scheduled
         # item in the event so a track page still surfaces cross-track clashes.
+        if track_pk is not None:
+            require_track_in_event(self._uow.tracks, track_pk, event_pk)
         context = self._load_event_context(event_pk)
         subjects = (
             context.items
@@ -684,23 +717,27 @@ class ConflictDetectionService:
         # beyond the current one are simply absent from the result.
         if not session_pks:
             return {}
-        tracks_by_session = self._uow.tracks.list_by_sessions(session_pks)
-        manager_names = self._uow.tracks.list_manager_names_by_tracks(
-            {t.pk for tracks in tracks_by_session.values() for t in tracks}
+        ownership = _track_ownership(
+            sessions=self._uow.sessions,
+            session_pks=sorted(session_pks),
+            current_track_pk=current_track_pk,
         )
-        result: dict[int, tuple[str, list[str]]] = {}
-        for session_pk, tracks in tracks_by_session.items():
-            foreign = [
-                t
-                for t in tracks
-                if current_track_pk is None or t.pk != current_track_pk
-            ]
-            if foreign:
-                result[session_pk] = (
-                    foreign[0].name,
-                    manager_names.get(foreign[0].pk, []),
-                )
-        return result
+        others_by_session = {
+            session_pk: others
+            for session_pk in session_pks
+            if (others := ownership.other_tracks(session_pk))
+        }
+        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+            {
+                track_pk
+                for others in others_by_session.values()
+                for track_pk, _ in others
+            }
+        )
+        return {
+            session_pk: (others[0][1], manager_names.get(others[0][0], []))
+            for session_pk, others in others_by_session.items()
+        }
 
     def _add_track_attribution(
         self, conflicts: list[ConflictDTO], current_track_pk: int | None
@@ -733,6 +770,8 @@ class ConflictDetectionService:
     def list_preferred_slot_violations(
         self, event_pk: int, track_pk: int | None
     ) -> list[PreferredSlotViolationDTO]:
+        if track_pk is not None:
+            require_track_in_event(self._uow.tracks, track_pk, event_pk)
         scheduled = (
             self._uow.agenda_items.list_by_event(event_pk)
             if track_pk is None

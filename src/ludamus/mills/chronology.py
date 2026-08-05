@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.event import require_session_in_event
 from ludamus.pacts import (
     EventDTO,
     NotFoundError,
@@ -73,15 +74,6 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-
-
-def require_session_in_event(
-    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
-) -> None:
-    # Panel access only proves you manage `event_pk`; a session named in
-    # the request must belong to it, or it is cross-event tampering.
-    if sessions.read_event(session_pk).pk != event_pk:
-        raise NotFoundError
 
 
 class SessionConfirmationService:

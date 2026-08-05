@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 20:43+0200\n"
+"POT-Creation-Date: 2026-08-06 00:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -7264,7 +7264,7 @@ msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
-#: src/ludamus/templates/panel/parts/timetable-day-grid.html
+#: src/ludamus/templates/panel/parts/timetable-session-card.html
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
@@ -7721,11 +7721,6 @@ msgstr "zarządza:"
 msgid "Show session"
 msgstr "Pokaż punkt programu"
 
-#: src/ludamus/templates/panel/parts/timetable-day-grid.html
-#, python-format
-msgid "Scheduled by track: %(track)s"
-msgstr "Zaplanowane przez blok: %(track)s"
-
 #: src/ludamus/templates/panel/parts/timetable-filter-chips.html
 msgid "Category:"
 msgstr "Kategoria:"
@@ -7769,6 +7764,11 @@ msgid ""
 msgstr ""
 "Przeciągnij lub użyj strzałek, aby zmienić szerokość wszystkich kolumn. "
 "Kliknij dwukrotnie, aby przywrócić domyślną."
+
+#: src/ludamus/templates/panel/parts/timetable-session-card.html
+#, python-format
+msgid "Scheduled by track: %(track)s"
+msgstr "Zaplanowane przez blok: %(track)s"
 
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Session details"

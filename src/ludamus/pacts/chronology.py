@@ -6,7 +6,7 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, tzinfo
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
@@ -379,17 +379,6 @@ class SessionModalServiceProtocol(Protocol):
 type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
 
 
-class GridMarksDTO(BaseModel):
-    # What the page already knows about the request, so every block can be
-    # marked once instead of being re-tested against page-wide sets while it
-    # renders: whose track is in focus, and what is wrong where.
-    model_config = ConfigDict(frozen=True)
-
-    track_pk: int | None = None
-    conflict_session_pks: frozenset[int] = frozenset()
-    slot_violation_session_pks: frozenset[int] = frozenset()
-
-
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
@@ -399,11 +388,10 @@ class SessionPositionDTO(BaseModel):
     # What the block is warning about, resolved once here so the grid stops
     # testing the same session against two page-wide sets in four places.
     state: SessionPositionState = "normal"
-    # Outside the track being filtered on: shown so the space's occupancy is
-    # honest, but not editable from here. Named for the request rather than the
-    # item — the same row is inside the filter on the next request. Orthogonal
-    # to `state`: someone else's booking is the one most worth flagging.
-    is_outside_filtered_track: bool = False
+    # The other track that booked this room and time, named. Empty for our own
+    # bookings and for sessions with no track at all — nobody else's, so
+    # nothing to attribute. Named for the request rather than the item: the
+    # same row belongs to the filtered track on the next request.
     outside_track_name: str = ""
 
 
@@ -432,6 +420,17 @@ class TimetableDayGridDTO(BaseModel):
 
 
 type DateSelection = date | Literal["all"]
+
+
+# Which slice of the schedule to draw. The warnings drawn on top of it stay a
+# separate argument: they come from conflict detection, not from the request.
+@dataclass(frozen=True)
+class TimetableGridQuery:
+    event_pk: int
+    tz: tzinfo
+    track_pk: int | None = None
+    space_page: int = 1
+    date_selection: DateSelection = "all"
 
 
 class TimetableGridDTO(BaseModel):

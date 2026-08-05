@@ -692,8 +692,12 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         session_pks: list[int],
     ) -> dict[int, dict[int, str]]:
         names: dict[int, dict[int, str]] = {}
-        rows = Track.objects.filter(sessions__in=session_pks).values_list(
-            "sessions__pk", "pk", "name"
+        # By name: callers that name a single track for a session (the timetable
+        # attributing a clash) must not pick a different one run to run.
+        rows = (
+            Track.objects.filter(sessions__in=session_pks)
+            .order_by("name")
+            .values_list("sessions__pk", "pk", "name")
         )
         for session_pk, track_pk, name in rows:
             names.setdefault(session_pk, {})[track_pk] = name

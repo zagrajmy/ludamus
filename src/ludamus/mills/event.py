@@ -32,6 +32,24 @@ from ludamus.pacts.legacy import (
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
 
 
+# Panel access only proves you manage an event; every id the request names has
+# to be scoped to it before it is read or written, or it is cross-event
+# tampering. Both guards live on the event noun because that is what they
+# assert membership of, and every panel service needs one or the other.
+def require_session_in_event(
+    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
+) -> None:
+    if sessions.read_event(session_pk).pk != event_pk:
+        raise NotFoundError
+
+
+def require_track_in_event(
+    tracks: TrackRepositoryProtocol, track_pk: int, event_pk: int
+) -> None:
+    if tracks.read(track_pk).event_id != event_pk:
+        raise NotFoundError
+
+
 def is_proposal_active(event: EventDTO) -> bool:
     current_time = datetime.now(tz=UTC)
     return bool(
@@ -146,8 +164,7 @@ class EventConfirmationsService(EventConfirmationsServiceProtocol):
         )
         # `track_pk` comes from the form, so it gets the same treatment as the
         # facilitator: a block of another event never reaches the render.
-        if self._tracks.read(track_pk).event_id != event_pk:
-            raise NotFoundError
+        require_track_in_event(self._tracks, track_pk, event_pk)
         sessions = self._sessions.list_confirmation_rows(event_pk, [facilitator_pk])
         session_pks = [session["session_pk"] for session in sessions]
         return _facilitator(

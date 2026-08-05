@@ -19,10 +19,12 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ConflictDTO,
+    ConflictSeverity,
     ConflictType,
-    GridMarksDTO,
     HeatmapCellStatus,
     SessionPlacement,
+    TimetableGridQuery,
 )
 
 
@@ -89,7 +91,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [item_a, item_b, item_c]
 
         svc = TimetableService(uow)
-        grid = svc.build_grid(event_pk=1, tz=UTC)
+        grid = svc.build_grid(query=TimetableGridQuery(event_pk=1, tz=UTC))
 
         sessions = grid.days[0].columns[0].sessions
         expected_count = 3
@@ -142,7 +144,7 @@ class TestBuildGridOverlappingSessions:
         ]
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection="all"
+            query=TimetableGridQuery(event_pk=1, tz=UTC, date_selection="all")
         )
 
         expected_total_minutes = 180
@@ -202,32 +204,46 @@ class TestBuildGridOverlappingSessions:
             start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
         )
-        uow.agenda_items.list_by_event.return_value = [mine, theirs]
-        uow.agenda_items.list_by_track.return_value = [mine]
+        # Nobody's block: no track claims it, so it is not "someone else's".
+        untracked = _make_item(
+            pk=3,
+            session_id=3,
+            session_title="Untracked",
+            start_time=datetime(2026, 1, 1, 10, 45, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 45, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [mine, theirs, untracked]
         uow.sessions.list_track_names_by_session.return_value = {
-            2: {9: "Board Games Track"}
+            1: {5: "RPG Track"},
+            2: {9: "Board Games Track"},
         }
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1,
-            tz=UTC,
-            marks=GridMarksDTO(track_pk=5, conflict_session_pks=frozenset({2})),
+            query=TimetableGridQuery(event_pk=1, tz=UTC, track_pk=5),
+            conflicts=[
+                ConflictDTO(
+                    type=ConflictType.SPACE_OVERLAP,
+                    severity=ConflictSeverity.ERROR,
+                    subject_session_pk=1,
+                    subject_session_title="Mine",
+                    session_pk=2,
+                    session_title="Theirs",
+                )
+            ],
         )
 
         sessions = grid.days[0].columns[0].sessions
+        # Both ends of the clash are red, and only the other track is named.
         assert [
-            (
-                pos.agenda_item.session_title,
-                pos.is_outside_filtered_track,
-                pos.outside_track_name,
-                pos.state,
-            )
+            (pos.agenda_item.session_title, pos.outside_track_name, pos.state)
             for pos in sessions
         ] == [
-            ("Mine", False, "", "normal"),
-            ("Theirs", True, "Board Games Track", "conflict"),
+            ("Mine", "", "conflict"),
+            ("Theirs", "Board Games Track", "conflict"),
+            ("Untracked", "", "normal"),
         ]
-        uow.sessions.list_track_names_by_session.assert_called_once_with([2])
+        uow.sessions.list_track_names_by_session.assert_called_once_with([1, 2, 3])
+        uow.agenda_items.list_by_track.assert_not_called()
 
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
         uow = MagicMock()
@@ -252,7 +268,9 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = []
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
+            query=TimetableGridQuery(
+                event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
+            )
         )
 
         assert grid.date_selection == date(2026, 1, 1)
@@ -290,7 +308,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection="all"
+            query=TimetableGridQuery(event_pk=1, tz=UTC, date_selection="all")
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
@@ -343,7 +361,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [first_night, second_night]
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection="all"
+            query=TimetableGridQuery(event_pk=1, tz=UTC, date_selection="all")
         )
 
         day_one, day_two = grid.days
@@ -608,6 +626,12 @@ def _track_stub(pk, name="Track"):
     return track
 
 
+def _event_track(*, event_pk):
+    track = MagicMock()
+    track.event_id = event_pk
+    return track
+
+
 _SUBJECT_SESSION_PK = 10
 _OTHER_SESSION_PK = 20
 _ROOM_CAPACITY = 10
@@ -630,7 +654,8 @@ class TestListAllForTrack:
             limits if limits is not None else {i.session_id: 0 for i in all_items}
         )
         uow.sessions.read_facilitators_by_sessions.return_value = facilitators or {}
-        uow.tracks.list_by_sessions.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.tracks.list_manager_names_by_tracks.return_value = {}
         return uow
 
@@ -720,7 +745,7 @@ class TestListAllForTrack:
             subjects=[subject],
             facilitators={10: [shared], 20: [shared]},
         )
-        uow.tracks.list_by_sessions.return_value = {20: [_track_stub(6, "Board games")]}
+        uow.sessions.list_track_names_by_session.return_value = {20: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
         conflicts = ConflictDetectionService(uow).list_all_for_track(
@@ -733,7 +758,7 @@ class TestListAllForTrack:
         assert conflict.facilitator_name == "Alice"
         assert conflict.track_name == "Board games"
         assert conflict.manager_names == ["Basia"]
-        uow.tracks.list_by_sessions.assert_called_once_with({20})
+        uow.sessions.list_track_names_by_session.assert_called_once_with([20])
         uow.tracks.list_manager_names_by_tracks.assert_called_once_with({6})
 
     def test_no_other_tracks_returns_conflict_unchanged(self):
@@ -748,7 +773,9 @@ class TestListAllForTrack:
             subjects=[subject],
             facilitators={10: [shared], 20: [shared]},
         )
-        uow.tracks.list_by_sessions.return_value = {20: [_track_stub(current_track_pk)]}
+        uow.sessions.list_track_names_by_session.return_value = {
+            20: {current_track_pk: "Track"}
+        }
 
         conflicts = ConflictDetectionService(uow).list_all_for_track(
             event_pk=1, track_pk=current_track_pk
@@ -810,7 +837,8 @@ class TestListPreferredSlotViolations:
         uow.agenda_items.list_by_event.return_value = items
         uow.agenda_items.list_by_track.return_value = items
         uow.sessions.read_preferred_time_slots_by_sessions.return_value = preferred
-        uow.tracks.list_by_sessions.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.tracks.list_manager_names_by_tracks.return_value = {}
         return uow
 
@@ -846,7 +874,7 @@ class TestListPreferredSlotViolations:
             datetime(2026, 1, 1, 13, 0, tzinfo=UTC),
         )
         uow = self._uow(items=[item], preferred={10: [slot]})
-        uow.tracks.list_by_sessions.return_value = {10: [_track_stub(6, "Board games")]}
+        uow.sessions.list_track_names_by_session.return_value = {10: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
         violations = ConflictDetectionService(uow).list_preferred_slot_violations(
