@@ -284,7 +284,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
         form_class = create_proposal_form(
             [(c.pk, c.name) for c in categories],
             requirements=requirements,
-            category=category,
+            durations=category.durations if category else (),
         )
         if data is not None:
             return form_class(data, self.request.FILES)
@@ -819,7 +819,10 @@ class ProposalFormPageView(_ProposalFormBase):
                         user_id=self.request.context.current_user_id,
                     )
 
-            # T2: raising (or unlimiting) capacity frees seats — promote waiters.
+            # T2: a capacity change may have freed seats — promote waiters. The
+            # condition is deliberately loose (0 also matches a limit that went
+            # from unlimited to finite, i.e. shrank): fill_freed_seats
+            # recomputes what is actually free, so a needless call is a no-op.
             new_limit = form.cleaned_data.get("participants_limit") or 0
             if new_limit == 0 or new_limit > session.participants_limit:
                 self.request.services.waitlist_promotion.fill_freed_seats(

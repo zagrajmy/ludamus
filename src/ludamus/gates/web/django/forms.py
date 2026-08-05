@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from lxml.etree import _Element as Element
 
-    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+    from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -635,7 +635,7 @@ class SessionEditForm(forms.Form):
         required=False,
         min_value=0,
         label=_("Participants Limit"),
-        help_text=_("Empty or 0 means no limit."),
+        help_text=_("Empty or 0 = no limit"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
     duration = forms.CharField(required=False, label=_("Duration"))
@@ -690,11 +690,14 @@ def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
     )
 
 
+# Takes the category's durations, not the category: the participant bounds a
+# category also carries bind the submission wizard only (see
+# chronology.forms.build_session_details_form), never the organizer's own form.
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
-    category: ProposalCategoryDTO | None = None,
+    durations: Sequence[str] = (),
 ) -> type[SessionEditForm]:
     attrs: dict[str, forms.Field] = {
         "category_id": forms.ChoiceField(
@@ -705,11 +708,6 @@ def create_proposal_form(
             },
         )
     }
-
-    # The category's participant bounds are a call-for-proposals guardrail for
-    # submitters. An organizer editing in the panel owns those bounds, so the
-    # inherited unbounded field stands: capping them here only produces a bare
-    # browser tooltip on a number they configured themselves.
 
     attrs["duration_hours"] = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
@@ -724,7 +722,7 @@ def create_proposal_form(
 
     namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
         **attrs,
-        "duration": _duration_field(category.durations if category else []),
+        "duration": _duration_field(durations),
         "custom_required_keys": custom_required,
     }
     return type(

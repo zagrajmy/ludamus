@@ -50,20 +50,24 @@ def build_session_details_form(
     max_limit: int = 0,
     durations: list[str] | None = None,
 ) -> type[forms.Form]:
-    participants_kwargs: dict[str, Any] = {"label": _("Max participants")}
-    if min_limit == 0 and max_limit == 0:
-        participants_kwargs["required"] = False
-        participants_kwargs["min_value"] = 0
-        participants_kwargs["initial"] = 0
-        participants_kwargs["help_text"] = _("0 = no limit")
-    elif max_limit == 0:
-        participants_kwargs["min_value"] = min_limit
-    elif min_limit == 0:
-        participants_kwargs["min_value"] = 0
+    # This step is the only place a category's participant bounds are enforced.
+    # They exist so a category whose rooms are all large can refuse a session
+    # capped at two people; the organizer's own panel form is deliberately
+    # unbounded, and so is a facilitator self-editing an accepted session.
+    # Unbounded on both sides means the field is optional and 0 reads as
+    # "no limit"; a floor makes an actual number mandatory.
+    participants_kwargs: dict[str, Any] = {
+        "label": _("Max participants"),
+        "min_value": min_limit,
+    }
+    if max_limit:
         participants_kwargs["max_value"] = max_limit
-    else:
-        participants_kwargs["min_value"] = min_limit
-        participants_kwargs["max_value"] = max_limit
+    elif not min_limit:
+        participants_kwargs |= {
+            "required": False,
+            "initial": 0,
+            "help_text": _("Empty or 0 = no limit"),
+        }
 
     fields: dict[str, forms.Field] = {
         "title": forms.CharField(label=_("Title"), max_length=255),

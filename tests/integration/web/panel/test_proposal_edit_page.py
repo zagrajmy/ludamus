@@ -56,6 +56,9 @@ from tests.integration.utils import FormErrorsMatcher, assert_response, checkbox
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 CUSTOM_DURATION_MINUTES = 45
+CATEGORY_MAX_PARTICIPANTS = 9
+CATEGORY_MIN_PARTICIPANTS = 4
+LIMIT_ABOVE_CATEGORY_MAX = 500
 
 
 def _make_session(event, **kwargs):
@@ -611,6 +614,87 @@ class TestProposalEditPageView:
         assert response.context["form"].errors
         session.refresh_from_db()
         assert session.category_id == original_category_id
+
+    def test_post_accepts_a_limit_above_the_category_maximum(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # The category's bounds guard the submission wizard, not the organizer
+        # reviewing the proposal here.
+        sphere.managers.add(active_user)
+        bounded = ProposalCategory.objects.create(
+            event=event,
+            name="Lectures",
+            slug="lectures",
+            min_participants_limit=4,
+            max_participants_limit=CATEGORY_MAX_PARTICIPANTS,
+        )
+        session = _make_session(event, category=bounded)
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": bounded.pk,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": LIMIT_ABOVE_CATEGORY_MAX,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == LIMIT_ABOVE_CATEGORY_MAX
+
+    def test_post_accepts_a_limit_below_the_category_minimum(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # A session already smaller than its category's floor stays editable:
+        # the floor never applies on this form.
+        sphere.managers.add(active_user)
+        bounded = ProposalCategory.objects.create(
+            event=event,
+            name="Lectures",
+            slug="lectures",
+            min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
+        )
+        session = _make_session(event, category=bounded, participants_limit=1)
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": bounded.pk,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": 1,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == 1
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_raising_capacity_promotes_waiter(
