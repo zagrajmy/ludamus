@@ -284,3 +284,12 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-05: Scoping impeccable to two templates: 'mise run lint:impeccable
+  path/to/file.html' silently drops the paths (the task body has no forwarding),
+  so it scans every tracked HTML/CSS/JS file and looks hung for minutes. That is
+  the same friction logged on 2026-07-14. Call '.venv/bin/python
+  scripts/impeccable_lint.py PATH...' to scope it. Use the venv interpreter
+  specifically: the script uses PEP 758 except syntax at line 102, valid only on
+  3.14, so a bare 'python' (3.11 on PATH here) raises a SyntaxError that reads
+  like a repo bug. Black under 3.14 normalizes to that form, so parenthesizing
+  it fights the formatter and hk reverts the file mid-commit.
