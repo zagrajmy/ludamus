@@ -25,9 +25,10 @@ export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
-// Only reached when a snapshot comes back without a root rect. Sized for the
-// iPhone 17 Pro the macOS runner image actually provides -- CI ignores
-// `deviceName` below, because the workflow picks a UDID and passes it in.
+// Only reached when a snapshot comes back with no nodes at all -- the runner
+// always sets a rect. Sized for the iPhone 17 Pro the workflow asks for, which
+// it falls back off when the image has no such device, so treat it as a shape
+// to keep arithmetic finite rather than as this run's screen.
 const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
@@ -175,8 +176,9 @@ export const createIosHarness = (session: string): IosHarness => {
   };
 
   // Waits for the page to serve `contains`, then hands back the body. A caller
-  // that needs a landmark from the markup (a scrubber slot anchor, say) reads it
-  // here instead of hunting for it with gestures, which cost ~24s each.
+  // that needs a landmark from the markup -- a scrubber slot anchor, the
+  // accessible name of a control -- reads it here instead of hunting for it
+  // with gestures, which are the slowest thing either spec can do.
   const fetchReadyPage = async (url: URL, contains: string): Promise<string> => {
     console.log(`Checking local event page at ${url.toString()}...`);
     const deadline = Date.now() + 60000;

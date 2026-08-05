@@ -25,19 +25,25 @@ const {
   fetchReadyPage,
 } = createIosHarness(session);
 
-const hasVisibleText = async (text: string): Promise<boolean> => {
-  const labels = await snapshotLabels();
-  return labels.some((label) => label.includes(text));
+// `snapshotLabels` reports every label in the tree, including nodes scrolled out
+// of view, so it cannot answer "is this on screen". `hittable` is the runner's
+// verdict — enabled, centre inside the window, unoccluded — which is what the
+// modal-content check actually needs: content parked below the fold of a
+// modal that no longer sizes itself would otherwise read as visible.
+const hittableLabels = async (): Promise<string[]> => {
+  const snapshot = await takeSnapshot();
+  return snapshot.nodes.flatMap((node) => (node.hittable && node.label ? [node.label] : []));
 };
 
+const isShowing = async (text: string): Promise<boolean> =>
+  (await hittableLabels()).some((label) => label.includes(text));
+
 // Polling, not sleeping: the modal animates in, and a single snapshot taken
-// mid-animation reports content that is about to be there as missing. It still
-// fails if the content only appears after a scroll — nothing here scrolls —
-// so the regression this guards stays guarded.
-const waitForVisibleTexts = async (texts: string[], timeoutMs: number): Promise<boolean> => {
+// mid-animation reports content that is about to be there as missing.
+const waitUntilShowing = async (texts: string[], timeoutMs: number): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs;
   do {
-    const labels = await snapshotLabels();
+    const labels = await hittableLabels();
     if (texts.every((text) => labels.some((label) => label.includes(text)))) return true;
     await client.command.wait({ ...deviceOptions, durationMs: 400 });
   } while (Date.now() < deadline);
@@ -194,7 +200,7 @@ beforeAll(async () => {
   }
 
   console.log("Checking whether modal content is initially visible...");
-  const contentInitiallyVisible = await waitForVisibleTexts(
+  const contentInitiallyVisible = await waitUntilShowing(
     ["About this session", "Przygoda w stylu filmu"],
     5000,
   );
@@ -211,7 +217,7 @@ beforeAll(async () => {
   await clickNodeCenter(closeButton);
   await client.command.wait({ ...deviceOptions, durationMs: 1000 });
 
-  if (await hasVisibleText("Close")) {
+  if (await isShowing("Close")) {
     closeIssue = "The modal X / Close button did not close the modal.";
   }
 

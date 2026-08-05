@@ -1,4 +1,4 @@
-import type { CaptureSnapshotResult } from "agent-device";
+import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
@@ -24,7 +24,6 @@ const {
   deviceOptions,
   takeSnapshot,
   snapshotLabels,
-  viewportOf,
   close,
   wait,
   openUrl,
@@ -47,78 +46,81 @@ const railSlotAnchor = (html: string): string => {
 
 type RailHour = { label: string; rect: Rect };
 
-// Ending in a time is necessary but nowhere near sufficient: the schedule body
-// labels its own hour headings "11:00" too, and the first device run pressed
-// three of those (x=31, the left time gutter) instead of the rail. So pin the
-// rail's two other properties as well — it is the right-hand column, and the
-// snapshot carries nodes scrolled out of view, which is how that run came to
-// press y=-481. Matching the time rather than the "Jump to " prefix keeps this
-// working in either language: the prefix is translated ("Przejdź do ..."), and
-// the e2e run only escapes that today because it never compiles the catalogue.
-const RAIL_HOUR_LABEL = /\d{1,2}:\d{2}$/;
-const RAIL_COLUMN_FRACTION = 0.6;
+// Attribute values arrive escaped; the rail's labels carry event and day names.
+const decodeEntities = (value: string): string =>
+  value
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#x27;", "'")
+    .replaceAll("&#39;", "'");
 
-// Press those markers rather than a coordinate derived from the viewport: the
-// old aim, `viewport.width - 4`, was a guess at where the rail sits, and a rect
-// from the snapshot is not.
-const railHourTargets = (snapshot: CaptureSnapshotResult): RailHour[] => {
-  const viewport = viewportOf(snapshot);
-  const onScreen = (rect: Rect): boolean =>
-    rect.y >= viewport.y && rect.y + rect.height <= viewport.y + viewport.height;
-  const inRailColumn = (rect: Rect): boolean =>
-    rect.x > viewport.x + viewport.width * RAIL_COLUMN_FRACTION;
+const namesFrom = (html: string, pattern: RegExp): Set<string> =>
+  new Set([...html.matchAll(pattern)].flatMap((m) => (m[1] ? [decodeEntities(m[1])] : [])));
 
-  const hours = snapshot.nodes.flatMap((node) => {
-    const label = node.label ?? "";
-    if (!RAIL_HOUR_LABEL.test(label) || !node.rect) return [];
-    if (!onScreen(node.rect) || !inRailColumn(node.rect)) return [];
-    return [{ label, rect: node.rect }];
-  });
+// Take the accessible names the page actually renders rather than guessing at
+// them. Two earlier rounds guessed: `viewport.width - 4` assumed where the rail
+// sits, and matching a label ending in a time assumed only the rail carries one
+// — the device then pressed the schedule body's own "11:00" headings in the
+// left gutter. The served markup is ground truth for both the rail and the
+// session links, needs no geometry, and is already translated, so this holds
+// whether or not the message catalogue is ever compiled.
+const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)"/g;
+const SESSION_LINK_NAMES =
+  /<a[^>]*class="session-link[^"]*"[^>]*>\s*<span class="sr-only">([^<]+)<\/span>/g;
+
+// `hittable` is the runner's own verdict — enabled, centre inside the window,
+// and not covered by anything — so the spec no longer re-implements visibility
+// and cannot press a marker hidden under Safari's chrome.
+const pressable = (node: SnapshotNode, names: Set<string>): boolean =>
+  Boolean(node.label && names.has(node.label) && node.hittable && node.rect);
+
+const railHourTargets = (snapshot: CaptureSnapshotResult, names: Set<string>): RailHour[] => {
+  const hours = snapshot.nodes.flatMap((node) =>
+    pressable(node, names) && node.label && node.rect
+      ? [{ label: node.label, rect: node.rect }]
+      : [],
+  );
   if (hours.length === 0) {
-    // Name what was on screen and where, so a run that finds no rail says why
-    // rather than leaving the next reader to guess at the layout.
-    const seen = snapshot.nodes
-      .flatMap((node) =>
-        node.label && node.rect
-          ? [`${node.label}@${Math.round(node.rect.x)},${Math.round(node.rect.y)}`]
-          : [],
+    // Report the rail nodes that were found but rejected, with the runner's own
+    // fields, so a failure says which property was missing instead of leaving
+    // the next reader to infer it from a screenshot they cannot take.
+    const rejected = snapshot.nodes
+      .flatMap((node) => (node.label && names.has(node.label) ? [node] : []))
+      .slice(0, 8)
+      .map(
+        (node) =>
+          `${node.label} type=${node.type ?? "?"} hittable=${String(node.hittable)} rect=${
+            node.rect ? `${Math.round(node.rect.x)},${Math.round(node.rect.y)}` : "none"
+          }`,
       )
-      .slice(0, 16)
       .join(" | ");
     throw new Error(
-      `No hour markers in the rail column (x > ${Math.round(
-        viewport.x + viewport.width * RAIL_COLUMN_FRACTION,
-      )}) and on screen. Saw: ${seen}`,
+      `No pressable rail hour among ${names.size} rendered markers.` +
+        (rejected ? ` Rejected: ${rejected}` : " None appeared in the snapshot at all."),
     );
   }
   // A handful spread down the rail: the callout is a per-element behaviour, so
   // one hour passing says little about the rest. Dedup keeps a short rail from
   // pressing the same marker four times.
-  return [...new Set([0.1, 0.35, 0.6, 0.85].map((f) => Math.floor(f * hours.length)))].flatMap(
-    (index) => {
-      const hour = hours[index];
-      return hour ? [hour] : [];
-    },
+  return [...new Set([0.1, 0.35, 0.6, 0.85].map((f) => Math.floor(f * hours.length)))].map(
+    (index) => hours[index],
   );
 };
 
-const scheduleOnScreen = (snapshot: CaptureSnapshotResult): boolean => {
-  const viewportHeight = viewportOf(snapshot).height;
-  return snapshot.nodes.some(
-    (node) =>
-      (node.label ?? "").startsWith("Open details for") &&
-      node.rect !== undefined &&
-      node.rect.y > 80 &&
-      node.rect.y < viewportHeight - 120,
-  );
-};
+const scheduleOnScreen = (snapshot: CaptureSnapshotResult, names: Set<string>): boolean =>
+  snapshot.nodes.some((node) => pressable(node, names));
 
 // Polled, not slept: Safari applies the fragment scroll somewhere after load,
 // and a fixed wait is either too short on a slow runner or wasted on a fast
 // one. Without the check the long-press would land on empty page and the spec
 // would pass by finding no callout, which is not the same as the callout being
 // suppressed.
-const waitForSchedule = async (timeoutMs: number): Promise<CaptureSnapshotResult> => {
+const waitForSchedule = async (
+  timeoutMs: number,
+  sessionNames: Set<string>,
+): Promise<CaptureSnapshotResult> => {
   const deadline = Date.now() + timeoutMs;
   let snapshot: CaptureSnapshotResult | null = null;
   do {
@@ -129,7 +131,7 @@ const waitForSchedule = async (timeoutMs: number): Promise<CaptureSnapshotResult
     } catch (error) {
       console.warn("Snapshot failed while the page was settling; retrying.", error);
     }
-    if (snapshot && scheduleOnScreen(snapshot)) return snapshot;
+    if (snapshot && scheduleOnScreen(snapshot, sessionNames)) return snapshot;
     await wait(500);
   } while (Date.now() < deadline);
 
@@ -159,15 +161,24 @@ beforeAll(async () => {
   const html = await fetchReadyPage(eventUrl, "schedule-rail");
   const udid = await prepareDevice();
 
+  const railNames = namesFrom(html, RAIL_HOUR_NAMES);
+  const sessionNames = namesFrom(html, SESSION_LINK_NAMES);
+  if (railNames.size === 0 || sessionNames.size === 0) {
+    throw new Error(
+      `The page rendered ${railNames.size} rail markers and ${sessionNames.size} session links; ` +
+        "the spec needs both to know what to press and whether it landed.",
+    );
+  }
+
   const scheduleUrl = new URL(eventUrl);
   scheduleUrl.hash = `slot-${railSlotAnchor(html)}`;
   console.log(`Opening Safari at ${scheduleUrl.toString()}...`);
   await openUrl(scheduleUrl.toString(), udid);
 
   // The settled snapshot serves both the guard and the rail geometry below.
-  const snapshot = await waitForSchedule(90_000);
+  const snapshot = await waitForSchedule(90_000, sessionNames);
 
-  for (const hour of railHourTargets(snapshot)) {
+  for (const hour of railHourTargets(snapshot, railNames)) {
     const x = hour.rect.x + hour.rect.width / 2;
     const y = hour.rect.y + hour.rect.height / 2;
     console.log(
