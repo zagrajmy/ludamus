@@ -730,7 +730,7 @@ class TestProposalEditPageView:
             min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
         )
         session = _make_session(
-            event, category=bounded, participants_limit=LIMIT_BELOW_CATEGORY_MIN
+            event, category=bounded, participants_limit=DEFAULT_SESSION_PARTICIPANTS
         )
 
         response = authenticated_client.post(

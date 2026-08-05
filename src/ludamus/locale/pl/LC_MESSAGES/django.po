@@ -6292,8 +6292,8 @@ msgid ""
 "Bounds on what a proposal submitted through the call for proposals may ask "
 "for. Your own forms in this panel are not limited by them."
 msgstr ""
-"Ograniczenia tego, o ile miejsc może poprosić zgłoszenie wysłane przez "
-"formularz zgłoszeniowy. Twoje własne formularze w panelu nie są nimi objęte."
+"Ograniczają liczbę miejsc, o jaką może poprosić zgłoszenie przysłane w "
+"naborze. Twoich własnych formularzy w panelu to nie dotyczy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Minimum participants"

@@ -38,9 +38,10 @@ test.describe("Proposal form layout", () => {
   });
 
   // The organizer's own form is unbounded. A `max` attribute here is what
-  // produced a bare browser tooltip ("Wartość nie może być większa niż 255.")
-  // on a ceiling the category carried for submitters — assert the rendered
-  // attribute, since that, not the field's Python state, is what blocked them.
+  // produced a bare browser tooltip on a ceiling the category carried for
+  // submitters — 255 in the reported case, 6 in this fixture. Assert the
+  // rendered attribute: that, not the field's Python state, is what blocked
+  // them.
   test("leaves the participants limit uncapped", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/proposals/create/");
 
