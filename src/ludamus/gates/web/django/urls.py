@@ -74,7 +74,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     # flatpage url field held a leading slash, so the include below produced
     # /page//privacy-policy/. These must precede the include to win the match.
     *(
-        path(old, RedirectView.as_view(url=f"/{slug}/", permanent=True))
+        path(old, RedirectView.as_view(pattern_name=slug, permanent=True))
         for slug in DOCUMENTS
         for old in (f"page/{slug}/", f"page//{slug}/")
     ),

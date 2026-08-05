@@ -1,17 +1,21 @@
 from django.conf import settings
 from django.db import migrations
 
-URLS = ["/privacy-policy/", "/terms-of-service/"]
-TITLES = ["Privacy Policy", "Terms of Service"]
+# 0008 seeded these on the site with pk 1, which is what SITE_ID resolves to on
+# any ordinary deployment.
+DOCUMENTS = {
+    "/privacy-policy/": "Privacy Policy",
+    "/terms-of-service/": "Terms of Service",
+}
 
 
 def drop_legal_flatpages(apps, schema_editor):
-    # Scoped to the default site, which is the only one 0008 seeded. FlatPage.url
-    # carries no unique constraint and flatpages resolve per site, so a bare
-    # url__in filter would also delete a policy a sphere wrote for itself
-    # through the admin — rows this migration never created and cannot restore.
+    # Scoped to this deployment's site. FlatPage.url carries no unique
+    # constraint and flatpages resolve per site, so a bare url__in filter would
+    # also delete a policy a sphere wrote for itself through the admin — rows
+    # this migration never created and cannot restore.
     FlatPage = apps.get_model("flatpages", "FlatPage")
-    FlatPage.objects.filter(url__in=URLS, sites__id=settings.SITE_ID).delete()
+    FlatPage.objects.filter(url__in=DOCUMENTS, sites__id=settings.SITE_ID).delete()
 
 
 def restore_legal_flatpages(apps, schema_editor):
@@ -25,18 +29,21 @@ def restore_legal_flatpages(apps, schema_editor):
     if default_site is None:
         return
 
-    for url, title in zip(URLS, TITLES, strict=True):
-        page, created = FlatPage.objects.get_or_create(
+    for url, title in DOCUMENTS.items():
+        # Same scoping as the forward pass, and for the same reason: matching on
+        # url alone finds another sphere's page, which then either blocks the
+        # restore or raises once two spheres have one.
+        if FlatPage.objects.filter(url=url, sites__id=default_site.pk).exists():
+            continue
+
+        page = FlatPage.objects.create(
             url=url,
-            defaults={
-                "title": title,
-                "content": "<placeholder>",
-                "enable_comments": False,
-                "registration_required": False,
-            },
+            title=title,
+            content="<placeholder>",
+            enable_comments=False,
+            registration_required=False,
         )
-        if created:
-            page.sites.add(default_site)
+        page.sites.add(default_site)
 
 
 class Migration(migrations.Migration):
