@@ -679,6 +679,21 @@ button:active {
   select {
     background-color: var(--color-bg-secondary);
   }
+
+  /* iOS Safari renders date and time inputs as native pickers with an
+     intrinsic width wider than a phone viewport, and `width: 100%` does not
+     shrink them past it — they push straight through the card or grid track
+     that holds them. Every one of these is authored `w-full` in a form column,
+     so normalise the minimum once here instead of per widget: several are
+     built by Django `DateTimeInput`s that pass no class at all. No effect on
+     engines that size these inputs normally. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    min-width: 0;
+  }
 }
 
 select:not([multiple]):not([size]) {

@@ -324,7 +324,12 @@ the sphere.{% endcomment %}
             </nav>
         </aside>
         <!-- Main Content -->
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        {% comment %}The shell's bar reserves 12px above the tabs so the raised
+        tab clears a rounded, bordered card edge. The panel strips that edge
+        (rounded-t-none, and border-0 below), so here the same padding is just a
+        band of tab-track colour under the sticky header — halve it. Horizontal
+        padding stays 12px: it lines the first tab up with the body content.{% endcomment %}
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
             <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">

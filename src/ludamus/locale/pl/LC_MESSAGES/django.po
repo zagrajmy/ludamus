@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-03 19:31+0200\n"
+"POT-Creation-Date: 2026-08-05 13:43+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1616,6 +1616,7 @@ msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Accepted"
@@ -6422,12 +6423,8 @@ msgid "No fields selected."
 msgstr "Nie wybrano żadnych pól."
 
 #: src/ludamus/templates/panel/cfp.html
-msgid "Statistics"
-msgstr "Statystyki"
-
-#: src/ludamus/templates/panel/cfp.html
-msgid "Submissions"
-msgstr "Zgłoszenia"
+msgid "Submission window"
+msgstr "Okno zgłoszeń"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Configure"
@@ -8790,6 +8787,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Statistics"
+#~ msgstr "Statystyki"
+
+#~ msgid "Submissions"
+#~ msgstr "Zgłoszenia"
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"
