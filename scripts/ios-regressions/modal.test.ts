@@ -30,6 +30,19 @@ const hasVisibleText = async (text: string): Promise<boolean> => {
   return labels.some((label) => label.includes(text));
 };
 
+// Polling, not sleeping: the modal animates in, and a single snapshot taken
+// mid-animation reports content that is about to be there as missing. It still
+// fails if the content only appears after a scroll — nothing here scrolls —
+// so the regression this guards stays guarded.
+const waitForVisibleText = async (text: string, timeoutMs: number): Promise<boolean> => {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    if (await hasVisibleText(text)) return true;
+    await client.command.wait({ ...deviceOptions, durationMs: 400 });
+  } while (Date.now() < deadline);
+  return false;
+};
+
 const clickNodeCenter = async (node: SnapshotNode): Promise<void> => {
   if (node.rect) {
     await client.interactions.click({
@@ -181,8 +194,8 @@ beforeAll(async () => {
 
   console.log("Checking whether modal content is initially visible...");
   const contentInitiallyVisible =
-    (await hasVisibleText("About this session")) &&
-    (await hasVisibleText("Przygoda w stylu filmu"));
+    (await waitForVisibleText("About this session", 5000)) &&
+    (await waitForVisibleText("Przygoda w stylu filmu", 5000));
   if (!contentInitiallyVisible) {
     contentIssue =
       'Modal content headed by "About this session" / "Przygoda w stylu filmu" is not initially visible.';

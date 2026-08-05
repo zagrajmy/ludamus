@@ -46,7 +46,7 @@ export type IosHarness = {
   wait: (durationMs: number) => Promise<void>;
   openUrl: (url: string, udid: string) => Promise<void>;
   prepareDevice: () => Promise<string>;
-  assertPageReady: (url: URL, contains: string) => Promise<void>;
+  assertPageReady: (url: URL, contains: string) => Promise<string>;
 };
 
 export const createIosHarness = (session: string): IosHarness => {
@@ -177,7 +177,10 @@ export const createIosHarness = (session: string): IosHarness => {
     return udid;
   };
 
-  const assertPageReady = async (url: URL, contains: string): Promise<void> => {
+  // Returns the page body: a caller that needs a landmark from the markup (a
+  // scrubber slot anchor, say) can read it here instead of hunting for it with
+  // gestures, which cost ~24s each on the runner.
+  const assertPageReady = async (url: URL, contains: string): Promise<string> => {
     console.log(`Checking local event page at ${url.toString()}...`);
     const deadline = Date.now() + 60000;
     let lastError = "no response";
@@ -186,7 +189,7 @@ export const createIosHarness = (session: string): IosHarness => {
       try {
         const response = await fetch(url);
         const text = await response.text();
-        if (response.ok && text.includes(contains)) return;
+        if (response.ok && text.includes(contains)) return text;
 
         lastError = `HTTP ${response.status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
         if (response.status >= 400 && response.status < 500) break;
