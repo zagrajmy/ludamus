@@ -215,7 +215,7 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            first_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
         )
         url = self._get_url(event.slug)
@@ -331,7 +331,7 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            first_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
         )
         url = self._get_url(event.slug)
@@ -654,7 +654,7 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            first_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
         )
         url = self._get_url(event.slug)

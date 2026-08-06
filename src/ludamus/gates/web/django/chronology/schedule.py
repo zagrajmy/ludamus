@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from math import ceil
+from operator import itemgetter
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
@@ -48,22 +49,42 @@ class RoomLaneDay:
     tiles: list[RoomLaneTile]
 
 
+def _next_local_midnight(moment: datetime) -> datetime:
+    return timezone.localtime(moment + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+
+def _local_day_segments(start: datetime, end: datetime) -> list[datetime]:
+    # Where the session starts on each local date it covers: its own start on
+    # the first date, midnight on every later one. Night program belongs to
+    # both sides of midnight, so it shows up on both days.
+    local_start = timezone.localtime(start)
+    local_end = timezone.localtime(end)
+    segments = [local_start]
+    midnight = _next_local_midnight(local_start)
+    while midnight < local_end:
+        segments.append(midnight)
+        midnight = _next_local_midnight(midnight)
+    return segments
+
+
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
-    days: list[ScheduleDay] = []
+    by_hour: dict[datetime, list[tuple[datetime, SessionData]]] = defaultdict(list)
     for data in sessions_data.values():
         if data.agenda_item is None:
             continue
-        start = data.agenda_item.start_time
-        local_start = timezone.localtime(start)
-        if not days or timezone.localtime(days[-1].first_start).date() != (
-            local_start.date()
-        ):
-            days.append(ScheduleDay(first_start=start, hours=[]))
-        hours = days[-1].hours
-        hour_start = local_start.replace(minute=0, second=0, microsecond=0)
-        if not hours or hours[-1].start != hour_start:
-            hours.append(ScheduleHour(start=hour_start, sessions=[]))
-        hours[-1].sessions.append(data)
+        item = data.agenda_item
+        for segment_start in _local_day_segments(item.start_time, item.end_time):
+            hour_start = segment_start.replace(minute=0, second=0, microsecond=0)
+            by_hour[hour_start].append((item.start_time, data))
+
+    days: list[ScheduleDay] = []
+    for hour_start in sorted(by_hour):
+        sessions = [data for _, data in sorted(by_hour[hour_start], key=itemgetter(0))]
+        if not days or days[-1].first_start.date() != hour_start.date():
+            days.append(ScheduleDay(first_start=hour_start, hours=[]))
+        days[-1].hours.append(ScheduleHour(start=hour_start, sessions=sessions))
     return days
 
 
@@ -116,11 +137,17 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
         col_index = {key: index + 1 for index, key in enumerate(keys)}
 
         day_start = day.hours[0].start
-        day_end = max(
-            data.agenda_item.end_time
-            for hour in day.hours
-            for data in hour.sessions
-            if data.agenda_item is not None
+        # The day's lanes stop at midnight; the rest of a night session is
+        # drawn again on the day it runs into.
+        day_limit = _next_local_midnight(day_start)
+        day_end = min(
+            day_limit,
+            max(
+                data.agenda_item.end_time
+                for hour in day.hours
+                for data in hour.sessions
+                if data.agenda_item is not None
+            ),
         )
         hour_count = ceil((day_end - day_start).total_seconds() / 3600)
         session_hours = {hour.start for hour in day.hours}
@@ -144,8 +171,10 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
                     data.loc["parent_slug"],
                     data.loc["parent_name"],
                 )
-                start_hour = int((item.start_time - day_start).total_seconds() // 3600)
-                end_offset = (item.end_time - day_start).total_seconds() / 3600
+                visible_start = max(item.start_time, day_start)
+                visible_end = min(item.end_time, day_limit)
+                start_hour = int((visible_start - day_start).total_seconds() // 3600)
+                end_offset = (visible_end - day_start).total_seconds() / 3600
                 span = max(1, ceil(end_offset) - start_hour)
                 tiles.append(
                     RoomLaneTile(
