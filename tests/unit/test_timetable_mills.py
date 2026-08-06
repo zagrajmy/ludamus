@@ -194,9 +194,10 @@ class TestBuildGridOverlappingSessions:
         )
 
         assert grid.date_selection == date(2026, 1, 1)
-        assert grid.total_minutes == 4 * 60
+        # The selected day owns only its own side of midnight: 22:00 -> 24:00.
+        assert grid.total_minutes == 2 * 60
 
-    def test_overnight_slot_extends_its_day_instead_of_adding_a_24h_day(self):
+    def test_overnight_slot_adds_the_day_it_reaches_into(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -232,17 +233,17 @@ class TestBuildGridOverlappingSessions:
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
-        assert grid.total_minutes == 13 * 60
+        # Jan 2 owns a 00:00 window, so the shared axis starts at midnight.
+        assert grid.total_minutes == 24 * 60
         assert [label.time.strftime("%H:%M") for label in grid.time_labels][:2] == [
-            "12:00",
-            "13:00",
+            "00:00",
+            "01:00",
         ]
-        assert grid.time_labels[-1].time.strftime("%H:%M") == "01:00"
         day_one, day_two = grid.days
-        assert [pos.start_minutes for pos in day_one.columns[0].sessions] == [12 * 60]
-        assert day_two.columns[0].sessions == []
+        assert day_one.columns[0].sessions == []
+        assert [pos.start_minutes for pos in day_two.columns[0].sessions] == [0]
 
-    def test_overlapping_day_ranges_render_each_item_in_exactly_one_column(self):
+    def test_session_crossing_midnight_renders_clipped_on_both_days(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -258,42 +259,29 @@ class TestBuildGridOverlappingSessions:
         uow.time_slots.list_by_event.return_value = [
             TimeSlotDTO(
                 pk=1,
-                start_time=datetime(2026, 1, 1, 18, 0, tzinfo=UTC),
-                end_time=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-            ),
-            TimeSlotDTO(
-                pk=2,
-                start_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+                start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
                 end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
-            ),
+            )
         ]
-        first_night = _make_item(
-            pk=1,
-            start_time=datetime(2026, 1, 2, 0, 15, tzinfo=UTC),
-            end_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+        night_owl = _make_item(
+            start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
         )
-        second_night = _make_item(
-            pk=2,
-            session_id=2,
-            start_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
-            end_time=datetime(2026, 1, 2, 1, 30, tzinfo=UTC),
-        )
-        uow.agenda_items.list_by_event.return_value = [first_night, second_night]
+        uow.agenda_items.list_by_event.return_value = [night_owl]
 
         grid = TimetableService(uow).build_grid(
             event_pk=1, tz=UTC, date_selection="all"
         )
 
         day_one, day_two = grid.days
-        # Day one's range reaches 01:00 of Jan 2 while day two's starts at
-        # midnight (00:30 floored to the hour grid), so both contain the two
-        # night items; the later day owns the overlap instead of rendering
-        # the items in both columns.
-        assert day_one.columns[0].sessions == []
-        assert [
-            (pos.agenda_item.pk, pos.start_minutes)
-            for pos in day_two.columns[0].sessions
-        ] == [(1, 15), (2, 30)]
+        # Friday shows 22:00 -> 24:00, Saturday 00:00 -> 02:00, and both keep
+        # the real 4h duration so a drag moves the whole session.
+        friday, saturday = day_one.columns[0].sessions[0], (
+            day_two.columns[0].sessions[0]
+        )
+        assert (friday.start_minutes, friday.visible_minutes) == (22 * 60, 2 * 60)
+        assert (saturday.start_minutes, saturday.visible_minutes) == (0, 2 * 60)
+        assert [friday.duration_minutes, saturday.duration_minutes] == [4 * 60, 4 * 60]
 
 
 class TestRevertChange:

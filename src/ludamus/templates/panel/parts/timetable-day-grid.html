@@ -20,7 +20,7 @@
                      data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
                      title="{{ pos.agenda_item.session_title }}"
                      style="--offset: {{ pos.start_minutes }};
-                            --duration: {{ pos.duration_minutes }};
+                            --duration: {{ pos.visible_minutes }};
                             --lane-start: {{ pos.lane_start_pct }}%;
                             --lane-width: {{ pos.lane_width_pct }}%"
                      hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}"
@@ -39,10 +39,10 @@
                             {% endif %}
                             {{ pos.agenda_item.session_title|truncatechars:256 }}
                         </div>
-                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 32 %}hidden{% endif %}">
+                        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning{% else %}text-info{% endif %} {% if pos.visible_minutes <= 32 %}hidden{% endif %}">
                             {{ pos.agenda_item.presenter_name }}
                         </div>
-                        <div class="timetable-session-meta timetable-session-duration {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning{% else %}text-info{% endif %} {% if pos.duration_minutes <= 52 %}hidden{% endif %}">
+                        <div class="timetable-session-meta timetable-session-duration {% if pos.agenda_item.session_id in conflict_session_pks %}text-danger{% elif pos.agenda_item.session_id in slot_violation_session_pks %}text-warning{% else %}text-info{% endif %} {% if pos.visible_minutes <= 52 %}hidden{% endif %}">
                             {{ pos.agenda_item.session_duration_minutes }} min
                         </div>
                     </div>

@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, NamedTuple
 
-from ludamus.mills.timeslots import SlotWindow, slot_windows, slot_windows_by_local_date
+from ludamus.mills.timeslots import slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -43,29 +43,9 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
-_WINDOWS_ACROSS_ONE_MIDNIGHT = 2
-
-
-def _slot_windows_by_grid_date(
-    slots: list[TimeSlotDTO], tz: tzinfo
-) -> dict[date, list[SlotWindow]]:
-    # A slot that crosses one midnight — exactly two per-date windows — stays
-    # whole on the day it starts, so night program extends that day's column
-    # past 24:00. Splitting it would mint a 00:00-anchored phantom day and
-    # stretch the grid's shared time axis to a full 24 hours. Slots touching
-    # more dates keep the per-date windows.
-    grouped: dict[date, list[SlotWindow]] = defaultdict(list)
-    for slot in slots:
-        windows = slot_windows(slot, tz)
-        if len(windows) == _WINDOWS_ACROSS_ONE_MIDNIGHT:
-            windows = [(windows[0][0], windows[1][1])]
-        for window in windows:
-            grouped[window[0].date()].append(window)
-    return grouped
-
 
 def _position_sessions(
-    items: list[AgendaItemDTO], event_start: datetime
+    *, items: list[AgendaItemDTO], grid_start: datetime, grid_end: datetime
 ) -> list[SessionPositionDTO]:
     if not items:
         return []
@@ -89,13 +69,20 @@ def _position_sessions(
     for group in groups:
         lane_width_pct = 100.0 / len(group)
         for index, item in enumerate(group):
-            offset_min = (item.start_time - event_start).total_seconds() / 60
+            # A session crossing midnight renders on every day it touches,
+            # clipped to that day's range; `duration_minutes` stays the real
+            # length so a drag reschedules the whole session, not the fragment.
+            visible_start = max(item.start_time, grid_start)
+            visible_end = min(item.end_time, grid_end)
+            offset_min = (visible_start - grid_start).total_seconds() / 60
             duration_min = (item.end_time - item.start_time).total_seconds() / 60
+            visible_min = (visible_end - visible_start).total_seconds() / 60
             positions.append(
                 SessionPositionDTO(
                     agenda_item=item,
                     start_minutes=round(offset_min),
                     duration_minutes=round(duration_min),
+                    visible_minutes=round(visible_min),
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
                 )
@@ -152,7 +139,7 @@ class TimetableService:
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
         all_slots = self._uow.time_slots.list_by_event(event_pk)
-        windows_by_date = _slot_windows_by_grid_date(all_slots, tz)
+        windows_by_date = slot_windows_by_local_date(all_slots, tz)
         available_dates = sorted(windows_by_date)
         if date_selection != "all" and date_selection not in windows_by_date:
             date_selection = available_dates[0] if available_dates else "all"
@@ -179,12 +166,6 @@ class TimetableService:
         for index, date_to_render in enumerate(dates_to_render):
             range_start = day_range_starts[index]
             range_end = range_start + timedelta(minutes=total_minutes)
-            # Past-midnight ranges can reach into the next rendered day. The
-            # next day owns everything from its own range start, so capping
-            # here makes the day filters a partition — a night session never
-            # renders in two columns.
-            if index + 1 < len(day_range_starts):
-                range_end = min(range_end, day_range_starts[index + 1])
             days.append(
                 self._build_day_grid(
                     date_to_render=date_to_render,
@@ -252,7 +233,7 @@ class TimetableService:
                 SpaceColumnDTO(
                     space=space,
                     sessions=_position_sessions(
-                        items_for_space, event_start=grid_start
+                        items=items_for_space, grid_start=grid_start, grid_end=grid_end
                     ),
                 )
             )
