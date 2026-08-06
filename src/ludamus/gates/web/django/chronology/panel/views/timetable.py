@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, QueryDict
@@ -30,16 +30,9 @@ from ludamus.pacts import (
     NotFoundError,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.chronology import (
-    ConflictDTO,
-    DateSelection,
-    SessionPlacement,
-    TimetableGridDTO,
-    TimetableGridQuery,
-)
+from ludamus.pacts.chronology import DateSelection, SessionPlacement
 
 if TYPE_CHECKING:
-    from ludamus.pacts import UnitOfWorkProtocol
     from ludamus.pacts.legacy import TrackDTO
 
 
@@ -91,42 +84,6 @@ def _print_url(
     return f"{base}?{urlencode(params)}" if params else base
 
 
-class _MarkedGrid(NamedTuple):
-    grid: TimetableGridDTO
-    conflicts: list[ConflictDTO]
-
-
-def _marked_grid(
-    uow: UnitOfWorkProtocol,
-    *,
-    event_pk: int,
-    track_pk: int | None,
-    space_page: int,
-    date_selection: DateSelection,
-) -> _MarkedGrid:
-    # The grid is built from the warnings, so the full page and the partial
-    # swap that replaces it have to gather them the same way -- the marker
-    # used to vanish on every swap because this was written out twice.
-    conflict_service = ConflictDetectionService(uow)
-    conflicts = conflict_service.list_all_for_track(
-        event_pk=event_pk, track_pk=track_pk
-    )
-    grid = TimetableService(uow).build_grid(
-        query=TimetableGridQuery(
-            event_pk=event_pk,
-            tz=get_current_timezone(),
-            track_pk=track_pk,
-            space_page=space_page,
-            date_selection=date_selection,
-        ),
-        conflicts=conflicts,
-        slot_violations=conflict_service.list_preferred_slot_violations(
-            event_pk=event_pk, track_pk=track_pk
-        ),
-    )
-    return _MarkedGrid(grid, conflicts)
-
-
 def _parse_date_selection(raw: str | None) -> DateSelection:
     if raw == "all":
         return "all"
@@ -167,9 +124,9 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
 
         uow = self.request.di.uow
-        grid, conflicts = _marked_grid(
-            uow,
+        grid = TimetableService(uow).build_grid(
             event_pk=current_event.pk,
+            tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
             date_selection=date_selection,
@@ -181,8 +138,8 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_track_pk"] = filter_track_pk
         context["room_page"] = room_page
         context["grid"] = grid
-        context["conflicts"] = conflicts
-        context["conflicts_count"] = len(conflicts)
+        context["conflicts"] = grid.conflicts
+        context["conflicts_count"] = len(grid.conflicts)
         context["categories"] = categories
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
@@ -357,13 +314,13 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        grid = _marked_grid(
-            self.request.di.uow,
+        grid = TimetableService(self.request.di.uow).build_grid(
             event_pk=current_event.pk,
+            tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
             date_selection=date_selection,
-        ).grid
+        )
 
         context: dict[str, object] = {
             "grid": grid,

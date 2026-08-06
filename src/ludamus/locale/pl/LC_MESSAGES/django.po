@@ -7765,11 +7765,6 @@ msgstr ""
 "Przeciągnij lub użyj strzałek, aby zmienić szerokość wszystkich kolumn. "
 "Kliknij dwukrotnie, aby przywrócić domyślną."
 
-#: src/ludamus/templates/panel/parts/timetable-session-card.html
-#, python-format
-msgid "Scheduled by track: %(track)s"
-msgstr "Zaplanowane przez blok: %(track)s"
-
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
 msgid "Session details"
 msgstr "Szczegóły punktu programu"

@@ -18,6 +18,7 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
+    DateSelection,
     HeatmapCellDTO,
     HeatmapCellStatus,
     HeatmapDayDTO,
@@ -33,7 +34,6 @@ from ludamus.pacts.chronology import (
     TimeLabelDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
-    TimetableGridQuery,
     TrackProgressDTO,
 )
 from ludamus.specs.timetable import (
@@ -43,15 +43,7 @@ from ludamus.specs.timetable import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-    from ludamus.pacts import (
-        FacilitatorDTO,
-        SessionRepositoryProtocol,
-        SpaceDTO,
-        TimeSlotDTO,
-        UnitOfWorkProtocol,
-    )
+    from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
 _WINDOWS_ACROSS_ONE_MIDNIGHT = 2
 
@@ -74,48 +66,11 @@ def _slot_windows_by_grid_date(
     return grouped
 
 
-class _TrackOwnership(NamedTuple):
-    # The one answer to "whose booking is this": session -> {track pk: name},
-    # plus the track in focus. The grid labels its cards from it and the
-    # conflict list attributes its clashes from it, so the two can't name
-    # different tracks for the same session.
-    names_by_session: dict[int, dict[int, str]]
-    current_track_pk: int | None
-
-    def is_outside(self, session_pk: int) -> bool:
-        # A session with no track at all is nobody else's booking, so it stays
-        # unmarked rather than being labelled as someone's.
-        tracks = self.names_by_session.get(session_pk, {})
-        return (
-            self.current_track_pk is not None
-            and bool(tracks)
-            and self.current_track_pk not in tracks
-        )
-
-    def other_tracks(self, session_pk: int) -> list[tuple[int, str]]:
-        return [
-            (track_pk, name)
-            for track_pk, name in self.names_by_session.get(session_pk, {}).items()
-            if track_pk != self.current_track_pk
-        ]
-
-
-def _track_ownership(
-    *,
-    sessions: SessionRepositoryProtocol,
-    session_pks: list[int],
-    current_track_pk: int | None,
-) -> _TrackOwnership:
-    names = sessions.list_track_names_by_session(session_pks) if session_pks else {}
-    return _TrackOwnership(names, current_track_pk)
-
-
 class _CardMarks(NamedTuple):
-    # Everything a card shows beyond its own row: what is wrong with it, and
-    # whether the track in focus is the one that booked it.
+    # What a card warns about, resolved once per page so the grid stops testing
+    # the same session against two page-wide sets on every element.
     conflict_session_pks: set[int]
     slot_violation_session_pks: set[int]
-    ownership: _TrackOwnership
 
     def state_of(self, session_pk: int) -> SessionPositionState:
         if session_pk in self.conflict_session_pks:
@@ -123,11 +78,6 @@ class _CardMarks(NamedTuple):
         if session_pk in self.slot_violation_session_pks:
             return "slot_violation"
         return "normal"
-
-    def outside_track_name(self, session_pk: int) -> str:
-        if not self.ownership.is_outside(session_pk):
-            return ""
-        return ", ".join(name for _, name in self.ownership.other_tracks(session_pk))
 
 
 def _position_sessions(
@@ -165,7 +115,6 @@ def _position_sessions(
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
                     state=marks.state_of(item.session_id),
-                    outside_track_name=marks.outside_track_name(item.session_id),
                 )
             )
 
@@ -198,15 +147,12 @@ class TimetableService:
     def build_grid(
         self,
         *,
-        query: TimetableGridQuery,
-        conflicts: Sequence[ConflictDTO] = (),
-        slot_violations: Sequence[PreferredSlotViolationDTO] = (),
+        event_pk: int,
+        tz: tzinfo,
+        track_pk: int | None = None,
+        space_page: int = 1,
+        date_selection: DateSelection = "all",
     ) -> TimetableGridDTO:
-        # `query.track_pk` needs no event check here: both queries it reaches
-        # are already scoped to `event_pk`, so a track from elsewhere can only
-        # narrow the columns to none — never widen them.
-        event_pk, tz, track_pk = query.event_pk, query.tz, query.track_pk
-        date_selection = query.date_selection
         all_nodes = self._uow.spaces.list_by_event(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = _leaves_in_tree_order(all_nodes)
@@ -218,7 +164,7 @@ class TimetableService:
 
         total_spaces = len(leaf_spaces)
         total_pages = max(1, math.ceil(total_spaces / TIMETABLE_ROOM_PAGE_SIZE))
-        space_page = max(1, min(query.space_page, total_pages))
+        space_page = max(1, min(space_page, total_pages))
         start = (space_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
@@ -232,11 +178,16 @@ class TimetableService:
         dates_to_render = (
             available_dates if date_selection == "all" else [date_selection]
         )
-        # The grid always shows everything scheduled in the spaces on screen.
-        # Conflict detection already reports cross-track clashes after the fact;
-        # showing the other tracks' bookings is what makes a room's occupancy
-        # visible *before* the clash is created.
+        # The grid shows everything scheduled in the rooms on screen, whoever
+        # booked it. A room's occupancy is what makes a clash visible *before*
+        # it is created, and hiding another track's booking is how two tracks
+        # end up in one room at once.
         all_items = self._uow.agenda_items.list_by_event(event_pk)
+        # Fetched here rather than handed in: the full page and the partial
+        # swap that replaces it have to mark the grid the same way, and passing
+        # the warnings in left every caller free to forget them.
+        conflict_service = ConflictDetectionService(self._uow)
+        conflicts = conflict_service.list_all_for_track(event_pk, track_pk)
         marks = _CardMarks(
             # Both ends of a clash are wrong, and only one of them carries the
             # pair: attributing it to the counterpart alone would redden the
@@ -246,18 +197,12 @@ class TimetableService:
                 for conflict in conflicts
                 for pk in (conflict.subject_session_pk, conflict.session_pk)
             },
-            slot_violation_session_pks={v.session_pk for v in slot_violations},
-            ownership=(
-                _track_ownership(
-                    sessions=self._uow.sessions,
-                    session_pks=[item.session_id for item in all_items],
-                    current_track_pk=track_pk,
+            slot_violation_session_pks={
+                violation.session_pk
+                for violation in conflict_service.list_preferred_slot_violations(
+                    event_pk, track_pk
                 )
-                if track_pk is not None
-                # With the whole event on screen no booking is anyone else's,
-                # so the ownership query is skipped rather than answered.
-                else _TrackOwnership({}, None)
-            ),
+            },
         )
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
@@ -316,6 +261,7 @@ class TimetableService:
             total_columns=len(spaces) * len(days),
             available_dates=available_dates,
             date_selection=date_selection,
+            conflicts=conflicts,
         )
 
     @staticmethod
@@ -717,15 +663,21 @@ class ConflictDetectionService:
         # beyond the current one are simply absent from the result.
         if not session_pks:
             return {}
-        ownership = _track_ownership(
-            sessions=self._uow.sessions,
-            session_pks=sorted(session_pks),
-            current_track_pk=current_track_pk,
+        names_by_session = self._uow.sessions.list_track_names_by_session(
+            sorted(session_pks)
         )
+        # Name-ordered by the repository, so a session in two other tracks
+        # reports the same one run to run.
         others_by_session = {
             session_pk: others
-            for session_pk in session_pks
-            if (others := ownership.other_tracks(session_pk))
+            for session_pk, tracks in names_by_session.items()
+            if (
+                others := [
+                    (track_pk, name)
+                    for track_pk, name in tracks.items()
+                    if track_pk != current_track_pk
+                ]
+            )
         }
         manager_names = self._uow.tracks.list_manager_names_by_tracks(
             {

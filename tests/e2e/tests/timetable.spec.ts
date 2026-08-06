@@ -185,7 +185,7 @@ test.describe("Timetable", () => {
     });
   });
 
-  test("a track filter shows another track's booking, marked but still editable", async ({
+  test("a track filter still shows the other track's booking in a shared room", async ({
     page,
   }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
@@ -200,18 +200,10 @@ test.describe("Timetable", () => {
 
     // "Board Game Night" belongs to the other track but occupies a room this
     // one also uses. Hiding it is how two tracks end up in one room at once.
-    const foreign = page.locator(".timetable-session-foreign", { hasText: "Board Game Night" });
+    // It draws as an ordinary card -- no owner label, no separate treatment.
+    const foreign = page.locator(".timetable-session", { hasText: "Board Game Night" });
     await expect(foreign).toBeVisible({ timeout: 10000 });
-
-    // It names the block to talk to, not just "someone else".
-    await expect(foreign).toHaveAttribute("title", /Board Games Track/);
-    await expect(foreign).toContainText("Board Games Track");
-
-    // Marked, not fenced off. Whoever runs the schedule can switch the filter
-    // and move it anyway, so this card drags and opens like every other one.
-    await expect(foreign).toHaveClass(/(^|\s)timetable-session(\s|$)/);
     await expect(foreign).toHaveAttribute("draggable", "true");
-    await expect(foreign).toHaveAttribute("data-session-pk", /\d/);
 
     await foreign.click();
     await expect(page.locator("#left-pane").getByText("Board Game Night")).toBeVisible({

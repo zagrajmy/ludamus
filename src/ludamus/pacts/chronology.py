@@ -6,7 +6,7 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
@@ -388,11 +388,6 @@ class SessionPositionDTO(BaseModel):
     # What the block is warning about, resolved once here so the grid stops
     # testing the same session against two page-wide sets in four places.
     state: SessionPositionState = "normal"
-    # The other track that booked this room and time, named. Empty for our own
-    # bookings and for sessions with no track at all — nobody else's, so
-    # nothing to attribute. Named for the request rather than the item: the
-    # same row belongs to the filtered track on the next request.
-    outside_track_name: str = ""
 
 
 class TimeLabelDTO(BaseModel):
@@ -420,33 +415,6 @@ class TimetableDayGridDTO(BaseModel):
 
 
 type DateSelection = date | Literal["all"]
-
-
-# Which slice of the schedule to draw. The warnings drawn on top of it stay a
-# separate argument: they come from conflict detection, not from the request.
-@dataclass(frozen=True)
-class TimetableGridQuery:
-    event_pk: int
-    tz: tzinfo
-    track_pk: int | None = None
-    space_page: int = 1
-    date_selection: DateSelection = "all"
-
-
-class TimetableGridDTO(BaseModel):
-    spaces: list[SpaceDTO]
-    groups: list[SpaceGroupDTO]
-    days: list[TimetableDayGridDTO]
-    time_labels: list[TimeLabelDTO]
-    total_minutes: int
-    slot_minutes: int
-    snap_minutes: int
-    page: int
-    total_pages: int
-    total_spaces: int
-    total_columns: int
-    available_dates: list[date] = []
-    date_selection: DateSelection = "all"
 
 
 class ConflictType(StrEnum):
@@ -483,6 +451,25 @@ class ConflictDTO(BaseModel):
     session_limit: int | None = None
     track_name: str | None = None
     manager_names: list[str] = []
+
+
+class TimetableGridDTO(BaseModel):
+    spaces: list[SpaceDTO]
+    groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
+    time_labels: list[TimeLabelDTO]
+    total_minutes: int
+    slot_minutes: int
+    snap_minutes: int
+    page: int
+    total_pages: int
+    total_spaces: int
+    total_columns: int
+    available_dates: list[date] = []
+    date_selection: DateSelection = "all"
+    # The clashes the cards are already coloured for. Carried with the grid so
+    # the page cannot list one set of conflicts while the grid marks another.
+    conflicts: list[ConflictDTO] = []
 
 
 class PreferredSlotRangeDTO(BaseModel):

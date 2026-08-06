@@ -1,5 +1,5 @@
 from datetime import UTC, date, datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -19,12 +19,9 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
-    ConflictDTO,
-    ConflictSeverity,
     ConflictType,
     HeatmapCellStatus,
     SessionPlacement,
-    TimetableGridQuery,
 )
 
 
@@ -91,7 +88,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [item_a, item_b, item_c]
 
         svc = TimetableService(uow)
-        grid = svc.build_grid(query=TimetableGridQuery(event_pk=1, tz=UTC))
+        grid = svc.build_grid(event_pk=1, tz=UTC)
 
         sessions = grid.days[0].columns[0].sessions
         expected_count = 3
@@ -144,7 +141,7 @@ class TestBuildGridOverlappingSessions:
         ]
 
         grid = TimetableService(uow).build_grid(
-            query=TimetableGridQuery(event_pk=1, tz=UTC, date_selection="all")
+            event_pk=1, tz=UTC, date_selection="all"
         )
 
         expected_total_minutes = 180
@@ -168,9 +165,12 @@ class TestBuildGridOverlappingSessions:
             60,
         ]
         assert grid.date_selection == "all"
-        uow.agenda_items.list_by_event.assert_called_once_with(1)
+        # Three loads, none of them per-day: the grid's own, conflict
+        # detection's, and the preferred-slot check's. What this guards is the
+        # day loop -- a fourth day must not mean a fourth query.
+        assert uow.agenda_items.list_by_event.call_args_list == [call(1)] * 3
 
-    def test_track_filter_shows_other_tracks_bookings_named_and_marked(self):
+    def test_track_filter_still_shows_every_booking_in_the_visible_rooms(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -204,46 +204,34 @@ class TestBuildGridOverlappingSessions:
             start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
         )
-        # Nobody's block: no track claims it, so it is not "someone else's".
+        # Clear of both, so it stays a plain card while the clash is marked.
         untracked = _make_item(
             pk=3,
             session_id=3,
             session_title="Untracked",
-            start_time=datetime(2026, 1, 1, 10, 45, tzinfo=UTC),
-            end_time=datetime(2026, 1, 1, 11, 45, tzinfo=UTC),
+            start_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
         )
         uow.agenda_items.list_by_event.return_value = [mine, theirs, untracked]
-        uow.sessions.list_track_names_by_session.return_value = {
-            1: {5: "RPG Track"},
-            2: {9: "Board Games Track"},
-        }
+        # Only `mine` is in the filtered track; the other two are drawn anyway
+        # because they occupy a room on screen.
+        uow.agenda_items.list_by_track.return_value = [mine]
+        uow.tracks.read.return_value = _event_track(event_pk=1)
+        uow.sessions.read_facilitators_by_sessions.return_value = {}
+        uow.sessions.read_participants_limits.return_value = {}
+        uow.sessions.read_preferred_time_slots_by_sessions.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
 
-        grid = TimetableService(uow).build_grid(
-            query=TimetableGridQuery(event_pk=1, tz=UTC, track_pk=5),
-            conflicts=[
-                ConflictDTO(
-                    type=ConflictType.SPACE_OVERLAP,
-                    severity=ConflictSeverity.ERROR,
-                    subject_session_pk=1,
-                    subject_session_title="Mine",
-                    session_pk=2,
-                    session_title="Theirs",
-                )
-            ],
-        )
+        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC, track_pk=5)
 
         sessions = grid.days[0].columns[0].sessions
-        # Both ends of the clash are red, and only the other track is named.
-        assert [
-            (pos.agenda_item.session_title, pos.outside_track_name, pos.state)
-            for pos in sessions
-        ] == [
-            ("Mine", "", "conflict"),
-            ("Theirs", "Board Games Track", "conflict"),
-            ("Untracked", "", "normal"),
+        # Both ends of the clash are red, even though only one is in the track.
+        assert [(pos.agenda_item.session_title, pos.state) for pos in sessions] == [
+            ("Mine", "conflict"),
+            ("Theirs", "conflict"),
+            ("Untracked", "normal"),
         ]
-        uow.sessions.list_track_names_by_session.assert_called_once_with([1, 2, 3])
-        uow.agenda_items.list_by_track.assert_not_called()
 
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
         uow = MagicMock()
@@ -268,9 +256,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = []
 
         grid = TimetableService(uow).build_grid(
-            query=TimetableGridQuery(
-                event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
-            )
+            event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
         )
 
         assert grid.date_selection == date(2026, 1, 1)
@@ -308,7 +294,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
         grid = TimetableService(uow).build_grid(
-            query=TimetableGridQuery(event_pk=1, tz=UTC, date_selection="all")
+            event_pk=1, tz=UTC, date_selection="all"
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
@@ -361,7 +347,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [first_night, second_night]
 
         grid = TimetableService(uow).build_grid(
-            query=TimetableGridQuery(event_pk=1, tz=UTC, date_selection="all")
+            event_pk=1, tz=UTC, date_selection="all"
         )
 
         day_one, day_two = grid.days

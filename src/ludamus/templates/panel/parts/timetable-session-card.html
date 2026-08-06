@@ -5,21 +5,17 @@
     three-way warning chain is written down in a single place instead of on
     every element that has to match it.
 
-    Another track's booking is marked, not fenced off: whoever runs the
-    schedule can switch the filter and move it anyway, so refusing the click
-    here would buy nothing and cost a card that looks broken. The dashes and
-    the owner line say whose it is; the card behaves like any other.
+    Every booking in a room on screen renders the same way, whichever track
+    made it. Whoever runs the schedule can move any of them, and a room's
+    occupancy is only readable if all of it is drawn.
 {% endcomment %}
-{% if pos.outside_track_name %}
-    {% blocktranslate with track=pos.outside_track_name asvar t_owner %}Scheduled by track: {{ track }}{% endblocktranslate %}
-{% endif %}
-<div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {{ tone_surface }} {% if pos.outside_track_name %}timetable-session-foreign border-dashed{% endif %}"
+<div class="timetable-session absolute rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {{ tone_surface }}"
      tabindex="0"
      draggable="true"
      data-session-pk="{{ pos.agenda_item.session_id }}"
      data-duration="{{ pos.duration_minutes }}"
      data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
-     title="{% if pos.outside_track_name %}{{ t_owner }}: {% endif %}{{ pos.agenda_item.session_title }}"
+     title="{{ pos.agenda_item.session_title }}"
      hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}"
      hx-target="#left-pane"
      hx-swap="outerHTML"
@@ -36,20 +32,8 @@
             {% endif %}
             {{ pos.agenda_item.session_title|truncatechars:256 }}
         </div>
-        {% comment %}
-            A named other track replaces the presenter here: from there the
-            useful answer is which block to talk to. It says so at every height
-            -- a dashed border is colour and shape alone, so the short ones
-            would otherwise read as this track's own. A session with no track
-            at all is nobody else's, so it says nothing and renders like any
-            other card.
-        {% endcomment %}
-        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {{ tone_meta }} {% if pos.duration_minutes <= 32 and not pos.outside_track_name %}hidden{% endif %}">
-            {% if pos.outside_track_name %}
-                {{ t_owner }}
-            {% else %}
-                {{ pos.agenda_item.presenter_name }}
-            {% endif %}
+        <div class="timetable-session-meta timetable-session-presenter wrap-anywhere {{ tone_meta }} {% if pos.duration_minutes <= 32 %}hidden{% endif %}">
+            {{ pos.agenda_item.presenter_name }}
         </div>
         <div class="timetable-session-meta timetable-session-duration {{ tone_meta }} {% if pos.duration_minutes <= 52 %}hidden{% endif %}">
             {{ pos.agenda_item.session_duration_minutes }} min
