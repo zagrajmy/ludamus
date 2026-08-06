@@ -1,6 +1,7 @@
 import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
+from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
 from ludamus.mills.event import require_session_in_event, require_track_in_event
@@ -43,6 +44,8 @@ from ludamus.specs.timetable import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
 _WINDOWS_ACROSS_ONE_MIDNIGHT = 2
@@ -66,22 +69,35 @@ def _slot_windows_by_grid_date(
     return grouped
 
 
-class _CardMarks(NamedTuple):
-    # What a card warns about, resolved once per page so the grid stops testing
-    # the same session against two page-wide sets on every element.
-    conflict_session_pks: set[int]
-    slot_violation_session_pks: set[int]
+def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
+    # Both ends of a clash are wrong, and only one row carries the pair:
+    # attributing it to the counterpart alone marks the innocent side and
+    # leaves the offending one clean.
+    return {
+        pk
+        for conflict in conflicts
+        for pk in (conflict.subject_session_pk, conflict.session_pk)
+    }
 
-    def state_of(self, session_pk: int) -> SessionPositionState:
-        if session_pk in self.conflict_session_pks:
-            return "conflict"
-        if session_pk in self.slot_violation_session_pks:
-            return "slot_violation"
-        return "normal"
+
+def _card_states(
+    conflicts: Iterable[ConflictDTO], violations: Iterable[PreferredSlotViolationDTO]
+) -> dict[int, SessionPositionState]:
+    # What each card warns about, resolved once per page so the grid stops
+    # testing the same session against page-wide sets on every element. A clash
+    # outranks a slot violation, so it merges last.
+    states: dict[int, SessionPositionState] = {
+        violation.session_pk: "slot_violation" for violation in violations
+    }
+    states.update((pk, "conflict") for pk in conflicting_session_pks(conflicts))
+    return states
 
 
 def _position_sessions(
-    *, items: list[AgendaItemDTO], event_start: datetime, marks: _CardMarks
+    *,
+    items: list[AgendaItemDTO],
+    event_start: datetime,
+    states: dict[int, SessionPositionState],
 ) -> list[SessionPositionDTO]:
     if not items:
         return []
@@ -114,7 +130,7 @@ def _position_sessions(
                     duration_minutes=round(duration_min),
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
-                    state=marks.state_of(item.session_id),
+                    state=states.get(item.session_id, "normal"),
                 )
             )
 
@@ -185,25 +201,12 @@ class TimetableService:
         all_items = self._uow.agenda_items.list_by_event(event_pk)
         # Fetched here rather than handed in: the full page and the partial
         # swap that replaces it have to mark the grid the same way, and passing
-        # the warnings in left every caller free to forget them.
-        conflict_service = ConflictDetectionService(self._uow)
-        conflicts = conflict_service.list_all_for_track(event_pk, track_pk)
-        marks = _CardMarks(
-            # Both ends of a clash are wrong, and only one of them carries the
-            # pair: attributing it to the counterpart alone would redden the
-            # other track's card and leave the offending one blue.
-            conflict_session_pks={
-                pk
-                for conflict in conflicts
-                for pk in (conflict.subject_session_pk, conflict.session_pk)
-            },
-            slot_violation_session_pks={
-                violation.session_pk
-                for violation in conflict_service.list_preferred_slot_violations(
-                    event_pk, track_pk
-                )
-            },
+        # the warnings in left every caller free to forget them. The items and
+        # nodes above are handed on so one render is one load of each.
+        conflicts, violations = ConflictDetectionService(self._uow).list_grid_warnings(
+            event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
         )
+        states = _card_states(conflicts, violations)
         grid_start_minute, grid_end_minute = self._grid_minute_bounds(
             dates_to_render, windows_by_date
         )
@@ -229,7 +232,7 @@ class TimetableService:
                     day_range=(range_start, range_end),
                     spaces=spaces,
                     all_items=all_items,
-                    marks=marks,
+                    states=states,
                 )
             )
         time_labels: list[TimeLabelDTO] = []
@@ -271,7 +274,7 @@ class TimetableService:
         day_range: tuple[datetime, datetime],
         spaces: list[SpaceDTO],
         all_items: list[AgendaItemDTO],
-        marks: _CardMarks,
+        states: dict[int, SessionPositionState],
     ) -> TimetableDayGridDTO:
         grid_start, grid_end = day_range
 
@@ -293,7 +296,7 @@ class TimetableService:
                 SpaceColumnDTO(
                     space=space,
                     sessions=_position_sessions(
-                        items=items_for_space, event_start=grid_start, marks=marks
+                        items=items_for_space, event_start=grid_start, states=states
                     ),
                 )
             )
@@ -533,18 +536,48 @@ class ConflictDetectionService:
     def list_all_for_track(
         self, event_pk: int, track_pk: int | None
     ) -> list[ConflictDTO]:
+        if track_pk is not None:
+            require_track_in_event(self._uow.tracks, track_pk, event_pk)
+        context = self._load_event_context(event_pk)
+        return self._conflicts(self._subjects(context, track_pk), context, track_pk)
+
+    def list_grid_warnings(
+        self,
+        *,
+        event_pk: int,
+        track_pk: int | None,
+        items: list[AgendaItemDTO],
+        spaces: list[SpaceDTO],
+    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]:
+        # The grid has already loaded the event's items and space nodes, and
+        # both warnings run off the same subjects. Taking them as arguments
+        # keeps one render to one load of each instead of three.
+        if track_pk is not None:
+            require_track_in_event(self._uow.tracks, track_pk, event_pk)
+        context = self._build_context(items=items, spaces=spaces)
+        subjects = self._subjects(context, track_pk)
+        return (
+            self._conflicts(subjects, context, track_pk),
+            self._violations(subjects, track_pk),
+        )
+
+    def _subjects(
+        self, context: _EventConflictContext, track_pk: int | None
+    ) -> list[AgendaItemDTO]:
+        if track_pk is None:
+            return context.items
+        return self._uow.agenda_items.list_by_track(track_pk)
+
+    def _conflicts(
+        self,
+        subjects: list[AgendaItemDTO],
+        context: _EventConflictContext,
+        track_pk: int | None,
+    ) -> list[ConflictDTO]:
         # Everything is loaded up front and overlaps are detected in memory:
         # a query per scheduled session turns one page load into thousands of
         # queries at a big event. Overlaps are checked against every scheduled
         # item in the event so a track page still surfaces cross-track clashes.
-        if track_pk is not None:
-            require_track_in_event(self._uow.tracks, track_pk, event_pk)
-        context = self._load_event_context(event_pk)
-        subjects = (
-            context.items
-            if track_pk is None
-            else self._uow.agenda_items.list_by_track(track_pk)
-        )
         if not subjects:
             return []
 
@@ -566,7 +599,14 @@ class ConflictDetectionService:
         return self._add_track_attribution(all_conflicts, track_pk)
 
     def _load_event_context(self, event_pk: int) -> _EventConflictContext:
-        items = self._uow.agenda_items.list_by_event(event_pk)
+        return self._build_context(
+            items=self._uow.agenda_items.list_by_event(event_pk),
+            spaces=self._uow.spaces.list_by_event(event_pk),
+        )
+
+    def _build_context(
+        self, *, items: list[AgendaItemDTO], spaces: list[SpaceDTO]
+    ) -> _EventConflictContext:
         facilitators_by_session = self._uow.sessions.read_facilitators_by_sessions(
             {item.session_id for item in items}
         )
@@ -581,7 +621,7 @@ class ConflictDetectionService:
             items_by_space=items_by_space,
             items_by_facilitator=items_by_facilitator,
             facilitators_by_session=facilitators_by_session,
-            spaces={s.pk: s for s in self._uow.spaces.list_by_event(event_pk)},
+            spaces={space.pk: space for space in spaces},
         )
 
     def _detect(
@@ -666,29 +706,23 @@ class ConflictDetectionService:
         names_by_session = self._uow.sessions.list_track_names_by_session(
             sorted(session_pks)
         )
-        # Name-ordered by the repository, so a session in two other tracks
-        # reports the same one run to run.
-        others_by_session = {
-            session_pk: others
-            for session_pk, tracks in names_by_session.items()
-            if (
-                others := [
-                    (track_pk, name)
-                    for track_pk, name in tracks.items()
-                    if track_pk != current_track_pk
-                ]
-            )
-        }
+        # First by name, decided here rather than relied on from the query, so
+        # a session in two other tracks reports the same one run to run.
+        named_by_session: dict[int, tuple[int, str]] = {}
+        for session_pk, tracks in names_by_session.items():
+            others = [
+                (track_pk, name)
+                for track_pk, name in tracks.items()
+                if track_pk != current_track_pk
+            ]
+            if others:
+                named_by_session[session_pk] = min(others, key=itemgetter(1))
         manager_names = self._uow.tracks.list_manager_names_by_tracks(
-            {
-                track_pk
-                for others in others_by_session.values()
-                for track_pk, _ in others
-            }
+            {track_pk for track_pk, _ in named_by_session.values()}
         )
         return {
-            session_pk: (others[0][1], manager_names.get(others[0][0], []))
-            for session_pk, others in others_by_session.items()
+            session_pk: (name, manager_names.get(track_pk, []))
+            for session_pk, (track_pk, name) in named_by_session.items()
         }
 
     def _add_track_attribution(
@@ -724,11 +758,18 @@ class ConflictDetectionService:
     ) -> list[PreferredSlotViolationDTO]:
         if track_pk is not None:
             require_track_in_event(self._uow.tracks, track_pk, event_pk)
-        scheduled = (
-            self._uow.agenda_items.list_by_event(event_pk)
-            if track_pk is None
-            else self._uow.agenda_items.list_by_track(track_pk)
+        return self._violations(
+            (
+                self._uow.agenda_items.list_by_event(event_pk)
+                if track_pk is None
+                else self._uow.agenda_items.list_by_track(track_pk)
+            ),
+            track_pk,
         )
+
+    def _violations(
+        self, scheduled: list[AgendaItemDTO], track_pk: int | None
+    ) -> list[PreferredSlotViolationDTO]:
         if not scheduled:
             return []
 
@@ -797,7 +838,7 @@ class TimetableOverviewService:
         all_items = self._uow.agenda_items.list_by_event(event_pk)
         if conflicts is None:
             conflicts = self.get_all_conflicts(event_pk)
-        conflict_session_pks = {c.session_pk for c in conflicts}
+        conflict_pks = conflicting_session_pks(conflicts)
 
         space_pk_set = {s.pk for s in spaces}
         space_items: dict[int, list[AgendaItemDTO]] = defaultdict(list)
@@ -841,7 +882,7 @@ class TimetableOverviewService:
                     )
                     if overlapping is None:
                         status = HeatmapCellStatus.EMPTY
-                    elif overlapping.session_id in conflict_session_pks:
+                    elif overlapping.session_id in conflict_pks:
                         status = HeatmapCellStatus.CONFLICT
                     else:
                         status = HeatmapCellStatus.SCHEDULED

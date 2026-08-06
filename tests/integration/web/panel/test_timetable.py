@@ -22,7 +22,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, assert_response_404
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -374,6 +374,25 @@ class TestTimetablePageView:
         space_pks = [s.pk for s in grid.spaces]
         assert space.pk in space_pks
         assert other_space.pk not in space_pks
+
+    def test_track_from_another_event_is_not_found(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # Panel access proves this organizer manages `event`, not the pk in the
+        # query string. Rendering unfiltered would read as a working filter.
+        sphere.managers.add(active_user)
+        other_track = Track.objects.create(
+            event=EventFactory(sphere=sphere),
+            name="Other",
+            slug="other-track",
+            is_public=True,
+        )
+
+        response = authenticated_client.get(
+            self.get_url(event), {"track": str(other_track.pk)}
+        )
+
+        assert_response_404(response)
 
     def test_auto_selects_single_managed_track(
         self, authenticated_client, active_user, sphere, event, space

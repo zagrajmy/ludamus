@@ -11,15 +11,8 @@
                 <div class="timetable-slot-line absolute left-0 right-0 border-t border-border"
                      style="--offset: {{ label.offset_minutes }}"></div>
             {% endfor %}
-            {# The state's tone is picked here, once, and the card renders it. #}
             {% for pos in col.sessions %}
-                {% if pos.state == "conflict" %}
-                    {% include "panel/parts/timetable-session-card.html" with tone_surface="bg-danger-bg border-danger" tone_title="text-danger-text" tone_meta="text-danger" tone_icon="⚠" %}
-                {% elif pos.state == "slot_violation" %}
-                    {% include "panel/parts/timetable-session-card.html" with tone_surface="bg-warning-bg border-warning" tone_title="text-warning-text" tone_meta="text-warning" tone_icon="⏰" %}
-                {% else %}
-                    {% include "panel/parts/timetable-session-card.html" with tone_surface="bg-info-bg border-info" tone_title="text-info-text" tone_meta="text-info" tone_icon="" %}
-                {% endif %}
+                {% include "panel/parts/timetable-session-card.html" %}
             {% endfor %}
         </div>
     {% endfor %}

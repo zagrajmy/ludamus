@@ -1,5 +1,5 @@
 from datetime import UTC, date, datetime
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,6 +19,8 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ConflictDTO,
+    ConflictSeverity,
     ConflictType,
     HeatmapCellStatus,
     SessionPlacement,
@@ -165,10 +167,11 @@ class TestBuildGridOverlappingSessions:
             60,
         ]
         assert grid.date_selection == "all"
-        # Three loads, none of them per-day: the grid's own, conflict
-        # detection's, and the preferred-slot check's. What this guards is the
-        # day loop -- a fourth day must not mean a fourth query.
-        assert uow.agenda_items.list_by_event.call_args_list == [call(1)] * 3
+        # One render, one load -- of the items and of the space nodes -- however
+        # many days the grid spans. The warnings run off what the grid already
+        # fetched instead of asking again.
+        uow.agenda_items.list_by_event.assert_called_once_with(1)
+        uow.spaces.list_by_event.assert_called_once_with(1)
 
     def test_track_filter_still_shows_every_booking_in_the_visible_rooms(self):
         uow = MagicMock()
@@ -747,6 +750,30 @@ class TestListAllForTrack:
         uow.sessions.list_track_names_by_session.assert_called_once_with([20])
         uow.tracks.list_manager_names_by_tracks.assert_called_once_with({6})
 
+    def test_attribution_names_the_first_foreign_track_by_name(self):
+        # Two foreign tracks, handed over in pk order: the clash still reports
+        # the alphabetically first one, whatever order the rows arrive in.
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        shared = _facilitator(7)
+        uow = self._uow(
+            all_items=[subject, other],
+            subjects=[subject],
+            facilitators={10: [shared], 20: [shared]},
+        )
+        uow.sessions.list_track_names_by_session.return_value = {
+            20: {6: "Wargames", 7: "Board games"}
+        }
+        uow.tracks.list_manager_names_by_tracks.return_value = {7: ["Basia"]}
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=5
+        )
+
+        assert conflicts[0].track_name == "Board games"
+        assert conflicts[0].manager_names == ["Basia"]
+        uow.tracks.list_manager_names_by_tracks.assert_called_once_with({7})
+
     def test_no_other_tracks_returns_conflict_unchanged(self):
         # Attribution filtering removes the current track, leaving nothing to
         # attribute the clash to.
@@ -970,6 +997,39 @@ class TestTimetableOverviewServiceDefaults:
         assert [c.status for c in result.rows[0].cells] == [
             HeatmapCellStatus.SCHEDULED,
             HeatmapCellStatus.EMPTY,
+        ]
+
+    def test_build_heatmap_marks_both_ends_of_a_clash(self, mock_uow):
+        # A conflict row names one session as subject and the other as
+        # counterpart, and only one row is kept per pair. Both are in the
+        # clash, so neither room may read as merely scheduled.
+        mock_uow.spaces.list_by_event.return_value = [_space(3), _space(4)]
+        mock_uow.time_slots.list_by_event.return_value = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        mock_uow.agenda_items.list_by_event.return_value = [
+            _make_item(pk=1, session_id=10, space_id=3),
+            _make_item(pk=2, session_id=20, space_id=4),
+        ]
+        conflict = ConflictDTO(
+            type=ConflictType.FACILITATOR_OVERLAP,
+            severity=ConflictSeverity.ERROR,
+            subject_session_title="Mine",
+            subject_session_pk=10,
+            session_title="Theirs",
+            session_pk=20,
+        )
+
+        result = TimetableOverviewService(mock_uow).build_heatmap(
+            event_pk=1, tz=UTC, conflicts=[conflict]
+        )
+
+        assert [c.status for c in result.rows[0].cells] == [
+            HeatmapCellStatus.CONFLICT,
+            HeatmapCellStatus.CONFLICT,
         ]
 
     def test_all_conflicts_grouped_fetches_conflicts_when_none(self, mock_uow):
