@@ -814,7 +814,12 @@ def _get_session_or_redirect(
     viewer_id = request.context.current_user_id
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         fake_full_session(session)
-    if not AgendaItem.objects.filter(session_id=session.pk).exists():
+    if (
+        not AgendaItem.objects.filter(session_id=session.pk).exists()
+        and not SessionParticipation.objects.filter(
+            session=session, user_id=viewer_id
+        ).exists()
+    ):
         raise RedirectError(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),

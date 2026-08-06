@@ -805,6 +805,8 @@ class SessionManager(AliveManager["Session"]):
     def conflicted_user_ids(self, session: Session, user_ids: list[int]) -> set[int]:
         if not user_ids:
             return set()
+        if not hasattr(session, "agenda_item"):
+            return set()
         start = session.agenda_item.start_time
         end = session.agenda_item.end_time
         # Superset-safe: never misses a genuine conflict; extra ids the join might
