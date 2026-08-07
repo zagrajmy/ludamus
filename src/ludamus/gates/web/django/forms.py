@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 from lxml import etree
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
     from lxml.etree import _Element as Element
 
-    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+    from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -45,6 +46,16 @@ MAX_IMAGE_PIXELS = 24_000_000
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
+# Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
+# is wider, so an overflow only ever surfaces in production. A validator rather
+# than `max_value` on every field writing the column: validators reject
+# server-side without renting a max attribute on the input. Without it the
+# panel falls back to its generic "couldn't save" (its savepoint converts the
+# DataError) and the facilitator self-edit, which catches nothing, 500s.
+MAX_STORED_PARTICIPANTS_LIMIT = 2_147_483_647
+STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
+    MAX_STORED_PARTICIPANTS_LIMIT, message=_("Enter a smaller number.")
+)
 
 
 def validate_uploaded_image_size(image: object) -> None:
@@ -632,7 +643,11 @@ class SessionEditForm(forms.Form):
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(
-        required=False, min_value=0, label=_("Participants Limit")
+        required=False,
+        min_value=0,
+        validators=[STORAGE_LIMIT_VALIDATOR],
+        label=_("Participants Limit"),
+        help_text=_("Empty or 0 = no limit"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
     duration = forms.CharField(required=False, label=_("Duration"))
@@ -642,19 +657,6 @@ class SessionEditForm(forms.Form):
         image = self.cleaned_data.get("cover_image")
         validate_uploaded_image(image)
         return image
-
-
-def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
-    # Stays optional (blank = no limit, as organizers expect) but honours the
-    # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {
-        "required": False,
-        "min_value": min_limit or 0,
-        "label": _("Participants Limit"),
-    }
-    if max_limit:
-        kwargs["max_value"] = max_limit
-    return forms.IntegerField(**kwargs)
 
 
 CUSTOM_DURATION = "custom"
@@ -700,11 +702,13 @@ def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
     )
 
 
+# Takes durations rather than the category: a category's participant bounds bind
+# the submission wizard only (chronology.forms.build_session_details_form).
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
-    category: ProposalCategoryDTO | None = None,
+    durations: Sequence[str] = (),
 ) -> type[SessionEditForm]:
     attrs: dict[str, forms.Field] = {
         "category_id": forms.ChoiceField(
@@ -715,14 +719,6 @@ def create_proposal_form(
             },
         )
     }
-
-    if category and (
-        category.min_participants_limit or category.max_participants_limit
-    ):
-        attrs["participants_limit"] = _participants_limit_field(
-            min_limit=category.min_participants_limit,
-            max_limit=category.max_participants_limit,
-        )
 
     attrs["duration_hours"] = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
@@ -737,7 +733,7 @@ def create_proposal_form(
 
     namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
         **attrs,
-        "duration": _duration_field(category.durations if category else []),
+        "duration": _duration_field(durations),
         "custom_required_keys": custom_required,
     }
     return type(

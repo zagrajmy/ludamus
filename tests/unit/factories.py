@@ -48,13 +48,21 @@ def organizer_field_dto(**overrides) -> OrganizerFieldDTO:
     return OrganizerFieldDTO(**(defaults | overrides))
 
 
-def category(*, pk=1, name="Talk", slug="talk"):
+def category(
+    *,
+    pk=1,
+    name="Talk",
+    slug="talk",
+    min_participants_limit=0,
+    max_participants_limit=0,
+    durations=(),
+):
     return ProposalCategoryDTO(
         description="",
-        durations=[],
+        durations=list(durations),
         end_time=None,
-        max_participants_limit=0,
-        min_participants_limit=0,
+        max_participants_limit=max_participants_limit,
+        min_participants_limit=min_participants_limit,
         name=name,
         pk=pk,
         slug=slug,
