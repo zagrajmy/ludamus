@@ -1,15 +1,18 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 from freezegun import freeze_time
 
 from ludamus.links.db.django.models import ProposalCategory, Session
-from ludamus.pacts import EventDTO, ProposalCategoryDTO
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from ludamus.pacts import ProposalCategoryDTO
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    cfp_tab_urls,
+    panel_context,
+)
 
 
 class TestCFPPageView:
@@ -24,81 +27,37 @@ class TestCFPPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [],
                 "category_stats": {},
             },
         )
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:cfp", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_returns_categories_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_returns_categories_in_context(self, panel_client, event):
         cat1 = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg"
         )
@@ -106,38 +65,16 @@ class TestCFPPageView:
             event=event, name="Workshops", slug="workshops"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=cat1.pk,
@@ -169,43 +106,17 @@ class TestCFPPageView:
             },
         )
 
-    def test_returns_empty_categories_when_none_exist(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_returns_empty_categories_when_none_exist(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [],
                 "category_stats": {},
             },
@@ -213,21 +124,15 @@ class TestCFPPageView:
 
     # Status badge tests
 
-    def test_shows_not_set_status_when_no_times(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_not_set_status_when_no_times(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Not set" in response.content
 
     @freeze_time("2025-06-15 12:00:00")
-    def test_shows_closed_status_when_past(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_closed_status_when_past(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -236,15 +141,12 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Closed" in response.content
 
     @freeze_time("2025-04-15 12:00:00")
-    def test_shows_upcoming_status_when_future(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_upcoming_status_when_future(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -253,15 +155,12 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Upcoming" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
-    def test_shows_active_status_when_open(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_active_status_when_open(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -270,15 +169,12 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Active" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
-    def test_shows_active_status_when_only_start_time(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_active_status_when_only_start_time(self, panel_client, event):
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -286,15 +182,14 @@ class TestCFPPageView:
             start_time=datetime(2025, 5, 1, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Active" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
     def test_shows_not_set_status_when_only_end_time_in_future(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         ProposalCategory.objects.create(
             event=event,
             name="RPG",
@@ -302,50 +197,25 @@ class TestCFPPageView:
             end_time=datetime(2025, 5, 31, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert b"Not set" in response.content
 
     # Stats display tests
 
-    def test_shows_zero_stats_when_no_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_zero_stats_when_no_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=category.pk,
@@ -366,10 +236,7 @@ class TestCFPPageView:
         )
         assert b"0 / 0" in response.content
 
-    def test_shows_proposal_stats(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_proposal_stats(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         # Create 3 sessions (2 pending, 1 accepted)
         Session.objects.create(
@@ -400,38 +267,23 @@ class TestCFPPageView:
             status="accepted",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1 + 1,  # 2 pending
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1 + 1 + 1,  # 3 total
-                    "total_sessions": 1 + 1,  # pending + scheduled
-                },
-                "active_nav": "cfp",
+                **panel_context(
+                    event,
+                    active_nav="cfp",
+                    hosts_count=1,
+                    pending_proposals=1 + 1,
+                    total_proposals=1 + 1 + 1,
+                    total_sessions=1 + 1,
+                ),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=category.pk,
@@ -453,10 +305,7 @@ class TestCFPPageView:
         # Should show "1 / 3" (1 accepted out of 3 total)
         assert b"1 / 3" in response.content
 
-    def test_shows_stats_per_category(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_stats_per_category(self, panel_client, active_user, event):
         # Create two categories with different stats
         category1 = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         category2 = ProposalCategory.objects.create(
@@ -492,38 +341,23 @@ class TestCFPPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1 + 1,  # 2 pending (RPG 1 + Workshop 1)
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1 + 1 + 1,  # 3 total
-                    "total_sessions": 1 + 1,  # pending + scheduled
-                },
-                "active_nav": "cfp",
+                **panel_context(
+                    event,
+                    active_nav="cfp",
+                    hosts_count=1,
+                    pending_proposals=1 + 1,
+                    total_proposals=1 + 1 + 1,
+                    total_sessions=1 + 1,
+                ),
                 "active_tab": "types",
-                "tab_urls": {
-                    "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
-                    "host": reverse(
-                        "panel:personal-data-fields", kwargs={"slug": event.slug}
-                    ),
-                    "session": reverse(
-                        "panel:session-fields", kwargs={"slug": event.slug}
-                    ),
-                    "time_slots": reverse(
-                        "panel:time-slots", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": cfp_tab_urls(event),
                 "categories": [
                     ProposalCategoryDTO(
                         pk=category1.pk,
