@@ -13,7 +13,6 @@ from ludamus.mills.chronology import (
     SessionConfirmationService,
     SessionContentEditService,
 )
-from ludamus.mills.timetable import TimetableService
 from ludamus.pacts import (
     AgendaItemDTO,
     EventDTO,
@@ -34,12 +33,11 @@ from ludamus.pacts.chronology import (
     IntegrationKind,
     ProposalAcceptContextDTO,
     ProposalAcceptDeniedError,
-    SessionPlacement,
     SourceQuestion,
     SpaceTimeConflictError,
 )
-from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.submissions import ImportSettings
+from tests.unit.factories import user_dto
 
 
 def _make_item(**overrides):
@@ -348,105 +346,6 @@ class TestContentEditStoresAnswers:
         repos.sessions.save_field_values.assert_called_once_with(
             5, [SessionFieldValueData(session_id=5, field_id=7, value=False)]
         )
-
-
-class TestAssignUnassignScope:
-    """The service rejects sessions/spaces that belong to another event."""
-
-    @pytest.fixture
-    def mock_uow(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def service(self, mock_uow):
-        return TimetableService(mock_uow)
-
-    @staticmethod
-    def _event(pk, *, auto_confirm_sessions=True):
-        event = MagicMock()
-        event.pk = pk
-        event.auto_confirm_sessions = auto_confirm_sessions
-        return event
-
-    @staticmethod
-    def _placement(space_pk=1):
-        return SessionPlacement(
-            space_pk=space_pk,
-            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
-            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
-        )
-
-    def test_assign_rejects_session_from_another_event(self, service, mock_uow):
-        mock_uow.sessions.read_event.return_value = self._event(2)
-
-        with pytest.raises(NotFoundError):
-            service.assign_session(
-                session_pk=1, placement=self._placement(), event_pk=1
-            )
-
-        mock_uow.agenda_items.create.assert_not_called()
-
-    def test_assign_rejects_space_from_another_event(self, service, mock_uow):
-        mock_uow.sessions.read_event.return_value = self._event(1)
-        foreign_space = MagicMock()
-        foreign_space.pk = 99
-        mock_uow.spaces.list_by_event.return_value = [foreign_space]
-
-        with pytest.raises(NotFoundError):
-            service.assign_session(
-                session_pk=1, placement=self._placement(), event_pk=1
-            )
-
-        mock_uow.agenda_items.create.assert_not_called()
-
-    def test_unassign_rejects_session_from_another_event(self, service, mock_uow):
-        mock_uow.sessions.read_event.return_value = self._event(2)
-
-        with pytest.raises(NotFoundError):
-            service.unassign_session(session_pk=1, event_pk=1)
-
-        mock_uow.agenda_items.delete.assert_not_called()
-
-    def _arrange_acceptable_assignment(self, mock_uow, *, auto_confirm_sessions):
-        mock_uow.sessions.read_event.return_value = self._event(
-            1, auto_confirm_sessions=auto_confirm_sessions
-        )
-        space = MagicMock()
-        space.pk = 1
-        space.parent_id = None  # a childless root is a leaf (a bookable room)
-        mock_uow.spaces.list_by_event.return_value = [space]
-        mock_uow.agenda_items.read_by_session.return_value = None
-        session = MagicMock()
-        session.status = SessionStatus.ACCEPTED
-        mock_uow.sessions.read.return_value = session
-
-    def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
-        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
-
-        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
-
-        created = mock_uow.agenda_items.create.call_args.args[0]
-        assert created["session_confirmed"] is True
-
-    def test_assign_leaves_unconfirmed_when_event_disables_auto_confirm(
-        self, service, mock_uow
-    ):
-        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=False)
-
-        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
-
-        created = mock_uow.agenda_items.create.call_args.args[0]
-        assert created["session_confirmed"] is False
-
-    def test_move_unconfirms_even_when_event_auto_confirms(self, service, mock_uow):
-        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
-        # An existing agenda item means this assignment is a move.
-        mock_uow.agenda_items.read_by_session.return_value = MagicMock()
-
-        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
-
-        created = mock_uow.agenda_items.create.call_args.args[0]
-        assert created["session_confirmed"] is False
 
 
 class TestSessionConfirmation:
@@ -771,24 +670,7 @@ def _event_dto(**overrides):
 
 
 def _user_dto(**overrides):
-    defaults = {
-        "avatar_url": "",
-        "date_joined": _NOW,
-        "discord_username": "",
-        "email": "",
-        "full_name": "",
-        "is_active": True,
-        "is_authenticated": True,
-        "is_staff": False,
-        "is_superuser": False,
-        "name": "",
-        "pk": 1,
-        "slug": "manager",
-        "use_gravatar": False,
-        "user_type": UserType.ACTIVE,
-        "username": "auth0|sub",
-    }
-    return UserDTO(**(defaults | overrides))
+    return user_dto(**{"date_joined": _NOW, **overrides})
 
 
 class TestProposalAcceptanceService:

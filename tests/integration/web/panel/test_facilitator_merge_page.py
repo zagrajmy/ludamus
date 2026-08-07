@@ -16,16 +16,15 @@ from ludamus.links.db.django.models import (
     ProposalCategory,
     Session,
 )
-from ludamus.pacts import (
-    EventDTO,
-    FacilitatorDTO,
-    FacilitatorListItemDTO,
-    OrganizerFieldDTO,
-)
+from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
 from tests.integration.conftest import EventFactory, UserFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_not_a_manager,
+    facilitator_list_item_dto,
+    panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 MULTIPLE_LINKED_ERROR = (
     "These facilitators each have a linked user account. Unlink all but one "
     "before merging."
@@ -40,18 +39,7 @@ def _make_facilitator(event, *, display_name, slug, **kwargs):
 
 def _event_context(event):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
+        **panel_context(event, active_nav="facilitators"),
         "active_tab": "merge",
         "tab_urls": {
             "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
@@ -63,26 +51,15 @@ def _event_context(event):
     }
 
 
-def _list_item(facilitator):
-    return FacilitatorListItemDTO(
-        accreditation_type=facilitator.accreditation_type,
-        display_name=facilitator.display_name,
-        pk=facilitator.pk,
-        session_count=0,
-        slug=facilitator.slug,
-        user_id=facilitator.user_id,
-    )
-
-
 def _search_context(
     event, *, basket, search_query="", search_results=(), can_merge=False
 ):
     return {
         **_event_context(event),
         "confirm": False,
-        "basket": [_list_item(f) for f in basket],
+        "basket": [facilitator_list_item_dto(f) for f in basket],
         "search_query": search_query,
-        "search_results": [_list_item(f) for f in search_results],
+        "search_results": [facilitator_list_item_dto(f) for f in search_results],
         "can_merge": can_merge,
     }
 
@@ -147,31 +124,21 @@ class TestFacilitatorMergeSearch:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_search_results_exclude_basket(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_results_exclude_basket(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
         nowak = _make_facilitator(event, display_name="Adam Nowak", slug="adam-nowak")
         _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"facilitator_slugs": ["adam-kowalski"], "q": "Adam"}
         )
 
@@ -184,20 +151,17 @@ class TestFacilitatorMergeSearch:
             ),
         )
 
-    def test_add_and_remove_adjust_the_basket(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_add_and_remove_adjust_the_basket(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
         jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
-        added = authenticated_client.get(
+        added = panel_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["adam-kowalski"], "add": "jan-wysocki"},
         )
-        removed = authenticated_client.get(
+        removed = panel_client.get(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
@@ -218,15 +182,12 @@ class TestFacilitatorMergeSearch:
             context_data=_search_context(event, basket=[jan]),
         )
 
-    def test_stale_basket_slugs_drop_silently(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_stale_basket_slugs_drop_silently(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"facilitator_slugs": ["adam-kowalski", "ghost"]}
         )
 
@@ -238,9 +199,8 @@ class TestFacilitatorMergeSearch:
         )
 
     def test_basket_keeps_its_order_and_drops_another_events_slug(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
@@ -250,7 +210,7 @@ class TestFacilitatorMergeSearch:
             EventFactory(), display_name="Ola Nowak", slug="ola-nowak"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["jan-wysocki", foreign.slug, "adam-kowalski"]},
         )
@@ -262,10 +222,7 @@ class TestFacilitatorMergeSearch:
             context_data=_search_context(event, basket=[jan, adam], can_merge=True),
         )
 
-    def test_linked_badge_renders_in_basket_and_search(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_linked_badge_renders_in_basket_and_search(self, panel_client, event):
         adam = Facilitator.objects.create(
             event=event,
             display_name="Adam Kowalski",
@@ -279,7 +236,7 @@ class TestFacilitatorMergeSearch:
             user=UserFactory(name="Jan User"),
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"facilitator_slugs": ["adam-kowalski"], "q": "Jan"}
         )
 
@@ -301,10 +258,7 @@ class TestFacilitatorMergeConfirm:
     def get_url(event):
         return reverse("panel:facilitator-merge", kwargs={"slug": event.slug})
 
-    def test_confirm_offers_reconciliation_choices(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_confirm_offers_reconciliation_choices(self, panel_client, event):
         adam = _make_facilitator(
             event,
             display_name="Adam Kowalski",
@@ -327,7 +281,7 @@ class TestFacilitatorMergeConfirm:
             facilitator=jan, event=event, field=field, value="Vegetarian"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["adam-kowalski", "jan-wysocki"], "confirm": "1"},
         )
@@ -358,9 +312,8 @@ class TestFacilitatorMergeConfirm:
         )
 
     def test_confirm_asks_about_nothing_the_facilitators_agree_on(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         adam = _make_facilitator(event, display_name="Adam Kowalski", slug="adam-1")
         twin = _make_facilitator(event, display_name="Adam Kowalski", slug="adam-2")
         field = PersonalDataField.objects.create(
@@ -375,7 +328,7 @@ class TestFacilitatorMergeConfirm:
             facilitator=twin, event=event, field=field, value="Vegan"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["adam-1", "adam-2"], "confirm": "1"},
         )
@@ -406,9 +359,8 @@ class TestFacilitatorMergeConfirm:
         )
 
     def test_post_merge_keeps_unanimous_field_value_on_target(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
@@ -425,7 +377,7 @@ class TestFacilitatorMergeConfirm:
             facilitator=jan, event=event, field=field, value="Vegan"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
@@ -459,10 +411,7 @@ class TestFacilitatorMergeConfirm:
             },
         )
 
-    def test_post_keeps_the_only_organizer_among_merged(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_keeps_the_only_organizer_among_merged(self, panel_client, event):
         organizer = UserFactory(username="organizer", email="organizer@example.com")
         target = _make_facilitator(event, display_name="Alice", slug="alice")
         source = _make_facilitator(
@@ -470,7 +419,7 @@ class TestFacilitatorMergeConfirm:
         )
         Facilitator.objects.filter(pk=source.pk).update(organizer=organizer)
 
-        response = self._merge_alice(authenticated_client, event)
+        response = self._merge_alice(panel_client, event)
 
         assert_response(
             response,
@@ -482,9 +431,8 @@ class TestFacilitatorMergeConfirm:
         assert target.organizer_id == organizer.pk
 
     def test_post_keeps_the_targets_organizer_over_a_disagreeing_source(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         one = UserFactory(username="organizer-one", email="organizer1@example.com")
         two = UserFactory(username="organizer-two", email="organizer2@example.com")
         target = _make_facilitator(event, display_name="Alice", slug="alice")
@@ -494,7 +442,7 @@ class TestFacilitatorMergeConfirm:
         Facilitator.objects.filter(pk=target.pk).update(organizer=one)
         Facilitator.objects.filter(pk=source.pk).update(organizer=two)
 
-        response = self._merge_alice(authenticated_client, event)
+        response = self._merge_alice(panel_client, event)
 
         assert_response(
             response,
@@ -506,9 +454,8 @@ class TestFacilitatorMergeConfirm:
         assert target.organizer_id == one.pk
 
     def test_post_clears_disagreeing_organizers_of_an_unheld_target(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         one = UserFactory(username="organizer-one", email="organizer1@example.com")
         two = UserFactory(username="organizer-two", email="organizer2@example.com")
         target = _make_facilitator(event, display_name="Alice", slug="alice")
@@ -519,7 +466,7 @@ class TestFacilitatorMergeConfirm:
         Facilitator.objects.filter(pk=first.pk).update(organizer=one)
         Facilitator.objects.filter(pk=second.pk).update(organizer=two)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["alice", "alice-dup", "alice-copy"],
@@ -538,10 +485,7 @@ class TestFacilitatorMergeConfirm:
         target.refresh_from_db()
         assert target.organizer_id is None
 
-    def test_post_keeps_a_shared_organizer(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_keeps_a_shared_organizer(self, panel_client, event):
         organizer = UserFactory(username="organizer", email="organizer@example.com")
         target = _make_facilitator(event, display_name="Alice", slug="alice")
         source = _make_facilitator(
@@ -551,7 +495,7 @@ class TestFacilitatorMergeConfirm:
             organizer=organizer
         )
 
-        response = self._merge_alice(authenticated_client, event)
+        response = self._merge_alice(panel_client, event)
 
         assert_response(
             response,
@@ -563,14 +507,13 @@ class TestFacilitatorMergeConfirm:
         assert target.organizer_id == organizer.pk
 
     def test_confirm_with_too_small_basket_falls_back_to_search(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["adam-kowalski"], "confirm": "1"},
         )
@@ -583,14 +526,13 @@ class TestFacilitatorMergeConfirm:
         )
 
     def test_confirm_with_foreign_facilitator_is_not_found(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         _make_facilitator(event, display_name="Adam Kowalski", slug="adam-kowalski")
         other_event = EventFactory(sphere=sphere)
         _make_facilitator(other_event, display_name="Foreign", slug="foreign")
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event),
             {"facilitator_slugs": ["adam-kowalski", "foreign"], "confirm": "1"},
         )
@@ -602,10 +544,7 @@ class TestFacilitatorMergeConfirm:
             url=reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         )
 
-    def test_post_merges_with_reconciled_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_merges_with_reconciled_values(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
@@ -633,7 +572,7 @@ class TestFacilitatorMergeConfirm:
         )
         session.facilitators.add(jan)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
@@ -659,17 +598,16 @@ class TestFacilitatorMergeConfirm:
         assert value.value == "Vegetarian"
 
     def test_merge_records_what_it_absorbed_and_changed(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
         # A merge deletes facilitators and rewrites the survivor's answers; the
         # change log is the only place that stays true about it afterwards.
-        sphere.managers.add(active_user)
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
         _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
@@ -697,16 +635,13 @@ class TestFacilitatorMergeConfirm:
             },
         ]
 
-    def test_post_rejects_a_target_outside_the_selection(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_a_target_outside_the_selection(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
         jan = _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
@@ -734,10 +669,7 @@ class TestFacilitatorMergeConfirm:
         )
         assert Facilitator.objects.filter(slug="jan-wysocki").exists()
 
-    def test_post_rejects_two_linked_users(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_two_linked_users(self, panel_client, event):
         adam = _make_facilitator(
             event, display_name="Adam Kowalski", slug="adam-kowalski"
         )
@@ -747,7 +679,7 @@ class TestFacilitatorMergeConfirm:
         jan.user = UserFactory()
         jan.save()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "jan-wysocki"],
@@ -773,15 +705,12 @@ class TestFacilitatorMergeConfirm:
         )
         assert Facilitator.objects.filter(slug="jan-wysocki").exists()
 
-    def test_post_rejects_foreign_facilitator(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_foreign_facilitator(self, panel_client, sphere, event):
         _make_facilitator(event, display_name="Adam Kowalski", slug="adam-kowalski")
         other_event = EventFactory(sphere=sphere)
         _make_facilitator(other_event, display_name="Foreign", slug="foreign")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "facilitator_slugs": ["adam-kowalski", "foreign"],
@@ -803,14 +732,11 @@ class TestFacilitatorMergeConfirm:
 class TestBulkMergeHandoff:
     """The list's bulk 'Merge selected' action pre-fills the basket."""
 
-    def test_bulk_merge_redirects_to_basket(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_bulk_merge_redirects_to_basket(self, panel_client, event):
         _make_facilitator(event, display_name="Adam Kowalski", slug="adam-kowalski")
         _make_facilitator(event, display_name="Jan Wysocki", slug="jan-wysocki")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             reverse("panel:facilitator-bulk-action", kwargs={"slug": event.slug}),
             {"action": "merge", "facilitator_slugs": ["adam-kowalski", "jan-wysocki"]},
         )

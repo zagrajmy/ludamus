@@ -2,7 +2,6 @@ from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -13,9 +12,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.mills.timetable import ConflictDetectionService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.chronology import TimetableGridDTO
 from ludamus.pacts.legacy import NotificationKind
-from ludamus.specs.timetable import TIMETABLE_SLOT_MINUTES, TIMETABLE_SNAP_MINUTES
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -25,26 +22,14 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _empty_grid():
-    return TimetableGridDTO(
-        spaces=[],
-        groups=[],
-        days=[],
-        time_labels=[],
-        total_minutes=0,
-        slot_minutes=TIMETABLE_SLOT_MINUTES,
-        snap_minutes=TIMETABLE_SNAP_MINUTES,
-        page=1,
-        total_pages=1,
-        total_spaces=0,
-        total_columns=0,
-        available_dates=[],
-    )
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    assign_payload,
+    empty_grid,
+    make_timetable_session,
+)
 
 
 class TestTimetableGridPartView:
@@ -59,49 +44,39 @@ class TestTimetableGridPartView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-grid-part", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_room_page_invalid_value_defaults_to_one(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            self.get_url(event), {"room_page": "not-a-number"}
-        )
-
-        assert response.status_code == HTTPStatus.OK
-
-    def test_ok_returns_grid_partial(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_room_page_invalid_value_defaults_to_one(self, panel_client, event):
+        response = panel_client.get(self.get_url(event), {"room_page": "not-a-number"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-grid.html",
             context_data={
-                "grid": _empty_grid(),
+                "grid": empty_grid(),
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
+        )
+
+    def test_ok_returns_grid_partial(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-grid.html",
+            context_data={
+                "grid": empty_grid(),
                 "filter_track_pk": None,
                 "date_selection": "all",
                 "slug": event.slug,
@@ -109,16 +84,15 @@ class TestTimetableGridPartView:
         )
 
     def test_all_days_returns_each_day_grid(
-        self, authenticated_client, active_user, sphere, event, space, time_slot
+        self, panel_client, event, space, time_slot
     ):
-        sphere.managers.add(active_user)
         second_slot = TimeSlotFactory(
             event=event,
             start_time=time_slot.start_time + timedelta(days=1),
             end_time=time_slot.end_time + timedelta(days=1),
         )
 
-        response = authenticated_client.get(self.get_url(event), {"date": "all"})
+        response = panel_client.get(self.get_url(event), {"date": "all"})
 
         assert_response(
             response,
@@ -151,80 +125,53 @@ class TestTimetableAssignView:
 
         response = client.post(url, {})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(self.get_url(event), {})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-assign", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, {})
+        response = panel_client.post(url, {})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_returns_422_on_missing_params(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_returns_422_on_missing_params(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), {})
 
-        response = authenticated_client.post(self.get_url(event), {})
-
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_assigns_session_and_returns_204(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         event.auto_confirm_sessions = True
         event.save()
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
-            {
-                "session_pk": session.pk,
-                "space_pk": space.pk,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "accepted"
         assert session.agenda_item.session_confirmed is True
 
     def test_assign_leaves_unconfirmed_when_auto_confirm_off(
-        self, authenticated_client, active_user, sphere
+        self, panel_client, sphere
     ):
-        sphere.managers.add(active_user)
         event = EventFactory(sphere=sphere, auto_confirm_sessions=False)
         space = SpaceFactory(event=event)
         session = SessionFactory(
@@ -236,31 +183,22 @@ class TestTimetableAssignView:
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
-            {
-                "session_pk": session.pk,
-                "space_pk": space.pk,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
         assert session.agenda_item.session_confirmed is False
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_assign_promotes_waiter(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_assign_promotes_waiter(self, panel_client, event, proposal_category):
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         waiter = UserFactory(username="t3waiter", email="t3@example.com")
         participation = SessionParticipation.objects.create(
@@ -268,7 +206,7 @@ class TestTimetableAssignView:
         )
         start_time = event.start_time
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             {
                 "session_pk": session.pk,
@@ -285,42 +223,31 @@ class TestTimetableAssignView:
         ).exists()
 
     def test_returns_422_for_rejected_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="rejected",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="rejected", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
-            {
-                "session_pk": session.pk,
-                "space_pk": space.pk,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_reassigns_already_scheduled_session_to_new_slot(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         old_space = SpaceFactory(event=event)
         new_space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         old_start = event.start_time
         old_end = old_start + timedelta(hours=1)
@@ -330,7 +257,7 @@ class TestTimetableAssignView:
         new_start = old_start + timedelta(hours=2)
         new_end = new_start + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "session_pk": session.pk,
@@ -340,7 +267,7 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
         assert session.status == "accepted"
         agenda_item = session.agenda_item
@@ -386,16 +313,15 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         assert "timetableChanged" in response["HX-Trigger"]
         assert "timetableConflicts" not in response["HX-Trigger"]
         session.refresh_from_db()
         assert session.agenda_item is not None
 
     def test_returns_422_for_session_from_another_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
         other_event = EventFactory(sphere=sphere)
         other_session = SessionFactory(
@@ -407,7 +333,7 @@ class TestTimetableAssignView:
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "session_pk": other_session.pk,
@@ -417,26 +343,20 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         other_session.refresh_from_db()
         assert other_session.status == "pending"
         assert not AgendaItem.objects.filter(session=other_session).exists()
 
     def test_returns_422_for_space_from_another_event(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, sphere, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         foreign_space = SpaceFactory(event=EventFactory(sphere=sphere))
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category, participants_limit=10)
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "session_pk": session.pk,
@@ -446,7 +366,7 @@ class TestTimetableAssignView:
             },
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         session.refresh_from_db()
         assert session.status == "pending"
         assert not AgendaItem.objects.filter(session=session).exists()
@@ -464,44 +384,26 @@ class TestTimetableUnassignView:
 
         response = client.post(url, {})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-unassign", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, {})
+        response = panel_client.post(url, {})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_returns_422_on_missing_params(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_returns_422_on_missing_params(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), {})
 
-        response = authenticated_client.post(self.get_url(event), {})
-
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_unassigns_session_and_returns_204(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
@@ -509,37 +411,28 @@ class TestTimetableUnassignView:
             session=session, space=space, start_time=start_time, end_time=end_time
         )
 
-        response = authenticated_client.post(
-            self.get_url(event), {"session_pk": session.pk}
-        )
+        response = panel_client.post(self.get_url(event), {"session_pk": session.pk})
 
-        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert_response(response, HTTPStatus.NO_CONTENT)
         assert response.get("HX-Trigger") is not None
         session.refresh_from_db()
         assert session.status == "accepted"
         assert not AgendaItem.objects.filter(session=session).exists()
 
     def test_returns_422_for_unscheduled_session(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
 
-        response = authenticated_client.post(
-            self.get_url(event), {"session_pk": session.pk}
-        )
+        response = panel_client.post(self.get_url(event), {"session_pk": session.pk})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
     def test_returns_422_for_session_from_another_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
@@ -557,11 +450,11 @@ class TestTimetableUnassignView:
             end_time=end_time,
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), {"session_pk": other_session.pk}
         )
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         other_session.refresh_from_db()
         assert other_session.status == "accepted"
         assert AgendaItem.objects.filter(session=other_session).exists()
