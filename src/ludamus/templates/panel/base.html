@@ -327,14 +327,16 @@ the sphere.{% endcomment %}
         {% comment %}The shell's bar reserves 12px around the tabs so a raised
         tab clears a rounded, bordered card edge. The panel strips that edge
         (rounded-t-none, and border-0 below), leaving the padding as a bare band
-        of tab-track colour — so on mobile the bar gets one even 6px inset.
+        of tab-track colour — so on mobile the bar gets one even 6px inset. The
+        body moves with it: the first tab is meant to sit flush with the content
+        under it, so shrinking only the bar would just relocate the misalignment.
 
         Below sm, `.panel-bleed` pages run their cards to the viewport edge:
         the page wrapper drops its side padding and the cards give up the side
         border and corners they can no longer sit inside. Only card-body's own
         16px separates content from the edge, instead of 12 + 16 + a border.
         {% endcomment %}
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none max-sm:[&_.tab-shell-bar]:p-1.5 sm:[&_.tab-shell-bar]:pt-1.5 max-sm:[&_.panel-bleed_.card]:rounded-none max-sm:[&_.panel-bleed_.card]:border-x-0{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none max-sm:[&_.tab-shell-bar]:p-1.5 sm:[&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-body]:px-1.5 max-sm:[&_.panel-bleed_.card]:rounded-none max-sm:[&_.panel-bleed_.card]:border-x-0{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
             <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10">
                 <div class="flex flex-wrap items-center justify-between gap-2">
