@@ -146,7 +146,6 @@ class TestBuildGridOverlappingSessions:
             event_pk=1, tz=UTC, date_selection="all"
         )
 
-        expected_total_minutes = 180
         assert [day.date.isoformat() for day in grid.days] == [
             "2026-01-01",
             "2026-01-02",
@@ -155,17 +154,14 @@ class TestBuildGridOverlappingSessions:
         assert [
             day.columns[0].sessions[0].agenda_item.session_title for day in grid.days
         ] == ["Day one", "Day two"]
-        assert grid.total_minutes == expected_total_minutes
-        assert [label.time.strftime("%H:%M") for label in grid.time_labels] == [
-            "10:00",
-            "11:00",
-            "12:00",
-            "13:00",
-        ]
-        assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [
-            0,
-            60,
-        ]
+        # Each day spans its own slots: 10:00-12:00 and 11:00-13:00, so both
+        # are two hours tall and each session sits at the top of its own day.
+        assert [day.total_minutes for day in grid.days] == [2 * 60, 2 * 60]
+        assert [
+            [label.time.strftime("%H:%M") for label in day.time_labels]
+            for day in grid.days
+        ] == [["10:00", "11:00", "12:00"], ["11:00", "12:00", "13:00"]]
+        assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [0, 0]
         assert grid.date_selection == "all"
         # One render, one load -- of the items and of the space nodes -- however
         # many days the grid spans. The warnings run off what the grid already
@@ -264,7 +260,7 @@ class TestBuildGridOverlappingSessions:
 
         assert grid.date_selection == date(2026, 1, 1)
         # The selected day owns only its own side of midnight: 22:00 -> 24:00.
-        assert grid.total_minutes == 2 * 60
+        assert [day.total_minutes for day in grid.days] == [2 * 60]
 
     def test_overnight_slot_adds_the_day_it_reaches_into(self):
         uow = MagicMock()
@@ -302,13 +298,12 @@ class TestBuildGridOverlappingSessions:
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
-        # Jan 2 owns a 00:00 window, so the shared axis starts at midnight.
-        assert grid.total_minutes == 24 * 60
-        assert [label.time.strftime("%H:%M") for label in grid.time_labels][:2] == [
-            "00:00",
-            "01:00",
-        ]
         day_one, day_two = grid.days
+        # Jan 2 owns the 00:00 window, and it stays Jan 2's business: Jan 1
+        # spans only its own 12:00 -> 24:00 rather than the union of the two.
+        assert [day.total_minutes for day in grid.days] == [12 * 60, 22 * 60]
+        assert day_one.time_labels[0].time.strftime("%H:%M") == "12:00"
+        assert day_two.time_labels[0].time.strftime("%H:%M") == "00:00"
         assert day_one.columns[0].sessions == []
         assert [pos.start_minutes for pos in day_two.columns[0].sessions] == [0]
 
@@ -335,6 +330,7 @@ class TestBuildGridOverlappingSessions:
         night_owl = _make_item(
             start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
             end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
+            session_duration_minutes=4 * 60,
         )
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
@@ -343,14 +339,17 @@ class TestBuildGridOverlappingSessions:
         )
 
         day_one, day_two = grid.days
-        # Friday shows 22:00 -> 24:00, Saturday 00:00 -> 02:00, and both keep
-        # the real 4h duration so a drag moves the whole session.
+        # Friday spans 22:00 -> 24:00 and Saturday 00:00 -> 02:00, so each is
+        # two hours tall and the block fills its own day from the top.
+        assert [day.total_minutes for day in grid.days] == [2 * 60, 2 * 60]
         friday, saturday = day_one.columns[0].sessions[0], (
             day_two.columns[0].sessions[0]
         )
-        assert (friday.start_minutes, friday.visible_minutes) == (22 * 60, 2 * 60)
-        assert (saturday.start_minutes, saturday.visible_minutes) == (0, 2 * 60)
-        assert [friday.duration_minutes, saturday.duration_minutes] == [4 * 60, 4 * 60]
+        assert (friday.start_minutes, friday.duration_minutes) == (0, 2 * 60)
+        assert (saturday.start_minutes, saturday.duration_minutes) == (0, 2 * 60)
+        # The real length rides along on the item, so a drag moves all four
+        # hours rather than the visible fragment.
+        assert friday.agenda_item.session_duration_minutes == 4 * 60
 
 
 class TestRevertChange:

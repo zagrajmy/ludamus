@@ -19,7 +19,11 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
     build_display_field_row,
 )
-from ludamus.gates.web.django.chronology.schedule import ScheduleDay, ScheduleHour
+from ludamus.gates.web.django.chronology.schedule import (
+    ScheduleDay,
+    ScheduleHour,
+    ScheduleTile,
+)
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
@@ -204,8 +208,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=hour_start,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -320,8 +331,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=hour_start,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -485,12 +503,12 @@ class TestEventPageView:
             }
         )
         assert [
-            timezone.localtime(day.first_start).date() for day in days
+            timezone.localtime(day.day_start).date() for day in days
         ] == expected_dates
         [day_one_entry] = [
             day
             for day in days
-            if timezone.localtime(day.first_start).date()
+            if timezone.localtime(day.day_start).date()
             == timezone.localtime(day_one).date()
         ]
         [morning_slot, afternoon_slot] = day_one_entry.hours
@@ -643,8 +661,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=hour_start,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(

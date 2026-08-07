@@ -41,16 +41,28 @@
     actually scroll vertically, which is what lets the sticky day/room header
     engage even on an overnight-length grid. Containment is x-only so vertical
     scrolling always chains to the page when the grid cannot consume it.
+
+    Every day carries its own time axis, so the track list alternates gutter,
+    rooms, gutter, rooms -- unrolled here because CSS `repeat()` cannot nest.
+    One shared axis would have to span the union of the days, and a session
+    split at midnight puts 00:00 on one day and 24:00 on the one before, which
+    is a full 24 hours of mostly empty column on every day of the event.
     {% endcomment %}
     <div class="timetable-calendar max-h-[calc(100dvh-5rem)] overflow-auto overscroll-x-contain border border-border rounded-lg select-none"
          data-timetable-days
-         style="--grid-extent: {{ grid.total_minutes }};
+         style="--day-strip-tracks: {% for day in grid.days %}var(--timetable-time-column) repeat({{ grid.spaces|length }}, minmax(var(--timetable-column-min), 1fr)) {% endfor %};
+                --day-count: {{ grid.days|length }};
                 --total-columns: {{ grid.total_columns }};
-                --columns-per-day: {{ grid.spaces|length }}">
+                --day-span: {{ grid.spaces|length|add:1 }}">
         <div class="timetable-day-strip timetable-day-strip-header sticky top-0 z-20 border-b border-neutral-700">
-            <div class="timetable-corner sticky left-0 z-40 flex items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">{% translate "Time" %}</div>
             {% for day in grid.days %}
                 <div class="timetable-day-header">
+                    {# One "Time" caption for the calendar; the later gutters repeat the axis, not the label. #}
+                    <div class="timetable-corner flex items-end justify-end bg-neutral-800 px-2 py-2 text-xs text-neutral-300">
+                        {% if forloop.first %}
+                            {% translate "Time" %}
+                        {% endif %}
+                    </div>
                     {% if grid.days|length > 1 %}
                         <h2 id="timetable-day-{{ day.date|date:'Ymd' }}"
                             class="timetable-day-title flex h-9 items-center border-b border-l border-neutral-700 bg-neutral-900 px-3 text-sm font-semibold text-white">{{ day.date|date:"l, M j" }}</h2>
@@ -91,24 +103,25 @@
             {% endfor %}
         </div>
         <div class="timetable-day-strip">
-            <div class="timetable-time-axis sticky left-0 z-10 bg-bg-secondary shadow-sm">
-                {% for label in grid.time_labels %}
-                    <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
-                         style="--offset: {{ label.offset_minutes }}">
-                        <span class="text-xs text-neutral-400 font-mono pr-2 leading-none">{{ label.time|time:"H:i" }}</span>
-                    </div>
-                {% endfor %}
-            </div>
             {% for day in grid.days %}
                 <section class="timetable-day-grid bg-bg-secondary"
-                         style="--column-count: {{ day.columns|length }}"
+                         style="--grid-extent: {{ day.total_minutes }};
+                                --column-count: {{ day.columns|length }}"
                          data-timetable-day="{{ day.date|date:'Y-m-d' }}"
                          data-date="{{ day.date|date:'Y-m-d' }}"
                          data-event-start="{{ day.event_start_iso }}"
                          data-slot-minutes="{{ grid.slot_minutes }}"
                          data-snap-minutes="{{ grid.snap_minutes }}"
-                         data-total-minutes="{{ grid.total_minutes }}"
+                         data-total-minutes="{{ day.total_minutes }}"
                          aria-label="{{ day.date|date:'l, M j' }}">
+                    <div class="timetable-time-axis bg-bg-secondary shadow-sm">
+                        {% for label in day.time_labels %}
+                            <div class="timetable-time-label absolute left-0 right-0 flex items-center justify-end -translate-y-1/2"
+                                 style="--offset: {{ label.offset_minutes }}">
+                                <span class="text-xs text-neutral-400 font-mono pr-2 leading-none">{{ label.time|time:"H:i" }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
                     {% include "panel/parts/timetable-day-grid.html" %}
                 </section>
             {% endfor %}
