@@ -169,6 +169,13 @@ class TimetableService:
         space_page: int = 1,
         date_selection: DateSelection = "all",
     ) -> TimetableGridDTO:
+        # Before the first read that names it, not merely before the render:
+        # `list_space_pks` below would otherwise walk another event's track and
+        # be told it is foreign only later, by `list_grid_warnings`.
+        if track_pk is not None:
+            require_track_in_event(
+                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+            )
         all_nodes = self._uow.spaces.list_by_event(event_pk)
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = _leaves_in_tree_order(all_nodes)
@@ -373,7 +380,9 @@ class TimetableService:
         user_pk: int | None = None,
     ) -> None:
         with self._uow.atomic():
-            require_session_in_event(self._uow.sessions, session_pk, event_pk)
+            require_session_in_event(
+                sessions=self._uow.sessions, session_pk=session_pk, event_pk=event_pk
+            )
             self._require_space_in_event(placement.space_pk, event_pk)
             self._uow.spaces.lock(placement.space_pk)
             is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
@@ -409,7 +418,9 @@ class TimetableService:
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
     ) -> None:
-        require_session_in_event(self._uow.sessions, session_pk, event_pk)
+        require_session_in_event(
+            sessions=self._uow.sessions, session_pk=session_pk, event_pk=event_pk
+        )
         if (agenda_item := self._uow.agenda_items.read_by_session(session_pk)) is None:
             raise NotFoundError
         event = self._uow.sessions.read_event(session_pk)
@@ -537,9 +548,15 @@ class ConflictDetectionService:
         self, event_pk: int, track_pk: int | None
     ) -> list[ConflictDTO]:
         if track_pk is not None:
-            require_track_in_event(self._uow.tracks, track_pk, event_pk)
+            require_track_in_event(
+                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+            )
         context = self._load_event_context(event_pk)
-        return self._conflicts(self._subjects(context, track_pk), context, track_pk)
+        return self._conflicts(
+            subjects=self._subjects(context, track_pk),
+            context=context,
+            track_pk=track_pk,
+        )
 
     def list_grid_warnings(
         self,
@@ -553,11 +570,13 @@ class ConflictDetectionService:
         # both warnings run off the same subjects. Taking them as arguments
         # keeps one render to one load of each instead of three.
         if track_pk is not None:
-            require_track_in_event(self._uow.tracks, track_pk, event_pk)
+            require_track_in_event(
+                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+            )
         context = self._build_context(items=items, spaces=spaces)
         subjects = self._subjects(context, track_pk)
         return (
-            self._conflicts(subjects, context, track_pk),
+            self._conflicts(subjects=subjects, context=context, track_pk=track_pk),
             self._violations(subjects, track_pk),
         )
 
@@ -570,6 +589,7 @@ class ConflictDetectionService:
 
     def _conflicts(
         self,
+        *,
         subjects: list[AgendaItemDTO],
         context: _EventConflictContext,
         track_pk: int | None,
@@ -757,7 +777,9 @@ class ConflictDetectionService:
         self, event_pk: int, track_pk: int | None
     ) -> list[PreferredSlotViolationDTO]:
         if track_pk is not None:
-            require_track_in_event(self._uow.tracks, track_pk, event_pk)
+            require_track_in_event(
+                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+            )
         return self._violations(
             (
                 self._uow.agenda_items.list_by_event(event_pk)

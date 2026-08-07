@@ -349,8 +349,6 @@ class TestContentEditStoresAnswers:
 
 
 class TestSessionConfirmation:
-    """The service toggles confirmation and rejects foreign agenda items."""
-
     @pytest.fixture
     def agenda_items(self):
         return MagicMock()
@@ -375,20 +373,24 @@ class TestSessionConfirmation:
         event.pk = pk
         return event
 
-    def test_confirm_persists_true(self, service, agenda_items, sessions):
+    def test_confirm_persists_true(self, service, transaction, agenda_items, sessions):
         agenda_items.read.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
         service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
 
+        transaction.atomic.assert_called_once_with()
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
 
-    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+    def test_unconfirm_persists_false(
+        self, service, transaction, agenda_items, sessions
+    ):
         agenda_items.read.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
         service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
 
+        transaction.atomic.assert_called_once_with()
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
 
     def test_rejects_agenda_item_from_another_event(

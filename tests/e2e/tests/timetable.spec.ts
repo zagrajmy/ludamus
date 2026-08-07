@@ -201,7 +201,7 @@ test.describe("Timetable", () => {
     // "Board Game Night" belongs to the other track but occupies a room this
     // one also uses. Hiding it is how two tracks end up in one room at once.
     // It draws as an ordinary card -- no owner label, no separate treatment.
-    const foreign = page.locator(".timetable-session", { hasText: "Board Game Night" });
+    const foreign = page.getByRole("button", { name: /Board Game Night/ });
     await expect(foreign).toBeVisible({ timeout: 10000 });
     await expect(foreign).toHaveAttribute("draggable", "true");
 
@@ -209,6 +209,20 @@ test.describe("Timetable", () => {
     await expect(page.locator("#left-pane").getByText("Board Game Night")).toBeVisible({
       timeout: 5000,
     });
+  });
+
+  test("a grid block opens its details from the keyboard", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const block = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(block).toBeVisible({ timeout: 10000 });
+
+    await block.focus();
+    await page.keyboard.press("Enter");
+
+    const leftPane = page.locator("#left-pane");
+    await expect(leftPane.getByText("Session details")).toBeVisible({ timeout: 5000 });
+    await expect(leftPane.getByText("Board Game Night")).toBeVisible();
   });
 
   // Read off the page instead of restating bootstrap_timetable.py: every column
