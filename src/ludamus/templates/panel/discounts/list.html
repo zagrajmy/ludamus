@@ -13,7 +13,7 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    <div class="panel-bleed py-3 sm:p-4">
+    <div class="panel-bleed sm:p-4">
         {% if rows %}
             <div class="mb-4 flex justify-end">
                 {% url 'panel:discount-export' slug=current_event.slug as export_url %}

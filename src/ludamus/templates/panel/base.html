@@ -333,12 +333,16 @@ the sphere.{% endcomment %}
         whole strip off its rail. The body edge moves with the sides, since the
         first tab is meant to sit flush with the content under it.
 
-        Below sm, `.panel-bleed` pages run their cards to the viewport edge:
-        the page wrapper drops its side padding and the cards give up the side
-        border and corners they can no longer sit inside. Only card-body's own
-        16px separates content from the edge, instead of 12 + 16 + a border.
+        Below sm, `.panel-bleed` pages run their cards to the viewport edge and
+        stack as continuous bands: the wrapper drops all its padding, the cards
+        give up the side border and corners they can no longer sit inside, and
+        the gaps between them close. Each card also drops its own top border and
+        leans on the rule above it — the header's border-b for the first, the
+        previous card's border-b for the rest — so a closed gap reads as one
+        1px divider rather than two stacked borders. Only card-body's own 16px
+        separates content from the edge, instead of 12 + 16 + a border.
         {% endcomment %}
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5 max-sm:[&_.panel-bleed_.card]:rounded-none max-sm:[&_.panel-bleed_.card]:border-x-0{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5 max-sm:[&_.panel-bleed_.card]:rounded-none max-sm:[&_.panel-bleed_.card]:border-x-0 max-sm:[&_.panel-bleed_.card]:border-t-0 max-sm:[&_.panel-bleed_.card]:mt-0{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
             {% comment %}Header CTAs go icon-only below sm — the glyph carries the
             action and the title beside it gets the width back. The label is
@@ -359,7 +363,10 @@ the sphere.{% endcomment %}
                     </button>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 min-w-0">
-                            <h2 class="text-xl font-bold text-foreground truncate">
+                            {# A phone header is a strip, not a masthead: 20px/28 there is #}
+                            {# bulk. 17px on a tight leading keeps it clearly the title over #}
+                            {# a 14px subtitle and gives the row back ~6px. #}
+                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground truncate">
                                 {% block page_title %}
                                     {% translate "Dashboard" %}
                                 {% endblock page_title %}
