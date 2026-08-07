@@ -307,3 +307,8 @@ If you fix a papercut, remove it.
   permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
   works, pushing needs the user to run it (or the file's mode fixed to 0644
   root:root).
+- 2026-08-07: mise run messages rewrites the whole PL catalog with this
+  machine's xgettext: it strips every '#, python-brace-format' flag and rewraps
+  two msgstrs, so CI's messages-check (which regenerates with a newer gettext
+  and diffs) fails on a catalog that is locally 'fresh'. Had to hand-revert 11
+  flag lines and 2 wrappings to get a diff containing only real changes.
