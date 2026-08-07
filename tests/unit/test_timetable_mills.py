@@ -19,6 +19,8 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import (
     CapacityHoursDTO,
+    ConflictDTO,
+    ConflictSeverity,
     ConflictType,
     HeatmapCellStatus,
     SessionPlacement,
@@ -165,7 +167,74 @@ class TestBuildGridOverlappingSessions:
             60,
         ]
         assert grid.date_selection == "all"
+        # One render, one load -- of the items and of the space nodes -- however
+        # many days the grid spans. The warnings run off what the grid already
+        # fetched instead of asking again.
         uow.agenda_items.list_by_event.assert_called_once_with(1)
+        uow.spaces.list_by_event.assert_called_once_with(1)
+
+    def test_track_filter_still_shows_every_booking_in_the_visible_rooms(self):
+        uow = MagicMock()
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        space = SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name="Room 1",
+            order=0,
+            pk=1,
+            slug="room-1",
+        )
+        uow.spaces.list_by_event.return_value = [space]
+        uow.tracks.list_space_pks.return_value = [1]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        mine = _make_item(
+            pk=1,
+            session_title="Mine",
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+        theirs = _make_item(
+            pk=2,
+            session_id=2,
+            session_title="Theirs",
+            start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+        )
+        # Clear of both, so it stays a plain card while the clash is marked.
+        untracked = _make_item(
+            pk=3,
+            session_id=3,
+            session_title="Untracked",
+            start_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        )
+        uow.agenda_items.list_by_event.return_value = [mine, theirs, untracked]
+        # Only `mine` is in the filtered track; the other two are drawn anyway
+        # because they occupy a room on screen.
+        uow.agenda_items.list_by_track.return_value = [mine]
+        uow.tracks.read.return_value = _event_track(event_pk=1)
+        uow.sessions.read_facilitators_by_sessions.return_value = {}
+        uow.sessions.read_participants_limits.return_value = {}
+        uow.sessions.read_preferred_time_slots_by_sessions.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.list_manager_names_by_tracks.return_value = {}
+
+        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC, track_pk=5)
+
+        sessions = grid.days[0].columns[0].sessions
+        # Both ends of the clash are red, even though only one is in the track.
+        assert [(pos.agenda_item.session_title, pos.state) for pos in sessions] == [
+            ("Mine", "conflict"),
+            ("Theirs", "conflict"),
+            ("Untracked", "normal"),
+        ]
 
     def test_invalid_date_falls_back_to_first_overnight_slot_date(self):
         uow = MagicMock()
@@ -534,6 +603,12 @@ def _track_stub(pk, name="Track"):
     return track
 
 
+def _event_track(*, event_pk):
+    track = MagicMock()
+    track.event_id = event_pk
+    return track
+
+
 _SUBJECT_SESSION_PK = 10
 _OTHER_SESSION_PK = 20
 _ROOM_CAPACITY = 10
@@ -556,7 +631,8 @@ class TestListAllForTrack:
             limits if limits is not None else {i.session_id: 0 for i in all_items}
         )
         uow.sessions.read_facilitators_by_sessions.return_value = facilitators or {}
-        uow.tracks.list_by_sessions.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.tracks.list_manager_names_by_tracks.return_value = {}
         return uow
 
@@ -646,7 +722,7 @@ class TestListAllForTrack:
             subjects=[subject],
             facilitators={10: [shared], 20: [shared]},
         )
-        uow.tracks.list_by_sessions.return_value = {20: [_track_stub(6, "Board games")]}
+        uow.sessions.list_track_names_by_session.return_value = {20: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
         conflicts = ConflictDetectionService(uow).list_all_for_track(
@@ -659,8 +735,32 @@ class TestListAllForTrack:
         assert conflict.facilitator_name == "Alice"
         assert conflict.track_name == "Board games"
         assert conflict.manager_names == ["Basia"]
-        uow.tracks.list_by_sessions.assert_called_once_with({20})
+        uow.sessions.list_track_names_by_session.assert_called_once_with([20])
         uow.tracks.list_manager_names_by_tracks.assert_called_once_with({6})
+
+    def test_attribution_names_the_first_foreign_track_by_name(self):
+        # Two foreign tracks, handed over in pk order: the clash still reports
+        # the alphabetically first one, whatever order the rows arrive in.
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        shared = _facilitator(7)
+        uow = self._uow(
+            all_items=[subject, other],
+            subjects=[subject],
+            facilitators={10: [shared], 20: [shared]},
+        )
+        uow.sessions.list_track_names_by_session.return_value = {
+            20: {6: "Wargames", 7: "Board games"}
+        }
+        uow.tracks.list_manager_names_by_tracks.return_value = {7: ["Basia"]}
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=5
+        )
+
+        assert conflicts[0].track_name == "Board games"
+        assert conflicts[0].manager_names == ["Basia"]
+        uow.tracks.list_manager_names_by_tracks.assert_called_once_with({7})
 
     def test_no_other_tracks_returns_conflict_unchanged(self):
         # Attribution filtering removes the current track, leaving nothing to
@@ -674,7 +774,9 @@ class TestListAllForTrack:
             subjects=[subject],
             facilitators={10: [shared], 20: [shared]},
         )
-        uow.tracks.list_by_sessions.return_value = {20: [_track_stub(current_track_pk)]}
+        uow.sessions.list_track_names_by_session.return_value = {
+            20: {current_track_pk: "Track"}
+        }
 
         conflicts = ConflictDetectionService(uow).list_all_for_track(
             event_pk=1, track_pk=current_track_pk
@@ -736,7 +838,8 @@ class TestListPreferredSlotViolations:
         uow.agenda_items.list_by_event.return_value = items
         uow.agenda_items.list_by_track.return_value = items
         uow.sessions.read_preferred_time_slots_by_sessions.return_value = preferred
-        uow.tracks.list_by_sessions.return_value = {}
+        uow.sessions.list_track_names_by_session.return_value = {}
+        uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.tracks.list_manager_names_by_tracks.return_value = {}
         return uow
 
@@ -772,7 +875,7 @@ class TestListPreferredSlotViolations:
             datetime(2026, 1, 1, 13, 0, tzinfo=UTC),
         )
         uow = self._uow(items=[item], preferred={10: [slot]})
-        uow.tracks.list_by_sessions.return_value = {10: [_track_stub(6, "Board games")]}
+        uow.sessions.list_track_names_by_session.return_value = {10: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
         violations = ConflictDetectionService(uow).list_preferred_slot_violations(
@@ -882,6 +985,39 @@ class TestTimetableOverviewServiceDefaults:
         assert [c.status for c in result.rows[0].cells] == [
             HeatmapCellStatus.SCHEDULED,
             HeatmapCellStatus.EMPTY,
+        ]
+
+    def test_build_heatmap_marks_both_ends_of_a_clash(self, mock_uow):
+        # A conflict row names one session as subject and the other as
+        # counterpart, and only one row is kept per pair. Both are in the
+        # clash, so neither room may read as merely scheduled.
+        mock_uow.spaces.list_by_event.return_value = [_space(3), _space(4)]
+        mock_uow.time_slots.list_by_event.return_value = [
+            _slot(
+                datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            )
+        ]
+        mock_uow.agenda_items.list_by_event.return_value = [
+            _make_item(pk=1, session_id=10, space_id=3),
+            _make_item(pk=2, session_id=20, space_id=4),
+        ]
+        conflict = ConflictDTO(
+            type=ConflictType.FACILITATOR_OVERLAP,
+            severity=ConflictSeverity.ERROR,
+            subject_session_title="Mine",
+            subject_session_pk=10,
+            session_title="Theirs",
+            session_pk=20,
+        )
+
+        result = TimetableOverviewService(mock_uow).build_heatmap(
+            event_pk=1, tz=UTC, conflicts=[conflict]
+        )
+
+        assert [c.status for c in result.rows[0].cells] == [
+            HeatmapCellStatus.CONFLICT,
+            HeatmapCellStatus.CONFLICT,
         ]
 
     def test_all_conflicts_grouped_fetches_conflicts_when_none(self, mock_uow):

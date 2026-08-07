@@ -3,12 +3,15 @@
 # runs once per action.
 
 from dataclasses import dataclass
+from http import HTTPStatus
+from urllib.parse import quote
 
 import pytest
+from django.contrib import messages
 from django.urls import reverse
 
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import assert_login_required
+from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -126,6 +129,29 @@ class TestProposalStatusActionView:
             session=session,
             message=action.message,
             status=action.target_status,
+        )
+
+    def test_post_carries_the_list_filters_to_the_detail_page(
+        self, panel_client, event, action
+    ):
+        session = make_proposal(event, status=action.start_status)
+        back = (
+            reverse("panel:proposals", kwargs={"slug": event.slug}) + "?status=rejected"
+        )
+
+        response = panel_client.post(
+            _url(event, proposal_id=session.pk, action=action), {"next": back}
+        )
+
+        detail = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, action.message)],
+            url=f"{detail}?next={quote(back, safe='')}",
         )
 
     def test_post_redirects_when_event_not_found(self, panel_client, action):

@@ -185,6 +185,46 @@ test.describe("Timetable", () => {
     });
   });
 
+  test("a track filter still shows the other track's booking in a shared room", async ({
+    page,
+  }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // The track pk belongs to the seed, so read it off the switcher.
+    const trackValue = await page
+      .getByLabel("Track:")
+      .locator("option", { hasText: "RPG Track" })
+      .first()
+      .getAttribute("value");
+    await page.goto(`/panel/event/sunhaven-festival/timetable/?track=${trackValue}&date=all`);
+
+    // "Board Game Night" belongs to the other track but occupies a room this
+    // one also uses. Hiding it is how two tracks end up in one room at once.
+    // It draws as an ordinary card -- no owner label, no separate treatment.
+    const foreign = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(foreign).toBeVisible({ timeout: 10000 });
+    await expect(foreign).toHaveAttribute("draggable", "true");
+
+    await foreign.click();
+    await expect(page.locator("#left-pane").getByText("Board Game Night")).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("a grid block opens its details from the keyboard", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const block = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(block).toBeVisible({ timeout: 10000 });
+
+    await block.focus();
+    await page.keyboard.press("Enter");
+
+    const leftPane = page.locator("#left-pane");
+    await expect(leftPane.getByText("Session details")).toBeVisible({ timeout: 5000 });
+    await expect(leftPane.getByText("Board Game Night")).toBeVisible();
+  });
+
   // Read off the page instead of restating bootstrap_timetable.py: every column
   // names itself after its room. Groups are also how a fieldset and a details
   // surface, so only the named ones are ours -- and every later lookup asks for
@@ -671,9 +711,7 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({ timeout: 5000 });
 
     // Confirm — the button flips to the "Undo confirmation" state.
     await leftPane.getByRole("button", { name: "Confirm program item" }).click();

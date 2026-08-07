@@ -30,14 +30,16 @@ class TestTimetableSessionDetailPartView:
         )
 
     @staticmethod
-    def expected_context(event, session, *, agenda_item=None, back_url=None):
+    def expected_context(
+        event, session, *, agenda_item=None, back_url=None, duration_minutes=60
+    ):
         return {
             "session": SessionDTO.model_validate(session),
             "agenda_item": agenda_item,
             "facilitators": [],
             "time_slots": [],
             "time_slots_json": "[]",
-            "duration_minutes": 60,
+            "duration_minutes": duration_minutes,
             "slug": event.slug,
             "event": EventDTO.model_validate(event),
             "back_url": (
@@ -105,6 +107,31 @@ class TestTimetableSessionDetailPartView:
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-detail.html",
             context_data=self.expected_context(event, session),
+        )
+
+    def test_ok_reads_duration_from_iso_value(
+        self, panel_client, event, proposal_category
+    ):
+        # The factory leaves `duration` unset, which falls back to 60; an
+        # actual ISO value is what the hours-and-minutes parse runs on.
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+            duration="PT2H30M",
+        )
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        expected_duration_minutes = 150
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event, session, duration_minutes=expected_duration_minutes
+            ),
         )
 
     def test_redirects_when_session_belongs_to_other_sphere(self, panel_client, event):
@@ -232,68 +259,6 @@ class TestTimetableSessionDetailPartView:
             template_name="panel/parts/timetable-session-detail.html",
             context_data=self.expected_context(event, session),
         )
-
-    def test_scheduled_unconfirmed_offers_confirm_button(
-        self, panel_client, event, proposal_category
-    ):
-        space = SpaceFactory(event=event)
-        session = make_timetable_session(proposal_category, participants_limit=10)
-        agenda_item = AgendaItemFactory(
-            session=session,
-            space=space,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-
-        response = panel_client.get(self.get_url(event, session.pk))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/parts/timetable-session-detail.html",
-            context_data=self.expected_context(
-                event,
-                session,
-                agenda_item=self.scheduled_dto(
-                    session, space, pk=agenda_item.pk, confirmed=False
-                ),
-            ),
-        )
-        content = response.content.decode()
-        assert "Confirm program item" in content
-        assert "Undo confirmation" not in content
-
-    def test_scheduled_confirmed_offers_undo_button(
-        self, panel_client, event, proposal_category
-    ):
-        space = SpaceFactory(event=event)
-        session = make_timetable_session(proposal_category, participants_limit=10)
-        agenda_item = AgendaItemFactory(
-            session=session,
-            space=space,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-        agenda_item.session_confirmed = True
-        agenda_item.save()
-
-        response = panel_client.get(self.get_url(event, session.pk))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/parts/timetable-session-detail.html",
-            context_data=self.expected_context(
-                event,
-                session,
-                agenda_item=self.scheduled_dto(
-                    session, space, pk=agenda_item.pk, confirmed=True
-                ),
-            ),
-        )
-        content = response.content.decode()
-        assert "Undo confirmation" in content
-        assert "Confirm program item" not in content
 
     def test_reassign_button_carries_confirmed_flag(
         self, panel_client, event, proposal_category

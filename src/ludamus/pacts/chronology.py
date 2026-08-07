@@ -231,8 +231,6 @@ class SessionConfirmationServiceProtocol(Protocol):
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
     ) -> None: ...
-    def confirm_all(self, event_pk: int) -> None: ...
-    def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
 
 
 class SessionDeletionServiceProtocol(Protocol):
@@ -378,6 +376,9 @@ class SessionModalServiceProtocol(Protocol):
     ) -> SessionModalDTO | None: ...
 
 
+type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
+
+
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
@@ -387,6 +388,9 @@ class SessionPositionDTO(BaseModel):
     visible_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
+    # What the block is warning about, resolved once here so the grid stops
+    # testing the same session against two page-wide sets in four places.
+    state: SessionPositionState = "normal"
 
 
 class TimeLabelDTO(BaseModel):
@@ -414,22 +418,6 @@ class TimetableDayGridDTO(BaseModel):
 
 
 type DateSelection = date | Literal["all"]
-
-
-class TimetableGridDTO(BaseModel):
-    spaces: list[SpaceDTO]
-    groups: list[SpaceGroupDTO]
-    days: list[TimetableDayGridDTO]
-    time_labels: list[TimeLabelDTO]
-    total_minutes: int
-    slot_minutes: int
-    snap_minutes: int
-    page: int
-    total_pages: int
-    total_spaces: int
-    total_columns: int
-    available_dates: list[date] = []
-    date_selection: DateSelection = "all"
 
 
 class ConflictType(StrEnum):
@@ -466,6 +454,25 @@ class ConflictDTO(BaseModel):
     session_limit: int | None = None
     track_name: str | None = None
     manager_names: list[str] = []
+
+
+class TimetableGridDTO(BaseModel):
+    spaces: list[SpaceDTO]
+    groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
+    time_labels: list[TimeLabelDTO]
+    total_minutes: int
+    slot_minutes: int
+    snap_minutes: int
+    page: int
+    total_pages: int
+    total_spaces: int
+    total_columns: int
+    available_dates: list[date] = []
+    date_selection: DateSelection = "all"
+    # The clashes the cards are already coloured for. Carried with the grid so
+    # the page cannot list one set of conflicts while the grid marks another.
+    conflicts: list[ConflictDTO] = []
 
 
 class PreferredSlotRangeDTO(BaseModel):
