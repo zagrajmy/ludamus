@@ -94,7 +94,8 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByLabel("Title").fill(PROPOSAL_TITLE_EDITED);
     await page.getByRole("button", { name: "Save" }).click();
 
-    await page.waitForURL(new RegExp(`/proposals/\\d+/$`));
+    // Save returns to the detail page, carrying ?next= so the list filters survive.
+    await page.waitForURL(new RegExp(`/proposals/\\d+/(\\?|$)`));
     await expect(page.getByRole("heading", { name: PROPOSAL_TITLE_EDITED })).toBeVisible();
   });
 

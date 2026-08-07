@@ -95,6 +95,11 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
 
 SCHEDULED_FILTER = "scheduled"
 
+# Explicit "no status filter" value. An absent param means the pending backlog,
+# so "show everything" has to travel in the query — forms, the Clear link and
+# post-action redirects all echo it back.
+STATUS_ALL = "all"
+
 
 @dataclass
 class ProposalListQuery:

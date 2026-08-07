@@ -349,8 +349,6 @@ class TestContentEditStoresAnswers:
 
 
 class TestSessionConfirmation:
-    """The service toggles confirmation and rejects foreign agenda items."""
-
     @pytest.fixture
     def agenda_items(self):
         return MagicMock()
@@ -360,18 +358,14 @@ class TestSessionConfirmation:
         return MagicMock()
 
     @pytest.fixture
-    def tracks(self):
-        return MagicMock()
-
-    @pytest.fixture
     def transaction(self):
         transaction = MagicMock()
         transaction.atomic.return_value.__enter__.return_value = None
         return transaction
 
     @pytest.fixture
-    def service(self, transaction, agenda_items, sessions, tracks):
-        return SessionConfirmationService(transaction, agenda_items, sessions, tracks)
+    def service(self, transaction, agenda_items, sessions):
+        return SessionConfirmationService(transaction, agenda_items, sessions)
 
     @staticmethod
     def _event(pk):
@@ -379,26 +373,24 @@ class TestSessionConfirmation:
         event.pk = pk
         return event
 
-    @staticmethod
-    def _track(event_id):
-        track = MagicMock()
-        track.event_id = event_id
-        return track
-
-    def test_confirm_persists_true(self, service, agenda_items, sessions):
+    def test_confirm_persists_true(self, service, transaction, agenda_items, sessions):
         agenda_items.read.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
         service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
 
+        transaction.atomic.assert_called_once_with()
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
 
-    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+    def test_unconfirm_persists_false(
+        self, service, transaction, agenda_items, sessions
+    ):
         agenda_items.read.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
         service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
 
+        transaction.atomic.assert_called_once_with()
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
 
     def test_rejects_agenda_item_from_another_event(
@@ -411,28 +403,6 @@ class TestSessionConfirmation:
             service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
 
         agenda_items.update.assert_not_called()
-
-    def test_confirm_all_confirms_every_item_in_event(self, service, agenda_items):
-        service.confirm_all(event_pk=1)
-
-        agenda_items.confirm_all_by_event.assert_called_once_with(1)
-
-    def test_confirm_block_confirms_items_in_track(self, service, agenda_items, tracks):
-        tracks.read.return_value = self._track(event_id=1)
-
-        service.confirm_block(event_pk=1, track_pk=5)
-
-        agenda_items.confirm_all_by_track.assert_called_once_with(5)
-
-    def test_confirm_block_rejects_track_from_another_event(
-        self, service, agenda_items, tracks
-    ):
-        tracks.read.return_value = self._track(event_id=2)
-
-        with pytest.raises(NotFoundError):
-            service.confirm_block(event_pk=1, track_pk=5)
-
-        agenda_items.confirm_all_by_track.assert_not_called()
 
 
 class _StrictConfig(BaseModel):
