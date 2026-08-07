@@ -164,7 +164,7 @@
                 <!-- Enrollment Status for Authenticated Users -->
                 {# Only when the footer has no state badge of its own (past #}
                 {# sessions), so the two never repeat the same sentence. #}
-                {% if not data.enroll_actions and current_user %}
+                {% if not enroll_actions and current_user %}
                     {% if data.user_enrolled %}
                         <div class="pt-4 border-t border-border">
                             <div class="alert alert-success inline-flex items-center gap-2 text-sm">
@@ -260,7 +260,7 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
-    {% if data.enroll_actions or data.can_edit %}
+    {% if enroll_actions or data.can_edit %}
         <!-- Footer -->
         {# A new-only view-transition group: with no old geometry to interpolate #}
         {# it renders at final layout for the whole morph instead of stretching #}
@@ -288,12 +288,12 @@
                     <button type="button" class="btn btn-secondary text-sm" disabled>
                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Session full" %}
                     </button>
-                {% elif data.enroll_actions and not event_banned %}
+                {% elif enroll_actions and not event_banned %}
                     {% if current_user %}
                         {# current_user is always an ACTIVE user (the profile context #}
                         {# processor only resolves active accounts), so enrollment #}
                         {# actions always apply here. #}
-                        {% include "chronology/parts/session-enroll-actions.html" with actions=data.enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" %}
+                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" %}
                     {% elif request.session.anonymous_enrollment_active %}
                         {% if data.user_enrolled or data.user_waiting %}
                             <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"

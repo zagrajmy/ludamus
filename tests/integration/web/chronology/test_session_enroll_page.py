@@ -14,7 +14,11 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     SessionUserParticipationData,
 )
-from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
+from ludamus.gates.web.django.event.enroll_presentation import (
+    EnrollActions,
+    SeatBadge,
+    build_enroll_actions,
+)
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -2433,13 +2437,30 @@ class TestSessionEnrollInline:
             HTTP_HX_REQUEST="true",
         )
 
+        # Spelled out rather than re-derived through _ctx: every other case
+        # builds its expectation by calling the function under test, which
+        # cannot catch a swap between two parameters that are both False.
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=self.FRAGMENT,
-            context_data=self._ctx(
-                session=session, viewer_pk=staff_user.id, user_enrolled=True
-            ),
+            context_data={
+                "event_slug": session.event.slug,
+                "session_pk": session.pk,
+                "viewer_pk": staff_user.id,
+                "actions": EnrollActions(
+                    submit_value="cancel",
+                    submit_label="Cancel",
+                    submit_icon="x-mark",
+                    badge=SeatBadge(
+                        text_class="text-success-text",
+                        label="You're enrolled",
+                        icon="check-circle",
+                    ),
+                    group_label="Enroll with others…",
+                ),
+                "enroll_error": "",
+            },
             messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
             contains=['value="cancel"'],
             not_contains=['value="enroll"', 'value="waitlist"'],

@@ -371,6 +371,10 @@ def _seat(session: Session, user: User, status: SessionParticipationStatus) -> N
     SessionParticipation.objects.create(session=session, user=user, status=status.value)
 
 
+# playwright.config.ts allows two retries on CI, so three attempts in all.
+_E2E_ATTEMPTS = 3
+
+
 # Seats held on an event with no enrollment config: the window that let the
 # viewer in has shut, but giving a seat or a waiting place up has to stay
 # possible so it can reach the next person. Driven by
@@ -388,29 +392,33 @@ def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     venue = _create_venue(event, name="Closed Venue", slug="closed-venue")
     area = _create_area(venue, name="Closed Area", slug="closed-area")
     space = _create_space(area, name="Closed Room", slug="closed-room", capacity=5)
-    held = Session.objects.create(
-        event=event,
-        display_name="Closed GM",
-        title="Late Resignation Demo",
-        slug="late-resignation-demo",
-        description="A session whose enrollment window has already closed.",
-        participants_limit=5,
-        min_age=0,
-    )
-    _schedule(event, space, held, hour=0)
-    _seat(held, tester, SessionParticipationStatus.CONFIRMED)
+    # Releasing a seat with the window shut is irreversible, so the spec cannot
+    # restore what it consumes. One session per possible attempt (CI allows two
+    # retries) keeps a retry testing the feature rather than the leftovers.
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        held = Session.objects.create(
+            event=event,
+            display_name="Closed GM",
+            title=f"Late Resignation Demo {attempt}",
+            slug=f"late-resignation-demo-{attempt}",
+            description="A session whose enrollment window has already closed.",
+            participants_limit=5,
+            min_age=0,
+        )
+        _schedule(event, space, held, hour=attempt - 1)
+        _seat(held, tester, SessionParticipationStatus.CONFIRMED)
 
-    waiting = Session.objects.create(
-        event=event,
-        display_name="Closed GM",
-        title="Late Waiting List Demo",
-        slug="late-waiting-list-demo",
-        description="A waiting place left over after the window shut.",
-        participants_limit=1,
-        min_age=0,
-    )
-    _schedule(event, space, waiting, hour=3)
-    _seat(waiting, tester, SessionParticipationStatus.WAITING)
+        waiting = Session.objects.create(
+            event=event,
+            display_name="Closed GM",
+            title=f"Late Waiting List Demo {attempt}",
+            slug=f"late-waiting-list-demo-{attempt}",
+            description="A waiting place left over after the window shut.",
+            participants_limit=1,
+            min_age=0,
+        )
+        _schedule(event, space, waiting, hour=_E2E_ATTEMPTS + attempt)
+        _seat(waiting, tester, SessionParticipationStatus.WAITING)
 
 
 # A seat on a convention that is already over. Nothing can be handed over any
@@ -440,6 +448,19 @@ def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     )
     _schedule(event, space, session, hour=0)
     _seat(session, tester, SessionParticipationStatus.CONFIRMED)
+
+    # The waiting variant of the same banner, which is otherwise unreachable.
+    never_promoted = Session.objects.create(
+        event=event,
+        display_name="Past GM",
+        title="Finished Waiting Demo",
+        slug="finished-waiting-demo",
+        description="A session the tester never got into.",
+        participants_limit=1,
+        min_age=0,
+    )
+    _schedule(event, space, never_promoted, hour=3)
+    _seat(never_promoted, tester, SessionParticipationStatus.WAITING)
 
 
 # The two ways *in*, both on an open window: a session with room offers a seat,

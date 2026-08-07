@@ -6,14 +6,12 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
     from ludamus.pacts import (
         AgendaItemDTO,
         LocationData,
@@ -100,16 +98,6 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     @property
     def is_unlimited(self) -> bool:
         return self.effective_participants_limit == 0
-
-    @property
-    def enroll_actions(self) -> EnrollActions | None:
-        return build_enroll_actions(
-            is_enrollment_available=self.is_enrollment_available,
-            is_ended=self.is_ended,
-            is_full=self.is_full,
-            user_enrolled=self.user_enrolled,
-            user_waiting=self.user_waiting,
-        )
 
     @property
     def spots_left(self) -> int:

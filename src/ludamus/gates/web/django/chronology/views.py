@@ -35,6 +35,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     requirement_fields,
     unfold_custom_answers,
 )
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
@@ -1084,7 +1085,20 @@ class SessionModalComponentView(View):
         return TemplateResponse(
             request,
             "chronology/parts/session-modal.html",
-            {"data": data, "event": event, "event_banned": event_banned},
+            {
+                "data": data,
+                "event": event,
+                "event_banned": event_banned,
+                # Modal-only: the event page patches is_ended onto its cards
+                # after construction, so this is wrong on a card.
+                "enroll_actions": build_enroll_actions(
+                    is_enrollment_available=data.is_enrollment_available,
+                    is_ended=data.is_ended,
+                    is_full=data.is_full,
+                    user_enrolled=data.user_enrolled,
+                    user_waiting=data.user_waiting,
+                ),
+            },
         )
 
     def _get_event(self, event_slug: str) -> EventDTO:

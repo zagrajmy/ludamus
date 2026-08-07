@@ -7,9 +7,10 @@ from django.utils.translation import gettext as _
 
 @dataclass(frozen=True)
 class SeatBadge:
-    # `tone` is a design-system name the template maps to classes, the same
-    # shape the enroll_select rows use for their status dots.
-    tone: str
+    # The tone is resolved here rather than compared in the template — the
+    # same shape enroll_tags.Badge uses for the enroll_select status dots.
+    # Tailwind scans .py (client/src/index.css @source), so these are seen.
+    text_class: str
     label: str
     icon: str
 
@@ -21,9 +22,6 @@ class EnrollActions:
     submit_value: str
     submit_label: str
     submit_icon: str
-    # The plain join is the footer's primary action; every other one is
-    # secondary, including joining a waiting list.
-    is_primary: bool = False
     # Set only when the viewer already holds a seat or a waiting place. It
     # names that state and picks the layout: a standalone button next to a
     # link, rather than the split button that offers a way in.
@@ -32,6 +30,16 @@ class EnrollActions:
     confirm: str = ""
     # Label for the segment leading to the group page.
     group_label: str = ""
+
+    # Both derive from the action itself, so no construction site can make
+    # them disagree with it.
+    @property
+    def is_primary(self) -> bool:
+        return self.submit_value == "enroll"
+
+    @property
+    def button_class(self) -> str:
+        return "btn-primary" if self.is_primary else "btn-secondary"
 
 
 def _cancel_confirm(*, is_enrollment_available: bool, is_full: bool) -> str:
@@ -53,23 +61,6 @@ def _cancel_confirm(*, is_enrollment_available: bool, is_full: bool) -> str:
     )
 
 
-def _leave_confirm(*, is_enrollment_available: bool) -> str:
-    if is_enrollment_available:
-        return ""
-    return _(
-        "Enrollment is closed — once you leave the waiting list you cannot "
-        "rejoin it. Leave anyway?"
-    )
-
-
-def _group_label(*, is_enrollment_available: bool) -> str:
-    if is_enrollment_available:
-        return _("Enroll with others…")
-    # Seats booked for companions and party members can only be released on the
-    # group page, so it stays reachable after the window shuts.
-    return _("Manage the seats you booked for others…")
-
-
 def build_enroll_actions(
     *,
     is_enrollment_available: bool,
@@ -88,43 +79,60 @@ def build_enroll_actions(
         is_ended or not (user_enrolled or user_waiting)
     ):
         return None
-    group_label = _group_label(is_enrollment_available=is_enrollment_available)
-    if user_enrolled:
-        return EnrollActions(
-            submit_value="cancel",
-            submit_label=_("Cancel"),
-            submit_icon="x-mark",
-            badge=SeatBadge(
-                tone="success", label=_("You're enrolled"), icon="check-circle"
-            ),
-            confirm=_cancel_confirm(
-                is_enrollment_available=is_enrollment_available, is_full=is_full
-            ),
-            group_label=group_label,
+    if user_enrolled or user_waiting:
+        # Seats booked for companions and party members can only be released
+        # on the group page, so it stays reachable after the window shuts —
+        # under a label that no longer invites anyone in.
+        group_label = (
+            _("Enroll with others…")
+            if is_enrollment_available
+            else _("Manage the seats you booked for others…")
         )
-    if user_waiting:
+        if user_enrolled:
+            return EnrollActions(
+                submit_value="cancel",
+                submit_label=_("Cancel"),
+                submit_icon="x-mark",
+                badge=SeatBadge(
+                    text_class="text-success-text",
+                    label=_("You're enrolled"),
+                    icon="check-circle",
+                ),
+                confirm=_cancel_confirm(
+                    is_enrollment_available=is_enrollment_available, is_full=is_full
+                ),
+                group_label=group_label,
+            )
         return EnrollActions(
             submit_value="cancel",
             submit_label=_("Leave"),
             submit_icon="x-mark",
             badge=SeatBadge(
-                tone="warning", label=_("On the waiting list"), icon="clock"
+                text_class="text-warning-text",
+                label=_("On the waiting list"),
+                icon="clock",
             ),
-            confirm=_leave_confirm(is_enrollment_available=is_enrollment_available),
+            confirm=(
+                ""
+                if is_enrollment_available
+                else _(
+                    "Enrollment is closed — once you leave the waiting list you "
+                    "cannot rejoin it. Leave anyway?"
+                )
+            ),
             group_label=group_label,
         )
-    # Past this point the window is open, so `group_label` invites others in.
+    # The guard above leaves only an open window here, so the ways in are live.
     if is_full:
         return EnrollActions(
             submit_value="waitlist",
             submit_label=_("Join waiting list"),
             submit_icon="clock",
-            group_label=group_label,
+            group_label=_("Enroll with others…"),
         )
     return EnrollActions(
         submit_value="enroll",
         submit_label=_("Enroll"),
         submit_icon="user-plus",
-        is_primary=True,
-        group_label=group_label,
+        group_label=_("Enroll with others…"),
     )

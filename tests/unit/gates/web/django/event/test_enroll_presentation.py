@@ -31,13 +31,13 @@ class TestPostedAction:
         actions = _actions(user_enrolled=True)
 
         assert actions.submit_value == "cancel"
-        assert actions.badge.tone == "success"
+        assert actions.badge.text_class == "text-success-text"
 
     def test_waiting_viewer_is_offered_the_way_out(self):
         actions = _actions(user_waiting=True)
 
         assert actions.submit_value == "cancel"
-        assert actions.badge.tone == "warning"
+        assert actions.badge.text_class == "text-warning-text"
 
     @pytest.mark.parametrize(
         ("overrides", "expected"),

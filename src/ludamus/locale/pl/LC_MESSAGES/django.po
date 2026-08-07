@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-07 14:05+0200\n"
+"POT-Creation-Date: 2026-08-07 15:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2241,14 +2241,6 @@ msgstr ""
 "mimo to?"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
-msgid ""
-"Enrollment is closed — once you leave the waiting list you cannot rejoin it. "
-"Leave anyway?"
-msgstr ""
-"Zapisy są zamknięte — gdy opuścisz listę oczekujących, nie wrócisz na nią. "
-"Opuścić mimo to?"
-
-#: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid "Enroll with others…"
 msgstr "Zapisz się z innymi…"
 
@@ -2301,6 +2293,14 @@ msgstr "Jesteś zapisany/a"
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid "Leave"
 msgstr "Opuść"
+
+#: src/ludamus/gates/web/django/event/enroll_presentation.py
+msgid ""
+"Enrollment is closed — once you leave the waiting list you cannot rejoin it. "
+"Leave anyway?"
+msgstr ""
+"Zapisy są zamknięte — gdy opuścisz listę oczekujących, nie wrócisz na nią. "
+"Opuścić mimo to?"
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Enrollment opens"

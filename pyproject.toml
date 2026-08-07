@@ -460,7 +460,7 @@ exclude = [
 ignore_names = [
     # Used in templates
     "bookmark_count",
-    "enroll_actions",
+    "button_class",
     "filter_categories",
     "has_guests",
     "has_secret",

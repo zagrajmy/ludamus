@@ -21,7 +21,7 @@
         {% url 'web:chronology:session-enrollment' event_slug=event_slug session_id=session_pk as enroll_url %}
         <div class="flex items-center gap-2.5">
             {% if actions.badge %}
-                <span class="inline-flex items-center gap-1 text-sm font-medium {% if actions.badge.tone == "success" %}text-success-text{% else %}text-warning-text{% endif %}">
+                <span class="inline-flex items-center gap-1 text-sm font-medium {{ actions.badge.text_class }}">
                     {% icon actions.badge.icon class="w-4 h-4" variant="mini" %} {{ actions.badge.label }}
                 </span>
             {% endif %}
@@ -64,7 +64,7 @@
                                    name="user_{{ viewer_pk }}"
                                    value="{{ actions.submit_value }}">
                             <button type="submit"
-                                    class="btn text-sm rounded-r-none {% if actions.is_primary %}btn-primary{% else %}btn-secondary border-r-0{% endif %}">
+                                    class="btn text-sm rounded-r-none {{ actions.button_class }} {% if not actions.is_primary %}border-r-0{% endif %}">
                                 {% icon actions.submit_icon class="w-4 h-4" variant="mini" %} {{ actions.submit_label }}
                             </button>
                         </form>
@@ -76,7 +76,7 @@
                             <span class="after:content-[''] after:block after:w-px after:h-[calc(100%+2px)] after:bg-border/80"></span>
                         {% endif %}
                         <a href="{{ enroll_url }}"
-                           class="btn text-sm rounded-l-none border-l-0 {% if actions.is_primary %}btn-primary{% else %}btn-secondary{% endif %}"
+                           class="btn text-sm rounded-l-none border-l-0 {{ actions.button_class }}"
                            title="{{ actions.group_label }}">{% translate "with others" %}</a>
                     </span>
                 {% endif %}
