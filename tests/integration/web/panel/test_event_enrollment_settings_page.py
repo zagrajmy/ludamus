@@ -7,9 +7,12 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import EnrollmentConfig
 from tests.integration.conftest import EventFactory, SphereFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 EARLY_CAPACITY_PERCENT = 50
 FULL_CAPACITY_PERCENT = 100
 MAX_WAITLIST_SESSIONS = 3
@@ -64,60 +67,33 @@ class TestEventEnrollmentSettingsAccess:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager(self, authenticated_client, event):
         response = authenticated_client.get(_list_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_manager_cannot_access_another_spheres_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_manager_cannot_access_another_spheres_event(self, panel_client, event):
         other_event = EventFactory(sphere=SphereFactory())
 
-        response = authenticated_client.get(_list_url(other_event))
+        response = panel_client.get(_list_url(other_event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_manager_cannot_delete_another_spheres_window(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_manager_cannot_delete_another_spheres_window(self, panel_client, event):
         other_event = EventFactory(sphere=SphereFactory())
         other_window = _window(other_event)
 
-        response = authenticated_client.post(_delete_url(other_event, other_window))
+        response = panel_client.post(_delete_url(other_event, other_window))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
         assert EnrollmentConfig.objects.filter(pk=other_window.pk).exists()
 
 
 class TestEventEnrollmentSettingsList:
-    def test_shows_empty_state_for_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(_list_url(event))
+    def test_shows_empty_state_for_manager(self, panel_client, event):
+        response = panel_client.get(_list_url(event))
 
         assert_response(
             response,
@@ -129,10 +105,7 @@ class TestEventEnrollmentSettingsList:
         assert "Enrollment is closed" in content
         assert "Add enrollment window" in content
 
-    def test_lists_all_event_windows(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_lists_all_event_windows(self, panel_client, event):
         _window(
             event, banner_text="Early access", percentage_slots=EARLY_CAPACITY_PERCENT
         )
@@ -143,7 +116,7 @@ class TestEventEnrollmentSettingsList:
             banner_text="General access",
         )
 
-        response = authenticated_client.get(_list_url(event))
+        response = panel_client.get(_list_url(event))
 
         assert_response(
             response,
@@ -158,12 +131,8 @@ class TestEventEnrollmentSettingsList:
 
 
 class TestEnrollmentWindowCreate:
-    def test_creates_window_for_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_creates_window_for_manager(self, panel_client, event):
+        response = panel_client.post(
             _create_url(event),
             data=_post_data(
                 limit_to_end_time="on",
@@ -185,12 +154,8 @@ class TestEnrollmentWindowCreate:
         assert window.restrict_to_configured_users is True
         assert window.allow_anonymous_enrollment is True
 
-    def test_re_renders_invalid_period_with_input(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_re_renders_invalid_period_with_input(self, panel_client, event):
+        response = panel_client.post(
             _create_url(event),
             data=_post_data(start_time="2026-08-20T18:00", end_time="2026-08-01T10:00"),
         )
@@ -208,13 +173,10 @@ class TestEnrollmentWindowCreate:
 
 
 class TestEnrollmentWindowEditAndDelete:
-    def test_updates_window_for_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_updates_window_for_manager(self, panel_client, event):
         window = _window(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             _edit_url(event, window),
             data=_post_data(percentage_slots=str(EARLY_CAPACITY_PERCENT)),
         )
@@ -228,13 +190,10 @@ class TestEnrollmentWindowEditAndDelete:
         window.refresh_from_db()
         assert window.percentage_slots == EARLY_CAPACITY_PERCENT
 
-    def test_cannot_edit_window_from_another_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_cannot_edit_window_from_another_event(self, panel_client, sphere, event):
         other_window = _window(EventFactory(sphere=sphere))
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             reverse(
                 "panel:enrollment-window-edit",
                 kwargs={"slug": event.slug, "pk": other_window.pk},
@@ -251,13 +210,10 @@ class TestEnrollmentWindowEditAndDelete:
         other_window.refresh_from_db()
         assert other_window.percentage_slots == FULL_CAPACITY_PERCENT
 
-    def test_deletes_window_for_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_deletes_window_for_manager(self, panel_client, event):
         window = _window(event)
 
-        response = authenticated_client.post(_delete_url(event, window))
+        response = panel_client.post(_delete_url(event, window))
 
         assert_response(
             response,

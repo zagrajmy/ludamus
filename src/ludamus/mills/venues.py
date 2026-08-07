@@ -14,26 +14,27 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import (
         SpaceInputDTO,
-        SpaceNodeDTO,
+        SpaceRecordDTO,
+        SpaceTreeNodeDTO,
         SpaceTreeRepositoryProtocol,
     )
 
 
-def _leaf_pks(node: SpaceNodeDTO) -> list[int]:
+def _leaf_pks(node: SpaceTreeNodeDTO) -> list[int]:
     if node.is_leaf:
-        return [node.pk]
+        return [node.space.pk]
     return [pk for child in node.children for pk in _leaf_pks(child)]
 
 
 def _find_with_path(
-    nodes: list[SpaceNodeDTO], pk: int, prefix: str = ""
-) -> tuple[SpaceNodeDTO, str] | None:
+    nodes: list[SpaceTreeNodeDTO], pk: int, prefix: str = ""
+) -> tuple[SpaceTreeNodeDTO, str] | None:
     # Returns the node and its full tree path (same "a > b > c" format the print
     # scope picker shows), so the resolved scope_name can't collide across
     # branches that share a leaf name.
     for node in nodes:
-        path = f"{prefix} > {node.name}" if prefix else node.name
-        if node.pk == pk:
+        path = f"{prefix} > {node.space.name}" if prefix else node.space.name
+        if node.space.pk == pk:
             return node, path
         if found := _find_with_path(node.children, pk, path):
             return found
@@ -50,9 +51,9 @@ class VenuesService(VenuesServiceProtocol):
         # the chosen node to the leaf rooms beneath it (a leaf maps to itself).
         scopes: list[PrintScopeOptionDTO] = []
 
-        def walk(node: SpaceNodeDTO, prefix: str) -> None:
-            path = f"{prefix} > {node.name}" if prefix else node.name
-            scopes.append(PrintScopeOptionDTO(pk=node.pk, name=path))
+        def walk(node: SpaceTreeNodeDTO, prefix: str) -> None:
+            path = f"{prefix} > {node.space.name}" if prefix else node.space.name
+            scopes.append(PrintScopeOptionDTO(pk=node.space.pk, name=path))
             for child in node.children:
                 walk(child, path)
 
@@ -80,20 +81,20 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         self._transaction = transaction
         self._spaces = spaces
 
-    def list_tree(self, event_pk: int) -> list[SpaceNodeDTO]:
+    def list_tree(self, event_pk: int) -> list[SpaceTreeNodeDTO]:
         return self._spaces.list_tree(event_pk)
 
-    def read(self, pk: int) -> SpaceNodeDTO:
+    def read(self, pk: int) -> SpaceRecordDTO:
         return self._spaces.read(pk)
 
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO:
+    ) -> SpaceRecordDTO:
         return self._spaces.create(event_id=event_id, parent_id=parent_id, data=data)
 
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO:
+    ) -> SpaceRecordDTO:
         return self._spaces.update(pk=pk, parent_id=parent_id, data=data)
 
     def list_reparent_targets(self, *, pk: int, event_pk: int) -> list[tuple[int, str]]:
@@ -104,11 +105,11 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         blocked = self._spaces.space_pks_with_sessions(event_pk)
         targets: list[tuple[int, str]] = []
 
-        def walk(node: SpaceNodeDTO, prefix: str, *, under_self: bool) -> None:
-            path = f"{prefix} > {node.name}" if prefix else node.name
-            skip = under_self or node.pk == pk
-            if not skip and node.pk not in blocked:
-                targets.append((node.pk, path))
+        def walk(node: SpaceTreeNodeDTO, prefix: str, *, under_self: bool) -> None:
+            path = f"{prefix} > {node.space.name}" if prefix else node.space.name
+            skip = under_self or node.space.pk == pk
+            if not skip and node.space.pk not in blocked:
+                targets.append((node.space.pk, path))
             for child in node.children:
                 walk(child, path, under_self=skip)
 
@@ -121,10 +122,10 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
     ) -> None:
         self._spaces.reorder(parent_id, child_pks, event_id)
 
-    def duplicate(self, *, pk: int, new_name: str) -> SpaceNodeDTO:
+    def duplicate(self, *, pk: int, new_name: str) -> SpaceRecordDTO:
         return self._spaces.duplicate(pk, new_name)
 
-    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceNodeDTO:
+    def copy_to_event(self, *, pk: int, target_event_id: int) -> SpaceRecordDTO:
         return self._spaces.copy_to_event(pk, target_event_id)
 
     def delete_space(self, pk: int) -> bool:

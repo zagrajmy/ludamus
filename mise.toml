@@ -89,7 +89,7 @@ run = "ast-grep scan --error src tests"
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
-run = "djlint src --lint --check --format-css --format-js --profile=django"
+run = "djlint src --quiet --lint --check --format-css --format-js --profile=django"
 
 [tasks."lint:impeccable"]
 run = "python scripts/impeccable_lint.py"

@@ -17,23 +17,30 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, OrganizerFieldDTO
+from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
     SessionFactory,
     UserFactory,
 )
-from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.utils import PageMatcher, assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_facilitator_not_found,
+    assert_not_a_manager,
+    facilitator_list_item_dto,
+    panel_context,
+)
 
 _PAGE_SIZES = [10, 20, 50, 100]
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 _HAS_SESSIONS_ERROR = (
     "This facilitator runs sessions. Remove them from the sessions first."
 )
 
 _DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+
 _PAGE_SIZE = 20
 _SEED_COUNT = 30
 _LAST_PAGE_COUNT = _SEED_COUNT - _PAGE_SIZE
@@ -56,18 +63,7 @@ def _tab_urls(event):
 
 def _event_context(event, active_tab="list"):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
+        **panel_context(event, active_nav="facilitators"),
         "active_tab": active_tab,
         "tab_urls": _tab_urls(event),
     }
@@ -156,41 +152,22 @@ class TestFacilitatorsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitators", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -204,15 +181,12 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_get_lists_facilitators_for_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_lists_facilitators_for_event(self, panel_client, event):
         Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         expected = [
             FacilitatorListItemDTO(
@@ -237,10 +211,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_sessions_column_counts_only_live_sessions(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_sessions_column_counts_only_live_sessions(self, panel_client, event):
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
@@ -249,7 +220,7 @@ class TestFacilitatorsPageView:
         removed.facilitators.add(facilitator)
         removed.soft_delete()
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         expected = [
             FacilitatorListItemDTO(
@@ -283,9 +254,8 @@ class TestFacilitatorsPageView:
         )
 
     def test_organizer_column_shows_the_organizer_name(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         Facilitator.objects.create(
             event=event,
             display_name="Alice",
@@ -294,7 +264,7 @@ class TestFacilitatorsPageView:
             organizer=active_user,
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         expected = [
             FacilitatorListItemDTO(
@@ -321,10 +291,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_search_filters_by_display_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_filters_by_display_name(self, panel_client, event):
         Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
@@ -332,7 +299,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Bob", slug="bob", user=None
         )
 
-        response = authenticated_client.get(self.get_url(event), {"search": "Alic"})
+        response = panel_client.get(self.get_url(event), {"search": "Alic"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -359,10 +326,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_search_matches_text_personal_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_matches_text_personal_data(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Email",
@@ -381,9 +345,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Bob", slug="bob", user=None
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"search": "alice@example"}
-        )
+        response = panel_client.get(self.get_url(event), {"search": "alice@example"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -410,10 +372,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_search_ignores_select_personal_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_ignores_select_personal_data(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Team",
@@ -429,7 +388,7 @@ class TestFacilitatorsPageView:
             facilitator=alice, event=event, field=field, value="Reds"
         )
 
-        response = authenticated_client.get(self.get_url(event), {"search": "Reds"})
+        response = panel_client.get(self.get_url(event), {"search": "Reds"})
 
         assert_response(
             response,
@@ -447,10 +406,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_accreditation_filter(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_accreditation_filter(self, panel_client, event):
         Facilitator.objects.create(
             event=event,
             display_name="Guest",
@@ -462,9 +418,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Plain", slug="plain", user=None
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"accreditation": "guest"}
-        )
+        response = panel_client.get(self.get_url(event), {"accreditation": "guest"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -491,16 +445,13 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_sort_by_name_descending(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_sort_by_name_descending(self, panel_client, event):
         for name in ("Alice", "Bob", "Carol"):
             Facilitator.objects.create(
                 event=event, display_name=name, slug=name.lower(), user=None
             )
 
-        response = authenticated_client.get(self.get_url(event), {"sort": "-name"})
+        response = panel_client.get(self.get_url(event), {"sort": "-name"})
 
         listed = response.context["facilitators"]
         expected = [
@@ -528,8 +479,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_deleted_filter(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_deleted_filter(self, panel_client, event):
         deleted = Facilitator.objects.create(
             event=event,
             display_name="Deleted",
@@ -541,7 +491,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Normal", slug="normal", user=None
         )
 
-        response = authenticated_client.get(self.get_url(event), {"deleted": "true"})
+        response = panel_client.get(self.get_url(event), {"deleted": "true"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -569,10 +519,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_the_list_leaves_out_deleted_facilitators(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_the_list_leaves_out_deleted_facilitators(self, panel_client, event):
         Facilitator.objects.create(
             event=event,
             display_name="Deleted",
@@ -584,7 +531,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Normal", slug="normal", user=None
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         expected = [
             FacilitatorListItemDTO(
@@ -610,9 +557,8 @@ class TestFacilitatorsPageView:
         )
 
     def test_mine_filter_keeps_only_my_facilitators(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         other = UserFactory(username="other", name="Other Organizer")
         Facilitator.objects.create(
             event=event,
@@ -629,7 +575,7 @@ class TestFacilitatorsPageView:
             organizer=other,
         )
 
-        response = authenticated_client.get(self.get_url(event), {"organizer": "mine"})
+        response = panel_client.get(self.get_url(event), {"organizer": "mine"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -659,9 +605,8 @@ class TestFacilitatorsPageView:
         )
 
     def test_unassigned_filter_keeps_only_unclaimed_facilitators(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         Facilitator.objects.create(
             event=event,
             display_name="Taken",
@@ -673,9 +618,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Free", slug="free", user=None
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"organizer": "unassigned"}
-        )
+        response = panel_client.get(self.get_url(event), {"organizer": "unassigned"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -702,17 +645,12 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_tampered_organizer_filter_falls_back_to_all(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_tampered_organizer_filter_falls_back_to_all(self, panel_client, event):
         Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"organizer": "everyone"}
-        )
+        response = panel_client.get(self.get_url(event), {"organizer": "everyone"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -737,10 +675,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_displayed_columns_show_field_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_displayed_columns_show_field_values(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Email",
@@ -759,18 +694,9 @@ class TestFacilitatorsPageView:
             event=event, facilitator_columns=[*_DEFAULT_KEYS, f"field_{field.pk}"]
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
-        expected = [
-            FacilitatorListItemDTO(
-                accreditation_type="none",
-                display_name="Alice",
-                pk=facilitator.pk,
-                slug="alice",
-                user_id=None,
-                session_count=0,
-            )
-        ]
+        expected = [facilitator_list_item_dto(facilitator)]
         assert_response(
             response,
             HTTPStatus.OK,
@@ -788,10 +714,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_displayed_columns_format_bool_and_list(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_displayed_columns_format_bool_and_list(self, panel_client, event):
         checkbox_field = PersonalDataField.objects.create(
             event=event,
             name="Vegan",
@@ -833,7 +756,7 @@ class TestFacilitatorsPageView:
             ],
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         expected = [
             FacilitatorListItemDTO(
@@ -887,10 +810,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_checkbox_field_filter(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_checkbox_field_filter(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Vegan",
@@ -909,9 +829,7 @@ class TestFacilitatorsPageView:
             event=event, display_name="Omnivore", slug="omni", user=None
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {f"field_{field.pk}": "true"}
-        )
+        response = panel_client.get(self.get_url(event), {f"field_{field.pk}": "true"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -939,10 +857,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_select_field_filter(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_select_field_filter(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Team",
@@ -964,9 +879,7 @@ class TestFacilitatorsPageView:
             facilitator=blues, event=event, field=field, value="Blues"
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {f"field_{field.pk}": "Reds"}
-        )
+        response = panel_client.get(self.get_url(event), {f"field_{field.pk}": "Reds"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -994,12 +907,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_multi_select_field_is_not_filterable(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        # Multi-select stores a JSON list, which the exact-match filter can
-        # never hit, so it must not be offered as a filter at all.
-        sphere.managers.add(active_user)
+    def test_multi_select_field_is_not_filterable(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Teams",
@@ -1016,9 +924,7 @@ class TestFacilitatorsPageView:
             facilitator=facilitator, event=event, field=field, value=["Reds"]
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {f"field_{field.pk}": "Reds"}
-        )
+        response = panel_client.get(self.get_url(event), {f"field_{field.pk}": "Reds"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -1043,10 +949,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_sort_by_personal_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_sort_by_personal_field(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Email",
@@ -1068,9 +971,7 @@ class TestFacilitatorsPageView:
             facilitator=bob, event=event, field=field, value="anna@example.com"
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"sort": f"field_{field.pk}"}
-        )
+        response = panel_client.get(self.get_url(event), {"sort": f"field_{field.pk}"})
 
         expected = [
             FacilitatorListItemDTO(
@@ -1105,12 +1006,7 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_deleted_field_drops_its_column(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        # The key outlives the field it names; the list drops the column rather
-        # than failing to render.
-        sphere.managers.add(active_user)
+    def test_deleted_field_drops_its_column(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Email",
@@ -1124,7 +1020,7 @@ class TestFacilitatorsPageView:
         )
         field.delete()
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -1139,17 +1035,14 @@ class TestFacilitatorsPageView:
             },
         )
 
-    def test_paginates_facilitators(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_paginates_facilitators(self, panel_client, event):
         for i in range(_SEED_COUNT):
             Facilitator.objects.create(
                 event=event, display_name=f"F{i}", slug=f"f-{i}", user=None
             )
 
-        page1 = authenticated_client.get(self.get_url(event))
-        page2 = authenticated_client.get(self.get_url(event), {"page": "2"})
+        page1 = panel_client.get(self.get_url(event))
+        page2 = panel_client.get(self.get_url(event), {"page": "2"})
 
         assert len(page1.context["facilitators"]) == _PAGE_SIZE
         assert page1.context["page_obj"].paginator.num_pages == _TOTAL_PAGES
@@ -1201,9 +1094,7 @@ class TestFacilitatorActions:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     @pytest.mark.parametrize("name", _ACTION_NAMES)
     def test_redirects_non_manager_user(self, authenticated_client, event, name):
@@ -1211,18 +1102,12 @@ class TestFacilitatorActions:
 
         response = authenticated_client.post(self._url(name, event, facilitator))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_delete(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_delete(self, panel_client, event):
         facilitator = self._facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-delete", event, facilitator)
         )
 
@@ -1236,13 +1121,12 @@ class TestFacilitatorActions:
         assert facilitator.deleted_at is not None
 
     def test_delete_is_refused_while_the_facilitator_runs_a_session(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         facilitator = self._facilitator(event)
         _session(event).facilitators.add(facilitator)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-delete", event, facilitator)
         )
 
@@ -1365,11 +1249,10 @@ class TestFacilitatorActions:
         assert facilitator.accreditation_type == AccreditationType.NONE
         assert facilitator.organizer_id == active_user.pk
 
-    def test_mark_guest(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_mark_guest(self, panel_client, event):
         facilitator = self._facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-mark-guest", event, facilitator)
         )
 
@@ -1382,15 +1265,10 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == AccreditationType.GUEST
 
-    def test_mark_guest_is_logged(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_mark_guest_is_logged(self, panel_client, active_user, event):
         facilitator = self._facilitator(event)
 
-        authenticated_client.post(
-            self._url("panel:facilitator-mark-guest", event, facilitator)
-        )
+        panel_client.post(self._url("panel:facilitator-mark-guest", event, facilitator))
 
         log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
         assert log.user_id == active_user.pk
@@ -1403,25 +1281,27 @@ class TestFacilitatorActions:
             }
         ]
 
-    def test_mark_guest_of_already_guest_is_not_logged(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_mark_guest_of_already_guest_is_not_logged(self, panel_client, event):
         facilitator = self._facilitator(
             event, accreditation_type=AccreditationType.GUEST
         )
 
-        authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-mark-guest", event, facilitator)
         )
 
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitator marked as guest.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
         assert not FacilitatorChangeLog.objects.filter(facilitator=facilitator).exists()
 
-    def test_assign_organizer(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_assign_organizer(self, panel_client, active_user, event):
         facilitator = self._facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-assign-organizer", event, facilitator)
         )
 
@@ -1435,12 +1315,11 @@ class TestFacilitatorActions:
         assert facilitator.organizer_id == active_user.pk
 
     def test_assign_organizer_twice_says_it_is_already_yours(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         facilitator = self._facilitator(event, organizer=active_user)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-assign-organizer", event, facilitator)
         )
 
@@ -1453,14 +1332,11 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.organizer_id == active_user.pk
 
-    def test_assign_organizer_refuses_a_taken_facilitator(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_assign_organizer_refuses_a_taken_facilitator(self, panel_client, event):
         other = UserFactory(username="other", name="Other Organizer")
         facilitator = self._facilitator(event, organizer=other)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-assign-organizer", event, facilitator)
         )
 
@@ -1475,11 +1351,10 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.organizer_id == other.pk
 
-    def test_unassign_organizer(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_unassign_organizer(self, panel_client, active_user, event):
         facilitator = self._facilitator(event, organizer=active_user)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-unassign-organizer", event, facilitator)
         )
 
@@ -1492,13 +1367,10 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.organizer_id is None
 
-    def test_unassign_organizer_twice_says_nobody_handles_it(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_unassign_organizer_twice_says_nobody_handles_it(self, panel_client, event):
         facilitator = self._facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-unassign-organizer", event, facilitator)
         )
 
@@ -1511,14 +1383,11 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.organizer_id is None
 
-    def test_unassign_organizer_refuses_someone_elses(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_unassign_organizer_refuses_someone_elses(self, panel_client, event):
         other = UserFactory(username="other", name="Other Organizer")
         facilitator = self._facilitator(event, organizer=other)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-unassign-organizer", event, facilitator)
         )
 
@@ -1557,17 +1426,14 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.organizer_id is None
 
-    def test_delete_preserves_next(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_delete_preserves_next(self, panel_client, event):
         facilitator = self._facilitator(event)
         next_url = (
             reverse("panel:facilitators", kwargs={"slug": event.slug})
             + "?deleted=true&sort=-name"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url("panel:facilitator-delete", event, facilitator),
             {"next": next_url},
         )
@@ -1579,41 +1445,25 @@ class TestFacilitatorActions:
             url=next_url,
         )
 
-    def test_action_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_action_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-delete",
             kwargs={"slug": "nonexistent", "facilitator_slug": "ghost"},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_delete_missing_facilitator(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_delete_missing_facilitator(self, panel_client, event):
         url = reverse(
             "panel:facilitator-delete",
             kwargs={"slug": event.slug, "facilitator_slug": "ghost"},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
 
     @pytest.mark.parametrize(
         ("action", "deleted_at"),
@@ -1624,12 +1474,8 @@ class TestFacilitatorActions:
         ),
     )
     def test_action_on_facilitator_of_another_event_is_not_found(
-        self, action, deleted_at, authenticated_client, active_user, sphere, event
+        self, action, deleted_at, panel_client, sphere, event
     ):
-        # Each action starts from the state it would change, so an unchanged
-        # facilitator proves the foreign event was rejected, not that the write
-        # was a no-op.
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         foreign = self._facilitator(
             other_event,
@@ -1637,19 +1483,14 @@ class TestFacilitatorActions:
             deleted_at=deleted_at,
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             reverse(
                 f"panel:{action}",
                 kwargs={"slug": event.slug, "facilitator_slug": foreign.slug},
             )
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
         foreign.refresh_from_db()
         assert foreign.deleted_at == deleted_at
         assert foreign.accreditation_type == AccreditationType.STANDARD
@@ -1679,30 +1520,18 @@ class TestFacilitatorColumns:
 
         response = getattr(client, method)(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     @pytest.mark.parametrize("method", ("get", "post"))
     def test_redirects_non_manager_user(self, authenticated_client, event, method):
         response = getattr(authenticated_client, method)(self._url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_offers_builtin_and_field_columns(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        # Nothing chosen yet: the defaults are the chosen set, and the event's
-        # own personal-data field is what's left to add.
-        sphere.managers.add(active_user)
+    def test_get_offers_builtin_and_field_columns(self, panel_client, event):
         field = self._field(event)
 
-        response = authenticated_client.get(self._url(event))
+        response = panel_client.get(self._url(event))
 
         assert_response(
             response,
@@ -1716,12 +1545,8 @@ class TestFacilitatorColumns:
             },
         )
 
-    def test_get_offers_only_builtins_without_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self._url(event))
+    def test_get_offers_only_builtins_without_fields(self, panel_client, event):
+        response = panel_client.get(self._url(event))
 
         assert_response(
             response,
@@ -1735,43 +1560,24 @@ class TestFacilitatorColumns:
             },
         )
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitator-columns", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitator-columns", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_post_saves_chosen_columns_in_order(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_chosen_columns_in_order(self, panel_client, event):
         field = self._field(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url(event), {"columns": [f"field_{field.pk}", "sessions"]}
         )
 
@@ -1784,15 +1590,12 @@ class TestFacilitatorColumns:
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.facilitator_columns == [f"field_{field.pk}", "sessions"]
 
-    def test_post_rejects_a_selection_with_no_valid_column(
-        self, authenticated_client, active_user, sphere, event
-    ):
+    def test_post_rejects_a_selection_with_no_valid_column(self, panel_client, event):
         # Unticking everything used to save "[]", which reads back as "use the
         # defaults" — the organizer saw every default column return instead.
-        sphere.managers.add(active_user)
         EventPanelSettings.objects.create(event=event, facilitator_columns=["name"])
 
-        response = authenticated_client.post(self._url(event), {"columns": ["bogus"]})
+        response = panel_client.post(self._url(event), {"columns": ["bogus"]})
 
         assert_response(
             response,
@@ -1808,17 +1611,14 @@ class TestFacilitatorColumns:
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.facilitator_columns == ["name"]
 
-    def test_post_replaces_the_previous_set(
-        self, authenticated_client, active_user, sphere, event
-    ):
+    def test_post_replaces_the_previous_set(self, panel_client, event):
         # Saving is a replace, not an add: the defaults go when they aren't
         # among the chosen keys.
-        sphere.managers.add(active_user)
         EventPanelSettings.objects.create(
             event=event, facilitator_columns=_DEFAULT_KEYS
         )
 
-        response = authenticated_client.post(self._url(event), {"columns": ["name"]})
+        response = panel_client.post(self._url(event), {"columns": ["name"]})
 
         assert_response(
             response,
@@ -1829,12 +1629,8 @@ class TestFacilitatorColumns:
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.facilitator_columns == ["name"]
 
-    def test_post_ignores_unknown_and_duplicate_keys(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_ignores_unknown_and_duplicate_keys(self, panel_client, event):
+        response = panel_client.post(
             self._url(event), {"columns": ["field_99999", "bogus", "name", "name"]}
         )
 
@@ -1847,13 +1643,10 @@ class TestFacilitatorColumns:
         settings = EventPanelSettings.objects.get(event=event)
         assert settings.facilitator_columns == ["name"]
 
-    def test_post_ignores_a_foreign_events_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_a_foreign_events_field(self, panel_client, sphere, event):
         foreign_field = self._field(EventFactory(sphere=sphere))
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self._url(event), {"columns": ["name", f"field_{foreign_field.pk}"]}
         )
 

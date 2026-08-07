@@ -12,7 +12,6 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
 )
 from ludamus.pacts import (
-    EventDTO,
     OrganizerFieldDTO,
     ProposalCategoryDTO,
     SessionListItemDTO,
@@ -20,6 +19,7 @@ from ludamus.pacts import (
 )
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.web.panel.helpers import panel_context
 
 _PAGE_SIZES = [10, 20, 50, 100]
 
@@ -63,18 +63,7 @@ def _field_dto(field):
 
 def _base_context(event, active_tab="columns"):
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "proposals",
+        **panel_context(event, active_nav="proposals"),
         "active_tab": active_tab,
         "tab_urls": {
             "list": reverse("panel:proposals", kwargs={"slug": event.slug}),

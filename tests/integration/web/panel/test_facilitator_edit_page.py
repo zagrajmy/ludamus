@@ -8,47 +8,32 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
-    Facilitator,
     FacilitatorChangeLog,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldValue,
 )
 from ludamus.pacts import (
-    EventDTO,
     FacilitatorDTO,
     FieldAnswer,
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
 )
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import FormErrorsMatcher, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_facilitator_not_found,
+    assert_not_a_manager,
+    make_facilitator,
+    panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 _DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
-
-
-def _make_facilitator(event, **kwargs):
-    defaults = {"display_name": "Alice", "slug": "alice", "user": None}
-    defaults.update(kwargs)
-    return Facilitator.objects.create(event=event, **defaults)
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
-    }
 
 
 class TestFacilitatorEditPageView:
@@ -66,125 +51,79 @@ class TestFacilitatorEditPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-edit",
             kwargs={"slug": "nonexistent", "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_get_redirects_when_facilitator_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_facilitator_not_found(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, "nonexistent"))
 
-        response = authenticated_client.get(self.get_url(event, "nonexistent"))
+        assert_facilitator_not_found(response, event)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+    def test_get_redirects_for_a_deleted_facilitator(self, panel_client, event):
+        make_facilitator(event, deleted_at=_DELETED_AT)
 
-    def test_get_redirects_for_a_deleted_facilitator(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        _make_facilitator(event, deleted_at=_DELETED_AT)
+        response = panel_client.get(self.get_url(event))
 
-        response = authenticated_client.get(self.get_url(event))
+        assert_facilitator_not_found(response, event)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
-
-    def test_post_redirects_for_a_deleted_facilitator(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(
+    def test_post_redirects_for_a_deleted_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(
             event, deleted_at=_DELETED_AT, internal_comment="untouched"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"accreditation_type": "honorary", "internal_comment": "changed"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == "none"
         assert facilitator.internal_comment == "untouched"
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        facilitator = make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "field_descriptors": [],
             },
         )
 
-    def test_get_shows_the_organizer_read_only(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_the_organizer_read_only(self, panel_client, event):
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
-        facilitator = _make_facilitator(event, organizer=organizer)
+        facilitator = make_facilitator(event, organizer=organizer)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": ANY,
                 "facilitator": (
                     FacilitatorDTO.model_validate(facilitator).model_copy(
@@ -195,47 +134,29 @@ class TestFacilitatorEditPageView:
             },
         )
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-edit",
             kwargs={"slug": "nonexistent", "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.post(url, data={"display_name": "Alice"})
+        response = panel_client.post(url, data={"display_name": "Alice"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_post_redirects_when_facilitator_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_redirects_when_facilitator_not_found(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event, "nonexistent"), data={"display_name": "Alice"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+        assert_facilitator_not_found(response, event)
 
     def test_post_invalid_accreditation_rerenders_form_with_error(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"accreditation_type": "bogus"}
         )
 
@@ -244,7 +165,7 @@ class TestFacilitatorEditPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": FormErrorsMatcher(
                     accreditation_type=[
                         (
@@ -258,13 +179,10 @@ class TestFacilitatorEditPageView:
             },
         )
 
-    def test_post_redirects_and_keeps_cached_display_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_post_redirects_and_keeps_cached_display_name(self, panel_client, event):
+        facilitator = make_facilitator(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"accreditation_type": "none"}
         )
 
@@ -281,26 +199,18 @@ class TestFacilitatorEditPageView:
         # display_name is a read-only cache: a posted value must not change it.
         assert facilitator.display_name == "Alice"
 
-    def test_post_ignores_submitted_display_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_post_ignores_submitted_display_name(self, panel_client, event):
+        facilitator = make_facilitator(event)
 
-        authenticated_client.post(
-            self.get_url(event), data={"display_name": "Hacked Name"}
-        )
+        panel_client.post(self.get_url(event), data={"display_name": "Hacked Name"})
 
         facilitator.refresh_from_db()
         assert facilitator.display_name == "Alice"
 
-    def test_post_updates_accreditation_type(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event, accreditation_type="none")
+    def test_post_updates_accreditation_type(self, panel_client, event):
+        facilitator = make_facilitator(event, accreditation_type="none")
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Alice", "accreditation_type": "honorary"},
         )
@@ -308,13 +218,10 @@ class TestFacilitatorEditPageView:
         facilitator.refresh_from_db()
         assert facilitator.accreditation_type == "honorary"
 
-    def test_post_saves_internal_comment(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_post_saves_internal_comment(self, panel_client, active_user, event):
+        facilitator = make_facilitator(event)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "accreditation_type": "none",
@@ -335,30 +242,24 @@ class TestFacilitatorEditPageView:
             }
         ]
 
-    def test_get_preselects_current_accreditation_type(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        _make_facilitator(event, accreditation_type="guest")
+    def test_get_preselects_current_accreditation_type(self, panel_client, event):
+        make_facilitator(event, accreditation_type="guest")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.context["form"].initial["accreditation_type"] == "guest"
 
-    def test_get_does_not_render_display_name_input(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_get_does_not_render_display_name_input(self, panel_client, event):
+        facilitator = make_facilitator(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "field_descriptors": [],
@@ -366,11 +267,8 @@ class TestFacilitatorEditPageView:
             not_contains='name="display_name"',
         )
 
-    def test_post_saves_checkbox_personal_data_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_post_saves_checkbox_personal_data_field(self, panel_client, event):
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Vegan",
@@ -380,7 +278,7 @@ class TestFacilitatorEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Alice", "personal_vegan": "true"},
         )
@@ -388,11 +286,8 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
-    def test_post_saves_multiple_personal_data_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_post_saves_multiple_personal_data_field(self, panel_client, event):
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -407,7 +302,7 @@ class TestFacilitatorEditPageView:
                 field=field, label=value.upper(), value=value, order=order
             )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Alice", "personal_languages": ["en", "pl"]},
         )
@@ -416,10 +311,9 @@ class TestFacilitatorEditPageView:
         assert hpd.value == ["en", "pl"]
 
     def test_post_saves_allow_custom_personal_data_field_from_custom_input(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="System",
@@ -430,7 +324,7 @@ class TestFacilitatorEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "display_name": "Alice",
@@ -442,11 +336,8 @@ class TestFacilitatorEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Homebrew"
 
-    def test_post_keeps_comma_inside_a_multi_value_write_in(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_post_keeps_comma_inside_a_multi_value_write_in(self, panel_client, event):
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -461,7 +352,7 @@ class TestFacilitatorEditPageView:
             field=field, label="English", value="en", order=0
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={
                 "display_name": "Alice",
@@ -483,10 +374,9 @@ class TestFacilitatorEditPageView:
         assert hpd.value == ["en", "śląski, ale tylko trochę"]
 
     def test_get_splits_a_stored_write_in_across_control_and_companion(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+        facilitator = make_facilitator(event)
         field = PersonalDataField.objects.create(
             event=event,
             name="Languages",
@@ -504,14 +394,14 @@ class TestFacilitatorEditPageView:
             facilitator=facilitator, event=event, field=field, value=["en", "śląski"]
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-edit.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "field_descriptors": [
@@ -543,11 +433,8 @@ class TestFacilitatorEditPageView:
             },
         )
 
-    def test_get_renders_all_personal_field_types(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_get_renders_all_personal_field_types(self, panel_client, event):
+        facilitator = make_facilitator(event)
 
         languages = PersonalDataField.objects.create(
             event=event,
@@ -560,10 +447,10 @@ class TestFacilitatorEditPageView:
             help_text="Pick all that apply",
             order=0,
         )
-        PersonalDataFieldOption.objects.create(
+        english = PersonalDataFieldOption.objects.create(
             field=languages, label="English", value="en", order=0
         )
-        PersonalDataFieldOption.objects.create(
+        polish = PersonalDataFieldOption.objects.create(
             field=languages, label="Polish", value="pl", order=1
         )
 
@@ -576,7 +463,7 @@ class TestFacilitatorEditPageView:
             allow_custom=True,
             order=1,
         )
-        PersonalDataFieldOption.objects.create(
+        dnd = PersonalDataFieldOption.objects.create(
             field=system, label="D&D", value="dnd", order=0
         )
 
@@ -617,18 +504,102 @@ class TestFacilitatorEditPageView:
             facilitator=facilitator, event=event, field=nickname, value="Bob"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        html = response.content.decode()
-        assert 'name="personal_languages" value="en"\n' in html or (
-            'name="personal_languages"' in html and 'value="en"' in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="Pick all that apply",
+                            is_multiple=True,
+                            is_public=False,
+                            max_length=50,
+                            name="Languages",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="English", order=0, pk=english.pk, value="en"
+                                ),
+                                OrganizerFieldOptionDTO(
+                                    label="Polish", order=1, pk=polish.pk, value="pl"
+                                ),
+                            ],
+                            order=0,
+                            pk=languages.pk,
+                            question="Which languages?",
+                            slug="languages",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(
+                            value=["en"], custom_value="śląski, ale tylko trochę"
+                        ),
+                    },
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="System",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="D&D", order=0, pk=dnd.pk, value="dnd"
+                                )
+                            ],
+                            order=1,
+                            pk=system.pk,
+                            question="Which RPG system?",
+                            slug="system",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(value="dnd", custom_value=""),
+                    },
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=False,
+                            field_type="checkbox",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="Vegan",
+                            options=[],
+                            order=2,
+                            pk=vegan.pk,
+                            question="Are you vegan?",
+                            slug="vegan",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(value=True, custom_value=""),
+                    },
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="text",
+                            help_text="Optional",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=42,
+                            name="Nickname",
+                            options=[],
+                            order=3,
+                            pk=nickname.pk,
+                            question="Your nickname",
+                            slug="nickname",
+                        ),
+                        "name_prefix": "personal",
+                        "answer": FieldAnswer(value="Bob", custom_value=""),
+                    },
+                ],
+            },
         )
-        assert "Pick all that apply" in html
-        assert 'name="personal_system"' in html
-        assert 'name="personal_system_custom"' in html
-        assert 'name="personal_vegan"' in html
-        assert 'name="personal_nickname"' in html
-        assert 'maxlength="42"' in html
-        assert 'name="personal_nickname_custom"' in html
-        assert "Optional" in html
