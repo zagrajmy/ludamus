@@ -1633,6 +1633,7 @@ msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Accepted"
@@ -6457,12 +6458,8 @@ msgid "No fields selected."
 msgstr "Nie wybrano żadnych pól."
 
 #: src/ludamus/templates/panel/cfp.html
-msgid "Statistics"
-msgstr "Statystyki"
-
-#: src/ludamus/templates/panel/cfp.html
-msgid "Submissions"
-msgstr "Zgłoszenia"
+msgid "Submission window"
+msgstr "Okno zgłoszeń"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Configure"
@@ -8867,6 +8864,16 @@ msgstr "Brak przechwyconych e-maili."
 #, python-format
 #~ msgid "Flag %(name)s for deletion"
 #~ msgstr "Oznacz do usunięcia: %(name)s"
+
+#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
+#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+
+#~ msgid "Statistics"
+#~ msgstr "Statystyki"
+
+#~ msgid "Submissions"
+#~ msgstr "Zgłoszenia"
+
 #~ msgid "Set minimum and maximum participant limits for this category."
 #~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
 

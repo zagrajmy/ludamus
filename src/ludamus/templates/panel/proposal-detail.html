@@ -19,8 +19,11 @@
             {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
             {# The edit form posts to its own URL, so carrying next in the query #}
             {# keeps the list filters alive across the whole edit round trip. #}
-            <a href="{% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk %}?next={{ back_url|urlencode }}"
-               class="btn btn-secondary">{% translate "Edit" %}</a>
+            {% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk as edit_url %}
+            {% translate "Edit" as edit_label %}
+            {% with next_query=back_url|urlencode %}
+                {% tessera_button edit_label href=edit_url|add:"?next="|add:next_query variant="secondary" %}
+            {% endwith %}
             {% translate "This is the current status." as current_status_tooltip %}
             {% translate "This session is scheduled and can only be accepted. Remove it from the timetable to change its status." as scheduled_tooltip %}
             {% translate "Move to pending" as pending_label %}
