@@ -29,7 +29,7 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event and category %}
-        <div class="p-3 sm:p-4">
+        <div class="panel-bleed py-3 sm:p-4">
             <form method="post" id="cfp-edit-form" class="max-w-2xl">
                 {% csrf_token %}
                 <div class="card">
