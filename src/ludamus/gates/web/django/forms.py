@@ -176,11 +176,14 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
-def _logo_field() -> forms.FileField:
+def logo_field(*, help_text: str | None = None) -> forms.FileField:
+    # Public like cover_image_field(): the guild panel lives in another module
+    # and must not re-declare the accepted types or the contain-fit hint.
     return forms.FileField(
         required=False,
         label=_("Logo"),
-        help_text=_(
+        help_text=help_text
+        or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
         widget=forms.ClearableFileInput(
@@ -220,7 +223,7 @@ class EventSettingsForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     cover_image = cover_image_field()
-    logo = _logo_field()
+    logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -288,7 +291,7 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
-    logo = _logo_field()
+    logo = logo_field()
 
     def clean_logo(self) -> object:
         logo = self.cleaned_data.get("logo")

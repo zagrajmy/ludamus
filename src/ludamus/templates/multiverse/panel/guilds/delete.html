@@ -1,0 +1,32 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Delete guild" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Delete guild" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }} · {% translate "Guilds" %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-4 lg:p-6">
+        <div class="card p-6 max-w-2xl">
+            <p class="text-foreground mb-2">
+                {% blocktranslate with name=guild.name %}Delete the guild “{{ name }}”?{% endblocktranslate %}
+            </p>
+            <p class="text-sm text-foreground-muted mb-6">
+                {% blocktranslate count counter=guild.members|length %}Its mark stops showing on the programme cards of {{ counter }} presenter. Their account and sessions are untouched.{% plural %}Its mark stops showing on the programme cards of {{ counter }} presenters. Their accounts and sessions are untouched.{% endblocktranslate %}
+            </p>
+            <form method="post" class="flex items-center gap-3">
+                {% csrf_token %}
+                {% translate "Delete guild" as t_delete %}
+                {% tessera_button t_delete icon="trash" type="submit" variant="danger" full_width_mobile=False %}
+                {% translate "Cancel" as t_cancel %}
+                {% url 'multiverse:panel:guilds' as cancel_url %}
+                {% tessera_button t_cancel href=cancel_url variant="secondary" %}
+            </form>
+        </div>
+    </div>
+{% endblock content %}

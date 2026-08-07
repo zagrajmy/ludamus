@@ -42,6 +42,7 @@ def sphere_panel_context(
             "general": reverse("multiverse:panel:sphere-settings"),
             "connections": reverse("multiverse:panel:connections"),
             "announcements": reverse("multiverse:panel:announcements"),
+            "guilds": reverse("multiverse:panel:guilds"),
             "mcp": reverse("multiverse:panel:mcp-token"),
         },
     }
