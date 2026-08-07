@@ -17,7 +17,7 @@
         <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
            class="btn btn-primary">
             {% icon "pencil-square" class="w-4 h-4" %}
-            <span class="max-sm:sr-only">{% translate "Edit" %}</span>
+            <span class="btn-label">{% translate "Edit" %}</span>
         </a>
     {% endif %}
 {% endblock header_actions %}

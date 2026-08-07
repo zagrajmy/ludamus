@@ -22,7 +22,7 @@
         <a href="{% url 'panel:track-create' slug=current_event.slug %}"
            class="btn btn-primary flex items-center">
             {% icon "plus" class="w-4 h-4" %}
-            <span class="max-sm:sr-only">{% translate "New Track" %}</span>
+            <span class="btn-label">{% translate "New Track" %}</span>
         </a>
     {% endif %}
 {% endblock header_actions %}
