@@ -138,8 +138,8 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("link", { name: spare, exact: true })).toBeHidden();
 
+    // The filter form autosubmits on change; no Filter click needed.
     await page.getByLabel("Deleted only").check();
-    await page.getByRole("button", { name: "Filter" }).click();
     await page.getByRole("link", { name: spare, exact: true }).click();
 
     // The detail page says so and offers the way back.
