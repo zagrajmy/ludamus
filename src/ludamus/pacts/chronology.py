@@ -382,8 +382,6 @@ class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
     duration_minutes: int
-    # What this day's column shows: the same as duration_minutes, except for a
-    # session clipped by midnight, which also renders on the next day.
     visible_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
