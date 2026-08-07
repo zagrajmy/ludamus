@@ -30,8 +30,14 @@ markdownlint-cli2 = "0.23.1"
 "npm:@endevco/aube" = { version = "1.31.0", npm_args = "--ignore-scripts=false" }
 hk = "1.51.0"
 actionlint = "1.7.12"
-shellcheck = "0.11.0"
-hadolint = "2.14.0"
+# `prefix:` (not a bare "0.11.0"): in sandboxes these two resolve to PyPI
+# wrappers that append a packaging revision to the upstream version
+# (shellcheck-py 0.11.0.1 wraps shellcheck 0.11.0). mise hands an exact pin to
+# uv verbatim as `==0.11.0`, which matches nothing there; a prefix pin resolves
+# against the registry and picks the wrapper. On GitHub-release backends the
+# prefix matches the exact version, so laptops keep installing 0.11.0/2.14.0.
+shellcheck = "prefix:0.11.0"
+hadolint = "prefix:2.14.0"
 "github:reteps/dockerfmt" = "0.5.4"
 pipx = "1.16.0"
 
@@ -43,7 +49,13 @@ PYTHONPATH = "src"
 PACKAGE = "ludamus"
 SRC_PATHS = "src"
 TEST_PATHS = "tests"
-SCRIPT_PATHS = ".claude scripts"
+# Enumerated rather than a bare `.claude`, which also contains
+# `.claude/worktrees/<agent-id>/` — a git-ignored checkout of this whole repo,
+# virtualenv included, on any machine that has run a Claude Code agent. Pylint
+# and vulture have no gitignore awareness, so `.claude` cost pylint minutes per
+# run and made `mise run lint` fail outright on vulture findings from worktree
+# site-packages. Everything tracked under `.claude` lives in these two dirs.
+SCRIPT_PATHS = "scripts .claude/hooks .claude/skills"
 TOML_PATHS = "*.toml .taplo.toml docker/*.toml"
 
 [bootstrap.packages]
@@ -77,7 +89,7 @@ run = "ast-grep scan --error src tests"
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
-run = "djlint src --lint --check --format-css --format-js --profile=django"
+run = "djlint src --quiet --lint --check --format-css --format-js --profile=django"
 
 [tasks."lint:impeccable"]
 run = "python scripts/impeccable_lint.py"
@@ -116,6 +128,16 @@ dir = "tests/e2e"
 [tasks."test:e2e:install"]
 description = "Install Playwright (node deps + browsers)"
 run = ["aube install", "aube exec -C tests/e2e playwright install --with-deps"]
+
+# One browser at a time, without --with-deps. The fallback session-start.sh uses
+# when the task above fails: `playwright install` walks the browsers in a single
+# sequential loop and rethrows the first download failure, so one unreachable
+# artifact skips every browser behind it. Lives here rather than inline in the
+# hook so the command and its working directory are stated once.
+[tasks."test:e2e:install:browser"]
+description = "Install a single Playwright browser (e.g. mise run test:e2e:install:browser webkit)"
+run = "aube exec -C tests/e2e playwright install"
+raw_args = true
 
 [tasks."test:e2e:prep"]
 description = "Migrate, seed fixtures, and build client for e2e tests"

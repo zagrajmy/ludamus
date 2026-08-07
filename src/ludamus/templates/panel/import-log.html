@@ -1,9 +1,9 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "Google Docs Import" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Google Docs Import" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Google Docs Import" %}
 {% endblock page_title %}
@@ -106,7 +106,9 @@
                 </section>
             {% endif %}
             {% if log_show_successes and log_successes %}
-                <details class="card p-4 sm:p-5" {% if log_successes_open %}open{% endif %}>
+                <details id="import-log-successes"
+                         class="card p-4 sm:p-5"
+                         {% if log_successes_open %}open{% endif %}>
                     <summary class="cursor-pointer text-sm font-semibold text-foreground">
                         {% blocktranslate count count=log_success_count %}
                                 {{ count }} successful import

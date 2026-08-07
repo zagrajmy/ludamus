@@ -45,10 +45,8 @@ run = "mypy {{ env.SRC_PATHS }}"
 env = { _.file = '.env.test' }
 
 ["lint:pylint"]
-description = "Run Pylint on source and tests (duplicate-code disabled for tests)"
-run = [
-    "pylint -j 0 {{ env.SRC_PATHS }}",
-] # Change: missing {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}
+description = "Run Pylint on source, scripts and tests"
+run = ["pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"]
 
 ["lint:ruff"]
 description = "Check Python with Ruff"
@@ -121,12 +119,36 @@ env = { _.file = '.env.test' }
 
 ["test:int"]
 description = "Run integration tests"
-run = "pytest -n auto {{ env.TEST_PATHS }}/integration"
+usage = '''
+arg "[pytest_args]" var=#true double_dash="optional"
+'''
+run = '''
+python - <<'PY'
+import os
+import shlex
+
+args = shlex.split(os.environ.get("usage_pytest_args", ""))
+integration_root = os.path.abspath(
+    os.path.join(os.environ["TEST_PATHS"], "integration")
+)
+has_target = any(
+    os.path.commonpath((integration_root, os.path.abspath(arg.split("::", 1)[0])))
+    == integration_root
+    for arg in args
+)
+targets = [] if has_target else [integration_root]
+os.execvp("pytest", ["pytest", "-n", "auto", *targets, *args])
+PY
+'''
 env = { _.file = '.env.test' }
 
 ["test:int:cov"]
 description = "Run integration tests"
-run = { task = "test:int", args = ["--cov=tests.integration", "--cov={{env.PACKAGE}}", "--cov={{env.SRC_PATHS}}/{{env.PACKAGE}}/templates/"] }
+run = { task = "test:int", args = [
+    "--cov=tests.integration",
+    "--cov={{env.PACKAGE}}",
+    "--cov={{env.SRC_PATHS}}/{{env.PACKAGE}}/templates/",
+] }
 env = { _.file = '.env.test' }
 
 ["test:int:cov:diff"]
@@ -164,5 +186,7 @@ description = "Format, lint and test all Python code"
 run = [
     { task = "format:py" },
     { task = "lint:py" },
-    { task = "test:py", args = ["-xvv"] },
+    { task = "test:py", args = [
+        "-xvv",
+    ] },
 ]

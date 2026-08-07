@@ -74,8 +74,7 @@ def run_detect(paths: list[str]) -> list[dict]:
     # impeccable emits JSON on stdout when empty and on stderr when findings exist.
     # Sources may prefix the payload with npm warnings (e.g. git-sourced installs).
     for stream in (result.stdout, result.stderr):
-        payload = _extract_json_array(stream or "")
-        if payload is None:
+        if (payload := _extract_json_array(stream or "")) is None:
             continue
         try:
             data = json.loads(payload)
@@ -149,8 +148,7 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = Path.cwd().resolve()
-    paths = args.paths or tracked_ui_files()
-    if not paths:
+    if not (paths := args.paths or tracked_ui_files()):
         print("impeccable: no files to scan", file=sys.stderr)
         return 0
 

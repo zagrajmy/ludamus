@@ -13,32 +13,19 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import (
     AgendaItem,
-    ProposalCategory,
     ScheduleChangeLog,
     Session,
     SessionParticipation,
 )
 from ludamus.pacts import ScheduleChangeAction
 from tests.integration.conftest import EventFactory, SpaceFactory, UserFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _make_session(event, **kwargs):
-    category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-    defaults = {
-        "category": category,
-        "presenter": None,
-        "display_name": "Test Host",
-        "title": "Test Session",
-        "slug": "test-session",
-        "event": event,
-        "participants_limit": 5,
-        "status": "pending",
-    }
-    defaults.update(kwargs)
-    return Session.objects.create(**defaults)
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    assert_proposal_not_found,
+    make_proposal,
+)
 
 
 def _schedule(session, event):
@@ -63,43 +50,33 @@ class TestProposalDeleteActionView:
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
-        session = _make_session(event)
+        session = make_proposal(event)
         url = self.get_url(event, session.pk)
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
         session.refresh_from_db()
         assert session.deleted_at is None
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
-        session = _make_session(event)
+        session = make_proposal(event)
 
         response = authenticated_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
         session.refresh_from_db()
         assert session.deleted_at is None
 
-    def test_post_soft_deletes_session_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        session = _make_session(event)
+    def test_post_soft_deletes_session_and_redirects(self, panel_client, event):
+        session = make_proposal(event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Session deleted.")],
+            messages=[(messages.SUCCESS, "Proposal deleted.")],
             url=reverse("panel:proposals", kwargs={"slug": event.slug}),
         )
         assert not Session.objects.filter(pk=session.pk).exists()
@@ -108,10 +85,9 @@ class TestProposalDeleteActionView:
         assert not ScheduleChangeLog.objects.filter(session_id=session.pk).exists()
 
     def test_post_frees_timetable_slot_and_retains_participations(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
-        session = _make_session(event)
+        session = make_proposal(event)
         agenda_item = _schedule(session, event)
         participation = SessionParticipation.objects.create(
             session=session,
@@ -119,7 +95,7 @@ class TestProposalDeleteActionView:
             status="confirmed",
         )
 
-        authenticated_client.post(self.get_url(event, session.pk))
+        panel_client.post(self.get_url(event, session.pk))
 
         assert not AgendaItem.objects.filter(pk=agenda_item.pk).exists()
         assert SessionParticipation.objects.filter(pk=participation.pk).exists()
@@ -136,7 +112,7 @@ class TestProposalDeleteActionView:
         # serializes them: the slot is freed once, so exactly one UNASSIGN log is
         # written. Without locking both requests would log the unassignment.
         sphere.managers.add(active_user)
-        session = _make_session(event)
+        session = make_proposal(event)
         _schedule(session, event)
         url = self.get_url(event, session.pk)
 
@@ -170,15 +146,12 @@ class TestProposalDeleteActionView:
             == 1
         )
 
-    def test_post_excludes_soft_deleted_from_listing(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        session = _make_session(event)
+    def test_post_excludes_soft_deleted_from_listing(self, panel_client, event):
+        session = make_proposal(event)
 
-        authenticated_client.post(self.get_url(event, session.pk))
+        panel_client.post(self.get_url(event, session.pk))
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:proposals", kwargs={"slug": event.slug})
         )
         assert session.pk not in {
@@ -188,52 +161,30 @@ class TestProposalDeleteActionView:
             proposal.pk for proposal in response.context["deleted_proposals"]
         }
 
-    def test_post_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_proposal_not_found(self, panel_client, event):
         url = self.get_url(event, 99999)
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event)
+        session = make_proposal(other_event)
 
-        response = authenticated_client.post(self.get_url(event, session.pk))
+        response = panel_client.post(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
         session.refresh_from_db()
         assert session.deleted_at is None
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-delete", kwargs={"slug": "no-such-event", "proposal_id": 1}
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
