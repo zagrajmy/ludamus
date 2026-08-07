@@ -1,4 +1,4 @@
-import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
+import type { CaptureSnapshotResult } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
@@ -76,145 +76,117 @@ const namesFrom = (html: string, pattern: RegExp): Set<string> =>
     [...html.matchAll(pattern)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
   );
 
-// Take the names the page actually renders rather than guessing at them. Seven
-// device runs agree on where snapshot labels come from: rendered text. The
-// session links' sr-only names match; the rail's aria-label names never
-// appeared once ("None of 31 rendered rail names appeared" — run on c2e8f9b),
-// so the rail is matched by its links' text instead: bare hours like "10".
-// Both sets come from the served, already-translated markup. The aria names
-// are still accepted should a future runner start surfacing them.
+// This page overflows the runner's 300-node snapshot budget, and the rail nav
+// is the last element in the document — an unscoped snapshot truncates before
+// ever reaching it (seven device runs of "no rail names appeared" traced back
+// to exactly this). Scoping the snapshot to the nav's accessible name walks
+// only its subtree — a few dozen nodes — so every rendered marker surfaces.
+// Both marker name sets come from the served, already-translated markup: the
+// links' bare hour text ("10") and their aria-labels, whichever the engine
+// reports.
+const RAIL_NAV_NAME = /<nav class="schedule-rail[^"]*"\s+aria-label="([^"]+)"/;
 const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)"/g;
 const RAIL_HOUR_TEXTS = /class="schedule-rail-hour[^"]*"[^>]*>([^<]+)<\/a>/g;
-const SESSION_LINK_NAMES =
-  /<a[^>]*class="session-link[^"]*"[^>]*>\s*<span class="sr-only">([^<]+)<\/span>/g;
 
-// Set membership decides what a node is; the harness's shared band decides
-// whether to press it. Being conservative about the band only shifts which
-// markers get pressed.
-const pressable = (
-  snapshot: CaptureSnapshotResult,
-  node: SnapshotNode,
-  names: Set<string>,
-): boolean =>
-  Boolean(
-    node.label &&
-    names.has(collapse(node.label)) &&
-    node.rect &&
-    centreOnScreen(node.rect, viewportOf(snapshot)),
-  );
-
-// A bare "10" can label things besides a rail marker, so membership alone is
-// not identity here. The rail's signature is geometric but not positional: many
-// matching nodes stacked in one narrow column. Cluster candidates by x and take
-// the largest column — found, not assumed, so no scrollbar-gutter or
-// device-width claim is involved.
-const X_BUCKET = 24;
-const MIN_CLUSTER = 3;
-
-const railHourTargets = (
-  snapshot: CaptureSnapshotResult,
-  names: Set<string>,
-  hourTexts: Set<string>,
-): RailHour[] => {
-  const candidates = snapshot.nodes.flatMap((node) => {
-    const label = node.label ? collapse(node.label) : "";
-    if (!label || !node.rect) return [];
-    if (!names.has(label) && !hourTexts.has(label)) return [];
-    return [{ label, rect: node.rect }];
-  });
-
-  const buckets = new Map<number, RailHour[]>();
-  for (const hour of candidates) {
-    const key = Math.round((hour.rect.x + hour.rect.width / 2) / X_BUCKET);
-    buckets.set(key, [...(buckets.get(key) ?? []), hour]);
-  }
-  const column = [...buckets.values()].reduce(
-    (largest, bucket) => (bucket.length > largest.length ? bucket : largest),
-    [] as RailHour[],
-  );
-
-  const viewport = viewportOf(snapshot);
-  const hours = column.filter((hour) => centreOnScreen(hour.rect, viewport));
-  if (column.length < MIN_CLUSTER || hours.length === 0) {
-    // Say which stage starved: no candidates points at the name sets, a thin
-    // column at clustering, an empty band at visibility. Right-half labels give
-    // the next investigation its data either way.
-    const rightHalf = snapshot.nodes
-      .flatMap((node) =>
-        node.rect && node.rect.x > viewport.x + viewport.width / 2 && node.label
-          ? [describeNode(node)]
-          : [],
-      )
-      .slice(0, 12)
-      .join(" | ");
-    throw new Error(
-      `Rail not identified: ${candidates.length} candidates, largest column ${column.length}, ` +
-        `on-screen ${hours.length}. Expected names like ${JSON.stringify([...hourTexts][0])} or ` +
-        `${JSON.stringify([...names][0])}. Right-half nodes: ${rightHalf || "none"}.`,
-    );
-  }
-  // A handful spread down the rail: the callout is a per-element behaviour, so
-  // one hour passing says little about the rest. Dedup keeps a short rail from
-  // pressing the same marker four times.
-  return [...new Set([0.1, 0.35, 0.6, 0.85].map((f) => Math.floor(f * hours.length)))].map(
-    (index) => hours[index],
-  );
+const railNavName = (html: string): string => {
+  const name = RAIL_NAV_NAME.exec(html)?.[1];
+  if (!name) throw new Error("The schedule rail nav rendered no aria-label to scope by.");
+  return collapse(decodeEntities(name));
 };
 
-const scheduleOnScreen = (snapshot: CaptureSnapshotResult, names: Set<string>): boolean =>
-  snapshot.nodes.some((node) => pressable(snapshot, node, names));
+// A marker link and its own text node both match the name sets at the same
+// spot; one press per spot is enough. The screen band drops markers that are
+// rendered but not yet scrolled into view — before fitRail (event-timeline.ts)
+// thins the rail, or before Safari applies the fragment scroll — so a press
+// never lands on a clipped or off-screen target.
+const railMarkersFrom = (
+  snapshot: CaptureSnapshotResult,
+  names: Set<string>,
+  screen: Rect,
+): RailHour[] => {
+  const seen = new Set<number>();
+  return snapshot.nodes.flatMap((node) => {
+    const label = node.label ? collapse(node.label) : "";
+    if (!label || !node.rect || !names.has(label)) return [];
+    if (node.rect.width <= 0 || node.rect.height <= 0) return [];
+    if (!centreOnScreen(node.rect, screen)) return [];
+    const spot = Math.round((node.rect.y + node.rect.height / 2) / 4);
+    if (seen.has(spot)) return [];
+    seen.add(spot);
+    return [{ label, rect: node.rect }];
+  });
+};
 
 // Polled, not slept: Safari applies the fragment scroll somewhere after load,
 // and a fixed wait is either too short on a slow runner or wasted on a fast
 // one. Without the check the long-press would land on empty page and the spec
 // would pass by finding no callout, which is not the same as the callout being
 // suppressed.
-const waitForSchedule = async (
+const waitForRailMarkers = async (
   timeoutMs: number,
-  sessionNames: Set<string>,
-): Promise<CaptureSnapshotResult> => {
+  navName: string,
+  markerNames: Set<string>,
+): Promise<RailHour[]> => {
   const deadline = Date.now() + timeoutMs;
-  let snapshot: CaptureSnapshotResult | null = null;
+  let screen: Rect | null = null;
+  let scoped: CaptureSnapshotResult | null = null;
   let lastSnapshotError: unknown = null;
   do {
     // A snapshot taken while Safari is still launching throws; that is a state
-    // to wait out, not to end the run on.
+    // to wait out, not to end the run on. The screen rect comes from an
+    // unscoped snapshot's root node — the window frame, which truncation
+    // cannot touch — and holds still for the rest of the run.
     try {
-      snapshot = await takeSnapshot();
+      screen ??= viewportOf(await takeSnapshot());
+      scoped = await takeSnapshot(navName);
     } catch (error) {
       lastSnapshotError = error;
       console.warn("Snapshot failed while the page was settling; retrying.", error);
     }
-    if (snapshot && scheduleOnScreen(snapshot, sessionNames)) return snapshot;
+    if (screen && scoped) {
+      const markers = railMarkersFrom(scoped, markerNames, screen);
+      if (markers.length > 0) return markers;
+    }
     await wait(500);
   } while (Date.now() < deadline);
 
-  if (!snapshot) {
+  if (!scoped) {
     throw new Error(
       `No snapshot succeeded in ${timeoutMs}ms; last error: ${String(lastSnapshotError)}`,
     );
   }
-  const matched = snapshot.nodes.filter(
-    (node) => node.label && sessionNames.has(collapse(node.label)),
-  );
-  const sample = matched.slice(0, 6).map(describeNode).join(" | ");
+  // The scoped tree is small, so the dump can afford to show all of it. A
+  // truncated or screen-sized root means the scope query missed the nav and
+  // the runner fell back to the full tree.
+  const sample = scoped.nodes.slice(0, 15).map(describeNode).join(" | ");
   throw new Error(
-    matched.length > 0
-      ? `Session links matched by name but none within the viewport band: ${sample}`
-      : `None of the ${sessionNames.size} rendered session names appeared in the snapshot ` +
-          `(${snapshot?.nodes.length ?? 0} nodes).`,
+    `No on-screen rail markers in the ${JSON.stringify(navName)}-scoped snapshot: ` +
+      `${scoped.nodes.length} nodes, truncated=${String(scoped.truncated)}, ` +
+      `screen=${JSON.stringify(screen)}. ` +
+      `Expected labels like ${JSON.stringify([...markerNames][0])}. Nodes: ${sample || "none"}.`,
   );
 };
 
-// Absence is the pass here, so a snapshot taken before the callout has had time
-// to appear reads as success — the same false result the fixed wait after each
-// press used to risk. Poll instead: return as soon as something surfaces, and
-// only conclude "nothing" once the window has actually elapsed.
+// A handful spread down the rail: the callout is a per-element behaviour, so
+// one hour passing says little about the rest. Dedup keeps a short rail from
+// pressing the same marker four times.
+const pressTargets = (markers: RailHour[]): RailHour[] =>
+  [...new Set([0.1, 0.35, 0.6, 0.85].map((f) => Math.floor(f * markers.length)))].map(
+    (index) => markers[index],
+  );
+
+// Absence is the pass here, so both false-negative paths need closing. One: a
+// snapshot taken before the callout has had time to appear reads as success —
+// poll instead, and only conclude "nothing" once the window has elapsed. Two:
+// the callout sheet joins a page that already overflows the snapshot's node
+// budget, so ask for the sheet directly — the scope resolves via a live
+// element query with no such cap. When no callout is up the scope misses and
+// the runner falls back to the full tree, which then contains no signal.
 const surfacedCallout = async (timeoutMs: number): Promise<string[]> => {
   const deadline = Date.now() + timeoutMs;
   do {
     await wait(500);
-    const labels = await snapshotLabels();
+    const labels = await snapshotLabels("Open in");
     const surfaced = calloutSignals.filter((signal) =>
       labels.some((label) => label.includes(signal)),
     );
@@ -229,13 +201,14 @@ beforeAll(async () => {
   const html = await fetchReadyPage(eventUrl, "schedule-rail");
   const udid = await prepareDevice();
 
-  const railNames = namesFrom(html, RAIL_HOUR_NAMES);
-  const railTexts = namesFrom(html, RAIL_HOUR_TEXTS);
-  const sessionNames = namesFrom(html, SESSION_LINK_NAMES);
-  if (railTexts.size === 0 || sessionNames.size === 0) {
+  const navName = railNavName(html);
+  const markerNames = new Set([
+    ...namesFrom(html, RAIL_HOUR_NAMES),
+    ...namesFrom(html, RAIL_HOUR_TEXTS),
+  ]);
+  if (markerNames.size === 0) {
     throw new Error(
-      `The page rendered ${railTexts.size} rail markers and ${sessionNames.size} session links; ` +
-        "the spec needs both to know what to press and whether it landed.",
+      "The page rendered no rail markers; the spec needs them to know what to press.",
     );
   }
 
@@ -244,10 +217,9 @@ beforeAll(async () => {
   console.log(`Opening Safari at ${scheduleUrl.toString()}...`);
   await openUrl(scheduleUrl.toString(), udid);
 
-  // The settled snapshot serves both the guard and the rail geometry below.
-  const snapshot = await waitForSchedule(90_000, sessionNames);
+  const markers = await waitForRailMarkers(90_000, navName, markerNames);
 
-  for (const hour of railHourTargets(snapshot, railNames, railTexts)) {
+  for (const hour of pressTargets(markers)) {
     const x = hour.rect.x + hour.rect.width / 2;
     const y = hour.rect.y + hour.rect.height / 2;
     console.log(

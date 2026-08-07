@@ -61,10 +61,10 @@ export const describeNode = (node: SnapshotNode): string => {
 export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
-  takeSnapshot: () => Promise<CaptureSnapshotResult>;
+  takeSnapshot: (scope?: string) => Promise<CaptureSnapshotResult>;
   viewportOf: (snapshot: CaptureSnapshotResult) => Rect;
   close: () => Promise<void>;
-  snapshotLabels: () => Promise<string[]>;
+  snapshotLabels: (scope?: string) => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
   openUrl: (url: string, udid: string) => Promise<void>;
@@ -79,11 +79,22 @@ export const createIosHarness = (session: string): IosHarness => {
     ? { platform: "ios", udid: providedUdid }
     : { platform: "ios", device: deviceName };
 
-  const takeSnapshot = (): Promise<CaptureSnapshotResult> =>
-    client.capture.snapshot({ ...deviceOptions, interactiveOnly: true });
+  // The runner walks at most 300 nodes per snapshot and silently drops the
+  // rest (`fastSnapshotLimit`, surfaced as `truncated`), so on a large page
+  // anything late in document order never appears. `scope` narrows the walk to
+  // the subtree of the first element whose accessible label or identifier
+  // contains the given text — resolved by a live element query, which has no
+  // such cap. A scope that matches nothing falls back to the full, possibly
+  // truncated, tree.
+  const takeSnapshot = (scope?: string): Promise<CaptureSnapshotResult> =>
+    client.capture.snapshot({
+      ...deviceOptions,
+      interactiveOnly: true,
+      ...(scope ? { scope } : {}),
+    });
 
-  const snapshotLabels = async (): Promise<string[]> => {
-    const snapshot = await takeSnapshot();
+  const snapshotLabels = async (scope?: string): Promise<string[]> => {
+    const snapshot = await takeSnapshot(scope);
     return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
   };
 
