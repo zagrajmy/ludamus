@@ -267,7 +267,9 @@ run = [
     { task = "format" },
     { task = "lint:djlint" },
     { task = "lint:py" },
-    { task = "test:py:cov", args = ['-xvv'] },
+    { task = "test:py:cov", args = [
+        '-xvv',
+    ] },
     "coverage xml",
     "diff-cover coverage.xml --compare-branch=main",
     { task = "lint:tingle" },
