@@ -277,7 +277,7 @@ def empty_grid():
     return grid_with(spaces=[])
 
 
-def session_position(item, *, start_minutes, duration_minutes):
+def session_position(item, *, start_minutes, duration_minutes, visible_minutes=None):
     # These tests assert where an agenda item lands in the grid; the item's own
     # field mapping is the repository's contract, tested there, so read it back
     # instead of restating a dozen fields.
@@ -285,6 +285,9 @@ def session_position(item, *, start_minutes, duration_minutes):
         agenda_item=AgendaItemRepository.read(item.pk),
         start_minutes=start_minutes,
         duration_minutes=duration_minutes,
+        visible_minutes=(
+            duration_minutes if visible_minutes is None else visible_minutes
+        ),
     )
 
 
