@@ -67,14 +67,9 @@ def render_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; 
         if icon
         else ""
     )
-    # The label is a span, not a bare text node, so a surface can restyle or
-    # hide it — the panel header takes it sr-only below sm to leave icon-only
-    # buttons. A text node has nothing for a selector to hold on to.
-    body = format_html(
-        '{}<span class="btn-label">{}</span>',
-        mark_safe(icon_html),  # ruff: ignore[suspicious-mark-safe-usage]
-        text,
-    )
+    # Span, not a bare text node: a surface can only hide what it can select.
+    icon_safe = mark_safe(icon_html)  # ruff: ignore[suspicious-mark-safe-usage]
+    body = format_html('{}<span class="btn-label">{}</span>', icon_safe, text)
     rendered_attrs = format_html_join(
         "",
         ' {}="{}"',
