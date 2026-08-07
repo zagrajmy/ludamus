@@ -25,25 +25,29 @@ const {
   fetchReadyPage,
 } = createIosHarness(session);
 
-// `snapshotLabels` reports every label in the tree, including nodes scrolled out
-// of view, so it cannot answer "is this on screen". `hittable` is the runner's
-// verdict — enabled, centre inside the window, unoccluded — which is what the
-// modal-content check actually needs: content parked below the fold of a
-// modal that no longer sizes itself would otherwise read as visible.
-const hittableLabels = async (): Promise<string[]> => {
+// `snapshotLabels` reports every label in the tree, including nodes scrolled
+// out of view, so it cannot answer "is this on screen". The runner's `hittable`
+// cannot either — the device run at 69a819a judged the open modal's own
+// heading not hittable while the very next step tapped it; the field reads
+// false inside Safari's web content. A rect centred in the viewport is the
+// check that both survives the device and still fails for content parked
+// below the fold of a modal that no longer sizes itself.
+const showingLabels = async (): Promise<string[]> => {
   const snapshot = await takeSnapshot();
-  return snapshot.nodes.flatMap((node) => (node.hittable && node.label ? [node.label] : []));
+  return snapshot.nodes.flatMap((node) =>
+    node.label && node.rect && isNodeInViewport(snapshot, node) ? [node.label] : [],
+  );
 };
 
 const isShowing = async (text: string): Promise<boolean> =>
-  (await hittableLabels()).some((label) => label.includes(text));
+  (await showingLabels()).some((label) => label.includes(text));
 
 // Polling, not sleeping: the modal animates in, and a single snapshot taken
 // mid-animation reports content that is about to be there as missing.
 const waitUntilShowing = async (texts: string[], timeoutMs: number): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs;
   do {
-    const labels = await hittableLabels();
+    const labels = await showingLabels();
     if (texts.every((text) => labels.some((label) => label.includes(text)))) return true;
     await client.command.wait({ ...deviceOptions, durationMs: 400 });
   } while (Date.now() < deadline);

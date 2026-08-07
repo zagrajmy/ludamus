@@ -24,6 +24,7 @@ const {
   deviceOptions,
   takeSnapshot,
   snapshotLabels,
+  viewportOf,
   close,
   wait,
   openUrl,
@@ -70,15 +71,39 @@ const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)
 const SESSION_LINK_NAMES =
   /<a[^>]*class="session-link[^"]*"[^>]*>\s*<span class="sr-only">([^<]+)<\/span>/g;
 
-// `hittable` is the runner's own verdict — enabled, centre inside the window,
-// and not covered by anything — so the spec no longer re-implements visibility
-// and cannot press a marker hidden under Safari's chrome.
-const pressable = (node: SnapshotNode, names: Set<string>): boolean =>
-  Boolean(node.label && names.has(node.label) && node.hittable && node.rect);
+// The runner's `hittable` read like the principled visibility check, but the
+// device falsified it: with it required, zero of 110 session links counted as
+// visible in 90s, and the modal spec judged content "not visible" that its
+// next step then tapped. It reads false for nodes inside Safari's web content.
+// Rects, in contrast, have been populated and accurate in every device log so
+// far — so the visibility question stays geometric. CHROME_INSET keeps presses
+// clear of Safari's top and bottom bars; its exact size is unknowable from
+// here, and being conservative only shifts which markers get pressed — set
+// membership, not position, decides what they are.
+const CHROME_INSET = 120;
+
+const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
+  const centreY = rect.y + rect.height / 2;
+  return (
+    centreY >= viewport.y + CHROME_INSET && centreY <= viewport.y + viewport.height - CHROME_INSET
+  );
+};
+
+const pressable = (
+  snapshot: CaptureSnapshotResult,
+  node: SnapshotNode,
+  names: Set<string>,
+): boolean =>
+  Boolean(
+    node.label &&
+    names.has(node.label) &&
+    node.rect &&
+    centreOnScreen(node.rect, viewportOf(snapshot)),
+  );
 
 const railHourTargets = (snapshot: CaptureSnapshotResult, names: Set<string>): RailHour[] => {
   const hours = snapshot.nodes.flatMap((node) =>
-    pressable(node, names) && node.label && node.rect
+    pressable(snapshot, node, names) && node.label && node.rect
       ? [{ label: node.label, rect: node.rect }]
       : [],
   );
@@ -110,7 +135,7 @@ const railHourTargets = (snapshot: CaptureSnapshotResult, names: Set<string>): R
 };
 
 const scheduleOnScreen = (snapshot: CaptureSnapshotResult, names: Set<string>): boolean =>
-  snapshot.nodes.some((node) => pressable(node, names));
+  snapshot.nodes.some((node) => pressable(snapshot, node, names));
 
 // Polled, not slept: Safari applies the fragment scroll somewhere after load,
 // and a fixed wait is either too short on a slow runner or wasted on a fast
@@ -135,7 +160,23 @@ const waitForSchedule = async (
     await wait(500);
   } while (Date.now() < deadline);
 
-  throw new Error("The slot anchor did not bring the schedule into the viewport.");
+  const matched =
+    snapshot?.nodes.filter((node) => node.label && sessionNames.has(node.label)) ?? [];
+  const sample = matched
+    .slice(0, 6)
+    .map(
+      (node) =>
+        `${node.label} type=${node.type ?? "?"} hittable=${String(node.hittable)} rect=${
+          node.rect ? `${Math.round(node.rect.x)},${Math.round(node.rect.y)}` : "none"
+        }`,
+    )
+    .join(" | ");
+  throw new Error(
+    matched.length > 0
+      ? `Session links matched by name but none within the viewport band: ${sample}`
+      : `None of the ${sessionNames.size} rendered session names appeared in the snapshot ` +
+          `(${snapshot?.nodes.length ?? 0} nodes).`,
+  );
 };
 
 // Absence is the pass here, so a snapshot taken before the callout has had time
