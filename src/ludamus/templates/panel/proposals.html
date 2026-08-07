@@ -66,11 +66,11 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="p-4">
+    <div class="p-3 sm:p-4">
         {% if current_event %}
             {% tab_shell "panel/_proposal_tabs.html" %}
             {% tab_shell_body %}
-            <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
+            <div class="card p-4 mb-6">
                 <form method="get"
                       id="proposals-filter-form"
                       data-autosubmit
@@ -334,7 +334,7 @@
 {% end_tab_shell_body %}
 {% end_tab_shell %}
 {% else %}
-<div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
+<div class="card p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
 </div>
 {% endif %}

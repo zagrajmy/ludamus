@@ -14,11 +14,9 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-           class="btn btn-primary">
-            {% icon "pencil-square" class="w-4 h-4 mr-2" %}
-            {% translate "Edit" %}
-        </a>
+        {% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug as edit_url %}
+        {% translate "Edit" as edit_label %}
+        {% tessera_button edit_label href=edit_url icon="pencil-square" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}

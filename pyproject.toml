@@ -96,7 +96,10 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
+# `./.claude` only matches when codespell is handed the repo root; hk and CI
+# pass explicit paths, so the vendored skills need a glob that matches the
+# path as given too.
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
