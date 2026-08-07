@@ -294,3 +294,7 @@ If you fix a papercut, remove it.
   work, so had to hand-roll a playwright-core screenshot script pointed at the
   ms-playwright chromium binary. A --no-sandbox fallback in the shots task would
   save the detour.
+- 2026-08-07: git push over ssh fails in the review worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
+  works, pushing needs the user to run it (or the file's mode fixed to 0644
+  root:root).
