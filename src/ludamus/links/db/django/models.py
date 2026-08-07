@@ -311,6 +311,68 @@ class Sphere(models.Model):
         return self.logo.url if self.logo else ""
 
 
+class Guild(models.Model):
+    # The association, club or studio a programme creator belongs to — its mark
+    # rides along on every card they present. Sphere-scoped: the same real-world
+    # guild running programme at two conventions is two rows, so each sphere's
+    # managers own their own roster and artwork.
+    sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="guilds")
+    name = models.CharField(max_length=255)
+    slug = models.SlugField()
+    # FileField, not ImageField: the mark is usually an SVG, which Pillow (and
+    # therefore ImageField's clean) rejects. validate_uploaded_logo covers it.
+    logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    members = models.ManyToManyField(
+        User, through="GuildMembership", related_name="guilds"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "guild"
+        ordering: ClassVar = ["name"]
+        constraints = (
+            models.UniqueConstraint(
+                fields=("sphere", "slug"), name="guild_unique_slug_per_sphere"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def logo_url(self) -> str:
+        return self.logo.url if self.logo else ""
+
+
+class GuildMembership(models.Model):
+    # `sphere` is denormalised off `guild` so one presenter cannot end up in two
+    # guilds of the same sphere: the card shows a single mark, and a database
+    # constraint is the only way to keep that true under concurrent assignment.
+    # Kept in step by GuildRepository.assign_member, which is the sole writer.
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="guild_memberships"
+    )
+    guild = models.ForeignKey(
+        Guild, on_delete=models.CASCADE, related_name="memberships"
+    )
+    member = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="guild_memberships"
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "guild_membership"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("sphere", "member"), name="guild_membership_unique_per_sphere"
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.member_id} in guild {self.guild_id}"
+
+
 class Event(models.Model):
     # Owner
     sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE, related_name="events")
