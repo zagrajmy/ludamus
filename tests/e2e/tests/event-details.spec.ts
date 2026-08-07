@@ -3,6 +3,10 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./helpers/fixtures";
 import { createIosModalContext } from "./helpers/ios-modal";
 
+// Chromium/Firefox only: WebKit does not expose ::view-transition pseudo-element
+// animations to document.getAnimations(), so this resolves immediately there
+// rather than actually waiting for the morph. Don't read a WebKit pass as
+// evidence the transition settled.
 const settleViewTransitions = (page: Page): Promise<void> =>
   page
     .waitForFunction(
@@ -86,10 +90,10 @@ test.describe("Event detail page", () => {
     await expect(card).not.toHaveClass(/session-suppressed/);
   });
 
-  // Whether the morph *feels* right is not assertable; that the modal's chrome
-  // still animates on its own delayed groups is. Losing those groups is what
-  // put the enroll footer under the growing description and crossed the tab bar
-  // with the flying title.
+  // Whether the morph *feels* right is not assertable; the shape of its groups
+  // is. Two invariants matter: the description must NOT be a group — naming it
+  // hoists it out unclipped and it spills past the dialog — and the labels the
+  // title flies past must come in behind it.
   test("modal chrome morphs on its own groups, staggered behind the title", async ({ page }) => {
     const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
     test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
@@ -121,11 +125,122 @@ test.describe("Event detail page", () => {
       return Object.fromEntries(entries);
     });
 
-    // The footer has to be opaque from the first frame to occlude the
-    // description; the labels the title flies past must not be.
+    // Naming the description hoists it out of the dialog's snapshot, past the
+    // clip that keeps it inside — the bug this guards.
+    expect(delays[pseudoOf("desc")]).toBeUndefined();
+
+    // The footer travels with the sheet (see the nesting test below), so it has
+    // nothing to wait for; the labels the title flies past do.
     expect(delays[pseudoOf("footer")]).toBe(0);
     expect(delays[pseudoOf("tabs")]).toBeGreaterThan(0);
     expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
+  });
+
+  // The tab bar exists only in the modal, so it has no old geometry and a
+  // new-only group renders at final layout for the whole morph — it would sit
+  // there while the sheet is still a fraction of its final width. Nesting puts it
+  // under the container's transform and clip.
+  test("the modal tab bar morphs nested inside the sheet", async ({ page }) => {
+    const supportsNesting = await page.evaluate(() =>
+      CSS.supports("view-transition-group", "nearest"),
+    );
+    test.skip(!supportsNesting, "Browser does not implement view-transition-group");
+
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
+    await settleViewTransitions(page);
+
+    const groups = await page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll<HTMLElement>("dialog[open] [data-morph]")].map((element) => [
+          element.dataset.morph,
+          getComputedStyle(element).viewTransitionGroup,
+        ]),
+      ),
+    );
+
+    expect(groups.tabs).toBe("nearest");
+    // Nesting fixes where a group is drawn, not where it starts from. The footer
+    // is paired instead (below), and nesting it too would fight that.
+    expect(groups.footer).toBe("normal");
+    // These have counterparts on the card, so they have to fly free to travel
+    // between the two layouts.
+    expect(groups.title).toBe("normal");
+    expect(groups.host).toBe("normal");
+  });
+
+  // Without the card-side anchor the footer is a new-only group, so it starts at
+  // its own slot inside the container — for a card in the last column, the far
+  // right of the viewport — and slides across. The anchor gives the group an old
+  // geometry on the card's bottom edge to grow out of instead.
+  test("the modal footer morphs from a zero-height anchor on the card", async ({ page }) => {
+    const card = page.getByRole("article").filter({ hasText: "Mega Strategy Lab" });
+    const anchor = card.locator('[data-morph="footer"]');
+
+    // It exists only to be captured, so it must not add height to the card.
+    expect(await anchor.evaluate((element) => element.getBoundingClientRect().height)).toBe(0);
+
+    const supportsViewTransitions = await page.evaluate(() => "startViewTransition" in document);
+    test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
+
+    await page.addStyleTag({ content: ":root { --vt-morph-duration: 5s; }" });
+    await card.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some((a) =>
+          (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
+        ),
+    );
+
+    const pseudos = await page.evaluate(() =>
+      document
+        .getAnimations()
+        .map((a) => (a.effect as KeyframeEffect | null)?.pseudoElement)
+        .filter((pseudo) => pseudo?.includes("morph-footer")),
+    );
+
+    // The discriminator: a group animation exists only when there are two rects
+    // to interpolate between. Drop the anchor and this pseudo disappears, leaving
+    // just ::view-transition-new — measured both ways.
+    expect(pseudos).toContain("::view-transition-group(morph-footer)");
+  });
+
+  // Fetched dialogs are cached in the DOM, so without a reset a reopen inherits
+  // the last visit's scroll offset — and the morph captures the modal at open,
+  // so the card appears to expand into an already-scrolled panel.
+  test("reopening a session modal starts at the top of the panel", async ({ page }) => {
+    const open = async () => {
+      await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+      await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
+      await settleViewTransitions(page);
+    };
+    const panel = page.locator("dialog[open] .tab-panel[data-active]");
+
+    await open();
+    // The seeded description is short; give the panel something to scroll.
+    await page.locator("dialog[open] [data-session-description]").evaluate((element) => {
+      element.innerHTML = Array.from(
+        { length: 30 },
+        (_, index) => `<p>Scrollable paragraph ${index + 1}.</p>`,
+      ).join("");
+    });
+    await panel.evaluate((element) => {
+      element.scrollTop = 400;
+    });
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeHidden();
+    await settleViewTransitions(page);
+
+    await open();
+    await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBe(0);
+    // Without this the assertion above also passes when the reopened panel is
+    // simply too short to scroll — i.e. if modals ever stop being cached.
+    expect(await panel.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+      true,
+    );
   });
 
   test("mobile session modal closes on iOS tap (touchmove not cancelled)", async ({
@@ -283,7 +398,7 @@ test.describe("Event detail page", () => {
     // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
       const description = document.querySelector(
-        `#session-${id} [id^="info-"] [data-morph="desc"]`,
+        `#session-${id} [id^="info-"] [data-session-description]`,
       );
       if (!description) throw new Error("Missing session description");
       description.innerHTML = Array.from(

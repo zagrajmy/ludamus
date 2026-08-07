@@ -5,14 +5,14 @@
     {% if proposal %}
         {% translate "Edit Proposal" %}
     {% else %}
-        {% translate "Create Session" %}
+        {% translate "New Proposal" %}
     {% endif %}
 {% endblock title %}
 {% block page_title %}
     {% if proposal %}
         {{ proposal.title }}
     {% else %}
-        {% translate "Create Session" %}
+        {% translate "New Proposal" %}
     {% endif %}
 {% endblock page_title %}
 {% block page_subtitle %}
@@ -29,7 +29,7 @@
                 {% translate "Save" as t_save %}
                 {% tessera_button t_save icon="check" form="proposal-form" full_width_mobile=False %}
             {% else %}
-                {% translate "Create" as t_create %}
+                {% translate "Create Proposal" as t_create %}
                 {% tessera_button t_create icon="plus" form="proposal-form" full_width_mobile=False %}
             {% endif %}
         </div>
@@ -49,7 +49,7 @@
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Details" %}</h3>
+                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Proposal Details" %}</h3>
                     <div class="space-y-6">
                         <div>{% tessera_field form.title %}</div>
                         <div>

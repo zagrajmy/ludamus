@@ -2,7 +2,6 @@ import json
 from datetime import timedelta
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
@@ -13,9 +12,11 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
 )
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+)
 
 
 def _scheduled_agenda_item(event, *, track=None):
@@ -46,28 +47,18 @@ class TestTimetableConfirmAllView:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_confirms_every_item_in_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_confirms_every_item_in_event(self, panel_client, event):
         item_a = _scheduled_agenda_item(event)
         item_b = _scheduled_agenda_item(event)
 
-        response = authenticated_client.post(self.get_url(event))
+        response = panel_client.post(self.get_url(event))
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         assert json.loads(response.headers["HX-Trigger"]) == {"timetableChanged": {}}
@@ -76,33 +67,22 @@ class TestTimetableConfirmAllView:
         assert item_a.session_confirmed is True
         assert item_b.session_confirmed is True
 
-    def test_does_not_touch_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_does_not_touch_other_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)
         other_item = _scheduled_agenda_item(other_event)
 
-        response = authenticated_client.post(self.get_url(event))
+        response = panel_client.post(self.get_url(event))
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         other_item.refresh_from_db()
         assert other_item.session_confirmed is False
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-confirm-all", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
 
 class TestTimetableConfirmBlockView:
@@ -121,30 +101,19 @@ class TestTimetableConfirmBlockView:
 
         response = client.post(url, data={"track_pk": 1})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
-    def test_missing_track_pk_returns_422(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={})
+    def test_missing_track_pk_returns_422(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={})
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
-    def test_confirms_only_items_in_block(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_confirms_only_items_in_block(self, panel_client, event):
         track = self._track(event)
         in_block = _scheduled_agenda_item(event, track=track)
         out_of_block = _scheduled_agenda_item(event)
 
-        response = authenticated_client.post(
-            self.get_url(event), data={"track_pk": track.pk}
-        )
+        response = panel_client.post(self.get_url(event), data={"track_pk": track.pk})
 
         assert_response(response, HTTPStatus.NO_CONTENT)
         assert json.loads(response.headers["HX-Trigger"]) == {"timetableChanged": {}}
@@ -154,14 +123,13 @@ class TestTimetableConfirmBlockView:
         assert out_of_block.session_confirmed is False
 
     def test_returns_422_for_track_from_another_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_track = self._track(other_event, slug="other-block")
         other_item = _scheduled_agenda_item(other_event, track=other_track)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"track_pk": other_track.pk}
         )
 
@@ -169,17 +137,9 @@ class TestTimetableConfirmBlockView:
         other_item.refresh_from_db()
         assert other_item.session_confirmed is False
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-confirm-block", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"track_pk": 1})
+        response = panel_client.post(url, data={"track_pk": 1})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)

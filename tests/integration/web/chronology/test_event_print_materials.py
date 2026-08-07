@@ -10,10 +10,6 @@ from ludamus.pacts.printing import (
     DoorCardsDocumentDTO,
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
-    PrintTimetableCellDTO,
-    PrintTimetableDocumentDTO,
-    PrintTimetablePageDTO,
-    PrintTimetableRowDTO,
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -26,7 +22,9 @@ from tests.integration.web.chronology.test_event_print_page import (
     _area_schedule_document,
     _assert_print_ok,
     _confirmed_item,
+    _one_hour_page,
     _scope,
+    _timetable_document,
 )
 
 
@@ -112,15 +110,7 @@ class TestPublicEventPrintMaterials:
             response,
             unconfirmed=True,
             panel_access=True,
-            timetable=PrintTimetableDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name=None,
-                is_complete=False,
-                pages=[],
-            ),
+            timetable=_timetable_document(event=event, pages=[]),
         )
 
     def test_empty_session_list_renders_empty_state(self, client, event, space):
@@ -277,36 +267,9 @@ class TestPublicEventPrintMaterials:
             unconfirmed=True,
             panel_access=True,
             print_scopes=[_scope(space)],
-            timetable=PrintTimetableDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name=None,
-                is_complete=False,
-                pages=[
-                    PrintTimetablePageDTO(
-                        day=event.start_time.date(),
-                        space_names=[space.name],
-                        rows=[
-                            PrintTimetableRowDTO(
-                                start_time=event.start_time,
-                                end_time=event.start_time + timedelta(hours=1),
-                                cells=[
-                                    PrintTimetableCellDTO(
-                                        sessions=[
-                                            PrintSessionDTO(
-                                                title=session.title,
-                                                presenter_name=session.display_name,
-                                            )
-                                        ]
-                                    )
-                                ],
-                            )
-                        ],
-                        space_range_name=None,
-                    )
-                ],
+            timetable=_timetable_document(
+                event=event,
+                pages=[_one_hour_page(event=event, session=session, space=space)],
             ),
         )
         assert_cache_control(response, {"private", "max-age=5"})
@@ -327,15 +290,7 @@ class TestPublicEventPrintMaterials:
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=PrintTimetableDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name=None,
-                is_complete=False,
-                pages=[],
-            ),
+            timetable=_timetable_document(event=event, pages=[]),
         )
         assert_cache_control(response, {"public", "max-age=300"})
 
