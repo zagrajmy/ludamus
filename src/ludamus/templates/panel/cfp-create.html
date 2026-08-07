@@ -19,9 +19,9 @@
             {% translate "Cancel" as cancel_label %}
             {% tessera_button cancel_label href=cancel_url variant="secondary" %}
             {% translate "Create" as create_label %}
-            {% tessera_button create_label form="cfp-create-form" name="action" value="create" variant="secondary" icon="plus" full_width_mobile=False %}
+            {% tessera_button create_label form="cfp-create-form" name="action" value="create" variant="secondary" icon="plus" %}
             {% translate "Add and configure" as configure_label %}
-            {% tessera_button configure_label form="cfp-create-form" name="action" value="create_and_configure" icon="cog-6-tooth" full_width_mobile=False %}
+            {% tessera_button configure_label form="cfp-create-form" name="action" value="create_and_configure" icon="cog-6-tooth" %}
         </div>
     {% endif %}
 {% endblock header_actions %}

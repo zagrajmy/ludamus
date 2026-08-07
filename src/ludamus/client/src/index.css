@@ -699,7 +699,10 @@ button:active {
    `max-sm:px-3` itself.
 
    This lives in `@layer utilities`, not `components`: bled cards carry `mt-6`,
-   and only a same-layer rule with two classes of specificity outranks it. */
+   and only a same-layer rule with two classes of specificity outranks it. The
+   wrapper's own padding is the opposite case — it is a default a page may want
+   to change, so `:where` drops it to zero specificity and any `p-*` utility on
+   the wrapper still wins. */
 @layer utilities {
   @media (width < 40rem) {
     .panel-bleed .card {
@@ -712,7 +715,7 @@ button:active {
   }
 
   @media (width >= 40rem) {
-    .panel-bleed {
+    :where(.panel-bleed) {
       padding: 1rem;
     }
   }
