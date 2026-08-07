@@ -8226,6 +8226,14 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "Not on the timetable"
+msgstr "Poza harmonogramem"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "On the timetable"
+msgstr "W harmonogramie"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Set status:"
 msgstr "Ustaw status:"
 
@@ -8241,6 +8249,10 @@ msgstr "Zaznacz %(title)s"
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals match the current filters."
 msgstr "Żadne zgłoszenia nie pasują do bieżących filtrów."
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Show all statuses"
+msgstr "Pokaż wszystkie statusy"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."

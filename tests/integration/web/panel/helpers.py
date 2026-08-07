@@ -15,7 +15,13 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionDTO, SpaceDTO
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorListItemDTO,
+    SessionDTO,
+    SessionStatus,
+    SpaceDTO,
+)
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -36,7 +42,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import PageMatcher, assert_response
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -56,6 +62,32 @@ EMPTY_STATS = {
     "scheduled_sessions": 0,
     "total_proposals": 0,
     "total_sessions": 0,
+}
+
+PROPOSAL_PAGE_SIZES = [10, 20, 50, 100]
+PROPOSAL_STATUSES = [
+    ("pending", "Pending"),
+    ("accepted", "Accepted"),
+    ("on_hold", "On hold"),
+    ("rejected", "Rejected"),
+    ("scheduled", "Scheduled"),
+]
+
+# Filter/pagination keys the proposal list renders with no query string: the
+# status filter defaults to pending.
+PROPOSAL_FILTER_CONTEXT = {
+    "all_tracks": [],
+    "managed_track_pks": set(),
+    "filter_track_pk": None,
+    "filter_track_multi": False,
+    "filter_track_value": "",
+    "page_obj": PageMatcher(number=1, num_pages=1),
+    "page_sizes": PROPOSAL_PAGE_SIZES,
+    "filter_category_pk": None,
+    "filter_status": SessionStatus.PENDING,
+    "filter_status_value": SessionStatus.PENDING,
+    "filter_sort": "",
+    "statuses": PROPOSAL_STATUSES,
 }
 
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from django.core.paginator import Page, Paginator
 from django.http import Http404
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.event.panel.views.base import (
@@ -44,12 +44,28 @@ def pagination_context[T](request: HttpRequest, items: Sequence[T]) -> dict[str,
 
 
 def safe_next_url(request: HttpRequest, fallback: str) -> str:
-    next_url = request.POST.get("next", "")
+    # Actions post it, links carry it in the query — both spellings mean "the
+    # list the organizer came from", filters and all.
+    next_url = request.POST.get("next") or request.GET.get("next") or ""
     if next_url and url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         return next_url
     return fallback
+
+
+def back_to_proposals(request: HttpRequest, slug: str) -> str:
+    return safe_next_url(request, reverse("panel:proposals", kwargs={"slug": slug}))
+
+
+def proposal_detail_url(*, request: HttpRequest, slug: str, proposal_id: int) -> str:
+    # A bare proposals URL means the pending backlog, so the detail page has to
+    # keep carrying the query the organizer arrived with.
+    detail = reverse(
+        "panel:proposal-detail", kwargs={"slug": slug, "proposal_id": proposal_id}
+    )
+    back = safe_next_url(request, "")
+    return f"{detail}?{urlencode({'next': back})}" if back else detail
 
 
 def format_field_value(
