@@ -3,18 +3,15 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
-    Facilitator,
     PersonalDataField,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
 )
 from ludamus.pacts import (
-    EventDTO,
     FacilitatorDTO,
     OrganizerFieldDTO,
     SessionListItemDTO,
@@ -22,15 +19,14 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _make_facilitator(event, **kwargs):
-    defaults = {"display_name": "Alice", "slug": "alice", "user": None}
-    defaults.update(kwargs)
-    return Facilitator.objects.create(event=event, **defaults)
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_facilitator_not_found,
+    assert_not_a_manager,
+    make_facilitator,
+    panel_context,
+)
 
 
 def _make_personal_data_field(event, **kwargs):
@@ -43,23 +39,6 @@ def _make_personal_data_field(event, **kwargs):
     }
     defaults.update(kwargs)
     return PersonalDataField.objects.create(event=event, **defaults)
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
-    }
 
 
 def _detail_tabs(event, facilitator_slug):
@@ -88,22 +67,19 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "facilitator_slug": facilitator_slug},
         )
 
-    def test_get_exposes_internal_comment(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(
+    def test_get_exposes_internal_comment(self, panel_client, event):
+        facilitator = make_facilitator(
             event, internal_comment="Possible duplicate of Bob"
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
@@ -115,11 +91,8 @@ class TestFacilitatorDetailPageView:
             contains="Possible duplicate of Bob",
         )
 
-    def test_get_renders_sessions_linking_to_proposal_detail(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_get_renders_sessions_linking_to_proposal_detail(self, panel_client, event):
+        facilitator = make_facilitator(event)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -136,14 +109,14 @@ class TestFacilitatorDetailPageView:
             kwargs={"slug": event.slug, "proposal_id": session.pk},
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "stats": {
                     "hosts_count": 0,
@@ -173,21 +146,18 @@ class TestFacilitatorDetailPageView:
             contains=[f'href="{proposal_url}"', "Attached Session"],
         )
 
-    def test_get_shows_linked_user_name_and_email(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_linked_user_name_and_email(self, panel_client, event):
         linked = UserFactory(name="Bob Builder", email="bob@example.com")
-        facilitator = _make_facilitator(event, user=linked)
+        facilitator = make_facilitator(event, user=linked)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": UserDTO.model_validate(linked),
@@ -199,21 +169,18 @@ class TestFacilitatorDetailPageView:
             contains=["Bob Builder", "bob@example.com"],
         )
 
-    def test_get_shows_the_organizer(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_the_organizer(self, panel_client, event):
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
-        facilitator = _make_facilitator(event, organizer=organizer)
+        facilitator = make_facilitator(event, organizer=organizer)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": (
                     FacilitatorDTO.model_validate(facilitator).model_copy(
@@ -229,20 +196,19 @@ class TestFacilitatorDetailPageView:
         )
 
     def test_get_shows_no_linked_user_when_user_is_not_active(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         connected = UserFactory(name="Ghost", user_type="connected")
-        facilitator = _make_facilitator(event, user=connected)
+        facilitator = make_facilitator(event, user=connected)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
@@ -258,66 +224,39 @@ class TestFacilitatorDetailPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:facilitator-detail",
             kwargs={"slug": "nonexistent", "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_get_redirects_when_facilitator_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_facilitator_not_found(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, "nonexistent"))
 
-        response = authenticated_client.get(self.get_url(event, "nonexistent"))
+        assert_facilitator_not_found(response, event)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Facilitator not found.")],
-            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
-        )
+    def test_get_ok_with_no_personal_data_fields(self, panel_client, event):
+        facilitator = make_facilitator(event)
 
-    def test_get_ok_with_no_personal_data_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
-
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
@@ -328,27 +267,32 @@ class TestFacilitatorDetailPageView:
             },
         )
 
-    def test_get_shows_accreditation_type(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        _make_facilitator(event, accreditation_type="honorary")
+    def test_get_shows_accreditation_type(self, panel_client, event):
+        facilitator = make_facilitator(event, accreditation_type="honorary")
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        html = response.content.decode()
-        assert "Accreditation type" in html
-        assert "Honorary" in html
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "Honorary",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
 
-    def test_get_shows_personal_data_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_get_shows_personal_data_fields(self, panel_client, event):
+        facilitator = make_facilitator(event)
         field = _make_personal_data_field(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         field_dto = OrganizerFieldDTO(
             pk=field.pk,
@@ -364,7 +308,7 @@ class TestFacilitatorDetailPageView:
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "linked_user": None,
@@ -375,11 +319,8 @@ class TestFacilitatorDetailPageView:
             },
         )
 
-    def test_get_renders_personal_data_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        facilitator = _make_facilitator(event)
+    def test_get_renders_personal_data_values(self, panel_client, event):
+        facilitator = make_facilitator(event)
         values = [
             ("Consent", "consent", "checkbox", True),
             ("Declined", "declined", "checkbox", False),
@@ -399,7 +340,7 @@ class TestFacilitatorDetailPageView:
                 facilitator=facilitator, event=event, field=field, value=value
             )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,

@@ -96,6 +96,12 @@ def assert_response(
             assert needle not in content, needle
 
 
+def assert_login_required(response: HttpResponse, url: str) -> None:
+    assert_response(
+        response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+    )
+
+
 def assert_response_404(
     response: HttpResponse,
     *,
