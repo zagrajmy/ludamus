@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 from lxml import etree
@@ -46,8 +47,15 @@ MAX_IMAGE_PIXELS = 24_000_000
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
-# is wider, so an overflow only ever surfaces in production.
+# is wider, so an overflow only ever surfaces in production. A validator rather
+# than `max_value` on every field writing the column: validators reject
+# server-side without renting a max attribute on the input. Without it the
+# panel falls back to its generic "couldn't save" (its savepoint converts the
+# DataError) and the facilitator self-edit, which catches nothing, 500s.
 MAX_STORED_PARTICIPANTS_LIMIT = 2_147_483_647
+STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
+    MAX_STORED_PARTICIPANTS_LIMIT, message=_("Enter a smaller number.")
+)
 
 
 def validate_uploaded_image_size(image: object) -> None:
@@ -637,24 +645,13 @@ class SessionEditForm(forms.Form):
     participants_limit = forms.IntegerField(
         required=False,
         min_value=0,
+        validators=[STORAGE_LIMIT_VALIDATOR],
         label=_("Participants Limit"),
         help_text=_("Empty or 0 = no limit"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
     duration = forms.CharField(required=False, label=_("Duration"))
     cover_image = cover_image_field()
-
-    def clean_participants_limit(self) -> int | None:
-        # No `max_value`: a max attribute on the input is what this form set out
-        # to remove. The ceiling is storage, not policy — models.Session's
-        # PositiveIntegerField is `integer` on Postgres. Without it the panel
-        # falls back to its generic "couldn't save" (the savepoint turns the
-        # DataError into DatabaseConstraintError), and the facilitator
-        # self-edit, which catches nothing, 500s.
-        limit = self.cleaned_data.get("participants_limit")
-        if limit is not None and limit > MAX_STORED_PARTICIPANTS_LIMIT:
-            raise ValidationError(_("Enter a smaller number."))
-        return limit
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

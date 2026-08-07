@@ -817,9 +817,8 @@ class ProposalFormPageView(_ProposalFormBase):
                         user_id=self.request.context.current_user_id,
                     )
 
-            # T2: a capacity change may have freed seats — promote waiters. An
-            # old limit of 0 also matches (unlimited → finite, a shrink); harmless,
-            # fill_freed_seats recomputes what is actually free.
+            # T2: a capacity change may have freed seats — promote waiters. An old
+            # limit of 0 (unlimited → finite) also matches; fill_freed_seats recomputes.
             new_limit = form.cleaned_data.get("participants_limit") or 0
             if new_limit == 0 or new_limit > session.participants_limit:
                 self.request.services.waitlist_promotion.fill_freed_seats(
