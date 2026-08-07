@@ -237,6 +237,51 @@ class TestFacilitatorsPageView:
             },
         )
 
+    def test_sessions_column_counts_only_live_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        _session(event).facilitators.add(facilitator)
+        removed = _session(event)
+        removed.facilitators.add(facilitator)
+        removed.soft_delete()
+
+        response = authenticated_client.get(self.get_url(event))
+
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Alice",
+                pk=facilitator.pk,
+                slug="alice",
+                user_id=None,
+                session_count=1,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "stats": {
+                    "hosts_count": 1,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
     def test_organizer_column_shows_the_organizer_name(
         self, authenticated_client, active_user, sphere, event
     ):

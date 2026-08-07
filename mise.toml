@@ -263,13 +263,22 @@ env.PYTHONPATH = "src"
 run = [{ task = "format" }, { task = "lint" }]
 
 [tasks.devcheck]
-run = [{ task = "lint:djlint" }, { task = "check:py" }]
+run = [
+    { task = "format" },
+    { task = "lint:djlint" },
+    { task = "lint:py" },
+    { task = "test:py:cov", args = ['-xvv'] },
+    "coverage xml",
+    "diff-cover coverage.xml --compare-branch=main",
+    { task = "lint:tingle" },
+]
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
 run = [
     "poetry install",
-    { task = "devcheck" },
+    { task = "format" },
+    { task = "lint" },
     { task = "diff-cover" },
     { task = "lint:tingle" },
 ]
