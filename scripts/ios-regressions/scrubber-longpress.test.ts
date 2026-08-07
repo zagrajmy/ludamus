@@ -76,14 +76,15 @@ const namesFrom = (html: string, pattern: RegExp): Set<string> =>
     [...html.matchAll(pattern)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
   );
 
-// Take the accessible names the page actually renders rather than guessing at
-// them. Two earlier rounds guessed: `viewport.width - 4` assumed where the rail
-// sits, and matching a label ending in a time assumed only the rail carries one
-// — the device then pressed the schedule body's own "11:00" headings in the
-// left gutter. The served markup is ground truth for both the rail and the
-// session links, needs no geometry, and is already translated, so this holds
-// whether or not the message catalogue is ever compiled.
+// Take the names the page actually renders rather than guessing at them. Seven
+// device runs agree on where snapshot labels come from: rendered text. The
+// session links' sr-only names match; the rail's aria-label names never
+// appeared once ("None of 31 rendered rail names appeared" — run on c2e8f9b),
+// so the rail is matched by its links' text instead: bare hours like "10".
+// Both sets come from the served, already-translated markup. The aria names
+// are still accepted should a future runner start surfacing them.
 const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)"/g;
+const RAIL_HOUR_TEXTS = /class="schedule-rail-hour[^"]*"[^>]*>([^<]+)<\/a>/g;
 const SESSION_LINK_NAMES =
   /<a[^>]*class="session-link[^"]*"[^>]*>\s*<span class="sr-only">([^<]+)<\/span>/g;
 
@@ -102,34 +103,54 @@ const pressable = (
     centreOnScreen(node.rect, viewportOf(snapshot)),
   );
 
-const railHourTargets = (snapshot: CaptureSnapshotResult, names: Set<string>): RailHour[] => {
-  const hours = snapshot.nodes.flatMap((node) =>
-    pressable(snapshot, node, names) && node.label && node.rect
-      ? [{ label: node.label, rect: node.rect }]
-      : [],
+// A bare "10" can label things besides a rail marker, so membership alone is
+// not identity here. The rail's signature is geometric but not positional: many
+// matching nodes stacked in one narrow column. Cluster candidates by x and take
+// the largest column — found, not assumed, so no scrollbar-gutter or
+// device-width claim is involved.
+const X_BUCKET = 24;
+const MIN_CLUSTER = 3;
+
+const railHourTargets = (
+  snapshot: CaptureSnapshotResult,
+  names: Set<string>,
+  hourTexts: Set<string>,
+): RailHour[] => {
+  const candidates = snapshot.nodes.flatMap((node) => {
+    const label = node.label ? collapse(node.label) : "";
+    if (!label || !node.rect) return [];
+    if (!names.has(label) && !hourTexts.has(label)) return [];
+    return [{ label, rect: node.rect }];
+  });
+
+  const buckets = new Map<number, RailHour[]>();
+  for (const hour of candidates) {
+    const key = Math.round((hour.rect.x + hour.rect.width / 2) / X_BUCKET);
+    buckets.set(key, [...(buckets.get(key) ?? []), hour]);
+  }
+  const column = [...buckets.values()].reduce(
+    (largest, bucket) => (bucket.length > largest.length ? bucket : largest),
+    [] as RailHour[],
   );
-  if (hours.length === 0) {
-    // Report the rail nodes that were found but rejected, with the runner's own
-    // fields, so a failure says which property was missing instead of leaving
-    // the next reader to infer it from a screenshot they cannot take.
-    const rejected = snapshot.nodes
+
+  const viewport = viewportOf(snapshot);
+  const hours = column.filter((hour) => centreOnScreen(hour.rect, viewport));
+  if (column.length < MIN_CLUSTER || hours.length === 0) {
+    // Say which stage starved: no candidates points at the name sets, a thin
+    // column at clustering, an empty band at visibility. Right-half labels give
+    // the next investigation its data either way.
+    const rightHalf = snapshot.nodes
       .flatMap((node) =>
-        node.label && names.has(collapse(node.label)) ? [describeNode(node)] : [],
+        node.rect && node.rect.x > viewport.x + viewport.width / 2 && node.label
+          ? [describeNode(node)]
+          : [],
       )
-      .slice(0, 8)
-      .join(" | ");
-    if (rejected) {
-      throw new Error(
-        `No pressable rail hour among ${names.size} rendered markers. Rejected: ${rejected}`,
-      );
-    }
-    const timeish = snapshot.nodes
-      .flatMap((node) => (node.label && /\d{1,2}:\d{2}/.test(node.label) ? [node.label] : []))
-      .slice(0, 6)
+      .slice(0, 12)
       .join(" | ");
     throw new Error(
-      `None of ${names.size} rendered rail names appeared in the snapshot. ` +
-        `Expected e.g. ${JSON.stringify([...names][0])}; device labels with times: ${timeish || "none"}.`,
+      `Rail not identified: ${candidates.length} candidates, largest column ${column.length}, ` +
+        `on-screen ${hours.length}. Expected names like ${JSON.stringify([...hourTexts][0])} or ` +
+        `${JSON.stringify([...names][0])}. Right-half nodes: ${rightHalf || "none"}.`,
     );
   }
   // A handful spread down the rail: the callout is a per-element behaviour, so
@@ -209,10 +230,11 @@ beforeAll(async () => {
   const udid = await prepareDevice();
 
   const railNames = namesFrom(html, RAIL_HOUR_NAMES);
+  const railTexts = namesFrom(html, RAIL_HOUR_TEXTS);
   const sessionNames = namesFrom(html, SESSION_LINK_NAMES);
-  if (railNames.size === 0 || sessionNames.size === 0) {
+  if (railTexts.size === 0 || sessionNames.size === 0) {
     throw new Error(
-      `The page rendered ${railNames.size} rail markers and ${sessionNames.size} session links; ` +
+      `The page rendered ${railTexts.size} rail markers and ${sessionNames.size} session links; ` +
         "the spec needs both to know what to press and whether it landed.",
     );
   }
@@ -225,7 +247,7 @@ beforeAll(async () => {
   // The settled snapshot serves both the guard and the rail geometry below.
   const snapshot = await waitForSchedule(90_000, sessionNames);
 
-  for (const hour of railHourTargets(snapshot, railNames)) {
+  for (const hour of railHourTargets(snapshot, railNames, railTexts)) {
     const x = hour.rect.x + hour.rect.width / 2;
     const y = hour.rect.y + hour.rect.height / 2;
     console.log(
