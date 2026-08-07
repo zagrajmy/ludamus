@@ -16,8 +16,8 @@
     <button type="submit"
             form="columns-form"
             class="btn btn-primary flex items-center">
-        {% icon "check" class="w-4 h-4 mr-2" %}
-        {% translate "Save" %}
+        {% icon "check" class="w-4 h-4" %}
+        <span class="max-sm:sr-only">{% translate "Save" %}</span>
     </button>
 {% endblock header_actions %}
 {% block content %}

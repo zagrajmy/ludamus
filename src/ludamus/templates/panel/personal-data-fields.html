@@ -14,8 +14,8 @@
     {% if current_event %}
         <a href="{% url 'panel:personal-data-field-create' slug=current_event.slug %}"
            class="btn btn-primary flex items-center">
-            {% icon "plus" class="w-4 h-4 mr-2" %}
-            {% translate "New Field" %}
+            {% icon "plus" class="w-4 h-4" %}
+            <span class="max-sm:sr-only">{% translate "New Field" %}</span>
         </a>
     {% endif %}
 {% endblock header_actions %}

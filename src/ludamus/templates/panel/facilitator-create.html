@@ -18,8 +18,8 @@
             <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
                class="btn btn-secondary">{% translate "Cancel" %}</a>
             <button type="submit" form="facilitator-create-form" class="btn btn-primary">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create Facilitator" %}
+                {% icon "plus" class="w-4 h-4" %}
+                <span class="max-sm:sr-only">{% translate "Create Facilitator" %}</span>
             </button>
         </div>
     {% endif %}

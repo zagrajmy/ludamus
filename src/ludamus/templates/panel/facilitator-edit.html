@@ -15,8 +15,8 @@
         <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
            class="btn btn-secondary">{% translate "Cancel" %}</a>
         <button type="submit" form="facilitator-edit-form" class="btn btn-primary">
-            {% icon "check" class="w-4 h-4 mr-2" %}
-            {% translate "Save" %}
+            {% icon "check" class="w-4 h-4" %}
+            <span class="max-sm:sr-only">{% translate "Save" %}</span>
         </button>
     </div>
 {% endblock header_actions %}
