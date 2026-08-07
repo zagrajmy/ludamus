@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
+from django.utils.http import urlencode
 
 from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
     PersonalDataCard,
@@ -193,6 +194,23 @@ class TestProposalEditPageView:
         assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
         form = response.context["form"]
         assert form.initial["duration"] == "PT1H"
+
+    def test_get_points_cancel_back_through_the_filtered_list(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        back = f"{reverse('panel:proposals', kwargs={'slug': event.slug})}?status=all"
+        expected = _edit_page_response(event, session)
+        expected["context_data"][
+            "cancel_url"
+        ] = f"{_cancel_url(event, session.pk)}?{urlencode({'next': back})}"
+
+        response = authenticated_client.get(
+            f"{self.get_url(event, session.pk)}?{urlencode({'next': back})}"
+        )
+
+        assert_response(response, HTTPStatus.OK, **expected)
 
     def test_get_preselects_custom_for_a_duration_outside_the_presets(
         self, panel_client, event
@@ -380,6 +398,71 @@ class TestProposalEditPageView:
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
         assert session.duration == "PT2H30M"
+
+    def test_post_carries_the_list_filters_back_to_the_detail_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        back = f"{reverse('panel:proposals', kwargs={'slug': event.slug})}?status=all"
+
+        response = authenticated_client.post(
+            f"{self.get_url(event, session.pk)}?{urlencode({'next': back})}",
+            data={
+                "category_id": session.category_id,
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "description": "Updated description",
+                "contact_email": "",
+                "participants_limit": 10,
+                "min_age": 18,
+                "duration_hours": 2,
+                "duration_minutes": 30,
+            },
+        )
+
+        detail_url = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=f"{detail_url}?{urlencode({'next': back})}",
+        )
+
+    def test_post_ignores_an_offsite_next(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+
+        response = authenticated_client.post(
+            f"{self.get_url(event, session.pk)}"
+            f"?{urlencode({'next': 'https://evil.example.com/'})}",
+            data={
+                "category_id": session.category_id,
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "description": "Updated description",
+                "contact_email": "",
+                "participants_limit": 10,
+                "min_age": 18,
+                "duration_hours": 2,
+                "duration_minutes": 30,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
 
     def test_post_surfaces_db_error_as_form_error(
         self, panel_client, event, monkeypatch

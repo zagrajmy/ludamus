@@ -21,7 +21,9 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    back_to_proposals,
     format_field_value,
+    proposal_detail_url,
 )
 from ludamus.gates.web.django.dynamic_fields import (
     answered_value,
@@ -565,9 +567,11 @@ class ProposalFormPageView(_ProposalFormBase):
         context["proposal"] = session
         context["form"] = prepared.form
         context["cancel_url"] = (
-            reverse("panel:proposal-detail", args=[current_event.slug, proposal_id])
+            proposal_detail_url(
+                request=self.request, slug=current_event.slug, proposal_id=proposal_id
+            )
             if proposal_id is not None
-            else reverse("panel:proposals", args=[current_event.slug])
+            else back_to_proposals(self.request, current_event.slug)
         )
 
         sessions = self.request.di.uow.sessions
@@ -759,7 +763,9 @@ class ProposalFormPageView(_ProposalFormBase):
 
         messages.success(self.request, _("Proposal updated successfully."))
         return redirect(
-            "panel:proposal-detail", slug=current_event.slug, proposal_id=session.pk
+            proposal_detail_url(
+                request=self.request, slug=current_event.slug, proposal_id=session.pk
+            )
         )
 
     def _write_content_edit(

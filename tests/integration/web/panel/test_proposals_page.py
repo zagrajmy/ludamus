@@ -30,35 +30,20 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
+    PROPOSAL_FILTER_CONTEXT,
+    PROPOSAL_PAGE_SIZES,
+    PROPOSAL_STATUSES,
     assert_event_not_found,
     assert_not_a_manager,
     panel_context,
     proposal_detail_context,
 )
 
-_PAGE_SIZES = [10, 20, 50, 100]
+_PAGE_SIZES = PROPOSAL_PAGE_SIZES
 
-_STATUSES = [
-    ("pending", "Pending"),
-    ("accepted", "Accepted"),
-    ("on_hold", "On hold"),
-    ("rejected", "Rejected"),
-    ("scheduled", "Scheduled"),
-]
+_STATUSES = PROPOSAL_STATUSES
 
-_TRACK_FILTER_CONTEXT = {
-    "all_tracks": [],
-    "managed_track_pks": set(),
-    "filter_track_pk": None,
-    "filter_track_multi": False,
-    "filter_track_value": "",
-    "page_obj": PageMatcher(number=1, num_pages=1),
-    "page_sizes": _PAGE_SIZES,
-    "filter_category_pk": None,
-    "filter_status": None,
-    "filter_sort": "",
-    "statuses": _STATUSES,
-}
+_TRACK_FILTER_CONTEXT = PROPOSAL_FILTER_CONTEXT
 
 _BUILTIN_LABELS = {
     "title": "Title",
@@ -1017,7 +1002,8 @@ class TestProposalsPageView:
                 "page_sizes": _PAGE_SIZES,
                 "categories": [],
                 "filter_category_pk": None,
-                "filter_status": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
                 "filter_sort": "",
                 "statuses": _STATUSES,
             },
@@ -1057,17 +1043,10 @@ class TestProposalsPageView:
                 "categories": [],
                 "filter_category_pk": None,
                 "filter_status": "accepted",
+                "filter_status_value": "accepted",
                 "filter_sort": "",
                 "statuses": _STATUSES,
             },
-            contains=[
-                # "All tracks" survives a status submit instead of snapping
-                # back to the single managed track.
-                '<input type="hidden" name="track" value="">',
-                # The track switcher carries the active status filter forward.
-                '<input type="hidden" name="status" value="accepted">',
-            ],
-            not_contains=f'name="track" value="{track.pk}"',
         )
 
     def test_track_form_carries_category_filter_forward(self, panel_client, event):
@@ -1099,11 +1078,99 @@ class TestProposalsPageView:
                 "page_sizes": _PAGE_SIZES,
                 "categories": [ProposalCategoryDTO.model_validate(category)],
                 "filter_category_pk": category.pk,
-                "filter_status": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
                 "filter_sort": "",
                 "statuses": _STATUSES,
             },
-            contains=f'<input type="hidden" name="category" value="{category.pk}">',
+        )
+
+    def test_track_form_carries_search_and_field_filters_forward(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        track = Track.objects.create(
+            event=event, name="My Track", slug="my-track", is_public=True
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="What system?",
+            slug="system",
+            field_type="select",
+        )
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            presenter=active_user,
+            display_name="Mysterious Stranger",
+            title="Session A",
+            slug="session-a",
+            participants_limit=5,
+            status="pending",
+        )
+        SessionFieldValue.objects.create(session=session, field=field, value="D&D 5e")
+
+        response = authenticated_client.get(
+            self.get_url(event), {"search": "Mysterious", f"field_{field.pk}": "D&D 5e"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=session.pk,
+                            title="Session A",
+                            display_name="Mysterious Stranger",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=session.creation_time,
+                            is_scheduled=False,
+                        )
+                    ],
+                ),
+                "deleted_proposals": [],
+                "stats": {
+                    "hosts_count": 1,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "session_fields": [
+                    OrganizerFieldDTO(
+                        pk=field.pk,
+                        name="System",
+                        question="What system?",
+                        slug="system",
+                        field_type="select",
+                        order=0,
+                    )
+                ],
+                "filter_fields": {field.pk: "D&D 5e"},
+                "filter_search": "Mysterious",
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "managed_track_pks": set(),
+                "filter_track_pk": None,
+                "filter_track_multi": False,
+                "filter_track_value": "",
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "filter_category_pk": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
+                "filter_sort": "",
+                "statuses": _STATUSES,
+            },
         )
 
     def test_filters_by_numeric_track_param(
@@ -1140,7 +1207,8 @@ class TestProposalsPageView:
                 "page_sizes": _PAGE_SIZES,
                 "categories": [],
                 "filter_category_pk": None,
-                "filter_status": None,
+                "filter_status": SessionStatus.PENDING,
+                "filter_status_value": SessionStatus.PENDING,
                 "filter_sort": "",
                 "statuses": _STATUSES,
             },
@@ -1239,9 +1307,9 @@ class TestProposalsPageView:
             },
         )
 
-    def test_default_status_filter_shows_all_statuses(self, panel_client, event):
+    def test_default_status_filter_shows_only_pending(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        Session.objects.create(
+        pending = Session.objects.create(
             event=event,
             category=category,
             display_name="Pending Host",
@@ -1268,13 +1336,131 @@ class TestProposalsPageView:
             participants_limit=5,
             status="rejected",
         )
+        scheduled = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Scheduled Host",
+            title="Scheduled Pending Session",
+            slug="scheduled-pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        AgendaItemFactory(session=scheduled, space=SpaceFactory(event=event))
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        titles = {p.title for p in response.context["proposals"]}
-        assert titles == {"Pending Session", "Accepted Session", "Rejected Session"}
-        assert response.context["filter_status"] is None
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 2,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 4,
+                    "total_sessions": 3,
+                },
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=pending.pk,
+                            title="Pending Session",
+                            display_name="Pending Host",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=pending.creation_time,
+                            is_scheduled=False,
+                        )
+                    ],
+                ),
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
+
+    def test_all_status_param_shows_every_status_and_round_trips(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        pending = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pending Host",
+            title="Pending Session",
+            slug="pending-session",
+            participants_limit=5,
+            status="pending",
+        )
+        accepted = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Accepted Host",
+            title="Accepted Session",
+            slug="accepted-session",
+            participants_limit=5,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event), {"status": "all"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 2,
+                    "total_sessions": 1,
+                },
+                "filter_status": None,
+                # The value forms echo back, so "All statuses" survives a track
+                # or category submit instead of falling back to the default.
+                "filter_status_value": "all",
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=accepted.pk,
+                            title="Accepted Session",
+                            display_name="Accepted Host",
+                            category_name="RPG",
+                            status=SessionStatus.ACCEPTED,
+                            creation_time=accepted.creation_time,
+                            is_scheduled=False,
+                        ),
+                        SessionListItemDTO(
+                            pk=pending.pk,
+                            title="Pending Session",
+                            display_name="Pending Host",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=pending.creation_time,
+                            is_scheduled=False,
+                        ),
+                    ],
+                ),
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
 
     def test_filters_by_status_param(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -1478,6 +1664,7 @@ class TestProposalDetailPageView:
                         kwargs={"slug": event.slug, "proposal_id": session.pk},
                     ),
                 },
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
 
@@ -1542,6 +1729,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
 
