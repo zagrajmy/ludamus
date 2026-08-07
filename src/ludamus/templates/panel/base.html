@@ -355,12 +355,18 @@ the sphere.{% endcomment %}
             `{% templatetag openblock %} icon {% templatetag closeblock %}`
             returning "" for a missing icon in production.
 
+            `min-h-11` is the one rule that covers every button: an iconless
+            one keeps its label and its own width, but `py-2` alone leaves it
+            38px — under the tap-target floor, and 6px shy of the squares it
+            sits beside. Stated as a minimum rather than a height so it never
+            argues with `size-11` over the icon buttons.
+
             `w-auto` is deliberately ungated: `tessera_button` stretches every
             form-submit button by default, which is right in a body form and
             never right in this strip. Deciding it here spares 22 header
             templates from each passing `full_width_mobile=False`.
             {% endcomment %}
-            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10 max-sm:[&_.btn:has(>svg)_.btn-label]:sr-only max-sm:[&_.btn:has(>svg)]:size-11 max-sm:[&_.btn:has(>svg)]:p-0 max-md:[&_.btn]:w-auto">
+            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10 max-sm:[&_.btn:has(>svg)_.btn-label]:sr-only max-sm:[&_.btn:has(>svg)]:size-11 max-sm:[&_.btn:has(>svg)]:p-0 max-sm:[&_.btn]:min-h-11 max-md:[&_.btn]:w-auto">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
