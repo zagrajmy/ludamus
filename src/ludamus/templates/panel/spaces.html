@@ -22,10 +22,10 @@
     {% tessera_button t_new_space href=new_space_url icon="plus" %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="panel-bleed sm:p-4">
+    <div class="panel-bleed">
         {% if tree %}
             {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
-            <div class="card p-4">
+            <div class="card card-body">
                 <ul id="space-root-list"
                     class="space-list"
                     data-parent-pk=""

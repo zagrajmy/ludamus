@@ -15,14 +15,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center gap-3">
-            <a href="{% url 'panel:tracks' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit"
-                    form="track-edit-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "check" class="w-4 h-4" %}
-                <span class="btn-label">{% translate "Save Changes" %}</span>
-            </button>
+            {% url 'panel:tracks' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Save Changes" as save_label %}
+            {% tessera_button save_label form="track-edit-form" icon="check" full_width_mobile=False %}
         </div>
     {% endif %}
 {% endblock header_actions %}

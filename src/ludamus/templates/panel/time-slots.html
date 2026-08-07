@@ -15,13 +15,8 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="?create=1"
-           class="btn btn-primary"
-           aria-controls="time-slot-create-modal"
-           aria-haspopup="dialog">
-            {% icon "plus" class="w-4 h-4" %}
-            <span class="btn-label">{% translate "Add Time Slot" %}</span>
-        </a>
+        {% translate "Add Time Slot" as create_label %}
+        {% tessera_button create_label href="?create=1" icon="plus" aria_controls="time-slot-create-modal" aria_haspopup="dialog" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
@@ -187,7 +182,7 @@
 {% end_tab_shell %}
 {% include "panel/_time-slot-create-modal.html" with modal_id="time-slot-create-modal" form=create_form current_event=current_event csrf_token=csrf_token only %}
 {% else %}
-<div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+<div class="card p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
 </div>
 {% endif %}

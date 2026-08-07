@@ -12,14 +12,8 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <div class="flex items-center space-x-3">
-            <button type="submit"
-                    form="proposal-settings-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "check" class="w-4 h-4" %}
-                <span class="btn-label">{% translate "Save Settings" %}</span>
-            </button>
-        </div>
+        {% translate "Save Settings" as save_label %}
+        {% tessera_button save_label form="proposal-settings-form" icon="check" full_width_mobile=False %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}

@@ -685,6 +685,39 @@ button:active {
   }
 }
 
+/* `.panel-bleed` marks a panel page whose cards should run to the viewport
+   edge on a phone and stack as one continuous band: the wrapper drops its
+   padding, the cards give up the side border and corners they can no longer
+   sit inside, and the gaps between them close. Each card also drops its own
+   top border and leans on the rule above it — the header's border-b for the
+   first, the previous card's border-b for the rest — so a closed gap reads as
+   one 1px divider rather than two stacked borders.
+
+   Cards reached through a wrapper (cfp-edit nests its own inside a form) bleed
+   too, which is why the selector is a descendant one and not `> .card`.
+   Non-card content in a bled page has no card-body to inset it and asks for
+   `max-sm:px-3` itself.
+
+   This lives in `@layer utilities`, not `components`: bled cards carry `mt-6`,
+   and only a same-layer rule with two classes of specificity outranks it. */
+@layer utilities {
+  @media (width < 40rem) {
+    .panel-bleed .card {
+      margin-top: 0;
+      border-radius: 0;
+      border-top-width: 0;
+      border-left-width: 0;
+      border-right-width: 0;
+    }
+  }
+
+  @media (width >= 40rem) {
+    .panel-bleed {
+      padding: 1rem;
+    }
+  }
+}
+
 @layer base {
   select {
     background-color: var(--color-bg-secondary);

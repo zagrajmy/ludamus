@@ -12,11 +12,9 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:integration-create' slug=current_event.slug %}"
-           class="btn btn-primary flex items-center">
-            {% icon "plus" class="w-4 h-4" %}
-            <span class="btn-label">{% translate "New integration" %}</span>
-        </a>
+        {% url 'panel:integration-create' slug=current_event.slug as create_url %}
+        {% translate "New integration" as create_label %}
+        {% tessera_button create_label href=create_url icon="plus" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}

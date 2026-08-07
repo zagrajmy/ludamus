@@ -336,18 +336,10 @@ the sphere.{% endcomment %}
         the bar's border to read as attached to the panel below, and padding
         under it floats the whole strip off its rail.
 
-        Below sm, `.panel-bleed` pages run their cards to the viewport edge and
-        stack as continuous bands: the wrapper drops its padding, the cards give
-        up the side border and corners they can no longer sit inside, and the
-        gaps between them close. Each card also drops its own top border and
-        leans on the rule above it — the header's border-b for the first, the
-        previous card's border-b for the rest — so a closed gap reads as one
-        1px divider rather than two stacked borders. Cards reached through a
-        wrapper (cfp-edit nests its own inside a form) bleed too, which is why
-        the selector is a descendant one. Non-card content in a bled page has no
-        card-body to inset it and asks for `max-sm:px-3` itself.
+        Pages that run their cards to the viewport edge below sm mark their
+        wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
         {% endcomment %}
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5 max-sm:[&_.panel-bleed_.card]:rounded-none max-sm:[&_.panel-bleed_.card]:border-x-0 max-sm:[&_.panel-bleed_.card]:border-t-0 max-sm:[&_.panel-bleed_.card]:mt-0{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
             {% comment %}Header CTAs go icon-only below sm — the glyph carries the
             action and the title beside it gets the width back. The label goes

@@ -12,7 +12,7 @@
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <div class="card p-4 sm:p-6 max-w-xl">
+        <div class="card card-body max-w-xl">
             <p class="text-foreground-secondary mb-2">
                 {% blocktranslate with name=integration.display_name %}
                     Are you sure you want to delete integration "{{ name }}"?

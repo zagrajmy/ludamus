@@ -12,12 +12,8 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if active_integration %}
-        <button type="submit"
-                form="import-json-form"
-                class="btn btn-primary flex items-center">
-            {% icon "check" class="w-4 h-4" %}
-            <span class="btn-label">{% translate "Save settings" %}</span>
-        </button>
+        {% translate "Save settings" as save_label %}
+        {% tessera_button save_label form="import-json-form" icon="check" full_width_mobile=False %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}

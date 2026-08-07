@@ -14,7 +14,7 @@
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <div class="card max-w-xl p-4 sm:p-6">
+        <div class="card card-body max-w-xl">
             <p class="mb-4 text-sm text-foreground-muted">
                 {% blocktranslate with name=node.name %}Copies "{{ name }}" and everything inside it into the chosen event as a new top-level space.{% endblocktranslate %}
             </p>

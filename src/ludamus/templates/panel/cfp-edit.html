@@ -17,19 +17,16 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event and category %}
-        <a href="{% url 'panel:cfp' slug=current_event.slug %}"
-           class="btn btn-secondary">{% translate "Cancel" %}</a>
-        <button type="submit"
-                form="cfp-edit-form"
-                class="btn btn-primary flex items-center">
-            {% icon "check" class="w-4 h-4" %}
-            <span class="btn-label">{% translate "Save" %}</span>
-        </button>
+        {% url 'panel:cfp' slug=current_event.slug as cancel_url %}
+        {% translate "Cancel" as cancel_label %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Save" as save_label %}
+        {% tessera_button save_label form="cfp-edit-form" icon="check" full_width_mobile=False %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
     {% if current_event and category %}
-        <div class="panel-bleed sm:p-4">
+        <div class="panel-bleed">
             <form method="post" id="cfp-edit-form" class="max-w-2xl">
                 {% csrf_token %}
                 <div class="card">

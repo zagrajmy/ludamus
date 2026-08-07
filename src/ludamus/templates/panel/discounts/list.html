@@ -13,12 +13,14 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    <div class="panel-bleed sm:p-4">
+    <div class="panel-bleed">
         {% if rows %}
             <div class="mb-4 flex justify-end max-sm:px-3">
                 {% url 'panel:discount-export' slug=current_event.slug as export_url %}
                 {% translate "Export accreditation sheet" as t_export %}
-                {% tessera_button t_export href=export_url variant="secondary" size="sm" icon="arrow-up-tray" full_width_mobile=False %}
+                {% comment %}The label is longer than a phone viewport, so the
+                button stretches rather than overflowing its right edge.{% endcomment %}
+                {% tessera_button t_export href=export_url variant="secondary" size="sm" icon="arrow-up-tray" full_width_mobile=True %}
             </div>
             {% tessera_table %}
             <thead class="bg-bg-tertiary">

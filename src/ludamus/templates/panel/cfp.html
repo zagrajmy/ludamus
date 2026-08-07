@@ -15,11 +15,9 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <a href="{% url 'panel:cfp-create' slug=current_event.slug %}"
-           class="btn btn-primary flex items-center">
-            {% icon "plus" class="w-4 h-4" %}
-            <span class="btn-label">{% translate "New Category" %}</span>
-        </a>
+        {% url 'panel:cfp-create' slug=current_event.slug as create_url %}
+        {% translate "New Category" as create_label %}
+        {% tessera_button create_label href=create_url icon="plus" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
@@ -91,7 +89,7 @@
             </tbody>
         {% end_tessera_table %}
     {% else %}
-        <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+        <div class="card p-8 text-center">
             <p class="text-foreground-muted mb-4">
                 {% translate "No categories yet. Add a category to allow facilitators to submit proposals." %}
             </p>
@@ -103,7 +101,7 @@
 {% end_tab_shell_body %}
 {% end_tab_shell %}
 {% else %}
-<div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-8 text-center">
+<div class="card p-8 text-center">
     <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
 </div>
 {% endif %}
