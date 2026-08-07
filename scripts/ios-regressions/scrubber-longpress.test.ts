@@ -131,9 +131,6 @@ const waitForRailMarkers = async (
 ): Promise<RailHour[]> => {
   let screen: Rect | null = null;
   let lastSnapshotError: unknown = null;
-  // A slot, not a plain `let`: the assignment happens inside the probe
-  // closure, which TypeScript's flow analysis cannot see from out here.
-  const last: { scoped: CaptureSnapshotResult | null } = { scoped: null };
   const markers = await pollUntil<RailHour[]>(
     async () => {
       // A snapshot taken while Safari is still launching throws; that is a
@@ -142,23 +139,27 @@ const waitForRailMarkers = async (
       // cannot touch — and holds still for the rest of the run.
       try {
         screen ??= viewportOf(await takeSnapshot());
-        last.scoped = await takeSnapshot(navName);
+        const scoped = await takeSnapshot(navName);
+        const found = railMarkersFrom(scoped, markerNames, screen);
+        return found.length > 0 ? found : null;
       } catch (error) {
         lastSnapshotError = error;
         console.warn("Snapshot failed while the page was settling; retrying.", error);
         return null;
       }
-      const found = railMarkersFrom(last.scoped, markerNames, screen);
-      return found.length > 0 ? found : null;
     },
     { timeoutMs },
   );
   if (markers) return markers;
 
-  const scoped = last.scoped;
-  if (!scoped) {
+  // One fresh scoped snapshot so the dump describes the tree at failure time —
+  // this path has already spent the full window, so the roundtrip is free.
+  let scoped: CaptureSnapshotResult;
+  try {
+    scoped = await takeSnapshot(navName);
+  } catch (error) {
     throw new Error(
-      `No snapshot succeeded in ${timeoutMs}ms; last error: ${String(lastSnapshotError)}`,
+      `No snapshot succeeded in ${timeoutMs}ms; last error: ${String(lastSnapshotError ?? error)}`,
     );
   }
   // The scoped tree is small, so the dump can afford to show all of it. A

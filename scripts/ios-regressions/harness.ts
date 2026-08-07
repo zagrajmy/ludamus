@@ -33,22 +33,23 @@ const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
 
 // The one poll-to-deadline loop: probe until it yields a value or the window
 // closes, and only conclude "nothing" (null) once the window has actually
-// elapsed — which is what specs asserting absence rely on. Paced by a local
-// sleep rather than the runner's wait command, because the same loop must
-// serve before a device session exists (fetchReadyPage) as during one; the
-// probes themselves are the only traffic the runner needs to see. A throwing
-// probe aborts the poll.
+// elapsed — which is what specs asserting absence rely on. The window ends on
+// a probe, not a sleep, so its final interval is observed rather than slept
+// away. Paced by a local sleep rather than the runner's wait command, because
+// the same loop must serve before a device session exists (fetchReadyPage) as
+// during one; the probes themselves are the only traffic the runner needs to
+// see. A throwing probe aborts the poll.
 export const pollUntil = async <T>(
   probe: () => Promise<T | null>,
   { timeoutMs, intervalMs = 500 }: { timeoutMs: number; intervalMs?: number },
 ): Promise<T | null> => {
   const deadline = Date.now() + timeoutMs;
-  do {
+  for (;;) {
     const result = await probe();
     if (result !== null) return result;
+    if (Date.now() >= deadline) return null;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  } while (Date.now() < deadline);
-  return null;
+  }
 };
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
