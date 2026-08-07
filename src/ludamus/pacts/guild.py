@@ -52,7 +52,7 @@ class GuildMemberDTO(BaseModel):
     user_pk: int
     name: str
     full_name: str
-    username: str
+    email: str
     slug: str
     avatar_url: str = ""
 
@@ -107,7 +107,7 @@ class GuildRepositoryProtocol(Protocol):
     @staticmethod
     def delete(*, sphere_id: int, guild_pk: int) -> bool: ...
     @staticmethod
-    def find_assignable_users(*, identifier: str) -> list[GuildMemberDTO]: ...
+    def find_assignable_users(*, identifier: str) -> list[int]: ...
     @staticmethod
     def read_member_guild(
         *, sphere_id: int, user_pk: int

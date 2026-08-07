@@ -80,7 +80,7 @@ class GuildService(GuildServiceProtocol):
                 return AssignMemberOutcome.NO_SUCH_USER
             if len(matches) > 1:
                 return AssignMemberOutcome.AMBIGUOUS_HANDLE
-            user_pk = matches[0].user_pk
+            user_pk = matches[0]
             # Read the presenter's current guild before writing, so the view can
             # say "moved from X" instead of silently reassigning them.
             current = self._guilds.read_member_guild(

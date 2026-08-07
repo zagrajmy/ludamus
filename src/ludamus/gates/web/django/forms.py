@@ -193,6 +193,11 @@ def logo_field(*, help_text: str | None = None) -> forms.FileField:
     return forms.FileField(
         required=False,
         label=_("Logo"),
+        # Attached here rather than in each form's clean_logo: a logo field
+        # cannot then exist without its validation. Django short-circuits the
+        # False (clear) case before validators run, and validate_uploaded_logo
+        # early-returns on empty, so behaviour is unchanged.
+        validators=[validate_uploaded_logo],
         help_text=help_text
         or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
@@ -288,11 +293,6 @@ class EventSettingsForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
-
 
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
@@ -303,11 +303,6 @@ class SphereSettingsForm(forms.Form):
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
     logo = logo_field()
-
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
 
 
 class ProposalSettingsForm(forms.Form):

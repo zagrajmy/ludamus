@@ -138,17 +138,48 @@ class TestFindAssignableUsers:
 
         result = GuildRepository.find_assignable_users(identifier="marek@example.com")
 
-        assert [m.user_pk for m in result] == [user.pk]
+        assert result == [user.pk]
 
-    def test_matches_username(self):
-        user = UserFactory(username="marek")
+    def test_matches_discord_username(self):
+        # `username` is machine-generated (auth0|..., connected|...), so the
+        # Discord handle is the only non-email thing a manager can type.
+        user = UserFactory(username="auth0|abc", discord_username="marek")
 
         result = GuildRepository.find_assignable_users(identifier="MAREK")
 
-        assert [m.user_pk for m in result] == [user.pk]
+        assert result == [user.pk]
+
+    def test_ignores_a_leading_at_and_surrounding_space(self):
+        user = UserFactory(username="auth0|abc", discord_username="marek")
+
+        assert GuildRepository.find_assignable_users(identifier="  @marek ") == [
+            user.pk
+        ]
+
+    def test_does_not_match_the_generated_auth_username(self):
+        UserFactory(username="auth0|abc", discord_username="marek")
+
+        assert GuildRepository.find_assignable_users(identifier="auth0|abc") == []
+
+    def test_reports_an_ambiguous_discord_handle(self):
+        UserFactory(username="a", discord_username="dup")
+        UserFactory(username="b", discord_username="DUP")
+
+        assert len(GuildRepository.find_assignable_users(identifier="dup")) > 1
+
+    def test_email_wins_outright_over_a_discord_collision(self):
+        exact = UserFactory(email="marek@example.com")
+        UserFactory(username="other", discord_username="marek@example.com")
+
+        assert GuildRepository.find_assignable_users(
+            identifier="marek@example.com"
+        ) == [exact.pk]
 
     def test_returns_empty_for_an_unknown_handle(self):
         assert GuildRepository.find_assignable_users(identifier="nobody") == []
+
+    def test_returns_empty_for_a_blank_handle(self):
+        assert GuildRepository.find_assignable_users(identifier="   ") == []
 
 
 class TestAssignMember:

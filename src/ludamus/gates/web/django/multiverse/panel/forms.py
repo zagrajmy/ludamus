@@ -5,7 +5,7 @@ from typing import Any
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import logo_field, validate_uploaded_logo
+from ludamus.gates.web.django.forms import logo_field
 
 
 class AnnouncementForm(forms.Form):
@@ -52,8 +52,6 @@ class ConnectionForm(forms.Form):
 
 
 class GuildForm(forms.Form):
-    """Create/edit a guild: its name and its mark."""
-
     name = forms.CharField(label=_("Guild name"), max_length=255, strip=True)
     logo = logo_field(
         help_text=_(
@@ -63,15 +61,8 @@ class GuildForm(forms.Form):
         )
     )
 
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
-
 
 class GuildMemberForm(forms.Form):
-    """Assign one presenter to a guild."""
-
     identifier = forms.CharField(
         label=_("Email or Discord username"),
         help_text=_(

@@ -18,7 +18,7 @@ GUILDS_PANEL_CONTEXT = sphere_panel_context(active_tab="guilds")
 LIST_URL = reverse("multiverse:panel:guilds")
 
 
-def _guild(sphere, name="Topory", slug="topory"):
+def _guild(sphere, *, name="Topory", slug="topory"):
     return Guild.objects.create(sphere=sphere, name=name, slug=slug)
 
 

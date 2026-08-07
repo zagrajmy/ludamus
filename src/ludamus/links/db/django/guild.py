@@ -12,10 +12,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, Q
+from django.db.models import Count
 
 from ludamus.links.db.django.models import Guild, GuildMembership
 from ludamus.links.db.django.repositories.storage import save_replacing_files
+from ludamus.links.db.django.users import display_avatar_url
+from ludamus.pacts.crowd import UserType
 from ludamus.pacts.guild import (
     GuildDTO,
     GuildMarkDTO,
@@ -40,23 +42,9 @@ def _member_dto(membership: GuildMembership) -> GuildMemberDTO:
         user_pk=member.pk,
         name=member.name,
         full_name=member.full_name,
-        username=member.username,
+        email=member.email,
         slug=member.slug,
-        avatar_url=member.avatar_url or "",
-    )
-
-
-def _user_dto(user: User) -> GuildMemberDTO:
-    # A candidate is not a member yet, so there is no membership row to point
-    # at; 0 marks "unsaved" and never reaches a template.
-    return GuildMemberDTO(
-        membership_pk=0,
-        user_pk=user.pk,
-        name=user.name,
-        full_name=user.full_name,
-        username=user.username,
-        slug=user.slug,
-        avatar_url=user.avatar_url or "",
+        avatar_url=display_avatar_url(member),
     )
 
 
@@ -121,14 +109,27 @@ class GuildRepository(GuildRepositoryProtocol):
         return bool(deleted)
 
     @staticmethod
-    def find_assignable_users(*, identifier: str) -> list[GuildMemberDTO]:
-        # Same handles the party invite accepts: the account email or the
-        # Discord username they signed up with. Capped at three because the
-        # caller only needs to tell "one" from "more than one".
-        candidates = User.objects.filter(
-            Q(email__iexact=identifier) | Q(username__iexact=identifier)
-        ).order_by("pk")[:3]
-        return [_user_dto(user) for user in candidates]
+    def find_assignable_users(*, identifier: str) -> list[int]:
+        # Mirrors PartyRepository.find_invitable_users: the same handles the
+        # party invite accepts, resolved the same way. `username` is never
+        # typeable — every account gets a machine-generated one (auth0|...,
+        # connected|..., anon_...) — so the Discord column is the one to match.
+        # Email is exact-and-unique, so a hit there wins outright; only a
+        # Discord handle can be ambiguous, and the caller only needs to tell
+        # "one" from "more than one".
+        if not (identifier := identifier.strip().lstrip("@")):
+            return []
+        by_email = (
+            User.objects.filter(email__iexact=identifier, user_type=UserType.ACTIVE)
+            .order_by("pk")
+            .first()
+        )
+        if by_email is not None:
+            return [by_email.pk]
+        by_discord = User.objects.filter(
+            discord_username__iexact=identifier, user_type=UserType.ACTIVE
+        ).order_by("pk")
+        return [user.pk for user in by_discord[:2]]
 
     @staticmethod
     def read_member_guild(*, sphere_id: int, user_pk: int) -> GuildSummaryDTO | None:

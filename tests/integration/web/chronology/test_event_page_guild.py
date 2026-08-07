@@ -11,9 +11,10 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 
+from ludamus.adapters.web.django.views import COMPACT_SCHEDULE_MIN_SESSIONS
 from ludamus.links.db.django.models import Guild, GuildMembership
 from ludamus.pacts.guild import GuildMarkDTO
-from tests.integration.conftest import SphereFactory
+from tests.integration.conftest import AgendaItemFactory, SessionFactory, SphereFactory
 from tests.integration.utils import assert_response
 
 
@@ -62,6 +63,12 @@ class TestGuildMarkOnCards:
 
         response = client.get(_url(event))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
         assert [card.guild for card in _cards(response)] == [None]
 
     def test_a_membership_in_another_sphere_does_not_leak(
@@ -80,6 +87,12 @@ class TestGuildMarkOnCards:
 
         response = client.get(_url(event))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
         assert [card.guild for card in _cards(response)] == [None]
 
     def test_a_presenter_less_session_is_left_alone(self, client, event, agenda_item):
@@ -90,4 +103,46 @@ class TestGuildMarkOnCards:
 
         response = client.get(_url(event))
 
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
         assert [card.guild for card in _cards(response)] == [None]
+
+
+class TestGuildMarkOnTheCompactSchedule:
+    """At COMPACT_SCHEDULE_MIN_SESSIONS the page swaps to the compact rows.
+
+    That is the shape a real convention renders in, so the mark has to survive
+    the switch — the card grid is the small-event case, not the common one.
+    """
+
+    def test_compact_rows_carry_the_guild(
+        self, client, event, agenda_item, active_user, sphere, guild, space
+    ):
+        session = agenda_item.session
+        session.presenter = active_user
+        session.save()
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
+        for index in range(COMPACT_SCHEDULE_MIN_SESSIONS):
+            extra = SessionFactory(event=event, slug=f"filler-{index}")
+            AgendaItemFactory(
+                session=extra,
+                space=space,
+                start_time=agenda_item.start_time,
+                end_time=agenda_item.end_time,
+            )
+
+        response = client.get(_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ANY,
+            template_name=["chronology/event.html"],
+        )
+        assert response.context_data["compact_schedule"] is True
+        marked = [card for card in _cards(response) if card.guild is not None]
+        assert [card.guild.name for card in marked] == ["Topory"]

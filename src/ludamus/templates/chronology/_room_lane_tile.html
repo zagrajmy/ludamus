@@ -24,6 +24,7 @@
             <span class="shrink-0" data-morph="avatar">
                 {% include "components/avatar.html" with user=data.presenter size="size-5" %}
             </span>
+            {% include "components/guild_mark.html" with guild=data.guild size="size-4" %}
             <span class="truncate" data-morph="host">{{ data.session.display_name }}</span>
         </div>
         <span class="truncate text-xs tabular-nums text-foreground-muted"

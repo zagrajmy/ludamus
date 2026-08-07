@@ -1,5 +1,3 @@
-"""Guild CRUD and roster views for the sphere panel."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -52,8 +50,6 @@ def _write_data(form: GuildForm) -> GuildWriteData:
 
 
 class GuildsPageView(SphereAccessMixin, View):
-    """List the sphere's guilds."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
@@ -71,8 +67,6 @@ class GuildsPageView(SphereAccessMixin, View):
 
 
 class GuildCreatePageView(SphereAccessMixin, View):
-    """Create a guild."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
@@ -102,8 +96,6 @@ class GuildCreatePageView(SphereAccessMixin, View):
 
 
 class GuildEditPageView(SphereAccessMixin, View):
-    """Edit a guild's name and mark, and manage its roster on the same page."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
@@ -141,8 +133,6 @@ class GuildEditPageView(SphereAccessMixin, View):
 
 
 class GuildDeletePageView(SphereAccessMixin, View):
-    """Confirm-and-delete a guild."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
@@ -188,8 +178,6 @@ _ASSIGN_MESSAGES = {
 
 
 class GuildMemberAddActionView(SphereAccessMixin, View):
-    """Assign a presenter to a guild."""
-
     request: MultiverseRequest
 
     def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
@@ -210,8 +198,6 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
 
 
 class GuildMemberRemoveActionView(SphereAccessMixin, View):
-    """Remove a presenter from a guild."""
-
     request: MultiverseRequest
 
     def post(

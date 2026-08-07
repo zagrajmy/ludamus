@@ -21,8 +21,7 @@
     {% tab_shell "multiverse/panel/_sphere_tabs_nav.html" %}
     {% tab_shell_body %}
     {% if guilds %}
-        <div class="card overflow-hidden">
-            <table class="min-w-full divide-y divide-border">
+        {% tessera_table %}
                 <caption class="sr-only">{% translate "Guilds in this sphere" %}</caption>
                 <thead class="bg-bg-tertiary rounded-t-lg">
                     <tr>
@@ -43,7 +42,7 @@
                 <tbody class="divide-y divide-border">
                     {% for guild in guilds %}
                         <tr class="hover:bg-bg-tertiary">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                            <td class="px-6 py-4 text-sm font-medium text-foreground">
                                 <span class="flex items-center gap-3">
                                     {% include "multiverse/panel/guilds/_mark.html" with guild=guild size="size-8" %}
                                     {{ guild.name }}
@@ -68,8 +67,7 @@
                         </tr>
                     {% endfor %}
                 </tbody>
-            </table>
-        </div>
+        {% end_tessera_table %}
     {% else %}
         <div class="card p-8 text-center">
             <p class="text-foreground-muted mb-1">{% translate "No guilds yet." %}</p>

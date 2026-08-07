@@ -1,0 +1,36 @@
+{% load i18n %}
+{% comment %}
+A guild's uploaded mark on a circular white plate.
+
+`[corner-shape:round]!` opts out of the global `superellipse(1.8)` in
+index.css: everything else is a squircle, so a true circle reads as a separate
+object rather than a smaller copy of whatever it sits on. The `!` is
+load-bearing — that rule is unlayered, so it beats any utility in
+`@layer utilities` on cascade-layer order, not specificity.
+
+The plate is white in both themes: an uploaded mark is often a dark silhouette
+on transparency, which would vanish against the dark card surface. The image is
+inset to the circle's inscribed square so a full-bleed square upload keeps its
+corners instead of being clipped by the round edge.
+
+Renders nothing when the guild has no mark yet — the feature is the mark, and
+two-letter initials at this size are illegible.
+
+Variables:
+  guild        needs .name and .logo_url
+  size         Tailwind size-* class. Default suits the avatar notch.
+  extra_class  positioning, e.g. the notch's absolute corner placement
+  ring         knockout ring matching the surface behind it, when overlapping
+{% endcomment %}
+{% if guild and guild.logo_url %}
+    <span class="{{ size|default:'size-[1.35rem]' }} {{ extra_class }} shrink-0 grid place-items-center overflow-hidden rounded-full [corner-shape:round]! bg-white {{ ring }}"
+          role="img"
+          aria-label="{% blocktranslate with name=guild.name %}Guild: {{ name }}{% endblocktranslate %}">
+        <img src="{{ guild.logo_url }}"
+             alt=""
+             width="22"
+             height="22"
+             loading="lazy"
+             class="size-[72%] object-contain">
+    </span>
+{% endif %}

@@ -18,7 +18,7 @@
             {% include "multiverse/panel/guilds/_form.html" %}
             <div class="mt-6 flex items-center gap-3">
                 {% translate "Create guild" as t_create %}
-                {% tessera_button t_create icon="plus" type="submit" full_width_mobile=False %}
+                {% tessera_button t_create icon="plus" full_width_mobile=False %}
                 {% translate "Cancel" as t_cancel %}
                 {% url 'multiverse:panel:guilds' as cancel_url %}
                 {% tessera_button t_cancel href=cancel_url variant="secondary" %}

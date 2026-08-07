@@ -22,7 +22,7 @@
             <form method="post" class="flex items-center gap-3">
                 {% csrf_token %}
                 {% translate "Delete guild" as t_delete %}
-                {% tessera_button t_delete icon="trash" type="submit" variant="danger" full_width_mobile=False %}
+                {% tessera_button t_delete icon="trash" variant="danger" full_width_mobile=False %}
                 {% translate "Cancel" as t_cancel %}
                 {% url 'multiverse:panel:guilds' as cancel_url %}
                 {% tessera_button t_cancel href=cancel_url variant="secondary" %}

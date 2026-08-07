@@ -5,7 +5,6 @@ from ludamus.pacts.guild import (
     AssignMemberOutcome,
     DeleteGuildOutcome,
     GuildMarkDTO,
-    GuildMemberDTO,
     GuildSummaryDTO,
 )
 
@@ -26,17 +25,6 @@ class FakeTransaction:
         yield
 
 
-def _member(user_pk=MEMBER_PK, name="Marek"):
-    return GuildMemberDTO(
-        membership_pk=0,
-        user_pk=user_pk,
-        name=name,
-        full_name=name,
-        username=name.lower(),
-        slug=name.lower(),
-    )
-
-
 def _summary(pk=GUILD_PK, name="Topory"):
     return GuildSummaryDTO(pk=pk, name=name, slug=name.lower())
 
@@ -46,7 +34,7 @@ class FakeGuilds:
         self, *, matches=None, current=None, assigns=True, deletes=True, taken_slugs=()
     ):
         self.calls = []
-        self._matches = [_member()] if matches is None else matches
+        self._matches = [MEMBER_PK] if matches is None else matches
         self._current = current
         self._assigns = assigns
         self._deletes = deletes
@@ -205,7 +193,7 @@ class TestAssignMember:
         assert not [call for call in guilds.calls if call[0] == "assign_member"]
 
     def test_rejects_an_ambiguous_handle(self):
-        guilds = FakeGuilds(matches=[_member(1, "Ann"), _member(2, "Anna")])
+        guilds = FakeGuilds(matches=[1, 2])
 
         outcome = _service(guilds).assign_member(
             sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="ann"
