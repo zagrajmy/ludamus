@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from functools import cached_property
 from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
@@ -104,7 +103,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     def is_unlimited(self) -> bool:
         return self.effective_participants_limit == 0
 
-    @cached_property
+    @property
     def enroll_actions(self) -> EnrollActions | None:
         return build_enroll_actions(
             is_enrollment_available=self.is_enrollment_available,
