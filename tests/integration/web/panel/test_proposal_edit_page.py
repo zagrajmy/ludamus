@@ -14,6 +14,7 @@ from django.utils.http import urlencode
 from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
     PersonalDataCard,
 )
+from ludamus.gates.web.django.forms import MAX_STORED_PARTICIPANTS_LIMIT
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
@@ -68,6 +69,12 @@ from tests.integration.web.panel.helpers import (
 )
 
 CUSTOM_DURATION_MINUTES = 45
+CATEGORY_MAX_PARTICIPANTS = 9
+CATEGORY_MIN_PARTICIPANTS = 4
+LIMIT_ABOVE_CATEGORY_MAX = 500
+LIMIT_BELOW_CATEGORY_MIN = 1
+DEFAULT_SESSION_PARTICIPANTS = 5
+OVER_COLUMN_WIDTH = MAX_STORED_PARTICIPANTS_LIMIT + 1
 
 
 def _make_session(event, **kwargs):
@@ -596,6 +603,137 @@ class TestProposalEditPageView:
         assert response.context["form"].errors
         session.refresh_from_db()
         assert session.category_id == original_category_id
+
+    def test_post_accepts_a_limit_above_the_category_maximum(self, panel_client, event):
+        # The category's bounds guard the submission wizard, not the organizer
+        # reviewing the proposal here.
+        bounded = ProposalCategory.objects.create(
+            event=event,
+            name="Lectures",
+            slug="lectures",
+            min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
+            max_participants_limit=CATEGORY_MAX_PARTICIPANTS,
+        )
+        session = _make_session(event, category=bounded)
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": bounded.pk,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": LIMIT_ABOVE_CATEGORY_MAX,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == LIMIT_ABOVE_CATEGORY_MAX
+
+    def test_post_rejects_a_limit_wider_than_the_column(self, panel_client, event):
+        # Unbounded is not unlimited: Postgres integer stops at 2**31-1. The
+        # field says so itself, rather than leaving the panel to fall back on
+        # its generic "couldn't save" message.
+        session = _make_session(event, participants_limit=DEFAULT_SESSION_PARTICIPANTS)
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": OVER_COLUMN_WIDTH,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": FormErrorsMatcher(
+                    participants_limit=["Enter a smaller number."]
+                ),
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "facilitator_personal_data": [],
+            },
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == DEFAULT_SESSION_PARTICIPANTS
+
+    def test_post_accepts_a_limit_below_the_category_minimum(self, panel_client, event):
+        # A session already smaller than its category's floor stays editable:
+        # the floor never applies on this form.
+        bounded = ProposalCategory.objects.create(
+            event=event,
+            name="Lectures",
+            slug="lectures",
+            min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
+        )
+        session = _make_session(
+            event, category=bounded, participants_limit=DEFAULT_SESSION_PARTICIPANTS
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": bounded.pk,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": LIMIT_BELOW_CATEGORY_MIN,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == LIMIT_BELOW_CATEGORY_MIN
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_raising_capacity_promotes_waiter(self, panel_client, event, waiter):
