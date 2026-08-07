@@ -264,6 +264,7 @@ run = [{ task = "format" }, { task = "lint" }]
 
 [tasks.devcheck]
 run = [
+    "poetry install",
     { task = "format" },
     { task = "lint:djlint" },
     { task = "lint:py" },
