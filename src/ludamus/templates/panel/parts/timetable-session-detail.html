@@ -67,6 +67,11 @@
                     <button type="submit" class="btn btn-danger text-sm w-full">{% translate "Unassign" %}</button>
                 </form>
             </div>
+            {% comment %}
+            The confirmations tab is where an organizer works through a
+            facilitator's whole programme; this stays because it is the only
+            control that reaches an item with no facilitator or no track.
+            {% endcomment %}
             {% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk as detail_url %}
             <form class="mt-2"
                   hx-post="{% url 'panel:timetable-confirm' slug=slug %}"

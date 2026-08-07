@@ -1,5 +1,3 @@
-"""Shared arrange/assert helpers for panel integration tests."""
-
 import json
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
@@ -17,7 +15,13 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldRequirement,
 )
-from ludamus.pacts import EventDTO, FacilitatorListItemDTO, SessionDTO, SpaceDTO
+from ludamus.pacts import (
+    EventDTO,
+    FacilitatorListItemDTO,
+    SessionDTO,
+    SessionStatus,
+    SpaceDTO,
+)
 from ludamus.pacts.chronology import (
     EventIntegrationDTO,
     IntegrationImplementationId,
@@ -38,7 +42,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import PageMatcher, assert_response
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -58,6 +62,32 @@ EMPTY_STATS = {
     "scheduled_sessions": 0,
     "total_proposals": 0,
     "total_sessions": 0,
+}
+
+PROPOSAL_PAGE_SIZES = [10, 20, 50, 100]
+PROPOSAL_STATUSES = [
+    ("pending", "Pending"),
+    ("accepted", "Accepted"),
+    ("on_hold", "On hold"),
+    ("rejected", "Rejected"),
+    ("scheduled", "Scheduled"),
+]
+
+# Filter/pagination keys the proposal list renders with no query string: the
+# status filter defaults to pending.
+PROPOSAL_FILTER_CONTEXT = {
+    "all_tracks": [],
+    "managed_track_pks": set(),
+    "filter_track_pk": None,
+    "filter_track_multi": False,
+    "filter_track_value": "",
+    "page_obj": PageMatcher(number=1, num_pages=1),
+    "page_sizes": PROPOSAL_PAGE_SIZES,
+    "filter_category_pk": None,
+    "filter_status": SessionStatus.PENDING,
+    "filter_status_value": SessionStatus.PENDING,
+    "filter_sort": "",
+    "statuses": PROPOSAL_STATUSES,
 }
 
 
@@ -218,15 +248,19 @@ def grid_with(
     *,
     spaces,
     day_start=None,
+    extra_days=0,
     total_minutes=0,
     sessions_by_space=None,
     page=1,
     total_pages=1,
     total_spaces=None,
+    date_selection="all",
 ):
-    # The expected timetable grid for a single rendered day of top-level rooms.
-    # Callers pass the day's first label time and its span in minutes rather
-    # than the slots, so no test re-derives the view's slot-window bounds.
+    # The expected timetable grid for the rendered days of top-level rooms.
+    # Callers pass the first day's first label time and its span in minutes
+    # rather than the slots, so no test re-derives the view's slot-window
+    # bounds. `extra_days` repeats that window on the following days, which is
+    # what a multi-day event with one slot per day renders.
     space_dtos = [SpaceDTO.model_validate(space) for space in spaces]
     sessions = sessions_by_space or {}
     labels = (
@@ -239,20 +273,27 @@ def grid_with(
         if day_start
         else []
     )
-    days = (
-        [
-            TimetableDayGridDTO(
-                date=day_start.date(),
-                columns=[
-                    SpaceColumnDTO(space=space, sessions=sessions.get(space.pk, []))
-                    for space in space_dtos
-                ],
-                event_start_iso=day_start.isoformat(),
-            )
-        ]
+    day_starts = (
+        [day_start + timedelta(days=offset) for offset in range(extra_days + 1)]
         if day_start
         else []
     )
+    days = [
+        TimetableDayGridDTO(
+            date=start.date(),
+            columns=[
+                SpaceColumnDTO(
+                    space=space,
+                    # A block sits on one day, and `sessions_by_space` places
+                    # it on the first one.
+                    sessions=sessions.get(space.pk, []) if index == 0 else [],
+                )
+                for space in space_dtos
+            ],
+            event_start_iso=start.isoformat(),
+        )
+        for index, start in enumerate(day_starts)
+    ]
     return TimetableGridDTO(
         spaces=space_dtos,
         groups=(
@@ -270,6 +311,7 @@ def grid_with(
         total_spaces=len(space_dtos) if total_spaces is None else total_spaces,
         total_columns=len(space_dtos) * len(days),
         available_dates=[day.date for day in days],
+        date_selection=date_selection,
     )
 
 
@@ -277,7 +319,7 @@ def empty_grid():
     return grid_with(spaces=[])
 
 
-def session_position(item, *, start_minutes, duration_minutes):
+def session_position(item, *, start_minutes, duration_minutes, state="normal"):
     # These tests assert where an agenda item lands in the grid; the item's own
     # field mapping is the repository's contract, tested there, so read it back
     # instead of restating a dozen fields.
@@ -285,6 +327,7 @@ def session_position(item, *, start_minutes, duration_minutes):
         agenda_item=AgendaItemRepository.read(item.pk),
         start_minutes=start_minutes,
         duration_minutes=duration_minutes,
+        state=state,
     )
 
 
