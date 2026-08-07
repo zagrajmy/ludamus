@@ -25,10 +25,31 @@ export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
-// Only reached when a snapshot comes back with no nodes to read a rect from. Sized for the iPhone 17 Pro the workflow asks for first;
-// when the image lacks that device the workflow picks another, so treat this as
-// a shape that keeps arithmetic finite, not as this run's screen.
+// Only reached when a snapshot comes back with no nodes to read a rect from.
+// Sized for the iPhone 17 Pro the workflow asks for first; when the image
+// lacks that device the workflow picks another, so treat this as a shape that
+// keeps arithmetic finite, not as this run's screen.
 const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
+
+// The one poll-to-deadline loop: probe until it yields a value or the window
+// closes, and only conclude "nothing" (null) once the window has actually
+// elapsed — which is what specs asserting absence rely on. Paced by a local
+// sleep rather than the runner's wait command, because the same loop must
+// serve before a device session exists (fetchReadyPage) as during one; the
+// probes themselves are the only traffic the runner needs to see. A throwing
+// probe aborts the poll.
+export const pollUntil = async <T>(
+  probe: () => Promise<T | null>,
+  { timeoutMs, intervalMs = 500 }: { timeoutMs: number; intervalMs?: number },
+): Promise<T | null> => {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const result = await probe();
+    if (result !== null) return result;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  } while (Date.now() < deadline);
+  return null;
+};
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
@@ -215,7 +236,6 @@ export const createIosHarness = (session: string): IosHarness => {
   // with gestures, which are the slowest thing either spec can do.
   const fetchReadyPage = async (url: URL, contains: string): Promise<string> => {
     console.log(`Checking local event page at ${url.toString()}...`);
-    const deadline = Date.now() + 60000;
     let lastError = "no response";
 
     // Pin the language both halves of a spec see. Bun's fetch sends no
@@ -227,24 +247,34 @@ export const createIosHarness = (session: string): IosHarness => {
     // the spec fails loudly rather than passing vacuously.
     const headers = { "Accept-Language": "en" };
 
-    while (Date.now() < deadline) {
-      try {
-        const response = await fetch(url, { headers });
-        const text = await response.text();
-        if (response.ok && text.includes(contains)) return text;
+    const unusable = (): Error =>
+      new Error(
+        `Local event page is not usable at ${url.toString()} (${lastError}). ` +
+          "Make sure the e2e server is running and serving the seeded event.",
+      );
 
-        lastError = `HTTP ${response.status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
-        if (response.status >= 400 && response.status < 500) break;
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+    const page = await pollUntil<string>(
+      async () => {
+        let status: number | null = null;
+        try {
+          const response = await fetch(url, { headers });
+          const text = await response.text();
+          if (response.ok && text.includes(contains)) return text;
 
-    throw new Error(
-      `Local event page is not usable at ${url.toString()} (${lastError}). ` +
-        "Make sure the e2e server is running and serving the seeded event.",
+          status = response.status;
+          lastError = `HTTP ${status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+        // A 4xx is a wrong URL or a missing seed, not a server still starting;
+        // no amount of polling fixes it.
+        if (status !== null && status >= 400 && status < 500) throw unusable();
+        return null;
+      },
+      { timeoutMs: 60000, intervalMs: 1000 },
     );
+    if (page === null) throw unusable();
+    return page;
   };
 
   return {

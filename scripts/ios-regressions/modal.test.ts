@@ -8,6 +8,7 @@ import {
   createIosHarness,
   describeNode,
   hookTimeoutMs,
+  pollUntil,
   sessionName,
 } from "./harness";
 
@@ -27,6 +28,7 @@ const {
   findNodeByLabel,
   viewportOf,
   close,
+  wait,
   openUrl,
   prepareDevice,
   fetchReadyPage,
@@ -48,15 +50,14 @@ const showingLabels = async (): Promise<string[]> => {
 
 // Polling, not sleeping: the modal animates in, and a single snapshot taken
 // mid-animation reports content that is about to be there as missing.
-const waitUntilShowing = async (texts: string[], timeoutMs: number): Promise<boolean> => {
-  const deadline = Date.now() + timeoutMs;
-  do {
-    const labels = await showingLabels();
-    if (texts.every((text) => labels.some((label) => label.includes(text)))) return true;
-    await client.command.wait({ ...deviceOptions, durationMs: 400 });
-  } while (Date.now() < deadline);
-  return false;
-};
+const waitUntilShowing = async (texts: string[], timeoutMs: number): Promise<boolean> =>
+  (await pollUntil(
+    async () => {
+      const labels = await showingLabels();
+      return texts.every((text) => labels.some((label) => label.includes(text))) || null;
+    },
+    { timeoutMs, intervalMs: 400 },
+  )) ?? false;
 
 const clickNodeCenter = async (node: SnapshotNode): Promise<void> => {
   if (node.rect) {
@@ -122,7 +123,7 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
       direction: centerY > viewportHeight - 120 ? "down" : "up",
       pixels: 450,
     });
-    await client.command.wait({ ...deviceOptions, durationMs: 200 });
+    await wait(200);
   }
 
   throw new Error(`Could not bring ${targetTriggerLabel} into the viewport`);
@@ -131,19 +132,12 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
 const forcePreOpenScroll = async (): Promise<void> => {
   for (let step = 0; step < preOpenScrollSteps; step += 1) {
     await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
-    await client.command.wait({ ...deviceOptions, durationMs: 150 });
+    await wait(150);
   }
 };
 
-const waitForLabel = async (label: string, timeoutMs: number): Promise<SnapshotNode | null> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const node = await findNodeByLabel(label);
-    if (node) return node;
-    await client.command.wait({ ...deviceOptions, durationMs: 500 });
-  }
-  return null;
-};
+const waitForLabel = (label: string, timeoutMs: number): Promise<SnapshotNode | null> =>
+  pollUntil(() => findNodeByLabel(label), { timeoutMs });
 
 const eventUrl = new URL(eventPath, baseUrl);
 const modalUrl = new URL(eventUrl);
@@ -164,7 +158,7 @@ beforeAll(async () => {
   const initialUrl = openViaScrolledPage ? eventUrl : modalUrl;
   console.log(`Opening Safari at ${initialUrl.toString()}...`);
   await openUrl(initialUrl.toString(), udid);
-  await client.command.wait({ ...deviceOptions, durationMs: 3000 });
+  await wait(3000);
 
   let preOpenTriggerLabel: string | null = null;
   let preOpenTriggerY: number | null = null;
@@ -210,7 +204,7 @@ beforeAll(async () => {
     throw new Error("Could not find visible target: Close");
   }
   await clickNodeCenter(closeButton);
-  await client.command.wait({ ...deviceOptions, durationMs: 1000 });
+  await wait(1000);
 
   // Closed means gone from the tree, not merely outside the visibility band —
   // the rect filter here would let a stuck-but-scrolled modal read as closed.
@@ -219,7 +213,7 @@ beforeAll(async () => {
   }
 
   if (openViaScrolledPage && preOpenTriggerLabel && preOpenTriggerY !== null) {
-    await client.command.wait({ ...deviceOptions, durationMs: 600 });
+    await wait(600);
     const settledSnapshot = await takeSnapshot();
     const settledTrigger = settledSnapshot.nodes.find(
       (node) => node.label === preOpenTriggerLabel && !isHiddenDialogLabel(node),

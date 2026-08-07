@@ -10,6 +10,7 @@ import {
   createIosHarness,
   describeNode,
   hookTimeoutMs,
+  pollUntil,
   sessionName,
 } from "./harness";
 
@@ -33,7 +34,6 @@ const {
   snapshotLabels,
   viewportOf,
   close,
-  wait,
   openUrl,
   prepareDevice,
   fetchReadyPage,
@@ -83,7 +83,9 @@ const namesFrom = (html: string, pattern: RegExp): Set<string> =>
 // only its subtree — a few dozen nodes — so every rendered marker surfaces.
 // Both marker name sets come from the served, already-translated markup: the
 // links' bare hour text ("10") and their aria-labels, whichever the engine
-// reports.
+// reports. The patterns are wed to the attribute order that
+// templates/chronology/_compact_schedule.html renders; a reorder there fails
+// the loud railNavName / markerNames guards below, never a device run.
 const RAIL_NAV_NAME = /<nav class="schedule-rail[^"]*"\s+aria-label="([^"]+)"/;
 const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)"/g;
 const RAIL_HOUR_TEXTS = /class="schedule-rail-hour[^"]*"[^>]*>([^<]+)<\/a>/g;
@@ -127,29 +129,33 @@ const waitForRailMarkers = async (
   navName: string,
   markerNames: Set<string>,
 ): Promise<RailHour[]> => {
-  const deadline = Date.now() + timeoutMs;
   let screen: Rect | null = null;
-  let scoped: CaptureSnapshotResult | null = null;
   let lastSnapshotError: unknown = null;
-  do {
-    // A snapshot taken while Safari is still launching throws; that is a state
-    // to wait out, not to end the run on. The screen rect comes from an
-    // unscoped snapshot's root node — the window frame, which truncation
-    // cannot touch — and holds still for the rest of the run.
-    try {
-      screen ??= viewportOf(await takeSnapshot());
-      scoped = await takeSnapshot(navName);
-    } catch (error) {
-      lastSnapshotError = error;
-      console.warn("Snapshot failed while the page was settling; retrying.", error);
-    }
-    if (screen && scoped) {
-      const markers = railMarkersFrom(scoped, markerNames, screen);
-      if (markers.length > 0) return markers;
-    }
-    await wait(500);
-  } while (Date.now() < deadline);
+  // A slot, not a plain `let`: the assignment happens inside the probe
+  // closure, which TypeScript's flow analysis cannot see from out here.
+  const last: { scoped: CaptureSnapshotResult | null } = { scoped: null };
+  const markers = await pollUntil<RailHour[]>(
+    async () => {
+      // A snapshot taken while Safari is still launching throws; that is a
+      // state to wait out, not to end the run on. The screen rect comes from
+      // an unscoped snapshot's root node — the window frame, which truncation
+      // cannot touch — and holds still for the rest of the run.
+      try {
+        screen ??= viewportOf(await takeSnapshot());
+        last.scoped = await takeSnapshot(navName);
+      } catch (error) {
+        lastSnapshotError = error;
+        console.warn("Snapshot failed while the page was settling; retrying.", error);
+        return null;
+      }
+      const found = railMarkersFrom(last.scoped, markerNames, screen);
+      return found.length > 0 ? found : null;
+    },
+    { timeoutMs },
+  );
+  if (markers) return markers;
 
+  const scoped = last.scoped;
   if (!scoped) {
     throw new Error(
       `No snapshot succeeded in ${timeoutMs}ms; last error: ${String(lastSnapshotError)}`,
@@ -182,18 +188,17 @@ const pressTargets = (markers: RailHour[]): RailHour[] =>
 // budget, so ask for the sheet directly — the scope resolves via a live
 // element query with no such cap. When no callout is up the scope misses and
 // the runner falls back to the full tree, which then contains no signal.
-const surfacedCallout = async (timeoutMs: number): Promise<string[]> => {
-  const deadline = Date.now() + timeoutMs;
-  do {
-    await wait(500);
-    const labels = await snapshotLabels("Open in");
-    const surfaced = calloutSignals.filter((signal) =>
-      labels.some((label) => label.includes(signal)),
-    );
-    if (surfaced.length > 0) return surfaced;
-  } while (Date.now() < deadline);
-  return [];
-};
+const surfacedCallout = async (timeoutMs: number): Promise<string[]> =>
+  (await pollUntil<string[]>(
+    async () => {
+      const labels = await snapshotLabels("Open in");
+      const surfaced = calloutSignals.filter((signal) =>
+        labels.some((label) => label.includes(signal)),
+      );
+      return surfaced.length > 0 ? surfaced : null;
+    },
+    { timeoutMs },
+  )) ?? [];
 
 let surfacedCalloutSignals: string[] = [];
 
