@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 21:52+0200\n"
+"POT-Creation-Date: 2026-08-07 12:51+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4714,10 +4714,6 @@ msgid "Remove file"
 msgstr "Usuń plik"
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
-msgid "Nothing to filter by yet."
-msgstr "Nie ma jeszcze czego filtrować."
-
-#: src/ludamus/templates/components/multiselect-filter-options.html
 #: src/ludamus/templates/components/multiselect-filter.html
 msgid "Nothing matches your search."
 msgstr "Nic nie pasuje do wyszukiwania."
@@ -8813,6 +8809,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Nothing to filter by yet."
+#~ msgstr "Nie ma jeszcze czego filtrować."
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"

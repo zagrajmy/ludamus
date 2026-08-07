@@ -179,6 +179,42 @@ def main() -> None:
         defaults={"display_name": "Bob Chen", "user": None},
     )
 
+    # Scheduled on the second day while it asked for the first one, so the grid
+    # marks a preferred-slot violation. Alone in its column, well within the
+    # room's capacity and with a facilitator of its own — every other way of
+    # flagging a block would overrule the warning this one is here to show.
+    misplaced, _ = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-misplaced-demo",
+        defaults={
+            "title": "Misplaced Demo Game",
+            "display_name": "Cleo Vance",
+            "description": "Scheduled outside the day it asked for.",
+            "duration": "PT1H",
+            "participants_limit": 6,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    cleo, _ = Facilitator.objects.get_or_create(
+        event=event,
+        slug="cleo-vance",
+        defaults={"display_name": "Cleo Vance", "user": None},
+    )
+    misplaced.tracks.add(track)
+    misplaced.facilitators.add(cleo)
+    misplaced.time_slots.set([slot_day_one])
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=misplaced,
+        defaults={
+            "session_confirmed": False,
+            "start_time": slot_day_two.start_time,
+            "end_time": slot_day_two.start_time + timedelta(hours=1),
+        },
+    )
+
     # Accepted (unscheduled) sessions for assigning via the timetable
     s1, created = Session.objects.get_or_create(
         event=event,

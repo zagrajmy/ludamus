@@ -107,6 +107,39 @@ class TestTimetableSessionDetailPartView:
             },
         )
 
+    def test_reports_the_length_of_a_session_that_declares_one(
+        self, authenticated_client, active_user, sphere, event, proposal_category
+    ):
+        sphere.managers.add(active_user)
+        session = SessionFactory(
+            category=proposal_category,
+            status="pending",
+            participants_limit=10,
+            min_age=0,
+            duration="PT1H30M",
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data={
+                "session": SessionDTO.model_validate(session),
+                "agenda_item": None,
+                "facilitators": [],
+                "time_slots": [],
+                "time_slots_json": "[]",
+                "duration_minutes": 90,
+                "slug": event.slug,
+                "event": EventDTO.model_validate(event),
+                "back_url": reverse(
+                    "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
+                ),
+            },
+        )
+
     def test_redirects_when_session_belongs_to_other_sphere(
         self, authenticated_client, active_user, sphere, event
     ):

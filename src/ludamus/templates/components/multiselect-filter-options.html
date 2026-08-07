@@ -12,10 +12,10 @@
         </span>
     </label>
 {% empty %}
+    {# Only a searched picker gets here: a static list renders its options in #}
+    {# full, and a filter worth offering has more than one of them. #}
     <p class="py-2 text-sm text-foreground-muted">
-        {% if not search_url %}
-            {% translate "Nothing to filter by yet." %}
-        {% elif searched %}
+        {% if searched %}
             {% translate "Nothing matches your search." %}
         {% else %}
             {% translate "Type a name to find someone." %}

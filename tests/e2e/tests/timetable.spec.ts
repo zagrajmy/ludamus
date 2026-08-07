@@ -110,6 +110,23 @@ test.describe("Timetable", () => {
       .toBeGreaterThan(0);
   });
 
+  test("a session scheduled outside the slot it asked for is flagged on the grid", async ({
+    page,
+  }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // A slot violation is a milder thing than a conflict and says so: its own
+    // marker and colour, distinct from the over-capacity block on day one.
+    const misplaced = page.locator(".timetable-session", { hasText: "Misplaced Demo Game" });
+    await expect(misplaced).toContainText("⏰");
+    await expect(misplaced).toHaveClass(/border-warning/);
+    await expect(misplaced).not.toHaveClass(/border-danger/);
+
+    const overflow = page.locator(".timetable-session", { hasText: "Overflow Demo Game" });
+    await expect(overflow).toContainText("⚠");
+    await expect(overflow).toHaveClass(/border-danger/);
+  });
+
   test("all days stay side-by-side and assign into the selected day", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
 
