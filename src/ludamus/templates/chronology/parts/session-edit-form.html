@@ -78,6 +78,7 @@
                            value="{{ form.participants_limit.value|default:'' }}"
                            min="0"
                            class="w-full border {% if form.participants_limit.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                    <p class="mt-1 text-xs text-foreground-muted">{{ form.participants_limit.help_text }}</p>
                     {% if form.participants_limit.errors %}
                         <p class="mt-1 text-sm text-danger">{{ form.participants_limit.errors.0 }}</p>
                     {% endif %}

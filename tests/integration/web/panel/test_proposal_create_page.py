@@ -39,7 +39,6 @@ from tests.integration.web.panel.helpers import (
     panel_context,
 )
 
-CATEGORY_B_MAX_PARTICIPANTS = 9
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
     b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
@@ -858,18 +857,10 @@ class TestProposalCreateCategoryFields:
         self, panel_client, event
     ):
         ProposalCategory.objects.create(
-            event=event,
-            name="A",
-            slug="a",
-            durations=["PT1H"],
-            max_participants_limit=4,
+            event=event, name="A", slug="a", durations=["PT1H"]
         )
         category_b = ProposalCategory.objects.create(
-            event=event,
-            name="B",
-            slug="b",
-            durations=["PT3H"],
-            max_participants_limit=CATEGORY_B_MAX_PARTICIPANTS,
+            event=event, name="B", slug="b", durations=["PT3H"]
         )
 
         response = panel_client.get(
@@ -894,9 +885,6 @@ class TestProposalCreateCategoryFields:
             ("PT3H", "3h"),
             ("custom", "Custom"),
         ]
-        assert (
-            form.fields["participants_limit"].max_value == CATEGORY_B_MAX_PARTICIPANTS
-        )
 
     def test_get_renders_checkbox_field_with_allow_custom_without_companion(
         self, panel_client, event
