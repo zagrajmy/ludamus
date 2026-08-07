@@ -39,6 +39,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
+from ludamus.mills.timeslots import local_day_windows
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
@@ -493,12 +494,15 @@ class TestEventPageView:
         # expected day grouping with the same local-date rule the view uses.
         expected_dates = sorted(
             {
-                timezone.localtime(start).date()
-                for start in (
-                    now - timedelta(hours=3),
-                    now - timedelta(hours=1),
-                    day_one,
-                    day_one + timedelta(days=1),
+                window_start.date()
+                for start, end in (
+                    (now - timedelta(hours=3), now - timedelta(hours=2)),
+                    (now - timedelta(hours=1), now + timedelta(hours=1)),
+                    (day_one, day_one + timedelta(hours=4)),
+                    (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
+                )
+                for window_start, __ in local_day_windows(
+                    start, end, timezone.get_current_timezone()
                 )
             }
         )
