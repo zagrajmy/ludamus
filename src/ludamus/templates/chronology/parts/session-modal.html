@@ -293,7 +293,7 @@
                         {# current_user is always an ACTIVE user (the profile context #}
                         {# processor only resolves active accounts), so enrollment #}
                         {# actions always apply here. #}
-                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" %}
+                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" %}
                     {% elif request.session.anonymous_enrollment_active %}
                         {% if data.user_enrolled or data.user_waiting %}
                             <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"

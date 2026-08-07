@@ -17,6 +17,16 @@
             <span>{{ enroll_error }}</span>
         </p>
     {% endif %}
+    {# Set only when nothing below renders, so an action that leaves the viewer #}
+    {# holding nothing still says so instead of blanking the footer. #}
+    {% if notice %}
+        <p class="text-xs text-foreground-muted flex items-center gap-1 text-right"
+           role="status"
+           aria-live="polite">
+            {% icon "check-circle" class="w-3.5 h-3.5 shrink-0" variant="mini" %}
+            <span>{{ notice }}</span>
+        </p>
+    {% endif %}
     {% if actions %}
         {% url 'web:chronology:session-enrollment' event_slug=event_slug session_id=session_pk as enroll_url %}
         <div class="flex items-center gap-2.5">

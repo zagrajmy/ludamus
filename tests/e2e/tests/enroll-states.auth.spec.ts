@@ -31,10 +31,20 @@ const release = async (page: Page, title: string) => {
   }
 };
 
+// Both tests act as the same seeded tester on the same event, and the suite is
+// fullyParallel with two workers on CI — run in parallel, one test's restore
+// would cancel the other's seat mid-assertion. Serial is the house pattern for
+// specs that mutate shared seed data (panel, confirmations, timetable, …).
+test.describe.configure({ mode: "serial" });
+
 test.describe("Ways into a session while enrollment is open", () => {
-  test.afterEach(async ({ page }) => {
-    await release(page, "Seat Available Demo");
-    await release(page, "Waiting List Only Demo");
+  // Scoped to the session the test actually touched, so a restore never
+  // reaches into a sibling's state.
+  test.afterEach(async ({ page }, testInfo) => {
+    await release(
+      page,
+      testInfo.title.includes("full session") ? "Waiting List Only Demo" : "Seat Available Demo",
+    );
   });
 
   test("a session with room offers a seat, and taking it flips to the way out", async ({

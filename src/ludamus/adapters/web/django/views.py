@@ -1051,7 +1051,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return user_data
 
     def _render_enroll_actions(
-        self, session: Session, *, enroll_error: str = ""
+        self, session: Session, *, enroll_error: str = "", notice: str = ""
     ) -> HttpResponse:
         # The modal-footer fragment, swapped in place after an inline
         # (HX-Request) self-enroll; state is re-read fresh from the DB. Same
@@ -1064,6 +1064,13 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 session=session, user_id=viewer_pk
             ).values_list("status", flat=True)
         )
+        actions = build_enroll_actions(
+            is_enrollment_available=session.is_enrollment_available,
+            is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
+            is_full=session.is_full,
+            user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
+            user_waiting=SessionParticipationStatus.WAITING in statuses,
+        )
         return TemplateResponse(
             self.request,
             "chronology/parts/session-enroll-actions.html",
@@ -1071,14 +1078,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "event_slug": session.event.slug,
                 "session_pk": session.pk,
                 "viewer_pk": viewer_pk,
-                "actions": build_enroll_actions(
-                    is_enrollment_available=session.is_enrollment_available,
-                    is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
-                    is_full=session.is_full,
-                    user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
-                    user_waiting=SessionParticipationStatus.WAITING in statuses,
-                ),
+                "actions": actions,
                 "enroll_error": enroll_error,
+                # Giving up the last thing you held on a shut window leaves
+                # nothing to render, so the flash is the only confirmation
+                # there is. Otherwise the swapped-in badge says it better.
+                "notice": notice if actions is None else "",
             },
         )
 
@@ -1180,10 +1185,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             raise
 
         if is_htmx:
-            # The swapped-in state badge is the confirmation, so consume the
-            # success flash rather than leaking it onto the next full page load.
-            self._drain_messages()
-            return self._render_enroll_actions(session)
+            # Drained either way, so a flash never leaks onto the next full
+            # page load; the fragment shows it only when it has no badge to
+            # confirm with.
+            return self._render_enroll_actions(session, notice=self._drain_messages())
         return redirect("web:chronology:event", slug=session.event.slug)
 
     def _household(self, roster: EnrollmentRoster) -> list[RosterMember]:

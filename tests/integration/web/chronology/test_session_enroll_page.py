@@ -2411,6 +2411,7 @@ class TestSessionEnrollInline:
         is_enrollment_available=True,
         is_ended=False,
         enroll_error="",
+        notice="",
     ):
         return {
             "event_slug": session.event.slug,
@@ -2424,6 +2425,7 @@ class TestSessionEnrollInline:
                 user_waiting=user_waiting,
             ),
             "enroll_error": enroll_error,
+            "notice": notice,
         }
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -2460,6 +2462,7 @@ class TestSessionEnrollInline:
                     group_label="Enroll with others…",
                 ),
                 "enroll_error": "",
+                "notice": "",
             },
             messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
             contains=['value="cancel"'],
@@ -2524,7 +2527,12 @@ class TestSessionEnrollInline:
             HTTPStatus.OK,
             template_name=self.FRAGMENT,
             context_data=self._ctx(
-                session=session, viewer_pk=staff_user.id, is_enrollment_available=False
+                session=session,
+                viewer_pk=staff_user.id,
+                is_enrollment_available=False,
+                # Nothing held and no way back in, so the fragment has no badge
+                # to confirm with — the flash carries it instead of vanishing.
+                notice=f"Cancelled: {staff_user.name}",
             ),
             messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
         )
@@ -2532,11 +2540,54 @@ class TestSessionEnrollInline:
             user=staff_user, session=session
         ).exists()
 
-    def test_htmx_cancel_on_an_ended_session_leaves_no_control(
+    # A rejected post re-renders the fragment with the viewer's seat intact,
+    # which is the only way to observe is_ended on this path: a successful
+    # cancel leaves nothing held, and then the guard returns None either way.
+    @staticmethod
+    def _invalid_choice_errors(name):
+        return [
+            (messages.ERROR, f"Invalid choice for {name}: bogus"),
+            (messages.WARNING, "Please review the enrollment options below."),
+        ]
+
+    def test_htmx_error_before_the_end_keeps_the_way_out(
         self, staff_user, agenda_item, staff_client
     ):
-        # Derived from the agenda item, so wiring is_ended=False here instead of
-        # the real end time would leave a live control on a finished session.
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "bogus"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                user_enrolled=True,
+                is_enrollment_available=False,
+                enroll_error=(
+                    f"Invalid choice for {staff_user.name}: bogus "
+                    "Please review the enrollment options below."
+                ),
+            ),
+            messages=self._invalid_choice_errors(staff_user.name),
+        )
+
+    def test_htmx_error_on_an_ended_session_offers_nothing(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # Same post, only the end time differs: wiring is_ended=False in the
+        # view instead of the agenda item would leave a live control here.
         session = agenda_item.session
         agenda_item.start_time = datetime.now(tz=UTC) - timedelta(hours=3)
         agenda_item.end_time = datetime.now(tz=UTC) - timedelta(hours=1)
@@ -2549,7 +2600,7 @@ class TestSessionEnrollInline:
 
         response = staff_client.post(
             self._url(session.pk, session.event.slug),
-            data={f"user_{staff_user.id}": "cancel"},
+            data={f"user_{staff_user.id}": "bogus"},
             HTTP_HX_REQUEST="true",
         )
 
@@ -2560,10 +2611,15 @@ class TestSessionEnrollInline:
             context_data=self._ctx(
                 session=session,
                 viewer_pk=staff_user.id,
+                user_enrolled=True,
                 is_enrollment_available=False,
                 is_ended=True,
+                enroll_error=(
+                    f"Invalid choice for {staff_user.name}: bogus "
+                    "Please review the enrollment options below."
+                ),
             ),
-            messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
+            messages=self._invalid_choice_errors(staff_user.name),
         )
 
     @pytest.mark.usefixtures("enrollment_config")

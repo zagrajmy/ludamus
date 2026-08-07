@@ -47,6 +47,9 @@ test.describe("Resigning after enrollment closes", () => {
 
     await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
     expect(confirmed).toContain("cannot take it back");
+    // With the window shut there is no badge left to swap in, so the footer
+    // must say what happened rather than going silently blank.
+    await expect(dialog.getByRole("status")).toContainText("Cancelled");
 
     // The seat is gone for good. Opening the modal put ?session=… in the URL,
     // so a reload lands straight back on it — and it offers no way in.
@@ -75,6 +78,7 @@ test.describe("Resigning after enrollment closes", () => {
 
     await expect(dialog.getByRole("button", { name: "Leave", exact: true })).toHaveCount(0);
     expect(confirmed).toContain("cannot rejoin it");
+    await expect(dialog.getByRole("status")).toContainText("Cancelled");
 
     await page.reload();
     await expect(dialog).toBeVisible();
