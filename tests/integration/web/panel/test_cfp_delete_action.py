@@ -4,9 +4,11 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import ProposalCategory, Session
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+)
 
 
 class TestCFPDeleteActionView:
@@ -27,9 +29,7 @@ class TestCFPDeleteActionView:
 
         response = client.post(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         category = ProposalCategory.objects.create(
@@ -38,23 +38,15 @@ class TestCFPDeleteActionView:
 
         response = authenticated_client.post(self.get_url(event, category))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_post_deletes_category_when_no_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_deletes_category_when_no_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
         category_pk = category.pk
 
-        response = authenticated_client.post(self.get_url(event, category))
+        response = panel_client.post(self.get_url(event, category))
 
         assert_response(
             response,
@@ -64,10 +56,7 @@ class TestCFPDeleteActionView:
         )
         assert not ProposalCategory.objects.filter(pk=category_pk).exists()
 
-    def test_post_error_when_proposals_exist(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_error_when_proposals_exist(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -82,7 +71,7 @@ class TestCFPDeleteActionView:
             participants_limit=6,
         )
 
-        response = authenticated_client.post(self.get_url(event, category))
+        response = panel_client.post(self.get_url(event, category))
 
         assert_response(
             response,
@@ -94,34 +83,23 @@ class TestCFPDeleteActionView:
         )
         assert ProposalCategory.objects.filter(pk=category.pk).exists()
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:cfp-delete",
             kwargs={"event_slug": "nonexistent", "category_slug": "any"},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_category_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_category_slug(self, panel_client, event):
         url = reverse(
             "panel:cfp-delete",
             kwargs={"event_slug": event.slug, "category_slug": "nonexistent"},
         )
 
-        response = authenticated_client.post(url)
+        response = panel_client.post(url)
 
         assert_response(
             response,
@@ -130,12 +108,11 @@ class TestCFPDeleteActionView:
             url=f"/panel/event/{event.slug}/cfp/",
         )
 
-    def test_get_not_allowed(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_get_not_allowed(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(response, HTTPStatus.METHOD_NOT_ALLOWED)
