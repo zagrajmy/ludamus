@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from django.core.paginator import Page, Paginator
+from django.http import Http404
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
@@ -89,6 +90,9 @@ class EventContextMixin(EventPanelContextMixin):
 
         Returns:
             Tuple of (sorted_tracks, managed_track_pks, filter_track_pk).
+
+        Raises:
+            Http404: the `track` GET param names a track of another event.
         """
         all_tracks = self.request.di.uow.tracks.list_by_event(event_pk)
         managed_tracks = self.request.di.uow.tracks.list_by_manager(
@@ -97,10 +101,16 @@ class EventContextMixin(EventPanelContextMixin):
         managed_pks = {t.pk for t in managed_tracks}
 
         track_param = self.request.GET.get("track", "").strip()
+        # Panel access proves this organizer manages the event, not that a pk
+        # in the query string belongs to it. The services scope it again before
+        # they read anything; refusing here too costs no query — `all_tracks`
+        # is already loaded — and stops a stale link from quietly rendering the
+        # unfiltered page as if the filter had applied.
         if "track" not in self.request.GET and len(managed_tracks) == 1:
             filter_track_pk: int | None = managed_tracks[0].pk
         elif track_param.isdigit():
-            filter_track_pk = int(track_param)
+            if (filter_track_pk := int(track_param)) not in {t.pk for t in all_tracks}:
+                raise Http404
         else:
             filter_track_pk = None
 

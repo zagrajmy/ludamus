@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-03 19:31+0200\n"
+"POT-Creation-Date: 2026-08-06 00:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1626,7 +1626,7 @@ msgstr "Zaakceptowane"
 #: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "On hold"
-msgstr "Wstrzymane"
+msgstr "Rezerwa"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
@@ -1662,7 +1662,7 @@ msgstr "Zgłoszenie zostało zaakceptowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal put on hold."
-msgstr "Zgłoszenie zostało wstrzymane."
+msgstr "Zgłoszenie zostało przeniesione do rezerwy."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal rejected."
@@ -7264,7 +7264,7 @@ msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
-#: src/ludamus/templates/panel/parts/timetable-day-grid.html
+#: src/ludamus/templates/panel/parts/timetable-session-card.html
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
@@ -8047,7 +8047,7 @@ msgstr "Zaakceptuj"
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Hold"
-msgstr "Wstrzymaj"
+msgstr "Do rezerwy"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html
@@ -8670,14 +8670,6 @@ msgid "Day:"
 msgstr "Dzień:"
 
 #: src/ludamus/templates/panel/timetable.html
-msgid "Confirm block"
-msgstr "Potwierdź blok"
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Confirm all"
-msgstr "Potwierdź wszystkie"
-
-#: src/ludamus/templates/panel/timetable.html
 msgid "This program item is confirmed. Moving it will clear the confirmation."
 msgstr ""
 "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
@@ -8790,6 +8782,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Confirm block"
+#~ msgstr "Potwierdź blok"
+
+#~ msgid "Confirm all"
+#~ msgstr "Potwierdź wszystkie"
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"
