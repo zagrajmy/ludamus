@@ -13,7 +13,6 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts import (
-    EventDTO,
     OrganizerFieldDTO,
     ProposalCategoryDTO,
     SessionDTO,
@@ -29,11 +28,15 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import PageMatcher, assert_response
+from tests.integration.utils import PageMatcher, assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    panel_context,
+    proposal_detail_context,
+)
 
 _PAGE_SIZES = [10, 20, 50, 100]
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
 _STATUSES = [
     ("pending", "Pending"),
@@ -117,23 +120,6 @@ _SMALL_PAGE_SIZE = 10
 _SMALL_TOTAL_PAGES = _SEED_COUNT // _SMALL_PAGE_SIZE
 
 
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "proposals",
-    }
-
-
 def _proposal(session):
     return SessionListItemDTO(
         pk=session.pk,
@@ -158,19 +144,12 @@ class TestProposalsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -181,26 +160,17 @@ class TestProposalsPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_ok_for_sphere_manager_empty(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_for_sphere_manager_empty(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event),
@@ -213,9 +183,8 @@ class TestProposalsPageView:
         )
 
     def test_shows_rejected_and_scheduled_status_badges(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -239,7 +208,7 @@ class TestProposalsPageView:
         )
         AgendaItemFactory(session=scheduled_session, space=SpaceFactory(event=event))
 
-        response = authenticated_client.get(self.get_url(event), {"status": ""})
+        response = panel_client.get(self.get_url(event), {"status": ""})
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -247,9 +216,8 @@ class TestProposalsPageView:
         assert "Scheduled" in content
 
     def test_shows_accepted_and_on_hold_status_badges(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -272,17 +240,14 @@ class TestProposalsPageView:
             status="on_hold",
         )
 
-        response = authenticated_client.get(self.get_url(event), {"status": ""})
+        response = panel_client.get(self.get_url(event), {"status": ""})
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
         assert "Accepted" in content
         assert "On hold" in content
 
-    def test_list_trims_byline_column_and_relabels_header(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_list_trims_byline_column_and_relabels_header(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         long_name = "A Very Long Submission Byline That Would Blow Up The Row Width"
         session = Session.objects.create(
@@ -295,14 +260,14 @@ class TestProposalsPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(
@@ -335,10 +300,7 @@ class TestProposalsPageView:
             contains=["Display Name", f'title="{long_name}"', "max-w-xs truncate"],
         )
 
-    def test_filters_by_category(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_filters_by_category(self, panel_client, event):
         cat_a = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         cat_b = ProposalCategory.objects.create(event=event, name="Board", slug="board")
         Session.objects.create(
@@ -360,34 +322,26 @@ class TestProposalsPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"category": str(cat_a.pk)}
-        )
+        response = panel_client.get(self.get_url(event), {"category": str(cat_a.pk)})
 
         assert response.status_code == HTTPStatus.OK
         assert [p.title for p in response.context["proposals"]] == ["In A"]
         assert response.context["filter_category_pk"] == cat_a.pk
 
-    def test_ignores_foreign_category_filter(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_ignores_foreign_category_filter(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)
         foreign_category = ProposalCategory.objects.create(
             event=other_event, name="Foreign", slug="foreign"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"category": str(foreign_category.pk)}
         )
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["filter_category_pk"] is None
 
-    def test_paginates_proposals(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_paginates_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         for i in range(_SEED_COUNT):
             Session.objects.create(
@@ -400,8 +354,8 @@ class TestProposalsPageView:
                 status="pending",
             )
 
-        page1 = authenticated_client.get(self.get_url(event))
-        page2 = authenticated_client.get(self.get_url(event), {"page": "2"})
+        page1 = panel_client.get(self.get_url(event))
+        page2 = panel_client.get(self.get_url(event), {"page": "2"})
 
         assert len(page1.context["proposals"]) == _PAGE_SIZE
         assert page1.context["page_obj"].number == 1
@@ -409,10 +363,7 @@ class TestProposalsPageView:
         assert len(page2.context["proposals"]) == _LAST_PAGE_COUNT
         assert page2.context["page_obj"].number == _TOTAL_PAGES
 
-    def test_pagination_clamps_out_of_range_pages(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_pagination_clamps_out_of_range_pages(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         for i in range(_SEED_COUNT):
             Session.objects.create(
@@ -425,14 +376,13 @@ class TestProposalsPageView:
                 status="pending",
             )
 
-        non_integer = authenticated_client.get(self.get_url(event), {"page": "abc"})
-        too_high = authenticated_client.get(self.get_url(event), {"page": "999"})
+        non_integer = panel_client.get(self.get_url(event), {"page": "abc"})
+        too_high = panel_client.get(self.get_url(event), {"page": "999"})
 
         assert non_integer.context["page_obj"].number == 1
         assert too_high.context["page_obj"].number == _TOTAL_PAGES
 
-    def test_sorts_proposals(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_sorts_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         sessions = {
             title: Session.objects.create(
@@ -447,13 +397,13 @@ class TestProposalsPageView:
             for title in ("Banana", "Cherry", "Apple")
         }
 
-        ascending = authenticated_client.get(self.get_url(event), {"sort": "title"})
-        descending = authenticated_client.get(self.get_url(event), {"sort": "-title"})
-        bogus = authenticated_client.get(self.get_url(event), {"sort": "bogus"})
+        ascending = panel_client.get(self.get_url(event), {"sort": "title"})
+        descending = panel_client.get(self.get_url(event), {"sort": "-title"})
+        bogus = panel_client.get(self.get_url(event), {"sort": "bogus"})
 
         def expected(order, sort):
             return {
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(sessions[title]) for title in order]),
@@ -491,8 +441,7 @@ class TestProposalsPageView:
             context_data=expected(("Apple", "Cherry", "Banana"), ""),
         )
 
-    def test_page_size_param(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_page_size_param(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         newest_first = [
             Session.objects.create(
@@ -507,12 +456,12 @@ class TestProposalsPageView:
             for i in range(_SEED_COUNT)
         ][::-1]
 
-        smaller = authenticated_client.get(self.get_url(event), {"page_size": "10"})
-        unlisted = authenticated_client.get(self.get_url(event), {"page_size": "7"})
+        smaller = panel_client.get(self.get_url(event), {"page_size": "10"})
+        unlisted = panel_client.get(self.get_url(event), {"page_size": "7"})
 
         def expected(page_sessions, num_pages):
             return {
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(s) for s in page_sessions]),
@@ -545,10 +494,7 @@ class TestProposalsPageView:
             context_data=expected(newest_first[:_PAGE_SIZE], _TOTAL_PAGES),
         )
 
-    def test_returns_proposals_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_returns_proposals_in_context(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -561,14 +507,14 @@ class TestProposalsPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(
@@ -600,10 +546,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_search_matches_title(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_matches_title(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         dragon = Session.objects.create(
             event=event,
@@ -624,14 +567,14 @@ class TestProposalsPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event), {"search": "Dragon"})
+        response = panel_client.get(self.get_url(event), {"search": "Dragon"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(dragon)]),
@@ -650,10 +593,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_search_matches_display_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_matches_display_name(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -676,16 +616,14 @@ class TestProposalsPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"search": "Mysterious"}
-        )
+        response = panel_client.get(self.get_url(event), {"search": "Mysterious"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(
@@ -717,10 +655,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_search_matches_host_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_matches_host_name(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         other_user = UserFactory(username="other", name="Other Person")
         Session.objects.create(
@@ -744,14 +679,14 @@ class TestProposalsPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event), {"search": "Other"})
+        response = panel_client.get(self.get_url(event), {"search": "Other"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(
@@ -783,10 +718,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_filters_by_session_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_filters_by_session_field(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(
             event=event,
@@ -820,7 +752,7 @@ class TestProposalsPageView:
             session=session2, field=field, value="Fate Core"
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {f"field_{field.pk}": "D&D 5e"}
         )
 
@@ -829,7 +761,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(session1)]),
@@ -858,9 +790,8 @@ class TestProposalsPageView:
         )
 
     def test_filters_by_session_field_with_polish_characters(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(
             event=event,
@@ -894,7 +825,7 @@ class TestProposalsPageView:
         )
         SessionFieldValue.objects.create(session=session2, field=field, value="przemoc")
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {f"field_{field.pk}": "przekleństwa"}
         )
 
@@ -903,7 +834,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(session1)]),
@@ -931,10 +862,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_search_across_field_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_across_field_values(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(
             event=event,
@@ -968,14 +896,14 @@ class TestProposalsPageView:
             session=session2, field=field, value="Fate Core"
         )
 
-        response = authenticated_client.get(self.get_url(event), {"search": "D&D"})
+        response = panel_client.get(self.get_url(event), {"search": "D&D"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(session1)]),
@@ -994,10 +922,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_search_with_polish_characters(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_search_with_polish_characters(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(
             event=event,
@@ -1033,16 +958,14 @@ class TestProposalsPageView:
             session=session2, field=field, value="Zawiera przemoc"
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"search": "przekleństwa"}
-        )
+        response = panel_client.get(self.get_url(event), {"search": "przekleństwa"})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event, [_proposal(session1)]),
@@ -1078,7 +1001,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
@@ -1101,15 +1024,14 @@ class TestProposalsPageView:
         )
 
     def test_all_tracks_state_round_trips_across_filter_forms(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="My Track", slug="my-track", is_public=True
         )
         track.managers.add(active_user)
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event), {"track": "", "status": "accepted"}
         )
 
@@ -1118,7 +1040,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
@@ -1148,25 +1070,20 @@ class TestProposalsPageView:
             not_contains=f'name="track" value="{track.pk}"',
         )
 
-    def test_track_form_carries_category_filter_forward(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_track_form_carries_category_filter_forward(self, panel_client, event):
         track = Track.objects.create(
             event=event, name="My Track", slug="my-track", is_public=True
         )
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
-        response = authenticated_client.get(
-            self.get_url(event), {"category": str(category.pk)}
-        )
+        response = panel_client.get(self.get_url(event), {"category": str(category.pk)})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
@@ -1207,7 +1124,7 @@ class TestProposalsPageView:
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_list_chrome(event),
                 "deleted_proposals": [],
                 "proposals": [],
@@ -1278,10 +1195,7 @@ class TestProposalsPageView:
         assert response.context["filter_track_multi"] is True
         assert response.context["filter_track_pk"] is None
 
-    def test_excludes_text_fields_from_filters(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_excludes_text_fields_from_filters(self, panel_client, event):
         SessionField.objects.create(
             event=event,
             name="Notes",
@@ -1297,14 +1211,14 @@ class TestProposalsPageView:
             field_type="select",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposals.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "deleted_proposals": [],
                 **_TRACK_FILTER_CONTEXT,
                 **_list_chrome(event),
@@ -1325,10 +1239,7 @@ class TestProposalsPageView:
             },
         )
 
-    def test_default_status_filter_shows_all_statuses(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_default_status_filter_shows_all_statuses(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -1358,17 +1269,14 @@ class TestProposalsPageView:
             status="rejected",
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         titles = {p.title for p in response.context["proposals"]}
         assert titles == {"Pending Session", "Accepted Session", "Rejected Session"}
         assert response.context["filter_status"] is None
 
-    def test_filters_by_status_param(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_filters_by_status_param(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -1389,16 +1297,13 @@ class TestProposalsPageView:
             status="accepted",
         )
 
-        response = authenticated_client.get(self.get_url(event), {"status": "accepted"})
+        response = panel_client.get(self.get_url(event), {"status": "accepted"})
 
         assert response.status_code == HTTPStatus.OK
         assert [p.title for p in response.context["proposals"]] == ["Accepted Session"]
         assert response.context["filter_status"] == SessionStatus.ACCEPTED
 
-    def test_empty_status_param_shows_all_statuses(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_empty_status_param_shows_all_statuses(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -1419,17 +1324,14 @@ class TestProposalsPageView:
             status="accepted",
         )
 
-        response = authenticated_client.get(self.get_url(event), {"status": ""})
+        response = panel_client.get(self.get_url(event), {"status": ""})
 
         assert response.status_code == HTTPStatus.OK
         titles = {p.title for p in response.context["proposals"]}
         assert titles == {"Pending Session", "Accepted Session"}
         assert response.context["filter_status"] is None
 
-    def test_scheduled_filter_shows_only_scheduled_sessions(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_scheduled_filter_shows_only_scheduled_sessions(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -1456,18 +1358,13 @@ class TestProposalsPageView:
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(
-            self.get_url(event), {"status": "scheduled"}
-        )
+        response = panel_client.get(self.get_url(event), {"status": "scheduled"})
 
         assert response.status_code == HTTPStatus.OK
         assert [p.title for p in response.context["proposals"]] == ["Scheduled Session"]
         assert response.context["filter_status"] == "scheduled"
 
-    def test_status_filter_excludes_scheduled_sessions(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_status_filter_excludes_scheduled_sessions(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -1494,7 +1391,7 @@ class TestProposalsPageView:
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event), {"status": "accepted"})
+        response = panel_client.get(self.get_url(event), {"status": "accepted"})
 
         assert response.status_code == HTTPStatus.OK
         assert [p.title for p in response.context["proposals"]] == [
@@ -1518,19 +1415,12 @@ class TestProposalDetailPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event, 999))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_get_redirects_on_invalid_event_slug(
         self, authenticated_client, active_user, sphere
@@ -1543,19 +1433,10 @@ class TestProposalDetailPageView:
 
         response = authenticated_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_redirects_for_missing_proposal(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event, 99999))
+    def test_redirects_for_missing_proposal(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, 99999))
 
         proposals_url = reverse("panel:proposals", kwargs={"slug": event.slug})
         assert_response(
@@ -1565,10 +1446,7 @@ class TestProposalDetailPageView:
             url=proposals_url,
         )
 
-    def test_shows_proposal_details(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_proposal_details(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -1582,23 +1460,16 @@ class TestProposalDetailPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
-                "active_nav": "proposals",
+                **proposal_detail_context(
+                    event=event, session=session, presenter=active_user
+                ),
                 "active_tab": "details",
                 "tab_urls": {
                     "details": self.get_url(event, session.pk),
@@ -1607,22 +1478,10 @@ class TestProposalDetailPageView:
                         kwargs={"slug": event.slug, "proposal_id": session.pk},
                     ),
                 },
-                "proposal": SessionDTO.model_validate(session),
-                "category_name": "RPG",
-                "proposal_tracks": [],
-                "agenda_item": None,
-                "schedule_logs": [],
-                "field_values": [],
-                "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
-                "preferred_time_slots": [],
-                "import_log_entry": None,
-                "import_log_integration": None,
             },
         )
 
-    def test_shows_field_values(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_shows_field_values(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(
             event=event, name="System", question="What RPG system?", slug="system"
@@ -1639,14 +1498,14 @@ class TestProposalDetailPageView:
         )
         SessionFieldValue.objects.create(session=session, field=field, value="D&D 5e")
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 1,
                     "pending_proposals": 1,
@@ -1686,10 +1545,7 @@ class TestProposalDetailPageView:
             },
         )
 
-    def test_formats_list_field_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_formats_list_field_values(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         field = SessionField.objects.create(
             event=event,
@@ -1712,7 +1568,7 @@ class TestProposalDetailPageView:
             session=session, field=field, value=["RPG", "Popculture"]
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
