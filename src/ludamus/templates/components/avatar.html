@@ -11,12 +11,14 @@
                         <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
                     </div>
                     {% if user.avatar_url %}
+                        {# data-avatar-image: avatar.ts hides the image when it fails to load, so the initials below show through instead of a broken-image glyph. #}
                         <img src="{{ user.avatar_url }}"
                              alt=""
                              width="32"
                              height="32"
                              class="absolute inset-0 h-full w-full object-cover"
-                             loading="lazy">
+                             loading="lazy"
+                             data-avatar-image>
                     {% endif %}
                 </div>
                 {% if is_danger %}
