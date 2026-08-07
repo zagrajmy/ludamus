@@ -6,15 +6,20 @@ from unittest.mock import ANY
 import pytest
 from django.contrib import messages
 from django.urls import reverse
+from django.utils import timezone
 
 from ludamus.links.db.django.models import Facilitator, Track
 from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import (
     MultiselectOptionDTO,
+    SessionPositionDTO,
+    SpaceColumnDTO,
     SpaceGroupDTO,
+    TimeLabelDTO,
+    TimetableDayGridDTO,
     TimetableGridDTO,
 )
-from ludamus.pacts.legacy import SpaceDTO
+from ludamus.pacts.legacy import AgendaItemDTO, SessionStatus, SpaceDTO
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -50,6 +55,35 @@ def _empty_grid(**overrides):
         total_columns=0,
         available_dates=[],
     ).model_copy(update=overrides)
+
+
+def _one_room_two_hour_grid(*, space, slot_start, sessions):
+    # One room, one two-hour slot starting on the hour: the whole geometry is
+    # then a single day column and three hourly lines, which a test can spell
+    # out -- so what a filter keeps or drops is a pinned grid, not an ANY.
+    local_start = timezone.localtime(slot_start)
+    space_dto = SpaceDTO.model_validate(space)
+    return _empty_grid(
+        spaces=[space_dto],
+        groups=[SpaceGroupDTO(parent_pk=None, parent_name="", span=1)],
+        days=[
+            TimetableDayGridDTO(
+                date=local_start.date(),
+                columns=[SpaceColumnDTO(space=space_dto, sessions=sessions)],
+                event_start_iso=local_start.isoformat(),
+            )
+        ],
+        time_labels=[
+            TimeLabelDTO(
+                time=local_start + timedelta(hours=hour), offset_minutes=hour * 60
+            )
+            for hour in range(3)
+        ],
+        total_minutes=2 * 60,
+        total_spaces=1,
+        total_columns=1,
+        available_dates=[local_start.date()],
+    )
 
 
 def _page_context(event, *, stats=None, **overrides):
@@ -95,15 +129,6 @@ def _page_context(event, *, stats=None, **overrides):
         "print_url": reverse("web:chronology:event-print", kwargs={"slug": event.slug}),
         **overrides,
     }
-
-
-def _scheduled_session_pks(response):
-    return [
-        pos.agenda_item.session_id
-        for day in response.context_data["grid"].days
-        for col in day.columns
-        for pos in col.sessions
-    ]
 
 
 def _base_context(event):
@@ -525,18 +550,15 @@ class TestTimetablePageView:
         )
 
     def test_filters_the_grid_by_facilitator(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, authenticated_client, active_user, sphere, event, session, space
     ):
         sphere.managers.add(active_user)
-        start = event.start_time
-        AgendaItemFactory(
+        # On the hour, so the slot's own window is the grid's time axis.
+        start = event.start_time.replace(minute=0, second=0, microsecond=0)
+        TimeSlotFactory(
+            event=event, start_time=start, end_time=start + timedelta(hours=2)
+        )
+        hers = AgendaItemFactory(
             session=session,
             space=space,
             start_time=start,
@@ -564,7 +586,31 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=ANY,
+                grid=_one_room_two_hour_grid(
+                    space=space,
+                    slot_start=start,
+                    sessions=[
+                        SessionPositionDTO(
+                            agenda_item=AgendaItemDTO(
+                                pk=hers.pk,
+                                start_time=start,
+                                end_time=start + timedelta(hours=1),
+                                session_confirmed=False,
+                                space_id=space.pk,
+                                space_name=space.name,
+                                session_id=session.pk,
+                                session_title=session.title,
+                                session_description=session.description,
+                                presenter_name=session.display_name,
+                                session_duration_minutes=60,
+                                session_status=SessionStatus.PENDING,
+                                category_name=None,
+                            ),
+                            start_minutes=0,
+                            duration_minutes=60,
+                        )
+                    ],
+                ),
                 space_options=[
                     MultiselectOptionDTO(value=space.pk, label=space.name, depth=0)
                 ],
@@ -585,21 +631,15 @@ class TestTimetablePageView:
                 },
             ),
         )
-        assert _scheduled_session_pks(response) == [session.pk]
-        assert time_slot is not None
 
     def test_facilitator_from_another_event_empties_the_grid(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        session,
-        space,
-        time_slot,
+        self, authenticated_client, active_user, sphere, event, session, space
     ):
         sphere.managers.add(active_user)
-        start = event.start_time
+        start = event.start_time.replace(minute=0, second=0, microsecond=0)
+        TimeSlotFactory(
+            event=event, start_time=start, end_time=start + timedelta(hours=2)
+        )
         AgendaItemFactory(
             session=session,
             space=space,
@@ -621,7 +661,11 @@ class TestTimetablePageView:
             template_name="panel/timetable.html",
             context_data=_page_context(
                 event,
-                grid=ANY,
+                # Her session is scheduled, but a foreign pk matches nobody
+                # here, so the room's column comes back empty.
+                grid=_one_room_two_hour_grid(
+                    space=space, slot_start=start, sessions=[]
+                ),
                 # The sphere's events come back newest first.
                 events=[
                     EventDTO.model_validate(other_event),
@@ -634,8 +678,6 @@ class TestTimetablePageView:
                 stats={"rooms_count": 1, "scheduled_sessions": 1, "total_sessions": 1},
             ),
         )
-        assert _scheduled_session_pks(response) == []
-        assert time_slot is not None
 
     def test_auto_selects_single_managed_track(
         self, authenticated_client, active_user, sphere, event, space
