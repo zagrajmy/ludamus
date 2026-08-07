@@ -48,14 +48,17 @@ const railSlotAnchor = (html: string): string => {
 type RailHour = { label: string; rect: Rect };
 
 // Attribute values arrive escaped; the rail's labels carry event and day names.
+// `&amp;` goes last: unescaping it first would turn a served `&amp;lt;` (the
+// literal text "&lt;") into "<" — CodeQL's double-unescape, and a name that
+// would never match its device label.
 const decodeEntities = (value: string): string =>
   value
-    .replaceAll("&amp;", "&")
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">")
     .replaceAll("&quot;", '"')
     .replaceAll("&#x27;", "'")
-    .replaceAll("&#39;", "'");
+    .replaceAll("&#39;", "'")
+    .replaceAll("&amp;", "&");
 
 const namesFrom = (html: string, pattern: RegExp): Set<string> =>
   new Set([...html.matchAll(pattern)].flatMap((m) => (m[1] ? [decodeEntities(m[1])] : [])));
