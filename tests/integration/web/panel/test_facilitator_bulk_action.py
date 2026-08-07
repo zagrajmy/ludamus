@@ -12,6 +12,10 @@ from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 _DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+_HAS_SESSIONS_ERROR = (
+    "This facilitator is named on sessions, deleted ones included. Remove them"
+    " from those sessions first."
+)
 
 
 def _make_facilitator(event, slug, **kwargs):
@@ -138,7 +142,7 @@ class TestFacilitatorBulkActionView:
             HTTPStatus.FOUND,
             messages=[
                 (messages.SUCCESS, "1 facilitator updated."),
-                (messages.ERROR, "1 facilitator runs sessions and was kept."),
+                (messages.ERROR, f"1 facilitator was skipped: {_HAS_SESSIONS_ERROR}"),
             ],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )

@@ -120,8 +120,15 @@ test.describe("Panel facilitator + proposal CRUD", () => {
   test("cannot delete a facilitator that runs a session", async ({ page }) => {
     await page.goto(FACILITATORS_URL);
 
-    // The proposal above still names them, so the row's delete is inert.
-    await expect(page.getByRole("button", { name: `Delete ${facilitator}` })).toBeDisabled();
+    // The row's delete always submits; the service refuses and says why, so the
+    // answer is correct even for a session attached since the page rendered.
+    await page.getByRole("button", { name: `Delete ${facilitator}` }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+
+    await expect(
+      page.getByText("This facilitator is named on sessions, deleted ones included."),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: facilitator, exact: true })).toBeVisible();
   });
 
   test("deletes and restores a facilitator with no sessions", async ({ page }) => {
@@ -141,6 +148,13 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
     // The filter form autosubmits on change; no Filter click needed.
     await page.getByLabel("Deleted only").check();
+
+    // The bin offers only the actions that work there, in the bulk bar and the row.
+    await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Merge selected" })).toBeHidden();
+    await expect(page.getByRole("button", { name: `Mark ${spare} as guest` })).toBeHidden();
+
     await page.getByRole("link", { name: spare, exact: true }).click();
 
     // The detail page says so and offers the way back.

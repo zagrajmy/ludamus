@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
@@ -98,7 +99,8 @@ _ORGANIZER_REFUSALS: dict[OrganizerActionRefusal, _StrPromise] = {
         "Only the person handling this facilitator can step down."
     ),
     OrganizerActionRefusal.HAS_SESSIONS: gettext_lazy(
-        "This facilitator runs sessions. Remove them from the sessions first."
+        "This facilitator is named on sessions, deleted ones included. Remove"
+        " them from those sessions first."
     ),
 }
 
@@ -415,7 +417,9 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=False,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -442,7 +446,9 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=False,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -693,7 +699,9 @@ class FacilitatorDeleteActionView(_FacilitatorActionView):
 
     def _apply(self, event_id: int, facilitator_slug: str) -> None:
         self.request.services.facilitator_panel.delete(
-            event_id=event_id, facilitator_slug=facilitator_slug
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            user_id=self.request.context.current_user_id,
         )
 
 
@@ -704,7 +712,9 @@ class FacilitatorRestoreActionView(_FacilitatorActionView):
 
     def _apply(self, event_id: int, facilitator_slug: str) -> None:
         self.request.services.facilitator_panel.restore(
-            event_id=event_id, facilitator_slug=facilitator_slug
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            user_id=self.request.context.current_user_id,
         )
 
 
@@ -782,16 +792,19 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
             query = urlencode({"facilitator_slugs": slugs}, doseq=True)
             return redirect(f"{base}?{query}")
 
-        applied = missing = refused = 0
+        applied = missing = 0
+        # Counted per reason, so the report states the refusal the service
+        # actually gave instead of the one the bulk path assumes.
+        refused: Counter[OrganizerActionRefusal] = Counter()
         for facilitator_slug in slugs:
             try:
                 self._apply(action, current_event.pk, facilitator_slug)
             except NotFoundError:
                 missing += 1
-            except FacilitatorActionError:
-                # One refusal (a facilitator still running sessions) stops that
-                # row only; the rest of the selection still goes through.
-                refused += 1
+            except FacilitatorActionError as exc:
+                # One refusal stops that row only; the rest of the selection
+                # still goes through.
+                refused[exc.refusal] += 1
             else:
                 applied += 1
 
@@ -808,11 +821,21 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
                 user_id=self.request.context.current_user_id,
             )
         elif action == "delete":
-            panel.delete(event_id=event_id, facilitator_slug=facilitator_slug)
+            panel.delete(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                user_id=self.request.context.current_user_id,
+            )
         else:
-            panel.restore(event_id=event_id, facilitator_slug=facilitator_slug)
+            panel.restore(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                user_id=self.request.context.current_user_id,
+            )
 
-    def _report(self, *, applied: int, missing: int, refused: int) -> None:
+    def _report(
+        self, *, applied: int, missing: int, refused: Counter[OrganizerActionRefusal]
+    ) -> None:
         if applied:
             messages.success(
                 self.request,
@@ -833,13 +856,15 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
                 )
                 % {"count": missing},
             )
-        if refused:
+        for refusal, count in refused.items():
+            # One reason-agnostic wrapper around the refusal the service gave,
+            # so the bulk path cannot state a reason it never checked.
             messages.error(
                 self.request,
                 ngettext(
-                    "%(count)d facilitator runs sessions and was kept.",
-                    "%(count)d facilitators run sessions and were kept.",
-                    refused,
+                    "%(count)d facilitator was skipped: %(reason)s",
+                    "%(count)d facilitators were skipped: %(reason)s",
+                    count,
                 )
-                % {"count": refused},
+                % {"count": count, "reason": _ORGANIZER_REFUSALS[refusal]},
             )

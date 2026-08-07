@@ -827,6 +827,13 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         return _session_field_dto(field)
 
 
+def _live_session_count() -> Count:
+    # The Sessions column counts what is in the program now. The list and the
+    # merge basket share the expression so the two can never disagree about a
+    # facilitator the organizer is choosing a survivor for.
+    return Count("sessions", filter=Q(sessions__deleted_at__isnull=True), distinct=True)
+
+
 class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def create(data: FacilitatorData) -> FacilitatorDTO:
@@ -912,12 +919,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         qs = Facilitator.all_objects.filter(
             event_id=event_id, deleted_at__isnull=not filters.get("deleted")
         ).annotate(
-            # Deleted sessions no longer name their facilitator anywhere, so
-            # they must not hold a deletion up either.
-            session_count=Count(
-                "sessions", filter=Q(sessions__deleted_at__isnull=True), distinct=True
-            ),
-            organizer_name=F("organizer__name"),
+            session_count=_live_session_count(), organizer_name=F("organizer__name")
         )
 
         if search := filters.get("search"):
@@ -957,7 +959,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             return []
         facilitators = Facilitator.objects.filter(
             event_id=event_id, slug__in=facilitator_slugs
-        ).annotate(session_count=Count("sessions", distinct=True))
+        ).annotate(session_count=_live_session_count())
         by_slug = {f.slug: f for f in facilitators}
         # The caller's order is the answer's order; a slug this event doesn't
         # have drops out rather than raising.
@@ -1040,11 +1042,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def has_sessions(pk: int) -> bool:
-        # `sessions__isnull=False` keeps the join inner: on its own the
-        # `deleted_at IS NULL` half is satisfied by the empty outer join too.
-        return Facilitator.all_objects.filter(
-            pk=pk, sessions__isnull=False, sessions__deleted_at__isnull=True
-        ).exists()
+        # Deleted sessions hold a deletion up too: session deletion is
+        # reversible, so a restored session would come back naming a deleted
+        # facilitator and lose its byline with nothing saying why. The session
+        # bin gets emptied first, or the facilitator stays.
+        return Facilitator.all_objects.filter(pk=pk, sessions__isnull=False).exists()
 
     @staticmethod
     def delete(pk: int) -> None:

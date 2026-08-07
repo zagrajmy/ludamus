@@ -208,14 +208,34 @@ class TestFacilitatorRepositoryHasSessions:
 
         assert FacilitatorRepository.has_sessions(facilitator.pk) is True
 
-    def test_a_deleted_session_does_not_count(self):
+    def test_a_deleted_session_counts_too(self):
+        # It is restorable, and a restore that brought back a session with a
+        # deleted facilitator would drop the byline.
         event = EventFactory.create()
         facilitator = _facilitator(event)
         session = _session(event)
         session.facilitators.add(facilitator)
         session.soft_delete()
 
-        assert FacilitatorRepository.has_sessions(facilitator.pk) is False
+        assert FacilitatorRepository.has_sessions(facilitator.pk) is True
+
+
+class TestFacilitatorRepositorySessionCount:
+    def test_the_list_and_the_merge_basket_agree(self):
+        # Both feed FacilitatorListItemDTO.session_count; an organizer picking a
+        # merge survivor must not see a different number than the list showed.
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        _session(event).facilitators.add(facilitator)
+        deleted_session = _session(event)
+        deleted_session.facilitators.add(facilitator)
+        deleted_session.soft_delete()
+
+        listed = FacilitatorRepository.list_by_event(event.pk)
+        basket = FacilitatorRepository.list_by_slugs(event.pk, [facilitator.slug])
+
+        assert [f.session_count for f in listed] == [1]
+        assert [f.session_count for f in basket] == [1]
 
 
 class TestFacilitatorRepositoryRead:

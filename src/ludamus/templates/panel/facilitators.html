@@ -124,22 +124,28 @@
                             <span class="text-sm text-foreground-muted mr-1">
                                 {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
                             </span>
-                            <button type="submit"
-                                    name="action"
-                                    value="delete"
-                                    class="btn btn-danger text-sm bulk-action-btn">{% translate "Delete" %}</button>
-                            <button type="submit"
-                                    name="action"
-                                    value="restore"
-                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Restore" %}</button>
-                            <button type="submit"
-                                    name="action"
-                                    value="mark-guest"
-                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Mark as guest" %}</button>
-                            <button type="submit"
-                                    name="action"
-                                    value="merge"
-                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Merge selected" %}</button>
+                            {# Deleted and live never mix, so neither do their actions: every
+                               action below reads through the alive-only list and would report
+                               the rows on screen as missing in the other mode. #}
+                            {% if filter_deleted %}
+                                <button type="submit"
+                                        name="action"
+                                        value="restore"
+                                        class="btn btn-secondary text-sm bulk-action-btn">{% translate "Restore" %}</button>
+                            {% else %}
+                                <button type="submit"
+                                        name="action"
+                                        value="delete"
+                                        class="btn btn-danger text-sm bulk-action-btn">{% translate "Delete" %}</button>
+                                <button type="submit"
+                                        name="action"
+                                        value="mark-guest"
+                                        class="btn btn-secondary text-sm bulk-action-btn">{% translate "Mark as guest" %}</button>
+                                <button type="submit"
+                                        name="action"
+                                        value="merge"
+                                        class="btn btn-secondary text-sm bulk-action-btn">{% translate "Merge selected" %}</button>
+                            {% endif %}
                         </div>
                     </form>
                     {% tessera_table %}
@@ -187,47 +193,52 @@
                                 {% endfor %}
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="inline-flex items-center gap-3 justify-end">
-                                        {% if not facilitator.organizer_id %}
-                                            <form method="post"
-                                                  action="{% url 'panel:facilitator-assign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                                  data-confirm="{% blocktranslate with name=facilitator.display_name %}Take {{ name }} on? You handle them until you step down.{% endblocktranslate %}"
-                                                  data-confirm-action="{% translate "Assign to me" %}">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                <button type="submit"
-                                                        title="{% translate "Assign to me" %}"
-                                                        aria-label="{% blocktranslate with name=facilitator.display_name %}Become the organizer of {{ name }}{% endblocktranslate %}"
-                                                        class="text-foreground-muted hover:text-foreground inline-flex items-center">
-                                                    {% icon "hand-raised" class="w-4 h-4" %}
-                                                </button>
-                                            </form>
-                                        {% elif facilitator.organizer_id == current_user.pk or current_user.is_superuser %}
-                                            <form method="post"
-                                                  action="{% url 'panel:facilitator-unassign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                                  data-confirm="{% blocktranslate with name=facilitator.display_name %}Step down from {{ name }}? Anyone can take them on afterwards.{% endblocktranslate %}"
-                                                  data-confirm-action="{% translate "Step down" %}">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                <button type="submit"
-                                                        title="{% translate "Step down" %}"
-                                                        aria-label="{% blocktranslate with name=facilitator.display_name %}Step down from {{ name }}{% endblocktranslate %}"
-                                                        class="text-foreground-muted hover:text-foreground inline-flex items-center">
-                                                    {% icon "user-minus" class="w-4 h-4" %}
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                        {% if facilitator.accreditation_type != "guest" %}
-                                            <form method="post"
-                                                  action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                <button type="submit"
-                                                        title="{% translate "Mark as guest" %}"
-                                                        aria-label="{% blocktranslate with name=facilitator.display_name %}Mark {{ name }} as guest{% endblocktranslate %}"
-                                                        class="text-foreground-muted hover:text-foreground inline-flex items-center">
-                                                    {% icon "user-plus" class="w-4 h-4" %}
-                                                </button>
-                                            </form>
+                                        {# A deleted row answers to restore only: every other action
+                                           reads through the alive-only manager and would come back
+                                           "not found" about the row on screen. #}
+                                        {% if not facilitator.deleted_at %}
+                                            {% if not facilitator.organizer_id %}
+                                                <form method="post"
+                                                      action="{% url 'panel:facilitator-assign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                      data-confirm="{% blocktranslate with name=facilitator.display_name %}Take {{ name }} on? You handle them until you step down.{% endblocktranslate %}"
+                                                      data-confirm-action="{% translate "Assign to me" %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                    <button type="submit"
+                                                            title="{% translate "Assign to me" %}"
+                                                            aria-label="{% blocktranslate with name=facilitator.display_name %}Become the organizer of {{ name }}{% endblocktranslate %}"
+                                                            class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                        {% icon "hand-raised" class="w-4 h-4" %}
+                                                    </button>
+                                                </form>
+                                            {% elif facilitator.organizer_id == current_user.pk or current_user.is_superuser %}
+                                                <form method="post"
+                                                      action="{% url 'panel:facilitator-unassign-organizer' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                      data-confirm="{% blocktranslate with name=facilitator.display_name %}Step down from {{ name }}? Anyone can take them on afterwards.{% endblocktranslate %}"
+                                                      data-confirm-action="{% translate "Step down" %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                    <button type="submit"
+                                                            title="{% translate "Step down" %}"
+                                                            aria-label="{% blocktranslate with name=facilitator.display_name %}Step down from {{ name }}{% endblocktranslate %}"
+                                                            class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                        {% icon "user-minus" class="w-4 h-4" %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                            {% if facilitator.accreditation_type != "guest" %}
+                                                <form method="post"
+                                                      action="{% url 'panel:facilitator-mark-guest' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                    <button type="submit"
+                                                            title="{% translate "Mark as guest" %}"
+                                                            aria-label="{% blocktranslate with name=facilitator.display_name %}Mark {{ name }} as guest{% endblocktranslate %}"
+                                                            class="text-foreground-muted hover:text-foreground inline-flex items-center">
+                                                        {% icon "user-plus" class="w-4 h-4" %}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
                                         {% endif %}
                                         {% if facilitator.deleted_at %}
                                             <form method="post"
@@ -241,15 +252,10 @@
                                                     {% icon "arrow-uturn-left" class="w-4 h-4" %}
                                                 </button>
                                             </form>
-                                        {% elif facilitator.session_count %}
-                                            <button type="button"
-                                                    disabled
-                                                    title="{% translate "This facilitator runs sessions. Remove them from the sessions first." %}"
-                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}{% endblocktranslate %}"
-                                                    class="text-foreground-muted/40 cursor-not-allowed inline-flex items-center">
-                                                {% icon "trash" class="w-4 h-4" %}
-                                            </button>
                                         {% else %}
+                                            {# Always submittable: the service owns "named on sessions ⇒
+                                               not deletable" and answers at click time, when a session
+                                               may have been attached since this page rendered. #}
                                             <form method="post"
                                                   action="{% url 'panel:facilitator-delete' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                                   data-confirm="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}? They disappear from the program; you can restore them later.{% endblocktranslate %}"

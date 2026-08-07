@@ -36,7 +36,8 @@ from tests.integration.web.panel.helpers import (
 _PAGE_SIZES = [10, 20, 50, 100]
 
 _HAS_SESSIONS_ERROR = (
-    "This facilitator runs sessions. Remove them from the sessions first."
+    "This facilitator is named on sessions, deleted ones included. Remove them"
+    " from those sessions first."
 )
 
 _DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
@@ -1139,7 +1140,7 @@ class TestFacilitatorActions:
         facilitator.refresh_from_db()
         assert facilitator.deleted_at is None
 
-    def test_delete_goes_through_once_the_session_is_deleted(
+    def test_delete_is_refused_while_a_deleted_session_names_them(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -1155,11 +1156,51 @@ class TestFacilitatorActions:
         assert_response(
             response,
             HTTPStatus.FOUND,
+            messages=[(messages.ERROR, _HAS_SESSIONS_ERROR)],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
+
+    def test_delete_goes_through_once_the_session_lets_go(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+        session = _session(event)
+        session.facilitators.add(facilitator)
+        session.facilitators.remove(facilitator)
+
+        response = authenticated_client.post(
+            self._url("panel:facilitator-delete", event, facilitator)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Facilitator deleted.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()
         assert facilitator.deleted_at is not None
+
+    def test_restoring_a_session_keeps_its_byline(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # The seam the refusal guards: a deleted session is restorable, so its
+        # facilitator must still be there when it comes back.
+        sphere.managers.add(active_user)
+        facilitator = self._facilitator(event)
+        session = _session(event)
+        session.facilitators.add(facilitator)
+        session.soft_delete()
+
+        authenticated_client.post(
+            self._url("panel:facilitator-delete", event, facilitator)
+        )
+        session.restore()
+
+        assert list(session.facilitators.all()) == [facilitator]
 
     def test_deleting_an_already_deleted_facilitator_reports_it_missing(
         self, authenticated_client, active_user, sphere, event
