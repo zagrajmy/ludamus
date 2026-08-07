@@ -65,9 +65,13 @@ const providedUdid = env.UDID;
 const CHROME_INSET = 120;
 
 export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
+  const centreX = rect.x + rect.width / 2;
   const centreY = rect.y + rect.height / 2;
   return (
-    centreY >= viewport.y + CHROME_INSET && centreY <= viewport.y + viewport.height - CHROME_INSET
+    centreX >= viewport.x &&
+    centreX <= viewport.x + viewport.width &&
+    centreY >= viewport.y + CHROME_INSET &&
+    centreY <= viewport.y + viewport.height - CHROME_INSET
   );
 };
 
@@ -258,7 +262,9 @@ export const createIosHarness = (session: string): IosHarness => {
       async () => {
         let status: number | null = null;
         try {
-          const response = await fetch(url, { headers });
+          // Bounded per request: pollUntil cannot interrupt a pending fetch,
+          // so a stalled server would otherwise hold the hook past the window.
+          const response = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
           const text = await response.text();
           if (response.ok && text.includes(contains)) return text;
 
