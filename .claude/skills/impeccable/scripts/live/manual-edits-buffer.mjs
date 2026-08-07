@@ -10,12 +10,13 @@
  * the real source state).
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { getLiveDir } from '../lib/impeccable-paths.mjs';
+import fs from "node:fs";
+import path from "node:path";
+
+import { getLiveDir } from "../lib/impeccable-paths.mjs";
 
 const BUFFER_VERSION = 1;
-const BUFFER_FILENAME = 'pending-manual-edits.json';
+const BUFFER_FILENAME = "pending-manual-edits.json";
 
 export function getBufferPath(cwd = process.cwd()) {
   return path.join(getLiveDir(cwd), BUFFER_FILENAME);
@@ -32,16 +33,16 @@ export function readBufferStrict(cwd = process.cwd()) {
 function readBufferInternal(cwd, { strict }) {
   const filePath = getBufferPath(cwd);
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
+    const raw = fs.readFileSync(filePath, "utf-8");
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.entries)) {
-      if (strict) throw new Error('manual_edit_buffer_invalid_schema');
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.entries)) {
+      if (strict) throw new Error("manual_edit_buffer_invalid_schema");
       return { version: BUFFER_VERSION, entries: [] };
     }
     return { version: BUFFER_VERSION, entries: parsed.entries };
   } catch (err) {
-    if (strict && err?.code !== 'ENOENT') {
-      throw new Error('manual_edit_buffer_unreadable: ' + (err.message || String(err)));
+    if (strict && err?.code !== "ENOENT") {
+      throw new Error("manual_edit_buffer_unreadable: " + (err.message || String(err)));
     }
     return { version: BUFFER_VERSION, entries: [] };
   }
@@ -50,7 +51,10 @@ function readBufferInternal(cwd, { strict }) {
 export function writeBuffer(cwd, buffer) {
   const filePath = getBufferPath(cwd);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify({ version: BUFFER_VERSION, entries: buffer.entries }, null, 2));
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify({ version: BUFFER_VERSION, entries: buffer.entries }, null, 2),
+  );
 }
 
 /**

@@ -17,176 +17,176 @@
     <div class="p-3 sm:p-4">
         {% if current_event %}
             {% tab_shell "panel/_facilitator_tabs.html" %}
-            {% tab_shell_body %}
-            {% if confirm %}
-                <form method="post"
-                      action="{% url 'panel:facilitator-merge' slug=current_event.slug %}"
-                      data-confirm="{% translate "This cannot be undone. Merge the selected facilitators?" %}"
-                      data-confirm-action="{% translate "Merge" %}"
-                      class="max-w-2xl space-y-6">
-                    {% csrf_token %}
-                    {% for facilitator in facilitators %}
-                        <input type="hidden" name="facilitator_slugs" value="{{ facilitator.slug }}">
-                    {% endfor %}
-                    {% if unanimous_display_name %}
-                        <input type="hidden"
-                               name="display_name"
-                               value="{{ unanimous_display_name }}">
-                    {% endif %}
-                    {% if unanimous_accreditation %}
-                        <input type="hidden"
-                               name="accreditation_type"
-                               value="{{ unanimous_accreditation }}">
-                    {% endif %}
-                    {% if error %}
-                        <div class="card p-4 text-sm text-danger" role="alert">{{ error }}</div>
-                    {% endif %}
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Merge target" %}</h3>
-                            <p class="text-sm text-foreground-muted mb-4">
-                                {% translate "Sessions of all selected facilitators move to the target; the other facilitators are deleted." %}
-                            </p>
-                            <fieldset class="space-y-2">
-                                <legend class="sr-only">{% translate "Merge target" %}</legend>
-                                {% for facilitator in facilitators %}
-                                    {% radio name="target_slug" value=facilitator.slug checked=forloop.first %}
-                                        {{ facilitator.display_name }}
-                                        {% if facilitator.user_id %}
-                                            <span class="text-foreground-muted">· {% translate "Linked" %}</span>
-                                        {% endif %}
-                                    {% end_radio %}
-                                {% endfor %}
-                            </fieldset>
-                        </div>
-                    </div>
-                    {% if name_choices or accreditation_choices or field_choices %}
-                        <div class="card">
-                            <div class="card-body">
-                                <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Reconcile values" %}</h3>
-                                <p class="text-sm text-foreground-muted mb-4">
-                                    {% translate "Where the selected facilitators disagree, choose what the merged facilitator keeps." %}
-                                </p>
-                                <div class="divide-y divide-border">
-                                    {% if name_choices %}
-                                        <fieldset class="py-4 first:pt-0 last:pb-0">
-                                            <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</legend>
-                                            {% for name, checked in name_choices %}
-                                                {% radio name="display_name" value=name checked=checked %}
-                                                    {{ name }}
-                                                {% end_radio %}
-                                            {% endfor %}
-                                        </fieldset>
-                                    {% endif %}
-                                    {% if accreditation_choices %}
-                                        <fieldset class="py-4 first:pt-0 last:pb-0">
-                                            <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</legend>
-                                            {% for value, label, sources, checked in accreditation_choices %}
-                                                {% radio name="accreditation_type" value=value checked=checked %}
-                                                    {{ label }}
-                                                    <span class="text-foreground-muted">· {{ sources }}</span>
-                                                {% end_radio %}
-                                            {% endfor %}
-                                        </fieldset>
-                                    {% endif %}
-                                    {% for field, choices in field_choices %}
-                                        <fieldset class="py-4 first:pt-0 last:pb-0">
-                                            <legend class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</legend>
-                                            {% with pk_str=field.pk|stringformat:"s" %}
-                                                {% for holder_pk, label, sources, checked in choices %}
-                                                    {% radio name="personal_"|add:pk_str value=holder_pk checked=checked %}
-                                                        {{ label }}
-                                                        <span class="text-foreground-muted">· {{ sources }}</span>
-                                                    {% end_radio %}
-                                                {% endfor %}
-                                            {% endwith %}
-                                        </fieldset>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-                    <div class="flex items-center gap-3">
-                        {% translate "Merge" as t_merge %}
-                        {% tessera_button t_merge variant="danger" %}
-                        <a href="{% url 'panel:facilitator-merge' slug=current_event.slug %}?{% for facilitator in facilitators %}facilitator_slugs={{ facilitator.slug }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}" class="btn btn-secondary">{% translate "Back" %}</a>
-                    </div>
-                </form>
-            {% else %}
-                <form method="get" class="max-w-2xl space-y-6">
-                    <button type="submit" class="sr-only">{% translate "Search" %}</button>
-                    <div class="card">
-                        <div class="card-body">
-                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Selected for merge" %} ({{ basket|length }})</h3>
-                            {% if basket %}
-                                <ul class="space-y-2">
-                                    {% for facilitator in basket %}
-                                        <li class="flex items-center justify-between gap-3 text-sm text-foreground">
-                                            <input type="hidden" name="facilitator_slugs" value="{{ facilitator.slug }}">
-                                            <span>
+                {% tab_shell_body %}
+                    {% if confirm %}
+                        <form method="post"
+                              action="{% url 'panel:facilitator-merge' slug=current_event.slug %}"
+                              data-confirm="{% translate "This cannot be undone. Merge the selected facilitators?" %}"
+                              data-confirm-action="{% translate "Merge" %}"
+                              class="max-w-2xl space-y-6">
+                            {% csrf_token %}
+                            {% for facilitator in facilitators %}
+                                <input type="hidden" name="facilitator_slugs" value="{{ facilitator.slug }}">
+                            {% endfor %}
+                            {% if unanimous_display_name %}
+                                <input type="hidden"
+                                       name="display_name"
+                                       value="{{ unanimous_display_name }}">
+                            {% endif %}
+                            {% if unanimous_accreditation %}
+                                <input type="hidden"
+                                       name="accreditation_type"
+                                       value="{{ unanimous_accreditation }}">
+                            {% endif %}
+                            {% if error %}
+                                <div class="card p-4 text-sm text-danger" role="alert">{{ error }}</div>
+                            {% endif %}
+                            <div class="card">
+                                <div class="card-body">
+                                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Merge target" %}</h3>
+                                    <p class="text-sm text-foreground-muted mb-4">
+                                        {% translate "Sessions of all selected facilitators move to the target; the other facilitators are deleted." %}
+                                    </p>
+                                    <fieldset class="space-y-2">
+                                        <legend class="sr-only">{% translate "Merge target" %}</legend>
+                                        {% for facilitator in facilitators %}
+                                            {% radio name="target_slug" value=facilitator.slug checked=forloop.first %}
                                                 {{ facilitator.display_name }}
                                                 {% if facilitator.user_id %}
                                                     <span class="text-foreground-muted">· {% translate "Linked" %}</span>
                                                 {% endif %}
-                                            </span>
-                                            <button type="submit"
-                                                    name="remove"
-                                                    value="{{ facilitator.slug }}"
-                                                    class="btn btn-tertiary text-sm">{% translate "Remove" %}</button>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            {% else %}
-                                <p class="text-sm text-foreground-muted">{% translate "Search below and add at least two facilitators to merge." %}</p>
-                            {% endif %}
-                            {% if can_merge %}
-                                <div class="mt-4">
-                                    <button type="submit" name="confirm" value="1" class="btn btn-primary">{% translate "Review and merge" %}</button>
+                                            {% endradio %}
+                                        {% endfor %}
+                                    </fieldset>
+                                </div>
+                            </div>
+                            {% if name_choices or accreditation_choices or field_choices %}
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Reconcile values" %}</h3>
+                                        <p class="text-sm text-foreground-muted mb-4">
+                                            {% translate "Where the selected facilitators disagree, choose what the merged facilitator keeps." %}
+                                        </p>
+                                        <div class="divide-y divide-border">
+                                            {% if name_choices %}
+                                                <fieldset class="py-4 first:pt-0 last:pb-0">
+                                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Display Name" %}</legend>
+                                                    {% for name, checked in name_choices %}
+                                                        {% radio name="display_name" value=name checked=checked %}
+                                                            {{ name }}
+                                                        {% endradio %}
+                                                    {% endfor %}
+                                                </fieldset>
+                                            {% endif %}
+                                            {% if accreditation_choices %}
+                                                <fieldset class="py-4 first:pt-0 last:pb-0">
+                                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{% translate "Accreditation" %}</legend>
+                                                    {% for value, label, sources, checked in accreditation_choices %}
+                                                        {% radio name="accreditation_type" value=value checked=checked %}
+                                                            {{ label }}
+                                                            <span class="text-foreground-muted">· {{ sources }}</span>
+                                                        {% endradio %}
+                                                    {% endfor %}
+                                                </fieldset>
+                                            {% endif %}
+                                            {% for field, choices in field_choices %}
+                                                <fieldset class="py-4 first:pt-0 last:pb-0">
+                                                    <legend class="text-xs font-medium text-foreground-muted mb-1">{{ field.name }}</legend>
+                                                    {% with pk_str=field.pk|stringformat:"s" %}
+                                                        {% for holder_pk, label, sources, checked in choices %}
+                                                            {% radio name="personal_"|add:pk_str value=holder_pk checked=checked %}
+                                                                {{ label }}
+                                                                <span class="text-foreground-muted">· {{ sources }}</span>
+                                                            {% endradio %}
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                </fieldset>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
                                 </div>
                             {% endif %}
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <label for="merge-search"
-                                   class="block text-xs font-medium text-foreground-muted mb-1">{% translate "Search" %}</label>
-                            <div class="flex gap-2">
-                                <input type="text"
-                                       id="merge-search"
-                                       name="q"
-                                       value="{{ search_query }}"
-                                       placeholder="{% translate "Name, linked user or field values" %}"
-                                       class="w-full px-3 py-2 border border-border rounded-lg text-sm">
-                                <button type="submit" class="btn btn-secondary">{% translate "Search" %}</button>
+                            <div class="flex items-center gap-3">
+                                {% translate "Merge" as t_merge %}
+                                {% tessera_button t_merge variant="danger" %}
+                                <a href="{% url 'panel:facilitator-merge' slug=current_event.slug %}?{% for facilitator in facilitators %}facilitator_slugs={{ facilitator.slug }}{% if not forloop.last %}&amp;{% endif %}{% endfor %}" class="btn btn-secondary">{% translate "Back" %}</a>
                             </div>
-                            {% if search_query %}
-                                {% if search_results %}
-                                    <ul class="mt-4 space-y-2">
-                                        {% for facilitator in search_results %}
-                                            <li class="flex items-center justify-between gap-3 text-sm text-foreground">
-                                                <span>
-                                                    {{ facilitator.display_name }}
-                                                    {% if facilitator.user_id %}
-                                                        <span class="text-foreground-muted">· {% translate "Linked" %}</span>
-                                                    {% endif %}
-                                                </span>
-                                                <button type="submit"
-                                                        name="add"
-                                                        value="{{ facilitator.slug }}"
-                                                        class="btn btn-secondary text-sm">{% translate "Add" %}</button>
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                {% else %}
-                                    <p class="mt-4 text-sm text-foreground-muted">{% translate "No facilitators match your search." %}</p>
-                                {% endif %}
-                            {% endif %}
-                        </div>
-                    </div>
-                </form>
-            {% endif %}
-        {% end_tab_shell_body %}
-    {% end_tab_shell %}
-{% endif %}
-</div>
+                        </form>
+                    {% else %}
+                        <form method="get" class="max-w-2xl space-y-6">
+                            <button type="submit" class="sr-only">{% translate "Search" %}</button>
+                            <div class="card">
+                                <div class="card-body">
+                                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Selected for merge" %} ({{ basket|length }})</h3>
+                                    {% if basket %}
+                                        <ul class="space-y-2">
+                                            {% for facilitator in basket %}
+                                                <li class="flex items-center justify-between gap-3 text-sm text-foreground">
+                                                    <input type="hidden" name="facilitator_slugs" value="{{ facilitator.slug }}">
+                                                    <span>
+                                                        {{ facilitator.display_name }}
+                                                        {% if facilitator.user_id %}
+                                                            <span class="text-foreground-muted">· {% translate "Linked" %}</span>
+                                                        {% endif %}
+                                                    </span>
+                                                    <button type="submit"
+                                                            name="remove"
+                                                            value="{{ facilitator.slug }}"
+                                                            class="btn btn-tertiary text-sm">{% translate "Remove" %}</button>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-sm text-foreground-muted">{% translate "Search below and add at least two facilitators to merge." %}</p>
+                                    {% endif %}
+                                    {% if can_merge %}
+                                        <div class="mt-4">
+                                            <button type="submit" name="confirm" value="1" class="btn btn-primary">{% translate "Review and merge" %}</button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-body">
+                                    <label for="merge-search"
+                                           class="block text-xs font-medium text-foreground-muted mb-1">{% translate "Search" %}</label>
+                                    <div class="flex gap-2">
+                                        <input type="text"
+                                               id="merge-search"
+                                               name="q"
+                                               value="{{ search_query }}"
+                                               placeholder="{% translate "Name, linked user or field values" %}"
+                                               class="w-full px-3 py-2 border border-border rounded-lg text-sm">
+                                        <button type="submit" class="btn btn-secondary">{% translate "Search" %}</button>
+                                    </div>
+                                    {% if search_query %}
+                                        {% if search_results %}
+                                            <ul class="mt-4 space-y-2">
+                                                {% for facilitator in search_results %}
+                                                    <li class="flex items-center justify-between gap-3 text-sm text-foreground">
+                                                        <span>
+                                                            {{ facilitator.display_name }}
+                                                            {% if facilitator.user_id %}
+                                                                <span class="text-foreground-muted">· {% translate "Linked" %}</span>
+                                                            {% endif %}
+                                                        </span>
+                                                        <button type="submit"
+                                                                name="add"
+                                                                value="{{ facilitator.slug }}"
+                                                                class="btn btn-secondary text-sm">{% translate "Add" %}</button>
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            <p class="mt-4 text-sm text-foreground-muted">{% translate "No facilitators match your search." %}</p>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </form>
+                    {% endif %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% endif %}
+    </div>
 {% endblock content %}

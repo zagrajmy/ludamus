@@ -20,64 +20,64 @@
 {% block content %}
     {% if current_event %}
         {% tab_shell "panel/_event_settings_tabs.html" %}
-        {% tab_shell_body %}
-        {% if integrations %}
-            <div class="card overflow-x-auto">
-                <table class="min-w-full divide-y divide-border">
-                    <thead class="bg-bg-tertiary">
-                        <tr>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Name" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Kind" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Implementation" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Connection" %}
-                            </th>
-                            <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                {% translate "Actions" %}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-bg-secondary divide-y divide-border">
-                        {% for integration in integrations %}
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-foreground">{{ integration.display_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">{{ integration.kind|capfirst }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
-                                    <code>{{ integration.implementation }}</code>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
-                                    {{ integration.connection_display_name }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <a href="{% url 'panel:integration-edit' slug=current_event.slug pk=integration.pk %}"
-                                       class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
-                                    <a href="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}"
-                                       class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="card p-8 text-center">
-                <p class="text-foreground-muted">
-                    {% translate "No integrations yet. Add one to let this event speak through an external system." %}
-                </p>
-            </div>
-        {% endif %}
-    {% end_tab_shell_body %}
-{% end_tab_shell %}
-{% endif %}
+            {% tab_shell_body %}
+                {% if integrations %}
+                    <div class="card overflow-x-auto">
+                        <table class="min-w-full divide-y divide-border">
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Name" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Kind" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Implementation" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Connection" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Actions" %}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-bg-secondary divide-y divide-border">
+                                {% for integration in integrations %}
+                                    <tr>
+                                        <td class="px-6 py-4 text-sm font-medium text-foreground">{{ integration.display_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">{{ integration.kind|capfirst }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
+                                            <code>{{ integration.implementation }}</code>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
+                                            {{ integration.connection_display_name }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <a href="{% url 'panel:integration-edit' slug=current_event.slug pk=integration.pk %}"
+                                               class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                            <a href="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}"
+                                               class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="card p-8 text-center">
+                        <p class="text-foreground-muted">
+                            {% translate "No integrations yet. Add one to let this event speak through an external system." %}
+                        </p>
+                    </div>
+                {% endif %}
+            {% endtab_shell_body %}
+        {% endtab_shell %}
+    {% endif %}
 {% endblock content %}
