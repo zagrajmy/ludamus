@@ -45,7 +45,7 @@ test.describe("Proposal form layout", () => {
   test("leaves the participants limit uncapped", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/proposals/create/");
 
-    const limit = page.locator("#id_participants_limit");
+    const limit = page.getByLabel("Participants Limit");
     await expect(limit).toBeVisible();
     await expect(limit).not.toHaveAttribute("max");
 
