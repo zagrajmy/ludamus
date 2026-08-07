@@ -11,10 +11,13 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldValue,
 )
-from ludamus.pacts import EventDTO, FieldAnswer, OrganizerFieldDTO
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from ludamus.pacts import FieldAnswer, OrganizerFieldDTO
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 def _field_dto(field):
@@ -30,23 +33,6 @@ def _field_dto(field):
     )
 
 
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "facilitators",
-    }
-
-
 class TestFacilitatorCreatePageView:
     """Tests for /panel/event/<slug>/facilitators/create/ page."""
 
@@ -59,47 +45,32 @@ class TestFacilitatorCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitator-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "field_descriptors": [],
+            },
         )
 
     def test_post_redirects_anonymous_user_to_login(self, client, event):
@@ -107,43 +78,22 @@ class TestFacilitatorCreatePageView:
 
         response = client.post(url, data={})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(self.get_url(event), data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse("panel:facilitator-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"display_name": "Alice"})
+        response = panel_client.post(url, data={"display_name": "Alice"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_post_creates_facilitator_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.get_url(event), data={"display_name": "Bob"}
-        )
+    def test_post_creates_facilitator_and_redirects(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={"display_name": "Bob"})
 
         assert_response(
             response,
@@ -153,39 +103,33 @@ class TestFacilitatorCreatePageView:
         )
         assert Facilitator.objects.filter(event=event, display_name="Bob").exists()
 
-    def test_post_shows_errors_on_invalid_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.get_url(event), data={"display_name": ""}
-        )
+    def test_post_shows_errors_on_invalid_data(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={"display_name": ""})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "field_descriptors": [],
+            },
         )
         assert response.context["form"].errors
 
     def test_post_creates_facilitator_with_default_accreditation(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(self.get_url(event), data={"display_name": "Bob"})
+        panel_client.post(self.get_url(event), data={"display_name": "Bob"})
 
         facilitator = Facilitator.objects.get(event=event, display_name="Bob")
         assert facilitator.accreditation_type == "none"
 
     def test_post_assigns_the_creator_as_organizer_when_checked(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event), data={"display_name": "Bob", "assign_me": "on"}
         )
 
@@ -199,13 +143,9 @@ class TestFacilitatorCreatePageView:
         assert facilitator.organizer_id == active_user.pk
 
     def test_post_leaves_facilitator_unassigned_when_unchecked(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
-            self.get_url(event), data={"display_name": "Bob"}
-        )
+        response = panel_client.post(self.get_url(event), data={"display_name": "Bob"})
 
         assert_response(
             response,
@@ -217,11 +157,9 @@ class TestFacilitatorCreatePageView:
         assert facilitator.organizer_id is None
 
     def test_post_creates_facilitator_with_chosen_accreditation(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"display_name": "Guest", "accreditation_type": "guest"},
         )
@@ -229,12 +167,8 @@ class TestFacilitatorCreatePageView:
         facilitator = Facilitator.objects.get(event=event, display_name="Guest")
         assert facilitator.accreditation_type == "guest"
 
-    def test_post_shows_accreditation_type_error(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_shows_accreditation_type_error(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data={"display_name": "Bob", "accreditation_type": "bogus"},
         )
@@ -243,17 +177,18 @@ class TestFacilitatorCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
-            context_data={**_base_context(event), "form": ANY, "field_descriptors": []},
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "field_descriptors": [],
+            },
         )
         assert response.context["form"].errors["accreditation_type"]
         assert response.context["form"].errors["accreditation_type"][0] in (
             response.content.decode()
         )
 
-    def test_get_renders_personal_data_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_personal_data_fields(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Vegan",
@@ -263,14 +198,14 @@ class TestFacilitatorCreatePageView:
             order=0,
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-create.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="facilitators"),
                 "form": ANY,
                 "field_descriptors": [
                     {
@@ -282,10 +217,7 @@ class TestFacilitatorCreatePageView:
             },
         )
 
-    def test_post_saves_personal_data_field_values(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_personal_data_field_values(self, panel_client, event):
         field = PersonalDataField.objects.create(
             event=event,
             name="Vegan",
@@ -295,7 +227,7 @@ class TestFacilitatorCreatePageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event), data={"display_name": "Bob", "personal_vegan": "true"}
         )
 

@@ -354,6 +354,22 @@ test.describe("Timetable", () => {
     ).toBeVisible();
   });
 
+  test("session cards are draggable and carry their duration", async ({ page }) => {
+    const sessionListLoaded = page.waitForResponse(
+      (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
+    );
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+    await sessionListLoaded;
+
+    const card = page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator("[data-session-pk]")
+      .first();
+
+    await expect(card).toHaveAttribute("draggable", "true");
+    await expect(card).toHaveAttribute("data-duration", /^\d+$/);
+  });
+
   // --- Session Search ---
 
   test("search filters session list", async ({ page }) => {
