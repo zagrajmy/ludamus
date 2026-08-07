@@ -216,13 +216,6 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
                 facilitator_pks=facilitator_pks,
             ),
         )
-        conflict_service = ConflictDetectionService(uow)
-        conflicts = conflict_service.list_all_for_track(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        slot_violations = conflict_service.list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
 
         context["all_tracks"] = sorted_tracks
@@ -230,10 +223,8 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_track_pk"] = filter_track_pk
         context["room_page"] = room_page
         context["grid"] = grid
-        context["conflicts"] = conflicts
-        context["conflict_session_pks"] = {c.session_pk for c in conflicts}
-        context["conflicts_count"] = len(conflicts)
-        context["slot_violation_session_pks"] = {v.session_pk for v in slot_violations}
+        context["conflicts"] = grid.conflicts
+        context["conflicts_count"] = len(grid.conflicts)
         context["categories"] = categories
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
@@ -453,8 +444,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        uow = self.request.di.uow
-        grid = TimetableService(uow).build_grid(
+        grid = TimetableService(self.request.di.uow).build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
             space_page=room_page,
@@ -465,15 +455,10 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
                 facilitator_pks=_parse_pks(self.request.GET, "facilitator"),
             ),
         )
-        slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
 
         context: dict[str, object] = {
             "grid": grid,
             "filter_track_pk": filter_track_pk,
-            "conflict_session_pks": set(),
-            "slot_violation_session_pks": {v.session_pk for v in slot_violations},
             "date_selection": grid.date_selection,
             "slug": slug,
         }
@@ -566,6 +551,8 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
+    """POST: set confirmation on one scheduled program item."""
+
     request: PanelRequest
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -580,57 +567,12 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
         confirmed_raw = self.request.POST.get("confirmed")
         if confirmed_raw not in {"true", "false"}:
             return HttpResponse(status=422)
-        confirmed = confirmed_raw == "true"
 
         try:
             self.request.services.session_confirmation.set_session_confirmed(
                 event_pk=current_event.pk,
                 agenda_item_pk=agenda_item_pk,
-                confirmed=confirmed,
-            )
-        except NotFoundError:
-            return HttpResponse(status=422)
-
-        response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
-        return response
-
-
-class TimetableConfirmAllView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm every scheduled program item in the event."""
-
-    request: PanelRequest
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        self.request.services.session_confirmation.confirm_all(current_event.pk)
-
-        response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
-        return response
-
-
-class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm every scheduled program item in a single track (block)."""
-
-    request: PanelRequest
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            track_pk = int(self.request.POST["track_pk"])
-        except KeyError, ValueError:
-            return HttpResponse(status=422)
-
-        try:
-            self.request.services.session_confirmation.confirm_block(
-                event_pk=current_event.pk, track_pk=track_pk
+                confirmed=confirmed_raw == "true",
             )
         except NotFoundError:
             return HttpResponse(status=422)

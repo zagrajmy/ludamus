@@ -264,6 +264,15 @@ If you fix a papercut, remove it.
   test dies with 'browserContext.newPage: Test timeout' during page setup, while
   chromium passes. Makes a full 'mise run test:e2e' unusable locally; had to run
   --project=chromium to get a signal.
+- 2026-08-01: e2e: Firefox project fails locally with 'browserContext.newPage:
+  Test timeout' on every spec (even untouched ones like sound.spec.ts); only
+  chromium is runnable here, so a local full 'mise run test:e2e' always ends red
+  and 63 tests report 'did not run'. Had to verify per-project.
+- 2026-08-01: e2e: 'panel redirects to home with message when sphere has no
+  events' (panel.spec.ts) fails locally on a freshly prepped DB even with no
+  working-tree changes — /panel/ stays put instead of redirecting to /events/.
+  It also aborts the rest of panel.spec.ts (serial mode), so 43 tests report
+  'did not run'.
 - 2026-08-02: Pre-commit oxlint hook fails with 'Cannot find module eslint-
   plugin-sonarjs'; the aube store entry node_modules/.aube/eslint-plugin-
   sonarjs@3.0.6_.../node_modules/eslint-plugin-sonarjs is extracted without a
@@ -296,3 +305,17 @@ If you fix a papercut, remove it.
   eslint-plugin-sonarjs' — the dep resolves to an 'invalid' link under
   node_modules/.aube. CI is fine; only the local run is blocked, so frontend
   lint can't be verified before pushing.
+- 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
+  python-brace-format' flags: the local xgettext strips them, but main and CI
+  both keep them. Regenerating the catalog silently drops the flags, so after
+  'mise run messages' you have to revert the catalog and hand-apply only the
+  real msgid deltas.
+- 2026-08-05: mise run shots fails in the Claude Code sandbox: Chrome aborts
+  with 'No usable sandbox' (unprivileged userns disabled). Playwright's own runs
+  work, so had to hand-roll a playwright-core screenshot script pointed at the
+  ms-playwright chromium binary. A --no-sandbox fallback in the shots task would
+  save the detour.
+- 2026-08-07: git push over ssh fails in the review worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
+  works, pushing needs the user to run it (or the file's mode fixed to 0644
+  root:root).

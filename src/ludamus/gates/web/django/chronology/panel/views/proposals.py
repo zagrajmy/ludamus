@@ -18,10 +18,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     EventContextMixin,
     PanelAccessMixin,
     PanelRequest,
+    back_to_proposals,
     pagination_context,
     proposal_detail_tab_urls,
+    proposal_detail_url,
     proposal_tab_urls,
-    safe_next_url,
 )
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     PROPOSAL_COLUMNS,
@@ -34,7 +35,7 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.panel import SCHEDULED_FILTER, ProposalListQuery
+from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -78,7 +79,10 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
         return ProposalListQuery(
             search=self.request.GET.get("search", "").strip(),
             category=self.request.GET.get("category", "").strip(),
-            status=self.request.GET.get("status", ""),
+            # Default (no status param) is the pending backlog — the queue an
+            # organizer opens this page to work through. STATUS_ALL (or any
+            # other unknown value) still shows everything.
+            status=self.request.GET.get("status", SessionStatus.PENDING.value),
             track_pk=track_pk,
             multi_tracks=multi_tracks,
             sort=self.request.GET.get("sort", "").strip(),
@@ -151,6 +155,10 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             (SCHEDULED_FILTER, _("Scheduled")),
         ]
         context["filter_status"] = list_context.status
+        # Value the track form and the Clear link echo back so the status
+        # selection round-trips. "All statuses" must stay present in the query,
+        # or the absent-param default re-selects the pending backlog.
+        context["filter_status_value"] = list_context.status or STATUS_ALL
         context["filter_sort"] = list_context.sort
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
@@ -234,6 +242,9 @@ class ProposalDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["preferred_time_slots"] = preferred_time_slots
         context["import_log_entry"] = import_log_entry
         context["import_log_integration"] = import_log_integration
+        # Carries the list's filters back: the breadcrumb and the action forms
+        # both return here, and a bare proposals URL means the pending backlog.
+        context["back_url"] = back_to_proposals(self.request, slug)
         return TemplateResponse(self.request, "panel/proposal-detail.html", context)
 
 
@@ -310,11 +321,14 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
         apply_status = _status_transitions(self.request.services.proposal_status)[
             self.action
         ]
+        detail_url = proposal_detail_url(
+            request=self.request, slug=slug, proposal_id=proposal_id
+        )
         try:
             apply_status(event_pk=current_event.pk, session_pk=proposal_id)
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+            return redirect(back_to_proposals(self.request, slug))
         except ProposalScheduledError:
             messages.error(
                 self.request,
@@ -323,10 +337,10 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
                     "Remove it from the timetable to change its status."
                 ),
             )
-            return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+            return redirect(detail_url)
 
         messages.success(self.request, _STATUS_MESSAGES[self.action])
-        return redirect("panel:proposal-detail", slug=slug, proposal_id=proposal_id)
+        return redirect(detail_url)
 
 
 class ProposalPendingActionView(ProposalStatusActionView):
@@ -364,9 +378,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        back = safe_next_url(
-            self.request, reverse("panel:proposals", kwargs={"slug": slug})
-        )
+        back = back_to_proposals(self.request, slug)
         transitions = _status_transitions(self.request.services.proposal_status)
         apply_status = transitions.get(self.request.POST.get("action", ""))
         if apply_status is None:
@@ -444,6 +456,7 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        back = back_to_proposals(self.request, slug)
         try:
             self.request.services.session_deletion.soft_delete(
                 event_pk=current_event.pk,
@@ -452,10 +465,10 @@ class ProposalDeleteActionView(PanelAccessMixin, EventContextMixin, View):
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+            return redirect(back)
 
         messages.success(self.request, _("Proposal deleted."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect(back)
 
 
 class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
@@ -467,16 +480,17 @@ class ProposalRestoreActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
+        back = back_to_proposals(self.request, slug)
         try:
             self.request.services.session_deletion.restore(
                 event_pk=current_event.pk, session_pk=proposal_id
             )
         except NotFoundError:
             messages.error(self.request, _("Proposal not found."))
-            return redirect("panel:proposals", slug=slug)
+            return redirect(back)
 
         messages.success(self.request, _("Proposal restored."))
-        return redirect("panel:proposals", slug=slug)
+        return redirect(back)
 
 
 class ProposalSetFacilitatorsActionView(PanelAccessMixin, EventContextMixin, View):

@@ -1,11 +1,10 @@
 from datetime import timedelta
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.pacts import EventDTO
-from ludamus.pacts.legacy import SessionDTO
+from ludamus.pacts.legacy import AgendaItemDTO, SessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -13,9 +12,12 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
 )
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    make_timetable_session,
+)
 
 
 class TestTimetableSessionDetailPartView:
@@ -27,147 +29,128 @@ class TestTimetableSessionDetailPartView:
             "panel:timetable-session-detail-part", kwargs={"slug": event.slug, "pk": pk}
         )
 
+    @staticmethod
+    def expected_context(
+        event, session, *, agenda_item=None, back_url=None, duration_minutes=60
+    ):
+        return {
+            "session": SessionDTO.model_validate(session),
+            "agenda_item": agenda_item,
+            "facilitators": [],
+            "time_slots": [],
+            "time_slots_json": "[]",
+            "duration_minutes": duration_minutes,
+            "slug": event.slug,
+            "event": EventDTO.model_validate(event),
+            "back_url": (
+                back_url
+                or reverse(
+                    "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
+                )
+            ),
+        }
+
+    @staticmethod
+    def scheduled_dto(session, space, *, pk, confirmed):
+        return AgendaItemDTO(
+            pk=pk,
+            start_time=session.event.start_time,
+            end_time=session.event.start_time + timedelta(hours=1),
+            session_confirmed=confirmed,
+            space_id=space.pk,
+            space_name=space.name,
+            session_id=session.pk,
+            session_title=session.title,
+            session_description=session.description,
+            presenter_name=session.display_name,
+            session_duration_minutes=60,
+            session_status=session.status,
+            category_name=session.category.name,
+        )
+
     def test_redirects_anonymous_user_to_login(self, client, event, session):
         url = self.get_url(event, session.pk)
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event, session):
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:timetable-session-detail-part",
             kwargs={"slug": "nonexistent", "pk": 1},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_redirects_on_nonexistent_session(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event, 999999))
+    def test_redirects_on_nonexistent_session(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, 999999))
 
         assert_response(
             response, HTTPStatus.FOUND, url=f"/panel/event/{event.slug}/timetable/"
         )
 
-    def test_ok_returns_partial_template(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+    def test_ok_returns_partial_template(self, panel_client, event, proposal_category):
+        session = make_timetable_session(proposal_category, participants_limit=10)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-detail.html",
-            context_data={
-                "session": SessionDTO.model_validate(session),
-                "agenda_item": None,
-                "facilitators": [],
-                "time_slots": [],
-                "time_slots_json": "[]",
-                "duration_minutes": 60,
-                "slug": event.slug,
-                "event": EventDTO.model_validate(event),
-                "back_url": reverse(
-                    "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
-                ),
-            },
+            context_data=self.expected_context(event, session),
         )
 
-    def test_reports_the_length_of_a_session_that_declares_one(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+    def test_ok_reads_duration_from_iso_value(
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
+        # The factory leaves `duration` unset, which falls back to 60; an
+        # actual ISO value is what the hours-and-minutes parse runs on.
         session = SessionFactory(
             category=proposal_category,
             status="pending",
             participants_limit=10,
             min_age=0,
-            duration="PT1H30M",
+            duration="PT2H30M",
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
+        expected_duration_minutes = 150
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-detail.html",
-            context_data={
-                "session": SessionDTO.model_validate(session),
-                "agenda_item": None,
-                "facilitators": [],
-                "time_slots": [],
-                "time_slots_json": "[]",
-                "duration_minutes": 90,
-                "slug": event.slug,
-                "event": EventDTO.model_validate(event),
-                "back_url": reverse(
-                    "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
-                ),
-            },
+            context_data=self.expected_context(
+                event, session, duration_minutes=expected_duration_minutes
+            ),
         )
 
-    def test_redirects_when_session_belongs_to_other_sphere(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_when_session_belongs_to_other_sphere(self, panel_client, event):
         other_event = EventFactory()
         other_category = ProposalCategoryFactory(event=other_event)
         other_session = SessionFactory(
             category=other_category, title="Secret session from another sphere"
         )
 
-        response = authenticated_client.get(self.get_url(event, other_session.pk))
+        response = panel_client.get(self.get_url(event, other_session.pk))
 
         assert_response(
             response, HTTPStatus.FOUND, url=f"/panel/event/{event.slug}/timetable/"
         )
 
-    def test_back_url_preserves_filters(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
+    def test_back_url_preserves_filters(self, panel_client, event, proposal_category):
+        session = make_timetable_session(proposal_category, participants_limit=10)
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             self.get_url(event, session.pk),
             {
                 "category": "5",
@@ -177,17 +160,23 @@ class TestTimetableSessionDetailPartView:
             },
         )
 
-        assert response.status_code == HTTPStatus.OK
-        back_url = response.context["back_url"]
-        assert "category=5" in back_url
-        assert "max_duration=60" in back_url
-        assert "search=magic" in back_url
-        assert "date=2026-09-04" in back_url
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                back_url=(
+                    reverse(
+                        "panel:timetable-browse-pane-part", kwargs={"slug": event.slug}
+                    )
+                    + "?category=5&max_duration=60&search=magic&date=2026-09-04"
+                ),
+            ),
+        )
 
-    def test_shows_session_title(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_shows_session_title(self, panel_client, event, proposal_category):
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -196,15 +185,18 @@ class TestTimetableSessionDetailPartView:
             min_age=0,
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["session"].title == "My Awesome Session"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
+        )
 
     def test_links_to_proposal_detail_page(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = SessionFactory(
             category=proposal_category,
             status="pending",
@@ -217,136 +209,97 @@ class TestTimetableSessionDetailPartView:
             kwargs={"slug": event.slug, "proposal_id": session.pk},
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
+        )
         assert f'href="{proposal_url}"' in response.content.decode()
 
     def test_shows_agenda_item_when_scheduled(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
-        AgendaItemFactory(
+        session = make_timetable_session(proposal_category, participants_limit=10)
+        agenda_item = AgendaItemFactory(
             session=session,
             space=space,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["agenda_item"] is not None
-        assert response.context["agenda_item"].space_id == space.pk
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                agenda_item=self.scheduled_dto(
+                    session, space, pk=agenda_item.pk, confirmed=False
+                ),
+            ),
+        )
 
     def test_agenda_item_is_none_when_unscheduled(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(proposal_category, participants_limit=10)
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
         )
-
-        response = authenticated_client.get(self.get_url(event, session.pk))
-
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["agenda_item"] is None
-
-    def test_scheduled_unconfirmed_offers_confirm_button(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
-        AgendaItemFactory(
-            session=session,
-            space=SpaceFactory(event=event),
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-
-        response = authenticated_client.get(self.get_url(event, session.pk))
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert "Confirm program item" in content
-        assert "Undo confirmation" not in content
-
-    def test_scheduled_confirmed_offers_undo_button(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
-        agenda_item = AgendaItemFactory(
-            session=session,
-            space=SpaceFactory(event=event),
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-        agenda_item.session_confirmed = True
-        agenda_item.save()
-
-        response = authenticated_client.get(self.get_url(event, session.pk))
-
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert "Undo confirmation" in content
-        assert "Confirm program item" not in content
 
     def test_reassign_button_carries_confirmed_flag(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
-        )
-        AgendaItemFactory(
+        space = SpaceFactory(event=event)
+        session = make_timetable_session(proposal_category, participants_limit=10)
+        agenda_item = AgendaItemFactory(
             session=session,
-            space=SpaceFactory(event=event),
+            space=space,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
             session_confirmed=True,
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(
+                event,
+                session,
+                agenda_item=self.scheduled_dto(
+                    session, space, pk=agenda_item.pk, confirmed=True
+                ),
+            ),
+        )
         assert 'data-assign-confirmed="true"' in response.content.decode()
 
     def test_assign_button_of_unscheduled_session_is_unconfirmed(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(proposal_category, participants_limit=10)
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-detail.html",
+            context_data=self.expected_context(event, session),
         )
-
-        response = authenticated_client.get(self.get_url(event, session.pk))
-
-        assert response.status_code == HTTPStatus.OK
         assert 'data-assign-confirmed="false"' in response.content.decode()

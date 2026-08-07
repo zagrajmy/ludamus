@@ -94,21 +94,6 @@
                 {% icon "printer" class="size-4" %}
                 <span class="hidden sm:inline">{{ t_print }}</span>
             </a>
-            {% if filter_track_pk %}
-                <form hx-post="{% url 'panel:timetable-confirm-block' slug=current_event.slug %}"
-                      hx-swap="none">
-                    {% csrf_token %}
-                    <input type="hidden" name="track_pk" value="{{ filter_track_pk }}">
-                    {% translate "Confirm block" as t_confirm_block %}
-                    {% tessera_button t_confirm_block variant="secondary" button_type="submit" size="sm" icon="check-circle" %}
-                </form>
-            {% endif %}
-            <form hx-post="{% url 'panel:timetable-confirm-all' slug=current_event.slug %}"
-                  hx-swap="none">
-                {% csrf_token %}
-                {% translate "Confirm all" as t_confirm_all %}
-                {% tessera_button t_confirm_all variant="primary" button_type="submit" size="sm" icon="check-circle" %}
-            </form>
         </div>
     </div>
     <!-- Two-column responsive layout: left pane (browse/detail + conflicts) | grid -->

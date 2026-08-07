@@ -129,18 +129,6 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         AgendaItem.objects.filter(pk=pk).update(**data)
 
     @staticmethod
-    def confirm_all_by_event(event_pk: int) -> None:
-        AgendaItem.objects.filter(session__event_id=event_pk).update(
-            session_confirmed=True
-        )
-
-    @staticmethod
-    def confirm_all_by_track(track_pk: int) -> None:
-        AgendaItem.objects.filter(session__tracks__pk=track_pk).update(
-            session_confirmed=True
-        )
-
-    @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]:
         # One query for the whole table. Every Count is distinct because the
         # three m2m joins (sessions, their facilitators, their agenda items)
