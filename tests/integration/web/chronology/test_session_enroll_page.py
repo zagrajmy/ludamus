@@ -13,8 +13,8 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     SessionUserParticipationData,
-    build_enroll_actions,
 )
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -2405,6 +2405,7 @@ class TestSessionEnrollInline:
         user_waiting=False,
         is_full=False,
         is_enrollment_available=True,
+        is_ended=False,
         enroll_error="",
     ):
         return {
@@ -2413,7 +2414,7 @@ class TestSessionEnrollInline:
             "viewer_pk": viewer_pk,
             "actions": build_enroll_actions(
                 is_enrollment_available=is_enrollment_available,
-                is_ended=False,
+                is_ended=is_ended,
                 is_full=is_full,
                 user_enrolled=user_enrolled,
                 user_waiting=user_waiting,
@@ -2509,6 +2510,40 @@ class TestSessionEnrollInline:
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session
         ).exists()
+
+    def test_htmx_cancel_on_an_ended_session_leaves_no_control(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # Derived from the agenda item, so wiring is_ended=False here instead of
+        # the real end time would leave a live control on a finished session.
+        session = agenda_item.session
+        agenda_item.start_time = datetime.now(tz=UTC) - timedelta(hours=3)
+        agenda_item.end_time = datetime.now(tz=UTC) - timedelta(hours=1)
+        agenda_item.save(update_fields=["start_time", "end_time"])
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "cancel"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                is_enrollment_available=False,
+                is_ended=True,
+            ),
+            messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
+        )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_htmx_waitlist_on_full_session(self, staff_user, agenda_item, staff_client):

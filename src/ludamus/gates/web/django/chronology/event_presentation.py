@@ -5,17 +5,15 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    EnrollActions,
-    build_enroll_actions,
-)
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
     from ludamus.pacts import (
         AgendaItemDTO,
         LocationData,

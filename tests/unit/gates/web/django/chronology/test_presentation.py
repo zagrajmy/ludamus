@@ -4,9 +4,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    build_enroll_actions,
-)
 from ludamus.gates.web.django.chronology.event_presentation import SessionData
 from ludamus.gates.web.django.chronology.schedule import (
     build_schedule_days,
@@ -93,19 +90,30 @@ class TestSessionDataSpotsScarce:
 
 
 class TestSessionDataEnrollActions:
-    def test_delegates_to_the_builder(self):
-        data = _make_session_data(is_enrollment_available=True, user_enrolled=True)
+    def test_passes_the_seat_state_through(self):
+        data = _make_session_data(is_enrollment_available=True, user_waiting=True)
 
-        assert data.enroll_actions == build_enroll_actions(
-            is_enrollment_available=True,
-            is_ended=False,
-            is_full=data.is_full,
-            user_enrolled=True,
-            user_waiting=False,
+        assert data.enroll_actions.submit_value == "cancel"
+        assert data.enroll_actions.badge.tone == "warning"
+
+    def test_passes_capacity_through(self):
+        data = _make_session_data(
+            effective_participants_limit=5, enrolled_count=5, is_full=True
         )
+
+        assert data.enroll_actions.submit_value == "waitlist"
 
     def test_closed_enrollment_leaves_an_outsider_without_actions(self):
         data = _make_session_data(is_enrollment_available=False)
+
+        assert data.enroll_actions is None
+
+    def test_passes_is_ended_through(self):
+        # Wiring `is_ended=False` instead of the field would leave a viewer
+        # holding a seat on a finished session with a live control.
+        data = _make_session_data(
+            is_enrollment_available=False, user_enrolled=True, is_ended=True
+        )
 
         assert data.enroll_actions is None
 

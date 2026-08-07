@@ -34,7 +34,6 @@ from ludamus.gates.web.django.access import PanelAccess, has_panel_access, panel
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
-    build_enroll_actions,
 )
 from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
@@ -54,6 +53,7 @@ from ludamus.gates.web.django.entities import (
     RootRequest,
     UserInfo,
 )
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -1053,10 +1053,11 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
     def _render_enroll_actions(
         self, session: Session, *, enroll_error: str = ""
     ) -> HttpResponse:
-        # The single modal-footer fragment the page swaps in place after an
-        # inline (HX-Request) self-enroll; state is re-read fresh from the DB.
-        # build_enroll_actions is the same decision the modal's GET renders, so
-        # the two paths cannot drift.
+        # The modal-footer fragment, swapped in place after an inline
+        # (HX-Request) self-enroll; state is re-read fresh from the DB. Same
+        # decision as the modal's GET, but over the viewer alone — the modal
+        # counts a companion's seat as theirs, and this control can only post
+        # the viewer's. Such a seat is released on the group page.
         viewer_pk = self.request.context.current_user_id
         statuses = set(
             SessionParticipation.objects.filter(

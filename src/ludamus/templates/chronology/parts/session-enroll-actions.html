@@ -4,8 +4,9 @@
 {# HX-Request response from SessionEnrollPageView.post render this fragment, so #}
 {# the control swaps in place after acting. Without JS the forms POST normally #}
 {# and the view redirects back to the event (graceful fallback). #}
-{# `actions` is an EnrollActions (or None) built by build_enroll_actions — it #}
-{# already decided what the viewer may do, so nothing is recombined here. #}
+{# `actions` is an EnrollActions (or None) from build_enroll_actions. It #}
+{# carries the action to post and the copy for it; the two branches below #}
+{# choose only a shape, never which action the viewer gets. #}
 <div id="enroll-actions-{{ session_pk }}"
      class="flex flex-col items-end gap-1.5">
     {% if enroll_error %}
@@ -19,19 +20,15 @@
     {% if actions %}
         {% url 'web:chronology:session-enrollment' event_slug=event_slug session_id=session_pk as enroll_url %}
         <div class="flex items-center gap-2.5">
-            {% if actions.state == "enrolled" %}
-                <span class="inline-flex items-center gap-1 text-sm font-medium text-success-text">
-                    {% icon "check-circle" class="w-4 h-4" variant="mini" %} {% translate "You're enrolled" %}
-                </span>
-            {% elif actions.state == "waiting" %}
-                <span class="inline-flex items-center gap-1 text-sm font-medium text-warning-text">
-                    {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "On the waiting list" %}
+            {% if actions.badge %}
+                <span class="inline-flex items-center gap-1 text-sm font-medium {% if actions.badge.tone == "success" %}text-success-text{% else %}text-warning-text{% endif %}">
+                    {% icon actions.badge.icon class="w-4 h-4" variant="mini" %} {{ actions.badge.label }}
                 </span>
             {% endif %}
-            {# Compound control: the one-click state action plus an attached #}
-            {# segment for the group flow (party, companions, guests). #}
             <div class="flex items-center gap-1">
-                {% if actions.state == "enrolled" or actions.state == "waiting" %}
+                {% if actions.badge %}
+                    {# Already holding a seat or a place: a plain action to give #}
+                    {# it back, with the group page as a separate link. #}
                     <form method="post"
                           action="{{ enroll_url }}"
                           hx-post="{{ enroll_url }}"
@@ -39,14 +36,11 @@
                           hx-swap="outerHTML"
                           {% if actions.confirm %}hx-confirm="{{ actions.confirm }}"{% endif %}>
                         {% csrf_token %}
-                        <input type="hidden" name="user_{{ viewer_pk }}" value="cancel">
+                        <input type="hidden"
+                               name="user_{{ viewer_pk }}"
+                               value="{{ actions.submit_value }}">
                         <button type="submit" class="btn btn-secondary text-sm">
-                            {% icon "x-mark" class="w-4 h-4" variant="mini" %}
-                            {% if actions.state == "enrolled" %}
-                                {% translate "Cancel" %}
-                            {% else %}
-                                {% translate "Leave" %}
-                            {% endif %}
+                            {% icon actions.submit_icon class="w-4 h-4" variant="mini" %} {{ actions.submit_label }}
                         </button>
                     </form>
                     <a href="{{ enroll_url }}"
@@ -55,27 +49,9 @@
                         {% icon "user-group" class="w-4 h-4" variant="mini" %}
                         <span class="sr-only">{{ actions.group_label }}</span>
                     </a>
-                {% elif actions.state == "waitlistable" %}
-                    <span class="inline-flex items-stretch">
-                        <form method="post"
-                              class="contents"
-                              action="{{ enroll_url }}"
-                              hx-post="{{ enroll_url }}"
-                              hx-target="#enroll-actions-{{ session_pk }}"
-                              hx-swap="outerHTML">
-                            {% csrf_token %}
-                            <input type="hidden" name="user_{{ viewer_pk }}" value="waitlist">
-                            <button type="submit"
-                                    class="btn text-sm btn-secondary rounded-r-none border-r-0">
-                                {% icon "clock" class="w-4 h-4" variant="mini" %} {% translate "Join waiting list" %}
-                            </button>
-                        </form>
-                        <span class="after:content-[''] after:block after:w-px after:h-[calc(100%+2px)] after:bg-border/80"></span>
-                        <a href="{{ enroll_url }}"
-                           class="btn text-sm btn-secondary rounded-l-none border-l-0"
-                           title="{{ actions.group_label }}">{% translate "with others" %}</a>
-                    </span>
                 {% else %}
+                    {# Compound button: the one-click way in, plus an attached #}
+                    {# segment for the group flow (party, companions, guests). #}
                     <span class="inline-flex items-stretch">
                         <form method="post"
                               class="contents"
@@ -84,14 +60,23 @@
                               hx-target="#enroll-actions-{{ session_pk }}"
                               hx-swap="outerHTML">
                             {% csrf_token %}
-                            <input type="hidden" name="user_{{ viewer_pk }}" value="enroll">
-                            <button type="submit" class="btn btn-primary text-sm rounded-r-none">
-                                {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
+                            <input type="hidden"
+                                   name="user_{{ viewer_pk }}"
+                                   value="{{ actions.submit_value }}">
+                            <button type="submit"
+                                    class="btn text-sm rounded-r-none {% if actions.is_primary %}btn-primary{% else %}btn-secondary border-r-0{% endif %}">
+                                {% icon actions.submit_icon class="w-4 h-4" variant="mini" %} {{ actions.submit_label }}
                             </button>
                         </form>
-                        <span class="w-px before:block before:top-0 before:-bottom-0.5 relative before:absolute before:inset-0 after:block after:absolute after:inset-0 after:top-0 after:z-10 after:bg-[hsl(9,90%,69%)] before:bg-[#C54B2F]"></span>
+                        {# The seam reads as part of the button it splits, so it #}
+                        {# is drawn in that variant's own colours. #}
+                        {% if actions.is_primary %}
+                            <span class="w-px before:block before:top-0 before:-bottom-0.5 relative before:absolute before:inset-0 after:block after:absolute after:inset-0 after:top-0 after:z-10 after:bg-[hsl(9,90%,69%)] before:bg-[#C54B2F]"></span>
+                        {% else %}
+                            <span class="after:content-[''] after:block after:w-px after:h-[calc(100%+2px)] after:bg-border/80"></span>
+                        {% endif %}
                         <a href="{{ enroll_url }}"
-                           class="btn btn-primary text-sm rounded-l-none border-l-0"
+                           class="btn text-sm rounded-l-none border-l-0 {% if actions.is_primary %}btn-primary{% else %}btn-secondary{% endif %}"
                            title="{{ actions.group_label }}">{% translate "with others" %}</a>
                     </span>
                 {% endif %}
