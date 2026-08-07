@@ -18,6 +18,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.decorators import method_decorator
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import cache_control
 from django.views.decorators.vary import vary_on_cookie as vary_cookie
@@ -336,7 +337,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 group_sessions_by_state(sessions_data)
             )
 
-        schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
+        schedule_tz = get_current_timezone()
+        schedule_days = (
+            build_schedule_days(sessions_data, tz=schedule_tz)
+            if compact_schedule
+            else []
+        )
         # The compact schedule offers two layouts: the chronological ledger
         # (default) and a rooms grid (?view=rooms) with a column per room.
         rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
@@ -350,7 +356,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_days": schedule_days,
                 "schedule_view_is_list": not rooms_view,
                 "schedule_view_is_rooms": rooms_view,
-                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
+                "room_lane_days": (
+                    build_room_lanes(schedule_days, tz=schedule_tz)
+                    if rooms_view
+                    else []
+                ),
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,
