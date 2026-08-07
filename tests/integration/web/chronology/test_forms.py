@@ -1,5 +1,3 @@
-"""Unit tests for build_session_details_form with participant limit parameters."""
-
 from ludamus.gates.web.django.chronology.forms import build_session_details_form
 from tests.unit.factories import category
 
@@ -163,6 +161,22 @@ class TestBuildSessionDetailsFormParticipantLimits:
         assert not form.is_valid()
         assert form.errors["participants_limit"] == ["Enter a smaller number."]
         assert form.fields["participants_limit"].max_value is None
+
+    def test_accepts_the_widest_limit_the_column_can_store(self):
+        form_class = build_session_details_form(
+            [], category=category(min_participants_limit=0, max_participants_limit=0)
+        )
+        form = form_class(
+            {
+                "title": "Test",
+                "description": "A test session",
+                "display_name": "Presenter",
+                "participants_limit": str(2**31 - 1),
+            }
+        )
+
+        assert form.is_valid()
+        assert form.cleaned_data["participants_limit"] == 2**31 - 1
 
     def test_default_limits_are_zero(self):
         form_class = build_session_details_form([], category=category())
