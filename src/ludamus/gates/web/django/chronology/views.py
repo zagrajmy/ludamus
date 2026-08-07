@@ -1075,11 +1075,19 @@ class SessionModalComponentView(View):
         )
         if dto is None:
             raise Http404
+        marks = (
+            request.services.guilds.marks_for_users(
+                sphere_id=request.context.current_sphere_id, user_pks=[dto.presenter.pk]
+            )
+            if dto.presenter is not None
+            else {}
+        )
         data = present_session_modal(
             dto,
             event_banned=event_banned,
             banned_presenter_ids=banned_by,
             shadowbanned_ids=shadowbanned_ids,
+            guild=marks.get(dto.presenter.pk) if dto.presenter is not None else None,
         )
         return TemplateResponse(
             request,

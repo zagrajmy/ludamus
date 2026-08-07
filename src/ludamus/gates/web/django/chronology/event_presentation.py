@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         SessionModalDTO,
     )
     from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.guild import GuildMarkDTO
 
 
 @dataclass
@@ -90,6 +91,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     is_ended: bool = False
     should_show_as_inactive: bool = False
     pretend_full: bool = False
+    # The presenter's guild in this sphere, or None. Defaults so the many
+    # equality assertions over this dataclass keep passing for guild-less
+    # sessions, which is the overwhelming majority.
+    guild: GuildMarkDTO | None = None
 
     @property
     def is_pending_proposal(self) -> bool:
@@ -301,6 +306,7 @@ def present_session_modal(
     event_banned: bool,
     banned_presenter_ids: set[int],
     shadowbanned_ids: frozenset[int],
+    guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:
         presenter = _user_info(dto.presenter)
@@ -341,6 +347,7 @@ def present_session_modal(
         waiting_count=dto.waiting_count,
         is_ongoing=dto.is_ongoing,
         is_ended=dto.is_ended,
+        guild=guild,
     )
     return mask_session_card(
         card, event_banned=event_banned, banned_presenter_ids=banned_presenter_ids
