@@ -4,7 +4,14 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import type { Rect } from "./harness";
 
-import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import {
+  baseUrl,
+  centreOnScreen,
+  createIosHarness,
+  describeNode,
+  hookTimeoutMs,
+  sessionName,
+} from "./harness";
 
 const env = process.env;
 const session = sessionName("scrubber");
@@ -60,8 +67,14 @@ const decodeEntities = (value: string): string =>
     .replaceAll("&#39;", "'")
     .replaceAll("&amp;", "&");
 
+// Accessibility engines collapse runs of whitespace in a name; markup keeps its
+// indentation. Collapse both sides the same way before comparing.
+const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
+
 const namesFrom = (html: string, pattern: RegExp): Set<string> =>
-  new Set([...html.matchAll(pattern)].flatMap((m) => (m[1] ? [decodeEntities(m[1])] : [])));
+  new Set(
+    [...html.matchAll(pattern)].flatMap((m) => (m[1] ? [collapse(decodeEntities(m[1]))] : [])),
+  );
 
 // Take the accessible names the page actually renders rather than guessing at
 // them. Two earlier rounds guessed: `viewport.width - 4` assumed where the rail
@@ -74,24 +87,9 @@ const RAIL_HOUR_NAMES = /class="schedule-rail-hour[^"]*"[^>]*aria-label="([^"]+)
 const SESSION_LINK_NAMES =
   /<a[^>]*class="session-link[^"]*"[^>]*>\s*<span class="sr-only">([^<]+)<\/span>/g;
 
-// The runner's `hittable` read like the principled visibility check, but the
-// device falsified it: with it required, zero of 110 session links counted as
-// visible in 90s, and the modal spec judged content "not visible" that its
-// next step then tapped. It reads false for nodes inside Safari's web content.
-// Rects, in contrast, have been populated and accurate in every device log so
-// far — so the visibility question stays geometric. CHROME_INSET keeps presses
-// clear of Safari's top and bottom bars; its exact size is unknowable from
-// here, and being conservative only shifts which markers get pressed — set
-// membership, not position, decides what they are.
-const CHROME_INSET = 120;
-
-const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
-  const centreY = rect.y + rect.height / 2;
-  return (
-    centreY >= viewport.y + CHROME_INSET && centreY <= viewport.y + viewport.height - CHROME_INSET
-  );
-};
-
+// Set membership decides what a node is; the harness's shared band decides
+// whether to press it. Being conservative about the band only shifts which
+// markers get pressed.
 const pressable = (
   snapshot: CaptureSnapshotResult,
   node: SnapshotNode,
@@ -99,7 +97,7 @@ const pressable = (
 ): boolean =>
   Boolean(
     node.label &&
-    names.has(node.label) &&
+    names.has(collapse(node.label)) &&
     node.rect &&
     centreOnScreen(node.rect, viewportOf(snapshot)),
   );
@@ -115,18 +113,23 @@ const railHourTargets = (snapshot: CaptureSnapshotResult, names: Set<string>): R
     // fields, so a failure says which property was missing instead of leaving
     // the next reader to infer it from a screenshot they cannot take.
     const rejected = snapshot.nodes
-      .flatMap((node) => (node.label && names.has(node.label) ? [node] : []))
-      .slice(0, 8)
-      .map(
-        (node) =>
-          `${node.label} type=${node.type ?? "?"} hittable=${String(node.hittable)} rect=${
-            node.rect ? `${Math.round(node.rect.x)},${Math.round(node.rect.y)}` : "none"
-          }`,
+      .flatMap((node) =>
+        node.label && names.has(collapse(node.label)) ? [describeNode(node)] : [],
       )
+      .slice(0, 8)
+      .join(" | ");
+    if (rejected) {
+      throw new Error(
+        `No pressable rail hour among ${names.size} rendered markers. Rejected: ${rejected}`,
+      );
+    }
+    const timeish = snapshot.nodes
+      .flatMap((node) => (node.label && /\d{1,2}:\d{2}/.test(node.label) ? [node.label] : []))
+      .slice(0, 6)
       .join(" | ");
     throw new Error(
-      `No pressable rail hour among ${names.size} rendered markers.` +
-        (rejected ? ` Rejected: ${rejected}` : " None appeared in the snapshot at all."),
+      `None of ${names.size} rendered rail names appeared in the snapshot. ` +
+        `Expected e.g. ${JSON.stringify([...names][0])}; device labels with times: ${timeish || "none"}.`,
     );
   }
   // A handful spread down the rail: the callout is a per-element behaviour, so
@@ -151,29 +154,29 @@ const waitForSchedule = async (
 ): Promise<CaptureSnapshotResult> => {
   const deadline = Date.now() + timeoutMs;
   let snapshot: CaptureSnapshotResult | null = null;
+  let lastSnapshotError: unknown = null;
   do {
     // A snapshot taken while Safari is still launching throws; that is a state
     // to wait out, not to end the run on.
     try {
       snapshot = await takeSnapshot();
     } catch (error) {
+      lastSnapshotError = error;
       console.warn("Snapshot failed while the page was settling; retrying.", error);
     }
     if (snapshot && scheduleOnScreen(snapshot, sessionNames)) return snapshot;
     await wait(500);
   } while (Date.now() < deadline);
 
-  const matched =
-    snapshot?.nodes.filter((node) => node.label && sessionNames.has(node.label)) ?? [];
-  const sample = matched
-    .slice(0, 6)
-    .map(
-      (node) =>
-        `${node.label} type=${node.type ?? "?"} hittable=${String(node.hittable)} rect=${
-          node.rect ? `${Math.round(node.rect.x)},${Math.round(node.rect.y)}` : "none"
-        }`,
-    )
-    .join(" | ");
+  if (!snapshot) {
+    throw new Error(
+      `No snapshot succeeded in ${timeoutMs}ms; last error: ${String(lastSnapshotError)}`,
+    );
+  }
+  const matched = snapshot.nodes.filter(
+    (node) => node.label && sessionNames.has(collapse(node.label)),
+  );
+  const sample = matched.slice(0, 6).map(describeNode).join(" | ");
   throw new Error(
     matched.length > 0
       ? `Session links matched by name but none within the viewport band: ${sample}`

@@ -128,6 +128,23 @@ class TestBuildSessionDetailsFormParticipantLimits:
         )
         assert just_right.is_valid()
 
+    def test_rejects_a_limit_wider_than_the_column(self):
+        # The storage bound rides a validator, so the public input still
+        # carries no max attribute even with no category ceiling set.
+        form_class = build_session_details_form([], min_limit=0, max_limit=0)
+        form = form_class(
+            {
+                "title": "Test",
+                "description": "A test session",
+                "display_name": "Presenter",
+                "participants_limit": str(2**31),
+            }
+        )
+
+        assert not form.is_valid()
+        assert form.errors["participants_limit"] == ["Enter a smaller number."]
+        assert form.fields["participants_limit"].max_value is None
+
     def test_default_limits_are_zero(self):
         form_class = build_session_details_form([])
         form = form_class()

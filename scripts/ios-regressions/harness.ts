@@ -26,14 +26,38 @@ export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
 export type Rect = { x: number; y: number; width: number; height: number };
 
 // Only reached when a snapshot comes back with no nodes at all -- the runner
-// always sets a rect. Sized for the iPhone 17 Pro the workflow asks for, which
-// it falls back off when the image has no such device, so treat it as a shape
-// to keep arithmetic finite rather than as this run's screen.
+// always sets a rect. Sized for the iPhone 17 Pro the workflow asks for first;
+// when the image lacks that device the workflow picks another, so treat this as
+// a shape that keeps arithmetic finite, not as this run's screen.
 const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
+
+// One convention for "is this on screen": rect centre inside the viewport,
+// clear of a band for Safari's top and bottom chrome. The band's exact size is
+// unknowable from this sandbox; being conservative only narrows what counts as
+// visible, which specs must treat as "press/check something else", never as a
+// pass. The runner's `hittable` is NOT this check — it reads false inside
+// Safari's web content (device-falsified on this branch).
+export const CHROME_INSET = 120;
+
+export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
+  const centreY = rect.y + rect.height / 2;
+  return (
+    centreY >= viewport.y + CHROME_INSET && centreY <= viewport.y + viewport.height - CHROME_INSET
+  );
+};
+
+export const describeNode = (node: SnapshotNode): string => {
+  const rect = node.rect
+    ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
+    : "";
+  return `${node.type ?? "node"} ref=@${node.ref}${rect} hittable=${String(node.hittable)} label=${JSON.stringify(
+    node.label ?? node.value ?? "",
+  )}`;
+};
 
 export type IosHarness = {
   client: AgentDeviceClient;
@@ -184,9 +208,18 @@ export const createIosHarness = (session: string): IosHarness => {
     const deadline = Date.now() + 60000;
     let lastError = "no response";
 
+    // Pin the language both halves of a spec see. Bun's fetch sends no
+    // Accept-Language, so Django falls back to LANGUAGE_CODE ("pl") and dates
+    // render from Django's own compiled catalogue — "Sobota" — while the
+    // en-US simulator's Safari asks for and gets "Saturday". Names read from
+    // this HTML then never match device labels. Pinning "en" aligns the two;
+    // if the simulator is ever not English, set-membership finds nothing and
+    // the spec fails loudly rather than passing vacuously.
+    const headers = { "Accept-Language": "en" };
+
     while (Date.now() < deadline) {
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { headers });
         const text = await response.text();
         if (response.ok && text.includes(contains)) return text;
 

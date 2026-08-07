@@ -521,12 +521,9 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.category_id == original_category_id
 
-    def test_post_accepts_a_limit_above_the_category_maximum(
-        self, authenticated_client, active_user, sphere, event
-    ):
+    def test_post_accepts_a_limit_above_the_category_maximum(self, panel_client, event):
         # The category's bounds guard the submission wizard, not the organizer
         # reviewing the proposal here.
-        sphere.managers.add(active_user)
         bounded = ProposalCategory.objects.create(
             event=event,
             name="Lectures",
@@ -536,7 +533,7 @@ class TestProposalEditPageView:
         )
         session = _make_session(event, category=bounded)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": bounded.pk,
@@ -562,16 +559,13 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.participants_limit == LIMIT_ABOVE_CATEGORY_MAX
 
-    def test_post_rejects_a_limit_wider_than_the_column(
-        self, authenticated_client, active_user, sphere, event
-    ):
+    def test_post_rejects_a_limit_wider_than_the_column(self, panel_client, event):
         # Unbounded is not unlimited: Postgres integer stops at 2**31-1. The
         # field says so itself, rather than leaving the panel to fall back on
         # its generic "couldn't save" message.
-        sphere.managers.add(active_user)
         session = _make_session(event, participants_limit=DEFAULT_SESSION_PARTICIPANTS)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -619,12 +613,9 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.participants_limit == DEFAULT_SESSION_PARTICIPANTS
 
-    def test_post_accepts_a_limit_below_the_category_minimum(
-        self, authenticated_client, active_user, sphere, event
-    ):
+    def test_post_accepts_a_limit_below_the_category_minimum(self, panel_client, event):
         # A session already smaller than its category's floor stays editable:
         # the floor never applies on this form.
-        sphere.managers.add(active_user)
         bounded = ProposalCategory.objects.create(
             event=event,
             name="Lectures",
@@ -635,7 +626,7 @@ class TestProposalEditPageView:
             event, category=bounded, participants_limit=DEFAULT_SESSION_PARTICIPANTS
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": bounded.pk,

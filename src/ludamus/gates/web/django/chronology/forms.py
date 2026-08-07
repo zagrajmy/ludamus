@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
@@ -11,7 +12,11 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
+from ludamus.gates.web.django.forms import (
+    MAX_STORED_PARTICIPANTS_LIMIT,
+    cover_image_field,
+    validate_uploaded_image,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -54,9 +59,18 @@ def build_session_details_form(
     # facilitator's self-edit are deliberately unbounded — so a category of large
     # rooms can refuse a two-person session. A floor also makes the number
     # mandatory; with neither bound the field is optional and 0 means no limit.
+    # The storage ceiling guards every form that writes the column, this public
+    # one included — SessionEditForm carries the same bound for the panel. A
+    # validator rather than `max_value`, so no max attribute lands on the input
+    # when the category itself sets no policy ceiling.
     participants_kwargs: dict[str, Any] = {
         "label": _("Max participants"),
         "min_value": min_limit,
+        "validators": [
+            MaxValueValidator(
+                MAX_STORED_PARTICIPANTS_LIMIT, message=_("Enter a smaller number.")
+            )
+        ],
     }
     if max_limit:
         participants_kwargs["max_value"] = max_limit

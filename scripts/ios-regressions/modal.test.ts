@@ -2,7 +2,14 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import {
+  baseUrl,
+  centreOnScreen,
+  createIosHarness,
+  describeNode,
+  hookTimeoutMs,
+  sessionName,
+} from "./harness";
 
 const env = process.env;
 const session = sessionName("modal");
@@ -39,9 +46,6 @@ const showingLabels = async (): Promise<string[]> => {
   );
 };
 
-const isShowing = async (text: string): Promise<boolean> =>
-  (await showingLabels()).some((label) => label.includes(text));
-
 // Polling, not sleeping: the modal animates in, and a single snapshot taken
 // mid-animation reports content that is about to be there as missing.
 const waitUntilShowing = async (texts: string[], timeoutMs: number): Promise<boolean> => {
@@ -70,21 +74,8 @@ const clickNodeReference = async (node: SnapshotNode): Promise<void> => {
   await client.interactions.click({ ...deviceOptions, ref: `@${node.ref}` });
 };
 
-const describeNode = (node: SnapshotNode): string => {
-  const rect = node.rect
-    ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
-    : "";
-  return `${node.type ?? "node"} ref=@${node.ref}${rect} label=${JSON.stringify(
-    node.label ?? node.value ?? "",
-  )}`;
-};
-
-const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean => {
-  if (!node.rect) return false;
-  const viewportHeight = viewportOf(snapshot).height;
-  const centerY = node.rect.y + node.rect.height / 2;
-  return centerY >= 80 && centerY <= viewportHeight - 120;
-};
+const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean =>
+  Boolean(node.rect && centreOnScreen(node.rect, viewportOf(snapshot)));
 
 const isHiddenDialogLabel = (node: SnapshotNode): boolean =>
   (node.label ?? "").includes("web dialog");
@@ -221,7 +212,9 @@ beforeAll(async () => {
   await clickNodeCenter(closeButton);
   await client.command.wait({ ...deviceOptions, durationMs: 1000 });
 
-  if (await isShowing("Close")) {
+  // Closed means gone from the tree, not merely outside the visibility band —
+  // the rect filter here would let a stuck-but-scrolled modal read as closed.
+  if ((await snapshotLabels()).includes("Close")) {
     closeIssue = "The modal X / Close button did not close the modal.";
   }
 
