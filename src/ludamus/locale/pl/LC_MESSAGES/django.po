@@ -794,9 +794,9 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "0 = no limit"
-msgstr "0 = bez limitu"
+#: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 = no limit"
+msgstr "Puste pole lub 0 = bez limitu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
@@ -2313,6 +2313,10 @@ msgstr "Tabliczki na drzwi"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
 msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enter a smaller number."
+msgstr "Podaj mniejszą liczbę."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -6285,8 +6289,12 @@ msgid "Participant Limits"
 msgstr "Limity uczestników"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Set minimum and maximum participant limits for this category."
-msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+msgid ""
+"Bounds on what a proposal submitted through the call for proposals may ask "
+"for. Your own forms in this panel are not limited by them."
+msgstr ""
+"Ograniczają liczbę miejsc, o jaką może poprosić zgłoszenie przysłane w "
+"naborze. Twoich własnych formularzy w panelu to nie dotyczy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Minimum participants"
@@ -6299,6 +6307,10 @@ msgstr "0 = bez minimum"
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Maximum participants"
 msgstr "Maks. uczestników"
+
+#: src/ludamus/templates/panel/cfp-edit.html
+msgid "0 = no limit"
+msgstr "0 = bez limitu"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Waiting-list seats"
@@ -8801,6 +8813,12 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Submissions"
 #~ msgstr "Zgłoszenia"
+
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+
+#~ msgid "That is more people than we can store."
+#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
 
 #~ msgid "Confirm block"
 #~ msgstr "Potwierdź blok"

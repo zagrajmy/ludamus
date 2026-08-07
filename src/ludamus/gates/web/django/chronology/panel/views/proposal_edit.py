@@ -286,7 +286,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
         form_class = create_proposal_form(
             [(c.pk, c.name) for c in categories],
             requirements=requirements,
-            category=category,
+            durations=category.durations if category else (),
         )
         if data is not None:
             return form_class(data, self.request.FILES)
@@ -302,10 +302,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             "display_name": session.display_name,
             "description": session.description,
             "contact_email": session.contact_email,
-            # 0 means "no limit", which the field renders as blank — pre-filling
-            # a literal 0 would trip a category's min_participants_limit and make
-            # the proposal uneditable.
-            "participants_limit": session.participants_limit or None,
+            "participants_limit": session.participants_limit,
             "min_age": session.min_age,
             "category_id": session.category_id,
             "cover_image": session.cover_image_url or None,
@@ -826,7 +823,8 @@ class ProposalFormPageView(_ProposalFormBase):
                         user_id=self.request.context.current_user_id,
                     )
 
-            # T2: raising (or unlimiting) capacity frees seats — promote waiters.
+            # T2: a capacity change may have freed seats — promote waiters. An old
+            # limit of 0 (unlimited → finite) also matches; fill_freed_seats recomputes.
             new_limit = form.cleaned_data.get("participants_limit") or 0
             if new_limit == 0 or new_limit > session.participants_limit:
                 self.request.services.waitlist_promotion.fill_freed_seats(

@@ -25,28 +25,77 @@ export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
-// Only reached when a snapshot comes back without a root rect. Sized for the
-// iPhone 17 Pro the macOS runner image actually provides -- CI ignores
-// `deviceName` below, because the workflow picks a UDID and passes it in.
+// Only reached when a snapshot comes back with no nodes to read a rect from.
+// Sized for the iPhone 17 Pro the workflow asks for first; when the image
+// lacks that device the workflow picks another, so treat this as a shape that
+// keeps arithmetic finite, not as this run's screen.
 const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
+
+// The one poll-to-deadline loop: probe until it yields a value or the window
+// closes, and only conclude "nothing" (null) once the window has actually
+// elapsed — which is what specs asserting absence rely on. The window ends on
+// a probe, not a sleep, so its final interval is observed rather than slept
+// away. Paced by a local sleep rather than the runner's wait command, because
+// the same loop must serve before a device session exists (fetchReadyPage) as
+// during one; the probes themselves are the only traffic the runner needs to
+// see. A throwing probe aborts the poll.
+export const pollUntil = async <T>(
+  probe: () => Promise<T | null>,
+  { timeoutMs, intervalMs = 500 }: { timeoutMs: number; intervalMs?: number },
+): Promise<T | null> => {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const result = await probe();
+    if (result !== null) return result;
+    if (Date.now() >= deadline) return null;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+};
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
 
+// One convention for "is this on screen": rect centre inside the viewport,
+// clear of a band for Safari's top and bottom chrome. The band's exact size is
+// unknowable from this sandbox; being conservative only narrows what counts as
+// visible, which specs must treat as "press/check something else", never as a
+// pass. The runner's `hittable` is NOT this check — it reads false inside
+// Safari's web content (device-falsified on this branch).
+const CHROME_INSET = 120;
+
+export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
+  const centreX = rect.x + rect.width / 2;
+  const centreY = rect.y + rect.height / 2;
+  return (
+    centreX >= viewport.x &&
+    centreX <= viewport.x + viewport.width &&
+    centreY >= viewport.y + CHROME_INSET &&
+    centreY <= viewport.y + viewport.height - CHROME_INSET
+  );
+};
+
+export const describeNode = (node: SnapshotNode): string => {
+  const rect = node.rect
+    ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
+    : "";
+  return `${node.type ?? "node"} ref=@${node.ref}${rect} hittable=${String(node.hittable)} label=${JSON.stringify(
+    node.label ?? node.value ?? "",
+  )}`;
+};
+
 export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
-  takeSnapshot: () => Promise<CaptureSnapshotResult>;
+  takeSnapshot: (scope?: string) => Promise<CaptureSnapshotResult>;
   viewportOf: (snapshot: CaptureSnapshotResult) => Rect;
-  viewportRect: () => Promise<Rect>;
   close: () => Promise<void>;
-  snapshotLabels: () => Promise<string[]>;
+  snapshotLabels: (scope?: string) => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
   openUrl: (url: string, udid: string) => Promise<void>;
   prepareDevice: () => Promise<string>;
-  assertPageReady: (url: URL, contains: string) => Promise<void>;
+  fetchReadyPage: (url: URL, contains: string) => Promise<string>;
 };
 
 export const createIosHarness = (session: string): IosHarness => {
@@ -56,18 +105,27 @@ export const createIosHarness = (session: string): IosHarness => {
     ? { platform: "ios", udid: providedUdid }
     : { platform: "ios", device: deviceName };
 
-  const takeSnapshot = (): Promise<CaptureSnapshotResult> =>
-    client.capture.snapshot({ ...deviceOptions, interactiveOnly: true });
+  // The runner walks at most 300 nodes per snapshot and silently drops the
+  // rest (`fastSnapshotLimit`, surfaced as `truncated`), so on a large page
+  // anything late in document order never appears. `scope` narrows the walk to
+  // the subtree of the first element whose accessible label or identifier
+  // contains the given text — resolved by a live element query, which has no
+  // such cap. A scope that matches nothing falls back to the full, possibly
+  // truncated, tree.
+  const takeSnapshot = (scope?: string): Promise<CaptureSnapshotResult> =>
+    client.capture.snapshot({
+      ...deviceOptions,
+      interactiveOnly: true,
+      ...(scope ? { scope } : {}),
+    });
 
-  const snapshotLabels = async (): Promise<string[]> => {
-    const snapshot = await takeSnapshot();
+  const snapshotLabels = async (scope?: string): Promise<string[]> => {
+    const snapshot = await takeSnapshot(scope);
     return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
   };
 
   const viewportOf = (snapshot: CaptureSnapshotResult): Rect =>
     snapshot.nodes[0]?.rect ?? FALLBACK_VIEWPORT;
-
-  const viewportRect = async (): Promise<Rect> => viewportOf(await takeSnapshot());
 
   const close = async (): Promise<void> => {
     try {
@@ -177,29 +235,53 @@ export const createIosHarness = (session: string): IosHarness => {
     return udid;
   };
 
-  const assertPageReady = async (url: URL, contains: string): Promise<void> => {
+  // Waits for the page to serve `contains`, then hands back the body. A caller
+  // that needs a landmark from the markup -- a scrubber slot anchor, the
+  // accessible name of a control -- reads it here instead of hunting for it
+  // with gestures, which are the slowest thing either spec can do.
+  const fetchReadyPage = async (url: URL, contains: string): Promise<string> => {
     console.log(`Checking local event page at ${url.toString()}...`);
-    const deadline = Date.now() + 60000;
     let lastError = "no response";
 
-    while (Date.now() < deadline) {
-      try {
-        const response = await fetch(url);
-        const text = await response.text();
-        if (response.ok && text.includes(contains)) return;
+    // Pin the language both halves of a spec see. Bun's fetch sends no
+    // Accept-Language, so Django falls back to LANGUAGE_CODE ("pl") and dates
+    // render from Django's own compiled catalogue — "Sobota" — while the
+    // en-US simulator's Safari asks for and gets "Saturday". Names read from
+    // this HTML then never match device labels. Pinning "en" aligns the two;
+    // if the simulator is ever not English, set-membership finds nothing and
+    // the spec fails loudly rather than passing vacuously.
+    const headers = { "Accept-Language": "en" };
 
-        lastError = `HTTP ${response.status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
-        if (response.status >= 400 && response.status < 500) break;
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
+    const unusable = (): Error =>
+      new Error(
+        `Local event page is not usable at ${url.toString()} (${lastError}). ` +
+          "Make sure the e2e server is running and serving the seeded event.",
+      );
 
-    throw new Error(
-      `Local event page is not usable at ${url.toString()} (${lastError}). ` +
-        "Make sure the e2e server is running and serving the seeded event.",
+    const page = await pollUntil<string>(
+      async () => {
+        let status: number | null = null;
+        try {
+          // Bounded per request: pollUntil cannot interrupt a pending fetch,
+          // so a stalled server would otherwise hold the hook past the window.
+          const response = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
+          const text = await response.text();
+          if (response.ok && text.includes(contains)) return text;
+
+          status = response.status;
+          lastError = `HTTP ${status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+        }
+        // A 4xx is a wrong URL or a missing seed, not a server still starting;
+        // no amount of polling fixes it.
+        if (status !== null && status >= 400 && status < 500) throw unusable();
+        return null;
+      },
+      { timeoutMs: 60000, intervalMs: 1000 },
     );
+    if (page === null) throw unusable();
+    return page;
   };
 
   return {
@@ -207,13 +289,12 @@ export const createIosHarness = (session: string): IosHarness => {
     deviceOptions,
     takeSnapshot,
     viewportOf,
-    viewportRect,
     close,
     snapshotLabels,
     findNodeByLabel,
     wait,
     openUrl,
     prepareDevice,
-    assertPageReady,
+    fetchReadyPage,
   };
 };
