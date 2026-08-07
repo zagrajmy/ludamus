@@ -210,11 +210,14 @@ class TestNightSessions:
 
         assert [[hour.start.hour for hour in day.hours] for day in days] == [[22], [0]]
         assert [day.hours[0].sessions for day in days] == [[night], [night]]
+        assert [(day.windows[1][0].hour, day.windows[1][1].hour) for day in days] == [
+            (22, 0),
+            (0, 2),
+        ]
 
     def test_room_lanes_clip_the_night_session_at_midnight(self):
         days = build_room_lanes(
-            build_schedule_days({1: self._night_session()}, tz=_SCHEDULE_TZ),
-            tz=_SCHEDULE_TZ,
+            build_schedule_days({1: self._night_session()}, tz=_SCHEDULE_TZ)
         )
 
         assert [[mark.start.hour for mark in day.hour_marks] for day in days] == [

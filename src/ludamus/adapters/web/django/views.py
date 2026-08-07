@@ -356,11 +356,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_days": schedule_days,
                 "schedule_view_is_list": not rooms_view,
                 "schedule_view_is_rooms": rooms_view,
-                "room_lane_days": (
-                    build_room_lanes(schedule_days, tz=schedule_tz)
-                    if rooms_view
-                    else []
-                ),
+                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,

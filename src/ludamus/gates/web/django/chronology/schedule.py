@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta, tzinfo
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta, tzinfo
 from math import ceil
 from operator import itemgetter
 from typing import TYPE_CHECKING
@@ -23,6 +23,7 @@ class ScheduleHour:
 class ScheduleDay:
     first_start: datetime
     hours: list[ScheduleHour]
+    windows: dict[int, SlotWindow] = field(default_factory=dict)
 
 
 @dataclass
@@ -49,35 +50,28 @@ class RoomLaneDay:
     tiles: list[RoomLaneTile]
 
 
-def _window_on_date(
-    *, start: datetime, end: datetime, tz: tzinfo, day: date
-) -> SlotWindow:
-    for window in interval_windows(start=start, end=end, tz=tz):
-        if window[0].date() == day:
-            return window
-    msg = f"interval {start}..{end} has no window on {day}"
-    raise ValueError(msg)
-
-
 def build_schedule_days(
     sessions_data: dict[int, SessionData], *, tz: tzinfo
 ) -> list[ScheduleDay]:
-    by_hour: dict[datetime, list[tuple[datetime, SessionData]]] = defaultdict(list)
+    by_hour: dict[datetime, list[tuple[datetime, SessionData, SlotWindow]]] = (
+        defaultdict(list)
+    )
     for data in sessions_data.values():
         if data.agenda_item is None:
             continue
         item = data.agenda_item
-        for window_start, _window_end in interval_windows(
-            start=item.start_time, end=item.end_time, tz=tz
-        ):
-            hour_start = window_start.replace(minute=0, second=0, microsecond=0)
-            by_hour[hour_start].append((item.start_time, data))
+        for window in interval_windows(start=item.start_time, end=item.end_time, tz=tz):
+            hour_start = window[0].replace(minute=0, second=0, microsecond=0)
+            by_hour[hour_start].append((item.start_time, data, window))
 
     days: list[ScheduleDay] = []
     for hour_start in sorted(by_hour):
-        sessions = [data for _, data in sorted(by_hour[hour_start], key=itemgetter(0))]
+        entries = sorted(by_hour[hour_start], key=itemgetter(0))
+        sessions = [data for _, data, _ in entries]
         if not days or days[-1].first_start.date() != hour_start.date():
-            days.append(ScheduleDay(first_start=hour_start, hours=[]))
+            days.append(ScheduleDay(first_start=hour_start, hours=[], windows={}))
+        for _, data, window in entries:
+            days[-1].windows[data.agenda_item.pk] = window
         days[-1].hours.append(ScheduleHour(start=hour_start, sessions=sessions))
     return days
 
@@ -109,9 +103,7 @@ def group_sessions_by_state(
     return dict(ended), dict(current), dict(future_unavailable)
 
 
-def build_room_lanes(
-    schedule_days: list[ScheduleDay], *, tz: tzinfo
-) -> list[RoomLaneDay]:
+def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
         keys = sorted(
@@ -133,7 +125,6 @@ def build_room_lanes(
         col_index = {key: index + 1 for index, key in enumerate(keys)}
 
         day_start = day.hours[0].start
-        day_date = day_start.date()
         session_hours = {hour.start for hour in day.hours}
         tiles: list[RoomLaneTile] = []
         day_end = day_start
@@ -141,15 +132,12 @@ def build_room_lanes(
             for data in hour.sessions:
                 if data.agenda_item is None:
                     continue
-                item = data.agenda_item
                 key = (
                     data.loc["space_name"],
                     data.loc["parent_slug"],
                     data.loc["parent_name"],
                 )
-                visible_start, visible_end = _window_on_date(
-                    start=item.start_time, end=item.end_time, tz=tz, day=day_date
-                )
+                visible_start, visible_end = day.windows[data.agenda_item.pk]
                 day_end = max(day_end, visible_end)
                 start_hour = int((visible_start - day_start).total_seconds() // 3600)
                 end_offset = (visible_end - day_start).total_seconds() / 3600
