@@ -217,6 +217,12 @@ class TestEventPageView:
         schedule_day = ScheduleDay(
             first_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            windows={
+                agenda_item.pk: (
+                    timezone.localtime(agenda_item.start_time),
+                    timezone.localtime(agenda_item.end_time),
+                )
+            },
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -333,6 +339,12 @@ class TestEventPageView:
         schedule_day = ScheduleDay(
             first_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            windows={
+                agenda_item.pk: (
+                    timezone.localtime(agenda_item.start_time),
+                    timezone.localtime(agenda_item.end_time),
+                )
+            },
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -656,6 +668,12 @@ class TestEventPageView:
         schedule_day = ScheduleDay(
             first_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            windows={
+                agenda_item.pk: (
+                    timezone.localtime(agenda_item.start_time),
+                    timezone.localtime(agenda_item.end_time),
+                )
+            },
         )
         url = self._get_url(event.slug)
         assert_response(
