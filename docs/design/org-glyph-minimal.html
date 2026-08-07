@@ -29,6 +29,8 @@
     --rule: #e4ddd6;
     --rule-soft: #efe9e3;
     --accent: #f85a3c;
+    --callout-bg: #fdf3f0;
+    --callout-edge: #f3d9d1;
     --accent-ink: #c13118;
     --ok: #0f7666;
     --ok-soft: #e6f4f0;
@@ -45,6 +47,8 @@
       --rule: #33302d;
       --rule-soft: #292624;
       --accent: #ff7d61;
+      --callout-bg: #2a1d19;
+      --callout-edge: #4a2f26;
       --accent-ink: #ffab9a;
       --ok: #2dd4b3;
       --ok-soft: #14312b;
@@ -61,6 +65,8 @@
     --rule: #33302d;
     --rule-soft: #292624;
     --accent: #ff7d61;
+    --callout-bg: #2a1d19;
+    --callout-edge: #4a2f26;
     --accent-ink: #ffab9a;
     --ok: #2dd4b3;
     --ok-soft: #14312b;
@@ -127,7 +133,6 @@
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.11em;
-    text-transform: uppercase;
     color: var(--ink-3);
     margin: 0;
   }
@@ -221,7 +226,6 @@
     font-size: 0.64rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    text-transform: uppercase;
     padding: 0.15rem 0.45rem;
     border-radius: 5px;
     background: var(--ok-soft);
@@ -271,7 +275,6 @@
     font-weight: 700;
     color: var(--ink);
     font-size: 0.82rem;
-    text-transform: uppercase;
     letter-spacing: 0.05em;
     padding-top: 0.15rem;
   }
@@ -286,7 +289,6 @@
     font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: var(--ink-3);
     padding-top: 0.28rem;
   }
@@ -560,7 +562,6 @@
     font-size: 0.66rem;
     font-weight: 700;
     letter-spacing: 0.09em;
-    text-transform: uppercase;
     color: var(--ink-3);
     background: var(--ground);
   }
@@ -575,10 +576,9 @@
     display: flex;
     gap: 0.9rem;
     padding: 1rem 1.15rem;
-    border: 1px solid var(--rule);
-    border-left: 3px solid var(--accent);
-    border-radius: 0 10px 10px 0;
-    background: var(--panel);
+    border: 1px solid var(--callout-edge);
+    border-radius: 10px;
+    background: var(--callout-bg);
     font-size: 0.94rem;
     color: var(--ink-2);
   }
