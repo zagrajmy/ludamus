@@ -154,14 +154,17 @@ class TestBuildGridOverlappingSessions:
         assert [
             day.columns[0].sessions[0].agenda_item.session_title for day in grid.days
         ] == ["Day one", "Day two"]
-        # Each day spans its own slots: 10:00-12:00 and 11:00-13:00, so both
-        # are two hours tall and each session sits at the top of its own day.
-        assert [day.total_minutes for day in grid.days] == [2 * 60, 2 * 60]
+        # 10:00-12:00 and 11:00-13:00 share one 10:00-13:00 axis, so 11:00 is
+        # the same row on both days and day two's session starts an hour down.
+        assert [day.total_minutes for day in grid.days] == [3 * 60, 3 * 60]
         assert [
             [label.time.strftime("%H:%M") for label in day.time_labels]
             for day in grid.days
-        ] == [["10:00", "11:00", "12:00"], ["11:00", "12:00", "13:00"]]
-        assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [0, 0]
+        ] == [["10:00", "11:00", "12:00", "13:00"]] * 2
+        assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [
+            0,
+            60,
+        ]
         assert grid.date_selection == "all"
         # One render, one load -- of the items and of the space nodes -- however
         # many days the grid spans. The warnings run off what the grid already
@@ -299,10 +302,10 @@ class TestBuildGridOverlappingSessions:
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
         day_one, day_two = grid.days
-        # Jan 2 owns the 00:00 window, and it stays Jan 2's business: Jan 1
-        # spans only its own 12:00 -> 24:00 rather than the union of the two.
-        assert [day.total_minutes for day in grid.days] == [12 * 60, 22 * 60]
-        assert day_one.time_labels[0].time.strftime("%H:%M") == "12:00"
+        # Jan 2 opens at 00:00 and Jan 1's slot runs to midnight, so both days
+        # take the full 00:00 -> 24:00 axis to keep the rows aligned.
+        assert [day.total_minutes for day in grid.days] == [24 * 60, 24 * 60]
+        assert day_one.time_labels[0].time.strftime("%H:%M") == "00:00"
         assert day_two.time_labels[0].time.strftime("%H:%M") == "00:00"
         assert day_one.columns[0].sessions == []
         assert [pos.start_minutes for pos in day_two.columns[0].sessions] == [0]
@@ -339,13 +342,13 @@ class TestBuildGridOverlappingSessions:
         )
 
         day_one, day_two = grid.days
-        # Friday spans 22:00 -> 24:00 and Saturday 00:00 -> 02:00, so each is
-        # two hours tall and the block fills its own day from the top.
-        assert [day.total_minutes for day in grid.days] == [2 * 60, 2 * 60]
+        # 22:00 -> 24:00 on one day and 00:00 -> 02:00 on the next share a
+        # 00:00 -> 24:00 axis, so each fragment sits at its own clock hour.
+        assert [day.total_minutes for day in grid.days] == [24 * 60, 24 * 60]
         friday, saturday = day_one.columns[0].sessions[0], (
             day_two.columns[0].sessions[0]
         )
-        assert (friday.start_minutes, friday.duration_minutes) == (0, 2 * 60)
+        assert (friday.start_minutes, friday.duration_minutes) == (22 * 60, 2 * 60)
         assert (saturday.start_minutes, saturday.duration_minutes) == (0, 2 * 60)
         # The real length rides along on the item, so a drag moves all four
         # hours rather than the visible fragment.

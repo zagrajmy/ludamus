@@ -42,11 +42,10 @@
     engage even on an overnight-length grid. Containment is x-only so vertical
     scrolling always chains to the page when the grid cannot consume it.
 
-    Every day carries its own time axis, so the track list alternates gutter,
+    Every day repeats the time axis, so the track list alternates gutter,
     rooms, gutter, rooms -- unrolled here because CSS `repeat()` cannot nest.
-    One shared axis would have to span the union of the days, and a session
-    split at midnight puts 00:00 on one day and 24:00 on the one before, which
-    is a full 24 hours of mostly empty column on every day of the event.
+    The days all span the same hours, so a given clock hour sits on the same
+    row across the whole calendar and rows can be read straight across.
     {% endcomment %}
     <div class="timetable-calendar max-h-[calc(100dvh-5rem)] overflow-auto overscroll-x-contain border border-border rounded-lg select-none"
          data-timetable-days

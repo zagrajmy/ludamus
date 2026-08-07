@@ -142,6 +142,17 @@ def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
     return leaves
 
 
+def _day_range(
+    day: date, span: tuple[int, int], tz: tzinfo
+) -> tuple[datetime, datetime]:
+    midnight = datetime.combine(day, datetime.min.time(), tzinfo=tz)
+    start_minute, end_minute = span
+    return (
+        midnight + timedelta(minutes=start_minute),
+        midnight + timedelta(minutes=end_minute),
+    )
+
+
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
@@ -200,10 +211,11 @@ class TimetableService:
             event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
         )
         states = _card_states(conflicts, violations)
+        span = self._shared_day_span(dates_to_render, windows_by_date, tz)
         days = [
             self._build_day_grid(
                 date_to_render=date_to_render,
-                day_range=self._day_range(date_to_render, windows_by_date, tz),
+                day_range=_day_range(date_to_render, span, tz),
                 spaces=spaces,
                 all_items=all_items,
                 states=states,
@@ -283,31 +295,26 @@ class TimetableService:
         )
 
     @staticmethod
-    def _day_range(
-        day: date, windows_by_date: dict[date, list[SlotWindow]], tz: tzinfo
-    ) -> tuple[datetime, datetime]:
-        # The day spans its own slots only. Windows are already clamped to the
-        # local date, so both ends are minutes from that date's midnight.
-        midnight = datetime.combine(day, datetime.min.time(), tzinfo=tz)
-        windows = windows_by_date[day]
-        start_minute = min(
-            math.floor((window_start - midnight).total_seconds() / 60)
-            for window_start, _ in windows
-        )
-        end_minute = max(
-            math.ceil((window_end - midnight).total_seconds() / 60)
-            for _, window_end in windows
-        )
+    def _shared_day_span(
+        days: list[date], windows_by_date: dict[date, list[SlotWindow]], tz: tzinfo
+    ) -> tuple[int, int]:
+        # One span for every rendered day, so 16:00 sits on the same row
+        # whether its day opens at 16:00 or at 10:00. Windows are already
+        # clamped to their local date, so both ends are minutes from midnight.
+        midnights = {
+            day: datetime.combine(day, datetime.min.time(), tzinfo=tz) for day in days
+        }
+        minutes = [
+            (edge - midnights[day]).total_seconds() / 60
+            for day in days
+            for window in windows_by_date[day]
+            for edge in window
+        ]
+        if not minutes:
+            return (0, 0)
         return (
-            midnight
-            + timedelta(
-                minutes=start_minute // TIMETABLE_SLOT_MINUTES * TIMETABLE_SLOT_MINUTES
-            ),
-            midnight
-            + timedelta(
-                minutes=math.ceil(end_minute / TIMETABLE_SLOT_MINUTES)
-                * TIMETABLE_SLOT_MINUTES
-            ),
+            math.floor(min(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
+            math.ceil(max(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
         )
 
     @staticmethod
