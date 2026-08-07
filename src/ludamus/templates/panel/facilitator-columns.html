@@ -13,12 +13,8 @@
     {{ current_event.name }} · {% translate "Facilitators" %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    <button type="submit"
-            form="columns-form"
-            class="btn btn-primary flex items-center">
-        {% icon "check" class="w-4 h-4 mr-2" %}
-        {% translate "Save" %}
-    </button>
+    {% translate "Save" as save_label %}
+    {% tessera_button save_label form="columns-form" icon="check" %}
 {% endblock header_actions %}
 {% block content %}
     <div class="px-3 sm:px-4 py-6">

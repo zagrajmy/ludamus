@@ -12,12 +12,11 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     <div class="flex items-center space-x-3">
-        <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-           class="btn btn-secondary">{% translate "Cancel" %}</a>
-        <button type="submit" form="facilitator-edit-form" class="btn btn-primary">
-            {% icon "check" class="w-4 h-4 mr-2" %}
-            {% translate "Save" %}
-        </button>
+        {% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug as cancel_url %}
+        {% translate "Cancel" as cancel_label %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Save" as save_label %}
+        {% tessera_button save_label form="facilitator-edit-form" icon="check" %}
     </div>
 {% endblock header_actions %}
 {% block content %}

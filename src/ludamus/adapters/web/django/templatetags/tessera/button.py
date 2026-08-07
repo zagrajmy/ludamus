@@ -67,9 +67,9 @@ def render_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; 
         if icon
         else ""
     )
-    body = format_html(
-        "{}{}", mark_safe(icon_html), text  # ruff: ignore[suspicious-mark-safe-usage]
-    )
+    # Span, not a bare text node: a surface can only hide what it can select.
+    icon_safe = mark_safe(icon_html)  # ruff: ignore[suspicious-mark-safe-usage]
+    body = format_html('{}<span class="btn-label">{}</span>', icon_safe, text)
     rendered_attrs = format_html_join(
         "",
         ' {}="{}"',
