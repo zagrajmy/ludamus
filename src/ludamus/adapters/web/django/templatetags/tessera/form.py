@@ -14,7 +14,7 @@ from django.forms.widgets import (
     SelectMultiple,
     Textarea,
 )
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 
 from ._registry import register
 from .button import render_button
@@ -41,8 +41,9 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
         {% tessera_form form %}
         {% tessera_form form layout="horizontal" %}
     """
-    output = [tessera_field(field, layout=layout) for field in form]
-    return mark_safe("\n".join(output))  # ruff:ignore[suspicious-mark-safe-usage]
+    return format_html_join(
+        "\n", "{}", ((tessera_field(field, layout=layout),) for field in form)
+    )
 
 
 def _render_field_input(field: BoundField) -> str:
@@ -74,42 +75,43 @@ def tessera_field(
     """
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
-        return mark_safe(str(field))  # ruff:ignore[suspicious-mark-safe-usage]
-    is_checkbox = isinstance(widget, CheckboxInput)
-    is_multi_checkbox = isinstance(widget, CheckboxSelectMultiple)
-    is_radio = isinstance(widget, RadioSelect)
-
-    parts = []
+        return str(field)  # BoundField.__str__ is already safe
 
     container_class = "flex gap-y-0.5 not-last:mb-4"
-    if layout == "vertical":
-        container_class += " flex-col"
+    container_class += " flex-col" if layout == "vertical" else " max-sm:flex-col"
+
+    is_multi_checkbox = isinstance(widget, CheckboxSelectMultiple)
+    is_radio = isinstance(widget, RadioSelect)
+    if is_multi_checkbox or is_radio:
+        body = render_multi_choice_field(field, is_radio=is_radio)
+    elif isinstance(widget, CheckboxInput):
+        body = render_checkbox_field(field)
     else:
-        container_class += " max-sm:flex-col"
+        body = _render_labelled_field(field, layout=layout, required=required)
 
-    parts.append(f'<div class="{container_class}">')
+    return format_html('<div class="{}">\n{}\n</div>', container_class, body)
 
-    if is_checkbox and not is_multi_checkbox:
-        parts.append(render_checkbox_field(field))
-    elif is_multi_checkbox or is_radio:
-        parts.append(render_multi_choice_field(field, is_radio=is_radio))
-    else:
-        if layout == "horizontal":
-            parts.append('<div class="sm:w-1/3 sm:pt-2">')
-        parts.append(render_label(field, required=required))
-        if layout == "horizontal":
-            parts.extend(("</div>", '<div class="sm:w-2/3">'))
 
-        # File inputs surface their errors inside the dropzone itself.
-        errors_html = "" if isinstance(widget, FileInput) else render_errors(field)
-        parts.extend((_render_field_input(field), render_help_text(field), errors_html))
-
-        if layout == "horizontal":
-            parts.append("</div>")
-
-    parts.append("</div>")
-
-    return mark_safe("\n".join(parts))  # ruff:ignore[suspicious-mark-safe-usage]
+def _render_labelled_field(
+    field: BoundField, *, layout: str, required: bool | None
+) -> str:
+    # File inputs surface their errors inside the dropzone itself.
+    is_file = isinstance(field.field.widget, FileInput)
+    controls = format_html(
+        "{}\n{}\n{}",
+        _render_field_input(field),
+        render_help_text(field),
+        "" if is_file else render_errors(field),
+    )
+    label = render_label(field, required=required)
+    if layout == "horizontal":
+        return format_html(
+            '<div class="sm:w-1/3 sm:pt-2">\n{}\n</div>\n'
+            '<div class="sm:w-2/3">\n{}\n</div>',
+            label,
+            controls,
+        )
+    return format_html("{}\n{}", label, controls)
 
 
 @register.simple_tag
@@ -126,7 +128,7 @@ def tessera_errors(form: BaseForm) -> str:
 
 
 @register.simple_tag
-def tessera_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; each param is a distinct visual axis
+def tessera_button(
     text: str,
     *,
     href: str | None = None,

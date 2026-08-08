@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django import template
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 
 from ._registry import register
 from ._utils import parse_tag_attrs
@@ -35,12 +35,12 @@ class TableNode(template.Node):
         table_class = (
             f"{_TABLE_CLASS} {extra_class}".strip() if extra_class else _TABLE_CLASS
         )
-        inner = self.nodelist.render(context)
-        return mark_safe(  # ruff:ignore[suspicious-mark-safe-usage]
-            f'<div class="{_WRAPPER_CLASS}">'
-            f'<div class="{_SCROLL_CLASS}">'
-            f'<table class="{table_class}">{inner}</table>'
-            f"</div></div>"
+        return format_html(
+            '<div class="{}"><div class="{}"><table class="{}">{}</table></div></div>',
+            _WRAPPER_CLASS,
+            _SCROLL_CLASS,
+            table_class,
+            self.nodelist.render(context),
         )
 
 
