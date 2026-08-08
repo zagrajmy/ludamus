@@ -70,7 +70,7 @@ pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
-ruff = "^0.16.0"
+ruff = "^0.16.1"
 types-authlib = "^1.7.2.20260724"
 types-requests = "^2.32.4.20250809"
 
