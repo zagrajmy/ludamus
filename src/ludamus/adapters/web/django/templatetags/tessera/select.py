@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 from django import template
 from django.template.loader import render_to_string
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 
 from ._registry import register
 from ._utils import parse_tag_attrs
@@ -43,7 +42,7 @@ class SelectNode(template.Node):
         for key, value in resolved.items():
             if key in self._BOOLEAN_ATTRS:
                 if value:
-                    attr_parts.append(key)
+                    attr_parts.append(format_html("{}", key))
                 continue
             # `value=0` is a legitimate radio value — only drop absent attrs.
             if value is None or (isinstance(value, str) and not value):
@@ -51,19 +50,15 @@ class SelectNode(template.Node):
             # Template kwargs can't contain hyphens, so aria_*/data_* keywords
             # map onto their hyphenated attributes (aria_label -> aria-label).
             name = key.replace("_", "-") if key.startswith(("aria_", "data_")) else key
-            attr_parts.append(f'{name}="{escape(str(value))}"')
+            attr_parts.append(format_html('{}="{}"', name, value))
 
         return render_to_string(
             self._TEMPLATE,
             {
-                "attrs": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
-                    " ".join(attr_parts)
-                ),
+                "attrs": format_html_join(" ", "{}", ((part,) for part in attr_parts)),
                 "extra_class": extra_class,
                 "has_errors": has_errors,
-                "slot": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
-                    self.nodelist.render(context)
-                ),
+                "slot": self.nodelist.render(context),
             },
         )
 

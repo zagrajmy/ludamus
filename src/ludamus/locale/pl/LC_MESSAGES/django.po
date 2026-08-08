@@ -1242,6 +1242,7 @@ msgstr ""
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-form.html
 #: src/ludamus/templates/panel/timetable-confirmations.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "Facilitators"
 msgstr "Twórcy programu"
 
@@ -3530,6 +3531,7 @@ msgstr "Lista"
 #: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/timetable-overview.html
+#: src/ludamus/templates/panel/timetable.html
 msgid "Rooms"
 msgstr "Sale"
 
@@ -4717,6 +4719,35 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
+
+#: src/ludamus/templates/components/multiselect-filter-options.html
+#: src/ludamus/templates/components/multiselect-filter.html
+msgid "Nothing matches your search."
+msgstr "Nic nie pasuje do wyszukiwania."
+
+#: src/ludamus/templates/components/multiselect-filter-options.html
+msgid "Start typing to find someone."
+msgstr "Zacznij pisać, aby kogoś znaleźć."
+
+#: src/ludamus/templates/components/multiselect-filter-options.html
+msgid "More matches than fit — keep typing to narrow them."
+msgstr "Więcej wyników, niż się mieści — pisz dalej, aby je zawęzić."
+
+#: src/ludamus/templates/components/multiselect-filter.html
+#: src/ludamus/templates/panel/parts/timetable-browse-pane.html
+msgid "Search…"
+msgstr "Szukaj…"
+
+#: src/ludamus/templates/components/multiselect-filter.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import-log.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Clear"
+msgstr "Wyczyść"
+
+#: src/ludamus/templates/components/multiselect-filter.html
+msgid "Apply filters"
+msgstr "Zastosuj filtry"
 
 #: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
@@ -6050,6 +6081,7 @@ msgstr "Czas zakończenia"
 
 #: src/ludamus/templates/panel/_timetable_tabs.html
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
 #: src/ludamus/templates/panel/timetable.html
 msgid "Schedule"
 msgstr "Harmonogram"
@@ -6864,12 +6896,6 @@ msgid "Filtering"
 msgstr "Filtrowanie"
 
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import-log.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Clear"
-msgstr "Wyczyść"
-
-#: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Selected:"
 msgstr "Zaznaczono:"
@@ -7661,10 +7687,6 @@ msgstr "Punkty programu do przypisania"
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Search sessions"
 msgstr "Szukaj punktów programu"
-
-#: src/ludamus/templates/panel/parts/timetable-browse-pane.html
-msgid "Search…"
-msgstr "Szukaj…"
 
 #: src/ludamus/templates/panel/parts/timetable-browse-pane.html
 msgid "Loading…"
@@ -8680,6 +8702,14 @@ msgid "Day:"
 msgstr "Dzień:"
 
 #: src/ludamus/templates/panel/timetable.html
+msgid "Search rooms"
+msgstr "Szukaj sal"
+
+#: src/ludamus/templates/panel/timetable.html
+msgid "Search facilitators"
+msgstr "Szukaj twórców programu"
+
+#: src/ludamus/templates/panel/timetable.html
 msgid "This program item is confirmed. Moving it will clear the confirmation."
 msgstr ""
 "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
@@ -8802,6 +8832,9 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "ISO 8601 duration"
 #~ msgstr "Czas trwania ISO 8601"
+
+#~ msgid "Nothing to filter by yet."
+#~ msgstr "Nie ma jeszcze czego filtrować."
 
 #, python-format
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"

@@ -31,16 +31,14 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
-from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
-    get_current_timezone,
-)
+from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
     Facilitator,

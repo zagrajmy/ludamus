@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def delete_stored_file(field_file: FieldFile, old_name: str) -> None:
     try:
         field_file.storage.delete(old_name)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception:
         logger.warning(
             "Best-effort cleanup of replaced file %r failed", old_name, exc_info=True
         )

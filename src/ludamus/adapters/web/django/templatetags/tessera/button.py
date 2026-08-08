@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from django.utils.html import format_html, format_html_join
-from django.utils.safestring import mark_safe
 
 from .icon import icon as render_icon
 
@@ -20,7 +19,7 @@ _VARIANT_CLASSES = {
 }
 
 
-def render_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; each param is a distinct visual axis
+def render_button(
     text: str,
     *,
     href: str | None = None,
@@ -68,8 +67,7 @@ def render_button(  # ruff:ignore[too-many-arguments] — template-tag adapter; 
         else ""
     )
     # Span, not a bare text node: a surface can only hide what it can select.
-    icon_safe = mark_safe(icon_html)  # ruff: ignore[suspicious-mark-safe-usage]
-    body = format_html('{}<span class="btn-label">{}</span>', icon_safe, text)
+    body = format_html('{}<span class="btn-label">{}</span>', icon_html, text)
     rendered_attrs = format_html_join(
         "",
         ' {}="{}"',

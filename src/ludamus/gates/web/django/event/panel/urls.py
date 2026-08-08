@@ -58,6 +58,11 @@ _timetable_urlpatterns = [
         name="timetable-conflicts-part",
     ),
     path(
+        "parts/facilitator-options/",
+        timetable.TimetableFacilitatorOptionsPartView.as_view(),
+        name="timetable-facilitator-options-part",
+    ),
+    path(
         "do/assign/", timetable.TimetableAssignView.as_view(), name="timetable-assign"
     ),
     path(

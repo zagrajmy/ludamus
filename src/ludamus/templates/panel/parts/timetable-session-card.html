@@ -26,7 +26,7 @@
         data-duration="{{ pos.agenda_item.session_duration_minutes }}"
         data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
         title="{{ pos.agenda_item.session_title }}"
-        hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}"
+        hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}{% querystring %}"
         hx-target="#left-pane"
         hx-swap="outerHTML"
         style="--offset: {{ pos.start_minutes }};
