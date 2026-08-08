@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
+from django.utils.timezone import localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
@@ -90,9 +91,12 @@ class UserFactory(DjangoModelFactory):
 class SiteFactory(DjangoModelFactory):
     class Meta:
         model = Site
-        django_get_or_create = ("domain",)
 
-    domain = LazyAttribute(lambda o: f"{o.name.lower().replace(' ', '-')}.testserver")
+    # Site.domain is unique and Sphere.site is a OneToOneField, so every
+    # generated Site needs a domain of its own. Deriving it from name would not
+    # do: Faker repeats company names, and two spheres landing on one Site fail
+    # as "UNIQUE constraint failed: sphere.site_id", pointing at the wrong table.
+    domain = Sequence(lambda n: f"site-{n}.testserver")
     name = Faker("company")
 
 
@@ -215,7 +219,18 @@ class AgendaItemFactory(DjangoModelFactory):
 
     session = SubFactory(SessionFactory)
     space = SubFactory(SpaceFactory)
-    start_time = LazyAttribute(lambda __: datetime.now(UTC) + timedelta(days=7))
+    # Anchored to a fixed local hour, not a floating "now": a suite run late in
+    # the evening would otherwise straddle midnight, and the schedule
+    # legitimately splits such a session across two days.
+    # The sequence keeps creation order observable, the way a floating "now"
+    # used to, without the wall clock deciding which local date the item lands
+    # on.
+    start_time = Sequence(
+        lambda n: (localtime() + timedelta(days=7)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        )
+        + timedelta(microseconds=n)
+    )
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
 
 

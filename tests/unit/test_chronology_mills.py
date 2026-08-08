@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -35,8 +36,8 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     SpaceTimeConflictError,
 )
-from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.submissions import ImportSettings
+from tests.unit.factories import user_dto
 
 
 def _make_item(**overrides):
@@ -171,6 +172,12 @@ class TestContentEditRevert:
             ),
         )
 
+    def test_session_history_rejects_cross_event_session(self, service, repos):
+        repos.sessions.read_event.return_value = SimpleNamespace(pk=2)
+
+        with pytest.raises(NotFoundError):
+            service.session_history(event_id=1, session_id=5)
+
     def test_revert_raises_when_nothing_is_revertible(self, service, repos):
         changes = [
             {"field": "cover_image", "field_id": None, "old": "old.png", "new": ""}
@@ -262,9 +269,86 @@ class TestContentEditRevert:
         assert service.revertible_log_pks(1, logs) == {3}
 
 
-class TestSessionConfirmation:
-    """The service toggles confirmation and rejects foreign agenda items."""
+class TestContentEditStoresAnswers:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+        )
+        repos.transaction.atomic.side_effect = nullcontext
+        repos.sessions.read_field_values.return_value = []
+        repos.session_fields.list_by_event.return_value = []
+        return repos
 
+    @pytest.fixture
+    def service(self, repos):
+        return SessionContentEditService(
+            repos.transaction,
+            repos.sessions,
+            repos.session_fields,
+            repos.content_change_logs,
+        )
+
+    def test_blank_answer_for_an_unanswered_field_stores_nothing(self, service, repos):
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value="  "),
+                    SessionFieldValueData(session_id=5, field_id=8, value=[]),
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(5, [])
+
+    def test_blank_answer_clears_a_field_that_has_one(self, service, repos):
+        repos.sessions.read_field_values.return_value = [
+            MagicMock(field_id=7, value="Pathfinder")
+        ]
+
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value=""),
+                    SessionFieldValueData(session_id=5, field_id=8, value=""),
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value="")]
+        )
+
+    def test_an_unchecked_checkbox_is_stored_as_an_answer(self, service, repos):
+        service.apply(
+            session_id=5,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(
+                update={},
+                field_values=[
+                    SessionFieldValueData(session_id=5, field_id=7, value=False)
+                ],
+            ),
+        )
+
+        repos.sessions.save_field_values.assert_called_once_with(
+            5, [SessionFieldValueData(session_id=5, field_id=7, value=False)]
+        )
+
+
+class TestSessionConfirmation:
     @pytest.fixture
     def agenda_items(self):
         return MagicMock()
@@ -274,18 +358,14 @@ class TestSessionConfirmation:
         return MagicMock()
 
     @pytest.fixture
-    def tracks(self):
-        return MagicMock()
-
-    @pytest.fixture
     def transaction(self):
         transaction = MagicMock()
         transaction.atomic.return_value.__enter__.return_value = None
         return transaction
 
     @pytest.fixture
-    def service(self, transaction, agenda_items, sessions, tracks):
-        return SessionConfirmationService(transaction, agenda_items, sessions, tracks)
+    def service(self, transaction, agenda_items, sessions):
+        return SessionConfirmationService(transaction, agenda_items, sessions)
 
     @staticmethod
     def _event(pk):
@@ -293,26 +373,24 @@ class TestSessionConfirmation:
         event.pk = pk
         return event
 
-    @staticmethod
-    def _track(event_id):
-        track = MagicMock()
-        track.event_id = event_id
-        return track
-
-    def test_confirm_persists_true(self, service, agenda_items, sessions):
+    def test_confirm_persists_true(self, service, transaction, agenda_items, sessions):
         agenda_items.read.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
         service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
 
+        transaction.atomic.assert_called_once_with()
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": True})
 
-    def test_unconfirm_persists_false(self, service, agenda_items, sessions):
+    def test_unconfirm_persists_false(
+        self, service, transaction, agenda_items, sessions
+    ):
         agenda_items.read.return_value = _make_item(pk=7, session_id=3)
         sessions.read_event.return_value = self._event(1)
 
         service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=False)
 
+        transaction.atomic.assert_called_once_with()
         agenda_items.update.assert_called_once_with(7, {"session_confirmed": False})
 
     def test_rejects_agenda_item_from_another_event(
@@ -325,28 +403,6 @@ class TestSessionConfirmation:
             service.set_session_confirmed(event_pk=1, agenda_item_pk=7, confirmed=True)
 
         agenda_items.update.assert_not_called()
-
-    def test_confirm_all_confirms_every_item_in_event(self, service, agenda_items):
-        service.confirm_all(event_pk=1)
-
-        agenda_items.confirm_all_by_event.assert_called_once_with(1)
-
-    def test_confirm_block_confirms_items_in_track(self, service, agenda_items, tracks):
-        tracks.read.return_value = self._track(event_id=1)
-
-        service.confirm_block(event_pk=1, track_pk=5)
-
-        agenda_items.confirm_all_by_track.assert_called_once_with(5)
-
-    def test_confirm_block_rejects_track_from_another_event(
-        self, service, agenda_items, tracks
-    ):
-        tracks.read.return_value = self._track(event_id=2)
-
-        with pytest.raises(NotFoundError):
-            service.confirm_block(event_pk=1, track_pk=5)
-
-        agenda_items.confirm_all_by_track.assert_not_called()
 
 
 class _StrictConfig(BaseModel):
@@ -616,24 +672,7 @@ def _event_dto(**overrides):
 
 
 def _user_dto(**overrides):
-    defaults = {
-        "avatar_url": "",
-        "date_joined": _NOW,
-        "discord_username": "",
-        "email": "",
-        "full_name": "",
-        "is_active": True,
-        "is_authenticated": True,
-        "is_staff": False,
-        "is_superuser": False,
-        "name": "",
-        "pk": 1,
-        "slug": "manager",
-        "use_gravatar": False,
-        "user_type": UserType.ACTIVE,
-        "username": "auth0|sub",
-    }
-    return UserDTO(**(defaults | overrides))
+    return user_dto(**{"date_joined": _NOW, **overrides})
 
 
 class TestProposalAcceptanceService:

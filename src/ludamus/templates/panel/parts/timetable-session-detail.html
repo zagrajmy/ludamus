@@ -60,17 +60,24 @@
                 <form class="flex-1"
                       hx-post="{% url 'panel:timetable-unassign' slug=slug %}"
                       hx-swap="none"
-                      hx-on::after-request="if(event.detail.successful){htmx.ajax('GET','{{ back_url }}',{target:'#left-pane',swap:'outerHTML'})}">
+                      data-refresh-url="{{ back_url }}"
+                      data-refresh-target="#left-pane">
                     {% csrf_token %}
                     <input type="hidden" name="session_pk" value="{{ session.pk }}">
                     <button type="submit" class="btn btn-danger text-sm w-full">{% translate "Unassign" %}</button>
                 </form>
             </div>
+            {% comment %}
+            The confirmations tab is where an organizer works through a
+            facilitator's whole programme; this stays because it is the only
+            control that reaches an item with no facilitator or no track.
+            {% endcomment %}
             {% url 'panel:timetable-session-detail-part' slug=slug pk=session.pk as detail_url %}
             <form class="mt-2"
                   hx-post="{% url 'panel:timetable-confirm' slug=slug %}"
                   hx-swap="none"
-                  hx-on::after-request="if(event.detail.successful){htmx.ajax('GET','{{ detail_url }}',{target:'#left-pane',swap:'outerHTML'})}">
+                  data-refresh-url="{{ detail_url }}"
+                  data-refresh-target="#left-pane">
                 {% csrf_token %}
                 <input type="hidden" name="agenda_item_pk" value="{{ agenda_item.pk }}">
                 {% if agenda_item.session_confirmed %}

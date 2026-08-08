@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.event import require_session_in_event
 from ludamus.pacts import (
     EventDTO,
     NotFoundError,
@@ -41,7 +42,12 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.legacy import resolve_uploaded_file_field
-from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
+from ludamus.pacts.submissions import (
+    ImportRow,
+    ImportSettings,
+    QuestionTarget,
+    is_empty_answer,
+)
 from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
@@ -61,7 +67,6 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SphereRepositoryProtocol,
         TimeSlotDTO,
-        TrackRepositoryProtocol,
     )
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.multiverse import (
@@ -71,47 +76,31 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
-def require_session_in_event(
-    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
-) -> None:
-    # Panel access only proves you manage `event_pk`; a session named in
-    # the request must belong to it, or it is cross-event tampering.
-    if sessions.read_event(session_pk).pk != event_pk:
-        raise NotFoundError
-
-
 class SessionConfirmationService:
     def __init__(
         self,
         transaction: TransactionProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
-        tracks: TrackRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._agenda_items = agenda_items
         self._sessions = sessions
-        self._tracks = tracks
 
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
     ) -> None:
+        # Keyed on the agenda item, not on a facilitator: the confirmations tab
+        # can only reach items whose session has both a facilitator and a track,
+        # so this stays the only way to settle everything else.
         agenda_item = self._agenda_items.read(agenda_item_pk)
-        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
+        require_session_in_event(
+            sessions=self._sessions,
+            session_pk=agenda_item.session_id,
+            event_pk=event_pk,
+        )
         with self._transaction.atomic():
             self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
-
-    def confirm_all(self, event_pk: int) -> None:
-        with self._transaction.atomic():
-            self._agenda_items.confirm_all_by_event(event_pk)
-
-    def confirm_block(self, event_pk: int, track_pk: int) -> None:
-        # Panel access only proves you manage `event_pk`; a track named in the
-        # request must belong to it, or it is cross-event tampering.
-        if self._tracks.read(track_pk).event_id != event_pk:
-            raise NotFoundError
-        with self._transaction.atomic():
-            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class SessionDeletionService:
@@ -136,7 +125,9 @@ class SessionDeletionService:
             # session to another event (or delete it) between the check and the
             # mutation (TOCTOU). `lock` raises NotFound for missing/already-dead.
             self._sessions.lock(session_pk)
-            require_session_in_event(self._sessions, session_pk, event_pk)
+            require_session_in_event(
+                sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
+            )
             # Free the timetable slot through the existing unschedule path:
             # drop the agenda item, return the session to PENDING, and record
             # the unassignment in the schedule activity log.
@@ -209,7 +200,9 @@ class ProposalStatusService:
             # concurrent request can't move the session to another event between
             # the check and the write (TOCTOU). `lock` raises for missing/dead.
             self._sessions.lock(session_pk)
-            require_session_in_event(self._sessions, session_pk, event_pk)
+            require_session_in_event(
+                sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
+            )
             if (
                 status != SessionStatus.ACCEPTED
                 and self._agenda_items.read_by_session(session_pk) is not None
@@ -502,6 +495,20 @@ def diff_session_content(
     return changes
 
 
+def _answers_worth_storing(
+    values: list[SessionFieldValueData], *, stored: set[int]
+) -> list[SessionFieldValueData]:
+    # A blank input over a field that has no answer yet creates nothing: the
+    # absence of a row means "never answered", and an empty row would claim
+    # otherwise. Blanking a field that does have an answer is a real edit and
+    # is saved as the empty value, so re-import cannot refill it.
+    return [
+        value
+        for value in values
+        if value["field_id"] in stored or not is_empty_answer(value=value["value"])
+    ]
+
+
 class SessionContentEditService:
     # Shared by the facilitator self-edit and organizer panel edit so both
     # paths write the same ContentChangeLog; owns the transactional boundary.
@@ -533,11 +540,18 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
-            if data.field_values is not None:
-                self._sessions.save_field_values(session_id, data.field_values)
+            field_values = (
+                None
+                if data.field_values is None
+                else _answers_worth_storing(
+                    data.field_values, stored={fv.field_id for fv in old_values}
+                )
+            )
+            if field_values is not None:
+                self._sessions.save_field_values(session_id, field_values)
             values_for_diff = (
-                data.field_values
-                if data.field_values is not None
+                field_values
+                if field_values is not None
                 else [
                     SessionFieldValueData(
                         session_id=session_id, field_id=fv.field_id, value=fv.value
@@ -633,6 +647,21 @@ class SessionContentEditService:
 
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]:
         return self._content_change_logs.list_by_event(event_id)
+
+    def session_history(
+        self, *, event_id: int, session_id: int
+    ) -> tuple[str, list[ContentChangeLogDTO]]:
+        if self._sessions.read_event(session_id).pk != event_id:
+            raise NotFoundError
+        title = self._sessions.read(session_id).title
+        # ponytail: filters the event-wide log in Python; per-session DB
+        # queries if an event's change log grows past a few thousand rows.
+        logs = [
+            log
+            for log in self._content_change_logs.list_by_event(event_id)
+            if log.session_id == session_id
+        ]
+        return title, logs
 
     def list_field_names(self, event_id: int) -> dict[int, str]:
         # Render-time resolution of dynamic session-field labels (user content,

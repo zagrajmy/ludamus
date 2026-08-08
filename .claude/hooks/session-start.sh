@@ -46,9 +46,19 @@ export MISE_ENV=sandbox
 # (pytest has no django, mypy has no mypy_django_plugin); if the shims are
 # appended, the venv lands after the container's bare /usr/local/bin/python
 # and every `mise run` task fails with "No module named 'django'".
+# `.venv/bin` sits between them because mise cannot shim the interpreter here:
+# mise.sandbox.toml disables the `python` tool (apt provides 3.14, `_.python.venv`
+# builds .venv from it), so no `python` shim is generated and a bare `python` in
+# an agent's shell falls through to the image's /usr/local/bin/python 3.11. That
+# reads as a repo bug the moment it meets 3.14-only syntax — PEP 758's
+# unparenthesized `except A, B:` in scripts/impeccable_lint.py raises SyntaxError
+# there, and "fixing" it fights Black, which normalizes back to it under 3.14.
+# Same trap for black/pytest/mypy: the ~/.local/bin copies are plugin-less.
+# The directory need not exist yet — `mise install` below creates it, and PATH
+# is only resolved once the agent runs a command.
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   # ~/.local/bin carries the container image's user-level binaries.
-  echo "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:\$PATH\"" \
+  echo "export PATH=\"$HOME/.local/share/mise/shims:$CLAUDE_PROJECT_DIR/.venv/bin:$HOME/.local/bin:\$PATH\"" \
     >> "$CLAUDE_ENV_FILE"
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi
@@ -105,28 +115,6 @@ if [ -n "$purged" ]; then
     || echo "WARN: 'mise install' retry failed; broken tools:$purged"
 fi
 
-# A pipx-aliased tool can survive both installs broken when its PyPI wrapper
-# appends a packaging revision to the upstream version: shellcheck-py 0.11.0.1
-# wraps shellcheck 0.11.0, hadolint-py does the same. mise passes a full X.Y.Z
-# pin to uv verbatim as ==X.Y.Z, which matches nothing on PyPI. A shorter pin
-# makes mise resolve against the registry instead (shellcheck@0.11 picks
-# 0.11.0.1) and link a 0.11.0 alias dir that satisfies the mise.toml pin, so
-# retry each still-shimless aliased tool with its pin trimmed one segment.
-# Versions stay pinned in mise.toml alone; this survives future bumps.
-for tool in $purged; do
-  [ -e "$HOME/.local/share/mise/shims/$tool" ] && continue
-  pin="$(sed -n "s/^${tool}[[:space:]]*=[[:space:]]*\"\([^\"]*\)\".*/\1/p" \
-    mise.toml)"
-  prefix="${pin%.*}"
-  case "$prefix" in
-    *.*)
-      echo "Retrying $tool@$prefix (wrapper may add a revision to $pin)"
-      mise install "$tool@$prefix" \
-        || echo "WARN: 'mise install $tool@$prefix' failed; $tool unavailable"
-      ;;
-  esac
-done
-
 mise bootstrap packages apply --yes || echo "WARN: 'mise bootstrap packages apply' failed"
 mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may be unavailable"
 
@@ -137,10 +125,27 @@ mise run bootstrap || echo "WARN: 'mise run bootstrap' failed; JS deps/build may
 mise exec -- hk install --mise || echo "WARN: 'hk install' failed; git hooks not installed"
 
 # Playwright backs the e2e suite and `aubx agent-browser` screenshots; both
-# share the Chromium it provisions. The task's `--with-deps` needs apt, which
-# breaks whenever an image PPA changes its metadata; the image already ships
-# every OS lib Chromium needs, so fall back to a dependency-less browser
-# download (the Playwright CDN is reachable through the egress proxy).
-mise run test:e2e:install \
-  || mise exec -- aube exec -C tests/e2e playwright install \
-  || echo "WARN: Playwright install failed; e2e suite and agent-browser screenshots unavailable"
+# share the Chromium it provisions. The image pre-bakes /opt/pw-browsers, but it
+# lags whenever @playwright/test moves, and the pinned build is the only one
+# Playwright will launch — so this step is load-bearing, not a no-op.
+#
+# The fallback fires on any non-zero exit from the task, not just the one that
+# prompted it: `--with-deps` needs apt, which breaks whenever an image PPA
+# changes its metadata. Don't fall back to one bare `playwright install` — it
+# downloads the browsers in a single sequential loop and rethrows the first
+# failure, so one unreachable artifact skips every browser queued behind it. Per
+# browser, a failure is isolated and named. Missing OS libs are not the concern
+# — the image ships no WebKit libs, but the host check is caught and printed as
+# a warning, so the install still exits 0. The Playwright CDN itself is
+# reachable through the egress proxy.
+#
+# `aube install` is retried first: the task runs it before the browser step, so
+# `if !` also fires when node deps are what failed, and the per-browser task
+# without them would warn three times for the wrong reason.
+if ! mise run test:e2e:install; then
+  mise exec -- aube install || echo "WARN: 'aube install' failed; e2e node deps missing"
+  for browser in chromium firefox webkit; do
+    mise run test:e2e:install:browser "$browser" \
+      || echo "WARN: Playwright $browser unavailable; specs on it will fail"
+  done
+fi

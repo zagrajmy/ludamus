@@ -1,9 +1,9 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "Edit discount" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Edit discount" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Edit discount" %}
 {% endblock page_title %}
@@ -14,11 +14,11 @@
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <div class="card p-6 max-w-xl">
+        <div class="card card-body max-w-xl">
             <form method="post"
                   class="space-y-4"
                   action="{% url 'panel:discount-edit' slug=current_event.slug pk=discount.pk %}"
-                  onsubmit="this.querySelector('button[type=submit]').disabled = true">
+                  data-submit-once>
                 {% csrf_token %}
                 {% tessera_form form %}
                 <div class="flex justify-end gap-2 pt-4 border-t border-border">

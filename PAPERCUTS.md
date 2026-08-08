@@ -165,6 +165,10 @@ If you fix a papercut, remove it.
 - 2026-07-24: The standalone tests/e2e npx tsc --noEmit check is red on four
   unrelated existing errors, so it cannot provide a clean focused-test signal.
   Playwright still transpiles and executes the changed spec successfully.
+- 2026-07-24: test_event_page.py::test_query_count_constant_in_session_count
+  flaked once under parallel run with 'UNIQUE constraint failed: sphere.site_id'
+  — passed on re-run, looks like a test-isolation collision between sphere/site
+  fixtures
 - 2026-07-24: Committed from a new git worktree → hook startup failed because
   the copied mise.toml was untrusted; trust was required before hooks could run.
 - 2026-07-24: Used agent-browser find role link with an exact Log in name → it
@@ -238,16 +242,89 @@ If you fix a papercut, remove it.
   assumed the binary exists, so every provisioning step warned-and-skipped and
   the session looked half-provisioned. Installed it from mise.run (reachable
   through the proxy) and added a self-install step to the hook.
-- 2026-07-31: sandbox: 'mise install' wedges on pipx:shellcheck-py@0.11.0 /
-  hadolint-py@2.14.0 (PyPI only ships .0.1 wrapper revs) and session-start.sh's
-  trim-retry did not self-heal, so every 'mise run' aborted until I exported
-  MISE_DISABLE_TOOLS=shellcheck,hadolint.
-- 2026-07-31: sandbox: /opt/pw-browsers lags the pinned @playwright/test 1.58.2
-  (has chromium-1194, needs 1208 / webkit-2248), and session-start.sh reported
-  'Playwright install failed'. The whole e2e suite fails with "Executable
-  doesn't exist" until you run npx playwright install --with-deps chromium
-  firefox webkit by hand.
-- 2026-07-31: 'mise run test:py' resolves pytest from PATH, so a uv-installed
-  ~/.local/bin/pytest shadows .venv/bin/pytest and the run dies with
+- 2026-07-31: every mise task resolves its Python tool from PATH, so any shell
+  that puts ~/.local/bin ahead of the mise shims gets the image's uv-installed
+  pytest/mypy/black instead of .venv's. 'mise run test:py' then dies with
   ModuleNotFoundError: No module named 'django'. Took a while to spot because
   the traceback points at tests/conftest.py, not at the wrong interpreter.
+  session-start.sh orders PATH correctly; nothing enforces it elsewhere.
+- 2026-08-01: mise run test:int -- tests/foo/test_x.py doesn't narrow: the task
+  hardcodes the integration path and appends args, so pytest gets two paths and
+  runs the whole suite. Had to use `-k name` and wait ~2.5 min for
+  collection+run instead of 5s.
+- 2026-08-01: git push over SSH fails with 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
+  credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: mise run shots fails on this machine: Chrome aborts with 'No
+  usable sandbox' before writing DevToolsActivePort. Playwright (test:e2e)
+  launches fine, so the wrapper needs --no-sandbox or a note pointing at the e2e
+  screenshots instead.
+- 2026-08-02: Firefox e2e project cannot launch on this machine: every firefox
+  test dies with 'browserContext.newPage: Test timeout' during page setup, while
+  chromium passes. Makes a full 'mise run test:e2e' unusable locally; had to run
+  --project=chromium to get a signal.
+- 2026-08-01: e2e: Firefox project fails locally with 'browserContext.newPage:
+  Test timeout' on every spec (even untouched ones like sound.spec.ts); only
+  chromium is runnable here, so a local full 'mise run test:e2e' always ends red
+  and 63 tests report 'did not run'. Had to verify per-project.
+- 2026-08-01: e2e: 'panel redirects to home with message when sphere has no
+  events' (panel.spec.ts) fails locally on a freshly prepped DB even with no
+  working-tree changes — /panel/ stays put instead of redirecting to /events/.
+  It also aborts the rest of panel.spec.ts (serial mode), so 43 tests report
+  'did not run'.
+- 2026-08-02: Pre-commit oxlint hook fails with 'Cannot find module eslint-
+  plugin-sonarjs'; the aube store entry node_modules/.aube/eslint-plugin-
+  sonarjs@3.0.6_.../node_modules/eslint-plugin-sonarjs is extracted without a
+  package.json (only cjs/docs/types), and 'aube install' reports 'already up to
+  date' so it never repairs it. Blocks every commit touching a .ts file.
+- 2026-08-01: mise run lint fails locally on lint:hk: oxlint can't build
+  src/ludamus/client/oxlint.config.ts because eslint-plugin-sonarjs isn't
+  installed in the local node_modules (CI is fine). Same failure on a clean
+  tree, so it's env drift, not a code problem — had to stash and re-run to prove
+  my change was innocent.
+- 2026-08-02: mise run check → lint:vulture recursively scanned
+  .claude/worktrees/*/.venv created by review agents, then failed on third-party
+  packages instead of project code.
+- 2026-08-02: mise run shots with a query-string URL → mise preserved literal
+  shell quotes in usage_targets, so the generated URL contained apostrophes and
+  curl rejected it; direct agent-browser worked.
+- 2026-08-02: mise run test:e2e -- tests/print-flow.spec.ts → the existing
+  hours-window case flaked once under five-worker contention after the new
+  regression case passed; rerunning the regression alone passed.
+- 2026-08-02: mise run lint printed 'Finished in 198s' with every check green,
+  then hung for another ~8 minutes in an 'npm exec github...' -> 'npm install'
+  child (sandbox egress is slow); had to pstree and kill -9 the mise process to
+  get the shell back.
+- 2026-08-02: Polled api.github.com from a bash loop to wait for CI; the egress
+  proxy 403s it, so the loop parsed an error body as "no checks pending" and
+  reported all-green while the test job was still running. Use the GitHub MCP
+  tools for CI state in a sandbox — curl to api.github.com fails silently enough
+  to look like success.
+- 2026-08-03: mise run lint-client fails locally with 'Cannot find module
+  eslint-plugin-sonarjs' — the dep resolves to an 'invalid' link under
+  node_modules/.aube. CI is fine; only the local run is blocked, so frontend
+  lint can't be verified before pushing.
+- 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
+  python-brace-format' flags: the local xgettext strips them, but main and CI
+  both keep them. Regenerating the catalog silently drops the flags, so after
+  'mise run messages' you have to revert the catalog and hand-apply only the
+  real msgid deltas.
+- 2026-08-05: mise run shots fails in the Claude Code sandbox: Chrome aborts
+  with 'No usable sandbox' (unprivileged userns disabled). Playwright's own runs
+  work, so had to hand-roll a playwright-core screenshot script pointed at the
+  ms-playwright chromium binary. A --no-sandbox fallback in the shots task would
+  save the detour.
+- 2026-08-05: Scoping impeccable to two templates: 'mise run lint:impeccable
+  path/to/file.html' silently drops the paths (the task body has no forwarding),
+  so it scans every tracked HTML/CSS/JS file and looks hung for minutes. That is
+  the same friction logged on 2026-07-14. Call '.venv/bin/python
+  scripts/impeccable_lint.py PATH...' to scope it. Use the venv interpreter
+  specifically: the script uses PEP 758 except syntax at line 102, valid only on
+  3.14, so a bare 'python' (3.11 on PATH here) raises a SyntaxError that reads
+  like a repo bug. Black under 3.14 normalizes to that form, so parenthesizing
+  it fights the formatter and hk reverts the file mid-commit.
+- 2026-08-07: git push over ssh fails in the review worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
+  works, pushing needs the user to run it (or the file's mode fixed to 0644
+  root:root).

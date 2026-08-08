@@ -69,7 +69,6 @@ if TYPE_CHECKING:
         AuthenticatedRequestContext,
         EventDTO,
         EventProposalSettingsDTO,
-        FieldValue,
         OrganizerFieldDTO,
         ProposalCategoryDTO,
         SessionSelfEditContext,
@@ -101,7 +100,9 @@ def _delete_wizard_cover(wizard: dict[str, Any]) -> None:
     wizard.pop(_WIZARD_COVER_KEY, None)
 
 
-def _stash_wizard_cover(wizard: dict[str, Any], uploaded_file: UploadedFile) -> None:
+def _stash_wizard_cover(
+    wizard: dict[str, Any], uploaded_file: UploadedFile[bytes]
+) -> None:
     _delete_wizard_cover(wizard)
     name = getattr(uploaded_file, "name", "cover")
     wizard[_WIZARD_COVER_KEY] = default_storage.save(
@@ -130,7 +131,7 @@ def _wizard_image_form(
     wizard: dict[str, Any],
     *,
     data: Mapping[str, Any] | None = None,
-    files: MultiValueDict[str, UploadedFile] | None = None,
+    files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
 ) -> SessionCoverImageForm:
     if data is None and files is None:
         initial = _wizard_cover_initial(wizard)
@@ -295,7 +296,7 @@ def _personal_context(
         for slug, value in service.get_saved_personal_data(event.pk).items()
     }
     initial = unfold_custom_answers(
-        stored=stored, requirements=requirements, prefix="personal"
+        stored=stored, fields=[req.field for req in requirements], prefix="personal"
     )
 
     initial["contact_email"] = wizard.get(
@@ -380,18 +381,13 @@ def _render_details(
     wizard = request.session.get(_session_key(event.slug), {})
     initial = unfold_custom_answers(
         stored=wizard.get("session_data", {}),
-        requirements=requirements,
+        fields=[req.field for req in requirements],
         prefix="session",
     )
     if "display_name" not in initial:
         initial["display_name"] = getattr(request.user, "name", "")
 
-    form = build_session_details_form(
-        requirements,
-        min_limit=category.min_participants_limit,
-        max_limit=category.max_participants_limit,
-        durations=category.durations,
-    )(initial=initial)
+    form = build_session_details_form(requirements, category=category)(initial=initial)
 
     selected_track_pks = wizard.get("track_pks", [])
 
@@ -765,12 +761,7 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
             return _render_details(request, service, event, category)
 
         requirements = service.get_session_requirements(category.pk)
-        form_class = build_session_details_form(
-            requirements,
-            min_limit=category.min_participants_limit,
-            max_limit=category.max_participants_limit,
-            durations=category.durations,
-        )
+        form_class = build_session_details_form(requirements, category=category)
         form = form_class(data=request.POST)
         wizard = request.session.get(_session_key(event_slug), {})
         image_form = _wizard_image_form(wizard, data=request.POST, files=request.FILES)
@@ -942,15 +933,11 @@ class SessionEditView(LoginRequiredMixin, View):
     def _fields_form(
         ctx: SessionSelfEditContext, data: QueryDict | None = None
     ) -> forms.Form:
-        initial: dict[str, FieldValue] = {
-            f"{_SESSION_FIELD_PREFIX}_{field.slug}": current
-            for field, current in ctx.session_fields
-        }
         return dynamic_fields_form(
             prefix=_SESSION_FIELD_PREFIX,
             fields=_session_field_pairs(ctx),
             data=data,
-            initial=initial,
+            initial={field.slug: current for field, current in ctx.session_fields},
         )
 
     def get(

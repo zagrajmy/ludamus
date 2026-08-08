@@ -1,100 +1,106 @@
 {% extends "panel/base.html" %}
+{% load django_vite %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "Activity Log" %} —
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Activity Log" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Schedule Activity Log" %}
 {% endblock page_title %}
 {% block content %}
     {% tab_shell "panel/_timetable_tabs.html" %}
-    {% tab_shell_body %}
-    <!-- Filters -->
-    <form method="get" class="mb-4 flex flex-wrap gap-3 items-end">
-        <div>
-            <label class="block text-xs text-foreground-muted mb-1">{% translate "Room" %}</label>
-            <select name="space"
-                    class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    onchange="this.form.submit()">
-                <option value="">{% translate "All" %}</option>
-                {% for space in spaces %}
-                    <option value="{{ space.pk }}"
-                            {% if space.pk == space_pk %}selected{% endif %}>{{ space.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        {% if space_pk %}
-            <a href="{% url 'panel:timetable-log' slug=slug %}"
-               class="text-xs text-foreground-muted hover:underline">{% translate "Clear filters" %}</a>
-        {% endif %}
-    </form>
-    <!-- Log table -->
-    {% if logs %}
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm border-collapse">
-                <thead>
-                    <tr class="border-b border-border text-left">
-                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Time" %}</th>
-                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "User" %}</th>
-                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Action" %}</th>
-                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Session" context "table column" %}</th>
-                        <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Change" %}</th>
-                        <th class="py-2 font-medium text-foreground-secondary"></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border">
-                    {% for log in logs %}
-                        <tr class="hover:bg-bg-tertiary">
-                            <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
-                            <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
-                            <td class="py-2 pr-4">
-                                {% if log.action == "assign" %}
-                                    <span class="text-success-text font-medium">{% translate "Assigned" %}</span>
-                                {% elif log.action == "unassign" %}
-                                    <span class="text-danger-text font-medium">{% translate "Removed" %}</span>
-                                {% elif log.action == "revert" %}
-                                    <span class="text-warning-text font-medium">{% translate "Reverted" %}</span>
-                                {% else %}
-                                    {{ log.action }}
-                                {% endif %}
-                            </td>
-                            <td class="py-2 pr-4">{{ log.session_title }}</td>
-                            <td class="py-2 pr-4 text-foreground-secondary">
-                                {% if log.old_space_name and log.new_space_name %}
-                                    {{ log.old_space_name }} → {{ log.new_space_name }}
-                                {% elif log.new_space_name %}
-                                    → {{ log.new_space_name }}
-                                    {% if log.new_start_time %}({{ log.new_start_time|date:"H:i" }}){% endif %}
-                                {% elif log.old_space_name %}
-                                    {{ log.old_space_name }}
-                                    {% if log.old_start_time %}({{ log.old_start_time|date:"H:i" }}){% endif %}
-                                    →
-                                {% endif %}
-                            </td>
-                            <td class="py-2">
-                                {% if log.pk in revertible_pks %}
-                                    {% if log.action == "assign" or log.action == "unassign" %}
-                                        <form method="post"
-                                              action="{% url 'panel:timetable-revert' slug=slug %}"
-                                              data-confirm="{% translate "Are you sure you want to revert this change?" %}"
-                                              data-confirm-action="{% translate "Revert" %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="log_pk" value="{{ log.pk }}">
-                                            {% translate "Revert" as t_revert %}
-                                            {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
-                                        </form>
-                                    {% endif %}
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
-    {% endif %}
-{% end_tab_shell_body %}
-{% end_tab_shell %}
+        {% tab_shell_body %}
+            <!-- Filters -->
+            <form method="get"
+                  data-autosubmit
+                  class="mb-4 flex flex-wrap gap-3 items-end">
+                <div>
+                    <label for="space-filter" class="block text-xs text-foreground-muted mb-1">{% translate "Room" %}</label>
+                    <select id="space-filter"
+                            name="space"
+                            class="text-sm border border-border rounded-lg px-3 py-1.5 bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="">{% translate "All" %}</option>
+                        {% for space in spaces %}
+                            <option value="{{ space.pk }}"
+                                    {% if space.pk == space_pk %}selected{% endif %}>{{ space.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if space_pk %}
+                    <a href="{% url 'panel:timetable-log' slug=slug %}"
+                       class="text-xs text-foreground-muted hover:underline">{% translate "Clear filters" %}</a>
+                {% endif %}
+            </form>
+            <!-- Log table -->
+            {% if logs %}
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm border-collapse">
+                        <thead>
+                            <tr class="border-b border-border text-left">
+                                <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Time" %}</th>
+                                <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "User" %}</th>
+                                <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Action" %}</th>
+                                <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Session" context "table column" %}</th>
+                                <th class="py-2 pr-4 font-medium text-foreground-secondary">{% translate "Change" %}</th>
+                                <th class="py-2 font-medium text-foreground-secondary"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            {% for log in logs %}
+                                <tr class="hover:bg-bg-tertiary">
+                                    <td class="py-2 pr-4 text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"d.m H:i:s" }}</td>
+                                    <td class="py-2 pr-4">{{ log.user_name|default:"—" }}</td>
+                                    <td class="py-2 pr-4">
+                                        {% if log.action == "assign" %}
+                                            <span class="text-success-text font-medium">{% translate "Assigned" %}</span>
+                                        {% elif log.action == "unassign" %}
+                                            <span class="text-danger-text font-medium">{% translate "Removed" %}</span>
+                                        {% elif log.action == "revert" %}
+                                            <span class="text-warning-text font-medium">{% translate "Reverted" %}</span>
+                                        {% else %}
+                                            {{ log.action }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-2 pr-4">{{ log.session_title }}</td>
+                                    <td class="py-2 pr-4 text-foreground-secondary">
+                                        {% if log.old_space_name and log.new_space_name %}
+                                            {{ log.old_space_name }} → {{ log.new_space_name }}
+                                        {% elif log.new_space_name %}
+                                            → {{ log.new_space_name }}
+                                            {% if log.new_start_time %}({{ log.new_start_time|date:"H:i" }}){% endif %}
+                                        {% elif log.old_space_name %}
+                                            {{ log.old_space_name }}
+                                            {% if log.old_start_time %}({{ log.old_start_time|date:"H:i" }}){% endif %}
+                                            →
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-2">
+                                        {% if log.pk in revertible_pks %}
+                                            {% if log.action == "assign" or log.action == "unassign" %}
+                                                <form method="post"
+                                                      action="{% url 'panel:timetable-revert' slug=slug %}"
+                                                      data-confirm="{% translate "Are you sure you want to revert this change?" %}"
+                                                      data-confirm-action="{% translate "Revert" %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="log_pk" value="{{ log.pk }}">
+                                                    {% translate "Revert" as t_revert %}
+                                                    {% tessera_button t_revert variant="danger" button_type="submit" size="sm" full_width_mobile=False %}
+                                                </form>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-sm text-foreground-muted">{% translate "No entries in the log." %}</div>
+            {% endif %}
+        {% endtab_shell_body %}
+    {% endtab_shell %}
 {% endblock content %}
+{% block extra_scripts %}
+    {% vite_asset 'src/filter-autosubmit.ts' %}
+{% endblock extra_scripts %}

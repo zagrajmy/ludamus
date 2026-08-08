@@ -68,9 +68,9 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
   test("creates a proposal bound to the facilitator", async ({ page }) => {
     await page.goto(PROPOSALS_URL);
-    // Header button + empty-state CTA both read "Create Session"; take the
+    // Header button + empty-state CTA both read "New Proposal"; take the
     // header one.
-    await page.getByRole("link", { name: "Create Session" }).first().click();
+    await page.getByRole("link", { name: "New Proposal" }).first().click();
 
     // The picker is search-first: rows stay hidden until the search matches.
     await page.getByPlaceholder("Search by name…").fill(facilitator);
@@ -94,7 +94,8 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByLabel("Title").fill(PROPOSAL_TITLE_EDITED);
     await page.getByRole("button", { name: "Save" }).click();
 
-    await page.waitForURL(new RegExp(`/proposals/\\d+/$`));
+    // Save returns to the detail page, carrying ?next= so the list filters survive.
+    await page.waitForURL(new RegExp(`/proposals/\\d+/(\\?|$)`));
     await expect(page.getByRole("heading", { name: PROPOSAL_TITLE_EDITED })).toBeVisible();
   });
 

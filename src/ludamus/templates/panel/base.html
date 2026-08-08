@@ -1,21 +1,26 @@
 {% extends "base.html" %}
+{% load csp_tags %}
 {% load i18n %}
 {% load static %}
 {% load django_vite %}
 {% load tessera %}
-{% block title %}
-    {% block title_prefix %}
-    {% endblock title_prefix %}
-    {{ current_sphere.name }}
-{% endblock title %}
+{% comment %}An organizer runs one panel page per event, not per sphere: the
+event is what tells two tabs apart, so it takes the sphere's slot in the title.
+Sphere-wide pages (settings, announcements, connections) have no event and keep
+the sphere.{% endcomment %}
 {% block title_suffix %}
+    {% if current_event %}
+        • {{ current_event.name }}
+    {% elif current_sphere %}
+        • {{ current_sphere.name }}
+    {% endif %}
 {% endblock title_suffix %}
 {% block extra_head %}
     {# The nav progress bar builds its DOM in JS; ship its one label through #}
     {# the translation catalog instead of hardcoding locale logic client-side. #}
     {% translate "Page loading" as nav_progress_label %}
     <meta name="nav-progress-label" content="{{ nav_progress_label }}">
-    <script>
+    <script{% nonce %}>
         (function() {
             try {
                 if (localStorage.getItem("panel-sidebar-folded") === "1") {
@@ -135,20 +140,20 @@
                 id="sidebarOverlay"
                 class="sidebar-overlay fixed inset-0 bg-black/50 z-40 lg:hidden hidden w-full h-full cursor-default"
                 aria-label="{% translate "Close navigation" %}"
-                hx-on:click="document.getElementById('sidebar').classList.toggle('-translate-x-full'); this.classList.toggle('hidden')">
-        </button>
+                data-action="toggle-sidebar"></button>
         <!-- Sidebar -->
         <aside id="sidebar"
-               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen">
+               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen">
             <div class="sidebar-toggle sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 bg-bg-tertiary p-2 dark:bg-bg-secondary">
                 {% if events %}
                     <div class="sidebar-fold-hide relative min-w-0 flex-1">
                         <label for="eventSelector" class="sr-only">{% translate "Event" %}</label>
                         <select id="eventSelector"
                                 class="w-full appearance-none bg-bg-secondary border border-border text-foreground rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:bg-bg-tertiary"
-                                hx-on:change="window.location.href = '/panel/event/' + this.value + '/'">
+                                data-action="switch-event">
                             {% for event in events %}
                                 <option value="{{ event.slug }}"
+                                        data-url="{% url 'panel:event-index' slug=event.slug %}"
                                         {% if current_event and current_event.slug == event.slug %}selected{% endif %}>
                                     {{ event.name }}
                                 </option>
@@ -167,7 +172,7 @@
                         class="sidebar-fold-btn items-center justify-center p-2 text-foreground-muted hover:text-foreground hover:bg-bg-secondary dark:hover:bg-bg-tertiary rounded-lg transition flex-shrink-0"
                         title="{{ t_toggle_sidebar }}"
                         aria-label="{{ t_toggle_sidebar }}"
-                        hx-on:click="var h=document.documentElement;var f=h.toggleAttribute('data-folded');try{localStorage.setItem('panel-sidebar-folded',f?'1':'0');}catch(e){}">
+                        data-action="toggle-fold">
                     {% include "panel/parts/sidebar-icon.html" with icon_class="size-5" %}
                 </button>
             </div>
@@ -186,7 +191,7 @@
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
                                     class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    data-action="toggle-category">
                                 <span>{% translate "Program" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                             </button>
@@ -232,7 +237,7 @@
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
                                     class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    data-action="toggle-category">
                                 <span>{% translate "Schedule" context "Sidebar category" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                             </button>
@@ -259,9 +264,12 @@
                                     <span class="sidebar-label">{{ t_timetable }}</span>
                                 </a>
                                 {% translate "Print Materials" as t_print %}
-                                <a href="{% url 'panel:print-materials' slug=current_event.slug %}"
+                                {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
+                                <a href="{% url 'web:chronology:event-print' slug=current_event.slug %}"
+                                   target="_blank"
+                                   rel="noopener"
                                    title="{{ t_print }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'print' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
+                                   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary rounded-lg transition hover:duration-0">
                                     {% icon "printer" class="size-4.5 mr-2" %}
                                     <span class="sidebar-label">{{ t_print }}</span>
                                 </a>
@@ -271,7 +279,7 @@
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
                                     class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                    data-action="toggle-category">
                                 <span>{% translate "Settings" %}</span>
                                 <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                             </button>
@@ -298,7 +306,7 @@
                         <button type="button"
                                 title="{{ t_toggle_cat }}"
                                 class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                hx-on:click="var c=this.closest('[data-cat]').dataset.cat;var v=document.documentElement.classList.toggle('catc-'+c);try{localStorage.setItem('panel-cat-'+c,v?'1':'0');}catch(e){}">
+                                data-action="toggle-category">
                             <span>{% translate "Sphere" %}</span>
                             <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                         </button>
@@ -316,21 +324,64 @@
             </nav>
         </aside>
         <!-- Main Content -->
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        {% comment %}The shell's bar reserves 12px around the tabs so a raised
+        tab clears a rounded, bordered card edge. The panel strips that edge —
+        rounded-t-none at every width, border-0 below — so the top 12px is a
+        bare band of tab-track colour on desktop too, and `pt-1.5` is
+        deliberately unprefixed. The sides only close up below sm, where the
+        band costs viewport width; the tab body edge moves with them, since the
+        first tab is meant to sit flush with the content under it.
+
+        Never the bottom, at any width: the selected tab is pulled a pixel over
+        the bar's border to read as attached to the panel below, and padding
+        under it floats the whole strip off its rail.
+
+        Pages that run their cards to the viewport edge below sm mark their
+        wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
+        {% endcomment %}
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
-            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-0 z-10">
+            {% comment %}Header CTAs go icon-only below sm — the glyph carries the
+            action and the title beside it gets the width back. The label goes
+            sr-only rather than hidden, so the button keeps its accessible name.
+            Templates and `tessera_button` both mark it `.btn-label`; the
+            breakpoint is decided here, once, rather than in 28 templates.
+
+            The first three rules hang off the same `:has(>svg)`, and must keep
+            doing so. A button with no icon has nothing to fall back on, so
+            hiding its label leaves a blank pill — which is what the moderation
+            bar on proposal-detail (Accept / Hold / Reject / Delete) would
+            become. The same guard covers
+            `{% templatetag openblock %} icon {% templatetag closeblock %}`
+            returning "" for a missing icon in production.
+
+            `min-h-11` is the one rule that covers every button: an iconless
+            one keeps its label and its own width, but `py-2` alone leaves it
+            38px — under the tap-target floor, and 6px shy of the squares it
+            sits beside. Stated as a minimum rather than a height so it never
+            argues with `size-11` over the icon buttons.
+
+            `w-auto` is deliberately ungated: `tessera_button` stretches every
+            form-submit button by default, which is right in a body form and
+            never right in this strip. Deciding it here spares 22 header
+            templates from each passing `full_width_mobile=False`.
+            {% endcomment %}
+            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10 max-sm:[&_.btn:has(>svg)_.btn-label]:sr-only max-sm:[&_.btn:has(>svg)]:size-11 max-sm:[&_.btn:has(>svg)]:p-0 max-sm:[&_.btn]:min-h-11 max-md:[&_.btn]:w-auto">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
                     <button type="button"
-                            hx-on:click="document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden')"
+                            data-action="toggle-sidebar"
                             aria-label="{% translate "Open navigation" %}"
                             class="lg:hidden p-2 -ml-2 text-foreground-secondary hover:text-foreground hover:bg-bg-tertiary rounded-lg flex-shrink-0">
                         {% include "panel/parts/sidebar-icon.html" with icon_class="size-6" %}
                     </button>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 min-w-0">
-                            <h2 class="text-xl font-bold text-foreground truncate">
+                            {# A phone header is a strip, not a masthead: 20px/28 there is #}
+                            {# bulk. 17px on a tight leading keeps it clearly the title over #}
+                            {# a 14px subtitle and gives the row back ~6px. #}
+                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground truncate">
                                 {% block page_title %}
                                     {% translate "Dashboard" %}
                                 {% endblock page_title %}
@@ -356,41 +407,42 @@
                                     {% else %}
                                         {{ current_event.start_time|date:"d M" }} - {{ current_event.end_time|date:"d M Y" }}
                                     {% endif %}
-                                </strong>
-                            </span>
-                            {% if is_proposal_active %}
-                                <span class="px-3 py-1 bg-success-bg text-success-text text-sm rounded-full whitespace-nowrap">{% translate "Proposals Open" %}</span>
-                            {% else %}
-                                <span class="px-3 py-1 bg-bg-tertiary text-foreground-secondary text-sm rounded-full whitespace-nowrap">{% translate "Proposals Closed" %}</span>
+                                    </strong>
+                                </span>
+                                {% if is_proposal_active %}
+                                    <span class="px-3 py-1 bg-success-bg text-success-text text-sm rounded-full whitespace-nowrap">{% translate "Proposals Open" %}</span>
+                                {% else %}
+                                    <span class="px-3 py-1 bg-bg-tertiary text-foreground-secondary text-sm rounded-full whitespace-nowrap">{% translate "Proposals Closed" %}</span>
+                                {% endif %}
                             {% endif %}
-                        {% endif %}
-                    </div>
-                {% endblock header_actions %}
+                        </div>
+                    {% endblock header_actions %}
+                </div>
+            </header>
+            <!-- Messages -->
+            {% if messages %}
+                <div class="flash-region"
+                     role="region"
+                     aria-live="polite"
+                     aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+            {% endif %}
+            <div class="relative z-0 flex min-h-0 flex-1 flex-col">
+                {% block content %}
+                {% endblock content %}
             </div>
-        </header>
-        <!-- Messages -->
-        {% if messages %}
-            <div class="flash-region"
-                 role="region"
-                 aria-live="polite"
-                 aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
-        {% endif %}
-        <div class="relative z-0 flex min-h-0 flex-1 flex-col">
-            {% block content %}
-            {% endblock content %}
-        </div>
-    </main>
-</div>
-{% vite_asset 'src/info-popover.ts' %}
-{% vite_asset 'src/nav-progress.ts' %}
-<script type="module">
-    document.addEventListener('keydown', e => {
-        if (e.key !== 'Escape') return;
-        const overlay = document.getElementById('sidebarOverlay');
-        const sidebar = document.getElementById('sidebar');
-        if (!overlay || overlay.classList.contains('hidden')) return;
-        overlay.classList.add('hidden');
-        sidebar.classList.add('-translate-x-full');
-    });
-</script>
+        </main>
+    </div>
+    {% vite_asset 'src/info-popover.ts' %}
+    {% vite_asset 'src/nav-progress.ts' %}
+    {% vite_asset 'src/panel-chrome.ts' %}
+    <script type="module" {% nonce %}>
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            const overlay = document.getElementById('sidebarOverlay');
+            const sidebar = document.getElementById('sidebar');
+            if (!overlay || overlay.classList.contains('hidden')) return;
+            overlay.classList.add('hidden');
+            sidebar.classList.add('-translate-x-full');
+        });
+    </script>
 {% endblock main_region %}

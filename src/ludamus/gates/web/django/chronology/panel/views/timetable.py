@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
+from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, QueryDict
@@ -19,6 +20,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
+from ludamus.gates.web.django.chronology.panel.views.columns import (
+    FACILITATOR_COLUMNS,
+    column_views,
+    facilitator_column_values,
+)
 from ludamus.mills.timetable import (
     ConflictDetectionService,
     TimetableOverviewService,
@@ -29,7 +35,15 @@ from ludamus.pacts import (
     NotFoundError,
     UnscheduledSessionFilter,
 )
-from ludamus.pacts.chronology import DateSelection, SessionPlacement
+from ludamus.pacts.chronology import (
+    DateSelection,
+    MultiselectOptionDTO,
+    SessionPlacement,
+    TimetableGridFilter,
+)
+
+if TYPE_CHECKING:
+    from ludamus.pacts.legacy import TrackDTO
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -40,21 +54,112 @@ def _parse_iso_duration_minutes(iso: str) -> int:
     return hours * 60 + minutes
 
 
-def _timetable_tab_urls(slug: str) -> dict[str, str]:
+def timetable_tab_urls(slug: str) -> dict[str, str]:
     return {
         "timetable": reverse("panel:timetable", kwargs={"slug": slug}),
         "log": reverse("panel:timetable-log", kwargs={"slug": slug}),
         "overview": reverse("panel:timetable-overview", kwargs={"slug": slug}),
         "problems": reverse("panel:timetable-problems", kwargs={"slug": slug}),
+        "confirmations": reverse(
+            "panel:timetable-confirmations", kwargs={"slug": slug}
+        ),
     }
 
 
-_BACK_URL_KEYS = ("track", "category", "max_duration", "search", "date")
+_BACK_URL_KEYS = (
+    "track",
+    "category",
+    "max_duration",
+    "search",
+    "date",
+    "space",
+    "facilitator",
+)
 
 
 def _build_back_url(slug: str, query: QueryDict) -> str:
     base = reverse("panel:timetable-browse-pane-part", kwargs={"slug": slug})
-    params = [(key, query[key]) for key in _BACK_URL_KEYS if query.get(key, "").strip()]
+    params = [
+        (key, value)
+        for key in _BACK_URL_KEYS
+        for value in query.getlist(key)
+        if value.strip()
+    ]
+    return f"{base}?{urlencode(params)}" if params else base
+
+
+def _parse_pks(query: QueryDict, key: str) -> set[int]:
+    return {value for raw in query.getlist(key) if (value := _as_pk(raw)) is not None}
+
+
+def _as_pk(raw: str) -> int | None:
+    return int(raw) if (raw := raw.strip()).isdigit() else None
+
+
+_FACILITATOR_OPTION_LIMIT = 25
+
+
+class _FacilitatorOptions(NamedTuple):
+    options: list[MultiselectOptionDTO]
+    has_more: bool
+
+
+def _facilitator_options(
+    *, request: PanelRequest, event_pk: int, search: str, pinned: set[int]
+) -> _FacilitatorOptions:
+    # Formatting only -- which people come back, and why the already-picked
+    # ones always do, is the service's business.
+    panel = request.services.facilitator_panel
+    found = panel.filter_options(
+        event_id=event_pk, search=search, pinned=pinned, limit=_FACILITATOR_OPTION_LIMIT
+    )
+    values = facilitator_column_values(
+        panel=panel, facilitators=found.facilitators, columns=found.columns
+    )
+    labels = column_views(found.columns, FACILITATOR_COLUMNS)
+    options = []
+    for facilitator in found.facilitators:
+        # Whichever columns the organizer configured become a meta line under
+        # the name. They carry their own labels because, unlike in the
+        # facilitator table, there are no column headers here to read them
+        # against -- a bare "None · 2 · —" says nothing about who this is.
+        # Placeholders are dropped for the same reason.
+        cells = [
+            (column.label, cell)
+            for column in labels
+            # The name is the row's label, never a meta cell repeating it.
+            if column.key != "name"
+            and (cell := values[facilitator.pk].get(column.key, "")) not in {"", "—"}
+        ]
+        options.append(
+            MultiselectOptionDTO(
+                value=facilitator.pk,
+                # Always the display name: an organizer is free to order the
+                # list's columns however they like, and a picker labelling
+                # people by session count or phone number names nobody.
+                label=facilitator.display_name,
+                meta=" · ".join(f"{label}: {cell}" for label, cell in cells),
+            )
+        )
+    return _FacilitatorOptions(options=options, has_more=found.has_more)
+
+
+def _print_url(
+    *,
+    slug: str,
+    tracks: list[TrackDTO],
+    track_pk: int | None,
+    date_selection: DateSelection,
+) -> str:
+    # The print page is preset to the schedule's current view: an active track
+    # filter prints that track, a picked day prints that day — the filters the
+    # organizer already dialed in aren't wasted.
+    params: list[tuple[str, str]] = []
+    if (track := next((t for t in tracks if t.pk == track_pk), None)) is not None:
+        params += [("material", "track-timetable"), ("track", track.slug)]
+    if date_selection != "all":
+        params += [("start", f"{date_selection.isoformat()}T00:00"), ("hours", "24")]
+    base = reverse("web:chronology:event-print", kwargs={"slug": slug})
     return f"{base}?{urlencode(params)}" if params else base
 
 
@@ -92,25 +197,24 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        category_pk_raw = self.request.GET.get("category", "").strip()
-        category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
-        max_dur_raw = self.request.GET.get("max_duration", "").strip()
-        max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        category_pk = _as_pk(self.request.GET.get("category", ""))
+        max_duration_minutes = _as_pk(self.request.GET.get("max_duration", ""))
+
+        space_pks = _parse_pks(self.request.GET, "space")
+        facilitator_pks = _parse_pks(self.request.GET, "facilitator")
 
         uow = self.request.di.uow
-        grid = TimetableService(uow).build_grid(
+        timetable_service = TimetableService(uow)
+        grid = timetable_service.build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
-            track_pk=filter_track_pk,
             space_page=room_page,
-            date_selection=date_selection,
-        )
-        conflict_service = ConflictDetectionService(uow)
-        conflicts = conflict_service.list_all_for_track(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        slot_violations = conflict_service.list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
+            filters=TimetableGridFilter(
+                track_pk=filter_track_pk,
+                date_selection=date_selection,
+                space_pks=space_pks,
+                facilitator_pks=facilitator_pks,
+            ),
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
 
@@ -119,19 +223,36 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_track_pk"] = filter_track_pk
         context["room_page"] = room_page
         context["grid"] = grid
-        context["conflicts"] = conflicts
-        context["conflict_session_pks"] = {c.session_pk for c in conflicts}
-        context["conflicts_count"] = len(conflicts)
-        context["slot_violation_session_pks"] = {v.session_pk for v in slot_violations}
+        context["conflicts"] = grid.conflicts
+        context["conflicts_count"] = len(grid.conflicts)
         context["categories"] = categories
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
+        context["search"] = self.request.GET.get("search", "").strip()
+        context["space_options"] = timetable_service.space_filter_options(
+            current_event.pk
+        )
+        context["filter_space_pks"] = space_pks
+        # An unsearched picker shows exactly the already-picked rows, so there
+        # is never a "more matches" tail to report on this path.
+        context["facilitator_options"] = _facilitator_options(
+            request=self.request,
+            event_pk=current_event.pk,
+            search="",
+            pinned=facilitator_pks,
+        ).options
+        context["filter_facilitator_pks"] = facilitator_pks
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "timetable"
-        context["print_scopes"] = self.get_print_scopes(current_event.pk)
+        context["print_url"] = _print_url(
+            slug=slug,
+            tracks=sorted_tracks,
+            track_pk=filter_track_pk,
+            date_selection=grid.date_selection,
+        )
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 
@@ -148,10 +269,8 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
         _, _, filter_track_pk = self.get_track_filter_context(current_event.pk)
 
         search = self.request.GET.get("search", "").strip() or None
-        category_pk_raw = self.request.GET.get("category", "").strip()
-        category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
-        max_dur_raw = self.request.GET.get("max_duration", "").strip()
-        max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        category_pk = _as_pk(self.request.GET.get("category", ""))
+        max_duration_minutes = _as_pk(self.request.GET.get("max_duration", ""))
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
         uow = self.request.di.uow
@@ -165,6 +284,7 @@ class TimetableSessionListPartView(PanelAccessMixin, EventContextMixin, View):
                 available_on=(
                     date_selection if isinstance(date_selection, date) else None
                 ),
+                facilitator_pks=_parse_pks(self.request.GET, "facilitator"),
             ),
         )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
@@ -201,10 +321,8 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
 
         _, _, filter_track_pk = self.get_track_filter_context(current_event.pk)
 
-        category_pk_raw = self.request.GET.get("category", "").strip()
-        category_pk = int(category_pk_raw) if category_pk_raw.isdigit() else None
-        max_dur_raw = self.request.GET.get("max_duration", "").strip()
-        max_duration_minutes = int(max_dur_raw) if max_dur_raw.isdigit() else None
+        category_pk = _as_pk(self.request.GET.get("category", ""))
+        max_duration_minutes = _as_pk(self.request.GET.get("max_duration", ""))
         search = self.request.GET.get("search", "").strip()
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
@@ -219,6 +337,40 @@ class TimetableBrowsePanePartView(PanelAccessMixin, EventContextMixin, View):
         }
         return TemplateResponse(
             self.request, "panel/parts/timetable-browse-pane.html", context
+        )
+
+
+class TimetableFacilitatorOptionsPartView(PanelAccessMixin, EventContextMixin, View):
+    """HTMX partial: searched option rows for the facilitator filter."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        selected = _parse_pks(self.request.GET, "facilitator")
+        search = self.request.GET.get("q", "").strip()
+        options, has_more = _facilitator_options(
+            request=self.request,
+            event_pk=current_event.pk,
+            search=search,
+            pinned=selected,
+        )
+
+        context = {
+            "options": options,
+            "has_more": has_more,
+            "searched": bool(search),
+            "name": "facilitator",
+            "selected_values": selected,
+            "search_url": reverse(
+                "panel:timetable-facilitator-options-part", kwargs={"slug": slug}
+            ),
+        }
+        return TemplateResponse(
+            self.request, "components/multiselect-filter-options.html", context
         )
 
 
@@ -292,23 +444,21 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        uow = self.request.di.uow
-        grid = TimetableService(uow).build_grid(
+        grid = TimetableService(self.request.di.uow).build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
-            track_pk=filter_track_pk,
             space_page=room_page,
-            date_selection=date_selection,
-        )
-        slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
+            filters=TimetableGridFilter(
+                track_pk=filter_track_pk,
+                date_selection=date_selection,
+                space_pks=_parse_pks(self.request.GET, "space"),
+                facilitator_pks=_parse_pks(self.request.GET, "facilitator"),
+            ),
         )
 
         context: dict[str, object] = {
             "grid": grid,
             "filter_track_pk": filter_track_pk,
-            "conflict_session_pks": set(),
-            "slot_violation_session_pks": {v.session_pk for v in slot_violations},
             "date_selection": grid.date_selection,
             "slug": slug,
         }
@@ -401,6 +551,8 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
+    """POST: set confirmation on one scheduled program item."""
+
     request: PanelRequest
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -415,57 +567,12 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
         confirmed_raw = self.request.POST.get("confirmed")
         if confirmed_raw not in {"true", "false"}:
             return HttpResponse(status=422)
-        confirmed = confirmed_raw == "true"
 
         try:
             self.request.services.session_confirmation.set_session_confirmed(
                 event_pk=current_event.pk,
                 agenda_item_pk=agenda_item_pk,
-                confirmed=confirmed,
-            )
-        except NotFoundError:
-            return HttpResponse(status=422)
-
-        response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
-        return response
-
-
-class TimetableConfirmAllView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm every scheduled program item in the event."""
-
-    request: PanelRequest
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        self.request.services.session_confirmation.confirm_all(current_event.pk)
-
-        response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
-        return response
-
-
-class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm every scheduled program item in a single track (block)."""
-
-    request: PanelRequest
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            track_pk = int(self.request.POST["track_pk"])
-        except KeyError, ValueError:
-            return HttpResponse(status=422)
-
-        try:
-            self.request.services.session_confirmation.confirm_block(
-                event_pk=current_event.pk, track_pk=track_pk
+                confirmed=confirmed_raw == "true",
             )
         except NotFoundError:
             return HttpResponse(status=422)
@@ -496,7 +603,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
         context["track_progress"] = overview.track_progress(current_event.pk)
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "overview"
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)
 
@@ -526,7 +633,7 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["slot_violations"] = slot_violations
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "problems"
         return TemplateResponse(self.request, "panel/timetable-problems.html", context)
 
@@ -545,8 +652,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
 
         uow = self.request.di.uow
 
-        space_pk_raw = self.request.GET.get("space", "").strip()
-        space_pk = int(space_pk_raw) if space_pk_raw.isdigit() else None
+        space_pk = _as_pk(self.request.GET.get("space", ""))
 
         logs = uow.schedule_change_logs.list_by_event(
             current_event.pk, space_pk=space_pk
@@ -560,7 +666,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["spaces"] = spaces
         context["space_pk"] = space_pk
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "log"
         return TemplateResponse(self.request, "panel/timetable-log.html", context)
 

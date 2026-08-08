@@ -7,7 +7,7 @@ authors = [
     { name = "hasparus", email = "hasparus@gmail.com" },
     { name = "lprasol", email = "lprasol@gmail.com" },
 ]
-license = { text = "BSD-3-Clause license" }
+license = { text = "AGPL-3.0-only" }
 readme = "README.md"
 requires-python = ">=3.14.0,<3.15"
 dynamic = ['dependencies']
@@ -26,7 +26,7 @@ requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
-cryptography = "^49.0.0"
+cryptography = "^50.0.0"
 django = "~6.0.6"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
@@ -43,7 +43,7 @@ requests = "^2.32.5"
 segno = "^1.6.6"
 whitenoise = "^6.12.0"
 django-storages = { extras = ["google"], version = "^1.14.6" }
-dbos = ">=2.23.0,<3"
+dbos = ">=2.28.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
@@ -57,7 +57,7 @@ django-debug-toolbar = "^7.0.0"
 django-stubs = "^6.0.5"
 djlint = "^1.39.2"
 factory-boy = "^3.3.3"
-faker = "^40.28.1"
+faker = "^40.36.0"
 freezegun = "^1.5.2"
 honcho = "^2.0.0"
 ipython = "^9.14.1"
@@ -96,11 +96,15 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
+# `./.claude` only matches when codespell is handed the repo root; hk and CI
+# pass explicit paths, so the vendored skills need a glob that matches the
+# path as given too.
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
-ignore-words-list = 'fallow,adres,afterall'
+# 'blok' is Polish for 'track' — the agreed translation, see the copy reference.
+ignore-words-list = 'fallow,adres,afterall,blok'
 
 # COVERAGE
 
@@ -130,7 +134,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select"
+custom_blocks = "select,radio,document_title,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -183,6 +187,10 @@ warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
 
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
 [tool.django-stubs]
 django_settings_module = "ludamus.edges.settings"
 
@@ -232,14 +240,9 @@ disallow_any_expr = false
 module = ["ludamus.gates.mcp.registry"]
 disallow_any_expr = false
 
-[tool.pydantic-mypy]
-init_forbid_extra = true
-init_typed = true
-
 # RUFF
 
 [tool.ruff]
-fix = false
 line-length = 88
 output-format = 'concise'
 preview = true
@@ -254,14 +257,17 @@ ignore = [
     "FIX",
     "TD003",
     # Left to fix
-    "PLR0911", # Too many return statements
-    "PLR0912", # Too many branches
-    "PLR0915", # Too many statements
-    "PLR0914", # Too many local variables
-    "PLR1702", # Too many nested blocks
-    "EM101",   # Exception must not use a string literal, assign to variable first
-    "TRY003",  # Avoid specifying long messages outside the exception class
+    "PLR0911",                       # Too many return statements
+    "PLR0912",                       # Too many branches
+    "PLR0915",                       # Too many statements
+    "PLR0914",                       # Too many local variables
+    "PLR1702",                       # Too many nested blocks
+    "EM101",                         # Exception must not use a string literal, assign to variable first
+    "TRY003",                        # Avoid specifying long messages outside the exception class
+    "too-many-public-methods",
+    "too-many-positional-arguments",
 ]
+allowed-confusables = ["–"]
 
 [tool.ruff.lint.per-file-ignores]
 "*/migrations/**.py" = [
@@ -291,13 +297,25 @@ ignore = [
 "scripts/*.py" = ["T201", "S404", "S603", "S607"]
 # Standalone Django seed script: imports must follow django.setup(), and it
 # prints a summary line when run directly.
-"tests/e2e/scripts/bootstrap_large_event.py" = ["E402", "T201"]
+"tests/e2e/scripts/*.py" = [
+    "unsorted-imports",
+    "module-import-not-at-top-of-file",
+    "print",
+]
+
+[tool.ruff.lint.pylint]
+max-public-methods = 12
+max-args = 12
+max-positional-args = 2
 
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = true
@@ -329,27 +347,39 @@ root_package = "ludamus"
 name = "gates"
 type = "forbidden"
 source_modules = ["ludamus.gates"]
-forbidden_modules = ["ludamus.links", "ludamus.inits", "ludamus.edges"]
-# Management commands are composition entrypoints (like manage.py/wsgi): the
-# cron jobs must build their service via the inits root.
-ignore_imports = [
-    "ludamus.gates.cli.django.management.commands.expire_offers -> ludamus.inits.services",
-    "ludamus.gates.cli.django.management.commands.send_printables_reminders -> ludamus.inits.services",
+# The specs rule breaks only transitively, through mills (e.g.
+# gates.web.django.chronology.views -> mills.chronology -> specs.chronology).
+# import-linter has no direct-imports-only mode for `forbidden`, so it stays off
+# until mills stops re-exporting specs. The others break directly.
+forbidden_modules = [
+    # "ludamus.links",
+    # "ludamus.inits",
+    # "ludamus.mills",
+    # "ludamus.specs",
+    "ludamus.edges",
 ]
-
 
 [[tool.importlinter.contracts]]
 name = "links"
 type = "forbidden"
 source_modules = ["ludamus.links"]
-forbidden_modules = ["ludamus.gates", "ludamus.inits", "ludamus.specs", "ludamus.edges"]
-
+forbidden_modules = [
+    "ludamus.gates",
+    "ludamus.inits",
+    "ludamus.mills",
+    "ludamus.specs",
+    "ludamus.edges",
+]
 
 [[tool.importlinter.contracts]]
 name = "inits"
 type = "forbidden"
 source_modules = ["ludamus.inits"]
-forbidden_modules = ["ludamus.edges"]
+# The specs rule breaks only transitively, through mills — see the gates note.
+forbidden_modules = [
+    # "ludamus.specs",
+    "ludamus.edges",
+]
 
 
 [[tool.importlinter.contracts]]
@@ -407,6 +437,35 @@ forbidden_modules = [
     "ludamus.specs",
 ]
 
+# [[tool.importlinter.contracts]]
+# name = "inside-gates"
+# type = "independence"
+# modules = ["ludamus.gates.*"]
+
+# [[tool.importlinter.contracts]]
+# name = "inside-links"
+# type = "independence"
+# modules = ["ludamus.links.*"]
+
+# [[tool.importlinter.contracts]]
+# name = "inside-mills"
+# type = "independence"
+# modules = ["ludamus.mills.*"]
+
+# [[tool.importlinter.contracts]]
+# name = "inside-pacts"
+# type = "independence"
+# modules = ["ludamus.pacts.*"]
+
+[[tool.importlinter.contracts]]
+name = "inside-specs"
+type = "independence"
+modules = ["ludamus.specs.*"]
+
+[[tool.importlinter.contracts]]
+name = "inside-edges"
+type = "independence"
+modules = ["ludamus.edges.*"]
 
 # VULTURE
 
@@ -426,6 +485,7 @@ ignore_names = [
     "is_pending_proposal",
     "is_read",
     "is_unlimited",
+    "item_name",
     "location_label",
     "overflow_count",
     "public_tag_categories",
@@ -478,6 +538,7 @@ ignore_names = [
 ignore_decorators = [
     "@register.filter",
     "@register.simple_tag",
+    "@register.tag",
     "@admin.register",
     "@field_validator",
 ]

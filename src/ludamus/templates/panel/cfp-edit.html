@@ -1,11 +1,12 @@
 {% extends "panel/base.html" %}
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
 {% load django_vite %}
-{% block title_prefix %}
-    {% translate "Configure Category" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Configure Category" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Configure Category" %}
 {% endblock page_title %}
@@ -16,19 +17,16 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event and category %}
-        <a href="{% url 'panel:cfp' slug=current_event.slug %}"
-           class="btn btn-secondary">{% translate "Cancel" %}</a>
-        <button type="submit"
-                form="cfp-edit-form"
-                class="btn btn-primary flex items-center">
-            {% icon "check" class="w-4 h-4 mr-2" %}
-            {% translate "Save" %}
-        </button>
+        {% url 'panel:cfp' slug=current_event.slug as cancel_url %}
+        {% translate "Cancel" as cancel_label %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Save" as save_label %}
+        {% tessera_button save_label form="cfp-edit-form" icon="check" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
     {% if current_event and category %}
-        <div class="p-4">
+        <div class="panel-bleed">
             <form method="post" id="cfp-edit-form" class="max-w-2xl">
                 {% csrf_token %}
                 <div class="card">
@@ -58,8 +56,11 @@
                                     <p class="mt-1 text-sm text-danger">{{ form.description.errors.0 }}</p>
                                 {% endif %}
                             </div>
+                            {% comment %}min-w-0 lets the single-column track shrink below the
+                            inputs' intrinsic width on iOS Safari; the inputs' own minimum is
+                            normalised in index.css.{% endcomment %}
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
+                                <div class="min-w-0">
                                     <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                            for="id_start_time">{% translate "Submissions open" %}</label>
                                     <input type="datetime-local"
@@ -69,7 +70,7 @@
                                            class="w-full border {% if form.start_time.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
                                     {% if form.start_time.errors %}<p class="mt-1 text-sm text-danger">{{ form.start_time.errors.0 }}</p>{% endif %}
                                 </div>
-                                <div>
+                                <div class="min-w-0">
                                     <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                            for="id_end_time">{% translate "Submissions close" %}</label>
                                     <input type="datetime-local"
@@ -87,7 +88,7 @@
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Participant Limits" %}</h3>
                         <p class="text-sm text-foreground-muted mb-6">
-                            {% translate "Set minimum and maximum participant limits for this category." %}
+                            {% translate "Bounds on what a proposal submitted through the call for proposals may ask for. Your own forms in this panel are not limited by them." %}
                         </p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -184,7 +185,7 @@
                 {% translate "h" as hour_suffix %}
                 {% translate "min" as minute_suffix %}
                 {% translate "No durations configured yet." as no_durations_text %}
-                <script>
+                <script{% nonce %}>
                     (function() {
                         const hoursInput = document.getElementById('duration-hours');
                         const minutesInput = document.getElementById('duration-minutes');
@@ -396,7 +397,7 @@
                            class="text-sm text-primary hover:text-primary/80">{% translate "Configure time slots" %}</a>
                     </div>
                 {% endif %}
-                <script>
+                <script{% nonce %}>
                     window.__fieldPickerI18n = {
                         chosen: "{% translate 'Chosen' %}",
                         available: "{% translate 'Available' %}",
@@ -406,7 +407,7 @@
                         noFieldsSelected: "{% translate 'No fields selected.' %}",
                     };
                 </script>
-                <script>
+                <script{% nonce %}>
                     (function() {
                         const i18n = window.__fieldPickerI18n;
 

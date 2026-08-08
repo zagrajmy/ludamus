@@ -15,7 +15,10 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.enrollment import AnonymousSessionContextDTO
+from ludamus.pacts.enrollment import (
+    AnonymousEnrollmentWindowSnapshot,
+    AnonymousSessionContextDTO,
+)
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
 from tests.integration.utils import assert_response
@@ -39,13 +42,19 @@ def _prepare_anonymous_enrollable_session(enrollment_config) -> None:
     enrollment_config.save()
 
 
-def _expected_session_dto(agenda_item) -> AnonymousSessionContextDTO:
+def _expected_session_dto(agenda_item, enrollment_config) -> AnonymousSessionContextDTO:
     session = agenda_item.session
+    eligible_windows = [
+        AnonymousEnrollmentWindowSnapshot.model_validate(enrollment_config)
+    ]
+    participants_limit = session.participants_limit
     return AnonymousSessionContextDTO(
         session_id=session.id,
         event_id=session.event.id,
         event_slug=session.event.slug,
         has_agenda_item=True,
+        participants_limit=participants_limit,
+        eligible_windows=eligible_windows,
         allows_anonymous_enrollment=True,
         title=session.title,
         display_name=session.display_name,
@@ -53,7 +62,7 @@ def _expected_session_dto(agenda_item) -> AnonymousSessionContextDTO:
         min_age=session.min_age,
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
-        effective_participants_limit=session.effective_participants_limit,
+        effective_participants_limit=participants_limit,
         space_name=agenda_item.space.name,
         start_time=agenda_item.start_time,
         end_time=agenda_item.end_time,
@@ -198,7 +207,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "session": _expected_session_dto(agenda_item),
+                "session": _expected_session_dto(agenda_item, enrollment_config),
                 "event_slug": agenda_item.session.event.slug,
                 "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
@@ -234,7 +243,7 @@ class TestSessionEnrollmentAnonymousPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "session": _expected_session_dto(agenda_item),
+                "session": _expected_session_dto(agenda_item, enrollment_config),
                 "event_slug": agenda_item.session.event.slug,
                 "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
