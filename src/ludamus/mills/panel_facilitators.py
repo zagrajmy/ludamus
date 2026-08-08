@@ -647,6 +647,10 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             facilitator = self._repos.facilitators.read_by_event_and_slug(
                 event_id, facilitator_slug
             )
+            # Before the check, not after: a session assignment committing
+            # between the two would otherwise leave this facilitator deleted
+            # and still named on the program.
+            self._repos.facilitators.lock(facilitator.pk)
             if self._repos.facilitators.has_sessions(facilitator.pk):
                 raise FacilitatorActionError(OrganizerActionRefusal.HAS_SESSIONS)
             self._repos.facilitators.soft_delete(facilitator.pk)

@@ -194,6 +194,20 @@ class TestFacilitatorRepositorySoftDelete:
             FacilitatorRepository.read_including_deleted(event.pk, "nobody")
 
 
+class TestFacilitatorRepositoryLock:
+    def test_a_dead_row_locks_too(self):
+        # The delete path locks whatever `read_by_event_and_slug` returned, so
+        # the lock never gets to decide a row is out of scope.
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        facilitator.soft_delete()
+
+        assert FacilitatorRepository.lock(facilitator.pk) is None
+
+    def test_a_missing_row_is_not_an_error(self):
+        assert FacilitatorRepository.lock(0) is None
+
+
 class TestFacilitatorRepositoryHasSessions:
     def test_a_facilitator_without_sessions_has_none(self):
         event = EventFactory.create()

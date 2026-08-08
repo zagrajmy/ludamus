@@ -3,6 +3,7 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
@@ -72,6 +73,21 @@ _SESSION_SORT_FIELDS = {
     "created": "creation_time",
 }
 _FIELD_SORT_PREFIX = "field_"
+
+
+def _lock_facilitators(facilitator_ids: Iterable[int]) -> None:
+    # The other half of the deletion guard: the panel's delete locks the
+    # facilitator row before asking whether it runs any session, so taking the
+    # same lock before writing the link leaves only the two orderings that end
+    # well — the check sees this link, or this link waits and the delete wins.
+    # `order_by("pk")` keeps two concurrent multi-facilitator writes from
+    # deadlocking on each other.
+    list(
+        Facilitator.all_objects.select_for_update()
+        .filter(pk__in=list(facilitator_ids))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
 
 
 def _field_sort_pk(key: str) -> int | None:
@@ -223,6 +239,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         )
 
     @staticmethod
+    @transaction.atomic
     def create(
         session_data: SessionData,
         *,
@@ -236,8 +253,9 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         # which turns bulk imports into a query per created session.
         if time_slot_ids:
             session.time_slots.add(*time_slot_ids)
-        if facilitator_ids:
-            session.facilitators.add(*facilitator_ids)
+        if facilitator_pks := list(facilitator_ids):
+            _lock_facilitators(facilitator_pks)
+            session.facilitators.add(*facilitator_pks)
         if track_ids:
             session.tracks.add(*track_ids)
         return session.pk
@@ -819,16 +837,20 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         }
 
     @staticmethod
+    @transaction.atomic
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:
         try:
             session = Session.objects.get(pk=session_id)
         except Session.DoesNotExist as err:
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
+        _lock_facilitators(facilitator_ids)
         session.facilitators.set(facilitator_ids)
 
     @staticmethod
+    @transaction.atomic
     def replace_facilitators_in_sessions(source_ids: list[int], target_id: int) -> None:
+        _lock_facilitators([target_id])
         for session in Session.objects.filter(facilitators__in=source_ids).distinct():
             session.facilitators.add(target_id)
             session.facilitators.remove(*source_ids)

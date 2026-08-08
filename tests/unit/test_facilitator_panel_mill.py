@@ -702,6 +702,10 @@ class FakeDeletionRepo:
         self._has_sessions = has_sessions
         self.soft_deleted = _NOT_CALLED
         self.restored = _NOT_CALLED
+        self.calls = []
+
+    def lock(self, pk):
+        self.calls.append(("lock", pk))
 
     def read_by_event_and_slug(self, _event_id, _slug):
         return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
@@ -709,7 +713,8 @@ class FakeDeletionRepo:
     def read_including_deleted(self, _event_id, _slug):
         return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
 
-    def has_sessions(self, _pk):
+    def has_sessions(self, pk):
+        self.calls.append(("has_sessions", pk))
         return self._has_sessions
 
     def soft_delete(self, pk):
@@ -747,6 +752,19 @@ class TestFacilitatorDeletion:
         assert refusal == OrganizerActionRefusal.HAS_SESSIONS
         assert facilitators.soft_deleted is _NOT_CALLED
         logs.create.assert_not_called()
+
+    def test_the_row_is_locked_before_its_sessions_are_counted(self):
+        # A session assignment landing between the two would leave a deleted
+        # facilitator named on the program.
+        facilitators = FakeDeletionRepo()
+        service, _logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice")
+
+        assert facilitators.calls == [
+            ("lock", _FACILITATOR_PK),
+            ("has_sessions", _FACILITATOR_PK),
+        ]
 
     def test_a_facilitator_without_sessions_is_deleted(self):
         facilitators = FakeDeletionRepo()
