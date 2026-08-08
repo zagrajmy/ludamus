@@ -11,7 +11,7 @@ from ludamus.edges.rituals.pr_check import (
     quality_review,
     set_aside,
 )
-from ludamus.edges.rituals.shell import COVERAGE, PR_FIX
+from ludamus.edges.rituals.shell import BUDGET, COVERAGE, PR_FIX
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -19,6 +19,17 @@ if TYPE_CHECKING:
     from ludamus.edges.rituals.state import Work
 
 _MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
+_CLEAN = """-------------
+Diff Coverage
+Diff: main...HEAD
+-------------
+src/ludamus/thing.py (100%)
+-------------
+Total:   10 lines
+Missing: 0 lines
+Coverage: 100%
+-------------
+"""
 _MERGE_COMMIT = (
     "git add -A && (git diff --cached --quiet || "
     "git commit -m 'chore: merge main and fix the gates')"
@@ -131,6 +142,46 @@ class TestCover:
         assert _MISSING in trial.coding.prompts[0]
         assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
         assert trial.shell.commands == [COVERAGE]
+
+    # The whole listing is the work list. A tail of it is an agent asked to
+    # cover lines it was never shown, and then another full unit and e2e run to
+    # reveal the next few.
+    def test_every_file_reaches_the_agent_out_from_under_the_suite(
+        self, trial: Trial, work: Work
+    ) -> None:
+        # Longer than the budget on its own, which is the whole point: what a
+        # branch has left uncovered is not something a token count can bound.
+        listing = "\n".join(
+            f"src/ludamus/thing{index}.py (80.0%): Missing lines 12-14"
+            for index in range(BUDGET // 20)
+        )
+        transcript = "\n".join(f"tests/test_{index}.py PASSED" for index in range(4000))
+        trial.shell.replies(
+            when=COVERAGE,
+            exit_code=1,
+            stdout=f"{transcript}\n-------------\nDiff Coverage\n{listing}\n",
+        )
+        trial.coding.replies("wrote the tests")
+
+        transition = trial.walk(cover, work)
+
+        assert transition == goto(
+            cover, work.model_copy(update={"budgets": {"cover": 1}})
+        )
+        assert listing in trial.coding.prompts[0]
+        assert "tests/test_0.py PASSED" not in trial.coding.prompts[0]
+
+    # diff-cover's summary block says "Missing: 0 lines" on a clean report too,
+    # so the bare word would send every green run round the loop again.
+    def test_a_clean_report_is_not_read_as_missing_lines(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=COVERAGE, stdout=_CLEAN)
+
+        transition = trial.walk(cover, work)
+
+        assert transition == goto(quality_review, work)
+        assert not trial.coding.prompts
 
     def test_a_first_pass_with_nothing_missing_commits_nothing(
         self, trial: Trial, work: Work
