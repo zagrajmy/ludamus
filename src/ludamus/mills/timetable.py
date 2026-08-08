@@ -5,7 +5,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
 from ludamus.mills.event import require_session_in_event, require_track_in_event
-from ludamus.mills.timeslots import SlotWindow, slot_windows, slot_windows_by_local_date
+from ludamus.mills.timeslots import SlotWindow, slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -48,26 +48,6 @@ if TYPE_CHECKING:
 
     from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
 
-_WINDOWS_ACROSS_ONE_MIDNIGHT = 2
-
-
-def _slot_windows_by_grid_date(
-    slots: list[TimeSlotDTO], tz: tzinfo
-) -> dict[date, list[SlotWindow]]:
-    # A slot that crosses one midnight — exactly two per-date windows — stays
-    # whole on the day it starts, so night program extends that day's column
-    # past 24:00. Splitting it would mint a 00:00-anchored phantom day and
-    # stretch the grid's shared time axis to a full 24 hours. Slots touching
-    # more dates keep the per-date windows.
-    grouped: dict[date, list[SlotWindow]] = defaultdict(list)
-    for slot in slots:
-        windows = slot_windows(slot, tz)
-        if len(windows) == _WINDOWS_ACROSS_ONE_MIDNIGHT:
-            windows = [(windows[0][0], windows[1][1])]
-        for window in windows:
-            grouped[window[0].date()].append(window)
-    return grouped
-
 
 def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
     # Both ends of a clash are wrong, and only one row carries the pair:
@@ -96,7 +76,8 @@ def _card_states(
 def _position_sessions(
     *,
     items: list[AgendaItemDTO],
-    event_start: datetime,
+    grid_start: datetime,
+    grid_end: datetime,
     states: dict[int, SessionPositionState],
 ) -> list[SessionPositionDTO]:
     if not items:
@@ -121,13 +102,18 @@ def _position_sessions(
     for group in groups:
         lane_width_pct = 100.0 / len(group)
         for index, item in enumerate(group):
-            offset_min = (item.start_time - event_start).total_seconds() / 60
-            duration_min = (item.end_time - item.start_time).total_seconds() / 60
+            # A session crossing midnight renders on every day it touches,
+            # clipped to that day's range. The real length rides along on the
+            # item, so a drag reschedules the whole session, not the fragment.
+            visible_start = max(item.start_time, grid_start)
+            visible_end = min(item.end_time, grid_end)
+            offset_min = (visible_start - grid_start).total_seconds() / 60
+            visible_min = (visible_end - visible_start).total_seconds() / 60
             positions.append(
                 SessionPositionDTO(
                     agenda_item=item,
                     start_minutes=round(offset_min),
-                    duration_minutes=round(duration_min),
+                    duration_minutes=round(visible_min),
                     lane_start_pct=index * lane_width_pct,
                     lane_width_pct=lane_width_pct,
                     state=states.get(item.session_id, "normal"),
@@ -154,6 +140,17 @@ def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
     for root in children.get(None, []):
         walk(root)
     return leaves
+
+
+def _day_range(
+    day: date, span: tuple[int, int], tz: tzinfo
+) -> tuple[datetime, datetime]:
+    midnight = datetime.combine(day, datetime.min.time(), tzinfo=tz)
+    start_minute, end_minute = span
+    return (
+        midnight + timedelta(minutes=start_minute),
+        midnight + timedelta(minutes=end_minute),
+    )
 
 
 class TimetableService:
@@ -192,7 +189,7 @@ class TimetableService:
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
         all_slots = self._uow.time_slots.list_by_event(event_pk)
-        windows_by_date = _slot_windows_by_grid_date(all_slots, tz)
+        windows_by_date = slot_windows_by_local_date(all_slots, tz)
         available_dates = sorted(windows_by_date)
         if date_selection != "all" and date_selection not in windows_by_date:
             date_selection = available_dates[0] if available_dates else "all"
@@ -214,52 +211,22 @@ class TimetableService:
             event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
         )
         states = _card_states(conflicts, violations)
-        grid_start_minute, grid_end_minute = self._grid_minute_bounds(
-            dates_to_render, windows_by_date
-        )
-        total_minutes = grid_end_minute - grid_start_minute
-        day_range_starts = [
-            datetime.combine(day, datetime.min.time(), tzinfo=tz)
-            + timedelta(minutes=grid_start_minute)
-            for day in dates_to_render
-        ]
-        days: list[TimetableDayGridDTO] = []
-        for index, date_to_render in enumerate(dates_to_render):
-            range_start = day_range_starts[index]
-            range_end = range_start + timedelta(minutes=total_minutes)
-            # Past-midnight ranges can reach into the next rendered day. The
-            # next day owns everything from its own range start, so capping
-            # here makes the day filters a partition — a night session never
-            # renders in two columns.
-            if index + 1 < len(day_range_starts):
-                range_end = min(range_end, day_range_starts[index + 1])
-            days.append(
-                self._build_day_grid(
-                    date_to_render=date_to_render,
-                    day_range=(range_start, range_end),
-                    spaces=spaces,
-                    all_items=all_items,
-                    states=states,
-                )
+        span = self._shared_day_span(dates_to_render, windows_by_date, tz)
+        days = [
+            self._build_day_grid(
+                date_to_render=date_to_render,
+                day_range=_day_range(date_to_render, span, tz),
+                spaces=spaces,
+                all_items=all_items,
+                states=states,
             )
-        time_labels: list[TimeLabelDTO] = []
-        if day_range_starts:
-            label_start = day_range_starts[0]
-            slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
-            time_labels = [
-                TimeLabelDTO(
-                    time=label_start + slot_delta * index,
-                    offset_minutes=index * TIMETABLE_SLOT_MINUTES,
-                )
-                for index in range(total_minutes // TIMETABLE_SLOT_MINUTES + 1)
-            ]
+            for date_to_render in dates_to_render
+        ]
 
         return TimetableGridDTO(
             spaces=spaces,
             groups=groups,
             days=days,
-            time_labels=time_labels,
-            total_minutes=total_minutes,
             slot_minutes=TIMETABLE_SLOT_MINUTES,
             snap_minutes=TIMETABLE_SNAP_MINUTES,
             page=space_page,
@@ -303,46 +270,51 @@ class TimetableService:
                 SpaceColumnDTO(
                     space=space,
                     sessions=_position_sessions(
-                        items=items_for_space, event_start=grid_start, states=states
+                        items=items_for_space,
+                        grid_start=grid_start,
+                        grid_end=grid_end,
+                        states=states,
                     ),
                 )
             )
 
+        total_minutes = round((grid_end - grid_start).total_seconds() / 60)
+        slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
         return TimetableDayGridDTO(
-            date=date_to_render, columns=columns, event_start_iso=grid_start.isoformat()
+            date=date_to_render,
+            columns=columns,
+            event_start_iso=grid_start.isoformat(),
+            total_minutes=total_minutes,
+            time_labels=[
+                TimeLabelDTO(
+                    time=grid_start + slot_delta * index,
+                    offset_minutes=index * TIMETABLE_SLOT_MINUTES,
+                )
+                for index in range(total_minutes // TIMETABLE_SLOT_MINUTES + 1)
+            ],
         )
 
     @staticmethod
-    def _grid_minute_bounds(
-        dates_to_render: list[date],
-        windows_by_date: dict[date, list[tuple[datetime, datetime]]],
+    def _shared_day_span(
+        days: list[date], windows_by_date: dict[date, list[SlotWindow]], tz: tzinfo
     ) -> tuple[int, int]:
-        if not dates_to_render:
-            return 0, 0
-
-        start_minutes: list[int] = []
-        end_minutes: list[int] = []
-        for day in dates_to_render:
-            for window_start, window_end in windows_by_date[day]:
-                start_minutes.append(window_start.hour * 60 + window_start.minute)
-                # An overnight window ends past 24:00 on its own day's clock.
-                days_past_midnight = (window_end.date() - day).days
-                end_minutes.append(
-                    math.ceil(
-                        (
-                            days_past_midnight * 24 * 60
-                            + window_end.hour * 60
-                            + window_end.minute
-                            + window_end.second / 60
-                        )
-                        / TIMETABLE_SLOT_MINUTES
-                    )
-                    * TIMETABLE_SLOT_MINUTES
-                )
-
+        # One span for every rendered day, so 16:00 sits on the same row
+        # whether its day opens at 16:00 or at 10:00. Windows are already
+        # clamped to their local date, so both ends are minutes from midnight.
+        midnights = {
+            day: datetime.combine(day, datetime.min.time(), tzinfo=tz) for day in days
+        }
+        minutes = [
+            (edge - midnights[day]).total_seconds() / 60
+            for day in days
+            for window in windows_by_date[day]
+            for edge in window
+        ]
+        if not minutes:
+            return (0, 0)
         return (
-            min(start_minutes) // TIMETABLE_SLOT_MINUTES * TIMETABLE_SLOT_MINUTES,
-            max(end_minutes),
+            math.floor(min(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
+            math.ceil(max(minutes) / TIMETABLE_SLOT_MINUTES) * TIMETABLE_SLOT_MINUTES,
         )
 
     @staticmethod

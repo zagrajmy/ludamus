@@ -146,7 +146,6 @@ class TestBuildGridOverlappingSessions:
             event_pk=1, tz=UTC, date_selection="all"
         )
 
-        expected_total_minutes = 180
         assert [day.date.isoformat() for day in grid.days] == [
             "2026-01-01",
             "2026-01-02",
@@ -155,13 +154,13 @@ class TestBuildGridOverlappingSessions:
         assert [
             day.columns[0].sessions[0].agenda_item.session_title for day in grid.days
         ] == ["Day one", "Day two"]
-        assert grid.total_minutes == expected_total_minutes
-        assert [label.time.strftime("%H:%M") for label in grid.time_labels] == [
-            "10:00",
-            "11:00",
-            "12:00",
-            "13:00",
-        ]
+        # 10:00-12:00 and 11:00-13:00 share one 10:00-13:00 axis, so 11:00 is
+        # the same row on both days and day two's session starts an hour down.
+        assert [day.total_minutes for day in grid.days] == [3 * 60, 3 * 60]
+        assert [
+            [label.time.strftime("%H:%M") for label in day.time_labels]
+            for day in grid.days
+        ] == [["10:00", "11:00", "12:00", "13:00"]] * 2
         assert [day.columns[0].sessions[0].start_minutes for day in grid.days] == [
             0,
             60,
@@ -263,9 +262,10 @@ class TestBuildGridOverlappingSessions:
         )
 
         assert grid.date_selection == date(2026, 1, 1)
-        assert grid.total_minutes == 4 * 60
+        # The selected day owns only its own side of midnight: 22:00 -> 24:00.
+        assert [day.total_minutes for day in grid.days] == [2 * 60]
 
-    def test_overnight_slot_extends_its_day_instead_of_adding_a_24h_day(self):
+    def test_overnight_slot_adds_the_day_it_reaches_into(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -301,17 +301,16 @@ class TestBuildGridOverlappingSessions:
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
-        assert grid.total_minutes == 13 * 60
-        assert [label.time.strftime("%H:%M") for label in grid.time_labels][:2] == [
-            "12:00",
-            "13:00",
-        ]
-        assert grid.time_labels[-1].time.strftime("%H:%M") == "01:00"
         day_one, day_two = grid.days
-        assert [pos.start_minutes for pos in day_one.columns[0].sessions] == [12 * 60]
-        assert day_two.columns[0].sessions == []
+        # Jan 2 opens at 00:00 and Jan 1's slot runs to midnight, so both days
+        # take the full 00:00 -> 24:00 axis to keep the rows aligned.
+        assert [day.total_minutes for day in grid.days] == [24 * 60, 24 * 60]
+        assert day_one.time_labels[0].time.strftime("%H:%M") == "00:00"
+        assert day_two.time_labels[0].time.strftime("%H:%M") == "00:00"
+        assert day_one.columns[0].sessions == []
+        assert [pos.start_minutes for pos in day_two.columns[0].sessions] == [0]
 
-    def test_overlapping_day_ranges_render_each_item_in_exactly_one_column(self):
+    def test_session_crossing_midnight_renders_clipped_on_both_days(self):
         uow = MagicMock()
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
@@ -327,42 +326,33 @@ class TestBuildGridOverlappingSessions:
         uow.time_slots.list_by_event.return_value = [
             TimeSlotDTO(
                 pk=1,
-                start_time=datetime(2026, 1, 1, 18, 0, tzinfo=UTC),
-                end_time=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-            ),
-            TimeSlotDTO(
-                pk=2,
-                start_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+                start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
                 end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
-            ),
+            )
         ]
-        first_night = _make_item(
-            pk=1,
-            start_time=datetime(2026, 1, 2, 0, 15, tzinfo=UTC),
-            end_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
+        night_owl = _make_item(
+            start_time=datetime(2026, 1, 1, 22, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 2, 2, 0, tzinfo=UTC),
+            session_duration_minutes=4 * 60,
         )
-        second_night = _make_item(
-            pk=2,
-            session_id=2,
-            start_time=datetime(2026, 1, 2, 0, 30, tzinfo=UTC),
-            end_time=datetime(2026, 1, 2, 1, 30, tzinfo=UTC),
-        )
-        uow.agenda_items.list_by_event.return_value = [first_night, second_night]
+        uow.agenda_items.list_by_event.return_value = [night_owl]
 
         grid = TimetableService(uow).build_grid(
             event_pk=1, tz=UTC, date_selection="all"
         )
 
         day_one, day_two = grid.days
-        # Day one's range reaches 01:00 of Jan 2 while day two's starts at
-        # midnight (00:30 floored to the hour grid), so both contain the two
-        # night items; the later day owns the overlap instead of rendering
-        # the items in both columns.
-        assert day_one.columns[0].sessions == []
-        assert [
-            (pos.agenda_item.pk, pos.start_minutes)
-            for pos in day_two.columns[0].sessions
-        ] == [(1, 15), (2, 30)]
+        # 22:00 -> 24:00 on one day and 00:00 -> 02:00 on the next share a
+        # 00:00 -> 24:00 axis, so each fragment sits at its own clock hour.
+        assert [day.total_minutes for day in grid.days] == [24 * 60, 24 * 60]
+        friday, saturday = day_one.columns[0].sessions[0], (
+            day_two.columns[0].sessions[0]
+        )
+        assert (friday.start_minutes, friday.duration_minutes) == (22 * 60, 2 * 60)
+        assert (saturday.start_minutes, saturday.duration_minutes) == (0, 2 * 60)
+        # The real length rides along on the item, so a drag moves all four
+        # hours rather than the visible fragment.
+        assert friday.agenda_item.session_duration_minutes == 4 * 60
 
 
 class TestRevertChange:
