@@ -103,7 +103,7 @@ Użytkownik nie może:
 
 ### 5.1 Odpowiedzialność Administratora
 
-1. Administrator dołożyć wszelkich starań, aby Serwis działał prawidłowo.
+1. Administrator dołoży wszelkich starań, aby Serwis działał prawidłowo.
 2. Administrator nie gwarantuje ciągłości działania Serwisu i nie ponosi odpowiedzialności za:
    - przerwy techniczne
    - utratę danych wskutek awarii

@@ -17,7 +17,7 @@ class TestContentPageView:
             ("terms-of-service", "Terms of Service"),
         ),
     )
-    def test_renders_the_file_from_disk(self, client, slug, title):
+    def test_renders_the_file_from_disk(self, *, client, slug, title):
         response = client.get(reverse(slug))
 
         assert_response(
@@ -49,7 +49,7 @@ class TestOldFlatpageUrls:
             ("/page/terms-of-service/", "/terms-of-service/"),
         ),
     )
-    def test_redirects_permanently(self, client, old, new):
+    def test_redirects_permanently(self, *, client, old, new):
         response = client.get(old)
 
         assert_response(response, HTTPStatus.MOVED_PERMANENTLY, url=new)

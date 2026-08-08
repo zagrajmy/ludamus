@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.template.loader import render_to_string
+from django.utils.html import format_html
 
 from ._choices import render_forced_choice, single_required_choice
 from .errors import render_errors, render_help_text
@@ -29,7 +30,7 @@ def render_checkbox_field(field: BoundField) -> str:
             "checked": bool(field.value()),
         },
     )
-    return f"{html}{render_help_text(field)}{render_errors(field)}"
+    return format_html("{}{}{}", html, render_help_text(field), render_errors(field))
 
 
 def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> str:
@@ -39,13 +40,12 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         HTML string of the multi-choice field.
     """
     if (forced := single_required_choice(field)) is not None:
-        return "\n".join(
-            [
-                render_label(field),
-                render_forced_choice(field, forced),
-                render_help_text(field),
-                render_errors(field),
-            ]
+        return format_html(
+            "{}\n{}\n{}\n{}",
+            render_label(field),
+            render_forced_choice(field, forced),
+            render_help_text(field),
+            render_errors(field),
         )
 
     options = []
@@ -75,10 +75,10 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         },
     )
 
-    parts = [
+    return format_html(
+        "{}\n{}\n{}\n{}",
         render_label(field),
         group_html,
         render_help_text(field),
         render_errors(field),
-    ]
-    return "\n".join(parts)
+    )

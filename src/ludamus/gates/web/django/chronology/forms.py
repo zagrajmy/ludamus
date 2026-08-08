@@ -11,7 +11,11 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
+from ludamus.gates.web.django.forms import (
+    STORAGE_LIMIT_VALIDATOR,
+    cover_image_field,
+    validate_uploaded_image,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 
 if TYPE_CHECKING:
@@ -19,6 +23,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts import (
         PersonalFieldRequirementDTO,
+        ProposalCategoryDTO,
         SessionFieldRequirementDTO,
         SpaceOptionDTO,
         TimeSlotDTO,
@@ -44,26 +49,30 @@ def build_personal_data_form(
 
 
 def build_session_details_form(
-    requirements: Sequence[SessionFieldRequirementDTO],
-    *,
-    min_limit: int = 0,
-    max_limit: int = 0,
-    durations: list[str] | None = None,
+    requirements: Sequence[SessionFieldRequirementDTO], *, category: ProposalCategoryDTO
 ) -> type[forms.Form]:
-    participants_kwargs: dict[str, Any] = {"label": _("Max participants")}
-    if min_limit == 0 and max_limit == 0:
-        participants_kwargs["required"] = False
-        participants_kwargs["min_value"] = 0
-        participants_kwargs["initial"] = 0
-        participants_kwargs["help_text"] = _("0 = no limit")
-    elif max_limit == 0:
-        participants_kwargs["min_value"] = min_limit
-    elif min_limit == 0:
-        participants_kwargs["min_value"] = 0
+    min_limit = category.min_participants_limit
+    max_limit = category.max_participants_limit
+    durations = category.durations
+    # The only place a category's participant bounds bind — the panel form and a
+    # facilitator's self-edit are deliberately unbounded — so a category of large
+    # rooms can refuse a two-person session. A floor also makes the number
+    # mandatory; with neither bound the field is optional and 0 means no limit.
+    # 0 stays valid under a ceiling too: limitless no-sign-up sessions exist in
+    # every category.
+    participants_kwargs: dict[str, Any] = {
+        "label": _("Max participants"),
+        "min_value": min_limit,
+        "validators": [STORAGE_LIMIT_VALIDATOR],
+    }
+    if max_limit:
         participants_kwargs["max_value"] = max_limit
-    else:
-        participants_kwargs["min_value"] = min_limit
-        participants_kwargs["max_value"] = max_limit
+    elif not min_limit:
+        participants_kwargs |= {
+            "required": False,
+            "initial": 0,
+            "help_text": _("Empty or 0 = no limit"),
+        }
 
     fields: dict[str, forms.Field] = {
         "title": forms.CharField(label=_("Title"), max_length=255),

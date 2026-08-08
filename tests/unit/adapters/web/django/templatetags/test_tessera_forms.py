@@ -210,6 +210,18 @@ class TestTesseraButton:
         assert 'type="submit"' in html
         assert "Submit" in html
 
+    def test_wraps_label_so_a_surface_can_hide_it(self) -> None:
+        html = tessera_button("New Track", icon="plus")
+        assert '<span class="btn-label">New Track</span>' in html
+
+    def test_wraps_label_even_without_an_icon(self) -> None:
+        # The panel header hides `.btn-label` only inside `.btn:has(> svg)`.
+        # An iconless button keeps its text — but it still ships the span, so
+        # the two never disagree about where the label is.
+        html = tessera_button("Reject", variant="danger")
+        assert '<span class="btn-label">Reject</span>' in html
+        assert "<svg" not in html
+
     def test_renders_disabled_button(self) -> None:
         html = tessera_button("Disabled", disabled=True)
         assert "disabled" in html

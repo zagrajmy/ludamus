@@ -8,9 +8,7 @@ from ludamus.pacts import UnitOfWorkProtocol
 from ludamus.pacts.crowd import UserType
 
 
-class UnitOfWork(  # ruff:ignore[too-many-public-methods]
-    DjangoTransaction, UnitOfWorkProtocol
-):
+class UnitOfWork(DjangoTransaction, UnitOfWorkProtocol):
     @cached_property
     def active_users(self) -> crowd.UserRepository:
         return crowd.UserRepository(user_type=UserType.ACTIVE)

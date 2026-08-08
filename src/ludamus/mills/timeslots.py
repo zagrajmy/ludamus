@@ -17,11 +17,12 @@ if TYPE_CHECKING:
 type SlotWindow = tuple[datetime, datetime]
 
 
-def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[SlotWindow]:
-    # A slot spanning multiple local dates contributes one (start, end) window
-    # to each date it touches, clamped to that date's [00:00, 24:00) range.
-    local_start = slot.start_time.astimezone(tz)
-    local_end = slot.end_time.astimezone(tz)
+def local_day_windows(start: datetime, end: datetime, tz: tzinfo) -> list[SlotWindow]:
+    # An interval spanning multiple local dates contributes one (start, end)
+    # window to each date it touches, clamped to that date's [00:00, 24:00)
+    # range. One definition of "a day", shared by slots and by scheduled items.
+    local_start = start.astimezone(tz)
+    local_end = end.astimezone(tz)
     windows: list[SlotWindow] = []
     days_span = (local_end.date() - local_start.date()).days + 1
     for offset in range(days_span):
@@ -33,6 +34,10 @@ def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[SlotWindow]:
         if window_start < window_end:
             windows.append((window_start, window_end))
     return windows
+
+
+def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[SlotWindow]:
+    return local_day_windows(slot.start_time, slot.end_time, tz)
 
 
 def slot_windows_by_local_date(

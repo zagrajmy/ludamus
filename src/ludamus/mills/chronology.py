@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
 
+from ludamus.mills.event import require_session_in_event
 from ludamus.pacts import (
     EventDTO,
     NotFoundError,
@@ -66,7 +67,6 @@ if TYPE_CHECKING:
         SessionUpdateData,
         SphereRepositoryProtocol,
         TimeSlotDTO,
-        TrackRepositoryProtocol,
     )
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.multiverse import (
@@ -76,47 +76,31 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
-def require_session_in_event(
-    sessions: SessionRepositoryProtocol, session_pk: int, event_pk: int
-) -> None:
-    # Panel access only proves you manage `event_pk`; a session named in
-    # the request must belong to it, or it is cross-event tampering.
-    if sessions.read_event(session_pk).pk != event_pk:
-        raise NotFoundError
-
-
 class SessionConfirmationService:
     def __init__(
         self,
         transaction: TransactionProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
-        tracks: TrackRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._agenda_items = agenda_items
         self._sessions = sessions
-        self._tracks = tracks
 
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
     ) -> None:
+        # Keyed on the agenda item, not on a facilitator: the confirmations tab
+        # can only reach items whose session has both a facilitator and a track,
+        # so this stays the only way to settle everything else.
         agenda_item = self._agenda_items.read(agenda_item_pk)
-        require_session_in_event(self._sessions, agenda_item.session_id, event_pk)
+        require_session_in_event(
+            sessions=self._sessions,
+            session_pk=agenda_item.session_id,
+            event_pk=event_pk,
+        )
         with self._transaction.atomic():
             self._agenda_items.update(agenda_item_pk, {"session_confirmed": confirmed})
-
-    def confirm_all(self, event_pk: int) -> None:
-        with self._transaction.atomic():
-            self._agenda_items.confirm_all_by_event(event_pk)
-
-    def confirm_block(self, event_pk: int, track_pk: int) -> None:
-        # Panel access only proves you manage `event_pk`; a track named in the
-        # request must belong to it, or it is cross-event tampering.
-        if self._tracks.read(track_pk).event_id != event_pk:
-            raise NotFoundError
-        with self._transaction.atomic():
-            self._agenda_items.confirm_all_by_track(track_pk)
 
 
 class SessionDeletionService:
@@ -141,7 +125,9 @@ class SessionDeletionService:
             # session to another event (or delete it) between the check and the
             # mutation (TOCTOU). `lock` raises NotFound for missing/already-dead.
             self._sessions.lock(session_pk)
-            require_session_in_event(self._sessions, session_pk, event_pk)
+            require_session_in_event(
+                sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
+            )
             # Free the timetable slot through the existing unschedule path:
             # drop the agenda item, return the session to PENDING, and record
             # the unassignment in the schedule activity log.
@@ -214,7 +200,9 @@ class ProposalStatusService:
             # concurrent request can't move the session to another event between
             # the check and the write (TOCTOU). `lock` raises for missing/dead.
             self._sessions.lock(session_pk)
-            require_session_in_event(self._sessions, session_pk, event_pk)
+            require_session_in_event(
+                sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
+            )
             if (
                 status != SessionStatus.ACCEPTED
                 and self._agenda_items.read_by_session(session_pk) is not None
