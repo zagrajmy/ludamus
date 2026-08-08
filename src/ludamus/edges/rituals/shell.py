@@ -38,15 +38,68 @@ WAIT_LABEL = "pr::wait"
 
 STASHED = "stashed"
 
+# How much of a gate's output is worth paying for, counted in characters rather
+# than lines: what is being spent is tokens, and a line has no fixed price —
+# twenty lines of ruff is a couple of hundred bytes, and twenty carrying a
+# pytest assertion repr or a mypy note about a long generic type is orders of
+# magnitude more. A mise task list stops at the first failure, and every tool in
+# it puts its verdict last — pytest's short summary, ruff's count — so what fits
+# at the end is the part that says what is wrong. What sits above it is a suite
+# naming three and a half thousand tests that passed, and an agent told to
+# re-run one failing test by name does not need to read them.
+BUDGET = 4000
+
+# diff-cover's report is self-delimiting — its own banner, then everything to
+# the end of the run — so the one caller that reads the report needs no budget
+# at all. See `coverage_report`.
+BANNER = "Diff Coverage"
+
 
 def quoted(value: str) -> str:
     return shlex.quote(value)
 
 
+# The budget buys whole lines, and the last line is bought whether it fits or
+# not: a tool that pretty-prints a value onto one long line would otherwise
+# spend the budget and hand back nothing.
+def _tail(text: str) -> str:
+    lines = text.splitlines()
+    kept: list[str] = []
+    left = BUDGET
+    for line in reversed(lines):
+        left -= len(line) + 1
+        if left < 0 and kept:
+            break
+        kept.append(line)
+    if len(kept) == len(lines):
+        return "\n".join(lines)
+    kept.reverse()
+    return "\n".join([f"[{len(lines) - len(kept)} earlier lines omitted]", *kept])
+
+
 # Both streams: a task that dies before it starts says so on stderr and nowhere
 # else, and an empty complaint is the one thing a repair agent cannot work with.
+# Each stream gets the budget on its own rather than sharing one, because mise
+# puts its own task chatter on stderr and the tool's verdict on stdout, and a
+# shared budget is won by whichever stream is longer — which is the chatter.
+# Trimmed here rather than at each prompt, because every caller does the same
+# two things with this — hand it to an agent, or put it in the report — and both
+# want the verdict, not the transcript.
 def said(result: ShellResult) -> str:
-    return "\n".join(part for part in (result.stdout, result.stderr) if part.strip())
+    return "\n".join(
+        _tail(part) for part in (result.stdout, result.stderr) if part.strip()
+    )
+
+
+# Cutting at diff-cover's own banner drops the suite transcript above it whole
+# and hands on the listing entire, however many files it names. A budget has no
+# business here: this listing is not something an agent reads for a verdict, it
+# is the work list, and a tail of it is an agent asked to cover lines it was
+# never shown — then another full unit and e2e run to reveal the rest. Only
+# where the report never got printed does the trimmed log stand in for it.
+def coverage_report(result: ShellResult) -> str:
+    _, banner, rest = result.stdout.partition(BANNER)
+    return banner + rest if banner else said(result)
 
 
 def commit(message: str) -> str:
