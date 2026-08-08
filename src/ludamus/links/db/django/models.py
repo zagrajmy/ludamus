@@ -512,6 +512,8 @@ class EnrollmentConfig(models.Model):
             True if session can be enrolled in under this config.
         """
         if self.limit_to_end_time:
+            if not hasattr(session, "agenda_item"):
+                return False
             return session.agenda_item.start_time < self.end_time
 
         return True
@@ -802,6 +804,8 @@ class SessionManager(AliveManager["Session"]):
     # checks (and the default `objects` accessor) skip soft-deleted sessions.
     def conflicted_user_ids(self, session: Session, user_ids: list[int]) -> set[int]:
         if not user_ids:
+            return set()
+        if not hasattr(session, "agenda_item"):
             return set()
         start = session.agenda_item.start_time
         end = session.agenda_item.end_time
