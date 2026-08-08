@@ -1,5 +1,5 @@
 from datetime import UTC, date, datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -24,6 +24,7 @@ from ludamus.pacts.chronology import (
     ConflictType,
     HeatmapCellStatus,
     SessionPlacement,
+    TimetableGridFilter,
 )
 
 
@@ -143,7 +144,7 @@ class TestBuildGridOverlappingSessions:
         ]
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection="all"
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(date_selection="all")
         )
 
         assert [day.date.isoformat() for day in grid.days] == [
@@ -225,7 +226,9 @@ class TestBuildGridOverlappingSessions:
         uow.sessions.list_track_names_by_session.return_value = {}
         uow.tracks.list_manager_names_by_tracks.return_value = {}
 
-        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC, track_pk=5)
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(track_pk=5)
+        )
 
         sessions = grid.days[0].columns[0].sessions
         # Both ends of the clash are red, even though only one is in the track.
@@ -258,7 +261,9 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = []
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection=date(2027, 1, 1)
+            event_pk=1,
+            tz=UTC,
+            filters=TimetableGridFilter(date_selection=date(2027, 1, 1)),
         )
 
         assert grid.date_selection == date(2026, 1, 1)
@@ -297,7 +302,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection="all"
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(date_selection="all")
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
@@ -338,7 +343,7 @@ class TestBuildGridOverlappingSessions:
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
         grid = TimetableService(uow).build_grid(
-            event_pk=1, tz=UTC, date_selection="all"
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(date_selection="all")
         )
 
         day_one, day_two = grid.days
@@ -353,6 +358,174 @@ class TestBuildGridOverlappingSessions:
         # The real length rides along on the item, so a drag moves all four
         # hours rather than the visible fragment.
         assert friday.agenda_item.session_duration_minutes == 4 * 60
+
+
+class TestSpaceFilter:
+    @staticmethod
+    def _space(*, pk, name, parent_id=None):
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        return SpaceDTO(
+            capacity=None,
+            creation_time=now,
+            modification_time=now,
+            name=name,
+            order=0,
+            parent_id=parent_id,
+            pk=pk,
+            slug=f"space-{pk}",
+        )
+
+    @pytest.fixture
+    def uow(self):
+        # Building 1 -> Floor 2 -> Rooms 3, 4; Building 5 -> Room 6.
+        uow = MagicMock()
+        uow.spaces.list_by_event.return_value = [
+            self._space(pk=1, name="Building A"),
+            self._space(pk=2, name="Floor 2", parent_id=1),
+            self._space(pk=3, name="Room 201", parent_id=2),
+            self._space(pk=4, name="Room 202", parent_id=2),
+            self._space(pk=5, name="Building B"),
+            self._space(pk=6, name="Room 1", parent_id=5),
+        ]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow.agenda_items.list_by_event.return_value = []
+        return uow
+
+    def test_options_list_every_node_with_its_depth(self, uow):
+        options = TimetableService(uow).space_filter_options(1)
+
+        assert [(o.value, o.label, o.depth) for o in options] == [
+            (1, "Building A", 0),
+            (2, "Floor 2", 1),
+            (3, "Room 201", 2),
+            (4, "Room 202", 2),
+            (5, "Building B", 0),
+            (6, "Room 1", 1),
+        ]
+
+    def test_unfiltered_grid_shows_every_leaf(self, uow):
+        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert [space.pk for space in grid.spaces] == [3, 4, 6]
+
+    @staticmethod
+    def _grid_for(uow, space_pks):
+        return TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(space_pks=space_pks)
+        )
+
+    def test_selecting_a_branch_keeps_every_leaf_under_it(self, uow):
+        grid = self._grid_for(uow, {2})
+
+        assert [space.pk for space in grid.spaces] == [3, 4]
+
+    def test_selecting_a_leaf_keeps_only_that_leaf(self, uow):
+        grid = self._grid_for(uow, {3})
+
+        assert [space.pk for space in grid.spaces] == [3]
+
+    def test_branch_and_leaf_selections_union(self, uow):
+        grid = self._grid_for(uow, {2, 6})
+
+        assert [space.pk for space in grid.spaces] == [3, 4, 6]
+
+    def test_pk_from_another_event_matches_nothing(self, uow):
+        grid = self._grid_for(uow, {999})
+
+        assert grid.spaces == []
+
+
+class TestFacilitatorFilter:
+    @pytest.fixture
+    def uow(self):
+        now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        uow = MagicMock()
+        uow.spaces.list_by_event.return_value = [
+            SpaceDTO(
+                capacity=None,
+                creation_time=now,
+                modification_time=now,
+                name="Room 1",
+                order=0,
+                pk=1,
+                slug="room-1",
+            )
+        ]
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
+        uow.agenda_items.list_by_event.return_value = [
+            _make_item(pk=1, session_id=1),
+            _make_item(
+                pk=2,
+                session_id=2,
+                start_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            ),
+        ]
+        return uow
+
+    @staticmethod
+    def _session_pks(grid):
+        return [
+            pos.agenda_item.session_id
+            for day in grid.days
+            for col in day.columns
+            for pos in col.sessions
+        ]
+
+    def test_no_facilitator_picked_asks_for_every_item(self, uow):
+        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert self._session_pks(grid) == [1, 2]
+        uow.agenda_items.list_by_event.assert_called_once_with(1)
+
+    def test_picking_a_facilitator_narrows_the_query(self, uow):
+        uow.agenda_items.list_by_event.side_effect = [
+            [_make_item(pk=1, session_id=1), _make_item(pk=2, session_id=2)],
+            [_make_item(pk=1, session_id=1)],
+        ]
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
+        )
+
+        assert self._session_pks(grid) == [1]
+        # The warnings still run off the whole event, so narrowing the view
+        # cannot hide a clash with somebody else's booking.
+        assert uow.agenda_items.list_by_event.call_args_list == [
+            call(1),
+            call(1, facilitator_pks={7}),
+        ]
+
+    def test_several_facilitators_reach_the_query_as_one_set(self, uow):
+        TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7, 8})
+        )
+
+        assert uow.agenda_items.list_by_event.call_args_list == [
+            call(1),
+            call(1, facilitator_pks={7, 8}),
+        ]
+
+    def test_facilitator_with_nothing_scheduled_empties_the_grid(self, uow):
+        uow.agenda_items.list_by_event.return_value = []
+
+        grid = TimetableService(uow).build_grid(
+            event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
+        )
+
+        assert self._session_pks(grid) == []
 
 
 class TestRevertChange:

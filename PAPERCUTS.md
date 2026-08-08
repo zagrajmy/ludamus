@@ -256,6 +256,14 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: mise run shots fails on this machine: Chrome aborts with 'No
+  usable sandbox' before writing DevToolsActivePort. Playwright (test:e2e)
+  launches fine, so the wrapper needs --no-sandbox or a note pointing at the e2e
+  screenshots instead.
+- 2026-08-02: Firefox e2e project cannot launch on this machine: every firefox
+  test dies with 'browserContext.newPage: Test timeout' during page setup, while
+  chromium passes. Makes a full 'mise run test:e2e' unusable locally; had to run
+  --project=chromium to get a signal.
 - 2026-08-01: e2e: Firefox project fails locally with 'browserContext.newPage:
   Test timeout' on every spec (even untouched ones like sound.spec.ts); only
   chromium is runnable here, so a local full 'mise run test:e2e' always ends red
@@ -298,6 +306,10 @@ If you fix a papercut, remove it.
   repo task. A git-sourced Poetry dependency ships its own mise.toml into the
   venv and mise's config discovery walks up into it. Needs a 'mise trust' note
   in docs/agents/sandbox.md.
+- 2026-08-03: mise run lint-client fails locally with 'Cannot find module
+  eslint-plugin-sonarjs' — the dep resolves to an 'invalid' link under
+  node_modules/.aube. CI is fine; only the local run is blocked, so frontend
+  lint can't be verified before pushing.
 - 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
   python-brace-format' flags: the local xgettext strips them, but main and CI
   both keep them. Regenerating the catalog silently drops the flags, so after

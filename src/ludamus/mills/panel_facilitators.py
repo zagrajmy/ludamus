@@ -18,6 +18,7 @@ from ludamus.pacts import FacilitatorData, NotFoundError, PersonalDataFieldValue
 from ludamus.pacts.panel import (
     EmptyColumnSelectionError,
     FacilitatorDetailContextDTO,
+    FacilitatorFilterOptionsDTO,
     FacilitatorListContextDTO,
     FacilitatorMergeContextDTO,
     FacilitatorMergeError,
@@ -290,6 +291,46 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 builtin_keys=FACILITATOR_BUILTIN_KEYS,
                 fields=fields,
             ),
+        )
+
+    def filter_options(
+        self, *, event_id: int, search: str, pinned: set[int], limit: int
+    ) -> FacilitatorFilterOptionsDTO:
+        # Nothing typed and nobody picked is the plain page load: there are no
+        # rows to render, so there are no columns to render them in either.
+        if not search and not pinned:
+            return FacilitatorFilterOptionsDTO(
+                facilitators=[], columns=[], has_more=False
+            )
+        # Already-picked people come back whether or not they match the query:
+        # the rows *are* the form controls, so one dropping out of the list
+        # would silently drop it from the filter about to be submitted.
+        chosen = (
+            self._repos.facilitators.list_by_event(event_id, {"pks": pinned})
+            if pinned
+            else []
+        )
+        # One row past the limit is the whole evidence for "there are more".
+        matches = (
+            self._repos.facilitators.list_by_event(
+                event_id, {"search": search, "limit": limit + len(pinned) + 1}
+            )
+            if search
+            else []
+        )
+        fresh = [f for f in matches if f.pk not in pinned]
+        # The columns are read here rather than through columns_context so the
+        # field set and the panel settings are each read once per request.
+        fields = self._repos.personal_data_fields.list_by_event(event_id)
+        settings = self._repos.panel_settings.read_or_create(event_id)
+        return FacilitatorFilterOptionsDTO(
+            facilitators=[*chosen, *fresh[:limit]],
+            columns=resolve_columns(
+                keys=settings.facilitator_columns,
+                builtin_keys=FACILITATOR_BUILTIN_KEYS,
+                fields=fields,
+            ),
+            has_more=len(fresh) > limit,
         )
 
     def merge_basket(
