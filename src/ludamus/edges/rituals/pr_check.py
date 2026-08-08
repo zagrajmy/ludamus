@@ -157,8 +157,8 @@ async def check_clean(work: Work) -> Transition:
 async def sync_branch(work: Work) -> Transition:
     pull = work.pr
     synced = await shell(
-        f"git fetch --prune origin && git checkout {quoted(pull.base)}"
-        f" && git pull --ff-only https-origin {quoted(pull.base)}"
+        f"git fetch --prune https-origin && git checkout {quoted(pull.base)}"
+        f" && git pull --ff-only"
     )
     if synced.exit_code:
         reason = f"could not update {pull.base}: {said(synced)}"
