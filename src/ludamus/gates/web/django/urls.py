@@ -28,9 +28,7 @@ _healthz_cache: dict[str, object] = {"time": 0.0, "ok": True}
 
 
 @never_cache
-def healthz(
-    request: HttpRequest,  # ruff: ignore[unused-function-argument]
-) -> JsonResponse:
+def healthz(_request: HttpRequest) -> JsonResponse:
     now = time.monotonic()
     if now - _healthz_cache["time"] < _HEALTHZ_INTERVAL:  # type: ignore[operator]
         if _healthz_cache["ok"]:
@@ -54,7 +52,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
     path("", include("ludamus.adapters.web.django.urls", namespace="web")),
     path(
         "panel/",
-        include("ludamus.gates.web.django.chronology.panel.urls", namespace="panel"),
+        include("ludamus.gates.web.django.event.panel.urls", namespace="panel"),
     ),
     path(
         "multiverse/",

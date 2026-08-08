@@ -288,7 +288,7 @@ class Sphere(models.Model):
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
     managers = models.ManyToManyField(User)
     # Branding fallback — used on printables when an event has no logo of its own
-    logo = models.ImageField(upload_to=unique_upload_to, blank=True)
+    logo = models.FileField(upload_to=unique_upload_to, blank=True)
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -320,7 +320,7 @@ class Event(models.Model):
     description = models.TextField(default="", blank=True)
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     # Branding — shown on printables (the public /print page)
-    logo = models.ImageField(upload_to=unique_upload_to, blank=True)
+    logo = models.FileField(upload_to=unique_upload_to, blank=True)
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -342,8 +342,9 @@ class Event(models.Model):
     # "Players" (gaming events), on → "Participants" (general events).
     use_participants_label = models.BooleanField(default=False)
     # When on, newly scheduled program items are confirmed immediately;
-    # turn off for a draft → confirm workflow on large events.
-    auto_confirm_sessions = models.BooleanField(default=True)
+    # off by default, so placing an item never stands in for the
+    # facilitator confirming it.
+    auto_confirm_sessions = models.BooleanField(default=False)
 
     class Meta:
         db_table = "event"
@@ -403,14 +404,17 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
-    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        eligible_configs = [
+    def get_eligible_enrollment_configs(
+        self, session: Session
+    ) -> list[EnrollmentConfig]:
+        return [
             config
             for config in self.get_active_enrollment_configs()
             if config.is_session_eligible(session)
         ]
 
-        if not eligible_configs:
+    def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
+        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
             return None
 
         return max(eligible_configs, key=lambda c: c.percentage_slots)
@@ -748,10 +752,25 @@ class Facilitator(models.Model):
     )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
+    # Import identity key (hash of the operator-chosen facilitator key columns).
+    # Empty for facilitators that weren't imported or predate the key-column
+    # setting; those fall back to slug dedup and are stamped on first reimport.
+    # Never shown to users.
+    ident = models.CharField(max_length=64, default="", blank=True)
     accreditation_type = models.CharField(
         max_length=20,
         choices=[(t.value, t.name.title()) for t in AccreditationType],
         default=AccreditationType.NONE,
+    )
+    # The organizer who took this facilitator on as their default contact
+    # person. Claimed by the organizer themselves and released before anyone
+    # else can take over, so it never silently changes hands.
+    organizer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="organized_facilitators",
     )
     # Reversible triage marker: organizers flag likely duplicates/removals, then
     # act on them (merge or delete) as a separate deliberate step.
@@ -766,6 +785,11 @@ class Facilitator(models.Model):
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"
+            ),
+            models.UniqueConstraint(
+                fields=("event", "ident"),
+                condition=~Q(ident=""),
+                name="facilitator_unique_ident_per_event",
             ),
         )
 
@@ -1489,6 +1513,9 @@ class EventPanelSettings(models.Model):
     # "field_<pk>" naming a PersonalDataField. Empty means the default set.
     # The keys double as the list's sort keys, so a column sorts by construction.
     facilitator_columns = models.JSONField(default=list, blank=True)
+    # Same idea for the proposals list: built-in keys ("title", "host",
+    # "category", "status", "created") or "field_<pk>" naming a SessionField.
+    proposal_columns = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "event_panel_settings"

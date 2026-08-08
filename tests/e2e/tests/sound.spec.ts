@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/fixtures";
 
 // User-centric tests (Kent C. Dodds style): drive the controls the way a person
 // does — find them by their accessible role/name, act, and assert on the state
@@ -29,7 +29,11 @@ test.describe("interface sound toggle", () => {
     await pressToggle(page);
     await expect(toggle(page)).not.toBeChecked();
 
-    await page.reload();
+    // commit, not load/domcontentloaded: `load` makes the test hostage to the
+    // third-party font requests the page fires, and Firefox intermittently
+    // misses the `domcontentloaded` lifecycle event on reload and hangs. The
+    // assertion below retries, so returning at navigation commit is enough.
+    await page.reload({ waitUntil: "commit" });
 
     await expect(toggle(page)).not.toBeChecked();
   });

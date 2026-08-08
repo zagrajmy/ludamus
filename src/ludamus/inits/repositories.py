@@ -13,6 +13,7 @@ from ludamus.links.db.django.crowd import (
 from ludamus.links.db.django.enrollment import (
     AnonymousEnrollmentRepository,
     EnrollmentParticipationRepository,
+    EnrollmentWindowRepository,
     ParticipationPromotionRepository,
 )
 from ludamus.links.db.django.facilitator_change_log import (
@@ -84,6 +85,14 @@ class Repositories:
         return repositories.EventRepository()
 
     @cached_property
+    def event_settings(self) -> repositories.EventSettingsRepository:
+        return repositories.EventSettingsRepository()
+
+    @cached_property
+    def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
+        return repositories.EventProposalSettingsRepository()
+
+    @cached_property
     def sessions(self) -> repositories.SessionRepository:
         return repositories.SessionRepository()
 
@@ -106,6 +115,10 @@ class Repositories:
     @cached_property
     def enrollment_configs(self) -> repositories.EnrollmentConfigRepository:
         return repositories.EnrollmentConfigRepository()
+
+    @cached_property
+    def enrollment_windows(self) -> EnrollmentWindowRepository:
+        return EnrollmentWindowRepository()
 
     @cached_property
     def active_users(self) -> UserRepository:
@@ -182,3 +195,11 @@ class Repositories:
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:
         return repositories.DiscountRepository()
+
+    @cached_property
+    def encounters(self) -> repositories.EncounterRepository:
+        return repositories.EncounterRepository()
+
+    @cached_property
+    def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
+        return repositories.EncounterRSVPRepository()

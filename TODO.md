@@ -100,6 +100,9 @@ kanban
     [Panel object-scope authorization - close IDOR holes]@{
       assigned: 'GLIMPSE'
     }
+    [Link form field errors to inputs - aria-invalid + aria-describedby]@{
+      assigned: 'frontend'
+    }
 
   chores
     [Expand README.md - description, features, quick start]@{

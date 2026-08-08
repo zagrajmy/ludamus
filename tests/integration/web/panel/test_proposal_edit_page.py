@@ -9,12 +9,18 @@ from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
+from django.utils.http import urlencode
 
+from ludamus.gates.web.django.chronology.panel.views.proposal_edit import (
+    PersonalDataCard,
+)
+from ludamus.gates.web.django.forms import MAX_STORED_PARTICIPANTS_LIMIT
 from ludamus.links.db.django.models import (
     ContentChangeLog,
     Facilitator,
     Notification,
     PersonalDataField,
+    PersonalDataFieldOption,
     PersonalDataFieldValue,
     ProposalCategory,
     Session,
@@ -32,8 +38,13 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     FacilitatorListItemDTO,
-    PersonalDataFieldDTO,
+    FieldAnswer,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
+    ProposalCategoryDTO,
     SessionDTO,
+    TimeSlotDTO,
+    TrackDTO,
 )
 from ludamus.pacts.legacy import NotificationKind
 from tests.integration.conftest import (
@@ -43,9 +54,27 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, checkbox_tag
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+    checkbox_tag,
+)
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    assert_proposal_not_found,
+    facilitator_list_item_dto,
+    panel_context,
+)
 
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+CUSTOM_DURATION_MINUTES = 45
+CATEGORY_MAX_PARTICIPANTS = 9
+CATEGORY_MIN_PARTICIPANTS = 4
+LIMIT_ABOVE_CATEGORY_MAX = 500
+LIMIT_BELOW_CATEGORY_MIN = 1
+DEFAULT_SESSION_PARTICIPANTS = 5
+OVER_COLUMN_WIDTH = MAX_STORED_PARTICIPANTS_LIMIT + 1
 
 
 def _make_session(event, **kwargs):
@@ -81,20 +110,41 @@ def _fields_url(event, proposal_id):
     )
 
 
-def _base_context(event):
+def _cancel_url(event, proposal_id):
+    return reverse(
+        "panel:proposal-detail", kwargs={"slug": event.slug, "proposal_id": proposal_id}
+    )
+
+
+def _edit_page_response(event, session):
+    # The whole rendered-page expectation for an edit GET of one pending
+    # session, so a test can focus on the form values it cares about.
     return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
+        "template_name": "panel/proposal-form.html",
+        "context_data": {
+            **panel_context(event, active_nav="proposals"),
+            "stats": {
+                "hosts_count": 0,
+                "pending_proposals": 1,
+                "rooms_count": 0,
+                "scheduled_sessions": 0,
+                "total_proposals": 1,
+                "total_sessions": 1,
+            },
+            "proposal": SessionDTO.model_validate(session),
+            "form": ANY,
+            "all_facilitators": [],
+            "assigned_facilitator_pks": set(),
+            "field_descriptors": [],
+            "orphan_values": [],
+            "fields_url": _fields_url(event, session.pk),
+            "cancel_url": _cancel_url(event, session.pk),
+            "all_tracks": [],
+            "assigned_track_pks": set(),
+            "all_time_slots": [],
+            "assigned_time_slot_pks": set(),
+            "facilitator_personal_data": [],
         },
-        "active_nav": "proposals",
     }
 
 
@@ -116,84 +166,94 @@ class TestProposalEditPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         session = _make_session(event)
 
         response = authenticated_client.get(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-edit", kwargs={"slug": "nonexistent", "proposal_id": 1}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_get_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_preselects_a_stored_preset_duration(self, panel_client, event):
+        session = _make_session(event, duration="PT1H")
+        session.category.durations = ["PT1H", "PT2H"]
+        session.category.save()
 
-        response = authenticated_client.get(self.get_url(event, 99999))
+        response = panel_client.get(self.get_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
+        form = response.context["form"]
+        assert form.initial["duration"] == "PT1H"
 
-    def test_get_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        other_event = EventFactory(sphere=sphere)
-        session = _make_session(other_event)
-        url = self.get_url(event, session.pk)
-
-        response = authenticated_client.get(url)
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
-
-    def test_get_ok_for_sphere_manager(
+    def test_get_points_cancel_back_through_the_filtered_list(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
         session = _make_session(event)
+        back = f"{reverse('panel:proposals', kwargs={'slug': event.slug})}?status=all"
+        expected = _edit_page_response(event, session)
+        expected["context_data"][
+            "cancel_url"
+        ] = f"{_cancel_url(event, session.pk)}?{urlencode({'next': back})}"
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = authenticated_client.get(
+            f"{self.get_url(event, session.pk)}?{urlencode({'next': back})}"
+        )
+
+        assert_response(response, HTTPStatus.OK, **expected)
+
+    def test_get_preselects_custom_for_a_duration_outside_the_presets(
+        self, panel_client, event
+    ):
+        session = _make_session(event, duration="PT1H45M")
+        session.category.durations = ["PT1H"]
+        session.category.save()
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        assert_response(response, HTTPStatus.OK, **_edit_page_response(event, session))
+        initial = response.context["form"].initial
+        assert initial["duration"] == "custom"
+        assert initial["duration_hours"] == 1
+        assert initial["duration_minutes"] == CUSTOM_DURATION_MINUTES
+
+    def test_get_redirects_when_proposal_not_found(self, panel_client, event):
+        response = panel_client.get(self.get_url(event, 99999))
+
+        assert_proposal_not_found(response, event)
+
+    def test_get_redirects_when_proposal_belongs_to_different_event(
+        self, panel_client, sphere, event
+    ):
+        other_event = EventFactory(sphere=sphere)
+        session = _make_session(other_event)
+        url = self.get_url(event, session.pk)
+
+        response = panel_client.get(url)
+
+        assert_proposal_not_found(response, event)
+
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        session = _make_session(event)
+
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -209,6 +269,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -218,19 +279,18 @@ class TestProposalEditPageView:
         )
 
     def test_get_does_not_render_legacy_requirements_needs_fields(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -246,6 +306,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -262,9 +323,7 @@ class TestProposalEditPageView:
 
         response = client.post(url, data={"title": "New Title", "display_name": "Host"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         session = _make_session(event)
@@ -274,72 +333,41 @@ class TestProposalEditPageView:
             data={"title": "New Title", "display_name": "Host"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_post_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-edit", kwargs={"slug": "nonexistent", "proposal_id": 1}
         )
 
-        response = authenticated_client.post(url, data={})
+        response = panel_client.post(url, data={})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_post_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_when_proposal_not_found(self, panel_client, event):
+        response = panel_client.post(self.get_url(event, 99999), data={})
 
-        response = authenticated_client.post(self.get_url(event, 99999), data={})
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_post_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         session = _make_session(other_event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={"title": "Updated", "display_name": "Host"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
-    def test_post_updates_session_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_session_and_redirects(self, panel_client, event):
         session = _make_session(event)
 
         new_limit = 10
         new_min_age = 18
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -349,7 +377,8 @@ class TestProposalEditPageView:
                 "contact_email": "",
                 "participants_limit": new_limit,
                 "min_age": new_min_age,
-                "duration": "2h",
+                "duration_hours": 2,
+                "duration_minutes": 30,
             },
         )
 
@@ -368,15 +397,76 @@ class TestProposalEditPageView:
         assert session.description == "Updated description"
         assert session.participants_limit == new_limit
         assert session.min_age == new_min_age
-        assert session.duration == "2h"
+        assert session.duration == "PT2H30M"
+
+    def test_post_carries_the_list_filters_back_to_the_detail_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+        back = f"{reverse('panel:proposals', kwargs={'slug': event.slug})}?status=all"
+
+        response = authenticated_client.post(
+            f"{self.get_url(event, session.pk)}?{urlencode({'next': back})}",
+            data={
+                "category_id": session.category_id,
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "description": "Updated description",
+                "contact_email": "",
+                "participants_limit": 10,
+                "min_age": 18,
+                "duration_hours": 2,
+                "duration_minutes": 30,
+            },
+        )
+
+        detail_url = reverse(
+            "panel:proposal-detail",
+            kwargs={"slug": event.slug, "proposal_id": session.pk},
+        )
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=f"{detail_url}?{urlencode({'next': back})}",
+        )
+
+    def test_post_ignores_an_offsite_next(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        session = _make_session(event)
+
+        response = authenticated_client.post(
+            f"{self.get_url(event, session.pk)}"
+            f"?{urlencode({'next': 'https://evil.example.com/'})}",
+            data={
+                "category_id": session.category_id,
+                "title": "Updated Title",
+                "display_name": "New Host",
+                "description": "Updated description",
+                "contact_email": "",
+                "participants_limit": 10,
+                "min_age": 18,
+                "duration_hours": 2,
+                "duration_minutes": 30,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
 
     def test_post_surfaces_db_error_as_form_error(
-        self, authenticated_client, active_user, sphere, event, monkeypatch
+        self, panel_client, event, monkeypatch
     ):
-        # An unexpected DB constraint/data error must re-render the form with an
-        # error and leave the session untouched, not throw a bare 500 or look
-        # like a silent success.
-        sphere.managers.add(active_user)
         session = _make_session(event)
 
         def _raise(*_args, **_kwargs):
@@ -385,7 +475,7 @@ class TestProposalEditPageView:
         monkeypatch.setattr(SessionRepository, "update", _raise)
         error = "Couldn't save your changes. Please check your input and try again."
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -399,9 +489,9 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -410,6 +500,7 @@ class TestProposalEditPageView:
                     "total_proposals": 1,
                     "total_sessions": 1,
                 },
+                "cancel_url": _cancel_url(event, session.pk),
                 "proposal": SessionDTO.model_validate(session),
                 "form": ANY,
                 "all_facilitators": [],
@@ -428,16 +519,13 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.title == "Test Session"
 
-    def test_post_reassigns_category(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_reassigns_category(self, panel_client, event):
         session = _make_session(event)
         new_category = ProposalCategory.objects.create(
             event=event, name="Board games", slug="board-games"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": new_category.pk,
@@ -460,10 +548,7 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.category_id == new_category.pk
 
-    def test_post_ignores_category_from_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_category_from_other_event(self, panel_client, sphere, event):
         session = _make_session(event)
         original_category_id = session.category_id
         other_event = EventFactory(sphere=sphere)
@@ -471,7 +556,7 @@ class TestProposalEditPageView:
             event=other_event, name="Foreign", slug="foreign"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": foreign_category.pk,
@@ -485,9 +570,9 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "events": [
                     EventDTO.model_validate(other_event),
                     EventDTO.model_validate(event),
@@ -507,6 +592,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -518,11 +604,139 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.category_id == original_category_id
 
+    def test_post_accepts_a_limit_above_the_category_maximum(self, panel_client, event):
+        # The category's bounds guard the submission wizard, not the organizer
+        # reviewing the proposal here.
+        bounded = ProposalCategory.objects.create(
+            event=event,
+            name="Lectures",
+            slug="lectures",
+            min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
+            max_participants_limit=CATEGORY_MAX_PARTICIPANTS,
+        )
+        session = _make_session(event, category=bounded)
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": bounded.pk,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": LIMIT_ABOVE_CATEGORY_MAX,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == LIMIT_ABOVE_CATEGORY_MAX
+
+    def test_post_rejects_a_limit_wider_than_the_column(self, panel_client, event):
+        # Unbounded is not unlimited: Postgres integer stops at 2**31-1. The
+        # field says so itself, rather than leaving the panel to fall back on
+        # its generic "couldn't save" message.
+        session = _make_session(event, participants_limit=DEFAULT_SESSION_PARTICIPANTS)
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": OVER_COLUMN_WIDTH,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": FormErrorsMatcher(
+                    participants_limit=["Enter a smaller number."]
+                ),
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "facilitator_personal_data": [],
+            },
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == DEFAULT_SESSION_PARTICIPANTS
+
+    def test_post_accepts_a_limit_below_the_category_minimum(self, panel_client, event):
+        # A session already smaller than its category's floor stays editable:
+        # the floor never applies on this form.
+        bounded = ProposalCategory.objects.create(
+            event=event,
+            name="Lectures",
+            slug="lectures",
+            min_participants_limit=CATEGORY_MIN_PARTICIPANTS,
+        )
+        session = _make_session(
+            event, category=bounded, participants_limit=DEFAULT_SESSION_PARTICIPANTS
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": bounded.pk,
+                "title": "Updated",
+                "display_name": "Host",
+                "description": "d",
+                "contact_email": "",
+                "participants_limit": LIMIT_BELOW_CATEGORY_MIN,
+                "min_age": 0,
+                "duration_hours": 2,
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal updated successfully.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        session.refresh_from_db()
+        assert session.participants_limit == LIMIT_BELOW_CATEGORY_MIN
+
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post_raising_capacity_promotes_waiter(
-        self, authenticated_client, active_user, sphere, event, waiter
-    ):
-        sphere.managers.add(active_user)
+    def test_post_raising_capacity_promotes_waiter(self, panel_client, event, waiter):
         session = _make_session(event, participants_limit=1)
         space = SpaceFactory(event=event)
         AgendaItemFactory(session=session, space=space)
@@ -535,7 +749,7 @@ class TestProposalEditPageView:
         )
 
         raised_limit = 2
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -545,7 +759,7 @@ class TestProposalEditPageView:
                 "contact_email": "",
                 "participants_limit": raised_limit,
                 "min_age": 0,
-                "duration": "2h",
+                "duration_hours": 2,
             },
         )
 
@@ -566,14 +780,11 @@ class TestProposalEditPageView:
             recipient=waiter, kind=NotificationKind.WAITLIST_PROMOTED.value
         ).exists()
 
-    def test_post_uploads_cover_image(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_uploads_cover_image(self, panel_client, event):
         session = _make_session(event)
         image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -596,10 +807,7 @@ class TestProposalEditPageView:
         assert session.cover_image
         assert session.cover_image_url.startswith("/media/sessions/")
 
-    def test_post_clears_cover_image(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_clears_cover_image(self, panel_client, event):
         session = _make_session(event)
         session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
@@ -608,7 +816,7 @@ class TestProposalEditPageView:
         storage = session.cover_image.storage
         old_name = session.cover_image.name
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -631,16 +839,13 @@ class TestProposalEditPageView:
         assert not session.cover_image
         assert not storage.exists(old_name)
 
-    def test_post_assigns_facilitators(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_assigns_facilitators(self, panel_client, event):
         session = _make_session(event)
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -656,16 +861,15 @@ class TestProposalEditPageView:
         assert list(session.facilitators.values_list("pk", flat=True)) == [alice.pk]
 
     def test_post_ignores_facilitator_assignment_from_other_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         other_event = EventFactory(sphere=sphere)
         foreign_facilitator = Facilitator.objects.create(
             event=other_event, display_name="Mallory", slug="mallory", user=None
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -680,16 +884,13 @@ class TestProposalEditPageView:
 
         assert not session.facilitators.exists()
 
-    def test_post_assigns_tracks(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_assigns_tracks(self, panel_client, event):
         session = _make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -705,15 +906,14 @@ class TestProposalEditPageView:
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
     def test_invalid_post_preserves_submitted_track_selection(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 # Missing title → form invalid, triggers the re-render path.
@@ -730,17 +930,14 @@ class TestProposalEditPageView:
         assert response.context["assigned_track_pks"] == {track.pk}
         assert not session.tracks.exists()
 
-    def test_post_ignores_track_from_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_track_from_other_event(self, panel_client, sphere, event):
         session = _make_session(event)
         other_event = EventFactory(sphere=sphere)
         foreign_track = Track.objects.create(
             event=other_event, name="Foreign", slug="foreign", is_public=True
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -756,16 +953,15 @@ class TestProposalEditPageView:
         assert not session.tracks.exists()
 
     def test_partial_post_without_tracks_marker_preserves_tracks(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
         )
         session.tracks.add(track)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -778,10 +974,7 @@ class TestProposalEditPageView:
 
         assert list(session.tracks.values_list("pk", flat=True)) == [track.pk]
 
-    def test_post_assigns_time_slots(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_assigns_time_slots(self, panel_client, event):
         session = _make_session(event)
         slot = TimeSlot.objects.create(
             event=event,
@@ -789,7 +982,7 @@ class TestProposalEditPageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -804,10 +997,7 @@ class TestProposalEditPageView:
 
         assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
 
-    def test_post_ignores_time_slot_from_other_event(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_ignores_time_slot_from_other_event(self, panel_client, sphere, event):
         session = _make_session(event)
         other_event = EventFactory(sphere=sphere)
         foreign_slot = TimeSlot.objects.create(
@@ -816,7 +1006,7 @@ class TestProposalEditPageView:
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -832,9 +1022,8 @@ class TestProposalEditPageView:
         assert not session.time_slots.exists()
 
     def test_post_clears_time_slots_when_marker_present_and_none_selected(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         slot = TimeSlot.objects.create(
             event=event,
@@ -843,7 +1032,7 @@ class TestProposalEditPageView:
         )
         session.time_slots.add(slot)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -857,7 +1046,7 @@ class TestProposalEditPageView:
 
         assert not session.time_slots.exists()
 
-    def test_partial_post_without_time_slots_marker_preserves_time_slots(
+    def test_invalid_post_preserves_submitted_time_slot_selection(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -867,9 +1056,63 @@ class TestProposalEditPageView:
             start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
             end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
         )
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "time_slots_submitted": "1",
+                "time_slot_ids": [slot.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "assigned_time_slot_pks": {slot.pk},
+                "facilitator_personal_data": [],
+            },
+        )
+        assert not session.time_slots.exists()
+
+    def test_partial_post_without_time_slots_marker_preserves_time_slots(
+        self, panel_client, event
+    ):
+        session = _make_session(event)
+        slot = TimeSlot.objects.create(
+            event=event,
+            start_time=datetime(2026, 6, 19, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 6, 19, 22, 0, tzinfo=UTC),
+        )
         session.time_slots.add(slot)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -882,10 +1125,7 @@ class TestProposalEditPageView:
 
         assert list(session.time_slots.values_list("pk", flat=True)) == [slot.pk]
 
-    def test_get_renders_facilitator_personal_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_facilitator_personal_data(self, panel_client, event):
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -900,14 +1140,14 @@ class TestProposalEditPageView:
             order=0,
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -932,17 +1172,17 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
                 "assigned_time_slot_pks": set(),
                 "facilitator_personal_data": [
-                    (
-                        FacilitatorDTO.model_validate(facilitator),
-                        f"facilitator_{facilitator.pk}_personal",
-                        [
-                            (
-                                PersonalDataFieldDTO(
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
                                     allow_custom=False,
                                     field_type="text",
                                     help_text="",
@@ -956,19 +1196,16 @@ class TestProposalEditPageView:
                                     question="Your nickname?",
                                     slug="nick",
                                 ),
-                                None,
-                            )
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(),
+                            }
                         ],
                     )
                 ],
             },
-            contains=["Alice", f'name="facilitator_{facilitator.pk}_personal_nick"'],
         )
 
-    def test_post_saves_facilitator_personal_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_facilitator_personal_data(self, panel_client, event):
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -983,7 +1220,7 @@ class TestProposalEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1000,10 +1237,7 @@ class TestProposalEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value is True
 
-    def test_post_saves_multiple_facilitator_personal_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_multiple_facilitator_personal_data(self, panel_client, event):
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -1018,8 +1252,12 @@ class TestProposalEditPageView:
             is_multiple=True,
             order=0,
         )
+        for order, value in enumerate(["vegan", "gluten-free"]):
+            PersonalDataFieldOption.objects.create(
+                field=field, label=value, value=value, order=order
+            )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1037,9 +1275,8 @@ class TestProposalEditPageView:
         assert hpd.value == ["vegan", "gluten-free"]
 
     def test_post_saves_allow_custom_facilitator_personal_data(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
@@ -1055,7 +1292,7 @@ class TestProposalEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1073,10 +1310,368 @@ class TestProposalEditPageView:
         hpd = PersonalDataFieldValue.objects.get(facilitator=facilitator, field=field)
         assert hpd.value == "Peanuts"
 
-    def test_post_ignores_personal_data_for_facilitator_from_other_event(
+    def test_post_keeps_a_write_in_the_form_hands_back(self, panel_client, event):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator,
+            event=event,
+            field=field,
+            value=["vegan", "no peanuts"],
+        )
+
+        panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Test Session",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_diet": ["vegan"],
+                f"facilitator_{facilitator.pk}_personal_diet_custom": "no peanuts",
+            },
+        )
+
+        stored = PersonalDataFieldValue.objects.get(
+            facilitator=facilitator, field=field
+        )
+        assert stored.value == ["vegan", "no peanuts"]
+
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, panel_client, event
+    ):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Diet",
+            question="Any dietary needs?",
+            slug="diet",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = PersonalDataFieldOption.objects.create(
+            field=field, label="Vegan", value="vegan", order=0
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator,
+            event=event,
+            field=field,
+            value=["vegan", "no peanuts"],
+        )
+
+        response = panel_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=True,
+                                    field_type="select",
+                                    help_text="",
+                                    is_multiple=True,
+                                    is_public=False,
+                                    max_length=50,
+                                    name="Diet",
+                                    options=[
+                                        OrganizerFieldOptionDTO(
+                                            label="Vegan",
+                                            order=0,
+                                            pk=option.pk,
+                                            value="vegan",
+                                        )
+                                    ],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any dietary needs?",
+                                    slug="diet",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                # The stored write-in comes back split: the
+                                # option on the control, the rest beside it.
+                                "answer": FieldAnswer(
+                                    value=["vegan"], custom_value="no peanuts"
+                                ),
+                            }
+                        ],
+                    )
+                ],
+            },
+        )
+
+    def test_post_with_only_invalid_personal_data_reports_it_on_the_form(
+        self, panel_client, event
+    ):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=5,
+            order=0,
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "New title",
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                # Longer than the field allows, so only the personal-data form
+                # is invalid — the proposal form itself has nothing to report.
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": FormErrorsMatcher(
+                    __all__=["Fix the facilitator personal data below before saving."]
+                ),
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [
+                    PersonalDataCard(
+                        facilitator=FacilitatorDTO.model_validate(facilitator),
+                        descriptors=[
+                            {
+                                "field": OrganizerFieldDTO(
+                                    allow_custom=False,
+                                    field_type="text",
+                                    help_text="",
+                                    is_multiple=False,
+                                    is_public=False,
+                                    max_length=5,
+                                    name="Allergy",
+                                    options=[],
+                                    order=0,
+                                    pk=field.pk,
+                                    question="Any allergy?",
+                                    slug="allergy",
+                                ),
+                                "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                                "answer": FieldAnswer(
+                                    value="Peanuts",
+                                    errors=[
+                                        (
+                                            "Ensure this value has at most 5 "
+                                            "characters (it has 7)."
+                                        )
+                                    ],
+                                ),
+                            }
+                        ],
+                        has_errors=True,
+                    )
+                ],
+            },
+        )
+        session.refresh_from_db()
+        assert session.title == "Test Session"
+
+    def test_invalid_post_preserves_submitted_personal_data(self, panel_client, event):
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Allergy",
+            question="Any allergy?",
+            slug="allergy",
+            field_type="text",
+            max_length=50,
+            order=0,
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+                f"facilitator_{facilitator.pk}_personal_allergy": "Peanuts",
+            },
+        )
+
+        assert response.context["form"].errors
+        assert response.context["facilitator_personal_data"] == [
+            PersonalDataCard(
+                facilitator=FacilitatorDTO.model_validate(facilitator),
+                descriptors=[
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=False,
+                            field_type="text",
+                            help_text="",
+                            is_multiple=False,
+                            is_public=False,
+                            max_length=50,
+                            name="Allergy",
+                            options=[],
+                            order=0,
+                            pk=field.pk,
+                            question="Any allergy?",
+                            slug="allergy",
+                        ),
+                        "name_prefix": f"facilitator_{facilitator.pk}_personal",
+                        "answer": FieldAnswer(value="Peanuts"),
+                    }
+                ],
+            )
+        ]
+        assert not PersonalDataFieldValue.objects.exists()
+
+    def test_invalid_post_with_personal_data_marker_and_no_fields(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
+        session = _make_session(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        session.facilitators.add(facilitator)
+
+        response = authenticated_client.post(
+            self.get_url(event, session.pk),
+            data={
+                # Missing title → form invalid, triggers the re-render path.
+                "category_id": session.category_id,
+                "display_name": "Test Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "personal_data_submitted": "1",
+                "personal_data_facilitator_ids": [facilitator.pk],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    facilitator_list_item_dto(facilitator, session_count=1)
+                ],
+                "assigned_facilitator_pks": {facilitator.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
+        )
+
+    def test_post_ignores_personal_data_for_facilitator_from_other_event(
+        self, panel_client, sphere, event
+    ):
         session = _make_session(event)
         other_event = EventFactory(sphere=sphere)
         foreign_facilitator = Facilitator.objects.create(
@@ -1091,7 +1686,7 @@ class TestProposalEditPageView:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1109,22 +1704,19 @@ class TestProposalEditPageView:
             facilitator=foreign_facilitator
         ).exists()
 
-    def test_post_shows_errors_on_invalid_data(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         session = _make_session(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk), data={"title": "", "display_name": ""}
         )
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1140,6 +1732,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1149,10 +1742,7 @@ class TestProposalEditPageView:
         )
         assert response.context["form"].errors
 
-    def test_post_saves_checkbox_session_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_checkbox_session_field(self, panel_client, event):
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1164,7 +1754,7 @@ class TestProposalEditPageView:
         )
         _require_field(session, field)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1179,10 +1769,72 @@ class TestProposalEditPageView:
         sfv = SessionFieldValue.objects.get(session=session, field=field)
         assert sfv.value is True
 
-    def test_post_saves_multiple_session_field(
-        self, authenticated_client, active_user, sphere, event
+    def test_post_stores_no_row_for_a_field_left_blank(self, panel_client, event):
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, field)
+
+        panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "   ",
+            },
+        )
+
+        assert not SessionFieldValue.objects.filter(
+            session=session, field=field
+        ).exists()
+
+    def test_post_blanking_an_answered_field_keeps_the_row_empty(
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
+        session = _make_session(event)
+        field = SessionField.objects.create(
+            event=event,
+            name="System",
+            question="Which system?",
+            slug="system",
+            field_type="text",
+            order=0,
+        )
+        _require_field(session, field)
+        SessionFieldValue.objects.create(
+            session=session, field=field, value="Pathfinder"
+        )
+
+        panel_client.post(
+            self.get_url(event, session.pk),
+            data={
+                "category_id": session.category_id,
+                "title": "Updated",
+                "display_name": "Host",
+                "participants_limit": 5,
+                "min_age": 0,
+                "session_system": "",
+            },
+        )
+
+        # The row survives as an explicit empty answer, so a later import
+        # treats the field as answered and will not refill it.
+        assert list(
+            SessionFieldValue.objects.filter(session=session, field=field).values_list(
+                "value", flat=True
+            )
+        ) == [""]
+
+    def test_post_saves_multiple_session_field(self, panel_client, event):
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1199,7 +1851,7 @@ class TestProposalEditPageView:
             )
         _require_field(session, field)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1215,9 +1867,8 @@ class TestProposalEditPageView:
         assert sfv.value == ["horror", "comedy"]
 
     def test_post_saves_allow_custom_session_field_from_custom_input(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1230,7 +1881,7 @@ class TestProposalEditPageView:
         )
         _require_field(session, field)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1246,10 +1897,7 @@ class TestProposalEditPageView:
         sfv = SessionFieldValue.objects.get(session=session, field=field)
         assert sfv.value == "Homebrew"
 
-    def test_get_renders_all_session_field_types(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_all_session_field_types(self, panel_client, event):
         session = _make_session(event)
 
         genres = SessionField.objects.create(
@@ -1315,13 +1963,37 @@ class TestProposalEditPageView:
             session=session, field=notes, value="Bring dice"
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                # Holds the form's BoundFields, so it can't be compared by value.
+                "field_descriptors": ANY,
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             contains=[
                 'name="session_genres"',
                 "Pick all that apply",
@@ -1335,9 +2007,8 @@ class TestProposalEditPageView:
         )
 
     def test_partial_post_without_session_fields_marker_preserves_field_values(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1351,7 +2022,7 @@ class TestProposalEditPageView:
             session=session, field=field, value="Pathfinder"
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1368,16 +2039,15 @@ class TestProposalEditPageView:
         assert session.title == "Updated title only"
 
     def test_partial_post_without_facilitators_marker_preserves_facilitators(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         assigned = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
         session.facilitators.add(assigned)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1392,10 +2062,7 @@ class TestProposalEditPageView:
         session.refresh_from_db()
         assert session.title == "Updated title only"
 
-    def test_get_renders_track_and_time_slot_cards(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_track_and_time_slot_cards(self, panel_client, event):
         session = _make_session(event)
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
@@ -1408,13 +2075,36 @@ class TestProposalEditPageView:
         )
         session.time_slots.add(slot)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [],
+                "assigned_facilitator_pks": set(),
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "assigned_track_pks": {track.pk},
+                "all_time_slots": [TimeSlotDTO.model_validate(slot)],
+                "assigned_time_slot_pks": {slot.pk},
+                "facilitator_personal_data": [],
+            },
             contains=[
                 'name="tracks_submitted"',
                 'name="track_ids"',
@@ -1432,9 +2122,8 @@ class TestProposalEditPageView:
         assert "checked" in slot_row
 
     def test_get_renders_facilitator_picker_with_assigned_marked(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
 
         assigned = Facilitator.objects.create(
@@ -1445,13 +2134,39 @@ class TestProposalEditPageView:
         )
         session.facilitators.add(assigned)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
-            context_data=ANY,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 1,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "form": ANY,
+                "all_facilitators": [
+                    facilitator_list_item_dto(assigned, session_count=1),
+                    facilitator_list_item_dto(unassigned),
+                ],
+                "assigned_facilitator_pks": {assigned.pk},
+                "field_descriptors": [],
+                "orphan_values": [],
+                "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
+                "all_tracks": [],
+                "assigned_track_pks": set(),
+                "all_time_slots": [],
+                "assigned_time_slot_pks": set(),
+                "facilitator_personal_data": [],
+            },
             contains=['id="facilitator-search"', "Alice", "Bob"],
         )
         html = response.content.decode()
@@ -1459,20 +2174,19 @@ class TestProposalEditPageView:
         assert "checked" not in checkbox_tag(html, "facilitator_ids", unassigned.pk)
         # Search-first picker: unassigned facilitators start hidden.
         assert (
-            "facilitator-row flex items-center text-sm py-3 rounded-md"
+            "facilitator-row flex items-center gap-2 text-sm py-3 rounded-md"
             " hover:bg-foreground/5 hidden" in html
         )
 
     def test_post_invalid_keeps_submitted_facilitator_selection(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         facilitator = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "title": "",
@@ -1485,9 +2199,9 @@ class TestProposalEditPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="panel/proposal-edit.html",
+            template_name="panel/proposal-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "stats": {
                     "hosts_count": 0,
                     "pending_proposals": 1,
@@ -1512,6 +2226,7 @@ class TestProposalEditPageView:
                 "field_descriptors": [],
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
+                "cancel_url": _cancel_url(event, session.pk),
                 "all_tracks": [],
                 "assigned_track_pks": set(),
                 "all_time_slots": [],
@@ -1560,13 +2275,10 @@ class TestProposalEditOrphanValues:
         )
         return session, kept, dropped
 
-    def test_get_lists_orphan_value_without_an_input(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_lists_orphan_value_without_an_input(self, panel_client, event):
         session, _kept, dropped = self._orphan_setup(event)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         html = response.content.decode()
         assert "Old answer" in html
@@ -1577,10 +2289,7 @@ class TestProposalEditOrphanValues:
         assert f'hx-get="{_fields_url(event, session.pk)}"' in html
         assert 'hx-target="#proposal-session-fields"' in html
 
-    def test_get_shows_option_label_for_orphan_select_value(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_option_label_for_orphan_select_value(self, panel_client, event):
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1595,14 +2304,11 @@ class TestProposalEditOrphanValues:
         )
         SessionFieldValue.objects.create(session=session, field=field, value="horror")
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert "Horror" in response.content.decode()
 
-    def test_get_shows_yes_for_orphan_checkbox_value(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_yes_for_orphan_checkbox_value(self, panel_client, event):
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1614,16 +2320,15 @@ class TestProposalEditOrphanValues:
         )
         SessionFieldValue.objects.create(session=session, field=field, value=True)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         html = response.content.decode()
         assert "Allow streaming?" in html
         assert ">Yes</p>" in html
 
     def test_get_shows_option_labels_for_orphan_multiselect_value(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session = _make_session(event)
         field = SessionField.objects.create(
             event=event,
@@ -1644,17 +2349,14 @@ class TestProposalEditOrphanValues:
             session=session, field=field, value=["horror", "fantasy"]
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert "Horror, Fantasy" in response.content.decode()
 
-    def test_post_leaves_orphan_value_untouched_by_default(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_leaves_orphan_value_untouched_by_default(self, panel_client, event):
         session, _kept, dropped = self._orphan_setup(event)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1669,13 +2371,10 @@ class TestProposalEditOrphanValues:
         value = SessionFieldValue.objects.get(session=session, field=dropped)
         assert value.value == "Old answer"
 
-    def test_post_removes_orphan_value_when_checked(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_removes_orphan_value_when_checked(self, panel_client, event):
         session, _kept, dropped = self._orphan_setup(event)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1693,13 +2392,12 @@ class TestProposalEditOrphanValues:
         ).exists()
 
     def test_post_ignores_removal_of_a_field_the_category_asks_for(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session, kept, _dropped = self._orphan_setup(event)
         SessionFieldValue.objects.create(session=session, field=kept, value="Keep me")
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1716,12 +2414,11 @@ class TestProposalEditOrphanValues:
         assert value.value == "Pathfinder"
 
     def test_removing_an_orphan_is_recorded_in_the_content_log(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         session, _kept, dropped = self._orphan_setup(event)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event, session.pk),
             data={
                 "category_id": session.category_id,
@@ -1746,58 +2443,32 @@ class TestProposalEditOrphanValues:
 class TestProposalEditFieldsComponentView:
     """Tests for /panel/event/<slug>/proposals/<id>/edit/fields/ component."""
 
-    def test_get_redirects_when_event_not_found(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_event_not_found(self, panel_client):
         url = reverse(
             "panel:proposal-edit-fields",
             kwargs={"slug": "nonexistent", "proposal_id": 1},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url=reverse("panel:index"),
-        )
+        assert_event_not_found(response)
 
-    def test_get_redirects_when_proposal_not_found(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_when_proposal_not_found(self, panel_client, event):
+        response = panel_client.get(_fields_url(event, 99999))
 
-        response = authenticated_client.get(_fields_url(event, 99999))
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
     def test_get_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         session = _make_session(other_event)
 
-        response = authenticated_client.get(_fields_url(event, session.pk))
+        response = panel_client.get(_fields_url(event, session.pk))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
-    def test_get_renders_fields_for_requested_category(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_renders_fields_for_requested_category(self, panel_client, event):
         session = _make_session(event)
         category_b = ProposalCategory.objects.create(
             event=event, name="Talk", slug="talk"
@@ -1814,7 +2485,7 @@ class TestProposalEditFieldsComponentView:
             category=category_b, field=field, is_required=False, order=0
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             _fields_url(event, session.pk), data={"category_id": category_b.pk}
         )
 
@@ -1823,21 +2494,12 @@ class TestProposalEditFieldsComponentView:
             HTTPStatus.OK,
             template_name="panel/parts/proposal-session-fields.html",
             # field_descriptors carry BoundFields, which don't compare usefully.
-            # No active_nav: the component renders without the page chrome.
+            # No events, stats or active_nav: a category swap re-renders one
+            # fieldset and builds none of the page chrome.
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
                 "field_descriptors": ANY,
                 "form": ANY,
+                "category": ProposalCategoryDTO.model_validate(category_b),
                 "orphan_values": [],
                 "fields_url": _fields_url(event, session.pk),
             },

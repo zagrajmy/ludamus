@@ -16,8 +16,8 @@ from django.views.generic.base import TemplateView, View
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import get_client_ip as _get_client_ip
+from ludamus.gates.web.django.meta import encounter_description
 from ludamus.mills import (
-    EncounterService,
     generate_ics_content,
     generate_share_code,
     google_calendar_url,
@@ -26,9 +26,10 @@ from ludamus.mills import (
 )
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
+from ludamus.pacts.encounter import RSVPOutcome
+from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 from .forms import EncounterForm
-from .helpers import build_attendee_list
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -152,10 +153,9 @@ class EncountersIndexPageView(TemplateView):
                 _SAMPLE_ENCOUNTERS, SAMPLE_COUNT
             )
             return context
-        service = EncounterService(self.request.di.uow)
-        result = service.build_index(
-            self.request.context.current_sphere_id,
-            cast("int", self.request.context.current_user_id),
+        result = self.request.services.encounters.build_index(
+            sphere_id=self.request.context.current_sphere_id,
+            user_id=cast("int", self.request.context.current_user_id),
         )
         context["upcoming_encounters"] = result.upcoming
         context["past_encounters"] = result.past
@@ -176,7 +176,6 @@ class EncounterCreatePageView(LoginRequiredMixin, View):
         if not form.is_valid():
             return TemplateResponse(request, "notice_board/create.html", {"form": form})
 
-        uow = self.request.di.uow
         data = EncounterData(
             title=form.cleaned_data["title"],
             description=form.cleaned_data.get("description", ""),
@@ -192,7 +191,7 @@ class EncounterCreatePageView(LoginRequiredMixin, View):
         if form.cleaned_data.get("header_image"):
             data["header_image"] = form.cleaned_data["header_image"]
 
-        encounter = uow.encounters.create(data)
+        encounter = self.request.services.encounters.create(data)
         return redirect(
             reverse(
                 "web:notice-board:encounter-detail",
@@ -206,12 +205,11 @@ class EncounterEditPageView(LoginRequiredMixin, View):
 
     def _get_encounter(self, pk: int) -> EncounterDTO:
         try:
-            encounter = self.request.di.uow.encounters.read(pk)
+            return self.request.services.encounters.read_owned(
+                pk=pk, user_id=self.request.context.current_user_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
-        if encounter.creator_id != self.request.user.pk:
-            raise Http404
-        return encounter
 
     @staticmethod
     def _format_dt(dt: datetime | None) -> str:
@@ -238,16 +236,14 @@ class EncounterEditPageView(LoginRequiredMixin, View):
         )
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        encounter = self._get_encounter(pk)
         form = EncounterForm(request.POST, request.FILES)
         if not form.is_valid():
             return TemplateResponse(
                 request,
                 "notice_board/edit.html",
-                {"form": form, "encounter": encounter},
+                {"form": form, "encounter": self._get_encounter(pk)},
             )
 
-        uow = self.request.di.uow
         data = EncounterData(
             title=form.cleaned_data["title"],
             description=form.cleaned_data.get("description", ""),
@@ -257,13 +253,16 @@ class EncounterEditPageView(LoginRequiredMixin, View):
             place=form.cleaned_data.get("place", ""),
             max_participants=form.cleaned_data.get("max_participants") or 0,
         )
-        # ClearableFileInput: a file replaces, False clears, None keeps as-is.
-        if header_image := form.cleaned_data.get("header_image"):
-            data["header_image"] = header_image
-        elif header_image is False:
-            data["header_image"] = ""
+        header = resolve_uploaded_file_field(form.cleaned_data.get("header_image"))
+        if header is not None:
+            data["header_image"] = header
 
-        uow.encounters.update(pk, data)
+        try:
+            encounter = request.services.encounters.update_owned(
+                pk=pk, user_id=request.context.current_user_id, data=data
+            )
+        except NotFoundError as exc:
+            raise Http404 from exc
         messages.success(request, _("Encounter updated."))
         return redirect(
             reverse(
@@ -277,14 +276,12 @@ class EncounterDeleteActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        uow = self.request.di.uow
         try:
-            encounter = uow.encounters.read(pk)
+            self.request.services.encounters.delete_owned(
+                pk=pk, user_id=request.context.current_user_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
-        if encounter.creator_id != request.user.pk:
-            raise Http404
-        uow.encounters.delete(pk)
         messages.success(request, _("Encounter deleted."))
         return redirect(reverse("web:notice-board:index"))
 
@@ -298,23 +295,25 @@ class EncounterDetailPageView(View):
                 "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
             )
         )
-        current_user_id = request.user.pk if request.user.is_authenticated else None
+        current_user_id = request.context.current_user_id
 
         try:
-            service = EncounterService(request.di.uow)
-            result = service.build_detail(share_code, current_user_id)
+            result = request.services.encounters.build_detail(
+                share_code=share_code, current_user_id=current_user_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 
-        description_html = (
-            render_markdown(result.encounter.description)
-            if result.encounter.description
-            else ""
-        )
+        raw_description = result.encounter.description
+        description_html = render_markdown(raw_description) if raw_description else ""
+        meta_description = encounter_description(result.encounter, description_html)
 
         gravatar = self.request.di.gravatar_url
         creator = UserInfo.from_user_dto(result.creator, gravatar_url=gravatar)
-        attendees = build_attendee_list(result.rsvps, request.di.uow, gravatar)
+        attendees = [
+            UserInfo.from_user_dto(attendee, gravatar_url=gravatar)
+            for attendee in result.attendees
+        ]
 
         return TemplateResponse(
             request,
@@ -328,6 +327,7 @@ class EncounterDetailPageView(View):
                 "spots_remaining": result.spots_remaining,
                 "is_creator": result.is_creator,
                 "description_html": description_html,
+                "encounter_meta_description": meta_description,
                 "share_url": share_url,
                 "user_has_rsvpd": result.user_has_rsvpd,
                 "google_calendar_url": google_calendar_url(result.encounter, share_url),
@@ -342,59 +342,50 @@ class EncounterRSVPActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
-        uow = self.request.di.uow
-
         try:
-            encounter = uow.encounters.read_by_share_code(share_code)
+            outcome = self.request.services.encounters.rsvp(
+                share_code=share_code,
+                user_id=request.context.current_user_id,
+                ip_address=_get_client_ip(request),
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 
-        detail_url = reverse(
-            "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
+        match outcome:
+            case RSVPOutcome.FULL:
+                messages.error(request, _("This encounter is full."))
+            case RSVPOutcome.THROTTLED:
+                messages.error(
+                    request, _("Please wait a moment before signing up again.")
+                )
+            case RSVPOutcome.ALREADY_SIGNED_UP:
+                messages.warning(request, _("You have already signed up."))
+            case RSVPOutcome.CREATED:
+                messages.success(request, _("You have signed up!"))
+        return redirect(
+            reverse(
+                "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
+            )
         )
-
-        # Check if full
-        rsvp_count = uow.encounter_rsvps.count_by_encounter(encounter.pk)
-        if encounter.max_participants > 0 and rsvp_count >= encounter.max_participants:
-            messages.error(request, _("This encounter is full."))
-            return redirect(detail_url)
-
-        # Throttle: IP-based, 1 per minute
-        ip_address = _get_client_ip(request)
-        if uow.encounter_rsvps.recent_rsvp_exists(ip_address):
-            messages.error(request, _("Please wait a moment before signing up again."))
-            return redirect(detail_url)
-
-        # Check duplicate
-        user_id = request.context.current_user_id
-        if uow.encounter_rsvps.user_has_rsvpd(encounter.pk, user_id):
-            messages.warning(request, _("You have already signed up."))
-            return redirect(detail_url)
-
-        uow.encounter_rsvps.create(encounter.pk, ip_address, user_id=user_id)
-        messages.success(request, _("You have signed up!"))
-        return redirect(detail_url)
 
 
 class EncounterCancelRSVPActionView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
-        uow = self.request.di.uow
-
         try:
-            encounter = uow.encounters.read_by_share_code(share_code)
+            self.request.services.encounters.cancel_rsvp(
+                share_code=share_code, user_id=request.context.current_user_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 
-        detail_url = reverse(
-            "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
-        )
-        uow.encounter_rsvps.delete_by_user(
-            encounter.pk, self.request.context.current_user_id
-        )
         messages.success(request, _("You have been removed from this encounter."))
-        return redirect(detail_url)
+        return redirect(
+            reverse(
+                "web:notice-board:encounter-detail", kwargs={"share_code": share_code}
+            )
+        )
 
 
 @method_decorator(cache_control(public=True, max_age=86400), name="get")
@@ -403,7 +394,7 @@ class EncounterQrView(View):
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
         try:
-            self.request.di.uow.encounters.read_by_share_code(share_code)
+            self.request.services.encounters.read_by_share_code(share_code)
         except NotFoundError as exc:
             raise Http404 from exc
 
@@ -421,7 +412,7 @@ class EncounterIcsView(View):
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
         try:
-            encounter = self.request.di.uow.encounters.read_by_share_code(share_code)
+            encounter = self.request.services.encounters.read_by_share_code(share_code)
         except NotFoundError as exc:
             raise Http404 from exc
 

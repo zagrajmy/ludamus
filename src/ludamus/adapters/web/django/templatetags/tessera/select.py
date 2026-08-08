@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 from django import template
 from django.template.loader import render_to_string
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 
 from ._registry import register
 from ._utils import parse_tag_attrs
@@ -21,6 +20,7 @@ class SelectNode(template.Node):
 
     # Attributes rendered bare (no ``="value"``) when truthy.
     _BOOLEAN_ATTRS = ("multiple", "required", "disabled")
+    _TEMPLATE = "components/select.html"
 
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
@@ -33,46 +33,45 @@ class SelectNode(template.Node):
             k: v.resolve(context) for k, v in self.attrs.items()
         }
 
-        # `class` styles the element; every other keyword is forwarded as an
-        # HTML attribute on the <select>.
+        # `class` styles the element and `has_errors` drives the error cues;
+        # every other keyword is forwarded as an HTML attribute on the <select>.
         extra_class = str(resolved.pop("class", ""))
+        has_errors = bool(resolved.pop("has_errors", False))
 
         attr_parts: list[str] = []
         for key, value in resolved.items():
             if key in self._BOOLEAN_ATTRS:
                 if value:
-                    attr_parts.append(key)
+                    attr_parts.append(format_html("{}", key))
                 continue
-            if not value:
+            # `value=0` is a legitimate radio value — only drop absent attrs.
+            if value is None or (isinstance(value, str) and not value):
                 continue
             # Template kwargs can't contain hyphens, so aria_*/data_* keywords
             # map onto their hyphenated attributes (aria_label -> aria-label).
             name = key.replace("_", "-") if key.startswith(("aria_", "data_")) else key
-            attr_parts.append(f'{name}="{escape(str(value))}"')
+            attr_parts.append(format_html('{}="{}"', name, value))
 
         return render_to_string(
-            "components/select.html",
+            self._TEMPLATE,
             {
-                "attrs": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
-                    " ".join(attr_parts)
-                ),
+                "attrs": format_html_join(" ", "{}", ((part,) for part in attr_parts)),
                 "extra_class": extra_class,
-                "slot": mark_safe(  # ruff: ignore[suspicious-mark-safe-usage]
-                    self.nodelist.render(context)
-                ),
+                "has_errors": has_errors,
+                "slot": self.nodelist.render(context),
             },
         )
 
 
 @register.tag("select")
 def do_select(parser: Parser, token: Token) -> SelectNode:
-    """Parse ``{% select ... %}...{% end_select %}``.
+    """Parse ``{% select ... %}...{% endselect %}``.
 
     Returns:
         A SelectNode that renders a themed ``<select>`` wrapping its body.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("end_select",))
+    nodelist = parser.parse(("endselect",))
     parser.delete_first_token()
 
     return SelectNode(nodelist, attrs)

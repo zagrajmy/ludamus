@@ -4,15 +4,11 @@ from ludamus.mills.multiverse import SitesService
 
 
 class _Spheres:
-    def __init__(self, *, spheres=None, managers=()):
+    def __init__(self, *, spheres=None):
         self._spheres = dict(spheres or {})
-        self._managers = set(managers)
 
     def read(self, sphere_id):
         return self._spheres[sphere_id]
-
-    def is_manager(self, sphere_id, user_slug):
-        return (sphere_id, user_slug) in self._managers
 
 
 class _Directory:
@@ -30,13 +26,6 @@ def test_read_returns_repo_sphere():
     result = service.read(1)
 
     assert result is sphere
-
-
-def test_is_manager_delegates_to_repo():
-    service = SitesService(_Spheres(managers={(1, "amy")}), _Directory([]))
-
-    assert service.is_manager(1, "amy") is True
-    assert service.is_manager(1, "bob") is False
 
 
 def test_list_spheres_returns_directory_items():

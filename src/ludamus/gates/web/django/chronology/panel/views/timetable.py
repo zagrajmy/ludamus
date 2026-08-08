@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from django.http import HttpResponse, QueryDict
@@ -19,14 +20,20 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
-from ludamus.mills.chronology import ConflictDetectionService, TimetableOverviewService
-from ludamus.mills.timetable import TimetableService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
     NotFoundError,
     UnscheduledSessionFilter,
 )
 from ludamus.pacts.chronology import DateSelection, SessionPlacement
+
+if TYPE_CHECKING:
+    from ludamus.pacts.legacy import TrackDTO
 
 
 def _parse_iso_duration_minutes(iso: str) -> int:
@@ -37,12 +44,15 @@ def _parse_iso_duration_minutes(iso: str) -> int:
     return hours * 60 + minutes
 
 
-def _timetable_tab_urls(slug: str) -> dict[str, str]:
+def timetable_tab_urls(slug: str) -> dict[str, str]:
     return {
         "timetable": reverse("panel:timetable", kwargs={"slug": slug}),
         "log": reverse("panel:timetable-log", kwargs={"slug": slug}),
         "overview": reverse("panel:timetable-overview", kwargs={"slug": slug}),
         "problems": reverse("panel:timetable-problems", kwargs={"slug": slug}),
+        "confirmations": reverse(
+            "panel:timetable-confirmations", kwargs={"slug": slug}
+        ),
     }
 
 
@@ -52,6 +62,25 @@ _BACK_URL_KEYS = ("track", "category", "max_duration", "search", "date")
 def _build_back_url(slug: str, query: QueryDict) -> str:
     base = reverse("panel:timetable-browse-pane-part", kwargs={"slug": slug})
     params = [(key, query[key]) for key in _BACK_URL_KEYS if query.get(key, "").strip()]
+    return f"{base}?{urlencode(params)}" if params else base
+
+
+def _print_url(
+    *,
+    slug: str,
+    tracks: list[TrackDTO],
+    track_pk: int | None,
+    date_selection: DateSelection,
+) -> str:
+    # The print page is preset to the schedule's current view: an active track
+    # filter prints that track, a picked day prints that day — the filters the
+    # organizer already dialed in aren't wasted.
+    params: list[tuple[str, str]] = []
+    if (track := next((t for t in tracks if t.pk == track_pk), None)) is not None:
+        params += [("material", "track-timetable"), ("track", track.slug)]
+    if date_selection != "all":
+        params += [("start", f"{date_selection.isoformat()}T00:00"), ("hours", "24")]
+    base = reverse("web:chronology:event-print", kwargs={"slug": slug})
     return f"{base}?{urlencode(params)}" if params else base
 
 
@@ -102,13 +131,6 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
             space_page=room_page,
             date_selection=date_selection,
         )
-        conflict_service = ConflictDetectionService(uow)
-        conflicts = conflict_service.list_all_for_track(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
-        slot_violations = conflict_service.list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
         categories = uow.proposal_categories.list_by_event(current_event.pk)
 
         context["all_tracks"] = sorted_tracks
@@ -116,18 +138,22 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         context["filter_track_pk"] = filter_track_pk
         context["room_page"] = room_page
         context["grid"] = grid
-        context["conflict_session_pks"] = {c.session_pk for c in conflicts}
-        context["conflicts_count"] = len(conflicts)
-        context["slot_violation_session_pks"] = {v.session_pk for v in slot_violations}
+        context["conflicts"] = grid.conflicts
+        context["conflicts_count"] = len(grid.conflicts)
         context["categories"] = categories
         context["category_pk"] = category_pk
         context["max_duration_minutes"] = max_duration_minutes
         context["duration_chips"] = [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)]
         context["date_selection"] = grid.date_selection
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "timetable"
-        context["print_scopes"] = self.get_print_scopes(current_event.pk)
+        context["print_url"] = _print_url(
+            slug=slug,
+            tracks=sorted_tracks,
+            track_pk=filter_track_pk,
+            date_selection=grid.date_selection,
+        )
         return TemplateResponse(self.request, "panel/timetable.html", context)
 
 
@@ -288,23 +314,17 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        uow = self.request.di.uow
-        grid = TimetableService(uow).build_grid(
+        grid = TimetableService(self.request.di.uow).build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
             track_pk=filter_track_pk,
             space_page=room_page,
             date_selection=date_selection,
         )
-        slot_violations = ConflictDetectionService(uow).list_preferred_slot_violations(
-            event_pk=current_event.pk, track_pk=filter_track_pk
-        )
 
         context: dict[str, object] = {
             "grid": grid,
             "filter_track_pk": filter_track_pk,
-            "conflict_session_pks": set(),
-            "slot_violation_session_pks": {v.session_pk for v in slot_violations},
             "date_selection": grid.date_selection,
             "slug": slug,
         }
@@ -346,9 +366,15 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
-        conflicts = ConflictDetectionService(uow).detect_for_assignment(
-            session_pk=session_pk, placement=placement
-        )
+        try:
+            conflicts = ConflictDetectionService(uow).detect_for_assignment(
+                event_pk=current_event.pk, session_pk=session_pk
+            )
+        except NotFoundError:
+            # A concurrent unassign can remove the placement between the
+            # committed write and this advisory sweep; that is not a failure
+            # of the assignment, so report no conflicts.
+            conflicts = []
 
         trigger_data: dict[str, object] = {"timetableChanged": {}}
         if conflicts:
@@ -391,6 +417,8 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
+    """POST: set confirmation on one scheduled program item."""
+
     request: PanelRequest
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -405,57 +433,12 @@ class TimetableConfirmView(PanelAccessMixin, EventContextMixin, View):
         confirmed_raw = self.request.POST.get("confirmed")
         if confirmed_raw not in {"true", "false"}:
             return HttpResponse(status=422)
-        confirmed = confirmed_raw == "true"
 
         try:
             self.request.services.session_confirmation.set_session_confirmed(
                 event_pk=current_event.pk,
                 agenda_item_pk=agenda_item_pk,
-                confirmed=confirmed,
-            )
-        except NotFoundError:
-            return HttpResponse(status=422)
-
-        response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
-        return response
-
-
-class TimetableConfirmAllView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm every scheduled program item in the event."""
-
-    request: PanelRequest
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        self.request.services.session_confirmation.confirm_all(current_event.pk)
-
-        response = HttpResponse(status=204)
-        response["HX-Trigger"] = json.dumps({"timetableChanged": {}})
-        return response
-
-
-class TimetableConfirmBlockView(PanelAccessMixin, EventContextMixin, View):
-    """POST: confirm every scheduled program item in a single track (block)."""
-
-    request: PanelRequest
-
-    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            track_pk = int(self.request.POST["track_pk"])
-        except KeyError, ValueError:
-            return HttpResponse(status=422)
-
-        try:
-            self.request.services.session_confirmation.confirm_block(
-                event_pk=current_event.pk, track_pk=track_pk
+                confirmed=confirmed_raw == "true",
             )
         except NotFoundError:
             return HttpResponse(status=422)
@@ -486,7 +469,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
         context["track_progress"] = overview.track_progress(current_event.pk)
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "overview"
         return TemplateResponse(self.request, "panel/timetable-overview.html", context)
 
@@ -516,7 +499,7 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["slot_violations"] = slot_violations
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "problems"
         return TemplateResponse(self.request, "panel/timetable-problems.html", context)
 
@@ -550,7 +533,7 @@ class TimetableLogPageView(PanelAccessMixin, EventContextMixin, View):
         context["spaces"] = spaces
         context["space_pk"] = space_pk
         context["slug"] = slug
-        context["tab_urls"] = _timetable_tab_urls(slug)
+        context["tab_urls"] = timetable_tab_urls(slug)
         context["active_tab"] = "log"
         return TemplateResponse(self.request, "panel/timetable-log.html", context)
 

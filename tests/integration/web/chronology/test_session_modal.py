@@ -29,10 +29,10 @@ from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
-    SpaceFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.web.chronology.helpers import make_half_full_session
 
 _TEMPLATE = "chronology/parts/session-modal.html"
 
@@ -105,19 +105,7 @@ def _expected_session_data(
 class TestSessionModalComponentView:
     def test_offered_seats_count_toward_capacity(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        space = SpaceFactory(event=event)
-        session = SessionFactory(event=event, category=None, participants_limit=2)
-        AgendaItemFactory(session=session, space=space)
-        SessionParticipation.objects.create(
-            session=session,
-            user=UserFactory(),
-            status=SessionParticipationStatus.CONFIRMED,
-        )
-        SessionParticipation.objects.create(
-            session=session,
-            user=UserFactory(),
-            status=SessionParticipationStatus.OFFERED,
-        )
+        session = make_half_full_session(event)
 
         response = client.get(_url(event, session.pk))
 
@@ -154,10 +142,19 @@ class TestSessionModalComponentView:
 
         assert_response_404(response)
 
-    def test_unpublished_event_ok_for_manager(
-        self, authenticated_client, active_user, sphere, agenda_item, event
+    def test_unpublished_event_404_for_authenticated_non_manager(
+        self, agenda_item, authenticated_client, event
     ):
-        sphere.managers.add(active_user)
+        event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
+        event.save()
+
+        response = authenticated_client.get(_url(event, agenda_item.session.pk))
+
+        assert_response_404(response)
+
+    def test_unpublished_event_ok_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, agenda_item, event
+    ):
         event.publication_time = datetime.now(tz=UTC) + timedelta(days=1)
         event.save()
 
@@ -171,7 +168,7 @@ class TestSessionModalComponentView:
                 "data": _expected_session_data(
                     agenda_item=agenda_item,
                     session=agenda_item.session,
-                    presenter=active_user,
+                    presenter=panel_access_user,
                     can_edit=True,
                 ),
                 "event": EventDTO.model_validate(event),

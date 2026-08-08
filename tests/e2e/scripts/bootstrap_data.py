@@ -16,31 +16,21 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from urllib.parse import urlparse  # ruff:ignore[module-import-not-at-top-of-file]
+from urllib.parse import urlparse
 
-from django.conf import settings  # ruff:ignore[module-import-not-at-top-of-file]
-from django.contrib.flatpages.models import (  # ruff:ignore[module-import-not-at-top-of-file]
-    FlatPage,
-)
-from django.contrib.sessions.backends.db import (  # ruff:ignore[module-import-not-at-top-of-file]
-    SessionStore,
-)
-from django.contrib.sites.models import (  # ruff:ignore[module-import-not-at-top-of-file]
-    Site,
-)
-from django.core.management import (  # ruff:ignore[module-import-not-at-top-of-file]
-    call_command,
-)
-from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
-from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
-    get_current_timezone,
-)
+from django.conf import settings
+from django.contrib.flatpages.models import FlatPage
+from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sites.models import Site
+from django.core.management import call_command
+from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
     EnrollmentConfig,
@@ -49,17 +39,17 @@ from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at
     Notification,
     ProposalCategory,
     Session,
+    SessionField,
+    SessionFieldOption,
+    SessionFieldRequirement,
     SessionParticipation,
     Space,
     Sphere,
     TimeSlot,
     User,
 )
-from ludamus.pacts import SessionStatus  # ruff:ignore[module-import-not-at-top-of-file]
-from ludamus.pacts.legacy import (  # ruff:ignore[module-import-not-at-top-of-file]
-    NotificationKind,
-    SessionParticipationStatus,
-)
+from ludamus.pacts import SessionStatus
+from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -431,13 +421,36 @@ def _create_anon_proposals_event(sphere: Sphere) -> Event:
         proposals_open=True,
         allow_anonymous_proposals=True,
     )
-    ProposalCategory.objects.create(
+    category = ProposalCategory.objects.create(
         event=event,
         name="Open Mic",
         slug="open-mic",
         min_participants_limit=1,
         max_participants_limit=6,
         durations=["PT1H"],
+    )
+    # Open-ended by nature, so the proposer answers it by writing in: the
+    # write-in flow and the comma hint are exercised here.
+    triggers = SessionField.objects.create(
+        event=event,
+        name="Trigger warnings",
+        question="Any trigger warnings?",
+        slug="triggers",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        is_public=True,
+        icon="exclamation-triangle",
+        order=1,
+    )
+    for order, (value, label) in enumerate(
+        (("violence", "Violence"), ("horror", "Horror"))
+    ):
+        SessionFieldOption.objects.create(
+            field=triggers, value=value, label=label, order=order
+        )
+    SessionFieldRequirement.objects.create(
+        category=category, field=triggers, is_required=False
     )
     return event
 

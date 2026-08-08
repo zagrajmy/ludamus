@@ -1,9 +1,9 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "Edit Session Field" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Edit Session Field" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Edit Session Field" %}
 {% endblock page_title %}
@@ -15,14 +15,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:session-fields' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit"
-                    form="session-field-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "check" class="w-4 h-4 mr-2" %}
-                {% translate "Save" %}
-            </button>
+            {% url 'panel:session-fields' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Save" as save_label %}
+            {% tessera_button save_label form="session-field-form" icon="check" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -81,6 +78,12 @@
                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                                           placeholder="{% translate "One option per line" %}">{{ form.options.value|default:'' }}</textarea>
                                 <p class="mt-1 text-sm text-foreground-muted">{% translate "Enter one option per line." %}</p>
+                                {% translate "Allow multiple selections" as t_is_multiple %}
+                                {% translate "Allow custom values" as t_allow_custom %}
+                                <div class="mt-4 flex flex-col gap-3">
+                                    {% include "components/checkbox-field.html" with name="is_multiple" id="id_is_multiple" label=t_is_multiple checked=form.is_multiple.value only %}
+                                    {% include "components/checkbox-field.html" with name="allow_custom" id="id_allow_custom" label=t_allow_custom checked=form.allow_custom.value only %}
+                                </div>
                             </div>
                         {% endif %}
                         {% if field.field_type != "checkbox" %}
@@ -139,7 +142,7 @@
                     </div>
                 </div>
             </div>
-            <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-6 mt-6">
+            <div class="card p-6 mt-6">
                 <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Categories" %}</h3>
                 <p class="text-sm text-foreground-muted mb-6">{% translate "Select which categories should include this field." %}</p>
                 {% if categories %}

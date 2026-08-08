@@ -1,16 +1,25 @@
 {% load i18n %}
 {% load tessera %}
-<div id="proposal-session-fields"
-     class="space-y-6 break-inside-avoid mb-6">
+{# One grid cell on purpose: hx-swap="outerHTML" needs a real element to #}
+{# replace, so these cards stack together instead of each taking a cell. #}
+<div id="proposal-session-fields" class="space-y-6">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Participants and duration" %}</h3>
+            {# Stacked, not columns: the card sits in a narrow grid column, #}
+            {# where a two-up grid squeezes the duration steppers into a wrap. #}
+            <div class="space-y-4">
+                <div>{% tessera_field form.participants_limit %}</div>
+                <div>{% include "panel/parts/proposal-duration.html" %}</div>
+            </div>
+        </div>
+    </div>
     {% if field_descriptors %}
         <div class="card">
             <div class="card-body">
-                <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Session Fields" %}</h3>
+                <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Session Fields" %}</h3>
                 {% for desc in field_descriptors %}
-                    {% tessera_field desc.bound_field %}
-                    {% if desc.custom_bound_field %}
-                        {% tessera_field desc.custom_bound_field %}
-                    {% endif %}
+                    {% dynamic_field desc.field name_prefix=desc.name_prefix answer=desc.answer %}
                 {% endfor %}
             </div>
         </div>
@@ -18,8 +27,8 @@
     {% if orphan_values %}
         <div class="card">
             <div class="card-body">
-                <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Answers outside this category" %}</h3>
-                <p class="text-sm text-foreground-muted mb-6">
+                <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Answers outside this category" %}</h3>
+                <p class="text-sm text-foreground-muted mb-4">
                     {% blocktranslate trimmed %}
                         This program item has answers to questions its category no longer asks.
                         They stay as they are unless you remove them.
@@ -32,12 +41,9 @@
                                 <p class="text-sm font-medium text-foreground-secondary">{{ orphan.name }}</p>
                                 <p class="text-sm text-foreground break-words">{{ orphan.display_value }}</p>
                             </div>
+                            {% blocktranslate asvar t_remove_field with name=orphan.name %}Remove {{ name }}{% endblocktranslate %}
                             <label class="flex items-center gap-2 text-sm text-foreground-muted shrink-0">
-                                <input type="checkbox"
-                                       name="remove_field_ids"
-                                       value="{{ orphan.field_id }}"
-                                       aria-label="{% blocktranslate with name=orphan.name %}Remove {{ name }}{% endblocktranslate %}"
-                                       class="rounded border-border">
+                                {% include "components/checkbox-field.html" with name="remove_field_ids" value=orphan.field_id aria_label=t_remove_field label="" only %}
                                 {% translate "Remove" %}
                             </label>
                         </li>

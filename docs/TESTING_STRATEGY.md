@@ -25,6 +25,19 @@ qualify. A test that renders a template (`Template(...).render(...)`) or builds
 a form/widget is **not** pure — that is an integration test, regardless of which
 file the helper lives in.
 
+## Helpers keep Arrange-Act-Assert visible
+
+Repeated setup or repeated expected-value construction goes into a module-level
+`_helper`, so each test stays three readable blocks. Extract when a block hides
+which phase a test is in, or when Pylint's `R0801` flags the duplication. One
+helper builds one thing, takes keyword-only arguments named after what varies,
+branches never, and asserts nothing. What the test is about stays at the call
+site: a helper that swallows the value under assertion trades duplication for a
+test that no longer says what it checks. Helpers live in the test module that
+owns them, or in a sibling `helpers.py` once a second module needs them — see
+`tests/integration/web/chronology/helpers.py` and the `_timetable_document` /
+`_one_hour_page` helpers in `test_event_print_page.py`.
+
 ## Unit tests
 
 Cover: mills (public methods and functions), plus pure IO-free helper functions
@@ -126,6 +139,20 @@ Combine related actions per test (apply several filters at once; create then
 edit).
 
 Per-branch context coverage belongs in integration.
+
+The run also measures the client TypeScript: Chromium's V8 coverage is
+collected per test and mapped back through the bundle's inline sourcemaps to
+`src/ludamus/client/src/*.ts`, landing in `coverage-client/lcov.info`. CI
+uploads it to Codecov under the `client` flag, next to the Python report from
+pytest and the same run's Django server.
+
+Read that number as a **ceiling**. V8 reports only the scripts the browser
+loaded, so a module no spec reaches is missing from the report entirely rather
+than counted as uncovered — it leaves the denominator, and the percentage goes
+up. Two more limits: coverage comes from the `page` a test is given, so a test
+that opens its own context via `browser.newContext()` contributes nothing, and
+only Chromium reports at all, so a behaviour covered exclusively by a
+Firefox-only spec reads as uncovered.
 
 ## Migration to the new strategy
 

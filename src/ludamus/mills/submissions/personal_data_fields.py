@@ -2,15 +2,23 @@
 
 from typing import TYPE_CHECKING
 
+from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
 from ludamus.pacts import (
     FacilitatorUpdateData,
     FieldUsageSummary,
     NotFoundError,
+    OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
+from ludamus.pacts.legacy import (
+    PersonalDataFieldCreateData,
+    PersonalDataFieldUpdateData,
+)
 from ludamus.pacts.submissions import (
+    CFPPersonalDataFieldServiceProtocol,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
+    is_empty_answer,
 )
 
 if TYPE_CHECKING:
@@ -20,29 +28,37 @@ if TYPE_CHECKING:
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
-        PersonalDataFieldCreateData,
-        PersonalDataFieldDTO,
         PersonalDataFieldRepositoryProtocol,
-        PersonalDataFieldUpdateData,
         PersonalDataFieldValueData,
-        ProposalCategoryRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
 
 
-class CFPPersonalDataFieldService:
-    """Backoffice operations for an event's personal-data fields."""
+def log_facilitator_changes(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    changes: list[ContentFieldChange],
+) -> None:
+    if changes:
+        log_data: FacilitatorChangeLogData = {
+            "event_id": event_id,
+            "facilitator_id": facilitator_id,
+            "user_id": user_id,
+            "changes": changes,
+        }
+        repo.create(log_data)
 
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        fields: PersonalDataFieldRepositoryProtocol,
-        categories: ProposalCategoryRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._fields = fields
-        self._categories = categories
+
+class CFPPersonalDataFieldService(
+    CFPFieldCategoryService[
+        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO
+    ],
+    CFPPersonalDataFieldServiceProtocol,
+):
+    """Backoffice operations for an event's personal-data fields."""
 
     def list_summaries(self, event_pk: int) -> list[FieldUsageSummary]:
         fields = self._fields.list_by_event(event_pk)
@@ -74,40 +90,8 @@ class CFPPersonalDataFieldService:
             optional_category_pks={pk for pk, req in field_cats.items() if not req},
         )
 
-    def _scope_to_event(
-        self, event_pk: int, category_requirements: dict[int, bool]
-    ) -> dict[int, bool]:
-        # Drop category pks that belong to another event so a tampered
-        # request cannot link this field to a foreign event's categories.
-        valid_pks = {c.pk for c in self._categories.list_by_event(event_pk)}
-        return {pk: req for pk, req in category_requirements.items() if pk in valid_pks}
-
-    def create(
-        self,
-        *,
-        event_pk: int,
-        data: PersonalDataFieldCreateData,
-        category_requirements: dict[int, bool],
-    ) -> PersonalDataFieldDTO:
-        with self._transaction.atomic():
-            field = self._fields.create(event_pk, data)
-            if scoped := self._scope_to_event(event_pk, category_requirements):
-                self._categories.add_field_to_categories(field.pk, scoped)
-        return field
-
-    def update(
-        self,
-        *,
-        event_pk: int,
-        field_slug: str,
-        data: PersonalDataFieldUpdateData,
-        category_requirements: dict[int, bool],
-    ) -> None:
-        field = self._fields.read_by_slug(event_pk, field_slug)
-        scoped = self._scope_to_event(event_pk, category_requirements)
-        with self._transaction.atomic():
-            self._fields.update(field.pk, data)
-            self._categories.set_personal_field_categories(field.pk, scoped)
+    def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
+        self._categories.set_personal_field_categories(field_pk, scoped)
 
     def delete(self, event_pk: int, field_slug: str) -> bool:
         # Returns False when the field is in use by session types.
@@ -119,16 +103,21 @@ class CFPPersonalDataFieldService:
         return True
 
 
-def _is_blank(*, value: str | list[str] | bool | None) -> bool:
+def _means_unset(*, value: str | list[str] | bool | None) -> bool:
+    # Wider than `is_empty_answer`: for the change log an unchecked checkbox
+    # and a missing row are the same non-event, so `False` counts here too.
+    # Storage keeps them apart — `False` is an answer worth a row.
+    if isinstance(value, str):
+        return not value.strip()
     if isinstance(value, list):
         return not value
-    return value in {None, "", False}
+    return value is None or value is False
 
 
-def _diff_personal_data(
+def diff_personal_data(
     *,
     old_by_slug: dict[str, str | list[str] | bool],
-    fields_by_id: dict[int, PersonalDataFieldDTO],
+    fields_by_id: dict[int, OrganizerFieldDTO],
     entries: list[PersonalDataFieldValueData],
 ) -> list[ContentFieldChange]:
     changes: list[ContentFieldChange] = []
@@ -137,7 +126,7 @@ def _diff_personal_data(
             continue
         old = old_by_slug.get(field.slug)
         new = entry["value"]
-        if _is_blank(value=old) and _is_blank(value=new):
+        if _means_unset(value=old) and _means_unset(value=new):
             continue
         if old != new:
             changes.append(
@@ -183,9 +172,32 @@ class PersonalDataFieldValueService:
         fields_by_id = {
             f.pk: f for f in self._personal_data_fields.list_by_event(event_id)
         }
-        return _diff_personal_data(
+        return diff_personal_data(
             old_by_slug=old_by_slug, fields_by_id=fields_by_id, entries=entries
         )
+
+    def _storable(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+    ) -> list[PersonalDataFieldValueData]:
+        # A blank input over a field the facilitator has never answered writes
+        # nothing — no row means "never answered", and an empty row would
+        # claim otherwise. Blanking an answer that exists is a real edit and
+        # is stored, which also stops re-import from refilling it.
+        answered = set(
+            self._personal_data_field_values.list_field_ids_for_facilitator_event(
+                facilitator_id, event_id
+            )
+        )
+        return [
+            entry
+            for entry in entries
+            if entry["field_id"] in answered
+            or not is_empty_answer(value=entry["value"])
+        ]
 
     def _log(
         self,
@@ -195,14 +207,13 @@ class PersonalDataFieldValueService:
         user_id: int | None,
         changes: list[ContentFieldChange],
     ) -> None:
-        if changes:
-            log_data: FacilitatorChangeLogData = {
-                "event_id": event_id,
-                "facilitator_id": facilitator_id,
-                "user_id": user_id,
-                "changes": changes,
-            }
-            self._facilitator_change_logs.create(log_data)
+        log_facilitator_changes(
+            repo=self._facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            changes=changes,
+        )
 
     def update_personal_data(
         self,
@@ -220,8 +231,11 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            if entries:
-                self._personal_data_field_values.save(entries)
+            storable = self._storable(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if storable:
+                self._personal_data_field_values.save(storable)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,
@@ -283,8 +297,11 @@ class PersonalDataFieldValueService:
                     }
                 )
             self._facilitators.update(facilitator_id, data)
-            if entries:
-                self._personal_data_field_values.save(entries)
+            storable = self._storable(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if storable:
+                self._personal_data_field_values.save(storable)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,

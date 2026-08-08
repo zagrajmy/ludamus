@@ -1,9 +1,9 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "Display Settings" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Display Settings" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Event Settings" %}
 {% endblock page_title %}
@@ -12,60 +12,56 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <button type="submit"
-                form="display-settings-form"
-                class="btn btn-primary flex items-center">
-            {% icon "check" class="w-4 h-4 mr-2" %}
-            {% translate "Save" %}
-        </button>
+        {% translate "Save" as save_label %}
+        {% tessera_button save_label form="display-settings-form" icon="check" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
         {% tab_shell "panel/_event_settings_tabs.html" %}
-        {% tab_shell_body %}
-        <form id="display-settings-form"
-              method="post"
-              action="{% url 'panel:event-display-settings' slug=current_event.slug %}"
-              class="max-w-2xl">
-            {% csrf_token %}
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Filterable Session Fields" %}</h3>
-                    <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Select which session fields appear as filters on the public session list." %}
-                    </p>
-                    {% if fields %}
-                        <div class="space-y-3">
-                            {% for field in fields %}
-                                <label class="flex items-center">
-                                    <input type="checkbox"
-                                           name="displayed_session_fields"
-                                           value="{{ field.pk }}"
-                                           {% if field.pk in filterable_field_ids %}checked{% endif %}
-                                           class="rounded border-border text-primary focus:ring-primary">
-                                    <span class="ml-2 text-sm text-foreground-secondary">
-                                        {% if field.icon %}
-                                            {% icon field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
-                                        {% endif %}
-                                        {{ field.name }}
-                                    </span>
-                                </label>
-                            {% endfor %}
+            {% tab_shell_body %}
+                <form id="display-settings-form"
+                      method="post"
+                      action="{% url 'panel:event-display-settings' slug=current_event.slug %}"
+                      class="max-w-2xl">
+                    {% csrf_token %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="text-lg font-semibold text-foreground mb-2">{% translate "Filterable Session Fields" %}</h3>
+                            <p class="text-sm text-foreground-muted mb-6">
+                                {% translate "Select which session fields appear as filters on the public session list." %}
+                            </p>
+                            {% if fields %}
+                                <div class="space-y-3">
+                                    {% for field in fields %}
+                                        <label class="flex items-center">
+                                            <input type="checkbox"
+                                                   name="displayed_session_fields"
+                                                   value="{{ field.pk }}"
+                                                   {% if field.pk in filterable_field_ids %}checked{% endif %}
+                                                   class="rounded border-border text-primary focus:ring-primary">
+                                            <span class="ml-2 text-sm text-foreground-secondary">
+                                                {% if field.icon %}
+                                                    {% icon field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
+                                                {% endif %}
+                                                {{ field.name }}
+                                            </span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-sm text-foreground-muted italic">
+                                    {% translate "No session fields defined. Create session fields in the CFP section first." %}
+                                </p>
+                            {% endif %}
                         </div>
-                    {% else %}
-                        <p class="text-sm text-foreground-muted italic">
-                            {% translate "No session fields defined. Create session fields in the CFP section first." %}
-                        </p>
-                    {% endif %}
-                </div>
-            </div>
-        </form>
-    {% end_tab_shell_body %}
-{% end_tab_shell %}
-{% else %}
-<div class="card p-8 text-center">
-    <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
-</div>
-{% endif %}
+                    </div>
+                </form>
+            {% endtab_shell_body %}
+        {% endtab_shell %}
+    {% else %}
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+        </div>
+    {% endif %}
 {% endblock content %}

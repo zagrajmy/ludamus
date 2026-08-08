@@ -1,16 +1,24 @@
 import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
-import { beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs } from "./harness";
+import {
+  baseUrl,
+  centreOnScreen,
+  createIosHarness,
+  describeNode,
+  hookTimeoutMs,
+  pollUntil,
+  sessionName,
+} from "./harness";
 
 const env = process.env;
-const session = env.SESSION ? `${env.SESSION}-modal` : "zagrajmy-ios-modal-local";
+const session = sessionName("modal");
 const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
 const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
-const preOpenScrollSteps = Number(env.PRE_OPEN_SCROLL_STEPS ?? "8");
+const preOpenScrollSteps = 8;
 
 const {
   client,
@@ -18,15 +26,38 @@ const {
   takeSnapshot,
   snapshotLabels,
   findNodeByLabel,
+  viewportOf,
+  close,
+  wait,
   openUrl,
   prepareDevice,
-  assertPageReady,
-} = await createIosHarness(session);
+  fetchReadyPage,
+} = createIosHarness(session);
 
-const hasVisibleText = async (text: string): Promise<boolean> => {
-  const labels = await snapshotLabels();
-  return labels.some((label) => label.includes(text));
+// `snapshotLabels` reports every label in the tree, including nodes scrolled
+// out of view, so it cannot answer "is this on screen". The runner's `hittable`
+// cannot either — the device run at 69a819a judged the open modal's own
+// heading not hittable while the very next step tapped it; the field reads
+// false inside Safari's web content. A rect centred in the viewport is the
+// check that both survives the device and still fails for content parked
+// below the fold of a modal that no longer sizes itself.
+const showingLabels = async (): Promise<string[]> => {
+  const snapshot = await takeSnapshot();
+  return snapshot.nodes.flatMap((node) =>
+    node.label && node.rect && isNodeInViewport(snapshot, node) ? [node.label] : [],
+  );
 };
+
+// Polling, not sleeping: the modal animates in, and a single snapshot taken
+// mid-animation reports content that is about to be there as missing.
+const waitUntilShowing = async (texts: string[], timeoutMs: number): Promise<boolean> =>
+  (await pollUntil(
+    async () => {
+      const labels = await showingLabels();
+      return texts.every((text) => labels.some((label) => label.includes(text))) || null;
+    },
+    { timeoutMs, intervalMs: 400 },
+  )) ?? false;
 
 const clickNodeCenter = async (node: SnapshotNode): Promise<void> => {
   if (node.rect) {
@@ -44,21 +75,8 @@ const clickNodeReference = async (node: SnapshotNode): Promise<void> => {
   await client.interactions.click({ ...deviceOptions, ref: `@${node.ref}` });
 };
 
-const describeNode = (node: SnapshotNode): string => {
-  const rect = node.rect
-    ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
-    : "";
-  return `${node.type ?? "node"} ref=@${node.ref}${rect} label=${JSON.stringify(
-    node.label ?? node.value ?? "",
-  )}`;
-};
-
-const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean => {
-  if (!node.rect) return false;
-  const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
-  const centerY = node.rect.y + node.rect.height / 2;
-  return centerY >= 80 && centerY <= viewportHeight - 120;
-};
+const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean =>
+  Boolean(node.rect && centreOnScreen(node.rect, viewportOf(snapshot)));
 
 const isHiddenDialogLabel = (node: SnapshotNode): boolean =>
   (node.label ?? "").includes("web dialog");
@@ -98,14 +116,14 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
       snapshot.nodes.find(
         (candidate) => candidate.label === targetTriggerLabel && !isHiddenDialogLabel(candidate),
       ) ?? snapshot.nodes.find(isTargetTitleNode);
-    const viewportHeight = snapshot.nodes[0]?.rect?.height ?? 852;
+    const viewportHeight = viewportOf(snapshot).height;
     const centerY = node?.rect ? node.rect.y + node.rect.height / 2 : viewportHeight;
     await client.interactions.scroll({
       ...deviceOptions,
       direction: centerY > viewportHeight - 120 ? "down" : "up",
       pixels: 450,
     });
-    await client.command.wait({ ...deviceOptions, durationMs: 200 });
+    await wait(200);
   }
 
   throw new Error(`Could not bring ${targetTriggerLabel} into the viewport`);
@@ -114,19 +132,12 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
 const forcePreOpenScroll = async (): Promise<void> => {
   for (let step = 0; step < preOpenScrollSteps; step += 1) {
     await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
-    await client.command.wait({ ...deviceOptions, durationMs: 150 });
+    await wait(150);
   }
 };
 
-const waitForLabel = async (label: string, timeoutMs: number): Promise<SnapshotNode | null> => {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const node = await findNodeByLabel(label);
-    if (node) return node;
-    await client.command.wait({ ...deviceOptions, durationMs: 500 });
-  }
-  return null;
-};
+const waitForLabel = (label: string, timeoutMs: number): Promise<SnapshotNode | null> =>
+  pollUntil(() => findNodeByLabel(label), { timeoutMs });
 
 const eventUrl = new URL(eventPath, baseUrl);
 const modalUrl = new URL(eventUrl);
@@ -141,13 +152,13 @@ let closeIssue: string | null = null;
 let scrollIssue: string | null = null;
 
 beforeAll(async () => {
-  await assertPageReady(eventUrl, targetTitle);
+  await fetchReadyPage(eventUrl, targetTitle);
   const udid = await prepareDevice();
 
   const initialUrl = openViaScrolledPage ? eventUrl : modalUrl;
   console.log(`Opening Safari at ${initialUrl.toString()}...`);
   await openUrl(initialUrl.toString(), udid);
-  await client.command.wait({ ...deviceOptions, durationMs: 3000 });
+  await wait(3000);
 
   let preOpenTriggerLabel: string | null = null;
   let preOpenTriggerY: number | null = null;
@@ -178,9 +189,10 @@ beforeAll(async () => {
   }
 
   console.log("Checking whether modal content is initially visible...");
-  const contentInitiallyVisible =
-    (await hasVisibleText("About this session")) &&
-    (await hasVisibleText("Przygoda w stylu filmu"));
+  const contentInitiallyVisible = await waitUntilShowing(
+    ["About this session", "Przygoda w stylu filmu"],
+    5000,
+  );
   if (!contentInitiallyVisible) {
     contentIssue =
       'Modal content headed by "About this session" / "Przygoda w stylu filmu" is not initially visible.';
@@ -192,14 +204,16 @@ beforeAll(async () => {
     throw new Error("Could not find visible target: Close");
   }
   await clickNodeCenter(closeButton);
-  await client.command.wait({ ...deviceOptions, durationMs: 1000 });
+  await wait(1000);
 
-  if (await hasVisibleText("Close")) {
+  // Closed means gone from the tree, not merely outside the visibility band —
+  // the rect filter here would let a stuck-but-scrolled modal read as closed.
+  if ((await snapshotLabels()).includes("Close")) {
     closeIssue = "The modal X / Close button did not close the modal.";
   }
 
   if (openViaScrolledPage && preOpenTriggerLabel && preOpenTriggerY !== null) {
-    await client.command.wait({ ...deviceOptions, durationMs: 600 });
+    await wait(600);
     const settledSnapshot = await takeSnapshot();
     const settledTrigger = settledSnapshot.nodes.find(
       (node) => node.label === preOpenTriggerLabel && !isHiddenDialogLabel(node),
@@ -217,6 +231,8 @@ beforeAll(async () => {
     }
   }
 }, hookTimeoutMs);
+
+afterAll(close, 30_000);
 
 test("modal content is visible when the session modal opens", () => {
   expect(contentIssue).toBeNull();

@@ -1,9 +1,9 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "New Facilitator" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "New Facilitator" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "New Facilitator" %}
 {% endblock page_title %}
@@ -15,12 +15,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit" form="facilitator-create-form" class="btn btn-primary">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create Facilitator" %}
-            </button>
+            {% url 'panel:facilitators' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Create Facilitator" as create_label %}
+            {% tessera_button create_label form="facilitator-create-form" icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -60,14 +59,15 @@
                                 <p class="mt-1 text-sm text-danger">{{ form.accreditation_type.errors.0 }}</p>
                             {% endif %}
                         </div>
+                        {% tessera_field form.assign_me %}
                     </div>
                 </div>
             </div>
-            {% if personal_fields %}
+            {% if field_descriptors %}
                 <div class="card mt-6">
                     <div class="card-body">
                         <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
-                        {% include "panel/_personal_data_fields.html" with fields=personal_fields name_prefix="personal" %}
+                        {% include "panel/_personal_data_fields.html" with descriptors=field_descriptors %}
                     </div>
                 </div>
             {% endif %}

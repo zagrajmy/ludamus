@@ -218,16 +218,19 @@ class SessionContentEditServiceProtocol(Protocol):
     ) -> None: ...
     def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None: ...
     def list_log(self, event_id: int) -> list[ContentChangeLogDTO]: ...
+    def session_history(
+        self, *, event_id: int, session_id: int
+    ) -> tuple[str, list[ContentChangeLogDTO]]: ...
     def list_field_names(self, event_id: int) -> dict[int, str]: ...
-    def revertible_log_pks(self, event_id: int) -> set[int]: ...
+    def revertible_log_pks(
+        self, event_id: int, logs: list[ContentChangeLogDTO]
+    ) -> set[int]: ...
 
 
 class SessionConfirmationServiceProtocol(Protocol):
     def set_session_confirmed(
         self, event_pk: int, agenda_item_pk: int, *, confirmed: bool
     ) -> None: ...
-    def confirm_all(self, event_pk: int) -> None: ...
-    def confirm_block(self, event_pk: int, track_pk: int) -> None: ...
 
 
 class SessionDeletionServiceProtocol(Protocol):
@@ -252,6 +255,10 @@ class SpaceTimeConflictError(Exception):
     """Another session already occupies that space during the chosen slot."""
 
 
+class ProposalAcceptDeniedError(Exception):
+    """Only sphere managers and superusers may accept proposals."""
+
+
 class ProposalAcceptContextDTO(BaseModel):
     session: SessionDTO
     event: EventDTO
@@ -268,7 +275,13 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         self, *, session_id: int, user_slug: str, sphere_id: int
     ) -> ProposalAcceptContextDTO | None: ...
     def accept_session(
-        self, *, session_id: int, space_id: int, time_slot_id: int
+        self,
+        *,
+        session_id: int,
+        space_id: int,
+        time_slot_id: int,
+        user_slug: str,
+        sphere_id: int,
     ) -> None: ...
 
 
@@ -363,17 +376,21 @@ class SessionModalServiceProtocol(Protocol):
     ) -> SessionModalDTO | None: ...
 
 
-TIMETABLE_ROOM_PAGE_SIZE = 5
-TIMETABLE_SLOT_MINUTES = 60
-TIMETABLE_SNAP_MINUTES = 5
+type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
 
 
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
+    # How tall the block is on this day's column. A session crossing midnight
+    # is clipped to the day it is drawn on and drawn again on the next; its
+    # real length is `agenda_item.session_duration_minutes`.
     duration_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
+    # What the block is warning about, resolved once here so the grid stops
+    # testing the same session against two page-wide sets in four places.
+    state: SessionPositionState = "normal"
 
 
 class TimeLabelDTO(BaseModel):
@@ -398,24 +415,15 @@ class TimetableDayGridDTO(BaseModel):
     date: date
     columns: list[SpaceColumnDTO]
     event_start_iso: str
+    # Each day owns its time axis. Sharing one grid-wide axis would stretch
+    # every column to the union of the days, and a session split at midnight
+    # puts 00:00 on one day and 24:00 on the one before -- a full 24 hours,
+    # mostly empty, on every day of the event.
+    total_minutes: int
+    time_labels: list[TimeLabelDTO]
 
 
 type DateSelection = date | Literal["all"]
-
-
-class TimetableGridDTO(BaseModel):
-    spaces: list[SpaceDTO]
-    groups: list[SpaceGroupDTO]
-    days: list[TimetableDayGridDTO]
-    time_labels: list[TimeLabelDTO]
-    total_minutes: int
-    slot_minutes: int
-    snap_minutes: int
-    page: int
-    total_pages: int
-    total_spaces: int
-    available_dates: list[date] = []
-    date_selection: DateSelection = "all"
 
 
 class ConflictType(StrEnum):
@@ -452,6 +460,23 @@ class ConflictDTO(BaseModel):
     session_limit: int | None = None
     track_name: str | None = None
     manager_names: list[str] = []
+
+
+class TimetableGridDTO(BaseModel):
+    spaces: list[SpaceDTO]
+    groups: list[SpaceGroupDTO]
+    days: list[TimetableDayGridDTO]
+    slot_minutes: int
+    snap_minutes: int
+    page: int
+    total_pages: int
+    total_spaces: int
+    total_columns: int
+    available_dates: list[date] = []
+    date_selection: DateSelection = "all"
+    # The clashes the cards are already coloured for. Carried with the grid so
+    # the page cannot list one set of conflicts while the grid marks another.
+    conflicts: list[ConflictDTO] = []
 
 
 class PreferredSlotRangeDTO(BaseModel):

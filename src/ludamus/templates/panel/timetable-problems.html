@@ -1,97 +1,97 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
-    {% translate "Problems" %} —
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Problems" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Problems" %}
 {% endblock page_title %}
 {% block content %}
     <!-- Timetable sub-page tabs -->
     {% tab_shell "panel/_timetable_tabs.html" %}
-    {% tab_shell_body %}
-    <!-- Conflicts section -->
-    <section class="mb-8">
-        <h2 class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
-        {% if conflicts_grouped %}
-            {% for conflict_type, conflicts in conflicts_grouped.items %}
-                <div class="mb-4 border-l-4 border-danger bg-bg-secondary rounded-lg p-4">
-                    <div class="flex items-center gap-2 text-sm font-medium text-foreground-secondary mb-2">
-                        {% icon "exclamation-triangle" class="w-4 h-4 text-danger" %}
-                        {% if conflict_type == "space_overlap" %}
-                            {% translate "Room overlaps" %}
-                        {% elif conflict_type == "facilitator_overlap" %}
-                            {% translate "Facilitator overlaps" %}
-                        {% elif conflict_type == "capacity_exceeded" %}
-                            {% translate "Capacity exceeded" %}
-                        {% else %}
-                            {{ conflict_type }}
-                        {% endif %}
-                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger text-white">{{ conflicts|length }}</span>
-                    </div>
-                    <div class="space-y-2 pl-6">
-                        {% for conflict in conflicts %}
-                            <div class="text-sm text-foreground-secondary">
-                                {{ conflict.subject_session_title }} —
-                                {% if conflict.type == "space_overlap" %}
-                                    {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}
-                                {% elif conflict.type == "capacity_exceeded" %}
-                                    {% blocktranslate with capacity=conflict.space_capacity limit=conflict.session_limit %}Room fits {{ capacity }} people, session requires {{ limit }}{% endblocktranslate %}
-                                {% elif conflict.type == "facilitator_overlap" %}
-                                    {% blocktranslate with name=conflict.facilitator_name title=conflict.session_title %}{{ name }} facilitates simultaneously: {{ title }}{% endblocktranslate %}
+        {% tab_shell_body %}
+            <!-- Conflicts section -->
+            <section class="mb-8">
+                <h2 class="text-base font-semibold mb-3">{% translate "Conflicts" %}</h2>
+                {% if conflicts_grouped %}
+                    {% for conflict_type, conflicts in conflicts_grouped.items %}
+                        <div class="mb-4 border-l-4 border-danger bg-bg-secondary rounded-lg p-4">
+                            <div class="flex items-center gap-2 text-sm font-medium text-foreground-secondary mb-2">
+                                {% icon "exclamation-triangle" class="w-4 h-4 text-danger" %}
+                                {% if conflict_type == "space_overlap" %}
+                                    {% translate "Room overlaps" %}
+                                {% elif conflict_type == "facilitator_overlap" %}
+                                    {% translate "Facilitator overlaps" %}
+                                {% elif conflict_type == "capacity_exceeded" %}
+                                    {% translate "Capacity exceeded" %}
+                                {% else %}
+                                    {{ conflict_type }}
                                 {% endif %}
-                                {% if conflict.track_name %}
-                                    <span class="text-neutral-400">({% translate "track:" %} {{ conflict.track_name }})</span>
-                                {% endif %}
+                                <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger text-white">{{ conflicts|length }}</span>
+                            </div>
+                            <div class="space-y-2 pl-6">
+                                {% for conflict in conflicts %}
+                                    <div class="text-sm text-foreground-secondary">
+                                        {{ conflict.subject_session_title }} —
+                                        {% if conflict.type == "space_overlap" %}
+                                            {% blocktranslate with title=conflict.session_title %}Room occupied by: {{ title }}{% endblocktranslate %}
+                                        {% elif conflict.type == "capacity_exceeded" %}
+                                            {% blocktranslate with capacity=conflict.space_capacity limit=conflict.session_limit %}Room fits {{ capacity }} people, session requires {{ limit }}{% endblocktranslate %}
+                                        {% elif conflict.type == "facilitator_overlap" %}
+                                            {% blocktranslate with name=conflict.facilitator_name title=conflict.session_title %}{{ name }} facilitates simultaneously: {{ title }}{% endblocktranslate %}
+                                        {% endif %}
+                                        {% if conflict.track_name %}
+                                            <span class="text-neutral-400">({% translate "track:" %} {{ conflict.track_name }})</span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-sm text-success">{% translate "No conflicts." %}</p>
+                {% endif %}
+            </section>
+            <!-- Sessions outside preferred slots section -->
+            <section>
+                <h2 class="text-base font-semibold mb-3">{% translate "Sessions outside preferred slots" %}</h2>
+                {% if slot_violations %}
+                    <div class="space-y-2">
+                        {% for violation in slot_violations %}
+                            <div class="border border-warning bg-warning-bg rounded-lg p-3">
+                                <div class="flex items-start gap-2">
+                                    <span class="text-warning mt-0.5">⏰</span>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-warning-text">{{ violation.session_title }}</div>
+                                        <div class="text-xs text-warning mt-0.5">
+                                            {% blocktranslate with start=violation.scheduled_start|date:"D, M j H:i" end=violation.scheduled_end|time:"H:i" %}Scheduled: {{ start }} – {{ end }}{% endblocktranslate %}
+                                        </div>
+                                        <div class="text-xs text-foreground-muted mt-1">{% translate "Preferred slots:" %}</div>
+                                        <ul class="text-xs text-foreground-muted ml-3 list-disc">
+                                            {% for slot in violation.preferred_slots %}
+                                                <li>{{ slot.start_time|date:"D, M j" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% if violation.track_name %}
+                                            <div class="text-xs text-foreground-muted mt-1">
+                                                {% translate "Track:" %} {{ violation.track_name }}
+                                                {% if violation.manager_names %}
+                                                    ({% translate "managed by:" %} {{ violation.manager_names|join:", " }})
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                        <a class="inline-block mt-2 text-xs underline text-warning hover:text-warning-text"
+                                           href="{% url 'panel:timetable' slug=slug %}">{% translate "Open in Schedule" %}</a>
+                                    </div>
+                                </div>
                             </div>
                         {% endfor %}
                     </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <p class="text-sm text-success">{% translate "No conflicts." %}</p>
-        {% endif %}
-    </section>
-    <!-- Sessions outside preferred slots section -->
-    <section>
-        <h2 class="text-base font-semibold mb-3">{% translate "Sessions outside preferred slots" %}</h2>
-        {% if slot_violations %}
-            <div class="space-y-2">
-                {% for violation in slot_violations %}
-                    <div class="border border-warning bg-warning-bg rounded-lg p-3">
-                        <div class="flex items-start gap-2">
-                            <span class="text-warning mt-0.5">⏰</span>
-                            <div class="flex-1 min-w-0">
-                                <div class="text-sm font-medium text-warning-text">{{ violation.session_title }}</div>
-                                <div class="text-xs text-warning mt-0.5">
-                                    {% blocktranslate with start=violation.scheduled_start|date:"D, M j H:i" end=violation.scheduled_end|time:"H:i" %}Scheduled: {{ start }} – {{ end }}{% endblocktranslate %}
-                                </div>
-                                <div class="text-xs text-foreground-muted mt-1">{% translate "Preferred slots:" %}</div>
-                                <ul class="text-xs text-foreground-muted ml-3 list-disc">
-                                    {% for slot in violation.preferred_slots %}
-                                        <li>{{ slot.start_time|date:"D, M j" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}</li>
-                                    {% endfor %}
-                                </ul>
-                                {% if violation.track_name %}
-                                    <div class="text-xs text-foreground-muted mt-1">
-                                        {% translate "Track:" %} {{ violation.track_name }}
-                                        {% if violation.manager_names %}
-                                            ({% translate "managed by:" %} {{ violation.manager_names|join:", " }})
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
-                                <a class="inline-block mt-2 text-xs underline text-warning hover:text-warning-text"
-                                   href="{% url 'panel:timetable' slug=slug %}">{% translate "Open in Schedule" %}</a>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-sm text-success">{% translate "All scheduled sessions are inside their preferred slots." %}</p>
-        {% endif %}
-    </section>
-{% end_tab_shell_body %}
-{% end_tab_shell %}
+                {% else %}
+                    <p class="text-sm text-success">{% translate "All scheduled sessions are inside their preferred slots." %}</p>
+                {% endif %}
+            </section>
+        {% endtab_shell_body %}
+    {% endtab_shell %}
 {% endblock content %}

@@ -1,3 +1,4 @@
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {# Compact schedule for big events: a dense chronological ledger (or the #}
@@ -26,7 +27,9 @@
                                  id="slot-{{ hour.start|date:'Ymd-H' }}"
                                  data-slot-hour="{{ hour.start|date:'Ymd-H' }}">
                                 <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">{{ hour.start|time:"H:i" }}</div>
-                                <div class="session-grid divide-y divide-border/60">
+                                {# Not divide-y: it draws a stray divider under the last visible #}
+                                {# row when session-filters.ts hides the rows after it (index.css). #}
+                                <div class="session-grid divide-y-visible">
                                     {% for data in hour.sessions %}
                                         {% include "chronology/_compact_session_row.html" %}
                                     {% endfor %}
@@ -46,13 +49,13 @@
         <nav class="schedule-rail sticky top-20 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
              aria-label="{% translate "Jump to time" %}">
             {% for day in schedule_days %}
-                <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.first_start|date:"D" }}</span>
+                <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.day_start|date:"D" }}</span>
                 {% for hour in day.hours %}
                     <a class="schedule-rail-hour block rounded px-1.5 py-px text-center text-xs tabular-nums leading-snug [-webkit-touch-callout:none] hover:text-foreground data-active:bg-white data-active:font-bold data-active:text-coral-600 data-active:ring-1 data-active:ring-inset data-active:ring-coral-300/60 dark:data-active:bg-black dark:data-active:text-coral-400 dark:data-active:ring-coral-700/60"
                        href="#slot-{{ hour.start|date:'Ymd-H' }}"
                        draggable="false"
                        data-rail-hour="{{ hour.start|date:'Ymd-H' }}"
-                       aria-label="{% blocktranslate with time=hour.start|time:'H:i' day=day.first_start|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}">{{ hour.start|time:"H" }}</a>
+                       aria-label="{% blocktranslate with time=hour.start|time:'H:i' day=day.day_start|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}">{{ hour.start|time:"H" }}</a>
                 {% endfor %}
             {% endfor %}
         </nav>
@@ -62,7 +65,7 @@
 {# already parsed, lands before first paint — the deferred module in #}
 {# event-timeline.ts (which saves this key on view-tab clicks) would flash a #}
 {# frame at scrollTop 0 first. #}
-<script>
+<script{% nonce %}>
     (() => {
         const saved = sessionStorage.getItem(`schedule-scroll:${location.pathname}`);
         if (saved === null) return;

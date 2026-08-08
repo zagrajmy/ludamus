@@ -74,7 +74,7 @@ class MissingTemplateVariableFilter(logging.Filter):
         # only need each frame's locals. It fires on every failed template
         # variable lookup, so the waste dominates the test suite.
         frame = inspect.currentframe()
-        while frame is not None:  # pylint: disable=while-used
+        while frame is not None:
             local_self = frame.f_locals.get("self")
             if isinstance(local_self, FilterExpression):
                 var = local_self.var

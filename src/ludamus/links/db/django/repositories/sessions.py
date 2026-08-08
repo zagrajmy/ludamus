@@ -3,12 +3,13 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, Exists, OuterRef, Q, QuerySet
+from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
     AgendaItem,
     Event,
+    Facilitator,
     Session,
     SessionFieldValue,
     SessionParticipationStatus,
@@ -21,7 +22,7 @@ from ludamus.links.db.django.repositories.chronology import (
     location_data,
     session_card_stats,
 )
-from ludamus.links.db.django.repositories.storage import delete_stored_file
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -44,6 +45,7 @@ from ludamus.pacts import (
     SpaceOptionDTO,
     TimeSlotDTO,
     TrackDTO,
+    TrackSessionCountsDTO,
     UnscheduledSessionDTO,
     UnscheduledSessionFilter,
 )
@@ -53,11 +55,34 @@ from ludamus.pacts.chronology import (
     SessionModalSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import ConfirmationSessionRow
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
+
+# Whitelist of sortable proposal columns -> ORM field, mirroring the
+# facilitator list. Anything else falls back to newest first.
+_SESSION_SORT_FIELDS = {
+    "title": "title",
+    "host": "display_name",
+    "category": "category__name",
+    "status": "status",
+    "created": "creation_time",
+}
+_FIELD_SORT_PREFIX = "field_"
+
+
+def _field_sort_pk(key: str) -> int | None:
+    rest = key.removeprefix(_FIELD_SORT_PREFIX)
+    return int(rest) if key.startswith(_FIELD_SORT_PREFIX) and rest.isdigit() else None
+
+
+def _session_order(key: str, *, descending: bool) -> tuple[str, ...]:
+    if not (order_field := _SESSION_SORT_FIELDS.get(key, "")):
+        return ("-creation_time",)
+    return (f"-{order_field}" if descending else order_field, "-pk")
 
 
 def _parse_iso8601_duration_minutes(duration: str) -> int:
@@ -173,9 +198,7 @@ def _session_modal_dto(
     )
 
 
-class SessionRepository(  # ruff:ignore[too-many-public-methods]
-    SessionRepositoryProtocol, SessionModalRepositoryProtocol
-):
+class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtocol):
     @staticmethod
     def read_modal(
         *,
@@ -206,18 +229,34 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         track_ids: Iterable[int] = (),
     ) -> int:
         session = Session.objects.create(**session_data)
+        # add(), not set(): the session is brand new, so there is nothing to
+        # diff against — set() would first read back the (empty) relation,
+        # which turns bulk imports into a query per created session.
         if time_slot_ids:
-            session.time_slots.set(time_slot_ids)
+            session.time_slots.add(*time_slot_ids)
         if facilitator_ids:
-            session.facilitators.set(facilitator_ids)
+            session.facilitators.add(*facilitator_ids)
         if track_ids:
-            session.tracks.set(track_ids)
+            session.tracks.add(*track_ids)
         return session.pk
 
     @staticmethod
     def read(pk: int) -> SessionDTO:
         try:
             session = Session.objects.select_related("category").get(id=pk)
+        except Session.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return SessionDTO.model_validate(session)
+
+    @staticmethod
+    def read_by_event(pk: int, event_id: int) -> SessionDTO:
+        # Scoped read: a session belonging to another event — or to no event,
+        # because its category was cleared — is NotFound, not somebody else's
+        # proposal to read or edit.
+        try:
+            session = Session.objects.select_related("category").get(
+                id=pk, category__event_id=event_id
+            )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
         return SessionDTO.model_validate(session)
@@ -248,12 +287,7 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             session = Session.objects.get(id=pk)
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
-        old_cover = session.cover_image.name
-        for key, value in data.items():
-            setattr(session, key, value)
-        session.save(update_fields=list(data.keys()))
-        if old_cover and old_cover != session.cover_image.name:
-            delete_stored_file(session.cover_image, old_cover)
+        save_replacing_files(session, data)
 
     @staticmethod
     def soft_delete(pk: int) -> None:
@@ -498,6 +532,22 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         return [field_value_dto(v) for v in values]
 
     @staticmethod
+    def list_field_values_for_sessions(
+        session_ids: list[int], field_ids: list[int]
+    ) -> dict[int, dict[str, str | list[str] | bool]]:
+        # Batch load for the proposals list: one query for the current page's
+        # sessions across the chosen columns, keyed by session_id.
+        if not session_ids or not field_ids:
+            return {}
+        records = SessionFieldValue.objects.filter(
+            session_id__in=session_ids, field_id__in=field_ids
+        ).select_related("field")
+        result: dict[int, dict[str, str | list[str] | bool]] = {}
+        for record in records:
+            result.setdefault(record.session_id, {})[record.field.slug] = record.value
+        return result
+
+    @staticmethod
     def delete_field_values_for_fields(session_id: int, field_ids: list[int]) -> int:
         if not field_ids:
             return 0
@@ -546,7 +596,8 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         if search:
             encoded = json.dumps(search)[1:-1]
             qs = qs.filter(
-                Q(display_name__icontains=search)
+                Q(title__icontains=search)
+                | Q(display_name__icontains=search)
                 | Q(presenter__name__icontains=search)
                 | Q(field_values__value__icontains=search)
                 | Q(field_values__value__icontains=encoded)
@@ -560,6 +611,26 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
                 _track_count__gt=1
             )
 
+        sort = filters.get("sort") or ""
+        sort_key = sort.removeprefix("-")
+        if (field_pk := _field_sort_pk(sort_key)) is not None:
+            # A `field_<pk>` column sorts by its stored answer, pulled in with a
+            # correlated subquery. JSON values order by their text form — good
+            # enough to line up near-duplicate entries.
+            qs = qs.annotate(
+                _sort_value=Subquery(
+                    SessionFieldValue.objects.filter(
+                        session_id=OuterRef("pk"), field_id=field_pk
+                    ).values("value")[:1]
+                )
+            )
+            order: tuple[str, ...] = (
+                "-_sort_value" if sort.startswith("-") else "_sort_value",
+                "-pk",
+            )
+        else:
+            order = _session_order(sort_key, descending=sort.startswith("-"))
+
         return [
             SessionListItemDTO(
                 pk=s.pk,
@@ -570,8 +641,75 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
             )
-            for s in qs.order_by("-creation_time")
+            for s in qs.order_by(*order)
         ]
+
+    @staticmethod
+    def list_confirmation_rows(
+        event_pk: int, facilitator_pks: list[int]
+    ) -> list[ConfirmationSessionRow]:
+        # One row per (facilitator, session) pair — the page groups by
+        # facilitator, so the fan-out is the shape it wants. Placed sessions
+        # sort first, chronologically; the rest fall back to their title.
+        rows = (
+            Session.objects.filter(event_id=event_pk, facilitators__in=facilitator_pks)
+            .values(
+                "pk",
+                "title",
+                "status",
+                "contact_email",
+                "category__name",
+                "facilitators__pk",
+                "agenda_item__pk",
+                "agenda_item__session_confirmed",
+                "agenda_item__start_time",
+                "agenda_item__end_time",
+                "agenda_item__space__name",
+            )
+            .order_by(F("agenda_item__start_time").asc(nulls_last=True), "title", "pk")
+        )
+        return [
+            ConfirmationSessionRow(
+                facilitator_pk=row["facilitators__pk"],
+                session_pk=row["pk"],
+                title=row["title"],
+                status=SessionStatus(row["status"]),
+                contact_email=row["contact_email"],
+                category_name=row["category__name"] or "",
+                agenda_item_pk=row["agenda_item__pk"],
+                is_confirmed=bool(row["agenda_item__session_confirmed"]),
+                start_time=row["agenda_item__start_time"],
+                end_time=row["agenda_item__end_time"],
+                room_name=row["agenda_item__space__name"] or "",
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def list_track_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]:
+        names: dict[int, dict[int, str]] = {}
+        rows = Track.objects.filter(sessions__in=session_pks).values_list(
+            "sessions__pk", "pk", "name"
+        )
+        for session_pk, track_pk, name in rows:
+            names.setdefault(session_pk, {})[track_pk] = name
+        return names
+
+    @staticmethod
+    def list_facilitator_names_by_session(
+        session_pks: list[int],
+    ) -> dict[int, dict[int, str]]:
+        names: dict[int, dict[int, str]] = {}
+        rows = (
+            Facilitator.objects.filter(sessions__in=session_pks)
+            .order_by("display_name")
+            .values_list("sessions__pk", "pk", "display_name")
+        )
+        for session_pk, facilitator_pk, name in rows:
+            names.setdefault(session_pk, {})[facilitator_pk] = name
+        return names
 
     @staticmethod
     def read_track_ids(session_id: int) -> list[int]:
@@ -605,8 +743,29 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
         session.time_slots.set(time_slot_ids)
 
     @staticmethod
-    def clear_field_values(session_id: int) -> None:
-        SessionFieldValue.objects.filter(session_id=session_id).delete()
+    def read_facilitators_by_sessions(
+        session_ids: Iterable[int],
+    ) -> dict[int, list[FacilitatorDTO]]:
+        ids = list(session_ids)
+        rows = (
+            Session.facilitators.through.objects.filter(session_id__in=ids)
+            .select_related("facilitator")
+            .order_by("facilitator__display_name")
+        )
+        result: dict[int, list[FacilitatorDTO]] = {sid: [] for sid in ids}
+        for row in rows:
+            result[row.session_id].append(
+                FacilitatorDTO.model_validate(row.facilitator)
+            )
+        return result
+
+    @staticmethod
+    def read_participants_limits(session_ids: Iterable[int]) -> dict[int, int]:
+        return dict(
+            Session.objects.filter(pk__in=session_ids).values_list(
+                "pk", "participants_limit"
+            )
+        )
 
     @staticmethod
     def read_facilitators(session_id: int) -> list[FacilitatorDTO]:
@@ -616,6 +775,42 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
         return [FacilitatorDTO.model_validate(f) for f in session.facilitators.all()]
+
+    @staticmethod
+    def count_by_track(event_id: int) -> dict[int, TrackSessionCountsDTO]:
+        rows = (
+            Session.objects.filter(category__event_id=event_id, tracks__isnull=False)
+            .values("tracks__pk")
+            .annotate(
+                pending=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.PENDING)
+                ),
+                accepted=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ACCEPTED)
+                ),
+                scheduled=Count(
+                    "pk",
+                    distinct=True,
+                    filter=Q(status=SessionStatus.ACCEPTED, agenda_item__isnull=False),
+                ),
+                on_hold=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.ON_HOLD)
+                ),
+                rejected=Count(
+                    "pk", distinct=True, filter=Q(status=SessionStatus.REJECTED)
+                ),
+            )
+        )
+        return {
+            row["tracks__pk"]: TrackSessionCountsDTO(
+                pending=row["pending"],
+                accepted=row["accepted"],
+                scheduled=row["scheduled"],
+                on_hold=row["on_hold"],
+                rejected=row["rejected"],
+            )
+            for row in rows
+        }
 
     @staticmethod
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:

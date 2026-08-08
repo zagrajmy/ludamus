@@ -12,15 +12,17 @@ import json
 import re
 import sys
 from contextlib import suppress
-from itertools import starmap
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from defusedxml import DefusedXmlException
-from defusedxml import ElementTree as DefusedElementTree
+from lxml import etree
 
 if TYPE_CHECKING:
-    from xml.etree.ElementTree import Element
+    from lxml.etree import _Element as Element
+
+# libxml2 caps entity amplification (no billion laughs); unresolved entities
+# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
+SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 CONTRAST_WHITE_MIN = 3.0  # WCAG 1.4.11 graphics minimum vs white ground
 CONTRAST_DARK_MIN = 4.5  # white-logo variant gate vs dark ground
@@ -63,8 +65,7 @@ Finding = dict[str, str]
 
 
 def srgb_to_lin(channel: int) -> float:
-    scaled = channel / 255.0
-    if scaled <= SRGB_LINEAR_CUTOFF:
+    if (scaled := channel / 255.0) <= SRGB_LINEAR_CUTOFF:
         return scaled / 12.92
     return float(((scaled + 0.055) / 1.055) ** 2.4)
 
@@ -81,16 +82,13 @@ def contrast(rgb_a: Rgb, rgb_b: Rgb) -> float:
 
 def parse_color(value: str) -> Rgb | None:
     value = value.strip().lower()
-    short = re.fullmatch(r"#([0-9a-f]{3})", value)
-    if short:
+    if short := re.fullmatch(r"#([0-9a-f]{3})", value):
         red, green, blue = (int(char * 2, 16) for char in short.group(1))
         return (red, green, blue)
-    full = re.fullmatch(r"#([0-9a-f]{6})", value)
-    if full:
+    if full := re.fullmatch(r"#([0-9a-f]{6})", value):
         digits = full.group(1)
         return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16))
-    functional = re.fullmatch(r"rgb\((\d+),\s*(\d+),\s*(\d+)\)", value)
-    if functional:
+    if functional := re.fullmatch(r"rgb\((\d+),\s*(\d+),\s*(\d+)\)", value):
         red, green, blue = (min(int(group), 255) for group in functional.groups())
         return (red, green, blue)
     return None
@@ -98,6 +96,11 @@ def parse_color(value: str) -> Rgb | None:
 
 def local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
+
+
+def hex_color(rgb: Rgb) -> str:
+    red, green, blue = rgb
+    return f"#{red:02x}{green:02x}{blue:02x}"
 
 
 def _finding(lint_id: str, severity: str, msg: str) -> Finding:
@@ -114,8 +117,7 @@ def _canvas_size(root: Element) -> float | None:
 def _forbidden_tag_findings(tags: list[str]) -> list[Finding]:
     findings = []
     for bad, lint_id, msg in FORBIDDEN_TAGS:
-        count = tags.count(bad)
-        if count:
+        if count := tags.count(bad):
             findings.append(_finding(lint_id, "error", f"{msg}: {count}x <{bad}>"))
     return findings
 
@@ -127,8 +129,7 @@ def _own_paint(element: Element, attr: str) -> str:
         for key, _, value in (part.partition(":") for part in style.split(";"))
         if value
     }
-    styled = declarations.get(attr, "")
-    if styled:  # inline style beats the presentation attribute
+    if styled := declarations.get(attr, ""):  # inline style beats the attribute
         return styled
     return (element.get(attr) or "").strip()
 
@@ -147,20 +148,19 @@ def _ink_colors(root: Element) -> set[Rgb]:
         for attr in ("fill", "stroke"):
             own = _own_paint(element, attr)
             paints[attr] = inherited[attr] if not own or own == "inherit" else own
-        if local_name(element.tag) in SHAPE_TAGS:
+        if local_name(str(element.tag)) in SHAPE_TAGS:
             for paint in paints.values():
                 rgb = parse_color(paint)
                 if rgb and rgb != WHITE:
                     inks.add(rgb)
-        stack.extend((child, paints) for child in element)
+        stack.extend((child, paints) for child in element.iterchildren(etree.Element))
     return inks
 
 
 def _stroke_widths(elements: list[Element]) -> list[float]:
     widths = []
     for element in elements:
-        raw = element.get("stroke-width")
-        if raw:
+        if raw := element.get("stroke-width"):
             with suppress(ValueError):
                 widths.append(float(raw))
     return widths
@@ -176,8 +176,7 @@ def _node_count(elements: list[Element]) -> int:
 def _primitive_dims(element: Element) -> list[float]:
     dims = []
     for attr in ("width", "height", *RADIUS_ATTRS):
-        raw = element.get(attr)
-        if raw:
+        if raw := element.get(attr):
             with suppress(ValueError):
                 factor = 2 if attr in RADIUS_ATTRS else 1
                 dims.append(float(raw) * factor)
@@ -202,7 +201,7 @@ def _tiny_features(elements: list[Element], canvas: float | None) -> list[str]:
         return []
     tiny = []
     for element in elements:
-        tag = local_name(element.tag)
+        tag = local_name(str(element.tag))
         if tag in SIZED_SHAPES:
             dims = _primitive_dims(element)
         elif tag == "path":
@@ -217,23 +216,21 @@ def _tiny_features(elements: list[Element], canvas: float | None) -> list[str]:
 def _contrast_findings(inks: set[Rgb]) -> list[Finding]:
     findings = []
     for rgb in sorted(inks):
-        hex_color = "#{:02x}{:02x}{:02x}".format(*rgb)
-        vs_white = contrast(rgb, WHITE)
-        if vs_white < CONTRAST_WHITE_MIN:
+        ink = hex_color(rgb)
+        if (vs_white := contrast(rgb, WHITE)) < CONTRAST_WHITE_MIN:
             findings.append(
                 _finding(
                     "contrast-white",
                     "warn",
-                    f"{hex_color} vs white {vs_white:.1f}:1 (< {CONTRAST_WHITE_MIN}:1)",
+                    f"{ink} vs white {vs_white:.1f}:1 (< {CONTRAST_WHITE_MIN}:1)",
                 )
             )
-        vs_dark = contrast(rgb, DARK_REF)
-        if vs_dark < CONTRAST_DARK_MIN:
+        if (vs_dark := contrast(rgb, DARK_REF)) < CONTRAST_DARK_MIN:
             findings.append(
                 _finding(
                     "contrast-dark",
                     "info",
-                    f"{hex_color} vs #171717 {vs_dark:.1f}:1 - weak in dark"
+                    f"{ink} vs #171717 {vs_dark:.1f}:1 - weak in dark"
                     f" mode (white-logo gate is {CONTRAST_DARK_MIN}:1)",
                 )
             )
@@ -285,23 +282,17 @@ def _shape_findings(
 
 def lint_file(path: Path) -> dict[str, Any]:
     try:
-        raw = path.read_text(encoding="utf-8", errors="replace")
-        root = DefusedElementTree.fromstring(raw)
-    except (
-        OSError,
-        DefusedElementTree.ParseError,
-        DefusedXmlException,
-        ValueError,
-    ) as exc:
+        root = etree.fromstring(path.read_bytes(), SVG_PARSER)
+    except (OSError, etree.XMLSyntaxError, ValueError) as exc:
         return {"file": str(path), "error": f"not parseable SVG: {exc}"}
-    if local_name(root.tag) != "svg":
+    if local_name(str(root.tag)) != "svg":
         return {"file": str(path), "error": "not an SVG document"}
 
-    elements = list(root.iter())
+    elements = list(root.iter(etree.Element))
     inks = _ink_colors(root)
     node_count = _node_count(elements)
     findings = [
-        *_forbidden_tag_findings([local_name(e.tag) for e in elements]),
+        *_forbidden_tag_findings([local_name(str(e.tag)) for e in elements]),
         *_shape_findings(
             inks=inks,
             stroke_widths=_stroke_widths(elements),
@@ -313,7 +304,7 @@ def lint_file(path: Path) -> dict[str, Any]:
     errors = [finding for finding in findings if finding["severity"] == "error"]
     return {
         "file": str(path),
-        "inks": list(starmap("#{:02x}{:02x}{:02x}".format, sorted(inks))),
+        "inks": [hex_color(rgb) for rgb in sorted(inks)],
         "path_nodes": node_count,
         "findings": findings,
         "gate_failures": [finding["id"] for finding in errors],
@@ -322,8 +313,7 @@ def lint_file(path: Path) -> dict[str, Any]:
 
 
 def main() -> None:
-    paths = sys.argv[1:]
-    if not paths:
+    if not (paths := sys.argv[1:]):
         sys.exit(__doc__)
     for path in paths:
         sys.stdout.write(json.dumps(lint_file(Path(path)), indent=2) + "\n")

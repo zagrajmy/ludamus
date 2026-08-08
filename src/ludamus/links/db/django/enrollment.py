@@ -10,12 +10,14 @@ reads and participation mutations.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from ludamus.links.db.django.companions import active_companions, sponsors_by_member
 from ludamus.links.db.django.models import (
     DomainEnrollmentConfig,
+    EnrollmentConfig,
     Event,
     Session,
     SessionParticipation,
@@ -28,11 +30,14 @@ from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.enrollment import (
     UNLIMITED_SLOTS,
     AnonymousEnrollmentRepositoryProtocol,
+    AnonymousEnrollmentWindowSnapshot,
     AnonymousEventDTO,
     AnonymousLoadDTO,
     AnonymousSeatingDTO,
-    AnonymousSessionContextDTO,
+    AnonymousSessionDTO,
     EnrollmentParticipationRepositoryProtocol,
+    EnrollmentWindowDTO,
+    EnrollmentWindowRepositoryProtocol,
     OfferDTO,
     PromotionStateDTO,
     WaitingParticipantDTO,
@@ -46,9 +51,46 @@ from ludamus.pacts.legacy import (
 
 if TYPE_CHECKING:
 
-    from ludamus.pacts.enrollment import GuestSeatData, HeldSeatData
+    from ludamus.pacts.enrollment import (
+        EnrollmentWindowData,
+        GuestSeatData,
+        HeldSeatData,
+    )
 
 _DEFAULT_OFFER_WINDOW = timedelta(hours=24)
+
+
+class EnrollmentWindowRepository(EnrollmentWindowRepositoryProtocol):
+    def __init__(self) -> None:
+        self._windows = EnrollmentConfig.objects
+
+    def list_for_event(self, event_id: int) -> list[EnrollmentWindowDTO]:
+        windows = self._windows.filter(event_id=event_id).order_by("start_time", "pk")
+        return [EnrollmentWindowDTO.model_validate(window) for window in windows]
+
+    def read(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None:
+        window = self._windows.filter(event_id=event_id, pk=pk).first()
+        return EnrollmentWindowDTO.model_validate(window) if window else None
+
+    def create(self, event_id: int, data: EnrollmentWindowData) -> EnrollmentWindowDTO:
+        window = self._windows.create(event_id=event_id, **data.model_dump())
+        return EnrollmentWindowDTO.model_validate(window)
+
+    def update(
+        self, *, event_id: int, pk: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO | None:
+        updated = self._windows.filter(event_id=event_id, pk=pk).update(
+            **data.model_dump()
+        )
+        if not updated:
+            return None
+        return EnrollmentWindowDTO.model_validate(
+            self._windows.get(event_id=event_id, pk=pk)
+        )
+
+    def delete(self, event_id: int, pk: int) -> bool:
+        deleted, _details = self._windows.filter(event_id=event_id, pk=pk).delete()
+        return deleted > 0
 
 
 class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtocol):
@@ -75,6 +117,9 @@ class EnrollmentParticipationRepository(EnrollmentParticipationRepositoryProtoco
         )
 
 
+logger = logging.getLogger(__name__)
+
+
 class ParticipationPromotionRepository:
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         try:
@@ -84,16 +129,22 @@ class ParticipationPromotionRepository:
             session = (
                 Session.objects.select_for_update(of=("self",))
                 .select_related("category", "agenda_item", "event")
+                .prefetch_related("event__enrollment_configs")
                 .get(id=session_id)
             )
         except Session.DoesNotExist:
+            logger.info("Session %s is gone, so nobody can be promoted", session_id)
             return None
         # Promotion only applies to scheduled sessions (those with an agenda item).
         if not hasattr(session, "agenda_item"):
+            logger.info("Session %s is not on the timetable yet", session_id)
             return None
         event = session.event
 
         if (config := event.get_most_liberal_config(session)) is None:
+            logger.info(
+                "Session %s sits outside every active enrollment window", session_id
+            )
             return None
 
         category = session.category
@@ -380,19 +431,28 @@ class ParticipationPromotionRepository:
         ).delete()
 
 
+def _enrollment_window_snapshots(
+    configs: list[EnrollmentConfig],
+) -> list[AnonymousEnrollmentWindowSnapshot]:
+    return [
+        AnonymousEnrollmentWindowSnapshot.model_validate(config) for config in configs
+    ]
+
+
 class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
     @staticmethod
     def read_event(event_slug: str) -> AnonymousEventDTO:
         try:
-            event = Event.objects.get(slug=event_slug)
+            event = Event.objects.prefetch_related("enrollment_configs").get(
+                slug=event_slug
+            )
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
         return AnonymousEventDTO(
             event_id=event.pk,
             slug=event.slug,
-            allows_anonymous_enrollment=any(
-                config.allow_anonymous_enrollment
-                for config in event.get_active_enrollment_configs()
+            active_windows=_enrollment_window_snapshots(
+                event.get_active_enrollment_configs()
             ),
         )
 
@@ -403,25 +463,29 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
     @staticmethod
     def read_session(
         *, session_id: int, event_slug: str, site_id: int
-    ) -> AnonymousSessionContextDTO:
+    ) -> AnonymousSessionDTO:
         try:
-            session = Session.objects.select_related("event").get(
-                id=session_id, event__slug=event_slug, event__sphere__site_id=site_id
+            session = (
+                Session.objects.select_related("event", "agenda_item__space")
+                .prefetch_related("event__enrollment_configs")
+                .get(
+                    id=session_id,
+                    event__slug=event_slug,
+                    event__sphere__site_id=site_id,
+                )
             )
         except Session.DoesNotExist as exception:
             raise NotFoundError from exception
         event = session.event
         has_agenda_item = hasattr(session, "agenda_item")
-        return AnonymousSessionContextDTO(
+        return AnonymousSessionDTO(
             session_id=session.pk,
             event_id=event.pk,
             event_slug=event.slug,
             has_agenda_item=has_agenda_item,
-            allows_anonymous_enrollment=has_agenda_item
-            and any(
-                config.allow_anonymous_enrollment
-                and config.is_session_eligible(session)
-                for config in event.get_active_enrollment_configs()
+            participants_limit=session.participants_limit,
+            eligible_windows=_enrollment_window_snapshots(
+                event.get_eligible_enrollment_configs(session)
             ),
             title=session.title,
             display_name=session.display_name,
@@ -429,7 +493,6 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
             min_age=session.min_age,
             enrolled_count=session.enrolled_count,
             waiting_count=session.waiting_count,
-            effective_participants_limit=session.effective_participants_limit,
             space_name=session.agenda_item.space.name if has_agenda_item else None,
             start_time=session.agenda_item.start_time if has_agenda_item else None,
             end_time=session.agenda_item.end_time if has_agenda_item else None,
@@ -453,8 +516,19 @@ class AnonymousEnrollmentRepository(AnonymousEnrollmentRepositoryProtocol):
 
     @staticmethod
     def lock_seating(session_id: int) -> AnonymousSeatingDTO:
-        session = Session.objects.select_for_update(of=("self",)).get(id=session_id)
-        return AnonymousSeatingDTO(is_full=session.is_full, title=session.title)
+        session = (
+            Session.objects.select_for_update(of=("self",))
+            .select_related("event")
+            .get(id=session_id)
+        )
+        return AnonymousSeatingDTO(
+            title=session.title,
+            participants_limit=session.participants_limit,
+            enrolled_count=session.enrolled_count,
+            eligible_windows=_enrollment_window_snapshots(
+                session.event.get_eligible_enrollment_configs(session)
+            ),
+        )
 
     @staticmethod
     def create_or_confirm(*, session_id: int, user_id: int) -> None:

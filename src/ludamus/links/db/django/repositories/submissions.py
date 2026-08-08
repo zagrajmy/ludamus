@@ -1,10 +1,14 @@
 import json
 from typing import Literal, cast
 
-from django.db.models import Count, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.db.models import Count, F, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
+from ludamus.links.db.django.agenda_item import (
+    confirmed_item_count,
+    scheduled_item_count,
+)
 from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
@@ -31,9 +35,9 @@ from ludamus.pacts import (
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
     NotFoundError,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     PersonalDataFieldCreateData,
-    PersonalDataFieldDTO,
-    PersonalDataFieldOptionDTO,
     PersonalDataFieldRepositoryProtocol,
     PersonalDataFieldUpdateData,
     PersonalDataFieldValueData,
@@ -43,8 +47,6 @@ from ludamus.pacts import (
     ProposalCategoryDTO,
     ProposalCategoryRepositoryProtocol,
     SessionFieldCreateData,
-    SessionFieldDTO,
-    SessionFieldOptionDTO,
     SessionFieldRepositoryProtocol,
     SessionFieldRequirementDTO,
     SessionFieldUpdateData,
@@ -52,6 +54,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TimeSlotRequirementDTO,
 )
+from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationFacilitatorRow
 from ludamus.pacts.submissions import (
     FacilitatorListFilters,
     ImportLogEntryCreateData,
@@ -70,7 +73,49 @@ _FACILITATOR_SORT_FIELDS = {
     "accreditation": "accreditation_type",
     "sessions": "session_count",
     "linked": "user_id",
+    "organizer": "organizer__name",
 }
+
+
+def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
+    # Personal-data fields carry no icon, so the DTO's empty default stands.
+    return _field_dto(field, icon="")
+
+
+def _session_field_dto(field: SessionField) -> OrganizerFieldDTO:
+    return _field_dto(field, icon=field.icon)
+
+
+def _field_dto(
+    field: PersonalDataField | SessionField, *, icon: str
+) -> OrganizerFieldDTO:
+    # One builder for both tables: they hang off different owners but every
+    # column downstream of here is the same, so a column added to one and
+    # forgotten in the other can't silently fall back to a DTO default.
+    return OrganizerFieldDTO(
+        allow_custom=field.allow_custom,
+        field_type=cast("_FieldType", field.field_type),
+        help_text=field.help_text,
+        icon=icon,
+        is_multiple=field.is_multiple,
+        is_public=field.is_public,
+        max_length=field.max_length,
+        name=field.name,
+        options=[
+            OrganizerFieldOptionDTO.model_validate(option)
+            for option in field.options.all()
+        ],
+        order=field.order,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
+
+
+def _readable_facilitators() -> QuerySet[Facilitator]:
+    # Every single-facilitator read carries the organizer's name, so a page
+    # that shows it needs no second lookup through the user repo.
+    return Facilitator.objects.annotate(organizer_name=F("organizer__name"))
 
 
 def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
@@ -123,9 +168,7 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         settings.save(update_fields=["description"])
 
 
-class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
-    ProposalCategoryRepositoryProtocol
-):
+class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
         base_slug = slugify(name)
         slug = self.generate_unique_slug(event_id, base_slug)
@@ -159,6 +202,8 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
         "durations",
         "min_participants_limit",
         "max_participants_limit",
+        "promotion_mode",
+        "offer_claim_window",
     )
 
     def update(self, pk: int, data: ProposalCategoryData) -> ProposalCategoryDTO:
@@ -326,52 +371,6 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
             )
 
     @staticmethod
-    def add_field_to_categories(field_id: int, categories: dict[int, bool]) -> None:
-        """Add a personal data field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                PersonalDataFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            PersonalDataFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
-    def add_session_field_to_categories(
-        field_id: int, categories: dict[int, bool]
-    ) -> None:
-        """Add a session field to multiple categories.
-
-        Args:
-            field_id: The field to add.
-            categories: Dict mapping category_id to is_required boolean.
-        """
-        for category_id, is_required in categories.items():
-            max_order = (
-                SessionFieldRequirement.objects.filter(
-                    category_id=category_id
-                ).aggregate(Max("order"))["order__max"]
-                or 0
-            )
-            SessionFieldRequirement.objects.create(
-                category_id=category_id,
-                field_id=field_id,
-                is_required=is_required,
-                order=max_order + 1,
-            )
-
-    @staticmethod
     def get_personal_field_categories(field_id: int) -> dict[int, bool]:
         reqs = PersonalDataFieldRequirement.objects.filter(field_id=field_id)
         return {req.category_id: req.is_required for req in reqs}
@@ -489,32 +488,12 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
             )
             .order_by("order", "field__name")
         )
-        result = []
-        for req in requirements:
-            field = req.field
-            options = [
-                PersonalDataFieldOptionDTO.model_validate(o)
-                for o in field.options.all()
-            ]
-            field_dto = PersonalDataFieldDTO(
-                allow_custom=field.allow_custom,
-                field_type=cast("_FieldType", field.field_type),
-                help_text=field.help_text,
-                is_multiple=field.is_multiple,
-                is_public=field.is_public,
-                name=field.name,
-                options=options,
-                order=field.order,
-                pk=field.pk,
-                question=field.question,
-                slug=field.slug,
+        return [
+            PersonalFieldRequirementDTO(
+                field=_personal_field_dto(req.field), is_required=req.is_required
             )
-            result.append(
-                PersonalFieldRequirementDTO(
-                    field=field_dto, is_required=req.is_required
-                )
-            )
-        return result
+            for req in requirements
+        ]
 
     @staticmethod
     def list_session_field_requirements(
@@ -531,31 +510,12 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
             )
             .order_by("order", "field__name")
         )
-        result = []
-        for req in requirements:
-            field = req.field
-            options = [
-                SessionFieldOptionDTO.model_validate(o) for o in field.options.all()
-            ]
-            field_dto = SessionFieldDTO(
-                allow_custom=field.allow_custom,
-                field_type=cast("_FieldType", field.field_type),
-                help_text=field.help_text,
-                icon=field.icon,
-                is_multiple=field.is_multiple,
-                is_public=field.is_public,
-                max_length=field.max_length,
-                name=field.name,
-                options=options,
-                order=field.order,
-                pk=field.pk,
-                question=field.question,
-                slug=field.slug,
+        return [
+            SessionFieldRequirementDTO(
+                field=_session_field_dto(req.field), is_required=req.is_required
             )
-            result.append(
-                SessionFieldRequirementDTO(field=field_dto, is_required=req.is_required)
-            )
-        return result
+            for req in requirements
+        ]
 
     @staticmethod
     def list_time_slot_requirements(category_id: int) -> list[TimeSlotRequirementDTO]:
@@ -587,7 +547,7 @@ class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
 class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
     def create(
         self, event_id: int, data: PersonalDataFieldCreateData
-    ) -> PersonalDataFieldDTO:
+    ) -> OrganizerFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
         base_slug = data.get("slug") or slugify(data["name"])
@@ -660,13 +620,13 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
             for row in rows
         }
 
-    def list_by_event(self, event_id: int) -> list[PersonalDataFieldDTO]:
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
         fields = PersonalDataField.objects.filter(event_id=event_id).prefetch_related(
             "options"
         )
         return [self._to_dto(f) for f in fields]
 
-    def read_by_slug(self, event_id: int, slug: str) -> PersonalDataFieldDTO:
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         try:
             field = PersonalDataField.objects.prefetch_related("options").get(
                 event_id=event_id, slug=slug
@@ -676,9 +636,7 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
 
         return self._to_dto(field)
 
-    def update(
-        self, pk: int, data: PersonalDataFieldUpdateData
-    ) -> PersonalDataFieldDTO:
+    def update(self, pk: int, data: PersonalDataFieldUpdateData) -> OrganizerFieldDTO:
         try:
             field = PersonalDataField.objects.prefetch_related("options").get(pk=pk)
         except PersonalDataField.DoesNotExist as exc:
@@ -693,6 +651,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         field.max_length = data["max_length"]
         field.help_text = data["help_text"]
         field.is_public = data["is_public"]
+        field.is_multiple = (
+            data["is_multiple"] if field.field_type == "select" else False
+        )
+        field.allow_custom = (
+            data["allow_custom"] if field.field_type == "select" else False
+        )
         field.save()
 
         options = data["options"]
@@ -717,28 +681,12 @@ class PersonalDataFieldRepository(PersonalDataFieldRepositoryProtocol):
         )
 
     @staticmethod
-    def _to_dto(field: PersonalDataField) -> PersonalDataFieldDTO:
-        options = [
-            PersonalDataFieldOptionDTO.model_validate(o) for o in field.options.all()
-        ]
-        return PersonalDataFieldDTO(
-            allow_custom=field.allow_custom,
-            field_type=cast("_FieldType", field.field_type),
-            help_text=field.help_text,
-            is_multiple=field.is_multiple,
-            is_public=field.is_public,
-            max_length=field.max_length,
-            name=field.name,
-            options=options,
-            order=field.order,
-            pk=field.pk,
-            question=field.question,
-            slug=field.slug,
-        )
+    def _to_dto(field: PersonalDataField) -> OrganizerFieldDTO:
+        return _personal_field_dto(field)
 
 
 class SessionFieldRepository(SessionFieldRepositoryProtocol):
-    def create(self, event_id: int, data: SessionFieldCreateData) -> SessionFieldDTO:
+    def create(self, event_id: int, data: SessionFieldCreateData) -> OrganizerFieldDTO:
         field_type = data["field_type"]
         options = data["options"]
         base_slug = data.get("slug") or slugify(data["name"])
@@ -811,13 +759,13 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
             for row in rows
         }
 
-    def list_by_event(self, event_id: int) -> list[SessionFieldDTO]:
+    def list_by_event(self, event_id: int) -> list[OrganizerFieldDTO]:
         fields = SessionField.objects.filter(event_id=event_id).prefetch_related(
             "options"
         )
         return [self._to_dto(f) for f in fields]
 
-    def read_by_slug(self, event_id: int, slug: str) -> SessionFieldDTO:
+    def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         try:
             field = SessionField.objects.prefetch_related("options").get(
                 event_id=event_id, slug=slug
@@ -827,7 +775,7 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
 
         return self._to_dto(field)
 
-    def update(self, pk: int, data: SessionFieldUpdateData) -> SessionFieldDTO:
+    def update(self, pk: int, data: SessionFieldUpdateData) -> OrganizerFieldDTO:
         try:
             field = SessionField.objects.prefetch_related("options").get(pk=pk)
         except SessionField.DoesNotExist as exc:
@@ -843,6 +791,12 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         field.help_text = data["help_text"]
         field.icon = data["icon"]
         field.is_public = data["is_public"]
+        field.is_multiple = (
+            data["is_multiple"] if field.field_type == "select" else False
+        )
+        field.allow_custom = (
+            data["allow_custom"] if field.field_type == "select" else False
+        )
         field.save()
 
         options = data["options"]
@@ -867,23 +821,8 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         )
 
     @staticmethod
-    def _to_dto(field: SessionField) -> SessionFieldDTO:
-        options = [SessionFieldOptionDTO.model_validate(o) for o in field.options.all()]
-        return SessionFieldDTO(
-            allow_custom=field.allow_custom,
-            field_type=cast("_FieldType", field.field_type),
-            help_text=field.help_text,
-            icon=field.icon,
-            is_multiple=field.is_multiple,
-            is_public=field.is_public,
-            max_length=field.max_length,
-            name=field.name,
-            options=options,
-            order=field.order,
-            pk=field.pk,
-            question=field.question,
-            slug=field.slug,
-        )
+    def _to_dto(field: SessionField) -> OrganizerFieldDTO:
+        return _session_field_dto(field)
 
 
 class FacilitatorRepository(FacilitatorRepositoryProtocol):
@@ -895,7 +834,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def read(pk: int) -> FacilitatorDTO:
         try:
-            facilitator = Facilitator.objects.get(pk=pk)
+            facilitator = _readable_facilitators().get(pk=pk)
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
@@ -903,7 +842,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO:
         try:
-            facilitator = Facilitator.objects.get(event_id=event_id, slug=slug)
+            facilitator = _readable_facilitators().get(event_id=event_id, slug=slug)
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
@@ -911,10 +850,24 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO:
         try:
-            facilitator = Facilitator.objects.get(user_id=user_id, event_id=event_id)
+            facilitator = _readable_facilitators().get(
+                user_id=user_id, event_id=event_id
+            )
         except Facilitator.DoesNotExist as exc:
             raise NotFoundError from exc
         return FacilitatorDTO.model_validate(facilitator)
+
+    @staticmethod
+    def find_id_by_ident(event_id: int, ident: str) -> int | None:
+        return (
+            Facilitator.objects.filter(event_id=event_id, ident=ident)
+            .values_list("id", flat=True)
+            .first()
+        )
+
+    @staticmethod
+    def set_ident(pk: int, ident: str) -> None:
+        Facilitator.objects.filter(id=pk).update(ident=ident)
 
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO:
@@ -933,7 +886,8 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
         qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions", distinct=True)
+            session_count=Count("sessions", distinct=True),
+            organizer_name=F("organizer__name"),
         )
 
         if search := filters.get("search"):
@@ -956,6 +910,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         if filters.get("flagged"):
             qs = qs.filter(flagged_for_deletion=True)
 
+        if filters.get("organizer_unassigned"):
+            qs = qs.filter(organizer__isnull=True)
+        elif organizer_id := filters.get("organizer_id"):
+            qs = qs.filter(organizer_id=organizer_id)
+
         for field_id, value in (filters.get("field_filters") or {}).items():
             # Each condition is its own join, so different fields AND together.
             qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
@@ -964,8 +923,97 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
 
     @staticmethod
+    def list_by_slugs(
+        event_id: int, facilitator_slugs: list[str]
+    ) -> list[FacilitatorListItemDTO]:
+        if not facilitator_slugs:
+            return []
+        facilitators = Facilitator.objects.filter(
+            event_id=event_id, slug__in=facilitator_slugs
+        ).annotate(session_count=Count("sessions", distinct=True))
+        by_slug = {f.slug: f for f in facilitators}
+        # The caller's order is the answer's order; a slug this event doesn't
+        # have drops out rather than raising.
+        return [
+            FacilitatorListItemDTO.model_validate(by_slug[slug])
+            for slug in facilitator_slugs
+            if slug in by_slug
+        ]
+
+    @staticmethod
+    def count_confirmations_by_organizer(event_pk: int) -> list[ConfirmationCountsRow]:
+        # Grouping by organizer folds every unclaimed facilitator into a single
+        # `organizer_id=None` row — the backlog nobody took on.
+        rows = (
+            Facilitator.objects.filter(event_id=event_pk)
+            .values("organizer_id", "organizer__name")
+            .annotate(
+                facilitator_count=Count("pk", distinct=True),
+                scheduled_count=scheduled_item_count(),
+                confirmed_count=confirmed_item_count(),
+            )
+            .order_by("organizer__name")
+        )
+        return [
+            ConfirmationCountsRow(
+                key=row["organizer_id"],
+                name=row["organizer__name"] or "",
+                facilitator_count=row["facilitator_count"],
+                scheduled_count=row["scheduled_count"],
+                confirmed_count=row["confirmed_count"],
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def list_with_scheduled_session_in_track(
+        event_pk: int, track_pk: int
+    ) -> list[ConfirmationFacilitatorRow]:
+        # Who the block makes this organizer responsible for: at least one
+        # session of theirs is both in the block and placed in the timetable.
+        rows = (
+            Facilitator.objects.filter(
+                event_id=event_pk,
+                sessions__tracks=track_pk,
+                sessions__agenda_item__isnull=False,
+            )
+            .values("pk", "display_name", "slug", "organizer_id", "organizer__name")
+            .distinct()
+            .order_by("display_name", "pk")
+        )
+        return [
+            ConfirmationFacilitatorRow(
+                pk=row["pk"],
+                display_name=row["display_name"],
+                slug=row["slug"],
+                organizer_id=row["organizer_id"],
+                organizer_name=row["organizer__name"] or "",
+            )
+            for row in rows
+        ]
+
+    @staticmethod
     def set_flag(pk: int, *, flagged: bool) -> None:
         Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
+
+    @staticmethod
+    def claim(pk: int, organizer_id: int) -> bool:
+        # Conditional update, so two organizers clicking at the same moment
+        # cannot both win: the loser's UPDATE matches no row.
+        return bool(
+            Facilitator.objects.filter(pk=pk, organizer__isnull=True).update(
+                organizer_id=organizer_id
+            )
+        )
+
+    @staticmethod
+    def release(pk: int, *, organizer_id: int | None) -> bool:
+        # `organizer_id=None` releases whoever holds it — the superuser escape
+        # for an organizer who has left.
+        qs = Facilitator.objects.filter(pk=pk, organizer__isnull=False)
+        if organizer_id is not None:
+            qs = qs.filter(organizer_id=organizer_id)
+        return bool(qs.update(organizer=None))
 
     @staticmethod
     def delete(pk: int) -> None:

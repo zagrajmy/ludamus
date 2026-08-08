@@ -6,7 +6,7 @@
 {% load markdown_tags %}
 {% load django_vite %}
 {% block title %}
-    {% translate "Enrollment" %} - {{ session.title }}
+    {% translate "Enrollment" %} • {{ session.title }}
 {% endblock title %}
 {% block header_section %}
 {% endblock header_section %}
@@ -149,7 +149,8 @@
                                         <span class="min-w-0 flex-1">
                                             <span class="block font-medium truncate">
                                                 {% if row.user.pk == request.user.pk %}
-                                                    {% translate "You" %}{% if row.user.full_name %} · {{ row.user.full_name }}{% endif %}
+                                                    {% translate "You" %}
+                                                    {% if row.user.full_name %}· {{ row.user.full_name }}{% endif %}
                                                 {% else %}
                                                     {{ row.user.full_name }}
                                                 {% endif %}

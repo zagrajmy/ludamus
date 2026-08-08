@@ -3,9 +3,9 @@
 {% load tessera %}
 {% load cfp_tags %}
 {% load django_vite %}
-{% block title_prefix %}
-    {% translate "Proposals" %} -
-{% endblock title_prefix %}
+{% block title %}
+    {% translate "Proposals" %}
+{% endblock title %}
 {% block page_title %}
     {% translate "Proposals" %}
 {% endblock page_title %}
@@ -17,35 +17,39 @@
 {% block header_actions %}
     {% if current_event %}
         {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
-        {% translate "Create Session" as t_create %}
+        {% translate "New Proposal" as t_create %}
         {% tessera_button t_create href=create_url icon="plus" %}
         {% url 'panel:content-log' slug=current_event.slug as log_url %}
         {% translate "Activity Log" as t_log %}
         {% tessera_button t_log href=log_url variant="secondary" icon="clock" %}
     {% endif %}
     {% if all_tracks %}
-        <form method="get" class="flex items-center gap-2 flex-shrink-0">
-            {% for field in session_fields %}
-                <input type="hidden"
-                       name="field_{{ field.pk }}"
-                       value="{{ filter_fields|get_item:field.pk }}">
-            {% endfor %}
-            {% if filter_search %}
-                <input type="hidden" name="search" value="{{ filter_search }}">
-            {% endif %}
-            {% if filter_status %}
-                <input type="hidden" name="status" value="{{ filter_status }}">
-            {% endif %}
-            {% if filter_category_pk %}
-                <input type="hidden" name="category" value="{{ filter_category_pk }}">
-            {% endif %}
+        <form method="get"
+              data-autosubmit
+              class="flex items-center gap-2 flex-shrink-0">
+            {# The other filters ride along as hidden inputs. They live in their #}
+            {# own element so the results swap can replace them out of band —    #}
+            {# swapping the form itself would drop its autosubmit listener.      #}
+            <div id="track-form-filters" class="contents">
+                {% for field in session_fields %}
+                    <input type="hidden"
+                           name="field_{{ field.pk }}"
+                           value="{{ filter_fields|get_item:field.pk }}">
+                {% endfor %}
+                {% if filter_search %}
+                    <input type="hidden" name="search" value="{{ filter_search }}">
+                {% endif %}
+                <input type="hidden" name="status" value="{{ filter_status_value }}">
+                {% if filter_category_pk %}
+                    <input type="hidden" name="category" value="{{ filter_category_pk }}">
+                {% endif %}
+            </div>
             <label for="track-scope"
                    class="text-xs text-foreground-muted whitespace-nowrap hidden sm:inline">
                 {% translate "Track" %}
             </label>
             <select id="track-scope"
                     name="track"
-                    onchange="this.form.submit()"
                     class="px-3 py-1.5 border border-border rounded-lg text-sm bg-bg-secondary text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">{% translate "All tracks" %}</option>
                 <option value="multi" {% if filter_track_multi %}selected{% endif %}>{% translate "Multiple tracks" %}</option>
@@ -62,293 +66,277 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="p-4">
+    <div class="p-3 sm:p-4">
         {% if current_event %}
-            <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-4 mb-6">
-                <form method="get"
-                      id="proposals-filter-form"
-                      data-autosubmit
-                      hx-get=""
-                      hx-target="#proposals-results"
-                      hx-select="#proposals-results"
-                      hx-swap="outerHTML"
-                      hx-push-url="true"
-                      hx-indicator="#filter-spinner"
-                      class="flex flex-wrap gap-4 items-end">
-                    <input type="hidden" name="track" value="{{ filter_track_value }}">
-                    <div class="w-full sm:w-48 min-w-0">
-                        <label for="filter-search"
-                               title="{% translate "Search" %}"
-                               class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                            {% translate "Search" %}
-                        </label>
-                        <input type="text"
-                               id="filter-search"
-                               name="search"
-                               value="{{ filter_search }}"
-                               placeholder="{% translate "Search by facilitator or field values" %}"
-                               class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
-                    </div>
-                    {% if categories %}
-                        <div class="w-full sm:w-48 min-w-0">
-                            <label for="filter-category"
-                                   title="{% translate "Category" %}"
-                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                                {% translate "Category" %}
-                            </label>
-                            <select id="filter-category"
-                                    name="category"
-                                    class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                                <option value="">{% translate "All categories" %}</option>
-                                {% for c in categories %}
-                                    <option value="{{ c.pk }}"
-                                            {% if filter_category_pk == c.pk %}selected{% endif %}>{{ c.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    {% endif %}
-                    <div class="w-full sm:w-48 min-w-0">
-                        <label for="filter-status"
-                               title="{% translate "Status" %}"
-                               class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                            {% translate "Status" %}
-                        </label>
-                        <select id="filter-status"
-                                name="status"
-                                class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                            <option value="" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
-                            {% for s, label in statuses %}
-                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% for field in session_fields %}
-                        <div class="w-full sm:w-48 min-w-0">
-                            <label for="filter-field-{{ field.pk }}"
-                                   title="{{ field.name }}"
-                                   class="block text-xs font-medium text-foreground-muted mb-1 truncate">
-                                {{ field.name }}
-                            </label>
-                            {% if field.field_type == "select" %}
-                                <select id="filter-field-{{ field.pk }}"
-                                        name="field_{{ field.pk }}"
-                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
-                                    <option value="">—</option>
-                                    {% for option in field.options %}
-                                        <option value="{{ option.value }}"
-                                                {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
-                                            {{ option.label }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            {% elif field.field_type == "checkbox" %}
-                                <input type="checkbox"
-                                       id="filter-field-{{ field.pk }}"
-                                       name="field_{{ field.pk }}"
-                                       value="true"
-                                       {% if filter_fields|get_item:field.pk %}checked{% endif %}
-                                       class="filter-input rounded border-border">
-                            {% else %}
+            {% tab_shell "panel/_proposal_tabs.html" %}
+                {% tab_shell_body %}
+                    <div class="card p-4 mb-6">
+                        <form method="get"
+                              id="proposals-filter-form"
+                              data-autosubmit
+                              hx-get=""
+                              hx-target="#proposals-results"
+                              hx-select="#proposals-results"
+                              hx-swap="outerHTML"
+                              {# The track form sits outside the swapped results and #}
+                              {# carries the other filters as hidden inputs, so they #}
+                              {# have to come back fresh or it replays a stale query. #}
+                              hx-select-oob="#track-form-filters"
+                              hx-push-url="true"
+                              hx-indicator="#filter-spinner"
+                              class="flex flex-wrap gap-4 items-end">
+                            <input type="hidden" name="track" value="{{ filter_track_value }}">
+                            {% if filter_sort %}<input type="hidden" name="sort" value="{{ filter_sort }}">{% endif %}
+                            <div class="w-full sm:w-48 min-w-0">
+                                <label for="filter-search"
+                                       title="{% translate "Search" %}"
+                                       class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                    {% translate "Search" %}
+                                </label>
                                 <input type="text"
-                                       id="filter-field-{{ field.pk }}"
-                                       name="field_{{ field.pk }}"
-                                       value="{{ filter_fields|get_item:field.pk }}"
+                                       id="filter-search"
+                                       name="search"
+                                       value="{{ filter_search }}"
+                                       placeholder="{% translate "Search by title, facilitator or field values" %}"
                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
+                            </div>
+                            {% if categories %}
+                                <div class="w-full sm:w-48 min-w-0">
+                                    <label for="filter-category"
+                                           title="{% translate "Category" %}"
+                                           class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                        {% translate "Category" %}
+                                    </label>
+                                    <select id="filter-category"
+                                            name="category"
+                                            class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                        <option value="">{% translate "All categories" %}</option>
+                                        {% for c in categories %}
+                                            <option value="{{ c.pk }}"
+                                                    {% if filter_category_pk == c.pk %}selected{% endif %}>{{ c.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                             {% endif %}
-                        </div>
-                    {% endfor %}
-                    <div class="flex items-center gap-2">
-                        <button type="submit" class="sr-only">{% translate "Filter" %}</button>
-                        <span id="filter-spinner"
-                              class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
-                              role="status"
-                              aria-label="{% translate "Filtering" %}"></span>
-                        <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-                           class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
-                    </div>
-                </form>
-            </div>
-            {% vite_asset 'src/filter-autosubmit.ts' %}
-            {% vite_asset 'src/bulk-status.ts' %}
-            <div id="proposals-results">
-                {% if proposals %}
-                    <form method="post"
-                          action="{% url 'panel:proposal-bulk-status' slug=current_event.slug %}"
-                          id="bulk-status-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <div class="flex flex-wrap items-center gap-2 mb-3">
-                            <span class="text-sm text-foreground-muted mr-1">
-                                {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
-                            </span>
-                            <span class="text-sm text-foreground-muted">{% translate "Set status:" %}</span>
-                            <button type="submit"
-                                    name="action"
-                                    value="accept"
-                                    class="btn btn-primary text-sm bulk-action-btn">{% translate "Accept" %}</button>
-                            <button type="submit"
-                                    name="action"
-                                    value="hold"
-                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Hold" %}</button>
-                            <button type="submit"
-                                    name="action"
-                                    value="pending"
-                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Move to pending" %}</button>
-                            <button type="submit"
-                                    name="action"
-                                    value="reject"
-                                    class="btn btn-danger text-sm bulk-action-btn">{% translate "Reject" %}</button>
-                        </div>
-                        {% tessera_table %}
-                        <thead class="bg-bg-tertiary">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 w-12">
-                                    <input type="checkbox"
-                                           id="bulk-select-all"
-                                           aria-label="{% translate "Select all proposals" %}"
-                                           class="rounded border-border">
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Title" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Display Name" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Category" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            <div class="w-full sm:w-48 min-w-0">
+                                <label for="filter-status"
+                                       title="{% translate "Status" %}"
+                                       class="block text-xs font-medium text-foreground-muted mb-1 truncate">
                                     {% translate "Status" %}
-                                </th>
-                                <th scope="col"
-                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                                    {% translate "Created" %}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-bg-secondary divide-y divide-border">
-                            {% for proposal in proposals %}
-                                <tr>
-                                    <td class="px-6 py-4">
+                                </label>
+                                <select id="filter-status"
+                                        name="status"
+                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                    <option value="all" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
+                                    <optgroup label="{% translate "Not on the timetable" %}">
+                                        {% for s, label in statuses %}
+                                            {% if s != "scheduled" %}
+                                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+                                    <optgroup label="{% translate "On the timetable" %}">
+                                        {% for s, label in statuses %}
+                                            {% if s == "scheduled" %}
+                                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </optgroup>
+                                </select>
+                            </div>
+                            {% for field in session_fields %}
+                                <div class="w-full sm:w-48 min-w-0">
+                                    <label for="filter-field-{{ field.pk }}"
+                                           title="{{ field.name }}"
+                                           class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                        {{ field.name }}
+                                    </label>
+                                    {% if field.field_type == "select" %}
+                                        <select id="filter-field-{{ field.pk }}"
+                                                name="field_{{ field.pk }}"
+                                                class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                            <option value="">—</option>
+                                            {% for option in field.options %}
+                                                <option value="{{ option.value }}"
+                                                        {% if filter_fields|get_item:field.pk == option.value %}selected{% endif %}>
+                                                    {{ option.label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    {% elif field.field_type == "checkbox" %}
                                         <input type="checkbox"
-                                               name="proposal_ids"
-                                               value="{{ proposal.pk }}"
-                                               aria-label="{% blocktranslate with title=proposal.title %}Select {{ title }}{% endblocktranslate %}"
-                                               class="bulk-row-checkbox rounded border-border">
-                                    </td>
-                                    <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
-                                        <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}"
-                                           class="text-primary hover:text-primary/80">{{ proposal.title }}</a>
-                                    </td>
-                                    <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
-                                        title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ proposal.category_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                        {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=proposal.is_scheduled %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
-                                        {{ proposal.creation_time|date:"d M Y H:i" }}
-                                    </td>
-                                </tr>
+                                               id="filter-field-{{ field.pk }}"
+                                               name="field_{{ field.pk }}"
+                                               value="true"
+                                               {% if filter_fields|get_item:field.pk %}checked{% endif %}
+                                               class="filter-input rounded border-border">
+                                    {% else %}
+                                        <input type="text"
+                                               id="filter-field-{{ field.pk }}"
+                                               name="field_{{ field.pk }}"
+                                               value="{{ filter_fields|get_item:field.pk }}"
+                                               class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm">
+                                    {% endif %}
+                                </div>
                             {% endfor %}
-                        </tbody>
-                    {% end_tessera_table %}
-                </form>
-                {% if page_obj.paginator.num_pages > 1 %}
-                    <div class="flex items-center justify-between mt-4 text-sm">
-                        <span class="text-foreground-muted">
-                            {% blocktranslate with page=page_obj.number total=page_obj.paginator.num_pages %}
-                            Page {{ page }} of {{ total }}
-                        {% endblocktranslate %}
-                        </span>
-                        <div class="flex items-center gap-2">
-                            {% if page_obj.has_previous %}
-                                <a href="{% querystring page=page_obj.previous_page_number %}"
-                                   class="btn btn-secondary text-sm">{% translate "Previous" %}</a>
-                            {% endif %}
-                            {% if page_obj.has_next %}
-                                <a href="{% querystring page=page_obj.next_page_number %}"
-                                   class="btn btn-secondary text-sm">{% translate "Next" %}</a>
-                            {% endif %}
-                        </div>
+                            <div class="flex items-center gap-2">
+                                <button type="submit" class="sr-only">{% translate "Filter" %}</button>
+                                <span id="filter-spinner"
+                                      class="htmx-indicator h-4 w-4 rounded-full border-2 border-border border-t-primary motion-safe:animate-spin"
+                                      role="status"
+                                      aria-label="{% translate "Filtering" %}"></span>
+                                <a href="{% url 'panel:proposals' slug=current_event.slug %}?status=all"
+                                   class="px-4 py-2 text-foreground-muted hover:text-foreground-secondary text-sm">{% translate "Clear" %}</a>
+                            </div>
+                        </form>
                     </div>
-                {% endif %}
-            {% else %}
-                <div class="card p-8 text-center">
-                    {% if filter_search or filter_status or filter_category_pk or filter_track_pk or filter_fields.values|join:"" %}
-                        <p class="text-foreground-muted">{% translate "No proposals match the current filters." %}</p>
-                    {% else %}
-                        <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
-                        {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
-                        {% translate "Create Session" as t_create %}
-                        {% tessera_button t_create href=create_url icon="plus" %}
-                    {% endif %}
-                </div>
-            {% endif %}
-        </div>
-        {% if deleted_proposals %}
-            <h2 class="mt-8 mb-3 text-sm font-semibold text-foreground-muted uppercase tracking-wider">
-                {% translate "Recently deleted" %}
-            </h2>
-            {% tessera_table %}
-            <thead class="bg-bg-tertiary">
-                <tr>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Title" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Display Name" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Status" %}
-                    </th>
-                    <th scope="col"
-                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                        {% translate "Actions" %}
-                    </th>
-                </tr>
-            </thead>
-            <tbody class="bg-bg-secondary divide-y divide-border">
-                {% for proposal in deleted_proposals %}
-                    <tr>
-                        <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ proposal.title }}</td>
-                        <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
-                            title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            {% if proposal.status == "pending" %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
-                                    {% translate "Pending" %}
-                                </span>
-                            {% elif proposal.status == "rejected" %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
-                                    {% translate "Rejected" %}
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    {% vite_asset 'src/filter-autosubmit.ts' %}
+                    {% vite_asset 'src/bulk-status.ts' %}
+                    <div id="proposals-results">
+                        {% if proposals %}
                             <form method="post"
-                                  action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}">
+                                  action="{% url 'panel:proposal-bulk-status' slug=current_event.slug %}"
+                                  id="bulk-status-form">
                                 {% csrf_token %}
-                                {% translate "Restore" as restore_label %}
-                                {% tessera_button restore_label variant="secondary" %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <div class="flex flex-wrap items-center gap-2 mb-3">
+                                    <span class="text-sm text-foreground-muted mr-1">
+                                        {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
+                                    </span>
+                                    <span class="text-sm text-foreground-muted">{% translate "Set status:" %}</span>
+                                    <button type="submit"
+                                            name="action"
+                                            value="accept"
+                                            class="btn btn-primary text-sm bulk-action-btn">{% translate "Accept" %}</button>
+                                    <button type="submit"
+                                            name="action"
+                                            value="hold"
+                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Hold" %}</button>
+                                    <button type="submit"
+                                            name="action"
+                                            value="pending"
+                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Move to pending" %}</button>
+                                    <button type="submit"
+                                            name="action"
+                                            value="reject"
+                                            class="btn btn-danger text-sm bulk-action-btn">{% translate "Reject" %}</button>
+                                </div>
+                                {% tessera_table %}
+                                    <thead class="bg-bg-tertiary">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 w-12">
+                                                {% translate "Select all proposals" as t_select_all %}
+                                                {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
+                                            </th>
+                                            {% for column in columns %}
+                                                {% include "panel/parts/_sort_th.html" with column=column.key label=column.label %}
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-bg-secondary divide-y divide-border">
+                                        {% for proposal in proposals %}
+                                            <tr>
+                                                <td class="px-6 py-4">
+                                                    {% blocktranslate asvar t_select_row with title=proposal.title %}Select {{ title }}{% endblocktranslate %}
+                                                    {% include "components/checkbox-field.html" with name="proposal_ids" value=proposal.pk aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
+                                                </td>
+                                                {% for column in columns %}
+                                                    {% with value=column_values|get_item:proposal.pk|get_item:column.key %}
+                                                        {# The first column carries the link to the proposal, whichever column the organizer put there. #}
+                                                        <td class="px-6 py-4 max-w-xs truncate text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
+                                                            title="{{ value }}">
+                                                            {% if forloop.first %}
+                                                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}?next={{ request.get_full_path|urlencode }}"
+                                                                   aria-label="{{ proposal.title }}"
+                                                                   class="text-primary hover:text-primary/80">
+                                                                    {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}
+                                                                </a>
+                                                            {% else %}
+                                                                {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}
+                                                            {% endif %}
+                                                        </td>
+                                                    {% endwith %}
+                                                {% endfor %}
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                {% endtessera_table %}
                             </form>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        {% end_tessera_table %}
-    {% endif %}
-{% else %}
-    <div class="bg-bg-secondary rounded-2xl shadow-sm border border-border p-8 text-center">
-        <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+                            {% include "panel/parts/_pagination.html" %}
+                        {% else %}
+                            <div class="card p-8 text-center">
+                                {# The pending default means an empty page no longer proves an #}
+                                {# empty event, so ask the event's own count which state to show. #}
+                                {% if stats.total_proposals %}
+                                    <p class="text-foreground-muted mb-4">{% translate "No proposals match the current filters." %}</p>
+                                    {% if filter_status %}
+                                        {% querystring status="all" as all_statuses_url %}
+                                        {% translate "Show all statuses" as t_all_statuses %}
+                                        {% tessera_button t_all_statuses href=all_statuses_url variant="secondary" %}
+                                    {% endif %}
+                                {% else %}
+                                    <p class="text-foreground-muted mb-4">{% translate "No proposals submitted yet." %}</p>
+                                    {% url 'panel:proposal-create' slug=current_event.slug as create_url %}
+                                    {% translate "New Proposal" as t_create %}
+                                    {% tessera_button t_create href=create_url icon="plus" %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if deleted_proposals %}
+                        <h2 class="mt-8 mb-3 text-sm font-semibold text-foreground-muted uppercase tracking-wider">
+                            {% translate "Recently deleted" %}
+                        </h2>
+                        {% tessera_table %}
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Title" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Display Name" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Status" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Actions" %}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-bg-secondary divide-y divide-border">
+                                {% for proposal in deleted_proposals %}
+                                    <tr>
+                                        <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ proposal.title }}</td>
+                                        <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
+                                            title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=False %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                            <form method="post"
+                                                  action="{% url 'panel:proposal-restore' slug=current_event.slug proposal_id=proposal.pk %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                {% translate "Restore" as restore_label %}
+                                                {% tessera_button restore_label variant="secondary" %}
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        {% endtessera_table %}
+                    {% endif %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        {% endif %}
     </div>
-{% endif %}
-</div>
 {% endblock content %}

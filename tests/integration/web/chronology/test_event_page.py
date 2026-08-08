@@ -19,7 +19,11 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
     build_display_field_row,
 )
-from ludamus.gates.web.django.chronology.schedule import ScheduleDay, ScheduleHour
+from ludamus.gates.web.django.chronology.schedule import (
+    ScheduleDay,
+    ScheduleHour,
+    ScheduleTile,
+)
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
@@ -35,6 +39,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
+from ludamus.mills.timeslots import local_day_windows
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
@@ -56,6 +61,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
+from tests.integration.web.chronology.helpers import make_half_full_session
 
 
 def _schedule_context(url: str) -> dict[str, object]:
@@ -118,19 +124,7 @@ class TestEventPageView:
 
     def test_offered_seats_count_toward_capacity(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        space = SpaceFactory(event=event)
-        session = SessionFactory(event=event, category=None, participants_limit=2)
-        AgendaItemFactory(session=session, space=space)
-        SessionParticipation.objects.create(
-            session=session,
-            user=UserFactory(),
-            status=SessionParticipationStatus.CONFIRMED,
-        )
-        SessionParticipation.objects.create(
-            session=session,
-            user=UserFactory(),
-            status=SessionParticipationStatus.OFFERED,
-        )
+        session = make_half_full_session(event)
 
         response = client.get(self._get_url(event.slug))
 
@@ -215,8 +209,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -331,8 +332,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -486,22 +494,25 @@ class TestEventPageView:
         # expected day grouping with the same local-date rule the view uses.
         expected_dates = sorted(
             {
-                timezone.localtime(start).date()
-                for start in (
-                    now - timedelta(hours=3),
-                    now - timedelta(hours=1),
-                    day_one,
-                    day_one + timedelta(days=1),
+                window_start.date()
+                for start, end in (
+                    (now - timedelta(hours=3), now - timedelta(hours=2)),
+                    (now - timedelta(hours=1), now + timedelta(hours=1)),
+                    (day_one, day_one + timedelta(hours=4)),
+                    (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
+                )
+                for window_start, __ in local_day_windows(
+                    start, end, timezone.get_current_timezone()
                 )
             }
         )
         assert [
-            timezone.localtime(day.first_start).date() for day in days
+            timezone.localtime(day.day_start).date() for day in days
         ] == expected_dates
         [day_one_entry] = [
             day
             for day in days
-            if timezone.localtime(day.first_start).date()
+            if timezone.localtime(day.day_start).date()
             == timezone.localtime(day_one).date()
         ]
         [morning_slot, afternoon_slot] = day_one_entry.hours
@@ -654,8 +665,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -3738,10 +3756,49 @@ class TestEventPageView:
             messages=[(messages.INFO, "That event isn't available.")],
         )
 
-    def test_unpublished_event_visible_for_manager(
+    def test_unpublished_event_visible_for_manager_and_superuser(
+        self, authenticated_client, panel_access_user, sphere
+    ):
+        event = EventFactory(sphere=sphere, publication_time=None)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "current_hour_data": {},
+                "ended_hour_data": {},
+                "enrollment_requires_slots": False,
+                "event": event,
+                "filterable_tag_categories": [],
+                "has_track_filter": False,
+                "has_category_filter": False,
+                "future_unavailable_hour_data": {},
+                "hour_data": {},
+                "object": event,
+                "pending_review_visible": True,
+                "pending_sessions": [],
+                "pending_wizard_view": panel_access_user.is_superuser,
+                "own_pending_proposals": [],
+                "sessions": [],
+                "user_enrollment_config": None,
+                "total_enrolled": 0,
+                "user_enrolled_sessions": [],
+                "event_banned": False,
+                **_schedule_context(self._get_url(event.slug)),
+                "user_enrolled_session_titles": [],
+                "view": ANY,
+            },
+            template_name=["chronology/event.html"],
+        )
+
+    def test_superuser_who_manages_sphere_gets_manager_view(
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
+        active_user.is_superuser = True
+        active_user.save()
         event = EventFactory(sphere=sphere, publication_time=None)
 
         response = authenticated_client.get(self._get_url(event.slug))

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/fixtures";
 
 const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
 
@@ -46,8 +46,8 @@ test.describe("Public print page", () => {
   test("offers dense-fixture printable materials", async ({ page }) => {
     const materials = [
       ["timetable", "Timetable"],
-      ["timetable-descriptions", "Timetable with descriptions"],
       ["track-timetable", "Track timetable"],
+      ["door-cards", "Door cards"],
     ] as const;
 
     await page.goto(densePrintUrl);
@@ -57,5 +57,16 @@ test.describe("Public print page", () => {
       await expect(select.getByRole("option", { name: label, exact: true })).toHaveCount(1);
     }
     await expect(select.getByRole("option", { name: "Session list" })).toHaveCount(0);
+    await expect(page.getByLabel("With descriptions")).not.toBeChecked();
+  });
+
+  test("descriptions checkbox swaps the grid for a per-space list", async ({ page }) => {
+    await page.goto(`${densePrintUrl}?material=timetable`);
+
+    await page.getByLabel("With descriptions").check();
+
+    await expect(page).toHaveURL(/descriptions=1/);
+    await expect(page.getByRole("heading", { name: "Program details" }).first()).toBeVisible();
+    await expect(page.getByLabel("With descriptions")).toBeChecked();
   });
 });

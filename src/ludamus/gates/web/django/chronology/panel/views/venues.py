@@ -31,7 +31,7 @@ from ludamus.pacts.venues import SpaceInputDTO
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts.venues import SpaceNodeDTO
+    from ludamus.pacts.venues import SpaceRecordDTO
 
 
 def suggest_copy_name(name: str) -> str:
@@ -65,7 +65,7 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
     def _parent(
         self, current_event_pk: int, parent_pk: int | None
-    ) -> SpaceNodeDTO | None:
+    ) -> SpaceRecordDTO | None:
         if parent_pk is None:
             return None
         parent = self.request.services.space_tree.read(parent_pk)
@@ -134,7 +134,7 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def _node(self, current_event_pk: int, pk: int) -> SpaceNodeDTO:
+    def _node(self, current_event_pk: int, pk: int) -> SpaceRecordDTO:
         node = self.request.services.space_tree.read(pk)
         if node.event_id != current_event_pk:
             raise NotFoundError
@@ -276,7 +276,7 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _node_and_choices(
         self, context: dict[str, Any], current_event_pk: int, pk: int
-    ) -> tuple[SpaceNodeDTO, list[tuple[int, str]]]:
+    ) -> tuple[SpaceRecordDTO, list[tuple[int, str]]]:
         node = self.request.services.space_tree.read(pk)
         if node.event_id != current_event_pk:
             raise NotFoundError
@@ -324,7 +324,7 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
 
         target_event_id = int(form.cleaned_data["target_event"])
         target_name = next(
-            (e.name for e in context["events"] if e.pk == target_event_id), ""
+            (name for event_pk, name in choices if event_pk == target_event_id), ""
         )
         self.request.services.space_tree.copy_to_event(
             pk=node.pk, target_event_id=target_event_id

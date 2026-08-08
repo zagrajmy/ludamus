@@ -9,10 +9,14 @@ the ticket API.
 
 from __future__ import annotations
 
+import logging
+import math
 import secrets
+import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from ludamus.pacts import (
     MembershipAPIError,
@@ -30,10 +34,13 @@ from ludamus.pacts.enrollment import (
     AnonymousEnrollPageDTO,
     AnonymousEnrollResultDTO,
     AnonymousLoadDTO,
+    AnonymousSessionContextDTO,
     ClaimResult,
     EnrollmentServiceProtocol,
+    EnrollmentSettingsServiceProtocol,
     GuestSeatData,
     HeldSeatData,
+    InvalidEnrollmentWindowError,
     NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
@@ -46,9 +53,11 @@ from ludamus.pacts.legacy import (
     PromotionMode,
 )
 from ludamus.pacts.party import HeldSeatNotification
-from ludamus.specs.enrollment import select_promotable_parties
+from ludamus.specs.enrollment import is_valid_window_period, select_promotable_parties
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from ludamus.pacts import (
         EnrollmentConfigDTO,
         EnrollmentConfigRepositoryProtocol,
@@ -60,9 +69,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentRepositoryProtocol,
         AnonymousEnrollmentRequestDTO,
-        AnonymousSessionContextDTO,
         EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
+        EnrollmentWindowData,
+        EnrollmentWindowDTO,
+        EnrollmentWindowRepositoryProtocol,
         NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
@@ -79,6 +90,102 @@ if TYPE_CHECKING:
 _NAVBAR_NOTIFICATION_LIMIT = 10
 
 
+class EnrollmentWindowLike(Protocol):
+    allow_anonymous_enrollment: bool
+    max_waitlist_sessions: int
+    percentage_slots: int
+    restrict_to_configured_users: bool
+
+
+def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
+    return (window.percentage_slots, not window.restrict_to_configured_users)
+
+
+def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
+    listed = list(windows)
+    return (
+        bool(listed)
+        and not EnrollmentPolicy.for_actor(listed, is_configured_user=False).can_enroll
+    )
+
+
+@dataclass(frozen=True)
+class EnrollmentPolicy:
+    """What one actor may do across the enrollment windows open to them.
+
+    A window grants access for its period, so the windows an actor can use are
+    unioned. Selecting first and aggregating second is what keeps capacity from
+    being drawn from a window the actor is not allowed into.
+    """
+
+    windows: tuple[EnrollmentWindowLike, ...]
+
+    @classmethod
+    def for_actor(
+        cls, windows: Iterable[EnrollmentWindowLike], *, is_configured_user: bool
+    ) -> EnrollmentPolicy:
+        return cls(
+            tuple(
+                window
+                for window in windows
+                if is_configured_user or not window.restrict_to_configured_users
+            )
+        )
+
+    @classmethod
+    def for_anonymous(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
+        usable_windows = cls.for_actor(windows, is_configured_user=False).windows
+        return cls(
+            tuple(
+                window for window in usable_windows if window.allow_anonymous_enrollment
+            )
+        )
+
+    @property
+    def can_enroll(self) -> bool:
+        return bool(self.windows)
+
+    @property
+    def seating_window(self) -> EnrollmentWindowLike | None:
+        if not self.windows:
+            return None
+        return max(self.windows, key=_seating_rank)
+
+    @property
+    def percentage_slots(self) -> int:
+        return self.seating_window.percentage_slots if self.seating_window else 0
+
+    @property
+    def max_waitlist_sessions(self) -> int:
+        return max((window.max_waitlist_sessions for window in self.windows), default=0)
+
+    @property
+    def requires_slot_allowance(self) -> bool:
+        return bool(
+            self.seating_window and self.seating_window.restrict_to_configured_users
+        )
+
+    def effective_participants_limit(self, *, participants_limit: int) -> int:
+        if not self.windows or participants_limit == 0:
+            return 0
+        return math.ceil(participants_limit * self.percentage_slots / 100)
+
+    def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
+        if not self.windows or participants_limit == 0:
+            return False
+        return enrolled_count >= self.effective_participants_limit(
+            participants_limit=participants_limit
+        )
+
+    def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
+        if not self.windows:
+            return 0
+        if participants_limit == 0:
+            return sys.maxsize
+        effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)
+        return max(0, effective_limit - enrolled_count)
+
+
 def _now() -> datetime:
     return datetime.now(UTC)
 
@@ -89,6 +196,50 @@ def _token() -> str:
 
 def _party_recipients(party: list[WaitingParticipantDTO]) -> list[OfferRecipientDTO]:
     return distinct_recipients((p.recipient_user_id, p.recipient_email) for p in party)
+
+
+class EnrollmentSettingsService(EnrollmentSettingsServiceProtocol):
+    def __init__(
+        self,
+        transaction: TransactionProtocol,
+        windows: EnrollmentWindowRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._windows = windows
+
+    def list_windows(self, event_id: int) -> list[EnrollmentWindowDTO]:
+        return self._windows.list_for_event(event_id)
+
+    def read_window(self, event_id: int, pk: int) -> EnrollmentWindowDTO | None:
+        return self._windows.read(event_id, pk)
+
+    def create_window(
+        self, event_id: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO:
+        self._check_period(data)
+        with self._transaction.atomic():
+            return self._windows.create(event_id, data)
+
+    def update_window(
+        self, *, event_id: int, pk: int, data: EnrollmentWindowData
+    ) -> EnrollmentWindowDTO | None:
+        self._check_period(data)
+        with self._transaction.atomic():
+            return self._windows.update(event_id=event_id, pk=pk, data=data)
+
+    def delete_window(self, event_id: int, pk: int) -> bool:
+        with self._transaction.atomic():
+            return self._windows.delete(event_id, pk)
+
+    @staticmethod
+    def _check_period(data: EnrollmentWindowData) -> None:
+        if not is_valid_window_period(
+            start_time=data.start_time, end_time=data.end_time
+        ):
+            raise InvalidEnrollmentWindowError
+
+
+logger = logging.getLogger(__name__)
 
 
 class WaitlistPromotionService:
@@ -116,8 +267,20 @@ class WaitlistPromotionService:
 
         with self._transaction.atomic():
             if (state := self._participations.lock_and_read_state(session_id)) is None:
+                logger.info(
+                    "Session %s promotes nobody: it is gone, unscheduled, or "
+                    "outside every enrollment window",
+                    session_id,
+                )
                 return result
             if not (parties := select_promotable_parties(state)):
+                logger.info(
+                    "Session %s promotes nobody: %s seats free, %s waiting, mode %s",
+                    session_id,
+                    state.available_seats,
+                    len(state.waiting),
+                    state.promotion_mode.value,
+                )
                 return result
             if state.promotion_mode == PromotionMode.AUTO:
                 self._confirm(parties, state, result, promotions)
@@ -363,7 +526,8 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.EVENT_NOT_FOUND
             ) from None
-        if not event.allows_anonymous_enrollment:
+        policy = EnrollmentPolicy.for_anonymous(event.active_windows)
+        if not policy.can_enroll:
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.NOT_AVAILABLE_FOR_EVENT,
                 event_slug=event.slug,
@@ -413,7 +577,16 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             )
         with self._transaction.atomic():
             seating = self._enrollment_repository.lock_seating(session.session_id)
-            if seating.is_full:
+            policy = EnrollmentPolicy.for_anonymous(seating.eligible_windows)
+            if not policy.can_enroll:
+                raise AnonymousEnrollmentError(
+                    AnonymousEnrollmentErrorCode.ENROLLMENT_CLOSED,
+                    event_slug=session.event_slug,
+                )
+            if policy.is_full(
+                participants_limit=seating.participants_limit,
+                enrolled_count=seating.enrolled_count,
+            ):
                 self._enrollment_repository.create_waiting(
                     session_id=session.session_id, user_id=user.pk
                 )
@@ -473,7 +646,7 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
     ) -> tuple[AnonymousSessionContextDTO, UserDTO]:
         request = enrollment_request
         try:
-            session = self._enrollment_repository.read_session(
+            raw_session = self._enrollment_repository.read_session(
                 session_id=request.session_id,
                 event_slug=request.event_slug,
                 site_id=request.site_id,
@@ -482,6 +655,16 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.SESSION_NOT_FOUND
             ) from None
+        policy = EnrollmentPolicy.for_anonymous(raw_session.eligible_windows)
+        session = AnonymousSessionContextDTO.from_session(
+            session=raw_session,
+            allows_anonymous_enrollment=(
+                raw_session.has_agenda_item and policy.can_enroll
+            ),
+            effective_participants_limit=policy.effective_participants_limit(
+                participants_limit=raw_session.participants_limit
+            ),
+        )
         # Unscheduled sessions (no agenda item) have no enrollment to join.
         if not session.has_agenda_item:
             raise AnonymousEnrollmentError(
@@ -578,7 +761,7 @@ def _create_user_config_from_api(
     )
 
 
-def get_or_create_user_enrollment_config(  # ruff:ignore[too-many-arguments]
+def get_or_create_user_enrollment_config(
     *,
     enrollment_config: EnrollmentConfigDTO,
     user_email: str,

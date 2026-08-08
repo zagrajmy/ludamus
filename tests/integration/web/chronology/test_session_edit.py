@@ -12,7 +12,12 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
 )
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
-from ludamus.pacts import SessionDTO
+from ludamus.pacts import (
+    FieldAnswer,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
+    SessionDTO,
+)
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,
@@ -63,7 +68,7 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -136,7 +141,7 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -166,7 +171,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": True,
             },
@@ -190,7 +195,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": True,
             },
@@ -286,7 +291,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -317,7 +322,7 @@ class TestSessionEditViewPost:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
-                "session_fields": [],
+                "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
@@ -389,6 +394,7 @@ class TestSessionEditViewPost:
             slug="genres",
             field_type="select",
             is_multiple=True,
+            allow_custom=True,
             order=0,
         )
         SessionFieldOption.objects.create(
@@ -451,6 +457,91 @@ class TestSessionEditViewPost:
         assert 'name="session_field_genres"' in content
         assert 'name="session_field_system_custom"' in content
         assert 'name="session_field_adult"' in content
+
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="Genres",
+            question="Which genres?",
+            slug="genres",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value=["horror", "kobolds"]
+        )
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="",
+                            is_multiple=True,
+                            is_public=False,
+                            max_length=50,
+                            name="Genres",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="Horror",
+                                    order=0,
+                                    pk=option.pk,
+                                    value="horror",
+                                )
+                            ],
+                            order=0,
+                            pk=field.pk,
+                            question="Which genres?",
+                            slug="genres",
+                        ),
+                        "name_prefix": "session_field",
+                        # The stored write-in comes back split: the option on
+                        # the control, the rest beside it.
+                        "answer": FieldAnswer(value=["horror"], custom_value="kobolds"),
+                    }
+                ],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+    def test_htmx_post_merges_a_write_in_into_a_multi_value_field(
+        self, authenticated_client, event, owned_session
+    ):
+        genres, _system, _adult, _notes = self._make_fields(event)
+        SessionFieldValue.objects.create(
+            session=owned_session, field=genres, value=["horror", "kobolds"]
+        )
+
+        authenticated_client.post(
+            _url(event, owned_session),
+            data=self._data(
+                session_fields_submitted="1",
+                session_field_genres=["horror"],
+                session_field_genres_custom="kobolds; gore",
+            ),
+            headers={"hx-request": "true"},
+        )
+
+        value = SessionFieldValue.objects.get(session=owned_session, field=genres).value
+        assert value == ["horror", "kobolds", "gore"]
 
     def test_htmx_post_saves_every_field_type(
         self, authenticated_client, event, owned_session

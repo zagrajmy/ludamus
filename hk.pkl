@@ -3,7 +3,13 @@ import "pkl/Builtins.pkl"
 
 // The vendored hk pkl package (see pkl/Builtins.pkl header) lints itself
 // otherwise — its builtins carry test fixtures like fake private keys.
-exclude = List("pkl")
+//
+// Agent skills are vendored upstream too: `npx impeccable install` writes
+// them and rewrites them on every update. Formatting them re-diffs the whole
+// tree against upstream for nothing — oxfmt restyles ~100 of impeccable's
+// scripts, and in the Markdown playbooks trailing spaces are hard line
+// breaks, so stripping them edits the vendored prose.
+exclude = List("pkl", ".claude/skills/**", ".agents/skills/**")
 
 local linters = new Mapping<String, Step> {
   // File hygiene
@@ -56,6 +62,11 @@ local linters = new Mapping<String, Step> {
       "**/*.cjs",
       "**/*.css",
     )
+  }
+
+  // Frontend — oxlint, run as an aube devDep like oxfmt
+  ["oxlint"] = (Builtins.ox_lint) {
+    prefix = "aube exec"
   }
 
   // Config / infra

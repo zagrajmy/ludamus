@@ -152,6 +152,27 @@ class TestFileInput:
         assert "/media/events/cover.png" in html
         assert "events/cover.png" in html
 
+    def test_previews_image_only_file_field_as_image(self) -> None:
+        class LogoForm(forms.Form):
+            logo = forms.FileField(
+                required=False,
+                widget=forms.ClearableFileInput(
+                    attrs={"accept": "image/png,image/svg+xml"}
+                ),
+            )
+
+        form = LogoForm(initial={"logo": "/media/spheres/logo.svg"})
+        html = tessera_field(form["logo"])
+        assert 'data-state="image"' in html
+
+    def test_previews_generic_file_field_as_file(self) -> None:
+        class AttachmentForm(forms.Form):
+            attachment = forms.FileField(required=False)
+
+        form = AttachmentForm(initial={"attachment": "/media/docs/notes.pdf"})
+        html = tessera_field(form["attachment"])
+        assert 'data-state="file"' in html
+
     def test_ignores_initial_of_unexpected_type(self) -> None:
         # A value that is neither a file (no `.url`) nor a URL string yields no
         # preview rather than rendering a broken image.
@@ -188,6 +209,18 @@ class TestTesseraButton:
         assert "<button" in html
         assert 'type="submit"' in html
         assert "Submit" in html
+
+    def test_wraps_label_so_a_surface_can_hide_it(self) -> None:
+        html = tessera_button("New Track", icon="plus")
+        assert '<span class="btn-label">New Track</span>' in html
+
+    def test_wraps_label_even_without_an_icon(self) -> None:
+        # The panel header hides `.btn-label` only inside `.btn:has(> svg)`.
+        # An iconless button keeps its text — but it still ships the span, so
+        # the two never disagree about where the label is.
+        html = tessera_button("Reject", variant="danger")
+        assert '<span class="btn-label">Reject</span>' in html
+        assert "<svg" not in html
 
     def test_renders_disabled_button(self) -> None:
         html = tessera_button("Disabled", disabled=True)
