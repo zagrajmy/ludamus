@@ -321,3 +321,9 @@ If you fix a papercut, remove it.
   two msgstrs, so CI's messages-check (which regenerates with a newer gettext
   and diffs) fails on a catalog that is locally 'fresh'. Had to hand-revert 11
   flag lines and 2 wrappings to get a diff containing only real changes.
+- 2026-08-08: git push over SSH fails in this worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned
+  by nobody:nogroup). Worked around with: git -c credential.helper='!gh auth
+  git-credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch.
+  Also, no local Postgres and no docker, so 'mise run test:postgres' errors on
+  connection refused for all 7 marked tests.
