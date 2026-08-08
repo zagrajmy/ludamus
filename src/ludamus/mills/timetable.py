@@ -19,12 +19,12 @@ from ludamus.pacts.chronology import (
     ConflictDTO,
     ConflictSeverity,
     ConflictType,
-    DateSelection,
     HeatmapCellDTO,
     HeatmapCellStatus,
     HeatmapDayDTO,
     HeatmapDTO,
     HeatmapRowDTO,
+    MultiselectOptionDTO,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
     SessionPlacement,
@@ -35,6 +35,7 @@ from ludamus.pacts.chronology import (
     TimeLabelDTO,
     TimetableDayGridDTO,
     TimetableGridDTO,
+    TimetableGridFilter,
     TrackProgressDTO,
 )
 from ludamus.specs.timetable import (
@@ -123,23 +124,52 @@ def _position_sessions(
     return positions
 
 
-def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+def _walk_tree(nodes: list[SpaceDTO]) -> list[tuple[SpaceDTO, int]]:
+    # Pre-order (node, depth). The grid's leaves, the picker's options and the
+    # ancestor walk all read off this one traversal; a node whose parent_id
+    # names nothing never gets walked, so unreachable rows stay out of all
+    # three.
     children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
     for node in nodes:
         children[node.parent_id].append(node)
 
-    leaves: list[SpaceDTO] = []
+    walked: list[tuple[SpaceDTO, int]] = []
 
-    def walk(node: SpaceDTO) -> None:
-        if kids := children.get(node.pk, []):
-            for kid in kids:
-                walk(kid)
-        else:
-            leaves.append(node)
+    def walk(node: SpaceDTO, depth: int) -> None:
+        walked.append((node, depth))
+        for kid in children.get(node.pk, []):
+            walk(kid, depth + 1)
 
     for root in children.get(None, []):
-        walk(root)
-    return leaves
+        walk(root, 0)
+    return walked
+
+
+def _leaves(walked: list[tuple[SpaceDTO, int]]) -> list[SpaceDTO]:
+    parent_pks = {node.parent_id for node, _ in walked}
+    return [node for node, _ in walked if node.pk not in parent_pks]
+
+
+def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+    # For the callers that want only the bookable rooms and never the tree.
+    return _leaves(_walk_tree(nodes))
+
+
+def _within_selected_spaces(
+    walked: list[tuple[SpaceDTO, int]], selected: set[int]
+) -> set[int]:
+    # A branch stands for every leaf beneath it, so a leaf survives when the
+    # selection names it or any of its ancestors.
+    parent_by_pk = {node.pk: node.parent_id for node, _ in walked}
+    kept: set[int] = set()
+    for node, _ in walked:
+        pk: int | None = node.pk
+        while pk is not None:
+            if pk in selected:
+                kept.add(node.pk)
+                break
+            pk = parent_by_pk.get(pk)
+    return kept
 
 
 def _day_range(
@@ -156,16 +186,36 @@ def _day_range(
 class TimetableService:
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
+        self._walked_event_pk: int | None = None
+        self._walked: list[tuple[SpaceDTO, int]] = []
+
+    def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
+        # The page builds the grid and the space filter's options from the same
+        # tree; the instance lives for one request and sees one event, so read
+        # and walk it once. Nothing this service writes touches spaces, so
+        # there is nothing to invalidate.
+        if self._walked_event_pk != event_pk:
+            self._walked = _walk_tree(self._uow.spaces.list_by_event(event_pk))
+            self._walked_event_pk = event_pk
+        return self._walked
+
+    def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]:
+        return [
+            MultiselectOptionDTO(value=node.pk, label=node.name, depth=depth)
+            for node, depth in self._tree(event_pk)
+        ]
 
     def build_grid(
         self,
         *,
         event_pk: int,
         tz: tzinfo,
-        track_pk: int | None = None,
         space_page: int = 1,
-        date_selection: DateSelection = "all",
+        filters: TimetableGridFilter | None = None,
     ) -> TimetableGridDTO:
+        filters = filters or TimetableGridFilter()
+        track_pk = filters.track_pk
+        date_selection = filters.date_selection
         # Before the first read that names it, not merely before the render:
         # `list_space_pks` below would otherwise walk another event's track and
         # be told it is foreign only later, by `list_grid_warnings`.
@@ -173,14 +223,20 @@ class TimetableService:
             require_track_in_event(
                 tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
             )
-        all_nodes = self._uow.spaces.list_by_event(event_pk)
+        walked = self._tree(event_pk)
+        all_nodes = [node for node, _ in walked]
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
-        leaf_spaces = _leaves_in_tree_order(all_nodes)
+        leaf_spaces = _leaves(walked)
         if track_pk is not None:
             track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
             leaf_spaces = [
                 space for space in leaf_spaces if space.pk in track_space_pks
             ]
+        if filters.space_pks:
+            # Only pks belonging to this event's tree can match, so a stale or
+            # foreign id in the URL narrows nothing rather than leaking a space.
+            kept = _within_selected_spaces(walked, filters.space_pks)
+            leaf_spaces = [space for space in leaf_spaces if space.pk in kept]
 
         total_spaces = len(leaf_spaces)
         total_pages = max(1, math.ceil(total_spaces / TIMETABLE_ROOM_PAGE_SIZE))
@@ -210,6 +266,17 @@ class TimetableService:
         conflicts, violations = ConflictDetectionService(self._uow).list_grid_warnings(
             event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
         )
+        # The unscheduled list filters by facilitator in SQL, so the grid does
+        # too -- same one clause, and a foreign pk is scoped out by the query
+        # rather than by happening to intersect with nothing. The warnings above
+        # still see the whole event, so narrowing the view cannot hide a clash.
+        shown_items = (
+            self._uow.agenda_items.list_by_event(
+                event_pk, facilitator_pks=filters.facilitator_pks
+            )
+            if filters.facilitator_pks
+            else all_items
+        )
         states = _card_states(conflicts, violations)
         span = self._shared_day_span(dates_to_render, windows_by_date, tz)
         days = [
@@ -217,7 +284,7 @@ class TimetableService:
                 date_to_render=date_to_render,
                 day_range=_day_range(date_to_render, span, tz),
                 spaces=spaces,
-                all_items=all_items,
+                all_items=shown_items,
                 states=states,
             )
             for date_to_render in dates_to_render

@@ -423,7 +423,26 @@ class TimetableDayGridDTO(BaseModel):
     time_labels: list[TimeLabelDTO]
 
 
+class MultiselectOptionDTO(BaseModel):
+    # One row of components/multiselect-filter.html. value/label rather than
+    # pk/name because this is the component's contract, not the thing it lists:
+    # spaces use `depth` to indent their tree, facilitators use `meta` for the
+    # columns under the name, and each leaves the other at its default.
+    value: int
+    label: str
+    depth: int = 0
+    meta: str = ""
+
+
 type DateSelection = date | Literal["all"]
+
+
+class TimetableGridFilter(BaseModel):
+    # What the filter bar narrows the grid by. Empty means "everything".
+    track_pk: int | None = None
+    date_selection: DateSelection = "all"
+    space_pks: set[int] = set()
+    facilitator_pks: set[int] = set()
 
 
 class ConflictType(StrEnum):
