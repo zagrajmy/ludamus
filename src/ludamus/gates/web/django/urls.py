@@ -9,7 +9,10 @@ from django.db import connection
 from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.decorators.cache import never_cache
+from django.views.generic import RedirectView
 from django.views.static import serve
+
+from ludamus.gates.web.django.pages import PAGES, content_page
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -60,7 +63,16 @@ urlpatterns: list[URLResolver | URLPattern] = [
     ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
     path("admin/", admin.site.urls),
-    path("page/", include("django.contrib.flatpages.urls")),
+    *(path(f"{slug}/", content_page, {"slug": slug}, name=slug) for slug in PAGES),
+    # These were flatpages under /page/, and that URL is in sent email and on
+    # the Auth0 consent screen. The doubled slash is not a typo: the flatpage
+    # url field held a leading slash, so the include produced
+    # /page//privacy-policy/.
+    *(
+        path(old, RedirectView.as_view(pattern_name=slug, permanent=True))
+        for slug in PAGES
+        for old in (f"page/{slug}/", f"page//{slug}/")
+    ),
 ]
 
 
