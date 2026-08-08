@@ -157,6 +157,16 @@ test.describe("Backoffice Panel", () => {
     );
   });
 
+  test("shows the footer without scrolling on a tall viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1400 });
+    await page.goto("/panel/");
+
+    const overflow = await page
+      .locator("#app-scroll")
+      .evaluate((element) => element.scrollHeight - element.clientHeight);
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
   test("does not scale panel category collapsibles on pointer down", async ({ page }) => {
     await page.goto("/panel/");
 
