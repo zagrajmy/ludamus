@@ -58,6 +58,10 @@ class TestGateCheck:
         # else, so both streams reach the repair agent.
         assert "E501 line too long\n1 failed" in trial.coding.prompts[0]
         assert "do not disable a lint rule" in trial.coding.prompts[0]
+        # The step runs the sweep itself the moment the agent stops, so the
+        # agent is left the narrow loop instead.
+        assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
+        assert "one linter" in trial.coding.prompts[0]
 
     def test_a_spent_budget_sets_the_branch_aside_without_asking_again(
         self, trial: Trial, work: Work
@@ -125,6 +129,7 @@ class TestCover:
             cover, work.model_copy(update={"budgets": {"cover": 1}})
         )
         assert _MISSING in trial.coding.prompts[0]
+        assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
         assert trial.shell.commands == [COVERAGE]
 
     def test_a_first_pass_with_nothing_missing_commits_nothing(

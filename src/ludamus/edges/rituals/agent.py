@@ -1,22 +1,43 @@
 """What the agent is told, and how it is asked.
 
-Every prompt says what the ritual owns: the commits, the merge, the push. An
-agent that commits anyway is survivable — the steps read git rather than trust
-the prompt — but a branch full of an agent's intermediate commits is not what
-you want to wake up to.
+Every prompt says what the ritual owns: the commits, the merge, the push, the
+sweep. An agent that commits anyway is survivable — the steps read git rather
+than trust the prompt — but a branch full of an agent's intermediate commits is
+not what you want to wake up to.
 """
 
 from pydantic import BaseModel
 from vekna.folio.coding import CodingOpts, CodingOutputError, Session, coding
 from vekna.folio.coding_claude import ClaudeOptions
 
-from .shell import PR_FIX
+from .shell import COVERAGE, PR_FIX
 
 THERMO_TITLE = "Thermo-nuclear code quality review"
 _THERMO_SKILL = "~/.claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
 
 
-_RESOLVE = """\
+# The sweep is the ritual's: the step runs it the moment the agent stops, and
+# what it says then is what decides the branch. An agent that runs it too pays
+# minutes a turn for an answer it is about to be handed anyway — so what it is
+# left with is the narrow loop, which is the faster one to work in regardless.
+_FAST_LOOP = f"""\
+Do not run the whole-repository sweeps — `{PR_FIX}`, `mise run check`,
+`devcheck`, `fullcheck`, `format`, `lint`, `test:py`, `{COVERAGE}`. The ritual
+runs the gate itself as soon as you stop, so a sweep you run is minutes spent
+on an answer you are about to be given.
+
+Check yourself with the narrowest command that answers the question instead:
+one linter (`mise run lint:mypy`, `mise run lint:ruff`, `mise run lint:pylint`)
+or one test, named down to the case:
+
+    mise run test:int -- tests/integration/a/test_thing.py::TestThing::test_case
+
+That task adds the whole integration suite to any path outside
+`tests/integration`, so a unit test named that way is a sweep too: keep to a
+node id under `tests/integration`, or leave the unit tests to the gate.
+"""
+
+_RESOLVE = f"""\
 Resolve them. Read both sides before choosing one: the conflict is between work
 that is already on the base branch and work this pull request adds, and both
 were meant. Keep the intent of both.
@@ -24,11 +45,12 @@ were meant. Keep the intent of both.
 Do not run `git merge --abort`, do not commit, and do not push. Leave the
 resolved files in the worktree; the ritual finishes the merge itself.
 
+{_FAST_LOOP}
 Conflicted files:
 
 """
 
-_FIX_GATES = """\
+_FIX_GATES = f"""\
 Make it green. Fix the cause, not the symptom: do not disable a lint rule, add
 a noqa or a type: ignore, skip or delete a test, or lower a threshold. When a
 failing assertion looks like the test's fault rather than the code's, change the
@@ -36,11 +58,12 @@ test only where the intended behaviour is unambiguous from the code around it.
 
 Do not commit and do not push — the ritual owns the commits.
 
+{_FAST_LOOP}
 What it said:
 
 """
 
-COVER = """\
+COVER = f"""\
 The diff coverage report below names lines this branch changed that no test
 exercises. Cover them, following this project's own testing guidelines: read
 CLAUDE.md and whatever testing documentation it points at before writing
@@ -49,6 +72,7 @@ anything, and put each test where that layout says it belongs.
 Do not lower the coverage threshold, edit the coverage configuration, or delete
 the offending code. Do not commit and do not push.
 
+{_FAST_LOOP}
 The report:
 
 """
