@@ -198,9 +198,7 @@ def _session_modal_dto(
     )
 
 
-class SessionRepository(  # ruff:ignore[too-many-public-methods]
-    SessionRepositoryProtocol, SessionModalRepositoryProtocol
-):
+class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtocol):
     @staticmethod
     def read_modal(
         *,

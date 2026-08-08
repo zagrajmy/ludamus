@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-05 12:09+0200\n"
+"POT-Creation-Date: 2026-08-06 00:14+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -794,9 +794,9 @@ msgid "Max participants"
 msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/panel/cfp-edit.html
-msgid "0 = no limit"
-msgstr "0 = bez limitu"
+#: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 = no limit"
+msgstr "Puste pole lub 0 = bez limitu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
@@ -1616,6 +1616,7 @@ msgstr "Oczekujące"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Accepted"
@@ -1626,7 +1627,7 @@ msgstr "Zaakceptowane"
 #: src/ludamus/templates/panel/parts/confirmation-status-badge.html
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "On hold"
-msgstr "Wstrzymane"
+msgstr "Rezerwa"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_proposal_status_badge.html
@@ -1662,7 +1663,7 @@ msgstr "Zgłoszenie zostało zaakceptowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal put on hold."
-msgstr "Zgłoszenie zostało wstrzymane."
+msgstr "Zgłoszenie zostało przeniesione do rezerwy."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal rejected."
@@ -2312,6 +2313,10 @@ msgstr "Tabliczki na drzwi"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
 msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enter a smaller number."
+msgstr "Podaj mniejszą liczbę."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -6285,8 +6290,12 @@ msgid "Participant Limits"
 msgstr "Limity uczestników"
 
 #: src/ludamus/templates/panel/cfp-edit.html
-msgid "Set minimum and maximum participant limits for this category."
-msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+msgid ""
+"Bounds on what a proposal submitted through the call for proposals may ask "
+"for. Your own forms in this panel are not limited by them."
+msgstr ""
+"Ograniczają liczbę miejsc, o jaką może poprosić zgłoszenie przysłane w "
+"naborze. Twoich własnych formularzy w panelu to nie dotyczy."
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Minimum participants"
@@ -6299,6 +6308,10 @@ msgstr "0 = bez minimum"
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Maximum participants"
 msgstr "Maks. uczestników"
+
+#: src/ludamus/templates/panel/cfp-edit.html
+msgid "0 = no limit"
+msgstr "0 = bez limitu"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Waiting-list seats"
@@ -6423,12 +6436,8 @@ msgid "No fields selected."
 msgstr "Nie wybrano żadnych pól."
 
 #: src/ludamus/templates/panel/cfp.html
-msgid "Statistics"
-msgstr "Statystyki"
-
-#: src/ludamus/templates/panel/cfp.html
-msgid "Submissions"
-msgstr "Zgłoszenia"
+msgid "Submission window"
+msgstr "Okno zgłoszeń"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Configure"
@@ -7265,7 +7274,7 @@ msgstr "Powiązanie"
 
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
-#: src/ludamus/templates/panel/parts/timetable-day-grid.html
+#: src/ludamus/templates/panel/parts/timetable-session-card.html
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmed"
 msgstr "Potwierdzone"
@@ -8048,7 +8057,7 @@ msgstr "Zaakceptuj"
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Hold"
-msgstr "Wstrzymaj"
+msgstr "Do rezerwy"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposals.html
@@ -8227,6 +8236,14 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
+msgid "Not on the timetable"
+msgstr "Poza harmonogramem"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "On the timetable"
+msgstr "W harmonogramie"
+
+#: src/ludamus/templates/panel/proposals.html
 msgid "Set status:"
 msgstr "Ustaw status:"
 
@@ -8242,6 +8259,10 @@ msgstr "Zaznacz %(title)s"
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals match the current filters."
 msgstr "Żadne zgłoszenia nie pasują do bieżących filtrów."
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Show all statuses"
+msgstr "Pokaż wszystkie statusy"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals submitted yet."
@@ -8671,14 +8692,6 @@ msgid "Day:"
 msgstr "Dzień:"
 
 #: src/ludamus/templates/panel/timetable.html
-msgid "Confirm block"
-msgstr "Potwierdź blok"
-
-#: src/ludamus/templates/panel/timetable.html
-msgid "Confirm all"
-msgstr "Potwierdź wszystkie"
-
-#: src/ludamus/templates/panel/timetable.html
 msgid "This program item is confirmed. Moving it will clear the confirmation."
 msgstr ""
 "Ten punkt programu jest potwierdzony. Przeniesienie usunie potwierdzenie."
@@ -8791,6 +8804,28 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#, python-format
+#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
+#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+
+#~ msgid "Statistics"
+#~ msgstr "Statystyki"
+
+#~ msgid "Submissions"
+#~ msgstr "Zgłoszenia"
+
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
+
+#~ msgid "That is more people than we can store."
+#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+
+#~ msgid "Confirm block"
+#~ msgstr "Potwierdź blok"
+
+#~ msgid "Confirm all"
+#~ msgstr "Potwierdź wszystkie"
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"

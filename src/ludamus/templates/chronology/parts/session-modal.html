@@ -53,16 +53,27 @@
                 <!-- Host & location -->
                 <div class="flex items-center gap-3 mb-6 flex-wrap">
                     <span class="shrink-0" data-morph="avatar">
-                        {% include "components/avatar.html" with user=data.presenter size="size-10" %}
+                        {% include "components/avatar.html" with user=data.presenter size="size-9" %}
                     </span>
                     {# flex-1 zeroes this group's flex basis so the outer row never #}
                     {# wraps it whole — a long room path breaks inside the group, #}
                     {# under the name, instead of orphaning the avatar on its own row. #}
-                    <div class="flex flex-1 items-center gap-3 flex-wrap min-w-0">
+                    {# The two gaps are separate on purpose: 12px reads as separation #}
+                    {# between name and room while they share a row, but as soon as #}
+                    {# the room wraps that same value becomes the row gap and pushes #}
+                    {# a sub-label 12px off the name it belongs to. #}
+                    <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
                         <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
                         {% if data.location_label %}
-                            <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
-                                {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}
+                            {# The room sits beside a name that is still flying in from #}
+                            {# the card, so at its final spot it reads as arriving alone. #}
+                            {# Its own group lets it land with the other static labels. #}
+                            <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted"
+                                  data-morph="venue">
+                                {# The pin is decoration next to a labelled path; on the #}
+                                {# narrowest phones its 16px plus the gap is width the #}
+                                {# room name itself needs. #}
+                                {% icon "map-pin" class="size-4 shrink-0 opacity-80 max-[400px]:hidden" variant="mini" %}
                                 <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
                             </span>
                         {% endif %}
@@ -81,10 +92,19 @@
                     <div class="mb-6">
                         <h3 class="font-semibold mb-2 text-foreground-secondary"
                             data-morph="desc-label">{% translate "About this session" %}</h3>
-                        {# leading-5 matches the card excerpt's text-sm leading, so #}
-                        {# the description keeps its rhythm across the morph. #}
+                        {# Deliberately NOT a morph group. A named element is hoisted #}
+                        {# into the view-transition layer whole and unclipped, so a #}
+                        {# description longer than the dialog spilled past its bottom #}
+                        {# edge for the length of the morph. Left unnamed it stays in #}
+                        {# the dialog's own snapshot, which the dialog's #}
+                        {# overflow-hidden clips. Nesting it under the dialog's group #}
+                        {# would keep the morph and the clip, but view-transition-group #}
+                        {# is Chromium-only and this ships to Safari. #}
+                        {# leading-5 is the card excerpt's text-sm leading, kept #}
+                        {# here so a session reads at the same density in both #}
+                        {# places rather than loosening to prose-sm's 1.71. #}
                         <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5"
-                             data-morph="desc">{{ data.session.description|render_markdown }}</div>
+                             data-session-description>{{ data.session.description|render_markdown }}</div>
                     </div>
                 {% endif %}
                 {% if data.field_values %}
@@ -238,9 +258,12 @@
     {% endif %}
     {% if data.is_enrollment_available or data.can_edit %}
         <!-- Footer -->
-        {# data-morph + the modal surface colour give the footer its own opaque #}
-        {# view-transition group, so the description no longer paints over the #}
-        {# enroll button while it grows into place. #}
+        {# A new-only view-transition group: with no old geometry to interpolate #}
+        {# it renders at final layout for the whole morph instead of stretching #}
+        {# with the container snapshot, so the enroll controls stay crisp and #}
+        {# still while the modal grows behind them. bg-bg-secondary is the modal's #}
+        {# own surface colour — invisible at rest, but the snapshot underneath is #}
+        {# mid-cross-fade with the card and would otherwise show through. #}
         <div class="px-6 py-4 flex items-center justify-between gap-2 border-t border-border shrink-0 bg-bg-secondary"
              data-morph="footer"
              data-session-footer="{{ data.session.pk }}">

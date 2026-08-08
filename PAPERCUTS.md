@@ -256,6 +256,15 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-01: e2e: Firefox project fails locally with 'browserContext.newPage:
+  Test timeout' on every spec (even untouched ones like sound.spec.ts); only
+  chromium is runnable here, so a local full 'mise run test:e2e' always ends red
+  and 63 tests report 'did not run'. Had to verify per-project.
+- 2026-08-01: e2e: 'panel redirects to home with message when sphere has no
+  events' (panel.spec.ts) fails locally on a freshly prepped DB even with no
+  working-tree changes — /panel/ stays put instead of redirecting to /events/.
+  It also aborts the rest of panel.spec.ts (serial mode), so 43 tests report
+  'did not run'.
 - 2026-08-02: Pre-commit oxlint hook fails with 'Cannot find module eslint-
   plugin-sonarjs'; the aube store entry node_modules/.aube/eslint-plugin-
   sonarjs@3.0.6_.../node_modules/eslint-plugin-sonarjs is extracted without a
@@ -284,3 +293,26 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
+  python-brace-format' flags: the local xgettext strips them, but main and CI
+  both keep them. Regenerating the catalog silently drops the flags, so after
+  'mise run messages' you have to revert the catalog and hand-apply only the
+  real msgid deltas.
+- 2026-08-05: mise run shots fails in the Claude Code sandbox: Chrome aborts
+  with 'No usable sandbox' (unprivileged userns disabled). Playwright's own runs
+  work, so had to hand-roll a playwright-core screenshot script pointed at the
+  ms-playwright chromium binary. A --no-sandbox fallback in the shots task would
+  save the detour.
+- 2026-08-05: Scoping impeccable to two templates: 'mise run lint:impeccable
+  path/to/file.html' silently drops the paths (the task body has no forwarding),
+  so it scans every tracked HTML/CSS/JS file and looks hung for minutes. That is
+  the same friction logged on 2026-07-14. Call '.venv/bin/python
+  scripts/impeccable_lint.py PATH...' to scope it. Use the venv interpreter
+  specifically: the script uses PEP 758 except syntax at line 102, valid only on
+  3.14, so a bare 'python' (3.11 on PATH here) raises a SyntaxError that reads
+  like a repo bug. Black under 3.14 normalizes to that form, so parenthesizing
+  it fights the formatter and hk reverts the file mid-commit.
+- 2026-08-07: git push over ssh fails in the review worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
+  works, pushing needs the user to run it (or the file's mode fixed to 0644
+  root:root).

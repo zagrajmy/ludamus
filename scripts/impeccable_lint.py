@@ -22,7 +22,15 @@ from pathlib import Path
 # Pinned to main HEAD; bump to `impeccable@3.x.x` once published.
 IMPECCABLE_SPEC = "github:pbakaus/impeccable#346ce25952a6d4150433e8fb1369cb59571ebc30"
 
-IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = ("e2e/playwright-report/", "tailwind.min.js")
+# .claude/ and .agents/: vendored agent skills. impeccable's own detector
+# carries the CSS patterns it hunts for as string literals, so scanning it
+# reports impeccable's rulebook as four gradient-text findings.
+IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = (
+    "e2e/playwright-report/",
+    "tailwind.min.js",
+    ".claude/",
+    ".agents/",
+)
 # tiny-text: design opinion we don't share.
 # single-font: the project deliberately uses one brand font (Outfit)
 # everywhere; this whole-project heuristic flags that by design and isn't

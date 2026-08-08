@@ -18,20 +18,9 @@ from ludamus.pacts.event import (
 from ludamus.pacts.legacy import TrackDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import timetable_tab_urls
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _tab_urls(event):
-    return {
-        "timetable": reverse("panel:timetable", kwargs={"slug": event.slug}),
-        "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-        "overview": reverse("panel:timetable-overview", kwargs={"slug": event.slug}),
-        "problems": reverse("panel:timetable-problems", kwargs={"slug": event.slug}),
-        "confirmations": reverse(
-            "panel:timetable-confirmations", kwargs={"slug": event.slug}
-        ),
-    }
 
 
 def _stats(**overrides):
@@ -116,7 +105,7 @@ class TestConfirmationsPageView:
             "track_view": None,
             "slug": event.slug,
             "next_url": cls.get_url(event),
-            "tab_urls": _tab_urls(event),
+            "tab_urls": timetable_tab_urls(event),
             "active_tab": "confirmations",
         } | overrides
 

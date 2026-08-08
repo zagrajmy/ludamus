@@ -29,16 +29,14 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
-from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
-    get_current_timezone,
-)
+from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
     Facilitator,
@@ -166,6 +164,40 @@ def main() -> None:
     # access to all tracks. Adding them as track manager would cause
     # auto-selection in the proposals page, hiding proposals from other tracks.
     track.spaces.set([space_a, space_b])
+
+    # A second track sharing a room with the first, with one session already
+    # scheduled there. Filtering the timetable by the RPG track has to keep
+    # showing this booking, or the two tracks collide unseen.
+    other_track, _ = Track.objects.get_or_create(
+        event=event,
+        slug="board-games-track",
+        defaults={"name": "Board Games Track", "is_public": False},
+    )
+    other_track.spaces.set([space_b])
+    foreign_session, created = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-foreign-booking",
+        defaults={
+            "title": "Board Game Night",
+            "display_name": "Casey Rivers",
+            "description": "Booked by the other track, in a shared room.",
+            "duration": "PT2H",
+            "participants_limit": 4,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    if created:
+        foreign_session.tracks.add(other_track)
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=foreign_session,
+        defaults={
+            "start_time": slot_day_two.start_time,
+            "end_time": slot_day_two.end_time,
+        },
+    )
 
     # Facilitators for this event (the conflict test needs a shared host).
     alice, _ = Facilitator.objects.get_or_create(

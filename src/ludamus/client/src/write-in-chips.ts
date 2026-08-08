@@ -30,6 +30,13 @@ const initChipsInput = (source: HTMLInputElement): void => {
 
   const removeLabel = source.dataset.chipsRemoveLabel ?? "Remove";
   const values = splitValues(source.value);
+  // The hidden mirror is what maxLength used to cap when this was one plain
+  // input. Each chip commit must keep the semicolon-joined mirror under that
+  // same budget, or the server (CharField(max_length=...)) rejects the whole
+  // submission on a value the UI never warned about.
+  const budget = source.maxLength > 0 ? source.maxLength : null;
+  const fitsBudget = (candidate: string[]): boolean =>
+    budget === null || candidate.join(JOIN).length <= budget;
 
   // The shell inherits the source's classes so it keeps each form's input
   // look (border, radius, background, spacing) without restating it here.
@@ -90,13 +97,19 @@ const initChipsInput = (source: HTMLInputElement): void => {
     }
   };
 
+  // Commits one value if the resulting joined mirror still fits the budget;
+  // returns whether it was added, so callers can tell a full commit from a
+  // silently-dropped one.
+  const tryAddValue = (value: string): boolean => {
+    if (values.includes(value) || !fitsBudget([...values, value])) return false;
+    values.push(value);
+    return true;
+  };
+
   const commitDraft = (): void => {
-    const added = splitValues(draft.value).filter((value) => !values.includes(value));
+    const added = splitValues(draft.value);
     draft.value = "";
-    if (added.length > 0) {
-      values.push(...added);
-      renderChips();
-    }
+    if (added.some((value) => tryAddValue(value))) renderChips();
     sync();
   };
 
@@ -106,11 +119,10 @@ const initChipsInput = (source: HTMLInputElement): void => {
     if (draft.value.includes(SEPARATOR)) {
       const parts = draft.value.split(SEPARATOR);
       const rest = (parts.pop() ?? "").trimStart();
-      for (const value of splitValues(parts.join(SEPARATOR))) {
-        if (!values.includes(value)) values.push(value);
+      if (splitValues(parts.join(SEPARATOR)).some((value) => tryAddValue(value))) {
+        renderChips();
       }
       draft.value = rest;
-      renderChips();
     }
     sync();
   });

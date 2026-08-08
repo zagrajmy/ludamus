@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -18,7 +17,6 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import (
     AgendaItemDTO,
-    EventDTO,
     FacilitatorDTO,
     ScheduleChangeAction,
     ScheduleChangeLogDTO,
@@ -32,7 +30,6 @@ from ludamus.pacts.chronology import (
     IntegrationImplementationId,
     IntegrationKind,
 )
-from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.submissions import ImportLogEntryDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -41,25 +38,11 @@ from tests.integration.conftest import (
     SpaceFactory,
 )
 from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "proposals",
-    }
+from tests.integration.web.panel.helpers import (
+    assert_proposal_not_found,
+    panel_context,
+    proposal_detail_context,
+)
 
 
 def _detail_tabs(event, proposal_id):
@@ -89,9 +72,8 @@ class TestProposalDetailPageView:
         )
 
     def test_redirects_when_proposal_belongs_to_different_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         category = ProposalCategory.objects.create(
             event=other_event, name="RPG", slug="rpg"
@@ -108,19 +90,11 @@ class TestProposalDetailPageView:
         )
         url = self.get_url(event, session.pk)
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Proposal not found.")],
-            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
-        )
+        assert_proposal_not_found(response, event)
 
-    def test_ok_when_session_has_no_presenter(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_ok_when_session_has_no_presenter(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -134,14 +108,14 @@ class TestProposalDetailPageView:
         )
         url = self.get_url(event, session.pk)
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -162,11 +136,11 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
 
-    def test_shows_cover_image(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_shows_cover_image(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -183,42 +157,23 @@ class TestProposalDetailPageView:
         )
         url = self.get_url(event, session.pk)
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **proposal_detail_context(
+                    event=event, session=session, presenter=active_user
+                ),
                 **_detail_tabs(event, session.pk),
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 1,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1,
-                    "total_sessions": 1,
-                },
-                "proposal": SessionDTO.model_validate(session),
-                "category_name": "RPG",
-                "proposal_tracks": [],
-                "agenda_item": None,
-                "schedule_logs": [],
-                "field_values": [],
-                "facilitators": [],
-                "presenter": UserDTO.model_validate(active_user),
-                "preferred_time_slots": [],
-                "import_log_entry": None,
-                "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
         )
         assert session.cover_image_url.encode() in response.content
 
-    def test_renders_contact_email_as_mailto_link_when_set(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_renders_contact_email_as_mailto_link_when_set(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -231,14 +186,14 @@ class TestProposalDetailPageView:
             contact_email="anna@example.com",
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -259,14 +214,12 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=["Presenter", "Contact Email", 'href="mailto:anna@example.com"'],
         )
 
-    def test_renders_preferred_time_slots_when_attached(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_renders_preferred_time_slots_when_attached(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         slot = TimeSlot.objects.create(
             event=event,
@@ -284,14 +237,14 @@ class TestProposalDetailPageView:
         )
         session.time_slots.add(slot)
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -312,14 +265,14 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [TimeSlotDTO.model_validate(slot)],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains="Preferred time slots",
         )
 
     def test_unscheduled_proposal_shows_metadata_without_placement(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -331,14 +284,14 @@ class TestProposalDetailPageView:
             status="pending",
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -359,15 +312,15 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=["Slug", "Created", "Last modified", "unscheduled"],
             not_contains=["View on timetable", "Schedule changes"],
         )
 
     def test_scheduled_proposal_shows_placement_with_timetable_link(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -387,14 +340,14 @@ class TestProposalDetailPageView:
         )
         timetable_url = reverse("panel:timetable", kwargs={"slug": event.slug})
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -429,6 +382,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[
                 "View on timetable",
@@ -437,10 +391,7 @@ class TestProposalDetailPageView:
             ],
         )
 
-    def test_renders_schedule_change_log(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_renders_schedule_change_log(self, panel_client, active_user, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -462,14 +413,14 @@ class TestProposalDetailPageView:
             new_end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -509,14 +460,14 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=["Schedule changes", "Assigned", "Main Hall"],
         )
 
     def test_renders_schedule_log_space_moves_and_removals(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -546,7 +497,7 @@ class TestProposalDetailPageView:
             new_space=None,
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
@@ -555,10 +506,7 @@ class TestProposalDetailPageView:
         assert "Reverted" in content
         assert "Removed" in content
 
-    def test_unscheduled_proposal_renders_status_buttons(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_unscheduled_proposal_renders_status_buttons(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -571,14 +519,14 @@ class TestProposalDetailPageView:
         )
         url_kwargs = {"slug": event.slug, "proposal_id": session.pk}
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -599,6 +547,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[
                 reverse("panel:proposal-accept", kwargs=url_kwargs),
@@ -609,10 +558,56 @@ class TestProposalDetailPageView:
             not_contains=[reverse("panel:proposal-pending", kwargs=url_kwargs)],
         )
 
-    def test_scheduled_proposal_disables_non_accept_status_buttons(
+    def test_unscheduled_accepted_proposal_offers_move_to_pending(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Accepted Proposal",
+            slug="accepted-proposal",
+            participants_limit=4,
+            status="accepted",
+        )
+
+        response = authenticated_client.get(self.get_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-detail.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                **_detail_tabs(event, session.pk),
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 0,
+                    "scheduled_sessions": 0,
+                    "total_proposals": 1,
+                    "total_sessions": 0,
+                },
+                "proposal": SessionDTO.model_validate(session),
+                "category_name": "RPG",
+                "proposal_tracks": [],
+                "agenda_item": None,
+                "schedule_logs": [],
+                "field_values": [],
+                "facilitators": [],
+                "presenter": None,
+                "preferred_time_slots": [],
+                "import_log_entry": None,
+                "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
+            },
+        )
+
+    def test_scheduled_proposal_disables_non_accept_status_buttons(
+        self, panel_client, event
+    ):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -636,14 +631,14 @@ class TestProposalDetailPageView:
             "Remove it from the timetable to change its status."
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -678,6 +673,7 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[
                 f'disabled title="{scheduled_tooltip}"',
@@ -691,10 +687,7 @@ class TestProposalDetailPageView:
             ],
         )
 
-    def test_facilitators_card_links_to_facilitator_detail(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_facilitators_card_links_to_facilitator_detail(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -714,14 +707,14 @@ class TestProposalDetailPageView:
             kwargs={"slug": event.slug, "facilitator_slug": "alice"},
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -742,14 +735,12 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[f'href="{facilitator_url}"', "Alice"],
         )
 
-    def test_renders_track_chips_linking_to_track_page(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_renders_track_chips_linking_to_track_page(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         track = Track.objects.create(
             event=event, name="Main Track", slug="main-track", is_public=True
@@ -768,14 +759,14 @@ class TestProposalDetailPageView:
             "panel:track-edit", kwargs={"slug": event.slug, "track_slug": track.slug}
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -796,14 +787,14 @@ class TestProposalDetailPageView:
                 "preferred_time_slots": [],
                 "import_log_entry": None,
                 "import_log_integration": None,
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[f'href="{track_url}"', "Main Track"],
         )
 
     def test_imported_proposal_renders_back_link_to_log(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -831,7 +822,7 @@ class TestProposalDetailPageView:
             session=session,
         )
 
-        response = authenticated_client.get(self.get_url(event, session.pk))
+        response = panel_client.get(self.get_url(event, session.pk))
 
         log_url = reverse(
             "panel:import-log", kwargs={"slug": event.slug, "pk": integration.pk}
@@ -841,7 +832,7 @@ class TestProposalDetailPageView:
             HTTPStatus.OK,
             template_name="panel/proposal-detail.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 **_detail_tabs(event, session.pk),
                 "stats": {
                     "hosts_count": 0,
@@ -873,14 +864,14 @@ class TestProposalDetailPageView:
                     settings_json="{}",
                     questions_snapshot_json="[]",
                 ),
+                "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
             contains=[f'href="{log_url}?focus={entry.pk}"', "Imported via Puller"],
         )
 
     def test_log_view_highlights_focused_entry_and_opens_successes(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         connection = Connection.objects.create(sphere=sphere, display_name="API key")
         integration = EventIntegration.objects.create(
             event=event,
@@ -908,7 +899,7 @@ class TestProposalDetailPageView:
         log_url = reverse(
             "panel:import-log", kwargs={"slug": event.slug, "pk": integration.pk}
         )
-        response = authenticated_client.get(f"{log_url}?focus={entry.pk}")
+        response = panel_client.get(f"{log_url}?focus={entry.pk}")
 
         # Forced open: the focused success entry forces the <details> open and
         # gets the CSS highlight in the body.
@@ -917,7 +908,7 @@ class TestProposalDetailPageView:
             HTTPStatus.OK,
             template_name="panel/import-log.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="proposals"),
                 "active_nav": "import",
                 "active_integration": EventIntegrationDTO(
                     pk=integration.pk,
