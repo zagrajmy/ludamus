@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-06 00:14+0200\n"
+"POT-Creation-Date: 2026-08-08 07:19+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1991,11 +1991,13 @@ msgid "Party name"
 msgstr "Nazwa drużyny"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/gates/web/django/sphere/forms.py
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Email or Discord username"
 msgstr "Adres email lub nazwa użytkownika Discord"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
+#: src/ludamus/gates/web/django/sphere/forms.py
 msgid ""
 "Their account email, or the Discord username they signed up with. They need "
 "a Zagrajmy account."
@@ -2954,6 +2956,68 @@ msgstr "Zostałeś/aś wypisany/a z tego spotkania."
 #: src/ludamus/gates/web/django/panel.py
 msgid "You don't have permission to access the backoffice panel."
 msgstr "Nie masz uprawnień do panelu organizatora."
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Guild name"
+msgstr "Nazwa gildii"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid ""
+"The mark shown beside members' names on programme cards. Square, one colour, "
+"no lettering — it renders at about 19 px. Max 8 MB. SVG, PNG, WebP, JPG, or "
+"AVIF."
+msgstr ""
+"Znak pokazywany obok nazwisk członków na kartach programu. Kwadrat, jeden "
+"kolor, bez napisów — renderuje się w około 19 px. Maks. 8 MB. SVG, PNG, "
+"WebP, JPG lub AVIF."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild not found."
+msgstr "Nie znaleziono gildii."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild created."
+msgstr "Gildia utworzona."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild updated."
+msgstr "Gildia zapisana."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild deleted."
+msgstr "Gildia usunięta."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Presenter added."
+msgstr "Prowadzący dodany."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Presenter moved to this guild from another one."
+msgstr "Prowadzący przeniesiony do tej gildii z innej."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "That presenter is already in this guild."
+msgstr "Ten prowadzący już należy do tej gildii."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "No account matches that email or Discord username."
+msgstr "Żadne konto nie pasuje do tego adresu e-mail ani nazwy w Discordzie."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "More than one account matches. Use the exact email address."
+msgstr "Pasuje więcej niż jedno konto. Podaj dokładny adres e-mail."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Give an email or Discord username."
+msgstr "Podaj adres e-mail lub nazwę w Discordzie."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Presenter removed."
+msgstr "Prowadzący usunięty."
+
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "That presenter is not in this guild."
+msgstr "Ten prowadzący nie należy do tej gildii."
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"
@@ -3994,6 +4058,8 @@ msgstr "To zastąpi Twoją obecną anonimową sesję"
 #: src/ludamus/templates/multiverse/panel/connections/create.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
+#: src/ludamus/templates/multiverse/panel/guilds/create.html
+#: src/ludamus/templates/multiverse/panel/guilds/delete.html
 #: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
@@ -4280,6 +4346,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/_space_tree_node.html
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/integration-settings.html
@@ -4300,6 +4367,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/crowd/user/edit.html
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -4726,6 +4794,11 @@ msgstr "Usuń obraz"
 #: src/ludamus/templates/components/file-dropzone.html
 msgid "Remove file"
 msgstr "Usuń plik"
+
+#: src/ludamus/templates/components/guild_mark.html
+#, python-format
+msgid "Guild: %(name)s"
+msgstr "Gildia: %(name)s"
 
 #: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
@@ -5171,6 +5244,7 @@ msgstr ""
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -5542,6 +5616,13 @@ msgid "General"
 msgstr "Ogólne"
 
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
+#: src/ludamus/templates/multiverse/panel/guilds/delete.html
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid "Guilds"
+msgstr "Gildie"
+
+#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Import connections"
 msgstr "Połączenia importu"
@@ -5581,6 +5662,7 @@ msgstr "Ogłoszenia organizacji dla tej sfery"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
@@ -5601,6 +5683,7 @@ msgstr "Szkic"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "Row actions"
 msgstr "Akcje wiersza"
 
@@ -5647,6 +5730,99 @@ msgstr "Połączenia importu dla tej sfery"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "No connections yet."
 msgstr "Brak połączeń."
+
+#: src/ludamus/templates/multiverse/panel/guilds/create.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid "New guild"
+msgstr "Nowa gildia"
+
+#: src/ludamus/templates/multiverse/panel/guilds/create.html
+msgid "Create guild"
+msgstr "Utwórz gildię"
+
+#: src/ludamus/templates/multiverse/panel/guilds/delete.html
+msgid "Delete guild"
+msgstr "Usuń gildię"
+
+#: src/ludamus/templates/multiverse/panel/guilds/delete.html
+#, python-format
+msgid "Delete the guild “%(name)s”?"
+msgstr "Usunąć gildię „%(name)s”?"
+
+#: src/ludamus/templates/multiverse/panel/guilds/delete.html
+#, python-format
+msgid ""
+"Its mark stops showing on the programme cards of %(counter)s presenter. "
+"Their account and sessions are untouched."
+msgid_plural ""
+"Its mark stops showing on the programme cards of %(counter)s presenters. "
+"Their accounts and sessions are untouched."
+msgstr[0] ""
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
+"prowadzącego. Jego konto i punkty programu zostają nietknięte."
+msgstr[1] ""
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
+"prowadzących. Ich konta i punkty programu zostają nietknięte."
+msgstr[2] ""
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
+"prowadzących. Ich konta i punkty programu zostają nietknięte."
+msgstr[3] ""
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
+"prowadzącego. Jego konto i punkty programu zostają nietknięte."
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+msgid "Back to guilds"
+msgstr "Wróć do gildii"
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+msgid "Guild details"
+msgstr "Dane gildii"
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid "Presenters"
+msgstr "Prowadzący"
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+msgid ""
+"This guild's mark appears beside these people on every programme card they "
+"present."
+msgstr ""
+"Znak tej gildii pojawia się obok tych osób na każdej karcie programu, który "
+"prowadzą."
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+msgid "Add presenter"
+msgstr "Dodaj prowadzącego"
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+#, python-format
+msgid "Remove %(name)s from this guild"
+msgstr "Usuń %(name)s z tej gildii"
+
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+msgid "Nobody in this guild yet."
+msgstr "Nikogo jeszcze w tej gildii."
+
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid "Guilds in this sphere"
+msgstr "Gildie w tej sferze"
+
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid "Guild"
+msgstr "Gildia"
+
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid "No guilds yet."
+msgstr "Nie ma jeszcze żadnych gildii."
+
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+msgid ""
+"A guild's mark shows beside its members' names on every programme card they "
+"present."
+msgstr ""
+"Znak gildii pokazuje się obok nazwisk jej członków na każdej karcie "
+"programu, który prowadzą."
 
 #: src/ludamus/templates/multiverse/panel/mcp-token.html
 #, python-format
@@ -8882,9 +9058,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr ""
 #~ "Nie można scalić twórców programu, z których każdy ma powiązane konto "
 #~ "użytkownika."
-
-#~ msgid "Session deleted."
-#~ msgstr "Punkt programu został usunięty."
 
 #~ msgid "Session restored."
 #~ msgstr "Punkt programu przywrócony."

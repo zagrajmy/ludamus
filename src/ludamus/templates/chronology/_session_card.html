@@ -29,8 +29,9 @@
                 <h3 class="w-fit text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
                     data-morph="title">{{ data.session.title }}</h3>
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-hidden">
-                    <span class="shrink-0" data-morph="avatar">
+                    <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-8" %}
+                        {% include "components/guild_mark.html" with guild=data.guild extra_class="absolute -bottom-1 -right-1" ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"
