@@ -4659,6 +4659,15 @@ msgid "required"
 msgstr "wymagane"
 
 #: src/ludamus/templates/components/dynamic-field.html
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/panel/bans.html
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Remove"
+msgstr "Usuń"
+
+#: src/ludamus/templates/components/dynamic-field.html
 #, python-format
 msgid "Custom value for: %(question)s"
 msgstr "Własna wartość dla: %(question)s"
@@ -5091,14 +5100,6 @@ msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Delete party"
 msgstr "Usuń drużynę"
-
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/panel/bans.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/proposal-session-fields.html
-msgid "Remove"
-msgstr "Usuń"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
