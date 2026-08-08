@@ -1,2 +1,2 @@
 [rituals]
-files = ["src/ludamus/edges/rituals.py"]
+files = ["src/ludamus/edges/rituals"]
