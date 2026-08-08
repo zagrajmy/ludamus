@@ -29,59 +29,59 @@
 {% block content %}
     {% if current_event %}
         {% tab_shell "panel/_event_settings_tabs.html" %}
-        {% tab_shell_body %}
-        <form id="enrollment-window-form"
-              method="post"
-              {% if window %}action="{% url 'panel:enrollment-window-edit' slug=current_event.slug pk=window.pk %}"{% else %}action="{% url 'panel:enrollment-window-create' slug=current_event.slug %}"{% endif %}
-              class="max-w-2xl space-y-6">
-            {% csrf_token %}
-            {% tessera_errors form %}
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Enrollment period" %}</h2>
-                    <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Participants can enroll while this window is active." %}
-                    </p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {% tessera_field form.start_time %}
-                        {% tessera_field form.end_time %}
+            {% tab_shell_body %}
+                <form id="enrollment-window-form"
+                      method="post"
+                      {% if window %}action="{% url 'panel:enrollment-window-edit' slug=current_event.slug pk=window.pk %}"{% else %}action="{% url 'panel:enrollment-window-create' slug=current_event.slug %}"{% endif %}
+                      class="max-w-2xl space-y-6">
+                    {% csrf_token %}
+                    {% tessera_errors form %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Enrollment period" %}</h2>
+                            <p class="text-sm text-foreground-muted mb-6">
+                                {% translate "Participants can enroll while this window is active." %}
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                {% tessera_field form.start_time %}
+                                {% tessera_field form.end_time %}
+                            </div>
+                            <div class="mt-6">{% tessera_field form.limit_to_end_time %}</div>
+                        </div>
                     </div>
-                    <div class="mt-6">{% tessera_field form.limit_to_end_time %}</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Capacity and waiting list" %}</h2>
-                    <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Control how many seats open and how many waiting lists one person may join." %}
-                    </p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        {% tessera_field form.percentage_slots %}
-                        {% tessera_field form.max_waitlist_sessions %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Capacity and waiting list" %}</h2>
+                            <p class="text-sm text-foreground-muted mb-6">
+                                {% translate "Control how many seats open and how many waiting lists one person may join." %}
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                {% tessera_field form.percentage_slots %}
+                                {% tessera_field form.max_waitlist_sessions %}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Access" %}</h2>
-                    <p class="text-sm text-foreground-muted mb-6">{% translate "Choose who may enroll while this window is active." %}</p>
-                    <div class="space-y-6">
-                        {% tessera_field form.restrict_to_configured_users %}
-                        {% tessera_field form.allow_anonymous_enrollment %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Access" %}</h2>
+                            <p class="text-sm text-foreground-muted mb-6">{% translate "Choose who may enroll while this window is active." %}</p>
+                            <div class="space-y-6">
+                                {% tessera_field form.restrict_to_configured_users %}
+                                {% tessera_field form.allow_anonymous_enrollment %}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Participant notice" %}</h2>
-                    <p class="text-sm text-foreground-muted mb-6">
-                        {% translate "Add a short message when participants need context about this enrollment stage." %}
-                    </p>
-                    {% tessera_field form.banner_text %}
-                </div>
-            </div>
-        </form>
-    {% end_tab_shell_body %}
-{% end_tab_shell %}
-{% endif %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "Participant notice" %}</h2>
+                            <p class="text-sm text-foreground-muted mb-6">
+                                {% translate "Add a short message when participants need context about this enrollment stage." %}
+                            </p>
+                            {% tessera_field form.banner_text %}
+                        </div>
+                    </div>
+                </form>
+            {% endtab_shell_body %}
+        {% endtab_shell %}
+    {% endif %}
 {% endblock content %}
