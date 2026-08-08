@@ -2,12 +2,13 @@ from django.db.models import Count
 
 from ludamus.links.db.django.models import Session, SessionBookmark
 from ludamus.pacts.bookmarks import BookmarkRepositoryProtocol, BookmarkToggleDTO
+from ludamus.pacts.ids import EventId, SessionId, SphereId, UserId
 
 
 class BookmarkRepository(BookmarkRepositoryProtocol):
     @staticmethod
     def toggle(
-        *, user_id: int, session_id: int, sphere_id: int
+        *, user_id: UserId, session_id: SessionId, sphere_id: SphereId
     ) -> BookmarkToggleDTO | None:
         # Resolve the session within the viewer's sphere so a bookmark can't be
         # forged against a session that isn't visible here.
@@ -32,18 +33,22 @@ class BookmarkRepository(BookmarkRepositoryProtocol):
         )
 
     @staticmethod
-    def bookmarked_session_ids(*, user_id: int, event_id: int) -> set[int]:
-        return set(
-            SessionBookmark.objects.filter(
+    def bookmarked_session_ids(*, user_id: UserId, event_id: EventId) -> set[SessionId]:
+        return {
+            SessionId(pk)
+            for pk in SessionBookmark.objects.filter(
                 user_id=user_id, session__event_id=event_id
             ).values_list("session_id", flat=True)
-        )
+        }
 
     @staticmethod
-    def bookmark_counts(*, event_id: int) -> dict[int, int]:
-        return dict(
-            SessionBookmark.objects.filter(session__event_id=event_id)
-            .values("session_id")
-            .annotate(count=Count("id"))
-            .values_list("session_id", "count")
-        )
+    def bookmark_counts(*, event_id: EventId) -> dict[SessionId, int]:
+        return {
+            SessionId(sid): count
+            for sid, count in (
+                SessionBookmark.objects.filter(session__event_id=event_id)
+                .values("session_id")
+                .annotate(count=Count("id"))
+                .values_list("session_id", "count")
+            )
+        }
