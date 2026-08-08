@@ -143,7 +143,7 @@ the sphere.{% endcomment %}
                 data-action="toggle-sidebar"></button>
         <!-- Sidebar -->
         <aside id="sidebar"
-               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:h-screen">
+               class="sidebar-panel w-64 overflow-x-hidden overflow-y-auto border-r border-border bg-bg-tertiary text-foreground dark:bg-bg-secondary flex-shrink-0 fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 lg:sticky lg:inset-auto lg:top-0 lg:z-auto lg:max-h-screen">
             <div class="sidebar-toggle sticky top-0 z-10 flex items-center pt-4 justify-end gap-1 bg-bg-tertiary p-2 dark:bg-bg-secondary">
                 {% if events %}
                     <div class="sidebar-fold-hide relative min-w-0 flex-1">
@@ -324,9 +324,49 @@ the sphere.{% endcomment %}
             </nav>
         </aside>
         <!-- Main Content -->
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        {% comment %}The shell's bar reserves 12px around the tabs so a raised
+        tab clears a rounded, bordered card edge. The panel strips that edge —
+        rounded-t-none at every width, border-0 below — so the top 12px is a
+        bare band of tab-track colour on desktop too, and `pt-1.5` is
+        deliberately unprefixed. The sides only close up below sm, where the
+        band costs viewport width; the tab body edge moves with them, since the
+        first tab is meant to sit flush with the content under it.
+
+        Never the bottom, at any width: the selected tab is pulled a pixel over
+        the bar's border to read as attached to the panel below, and padding
+        under it floats the whole strip off its rail.
+
+        Pages that run their cards to the viewport edge below sm mark their
+        wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
+        {% endcomment %}
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
             <!-- Top Bar -->
-            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-3 sm:py-3 sticky top-0 z-10">
+            {% comment %}Header CTAs go icon-only below sm — the glyph carries the
+            action and the title beside it gets the width back. The label goes
+            sr-only rather than hidden, so the button keeps its accessible name.
+            Templates and `tessera_button` both mark it `.btn-label`; the
+            breakpoint is decided here, once, rather than in 28 templates.
+
+            The first three rules hang off the same `:has(>svg)`, and must keep
+            doing so. A button with no icon has nothing to fall back on, so
+            hiding its label leaves a blank pill — which is what the moderation
+            bar on proposal-detail (Accept / Hold / Reject / Delete) would
+            become. The same guard covers
+            `{% templatetag openblock %} icon {% templatetag closeblock %}`
+            returning "" for a missing icon in production.
+
+            `min-h-11` is the one rule that covers every button: an iconless
+            one keeps its label and its own width, but `py-2` alone leaves it
+            38px — under the tap-target floor, and 6px shy of the squares it
+            sits beside. Stated as a minimum rather than a height so it never
+            argues with `size-11` over the icon buttons.
+
+            `w-auto` is deliberately ungated: `tessera_button` stretches every
+            form-submit button by default, which is right in a body form and
+            never right in this strip. Deciding it here spares 22 header
+            templates from each passing `full_width_mobile=False`.
+            {% endcomment %}
+            <header class="bg-bg-secondary border-border border-b px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-10 max-sm:[&_.btn:has(>svg)_.btn-label]:sr-only max-sm:[&_.btn:has(>svg)]:size-11 max-sm:[&_.btn:has(>svg)]:p-0 max-sm:[&_.btn]:min-h-11 max-md:[&_.btn]:w-auto">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <!-- Mobile menu button -->
                     {# ludamus-disable:no-negative-margin -- -ml-2 cancels p-2 so the icon aligns flush with the container edge while keeping a 44px tap target #}
@@ -338,7 +378,10 @@ the sphere.{% endcomment %}
                     </button>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 min-w-0">
-                            <h2 class="text-xl font-bold text-foreground truncate">
+                            {# A phone header is a strip, not a masthead: 20px/28 there is #}
+                            {# bulk. 17px on a tight leading keeps it clearly the title over #}
+                            {# a 14px subtitle and gives the row back ~6px. #}
+                            <h2 class="text-[1.0625rem]/tight sm:text-xl font-bold text-foreground truncate">
                                 {% block page_title %}
                                     {% translate "Dashboard" %}
                                 {% endblock page_title %}

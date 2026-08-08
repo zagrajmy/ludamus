@@ -23,7 +23,7 @@
         {% url 'panel:event-enrollment-settings' slug=current_event.slug as cancel_url %}
         {% tessera_button cancel_label href=cancel_url variant="secondary" %}
         {% translate "Save window" as save_label %}
-        {% tessera_button save_label form="enrollment-window-form" icon="check" full_width_mobile=False %}
+        {% tessera_button save_label form="enrollment-window-form" icon="check" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}

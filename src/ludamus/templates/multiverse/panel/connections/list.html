@@ -11,11 +11,9 @@
     {{ current_sphere.name }}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    <a href="{% url 'multiverse:panel:connection-create' %}"
-       class="btn btn-primary flex items-center">
-        {% icon "plus" class="w-4 h-4 mr-2" %}
-        {% translate "New connection" %}
-    </a>
+    {% url 'multiverse:panel:connection-create' as create_url %}
+    {% translate "New connection" as create_label %}
+    {% tessera_button create_label href=create_url icon="plus" %}
 {% endblock header_actions %}
 {% block content %}
     {% tab_shell "multiverse/panel/_sphere_tabs_nav.html" %}
