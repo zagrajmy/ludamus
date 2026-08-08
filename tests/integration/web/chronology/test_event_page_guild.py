@@ -1,31 +1,68 @@
-"""The presenter's guild mark riding along on their programme cards.
-
-The surrounding page context is asserted exhaustively in test_event_page.py;
-these tests are about the guild field alone, so they match the rest of the
-context with ANY rather than restating it.
-"""
+"""The presenter's guild mark riding along on their programme cards."""
 
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.web.django.views import COMPACT_SCHEDULE_MIN_SESSIONS
 from ludamus.links.db.django.models import Guild, GuildMembership
 from ludamus.pacts.guild import GuildMarkDTO
-from tests.integration.conftest import AgendaItemFactory, SessionFactory, SphereFactory
+from tests.integration.conftest import (
+    PNG_BYTES,
+    AgendaItemFactory,
+    SessionFactory,
+    SphereFactory,
+)
 from tests.integration.utils import assert_response
+
+
+class EventPageMarks:
+    """Matches the event page context by the guild marks on its cards.
+
+    test_event_page.py asserts the rest of that context exhaustively, so these
+    tests look at the marks alone — plus the card count and the schedule mode,
+    which say the marks were read off the page these tests meant to render.
+    """
+
+    def __init__(
+        self, marks: list[GuildMarkDTO], *, cards: int = 1, compact: bool = False
+    ) -> None:
+        self.marks = marks
+        self.cards = cards
+        self.compact = compact
+
+    def _found(self, context: dict) -> list[GuildMarkDTO]:
+        return [
+            card.guild
+            for hour in context.get("hour_data", {}).values()
+            for card in hour
+            if card.guild
+        ]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, dict):
+            return NotImplemented
+        drawn = sum(len(hour) for hour in other.get("hour_data", {}).values())
+        return (
+            drawn == self.cards
+            and self._found(other) == self.marks
+            and other.get("compact_schedule") is self.compact
+        )
+
+    def __hash__(self) -> int:
+        return hash((tuple(self.marks), self.cards, self.compact))
+
+    def __repr__(self) -> str:
+        return (
+            f"EventPageMarks({self.marks!r}, cards={self.cards},"
+            f" compact={self.compact})"
+        )
 
 
 def _url(event):
     return reverse("web:chronology:event", kwargs={"slug": event.slug})
-
-
-def _cards(response):
-    return [
-        card for cards in response.context_data["hour_data"].values() for card in cards
-    ]
 
 
 @pytest.fixture(name="guild")
@@ -47,12 +84,31 @@ class TestGuildMarkOnCards:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=EventPageMarks(
+                [GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")]
+            ),
             template_name=["chronology/event.html"],
         )
-        assert [card.guild for card in _cards(response)] == [
-            GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")
-        ]
+
+    def test_card_renders_the_mark_when_the_guild_has_a_logo(
+        self, client, event, agenda_item, active_user, sphere, guild
+    ):
+        session = agenda_item.session
+        session.presenter = active_user
+        session.save()
+        guild.logo.save("mark.png", SimpleUploadedFile("mark.png", PNG_BYTES))
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
+
+        response = client.get(_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=EventPageMarks(
+                [GuildMarkDTO(pk=guild.pk, name="Topory", logo_url=guild.logo.url)]
+            ),
+            template_name=["chronology/event.html"],
+        )
 
     def test_card_has_no_guild_when_the_presenter_is_in_none(
         self, client, event, agenda_item, active_user, guild
@@ -66,10 +122,9 @@ class TestGuildMarkOnCards:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=EventPageMarks([]),
             template_name=["chronology/event.html"],
         )
-        assert [card.guild for card in _cards(response)] == [None]
 
     def test_a_membership_in_another_sphere_does_not_leak(
         self, client, event, agenda_item, active_user
@@ -90,10 +145,9 @@ class TestGuildMarkOnCards:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=EventPageMarks([]),
             template_name=["chronology/event.html"],
         )
-        assert [card.guild for card in _cards(response)] == [None]
 
     def test_a_presenter_less_session_is_left_alone(self, client, event, agenda_item):
         session = agenda_item.session
@@ -106,10 +160,9 @@ class TestGuildMarkOnCards:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=EventPageMarks([]),
             template_name=["chronology/event.html"],
         )
-        assert [card.guild for card in _cards(response)] == [None]
 
 
 class TestGuildMarkOnTheCompactSchedule:
@@ -140,9 +193,10 @@ class TestGuildMarkOnTheCompactSchedule:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=EventPageMarks(
+                [GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")],
+                cards=COMPACT_SCHEDULE_MIN_SESSIONS + 1,
+                compact=True,
+            ),
             template_name=["chronology/event.html"],
         )
-        assert response.context_data["compact_schedule"] is True
-        marked = [card for card in _cards(response) if card.guild is not None]
-        assert [card.guild.name for card in marked] == ["Topory"]

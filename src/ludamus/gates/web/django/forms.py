@@ -189,7 +189,7 @@ def cover_image_field() -> forms.ImageField:
 
 def logo_field(*, help_text: str | None = None) -> forms.FileField:
     # Public like cover_image_field(): the guild panel lives in another module
-    # and must not re-declare the accepted types or the contain-fit hint.
+    # and must not restate the accepted types or the contain-fit hint.
     return forms.FileField(
         required=False,
         label=_("Logo"),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from django.contrib import messages
 from django.shortcuts import redirect
@@ -14,8 +14,8 @@ from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
-from ludamus.gates.web.django.multiverse.panel.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
+from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.pacts import RedirectError
 from ludamus.pacts.guild import AssignMemberOutcome
 from ludamus.pacts.legacy import resolve_uploaded_file_field
@@ -156,23 +156,24 @@ class GuildDeletePageView(SphereAccessMixin, View):
         return redirect("multiverse:panel:guilds")
 
 
+class _Notice(NamedTuple):
+    level: int
+    text: str
+
+
 _ASSIGN_MESSAGES = {
-    AssignMemberOutcome.ASSIGNED: (messages.SUCCESS, _("Presenter added.")),
-    AssignMemberOutcome.MOVED: (
-        messages.SUCCESS,
-        _("Presenter moved to this guild from another one."),
+    AssignMemberOutcome.ASSIGNED: _Notice(messages.SUCCESS, _("Presenter added.")),
+    AssignMemberOutcome.MOVED: _Notice(
+        messages.SUCCESS, _("Presenter moved to this guild from another one.")
     ),
-    AssignMemberOutcome.ALREADY_MEMBER: (
-        messages.INFO,
-        _("That presenter is already in this guild."),
+    AssignMemberOutcome.ALREADY_MEMBER: _Notice(
+        messages.INFO, _("That presenter is already in this guild.")
     ),
-    AssignMemberOutcome.NO_SUCH_USER: (
-        messages.ERROR,
-        _("No account matches that email or Discord username."),
+    AssignMemberOutcome.NO_SUCH_USER: _Notice(
+        messages.ERROR, _("No account matches that email or Discord username.")
     ),
-    AssignMemberOutcome.AMBIGUOUS_HANDLE: (
-        messages.ERROR,
-        _("More than one account matches. Use the exact email address."),
+    AssignMemberOutcome.AMBIGUOUS_HANDLE: _Notice(
+        messages.ERROR, _("More than one account matches. Use the exact email address.")
     ),
 }
 
@@ -192,8 +193,8 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
             guild_pk=pk,
             identifier=form.cleaned_data["identifier"],
         )
-        level, text = _ASSIGN_MESSAGES[outcome]
-        messages.add_message(self.request, level, text)
+        notice = _ASSIGN_MESSAGES[outcome]
+        messages.add_message(self.request, notice.level, notice.text)
         return redirect("multiverse:panel:guild-edit", pk=pk)
 
 

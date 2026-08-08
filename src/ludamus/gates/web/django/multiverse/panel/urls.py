@@ -1,11 +1,10 @@
 """URL patterns for the multiverse panel bounded context."""
 
-from django.urls import path
+from django.urls import include, path
 
 from ludamus.gates.web.django.multiverse.panel.views import (
     announcements,
     connections,
-    guilds,
     mcp_token,
     sphere_settings,
 )
@@ -34,26 +33,10 @@ urlpatterns = [
         announcements.AnnouncementDeletePageView.as_view(),
         name="announcement-delete",
     ),
-    path("guilds/", guilds.GuildsPageView.as_view(), name="guilds"),
-    path("guilds/create/", guilds.GuildCreatePageView.as_view(), name="guild-create"),
-    path(
-        "guilds/<int:pk>/edit/", guilds.GuildEditPageView.as_view(), name="guild-edit"
-    ),
-    path(
-        "guilds/<int:pk>/do/delete/",
-        guilds.GuildDeletePageView.as_view(),
-        name="guild-delete",
-    ),
-    path(
-        "guilds/<int:pk>/do/add-member",
-        guilds.GuildMemberAddActionView.as_view(),
-        name="guild-member-add",
-    ),
-    path(
-        "guilds/<int:pk>/members/<int:membership_pk>/do/remove",
-        guilds.GuildMemberRemoveActionView.as_view(),
-        name="guild-member-remove",
-    ),
+    # Guild pages live in the sphere package; a namespace-less include keeps
+    # them reachable as multiverse:panel:guild-* while their definitions sit
+    # with their views.
+    path("", include("ludamus.gates.web.django.sphere.urls")),
     path("mcp/", mcp_token.OrganizerMcpTokenPageView.as_view(), name="mcp-token"),
     path("connections/", connections.ConnectionsPageView.as_view(), name="connections"),
     path(

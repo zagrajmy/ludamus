@@ -108,3 +108,13 @@ class GuildService(GuildServiceProtocol):
         self, *, sphere_id: int, user_pks: list[int]
     ) -> dict[int, GuildMarkDTO]:
         return self._guilds.marks_for_users(sphere_id=sphere_id, user_pks=user_pks)
+
+    def mark_for_user(
+        self, *, sphere_id: int, user_pk: int | None
+    ) -> GuildMarkDTO | None:
+        # A single card (the modal) shouldn't have to unpack a batch dict, and
+        # a presenter-less session shouldn't have to guard the call.
+        marks = self._guilds.marks_for_users(
+            sphere_id=sphere_id, user_pks=[user_pk] if user_pk else []
+        )
+        return marks.get(user_pk) if user_pk else None

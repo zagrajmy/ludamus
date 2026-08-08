@@ -224,3 +224,16 @@ class TestMarksForUsers:
 
         assert marks == {MEMBER_PK: GuildMarkDTO(pk=GUILD_PK, name="Topory")}
         assert ("marks_for_users", SPHERE_PK, (MEMBER_PK,)) in guilds.calls
+
+    def test_mark_for_user_unwraps_the_single_presenter(self):
+        guilds = FakeGuilds()
+
+        mark = _service(guilds).mark_for_user(sphere_id=SPHERE_PK, user_pk=MEMBER_PK)
+
+        assert mark == GuildMarkDTO(pk=GUILD_PK, name="Topory")
+
+    def test_mark_for_user_skips_the_query_for_a_presenter_less_session(self):
+        guilds = FakeGuilds()
+
+        assert _service(guilds).mark_for_user(sphere_id=SPHERE_PK, user_pk=None) is None
+        assert ("marks_for_users", SPHERE_PK, ()) in guilds.calls

@@ -54,6 +54,7 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -718,23 +719,13 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Set user participation data for authenticated users and anonymous users
         self._set_user_participations(sessions_data, event_sessions)
-        self._set_guild_marks(sessions_data)
+        attach_guild_marks(
+            sessions_data,
+            guilds=self.request.services.guilds,
+            sphere_id=self.request.context.current_sphere_id,
+        )
 
         return sessions_data
-
-    def _set_guild_marks(self, sessions_data: dict[int, SessionData]) -> None:
-        # One query for the whole page: the mark hangs off the presenter's
-        # guild membership, so a per-card lookup would be an N+1.
-        presenter_pks = [
-            data.presenter.pk for data in sessions_data.values() if data.presenter.pk
-        ]
-        if not presenter_pks:
-            return
-        marks = self.request.services.guilds.marks_for_users(
-            sphere_id=self.request.context.current_sphere_id, user_pks=presenter_pks
-        )
-        for data in sessions_data.values():
-            data.guild = marks.get(data.presenter.pk)
 
 
 class EnrollmentChoice(StrEnum):

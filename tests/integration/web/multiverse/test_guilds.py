@@ -6,7 +6,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Guild, GuildMembership
-from ludamus.pacts.guild import GuildSummaryDTO
+from ludamus.links.db.django.users import display_avatar_url
+from ludamus.pacts.guild import GuildDTO, GuildMemberDTO, GuildSummaryDTO
 from tests.integration.conftest import PNG_BYTES, SphereFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
@@ -47,6 +48,32 @@ class TestGuildsPageView:
             HTTPStatus.OK,
             template_name="multiverse/panel/guilds/list.html",
             context_data={**GUILDS_PANEL_CONTEXT, "guilds": []},
+        )
+
+    def test_get_renders_an_uploaded_mark(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        guild.logo.save("mark.png", SimpleUploadedFile("mark.png", PNG_BYTES))
+
+        response = authenticated_client.get(LIST_URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/guilds/list.html",
+            context_data={
+                **GUILDS_PANEL_CONTEXT,
+                "guilds": [
+                    GuildSummaryDTO(
+                        pk=guild.pk,
+                        name="Topory",
+                        slug="topory",
+                        logo_url=guild.logo.url,
+                    )
+                ],
+            },
         )
 
     def test_get_lists_only_this_spheres_guilds(
@@ -173,7 +200,75 @@ class TestGuildEditPageView:
             template_name="multiverse/panel/guilds/edit.html",
             context_data={
                 **GUILDS_PANEL_CONTEXT,
-                "guild": ANY,
+                "guild": GuildDTO(
+                    pk=guild.pk, name="Topory", slug="topory", members=[]
+                ),
+                "form": ANY,
+                "member_form": ANY,
+            },
+        )
+
+    def test_get_lists_the_roster_with_a_remove_control(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        presenter = UserFactory(
+            username="auth0|marek", name="Marek", email="marek@example.com"
+        )
+        membership = GuildMembership.objects.create(
+            sphere=sphere, guild=guild, member=presenter
+        )
+
+        response = authenticated_client.get(_edit_url(guild))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/guilds/edit.html",
+            context_data={
+                **GUILDS_PANEL_CONTEXT,
+                "guild": GuildDTO(
+                    pk=guild.pk,
+                    name="Topory",
+                    slug="topory",
+                    members=[
+                        GuildMemberDTO(
+                            membership_pk=membership.pk,
+                            user_pk=presenter.pk,
+                            name="Marek",
+                            full_name=presenter.full_name,
+                            email="marek@example.com",
+                            slug=presenter.slug,
+                            username="auth0|marek",
+                            avatar_url=display_avatar_url(presenter),
+                        )
+                    ],
+                ),
+                "form": ANY,
+                "member_form": ANY,
+            },
+        )
+
+    def test_post_without_a_name_redisplays_the_form(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+
+        response = authenticated_client.post(_edit_url(guild), {"name": ""})
+
+        guild.refresh_from_db()
+        assert guild.name == "Topory"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/guilds/edit.html",
+            context_data={
+                **GUILDS_PANEL_CONTEXT,
+                "guild": GuildDTO(
+                    pk=guild.pk, name="Topory", slug="topory", members=[]
+                ),
                 "form": ANY,
                 "member_form": ANY,
             },
@@ -243,6 +338,29 @@ class TestGuildEditPageView:
 
 
 class TestGuildDeletePageView:
+    def test_get_shows_the_confirmation(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+
+        response = authenticated_client.get(
+            reverse("multiverse:panel:guild-delete", kwargs={"pk": guild.pk})
+        )
+
+        assert Guild.objects.filter(pk=guild.pk).exists()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/guilds/delete.html",
+            context_data={
+                **GUILDS_PANEL_CONTEXT,
+                "guild": GuildDTO(
+                    pk=guild.pk, name="Topory", slug="topory", members=[]
+                ),
+            },
+        )
+
     def test_post_deletes_the_guild(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
         guild = _guild(sphere)
@@ -414,4 +532,67 @@ class TestGuildMemberRemoveActionView:
             HTTPStatus.FOUND,
             url=_edit_url(guild),
             messages=[(messages.ERROR, "That presenter is not in this guild.")],
+        )
+
+
+class TestGuildMemberAddOutcomes:
+    @staticmethod
+    def _url(guild):
+        return reverse("multiverse:panel:guild-member-add", kwargs={"pk": guild.pk})
+
+    def test_post_reports_an_existing_member(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        presenter = UserFactory(email="marek@example.com")
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=presenter)
+
+        response = authenticated_client.post(
+            self._url(guild), {"identifier": "marek@example.com"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.INFO, "That presenter is already in this guild.")],
+        )
+
+    def test_post_reports_an_ambiguous_discord_handle(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        UserFactory(username="one", discord_username="dup")
+        UserFactory(username="two", discord_username="DUP")
+
+        response = authenticated_client.post(self._url(guild), {"identifier": "dup"})
+
+        assert not GuildMembership.objects.exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[
+                (
+                    messages.ERROR,
+                    "More than one account matches. Use the exact email address.",
+                )
+            ],
+        )
+
+    def test_post_with_a_blank_identifier_asks_for_one(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+
+        response = authenticated_client.post(self._url(guild), {"identifier": ""})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.ERROR, "Give an email or Discord username.")],
         )
