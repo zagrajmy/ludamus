@@ -382,6 +382,9 @@ type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
+    # How tall the block is on this day's column. A session crossing midnight
+    # is clipped to the day it is drawn on and drawn again on the next; its
+    # real length is `agenda_item.session_duration_minutes`.
     duration_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
@@ -412,6 +415,12 @@ class TimetableDayGridDTO(BaseModel):
     date: date
     columns: list[SpaceColumnDTO]
     event_start_iso: str
+    # Each day owns its time axis. Sharing one grid-wide axis would stretch
+    # every column to the union of the days, and a session split at midnight
+    # puts 00:00 on one day and 24:00 on the one before -- a full 24 hours,
+    # mostly empty, on every day of the event.
+    total_minutes: int
+    time_labels: list[TimeLabelDTO]
 
 
 class MultiselectOptionDTO(BaseModel):
@@ -476,8 +485,6 @@ class TimetableGridDTO(BaseModel):
     spaces: list[SpaceDTO]
     groups: list[SpaceGroupDTO]
     days: list[TimetableDayGridDTO]
-    time_labels: list[TimeLabelDTO]
-    total_minutes: int
     slot_minutes: int
     snap_minutes: int
     page: int

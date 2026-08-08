@@ -6,7 +6,7 @@
          role="group"
          aria-label="{{ col.space.name }}"
          data-space-pk="{{ col.space.pk }}">
-        {% for label in grid.time_labels %}
+        {% for label in day.time_labels %}
             <div class="timetable-slot-line absolute left-0 right-0 border-t border-border"
                  style="--offset: {{ label.offset_minutes }}"></div>
         {% endfor %}

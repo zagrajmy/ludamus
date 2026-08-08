@@ -134,15 +134,24 @@ test.describe("Timetable", () => {
     const days = page.locator(".timetable-day-grid");
     await expect(timetable).toHaveCount(1);
     await expect(days).toHaveCount(2);
-    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(1);
+    // Every day owns its axis, so its column spans only its own slots. One
+    // shared axis would have to span the union of the days, and a session split
+    // at midnight puts 00:00 on one and 24:00 on the other.
+    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(2);
     await expect(timetable.getByText("Time", { exact: true })).toHaveCount(1);
     await expect(page.getByLabel("Day:")).toHaveValue("all");
     await expect(timetable.locator(".timetable-day-header h2")).toHaveCount(2);
 
-    const timeAxisPosition = await timetable
+    // Each axis sits immediately left of the day it labels.
+    const axisRights = await timetable
       .locator(".timetable-time-axis")
-      .evaluate((axis) => getComputedStyle(axis).position);
-    expect(timeAxisPosition).toBe("sticky");
+      .evaluateAll((axes) => axes.map((axis) => axis.getBoundingClientRect().right));
+    const dayLefts = await days.evaluateAll((items) =>
+      items.map((item) => item.getBoundingClientRect().left),
+    );
+    expect(axisRights[0]).toBeGreaterThan(dayLefts[0]);
+    expect(axisRights[1]).toBeGreaterThan(dayLefts[1]);
+    expect(axisRights[0]).toBeLessThan(dayLefts[1]);
 
     const dates = await days.evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-date") ?? ""),

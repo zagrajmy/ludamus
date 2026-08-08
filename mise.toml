@@ -272,7 +272,7 @@ run = [
         '-xvv',
     ] },
     "coverage xml",
-    "diff-cover coverage.xml --compare-branch=main",
+    "diff-cover coverage.xml --compare-branch=main --fail-under=100",
     { task = "lint:tingle" },
 ]
 

@@ -100,7 +100,9 @@ def _delete_wizard_cover(wizard: dict[str, Any]) -> None:
     wizard.pop(_WIZARD_COVER_KEY, None)
 
 
-def _stash_wizard_cover(wizard: dict[str, Any], uploaded_file: UploadedFile) -> None:
+def _stash_wizard_cover(
+    wizard: dict[str, Any], uploaded_file: UploadedFile[bytes]
+) -> None:
     _delete_wizard_cover(wizard)
     name = getattr(uploaded_file, "name", "cover")
     wizard[_WIZARD_COVER_KEY] = default_storage.save(
@@ -129,7 +131,7 @@ def _wizard_image_form(
     wizard: dict[str, Any],
     *,
     data: Mapping[str, Any] | None = None,
-    files: MultiValueDict[str, UploadedFile] | None = None,
+    files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
 ) -> SessionCoverImageForm:
     if data is None and files is None:
         initial = _wizard_cover_initial(wizard)

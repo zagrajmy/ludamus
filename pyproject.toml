@@ -26,7 +26,7 @@ requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
-cryptography = "^49.0.0"
+cryptography = "^50.0.0"
 django = "~6.0.6"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
@@ -134,7 +134,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,radio,document_title"
+custom_blocks = "select,radio,document_title,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
