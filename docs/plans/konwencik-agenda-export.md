@@ -43,7 +43,7 @@ what feeds three of them is.
 
 | Column | Source |
 | --- | --- |
-| `id` | `Session.pk` — the row key, never rewritten |
+| `id` | `Session.pk`, plus `+n` for the second and later day of a session that runs past midnight — the row key, never rewritten |
 | `day` | agenda item start, `%d.%m.%Y` in `settings.TIME_ZONE` |
 | `start` | agenda item start, `%H:%M` |
 | `end` | agenda item end, `%H:%M` |
@@ -60,9 +60,40 @@ what feeds three of them is.
 
 <!-- markdownlint-enable MD013 -->
 
-An icon is an opaque string in Konwencik's own prefixed notation
-(`fa:star-filled` and friends, several formats behind a prefix). We do not
-parse, validate or preview it — we carry it.
+An icon is an opaque string in Konwencik's own prefixed notation — their
+sample sheet uses `fa.gamepad`, `fa.trophy`, `fa.comments`, and the prefix
+selects among several icon formats. We do not parse, validate or preview it
+— we carry it.
+
+## The sheet Konwencik hands us
+
+Two header rows, then data:
+
+<!-- markdownlint-disable MD013 -->
+
+| Row | Content |
+| --- | --- |
+| 1 | machine keys: `id`, `day`, `start`, `end`, `title`, `description`, `speaker`, `room`, `room_position`, `block`, `type`, `photo_url`, `icon`, `icon_background_color` |
+| 2 | Polish labels for humans: `Id`, `Dzień`, `Start`, `Koniec`, `Tytuł`, `Opis`, `Prowadzący`, `Sala`, `Sala - stanowisko`, `Blok`, `Rodzaj programu`, `Link do zdjęcia`, `Ikona`, `Tło` |
+| 3+ | data, seeded with three sample rows (`id` 0, 1, 2) whose description says to delete them |
+
+<!-- markdownlint-enable MD013 -->
+
+<!-- markdownlint-disable MD013 -->
+
+```text
+0    08.02.2024    17:00    18:00    Gra konwentowa    …    Konplace        Misz-Masz    Gra        fa.gamepad    #22AAFF
+```
+
+<!-- markdownlint-enable MD013 -->
+
+Row 1 is what we key on: columns are found by machine key, so reordering or
+inserting a column is safe and row 2 is never touched. Data starts at row 3.
+
+The sample rows are ordinary data rows to us. Their ids are small integers,
+so an event whose session pks happen to be 0, 1 or 2 would overwrite them —
+which is the fate the sample rows ask for anyway. Worth a line in the panel
+help text: delete the sample rows before the first export.
 
 ## The sheet is theirs, so we upsert
 
@@ -72,22 +103,40 @@ columns we do not know about. So the export never replaces the tab.
 `id` is the deduplicator. A run reads the whole tab, maps the `id` column
 back to row numbers, and then:
 
-- a session already in the sheet has its cells updated in place, `id`
+- a segment already in the sheet has its cells updated in place, `id`
   untouched;
-- a session not in the sheet is appended;
-- a row whose `id` we do not recognise — a manual row, or a session that no
-  longer exists — is left exactly as it is;
+- a segment not in the sheet is appended;
+- a row whose `id` is not one of ours — a manual row, a sample row we have
+  not reached, a session from another event — is left exactly as it is;
 - cells in columns we do not manage keep their values.
 
-**Unscheduling never deletes a row.** A session that loses its agenda item
-(or its confirmation, when `confirmed_only` is on) keeps its row and its
-title, description, speaker, category, icon and colour; only `day`, `start`,
-`end`, `room` and `room_position` are cleared. Konwencik then sees a session
-with no time and no place, which is what happened.
+**A session that runs past midnight becomes one row per day.** The first row
+keeps the bare session id, the following ones get `+1`, `+2`, and so on, and
+each carries the slice of the session that falls on its day, split at local
+midnight:
 
-Columns are located by the header row rather than assumed by position, so a
-column Konwencik reorders or inserts does not corrupt the export. A sheet
-whose header row has no `id` column is an error with a hint, not a guess —
+```text
+7      Sob    22:00    00:00    Nocne granie
+7+1    Nie    00:00    05:00    Nocne granie
+```
+
+Everything but `day`, `start` and `end` repeats across the segments.
+
+**Pruning is ours, and it is a full sweep.** Every run compares the whole
+sheet against the event's current state, not just the sessions it is
+writing. A row whose id belongs to this event but has no matching segment
+right now — the session was unscheduled, unconfirmed, soft-deleted, or
+simply no longer stretches into a second day — keeps its row and its title,
+description, speaker, category, icon and colour, and has `day`, `start`,
+`end`, `room` and `room_position` cleared. Konwencik then sees a session
+with no time and no place, which is what happened. Nothing is ever deleted.
+
+Deciding "belongs to this event" needs the event's alive session ids, so the
+sessions repository gains a narrow method returning exactly that. The id
+column is parsed as `pk` or `pk+n`; anything else is somebody else's row.
+
+Columns are located by the machine-key header row rather than assumed by
+position. A sheet with no `id` column is an error with a hint, not a guess —
 writing into a sheet we cannot key is how the sheet gets shredded.
 
 The merge is pure list-of-lists work in the mill, which is where it gets
@@ -118,7 +167,12 @@ decryptor and a sheet port that both reads and writes — the
 `export(*, sphere_id, event_pk, pk)` loads the integration scoped to
 `event_pk` (panel object-scope rule), decrypts the connection secret, reads
 the sheet, merges by `id` and writes the result back, returning how many
-rows it added and how many it updated.
+rows it added, updated and pruned.
+
+Soft-deleted sessions never produce segments, so they get pruned like any
+other session that is no longer scheduled. `agenda_items.list_by_event` does
+not filter them today (neither do the print pages), so the export filters
+against the alive session ids it already needs for pruning.
 
 **Settings, keyed by slug** so a rename never drops a colour:
 
@@ -215,10 +269,12 @@ Each step is reachable through the panel on its own.
 1. Protocol split, `EXPORT` kind, `KonwencikSheetExporter.check()`,
    registry entry. *Demo:* create the integration in the panel, run Check,
    get a green result.
-2. `read_rows` on the sheet adapter, the merge, `KonwencikExportService` and
-   the `Eksportuj` action. *Demo:* the sheet gains a row per scheduled
-   session with every column except icon, colour and photo; run it twice and
-   nothing duplicates; unschedule one and its row loses only time and room.
+2. `read_rows` on the sheet adapter, the merge (split, upsert, prune),
+   `KonwencikExportService` and the `Eksportuj` action. *Demo:* the sheet
+   gains a row per scheduled session with every column except icon, colour
+   and photo; run it twice and nothing duplicates; unschedule one and its
+   row loses only time and room; schedule one across midnight and it becomes
+   two rows.
 3. The configuration page, and its values wired into the row builder.
    *Demo:* icons and colours land in the sheet.
 4. Sync settings, the last-run columns, the DBOS tick and the management
@@ -231,14 +287,20 @@ Steps 1 to 3 are useful without 4, and 4 adds no export logic.
 
 Unit tests on the mill with fake repositories, the merge carrying most of
 them: an existing `id` updated in place, a new session appended, a foreign
-row left byte-identical, an unknown trailing column preserved, an
-unscheduled session keeping its row with only time and room cleared, a
-second run over an unchanged event producing the same matrix, and a header
-row without `id` refusing to write at all. Plus the row builder itself —
-column order and formats, the `{leaf} ({parent})` room with and without a
-parent, timezone rendering, multi-track priority, a session field beating
-the category default, the `confirmed_only` filter — and a sweep that keeps
-going after one integration raises `SheetExportError`.
+row left byte-identical, the Polish label row untouched, an unknown trailing
+column preserved, a second run over an unchanged event producing the same
+matrix, and a header row without `id` refusing to write at all.
+
+The prune and split rules get their own: an unscheduled session keeping its
+row with only time and room cleared, the same for an unconfirmed and for a
+soft-deleted one, a midnight-crossing session producing `7` and `7+1` with
+the right slices, and a session that stops crossing midnight leaving `7+1`
+pruned rather than stale or deleted.
+
+Plus the row builder itself — column order and formats, the
+`{leaf} ({parent})` room with and without a parent, timezone rendering,
+multi-track priority, a session field beating the category default — and a
+sweep that keeps going after one integration raises `SheetExportError`.
 
 Integration tests on the views with `assert_response`: the export action
 redirects with its message, a `SheetExportError` re-renders with the hint, a
@@ -261,11 +323,13 @@ belong to `tests/e2e`.
 
 ## Open questions
 
-- A session crossing midnight goes out as one row for now, with an `end`
-  earlier than its `start`. Needs checking against what Konwencik does with
-  it; if it mis-renders, the fix is a second row, and `id` being the key
-  means that decision can wait.
-- The header row is assumed present, because it is how the `id` column is
-  located. To be confirmed against the sheet Konwencik shared.
-- `agenda_items.list_by_event` does not filter soft-deleted sessions, the
-  same as the print pages today. Leave it, or filter here?
+- A pruned `+1` row keeps its title and speaker, so a session that stopped
+  crossing midnight leaves a timeless duplicate of itself in the sheet.
+  Clearing the whole row would be tidier but breaks the rule that we only
+  ever own time and place; leaving it is the consistent choice. Confirm
+  Konwencik renders a timeless row as absent rather than as a broken entry.
+- Times go out as `%H:%M`, so midnight is `00:00`. Konwencik's own sample
+  writes `0:00` — confirm the leading zero is not load-bearing.
+- Whether `id` `0` in the sample rows can collide with a real session pk
+  depends on the sequence; deleting the sample rows first avoids the
+  question entirely.
