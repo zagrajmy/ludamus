@@ -285,7 +285,8 @@ run = [
 [tasks.devcheck]
 run = [
     "poetry install",
-    { task = "format" },
+    { task = "format:py" },
+    { task = "format:djlint" },
     { task = "messages" },
     { task = "lint:djlint" },
     { task = "lint:py" },

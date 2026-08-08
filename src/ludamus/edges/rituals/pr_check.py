@@ -168,7 +168,7 @@ async def sync_branch(work: Work) -> Transition:
     # point of the report. A branch that has genuinely diverged stops here.
     taken = await shell(
         f"git checkout {quoted(pull.branch)} && "
-        f"git merge --ff-only {quoted(f'origin/{pull.branch}')}"
+        f"git merge --ff-only {quoted(f'https-origin/{pull.branch}')}"
     )
     if taken.exit_code:
         return goto(

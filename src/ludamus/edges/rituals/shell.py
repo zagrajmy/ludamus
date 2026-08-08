@@ -105,7 +105,7 @@ def release(branch: str) -> str:
 async def ahead(branch: str) -> int | None:
     counted = await shell(
         f'test {quoted(branch)} = "$(git rev-parse --abbrev-ref HEAD)" && '
-        f"git rev-list --count {quoted(f'origin/{branch}..HEAD')}",
+        f"git rev-list --count {quoted(f'https-origin/{branch}..HEAD')}",
         stream=False,
     )
     if counted.exit_code:
