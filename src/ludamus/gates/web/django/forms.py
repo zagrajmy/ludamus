@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
+    from django.utils.functional import _StrPromise
     from lxml.etree import _Element as Element
 
     from ludamus.pacts import SessionFieldRequirementDTO
@@ -187,7 +188,7 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
-def logo_field(*, help_text: str | None = None) -> forms.FileField:
+def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField:
     # Public like cover_image_field(): the guild panel lives in another module
     # and must not restate the accepted types or the contain-fit hint.
     return forms.FileField(

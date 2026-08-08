@@ -322,7 +322,7 @@ class Guild(models.Model):
     # FileField, not ImageField: the mark is usually an SVG, which Pillow (and
     # therefore ImageField's clean) rejects. validate_uploaded_logo covers it.
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
-    members = models.ManyToManyField(
+    members: models.ManyToManyField[User, GuildMembership] = models.ManyToManyField(
         User, through="GuildMembership", related_name="guilds"
     )
     creation_time = models.DateTimeField(auto_now_add=True)
