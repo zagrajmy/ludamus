@@ -158,7 +158,7 @@ async def sync_branch(work: Work) -> Transition:
     pull = work.pr
     synced = await shell(
         f"git fetch --prune https-origin && git checkout {quoted(pull.base)}"
-        f" && git pull --ff-only"
+        f" && git pull --ff-only https-orign {quoted(pull.base)}"
     )
     if synced.exit_code:
         reason = f"could not update {pull.base}: {said(synced)}"

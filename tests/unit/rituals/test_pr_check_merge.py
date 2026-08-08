@@ -145,7 +145,10 @@ class TestSyncBranch:
 
         assert transition == goto(merge_base, work)
         assert trial.shell.commands == [
-            "git fetch --prune https-origin && git checkout main && git pull --ff-only",
+            (
+                "git fetch --prune https-origin && git checkout main && "
+                "git pull --ff-only https-origin main"
+            ),
             "git checkout feature && git merge --ff-only https-origin/feature",
         ]
 
