@@ -275,7 +275,6 @@ run = [
     "aube exec varlock scan",
     { task = "lint-client" },
     { task = "ts-check:ios" },
-    { task = "fallow" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=97',

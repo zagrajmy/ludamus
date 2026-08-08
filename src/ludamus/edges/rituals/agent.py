@@ -42,8 +42,13 @@ Resolve them. Read both sides before choosing one: the conflict is between work
 that is already on the base branch and work this pull request adds, and both
 were meant. Keep the intent of both.
 
-Do not run `git merge --abort`, do not commit, and do not push. Leave the
-resolved files in the worktree; the ritual finishes the merge itself.
+Stage every file you resolve with `git add <file>`. That is the only thing the
+ritual reads to know a conflict is gone — a file left unmerged in the index
+counts as still conflicted however clean its contents are, and this step runs
+again.
+
+Do not run `git merge --abort`, `git merge --continue`, `git commit` or
+`git push`. Staging is where you stop; the ritual finishes the merge itself.
 
 {_FAST_LOOP}
 Conflicted files:
