@@ -1,5 +1,4 @@
-"""The presenter's guild mark riding along on their programme cards."""
-
+# The presenter's guild mark riding along on their programme cards.
 from http import HTTPStatus
 
 import pytest
@@ -18,14 +17,10 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 
 
+# test_event_page.py asserts the event page context exhaustively, so these
+# tests look at the marks alone — plus the card count and the schedule mode,
+# which say the marks were read off the page the test meant to render.
 class EventPageMarks:
-    """Matches the event page context by the guild marks on its cards.
-
-    test_event_page.py asserts the rest of that context exhaustively, so these
-    tests look at the marks alone — plus the card count and the schedule mode,
-    which say the marks were read off the page these tests meant to render.
-    """
-
     def __init__(
         self, marks: list[GuildMarkDTO], *, cards: int = 1, compact: bool = False
     ) -> None:
@@ -165,13 +160,10 @@ class TestGuildMarkOnCards:
         )
 
 
+# At COMPACT_SCHEDULE_MIN_SESSIONS the page swaps to the compact rows. That is
+# the shape a real convention renders in, so the mark has to survive the switch
+# — the card grid is the small-event case, not the common one.
 class TestGuildMarkOnTheCompactSchedule:
-    """At COMPACT_SCHEDULE_MIN_SESSIONS the page swaps to the compact rows.
-
-    That is the shape a real convention renders in, so the mark has to survive
-    the switch — the card grid is the small-event case, not the common one.
-    """
-
     def test_compact_rows_carry_the_guild(
         self, client, event, agenda_item, active_user, sphere, guild, space
     ):
@@ -179,7 +171,9 @@ class TestGuildMarkOnTheCompactSchedule:
         session.presenter = active_user
         session.save()
         GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
-        for index in range(COMPACT_SCHEDULE_MIN_SESSIONS):
+        # One short of the threshold: the marked session is the card that tips
+        # the page into the compact layout, so this lands exactly on it.
+        for index in range(COMPACT_SCHEDULE_MIN_SESSIONS - 1):
             extra = SessionFactory(event=event, slug=f"filler-{index}")
             AgendaItemFactory(
                 session=extra,
@@ -195,7 +189,7 @@ class TestGuildMarkOnTheCompactSchedule:
             HTTPStatus.OK,
             context_data=EventPageMarks(
                 [GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")],
-                cards=COMPACT_SCHEDULE_MIN_SESSIONS + 1,
+                cards=COMPACT_SCHEDULE_MIN_SESSIONS,
                 compact=True,
             ),
             template_name=["chronology/event.html"],

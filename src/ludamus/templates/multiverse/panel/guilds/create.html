@@ -12,7 +12,9 @@
 {% endblock page_subtitle %}
 {% block content %}
     <div class="p-4 lg:p-6">
-        <form method="post" enctype="multipart/form-data" class="card p-6 max-w-2xl">
+        <form method="post"
+              enctype="multipart/form-data"
+              class="card p-6 max-w-2xl">
             {% csrf_token %}
             {% tessera_errors form %}
             {% include "multiverse/panel/guilds/_form.html" %}

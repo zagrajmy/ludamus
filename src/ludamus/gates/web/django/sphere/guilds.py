@@ -14,8 +14,8 @@ from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
-from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
+from ludamus.gates.web.django.sphere.panel_context import sphere_panel_context
 from ludamus.pacts import RedirectError
 from ludamus.pacts.guild import AssignMemberOutcome
 from ludamus.pacts.legacy import resolve_uploaded_file_field

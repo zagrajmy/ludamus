@@ -45,9 +45,12 @@ class GuildService(GuildServiceProtocol):
     def create(self, *, sphere_id: int, base_slug: str, data: GuildWriteData) -> int:
         with self._transaction.atomic():
             # The gate slugifies the name (mills cannot import Django's
-            # slugify); uniquifying it against the sphere happens here, inside
-            # the transaction, so a concurrent create cannot slip in between
-            # the existence check and the insert.
+            # slugify); uniquifying it against the sphere happens here. The
+            # check and the insert are not atomic against each other under READ
+            # COMMITTED, so what actually keeps slugs unique is the constraint
+            # on (sphere, slug) — two managers creating the same guild name in
+            # the same second means one of them sees an error and retries by
+            # hand. Rare enough to leave; not rare enough to lie about.
             slug = unique_slug(
                 base=base_slug,
                 default="guild",

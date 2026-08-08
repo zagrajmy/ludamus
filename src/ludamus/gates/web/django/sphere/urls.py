@@ -1,5 +1,7 @@
-"""Guild pages, mounted into the sphere panel's namespace."""
-
+# Guild pages, mounted into the sphere panel's namespace:
+# `multiverse/panel/urls.py` pulls these in with a namespace-less `include()`,
+# so they stay reachable as `multiverse:panel:guild-*` while their definitions
+# sit next to the views they route to.
 from django.urls import path
 
 from ludamus.gates.web.django.sphere import guilds

@@ -33,9 +33,6 @@ urlpatterns = [
         announcements.AnnouncementDeletePageView.as_view(),
         name="announcement-delete",
     ),
-    # Guild pages live in the sphere package; a namespace-less include keeps
-    # them reachable as multiverse:panel:guild-* while their definitions sit
-    # with their views.
     path("", include("ludamus.gates.web.django.sphere.urls")),
     path("mcp/", mcp_token.OrganizerMcpTokenPageView.as_view(), name="mcp-token"),
     path("connections/", connections.ConnectionsPageView.as_view(), name="connections"),

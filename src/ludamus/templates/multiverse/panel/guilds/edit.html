@@ -54,8 +54,7 @@
                             <form method="post"
                                   action="{% url 'multiverse:panel:guild-member-remove' pk=guild.pk membership_pk=member.membership_pk %}">
                                 {% csrf_token %}
-                                <button type="submit"
-                                        class="icon-btn text-danger hover:text-danger/80">
+                                <button type="submit" class="icon-btn text-danger hover:text-danger/80">
                                     {% icon "x-mark" class="w-4 h-4" %}
                                     <span class="sr-only">{% blocktranslate with name=member.full_name|default:member.name %}Remove {{ name }} from this guild{% endblocktranslate %}</span>
                                 </button>
@@ -64,9 +63,7 @@
                     {% endfor %}
                 </ul>
             {% else %}
-                <p class="border-t border-border pt-4 text-sm text-foreground-muted">
-                    {% translate "Nobody in this guild yet." %}
-                </p>
+                <p class="border-t border-border pt-4 text-sm text-foreground-muted">{% translate "Nobody in this guild yet." %}</p>
             {% endif %}
         </div>
     </div>
