@@ -38,6 +38,14 @@ WAIT_LABEL = "pr::wait"
 
 STASHED = "stashed"
 
+# How much of a gate's output is worth paying for. A mise task list stops at the
+# first failure, and every tool in it puts its verdict last — pytest's short
+# summary, diff-cover's missing lines — so the tail is the part that says what
+# is wrong. What sits above it is a suite naming three and a half thousand tests
+# that passed, and an agent told to re-run one failing test by name does not
+# need to read them.
+TAIL = 20
+
 
 def quoted(value: str) -> str:
     return shlex.quote(value)
@@ -45,8 +53,16 @@ def quoted(value: str) -> str:
 
 # Both streams: a task that dies before it starts says so on stderr and nowhere
 # else, and an empty complaint is the one thing a repair agent cannot work with.
+# Trimmed here rather than at each prompt, because every caller does the same
+# two things with this — hand it to an agent, or put it in the report — and both
+# want the verdict, not the transcript.
 def said(result: ShellResult) -> str:
-    return "\n".join(part for part in (result.stdout, result.stderr) if part.strip())
+    joined = "\n".join(part for part in (result.stdout, result.stderr) if part.strip())
+    lines = joined.split("\n")
+    if len(lines) <= TAIL:
+        return joined
+    dropped = len(lines) - TAIL
+    return "\n".join([f"[{dropped} earlier lines omitted]", *lines[-TAIL:]])
 
 
 def commit(message: str) -> str:
