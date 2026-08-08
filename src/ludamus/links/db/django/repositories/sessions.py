@@ -79,15 +79,23 @@ def _lock_facilitators(facilitator_ids: Iterable[int]) -> None:
     # The other half of the deletion guard: the panel's delete locks the
     # facilitator row before asking whether it runs any session, so taking the
     # same lock before writing the link leaves only the two orderings that end
-    # well — the check sees this link, or this link waits and the delete wins.
+    # well — the check sees this link, or this link waits and then finds the
+    # row gone. Locking through the alive manager is what makes the second one
+    # true: Postgres re-applies the filter once the lock is granted, so a row
+    # the delete soft-deleted in the meantime drops out of the result and the
+    # missing pk becomes NotFound instead of a link onto a deleted facilitator.
     # `order_by("pk")` keeps two concurrent multi-facilitator writes from
     # deadlocking on each other.
-    list(
-        Facilitator.all_objects.select_for_update()
-        .filter(pk__in=list(facilitator_ids))
+    wanted = list(facilitator_ids)
+    locked = set(
+        Facilitator.objects.select_for_update()
+        .filter(pk__in=wanted)
         .order_by("pk")
         .values_list("pk", flat=True)
     )
+    if missing := [pk for pk in wanted if pk not in locked]:
+        msg = f"Facilitators not found or deleted: {missing}"
+        raise NotFoundError(msg)
 
 
 def _field_sort_pk(key: str) -> int | None:

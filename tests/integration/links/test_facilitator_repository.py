@@ -1,6 +1,7 @@
 import pytest
 
 from ludamus.links.db.django.models import Facilitator
+from ludamus.links.db.django.repositories import SessionRepository
 from ludamus.links.db.django.repositories.submissions import FacilitatorRepository
 from ludamus.pacts import NotFoundError
 from tests.integration.conftest import (
@@ -206,6 +207,21 @@ class TestFacilitatorRepositoryLock:
 
     def test_a_missing_row_is_not_an_error(self):
         assert FacilitatorRepository.lock(0) is None
+
+
+class TestSessionFacilitatorLinkRejectsDeleted:
+    # The other ordering of the deletion race: the delete wins the lock, so the
+    # assignment must find the row gone rather than write a link onto it.
+    def test_set_facilitators_refuses_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        session = _session(event)
+        facilitator.soft_delete()
+
+        with pytest.raises(NotFoundError):
+            SessionRepository.set_facilitators(session.pk, [facilitator.pk])
+
+        assert not session.facilitators.exists()
 
 
 class TestFacilitatorRepositoryHasSessions:
