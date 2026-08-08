@@ -1,5 +1,6 @@
 """Integration tests for the facilitator edit page."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -31,6 +32,8 @@ from tests.integration.web.panel.helpers import (
     make_facilitator,
     panel_context,
 )
+
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 
 class TestFacilitatorEditPageView:
@@ -69,6 +72,28 @@ class TestFacilitatorEditPageView:
         response = panel_client.get(self.get_url(event, "nonexistent"))
 
         assert_facilitator_not_found(response, event)
+
+    def test_get_redirects_for_a_deleted_facilitator(self, panel_client, event):
+        make_facilitator(event, deleted_at=_DELETED_AT)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_facilitator_not_found(response, event)
+
+    def test_post_redirects_for_a_deleted_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(
+            event, deleted_at=_DELETED_AT, internal_comment="untouched"
+        )
+
+        response = panel_client.post(
+            self.get_url(event),
+            data={"accreditation_type": "honorary", "internal_comment": "changed"},
+        )
+
+        assert_facilitator_not_found(response, event)
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == "none"
+        assert facilitator.internal_comment == "untouched"
 
     def test_get_ok_for_sphere_manager(self, panel_client, event):
         facilitator = make_facilitator(event)

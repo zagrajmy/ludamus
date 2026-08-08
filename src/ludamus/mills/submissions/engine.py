@@ -27,6 +27,7 @@ from ludamus.mills.submissions.mapping import (
     slugify,
 )
 from ludamus.pacts import (
+    FacilitatorDTO,
     NotFoundError,
     PersonalDataFieldCreateData,
     SessionData,
@@ -588,32 +589,16 @@ class ImportEngine:
     def _resolve_facilitator(
         self, *, event_id: int, ident: str, display_name: str
     ) -> int:
-        # An empty `ident` means the recipe names no key columns: dedup on the
-        # display-name slug alone, as imports did before identities existed.
-        if (
-            ident
-            and (found := self._repos.facilitators.find_id_by_ident(event_id, ident))
-            is not None
-        ):
-            return found
-        try:
-            existing = self._repos.facilitators.read_by_event_and_slug(
-                event_id, slugify(display_name) or "facilitator"
-            )
-        except NotFoundError:
-            pass
-        else:
-            # A slug match carrying no identity of its own is this facilitator
-            # under the old dedup: adopt it, and stamp the identity so later
-            # reimports match by key columns rather than the name, which may
-            # change. One that already carries a *different* identity is someone
-            # else who happens to share a slug, so it gets left alone.
-            if not existing.ident:
-                if ident:
-                    self._repos.facilitators.set_ident(existing.pk, ident)
-                return existing.pk
-            if not ident:
-                return existing.pk
+        matched = self._match_facilitator(
+            event_id=event_id, ident=ident, display_name=display_name
+        )
+        if matched is not None:
+            if matched.deleted_at is not None:
+                # The source row still names them, so a deleted facilitator
+                # comes back rather than colliding with the slug and ident
+                # their dead row keeps reserved.
+                self._repos.facilitators.restore(matched.pk)
+            return matched.pk
         return self._repos.facilitators.create(
             {
                 "display_name": display_name,
@@ -627,6 +612,35 @@ class ImportEngine:
                 "user_id": None,
             }
         ).pk
+
+    def _match_facilitator(
+        self, *, event_id: int, ident: str, display_name: str
+    ) -> FacilitatorDTO | None:
+        # Both lookups reach deleted rows, which keep their ident and slug
+        # reserved; the caller restores the match when it turns out to be dead.
+        # An empty `ident` means the recipe names no key columns: dedup on the
+        # display-name slug alone, as imports did before identities existed.
+        if ident and (found := self._repos.facilitators.find_by_ident(event_id, ident)):
+            return found
+        try:
+            existing = self._repos.facilitators.read_including_deleted(
+                event_id, slugify(display_name) or "facilitator"
+            )
+        except NotFoundError:
+            pass
+        else:
+            # A slug match carrying no identity of its own is this facilitator
+            # under the old dedup: adopt it, and stamp the identity so later
+            # reimports match by key columns rather than the name, which may
+            # change. One that already carries a *different* identity is someone
+            # else who happens to share a slug, so it gets left alone.
+            if not existing.ident:
+                if ident:
+                    self._repos.facilitators.set_ident(existing.pk, ident)
+                return existing
+            if not ident:
+                return existing
+        return None
 
     def _save_personal_data(
         self,

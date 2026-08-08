@@ -1,14 +1,21 @@
 """Integration tests for /panel/event/<slug>/facilitators/do/bulk-action."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Facilitator
+from tests.integration.conftest import ProposalCategoryFactory, SessionFactory
 from tests.integration.utils import assert_response
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+_HAS_SESSIONS_ERROR = (
+    "This facilitator is named on sessions, deleted ones included. Remove them"
+    " from those sessions first."
+)
 
 
 def _make_facilitator(event, slug, **kwargs):
@@ -27,14 +34,14 @@ class TestFacilitatorBulkActionView:
     def test_post_redirects_anonymous_user_to_login(self, client, event):
         url = self.get_url(event)
 
-        response = client.post(url, {"action": "flag"})
+        response = client.post(url, {"action": "delete"})
 
         assert_response(
             response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
         )
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
-        response = authenticated_client.post(self.get_url(event), {"action": "flag"})
+        response = authenticated_client.post(self.get_url(event), {"action": "delete"})
 
         assert_response(
             response,
@@ -49,7 +56,7 @@ class TestFacilitatorBulkActionView:
         sphere.managers.add(active_user)
         url = reverse("panel:facilitator-bulk-action", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, {"action": "flag"})
+        response = authenticated_client.post(url, {"action": "delete"})
 
         assert_response(
             response,
@@ -58,7 +65,7 @@ class TestFacilitatorBulkActionView:
             url=reverse("panel:index"),
         )
 
-    def test_post_flags_multiple_and_redirects_to_list(
+    def test_post_deletes_multiple_and_redirects_to_list(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -67,7 +74,7 @@ class TestFacilitatorBulkActionView:
 
         response = authenticated_client.post(
             self.get_url(event),
-            {"action": "flag", "facilitator_slugs": ["alice", "bob"]},
+            {"action": "delete", "facilitator_slugs": ["alice", "bob"]},
         )
 
         assert_response(
@@ -78,17 +85,17 @@ class TestFacilitatorBulkActionView:
         )
         alice.refresh_from_db()
         bob.refresh_from_db()
-        assert alice.flagged_for_deletion is True
-        assert bob.flagged_for_deletion is True
+        assert alice.deleted_at is not None
+        assert bob.deleted_at is not None
 
-    def test_post_unflags_and_marks_guest(
+    def test_post_restores_and_marks_guest(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
-        alice = _make_facilitator(event, "alice", flagged_for_deletion=True)
+        alice = _make_facilitator(event, "alice", deleted_at=_DELETED_AT)
 
-        unflag = authenticated_client.post(
-            self.get_url(event), {"action": "unflag", "facilitator_slugs": ["alice"]}
+        restore = authenticated_client.post(
+            self.get_url(event), {"action": "restore", "facilitator_slugs": ["alice"]}
         )
         guest = authenticated_client.post(
             self.get_url(event),
@@ -97,7 +104,7 @@ class TestFacilitatorBulkActionView:
 
         list_url = reverse("panel:facilitators", kwargs={"slug": event.slug})
         assert_response(
-            unflag,
+            restore,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "1 facilitator updated.")],
             url=list_url,
@@ -112,8 +119,37 @@ class TestFacilitatorBulkActionView:
             url=list_url,
         )
         alice.refresh_from_db()
-        assert alice.flagged_for_deletion is False
+        assert alice.deleted_at is None
         assert alice.accreditation_type == "guest"
+
+    def test_post_keeps_the_facilitators_that_run_sessions(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        alice = _make_facilitator(event, "alice")
+        busy = _make_facilitator(event, "busy")
+        SessionFactory(
+            category=ProposalCategoryFactory(event=event), event=event
+        ).facilitators.add(busy)
+
+        response = authenticated_client.post(
+            self.get_url(event),
+            {"action": "delete", "facilitator_slugs": ["alice", "busy"]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.SUCCESS, "1 facilitator updated."),
+                (messages.ERROR, f"1 facilitator was skipped: {_HAS_SESSIONS_ERROR}"),
+            ],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        alice.refresh_from_db()
+        busy.refresh_from_db()
+        assert alice.deleted_at is not None
+        assert busy.deleted_at is None
 
     def test_post_reports_missing_facilitators(
         self, authenticated_client, active_user, sphere, event
@@ -123,7 +159,7 @@ class TestFacilitatorBulkActionView:
 
         response = authenticated_client.post(
             self.get_url(event),
-            {"action": "flag", "facilitator_slugs": ["alice", "ghost"]},
+            {"action": "delete", "facilitator_slugs": ["alice", "ghost"]},
         )
 
         assert_response(
@@ -141,7 +177,7 @@ class TestFacilitatorBulkActionView:
     ):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.post(self.get_url(event), {"action": "flag"})
+        response = authenticated_client.post(self.get_url(event), {"action": "delete"})
 
         assert_response(
             response,
@@ -173,17 +209,17 @@ class TestFacilitatorBulkActionView:
         sphere.managers.add(active_user)
         _make_facilitator(event, "alice")
         next_url = (
-            reverse("panel:facilitators", kwargs={"slug": event.slug}) + "?flagged=true"
+            reverse("panel:facilitators", kwargs={"slug": event.slug}) + "?deleted=true"
         )
 
         safe = authenticated_client.post(
             self.get_url(event),
-            {"action": "flag", "facilitator_slugs": ["alice"], "next": next_url},
+            {"action": "delete", "facilitator_slugs": ["alice"], "next": next_url},
         )
         unsafe = authenticated_client.post(
             self.get_url(event),
             {
-                "action": "unflag",
+                "action": "restore",
                 "facilitator_slugs": ["alice"],
                 "next": "https://evil.example/",
             },

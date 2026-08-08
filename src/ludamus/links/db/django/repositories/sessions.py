@@ -3,6 +3,7 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
@@ -72,6 +73,29 @@ _SESSION_SORT_FIELDS = {
     "created": "creation_time",
 }
 _FIELD_SORT_PREFIX = "field_"
+
+
+def _lock_facilitators(facilitator_ids: Iterable[int]) -> None:
+    # The other half of the deletion guard: the panel's delete locks the
+    # facilitator row before asking whether it runs any session, so taking the
+    # same lock before writing the link leaves only the two orderings that end
+    # well — the check sees this link, or this link waits and then finds the
+    # row gone. Locking through the alive manager is what makes the second one
+    # true: Postgres re-applies the filter once the lock is granted, so a row
+    # the delete soft-deleted in the meantime drops out of the result and the
+    # missing pk becomes NotFound instead of a link onto a deleted facilitator.
+    # `order_by("pk")` keeps two concurrent multi-facilitator writes from
+    # deadlocking on each other.
+    wanted = list(facilitator_ids)
+    locked = set(
+        Facilitator.objects.select_for_update()
+        .filter(pk__in=wanted)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    if missing := [pk for pk in wanted if pk not in locked]:
+        msg = f"Facilitators not found or deleted: {missing}"
+        raise NotFoundError(msg)
 
 
 def _field_sort_pk(key: str) -> int | None:
@@ -221,6 +245,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         )
 
     @staticmethod
+    @transaction.atomic
     def create(
         session_data: SessionData,
         *,
@@ -234,8 +259,9 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # which turns bulk imports into a query per created session.
         if time_slot_ids:
             session.time_slots.add(*time_slot_ids)
-        if facilitator_ids:
-            session.facilitators.add(*facilitator_ids)
+        if facilitator_pks := list(facilitator_ids):
+            _lock_facilitators(facilitator_pks)
+            session.facilitators.add(*facilitator_pks)
         if track_ids:
             session.tracks.add(*track_ids)
         return session.pk
@@ -747,8 +773,12 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:
         ids = list(session_ids)
+        # The through table has no manager of its own, so the deleted-facilitator
+        # filter the `facilitators` accessor applies has to be spelled out here.
         rows = (
-            Session.facilitators.through.objects.filter(session_id__in=ids)
+            Session.facilitators.through.objects.filter(
+                session_id__in=ids, facilitator__deleted_at__isnull=True
+            )
             .select_related("facilitator")
             .order_by("facilitator__display_name")
         )
@@ -813,16 +843,20 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         }
 
     @staticmethod
+    @transaction.atomic
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:
         try:
             session = Session.objects.get(pk=session_id)
         except Session.DoesNotExist as err:
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
+        _lock_facilitators(facilitator_ids)
         session.facilitators.set(facilitator_ids)
 
     @staticmethod
+    @transaction.atomic
     def replace_facilitators_in_sessions(source_ids: list[int], target_id: int) -> None:
+        _lock_facilitators([target_id])
         for session in Session.objects.filter(facilitators__in=source_ids).distinct():
             session.facilitators.add(target_id)
             session.facilitators.remove(*source_ids)

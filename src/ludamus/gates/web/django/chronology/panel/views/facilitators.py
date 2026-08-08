@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
@@ -90,6 +91,10 @@ _ORGANIZER_REFUSALS: dict[OrganizerActionRefusal, _StrPromise] = {
     ),
     OrganizerActionRefusal.NOT_ORGANIZER: gettext_lazy(
         "Only the person handling this facilitator can step down."
+    ),
+    OrganizerActionRefusal.HAS_SESSIONS: gettext_lazy(
+        "This facilitator is named on sessions, deleted ones included. Remove"
+        " them from those sessions first."
     ),
 }
 
@@ -184,7 +189,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         return FacilitatorListQuery(
             search=self.request.GET.get("search", "").strip(),
             accreditation=(accreditation if accreditation in AccreditationType else ""),
-            flagged=self.request.GET.get("flagged") == "true",
+            deleted=self.request.GET.get("deleted") == "true",
             organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
             current_user_id=self.request.context.current_user_id,
             sort=self.request.GET.get("sort", "").strip() or "name",
@@ -227,13 +232,13 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         }
         context["filter_search"] = query.search
         context["filter_accreditation"] = query.accreditation or None
-        context["filter_flagged"] = query.flagged
+        context["filter_deleted"] = query.deleted
         context["filter_organizer"] = query.organizer
         context["filter_sort"] = query.sort
         context["filters_active"] = bool(
             query.search
             or query.accreditation
-            or query.flagged
+            or query.deleted
             or query.organizer
             or list_context.field_filters
         )
@@ -257,7 +262,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=True,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -387,7 +394,9 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=False,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -414,7 +423,9 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=False,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -658,25 +669,29 @@ class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect(back)
 
 
-class FacilitatorFlagActionView(_FacilitatorActionView):
-    """Flag a facilitator for deletion (POST only)."""
+class FacilitatorDeleteActionView(_FacilitatorActionView):
+    """Delete a facilitator, reversibly (POST only)."""
 
-    success_message = gettext_lazy("Facilitator flagged for deletion.")
+    success_message = gettext_lazy("Facilitator deleted.")
 
     def _apply(self, event_id: int, facilitator_slug: str) -> None:
-        self.request.services.facilitator_panel.set_flag(
-            event_id=event_id, facilitator_slug=facilitator_slug, flagged=True
+        self.request.services.facilitator_panel.delete(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            user_id=self.request.context.current_user_id,
         )
 
 
-class FacilitatorUnflagActionView(_FacilitatorActionView):
-    """Clear a facilitator's deletion flag (POST only)."""
+class FacilitatorRestoreActionView(_FacilitatorActionView):
+    """Bring a deleted facilitator back (POST only)."""
 
-    success_message = gettext_lazy("Facilitator unflagged.")
+    success_message = gettext_lazy("Facilitator restored.")
 
     def _apply(self, event_id: int, facilitator_slug: str) -> None:
-        self.request.services.facilitator_panel.set_flag(
-            event_id=event_id, facilitator_slug=facilitator_slug, flagged=False
+        self.request.services.facilitator_panel.restore(
+            event_id=event_id,
+            facilitator_slug=facilitator_slug,
+            user_id=self.request.context.current_user_id,
         )
 
 
@@ -721,7 +736,7 @@ class FacilitatorUnassignOrganizerActionView(_FacilitatorActionView):
         )
 
 
-_BULK_FACILITATOR_ACTIONS = ("flag", "unflag", "mark-guest", "merge")
+_BULK_FACILITATOR_ACTIONS = ("delete", "restore", "mark-guest", "merge")
 
 
 class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
@@ -755,15 +770,22 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect(f"{base}?{query}")
 
         applied = missing = 0
+        # Counted per reason, so the report states the refusal the service
+        # actually gave instead of the one the bulk path assumes.
+        refused: Counter[OrganizerActionRefusal] = Counter()
         for facilitator_slug in slugs:
             try:
                 self._apply(action, current_event.pk, facilitator_slug)
             except NotFoundError:
                 missing += 1
+            except FacilitatorActionError as exc:
+                # One refusal stops that row only; the rest of the selection
+                # still goes through.
+                refused[exc.refusal] += 1
             else:
                 applied += 1
 
-        self._report(applied=applied, missing=missing)
+        self._report(applied=applied, missing=missing, refused=refused)
         return redirect(back)
 
     def _apply(self, action: str, event_id: int, facilitator_slug: str) -> None:
@@ -775,14 +797,22 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
                 accreditation_type=AccreditationType.GUEST.value,
                 user_id=self.request.context.current_user_id,
             )
-        else:
-            panel.set_flag(
+        elif action == "delete":
+            panel.delete(
                 event_id=event_id,
                 facilitator_slug=facilitator_slug,
-                flagged=action == "flag",
+                user_id=self.request.context.current_user_id,
+            )
+        else:
+            panel.restore(
+                event_id=event_id,
+                facilitator_slug=facilitator_slug,
+                user_id=self.request.context.current_user_id,
             )
 
-    def _report(self, *, applied: int, missing: int) -> None:
+    def _report(
+        self, *, applied: int, missing: int, refused: Counter[OrganizerActionRefusal]
+    ) -> None:
         if applied:
             messages.success(
                 self.request,
@@ -802,4 +832,16 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
                     missing,
                 )
                 % {"count": missing},
+            )
+        for refusal, count in refused.items():
+            # One reason-agnostic wrapper around the refusal the service gave,
+            # so the bulk path cannot state a reason it never checked.
+            messages.error(
+                self.request,
+                ngettext(
+                    "%(count)d facilitator was skipped: %(reason)s",
+                    "%(count)d facilitators were skipped: %(reason)s",
+                    count,
+                )
+                % {"count": count, "reason": _ORGANIZER_REFUSALS[refusal]},
             )

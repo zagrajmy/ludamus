@@ -116,4 +116,54 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: "Reject" }).click();
     await expect(page.getByText("Rejected", { exact: true })).toBeVisible();
   });
+
+  test("cannot delete a facilitator that runs a session", async ({ page }) => {
+    await page.goto(FACILITATORS_URL);
+
+    // The row's delete always submits; the service refuses and says why, so the
+    // answer is correct even for a session attached since the page rendered.
+    await page.getByRole("button", { name: `Delete ${facilitator}` }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+
+    await expect(
+      page.getByText("This facilitator is named on sessions, deleted ones included."),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: facilitator, exact: true })).toBeVisible();
+  });
+
+  test("deletes and restores a facilitator with no sessions", async ({ page }) => {
+    const spare = `${facilitator} (spare)`;
+
+    await page.goto(FACILITATORS_URL);
+    await page.getByRole("link", { name: "New Facilitator" }).click();
+    await page.getByLabel("Display Name").fill(spare);
+    await page.getByRole("button", { name: "Create Facilitator" }).click();
+    await page.waitForURL(/\/facilitators\/$/);
+
+    // Delete is guarded by a confirm dialog; afterwards the row is gone from
+    // the live list and waiting in the bin.
+    await page.getByRole("button", { name: `Delete ${spare}` }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByRole("link", { name: spare, exact: true })).toBeHidden();
+
+    // The filter form autosubmits on change; no Filter click needed.
+    await page.getByLabel("Deleted only").check();
+
+    // The bin offers only the actions that work there, in the bulk bar and the row.
+    await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Merge selected" })).toBeHidden();
+    await expect(page.getByRole("button", { name: `Mark ${spare} as guest` })).toBeHidden();
+
+    await page.getByRole("link", { name: spare, exact: true }).click();
+
+    // The detail page says so and offers the way back.
+    await expect(
+      page.getByText("This facilitator is deleted — they show up nowhere in the program."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Restore" }).click();
+
+    await page.goto(FACILITATORS_URL);
+    await expect(page.getByRole("link", { name: spare, exact: true })).toBeVisible();
+  });
 });

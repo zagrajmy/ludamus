@@ -706,3 +706,110 @@ class TestOrganizerStepDown:
         )
 
         assert facilitators.released_with is None
+
+
+_FACILITATOR_PK = 7
+
+
+class FakeDeletionRepo:
+    def __init__(self, *, has_sessions=False):
+        self._has_sessions = has_sessions
+        self.soft_deleted = _NOT_CALLED
+        self.restored = _NOT_CALLED
+        self.calls = []
+
+    def lock(self, pk):
+        self.calls.append(("lock", pk))
+
+    def read_by_event_and_slug(self, _event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+
+    def read_including_deleted(self, _event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+
+    def has_sessions(self, pk):
+        self.calls.append(("has_sessions", pk))
+        return self._has_sessions
+
+    def soft_delete(self, pk):
+        self.soft_deleted = pk
+
+    def restore(self, pk):
+        self.restored = pk
+
+
+def _deletion_service(facilitators):
+    logs = MagicMock()
+    repos = FacilitatorPanelRepos(
+        facilitators=facilitators,
+        personal_data_fields=FakeFieldsRepo([]),
+        personal_data_field_values=object(),
+        facilitator_change_logs=logs,
+        panel_settings=FakeSettingsRepo(),
+        sessions=object(),
+        users=object(),
+    )
+    return FacilitatorPanelService(_FakeTransaction(), repos), logs
+
+
+def _logged_changes(logs):
+    return logs.create.call_args.args[0]["changes"]
+
+
+class TestFacilitatorDeletion:
+    def test_a_facilitator_running_sessions_is_not_deleted(self):
+        facilitators = FakeDeletionRepo(has_sessions=True)
+        service, logs = _deletion_service(facilitators)
+
+        refusal = _refusal(lambda: service.delete(event_id=1, facilitator_slug="alice"))
+
+        assert refusal == OrganizerActionRefusal.HAS_SESSIONS
+        assert facilitators.soft_deleted is _NOT_CALLED
+        logs.create.assert_not_called()
+
+    def test_the_row_is_locked_before_its_sessions_are_counted(self):
+        # A session assignment landing between the two would leave a deleted
+        # facilitator named on the program.
+        facilitators = FakeDeletionRepo()
+        service, _logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice")
+
+        assert facilitators.calls == [
+            ("lock", _FACILITATOR_PK),
+            ("has_sessions", _FACILITATOR_PK),
+        ]
+
+    def test_a_facilitator_without_sessions_is_deleted(self):
+        facilitators = FakeDeletionRepo()
+        service, _logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice")
+
+        assert facilitators.soft_deleted == _FACILITATOR_PK
+
+    def test_a_deletion_is_logged_against_the_organizer(self):
+        facilitators = FakeDeletionRepo()
+        service, logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice", user_id=_USER_ID)
+
+        assert logs.create.call_args.args[0] == {
+            "event_id": 1,
+            "facilitator_id": _FACILITATOR_PK,
+            "user_id": _USER_ID,
+            "changes": [
+                {"field": "deleted", "field_id": None, "old": "", "new": "yes"}
+            ],
+        }
+
+    def test_a_restore_is_logged_the_other_way_round(self):
+        facilitators = FakeDeletionRepo()
+        service, logs = _deletion_service(facilitators)
+
+        service.restore(event_id=1, facilitator_slug="alice", user_id=_USER_ID)
+
+        assert facilitators.restored == _FACILITATOR_PK
+        assert _logged_changes(logs) == [
+            {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
+        ]

@@ -825,6 +825,13 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
         return _session_field_dto(field)
 
 
+def _live_session_count() -> Count:
+    # The Sessions column counts what is in the program now. The list and the
+    # merge basket share the expression so the two can never disagree about a
+    # facilitator the organizer is choosing a survivor for.
+    return Count("sessions", filter=Q(sessions__deleted_at__isnull=True), distinct=True)
+
+
 class FacilitatorRepository(FacilitatorRepositoryProtocol):
     @staticmethod
     def create(data: FacilitatorData) -> FacilitatorDTO:
@@ -848,6 +855,20 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
+    def read_including_deleted(event_id: int, slug: str) -> FacilitatorDTO:
+        # The two callers that mean "the row holding this slug", alive or not:
+        # the detail page rendering the restore banner, and the import matching
+        # a slug a dead row still reserves. Every other read stays alive-only,
+        # so a write path handed a deleted slug gets NotFound.
+        try:
+            facilitator = Facilitator.all_objects.annotate(
+                organizer_name=F("organizer__name")
+            ).get(event_id=event_id, slug=slug)
+        except Facilitator.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return FacilitatorDTO.model_validate(facilitator)
+
+    @staticmethod
     def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO:
         try:
             facilitator = _readable_facilitators().get(
@@ -858,16 +879,22 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
-    def find_id_by_ident(event_id: int, ident: str) -> int | None:
+    def find_by_ident(event_id: int, ident: str) -> FacilitatorDTO | None:
+        # Reaches dead rows, which keep their ident reserved: the import has to
+        # match one rather than collide at insert time. The caller reads
+        # `deleted_at` off the match to decide whether to restore it.
+        facilitator = Facilitator.all_objects.filter(
+            event_id=event_id, ident=ident
+        ).first()
         return (
-            Facilitator.objects.filter(event_id=event_id, ident=ident)
-            .values_list("id", flat=True)
-            .first()
+            None if facilitator is None else FacilitatorDTO.model_validate(facilitator)
         )
 
     @staticmethod
     def set_ident(pk: int, ident: str) -> None:
-        Facilitator.objects.filter(id=pk).update(ident=ident)
+        # Identity write, so it lands on dead rows too — the import stamps an
+        # ident on a match it is about to restore.
+        Facilitator.all_objects.filter(id=pk).update(ident=ident)
 
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO:
@@ -885,9 +912,12 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]:
         filters = filters or {}
-        qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions", distinct=True),
-            organizer_name=F("organizer__name"),
+        # Deleted and live never mix, so a restore is always a deliberate visit
+        # to the bin.
+        qs = Facilitator.all_objects.filter(
+            event_id=event_id, deleted_at__isnull=not filters.get("deleted")
+        ).annotate(
+            session_count=_live_session_count(), organizer_name=F("organizer__name")
         )
 
         if pks := filters.get("pks"):
@@ -909,9 +939,6 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
         if accreditation := filters.get("accreditation"):
             qs = qs.filter(accreditation_type=accreditation)
-
-        if filters.get("flagged"):
-            qs = qs.filter(flagged_for_deletion=True)
 
         if filters.get("organizer_unassigned"):
             qs = qs.filter(organizer__isnull=True)
@@ -938,7 +965,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             return []
         facilitators = Facilitator.objects.filter(
             event_id=event_id, slug__in=facilitator_slugs
-        ).annotate(session_count=Count("sessions", distinct=True))
+        ).annotate(session_count=_live_session_count())
         by_slug = {f.slug: f for f in facilitators}
         # The caller's order is the answer's order; a slug this event doesn't
         # have drops out rather than raising.
@@ -1001,10 +1028,6 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         ]
 
     @staticmethod
-    def set_flag(pk: int, *, flagged: bool) -> None:
-        Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
-
-    @staticmethod
     def claim(pk: int, organizer_id: int) -> bool:
         # Conditional update, so two organizers clicking at the same moment
         # cannot both win: the loser's UPDATE matches no row.
@@ -1024,12 +1047,54 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return bool(qs.update(organizer=None))
 
     @staticmethod
+    def lock(pk: int) -> None:
+        # Held across the `has_sessions` check and the soft delete. Every path
+        # that puts a facilitator on a session takes the same row lock first,
+        # so the two serialize: either the check sees the assignment, or the
+        # assignment waits and then finds a deleted row. Without it `atomic()`
+        # alone lets an assignment commit into the gap and leave a deleted
+        # facilitator on a live session.
+        Facilitator.all_objects.select_for_update().filter(pk=pk).first()
+
+    @staticmethod
+    def has_sessions(pk: int) -> bool:
+        # Deleted sessions hold a deletion up too: session deletion is
+        # reversible, so a restored session would come back naming a deleted
+        # facilitator and lose its byline with nothing saying why. The session
+        # bin gets emptied first, or the facilitator stays.
+        return Facilitator.all_objects.filter(pk=pk, sessions__isnull=False).exists()
+
+    @staticmethod
     def delete(pk: int) -> None:
-        Facilitator.objects.filter(pk=pk).delete()
+        # Destroys the row. The merge is the only caller: a source that merged
+        # away was never a separate person, so it leaves no restorable trace.
+        Facilitator.all_objects.filter(pk=pk).delete()
+
+    @staticmethod
+    def soft_delete(pk: int) -> None:
+        # Reach through `all_objects` so an already-dead row raises NotFound
+        # instead of silently re-stamping `deleted_at`.
+        try:
+            facilitator = Facilitator.all_objects.get(pk=pk, deleted_at__isnull=True)
+        except Facilitator.DoesNotExist as exc:
+            raise NotFoundError from exc
+        facilitator.soft_delete()
+
+    @staticmethod
+    def restore(pk: int) -> None:
+        # Missing or already alive -> NotFound, so a restore that changed
+        # nothing never reports success.
+        try:
+            facilitator = Facilitator.all_objects.get(pk=pk, deleted_at__isnull=False)
+        except Facilitator.DoesNotExist as exc:
+            raise NotFoundError from exc
+        facilitator.restore()
 
     @staticmethod
     def slug_exists(event_id: int, slug: str) -> bool:
-        return Facilitator.objects.filter(event_id=event_id, slug=slug).exists()
+        # Identity lookup: a dead row still owns its slug, so generated slugs
+        # must step around it.
+        return Facilitator.all_objects.filter(event_id=event_id, slug=slug).exists()
 
 
 class PersonalDataFieldValueRepository(PersonalDataFieldValueRepositoryProtocol):

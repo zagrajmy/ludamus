@@ -13,7 +13,7 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
+    {% if current_event and not facilitator.deleted_at %}
         {% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug as edit_url %}
         {% translate "Edit" as edit_label %}
         {% tessera_button edit_label href=edit_url icon="pencil-square" %}
@@ -31,6 +31,17 @@
                 <li class="text-foreground font-medium">{{ facilitator.display_name }}</li>
             </ol>
         </nav>
+        {% if facilitator.deleted_at %}
+            <div class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-danger/30 bg-danger/5 p-4 text-sm">
+                <span class="text-danger">{% translate "This facilitator is deleted — they show up nowhere in the program." %}</span>
+                <form method="post"
+                      action="{% url 'panel:facilitator-restore' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                    {% csrf_token %}
+                    {% translate "Restore" as t_restore %}
+                    {% tessera_button t_restore variant="secondary" icon="arrow-uturn-left" %}
+                </form>
+            </div>
+        {% endif %}
         {% tab_shell "panel/_detail_tabs.html" %}
             {% tab_shell_body %}
                 <div class="card mb-6">
@@ -139,8 +150,10 @@
                             {% else %}
                                 <p class="text-sm text-foreground-muted">
                                     {% translate "No personal information provided." %}
-                                    <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
-                                       class="text-primary hover:underline ml-1">{% translate "Edit" %}</a>
+                                    {% if not facilitator.deleted_at %}
+                                        <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                           class="text-primary hover:underline ml-1">{% translate "Edit" %}</a>
+                                    {% endif %}
                                 </p>
                             {% endif %}
                         </div>

@@ -360,6 +360,7 @@ class OrganizerActionRefusal(StrEnum):
     ALREADY_YOURS = "already_yours"
     ALREADY_FREE = "already_free"
     NOT_ORGANIZER = "not_organizer"
+    HAS_SESSIONS = "has_sessions"
 
 
 class FacilitatorActionError(Exception):
@@ -374,7 +375,9 @@ class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     pks: set[int] | None
     accreditation: str | None
-    flagged: bool | None
+    # True lists the deleted facilitators instead of the live ones — the two
+    # never mix, so a restore is always a deliberate visit to the bin.
+    deleted: bool | None
     field_filters: dict[int, str | bool] | None
     organizer_id: int | None
     organizer_unassigned: bool | None

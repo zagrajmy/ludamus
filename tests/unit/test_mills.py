@@ -72,6 +72,10 @@ from ludamus.pacts.submissions import (
 from .factories import category
 
 
+def _facilitator_match(pk, *, ident="", deleted_at=None):
+    return FacilitatorDTO.model_construct(pk=pk, ident=ident, deleted_at=deleted_at)
+
+
 def _rows(raws: list[dict[str, str]]) -> list[ImportRow]:
     return [ImportRow(raw) for raw in raws]
 
@@ -1080,8 +1084,8 @@ class _ImportServiceMocks:
     @pytest.fixture
     def facilitators(self):
         mock = MagicMock()
-        mock.read_by_event_and_slug.side_effect = NotFoundError
-        mock.find_id_by_ident.return_value = None
+        mock.read_including_deleted.side_effect = NotFoundError
+        mock.find_by_ident.return_value = None
         mock.slug_exists.return_value = False
         mock.create.side_effect = lambda data: MagicMock(
             pk=7, slug=data["slug"], display_name=data["display_name"]
@@ -1236,15 +1240,42 @@ class TestProposalImportService(_ImportServiceMocks):
         event_integrations.fetch_responses.return_value = _rows(
             [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
         )
-        facilitators.find_id_by_ident.return_value = 55
+        facilitators.find_by_ident.return_value = _facilitator_match(55)
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
         facilitators.create.assert_not_called()
-        facilitators.find_id_by_ident.assert_called_once_with(
+        facilitators.restore.assert_not_called()
+        facilitators.find_by_ident.assert_called_once_with(
             2, dedup_ident(event_id=2, identity="bob@x.z")
         )
+        assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
+
+    def test_run_restores_a_matched_facilitator(
+        self, service, event_integrations, sessions, facilitators
+    ):
+        # A deleted facilitator still holds its ident and slug, so the match
+        # comes back to life instead of the run minting a colliding row.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        )
+        facilitators.find_by_ident.return_value = _facilitator_match(
+            55, deleted_at=datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_not_called()
+        facilitators.restore.assert_called_once_with(55)
         assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
 
     def test_run_adopts_a_pre_ident_facilitator_and_stamps_the_ident(
@@ -1263,17 +1294,44 @@ class TestProposalImportService(_ImportServiceMocks):
         event_integrations.fetch_responses.return_value = _rows(
             [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
         )
-        facilitators.find_id_by_ident.return_value = None
-        facilitators.read_by_event_and_slug.side_effect = None
-        facilitators.read_by_event_and_slug.return_value = MagicMock(pk=88, ident="")
+        facilitators.find_by_ident.return_value = None
+        facilitators.read_including_deleted.side_effect = None
+        facilitators.read_including_deleted.return_value = _facilitator_match(88)
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
         facilitators.create.assert_not_called()
+        facilitators.restore.assert_not_called()
         facilitators.set_ident.assert_called_once_with(
             88, dedup_ident(event_id=2, identity="bob@x.z")
         )
+        assert sessions.create.call_args.kwargs["facilitator_ids"] == [88]
+
+    def test_run_restores_a_deleted_facilitator_matched_by_slug(
+        self, service, event_integrations, sessions, facilitators
+    ):
+        # The slug-match path reaches dead rows too, so it restores on the same
+        # terms as the ident-match one.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}}}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob"}]
+        )
+        facilitators.read_including_deleted.side_effect = None
+        facilitators.read_including_deleted.return_value = _facilitator_match(
+            88, ident="a-prior-identity", deleted_at=datetime(2026, 1, 2, tzinfo=UTC)
+        )
+
+        result = service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        assert result.created == 1
+        facilitators.create.assert_not_called()
+        facilitators.restore.assert_called_once_with(88)
         assert sessions.create.call_args.kwargs["facilitator_ids"] == [88]
 
     def test_run_reuses_a_facilitator_carrying_an_ident_when_no_key_columns(
@@ -1291,15 +1349,16 @@ class TestProposalImportService(_ImportServiceMocks):
         event_integrations.fetch_responses.return_value = _rows(
             [{"Title": "My Talk", "Nick": "GM Bob"}]
         )
-        facilitators.read_by_event_and_slug.side_effect = None
-        facilitators.read_by_event_and_slug.return_value = MagicMock(
-            pk=88, ident="a-prior-identity"
+        facilitators.read_including_deleted.side_effect = None
+        facilitators.read_including_deleted.return_value = _facilitator_match(
+            88, ident="a-prior-identity"
         )
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
         facilitators.create.assert_not_called()
+        facilitators.restore.assert_not_called()
         facilitators.set_ident.assert_not_called()
 
     def test_run_creates_a_facilitator_carrying_the_ident_when_nothing_matches(
@@ -1466,12 +1525,12 @@ class TestProposalImportService(_ImportServiceMocks):
         event_integrations.fetch_responses.return_value = _rows(
             [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.zz"}]
         )
-        facilitators.find_id_by_ident.return_value = 55
+        facilitators.find_by_ident.return_value = _facilitator_match(55)
 
         result = service.run(sphere_id=1, event_id=2, integration_pk=3)
 
         assert result.created == 1
-        facilitators.find_id_by_ident.assert_called_once_with(
+        facilitators.find_by_ident.assert_called_once_with(
             2, dedup_ident(event_id=2, identity="bob@x.z")
         )
 

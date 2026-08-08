@@ -1,5 +1,6 @@
 """Integration tests for the facilitator detail page."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -27,6 +28,8 @@ from tests.integration.web.panel.helpers import (
     make_facilitator,
     panel_context,
 )
+
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 
 def _make_personal_data_field(event, **kwargs):
@@ -89,6 +92,27 @@ class TestFacilitatorDetailPageView:
                 "sessions": [],
             },
             contains="Possible duplicate of Bob",
+        )
+
+    def test_get_renders_a_deleted_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(event, deleted_at=_DELETED_AT)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
         )
 
     def test_get_renders_sessions_linking_to_proposal_detail(self, panel_client, event):

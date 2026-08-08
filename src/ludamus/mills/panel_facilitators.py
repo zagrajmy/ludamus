@@ -66,6 +66,10 @@ def _unique(values: list[str]) -> list[str]:
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
 
+# Change-log values are stored raw (accreditation types land as "guest"), so the
+# deletion flag does too; the History tab labels it at render time.
+_DELETED_LOG_VALUE = "yes"
+
 
 type _FieldValue = str | list[str] | bool
 
@@ -273,7 +277,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         filters: FacilitatorListFilters = {
             "search": query.search or None,
             "accreditation": query.accreditation or None,
-            "flagged": query.flagged or None,
+            "deleted": query.deleted or None,
             "field_filters": field_filters or None,
             "organizer_id": (
                 query.current_user_id if query.organizer == "mine" else None
@@ -352,10 +356,16 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         return self._repos.personal_data_fields.list_by_event(event_id)
 
     def detail_context(
-        self, *, event_id: int, facilitator_slug: str
+        self, *, event_id: int, facilitator_slug: str, include_deleted: bool
     ) -> FacilitatorDetailContextDTO:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
-            event_id, facilitator_slug
+        # Only the detail page asks for a deleted facilitator — it carries the
+        # restore banner. Everywhere else a dead slug is a NotFound.
+        facilitator = (
+            self._repos.facilitators.read_including_deleted(event_id, facilitator_slug)
+            if include_deleted
+            else self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
         )
         fields = self._repos.personal_data_fields.list_by_event(event_id)
         values = self._repos.personal_data_field_values.read_for_facilitator_event(
@@ -668,11 +678,65 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise EmptyColumnSelectionError
         self._repos.panel_settings.update_facilitator_columns(event_id, keys)
 
-    def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
-            event_id, facilitator_slug
+    def delete(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None:
+        # A facilitator named on sessions cannot be deleted: their byline would
+        # vanish from the program with nothing on the session saying why. The
+        # sessions go first, or the facilitator stays.
+        with self._transaction.atomic():
+            facilitator = self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
+            # Before the check, not after: a session assignment committing
+            # between the two would otherwise leave this facilitator deleted
+            # and still named on the program.
+            self._repos.facilitators.lock(facilitator.pk)
+            if self._repos.facilitators.has_sessions(facilitator.pk):
+                raise FacilitatorActionError(OrganizerActionRefusal.HAS_SESSIONS)
+            self._repos.facilitators.soft_delete(facilitator.pk)
+            self._log_deletion(
+                event_id=event_id,
+                facilitator_id=facilitator.pk,
+                user_id=user_id,
+                deleted=True,
+            )
+
+    def restore(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None:
+        with self._transaction.atomic():
+            # The only write that reads a dead row on purpose.
+            facilitator = self._repos.facilitators.read_including_deleted(
+                event_id, facilitator_slug
+            )
+            self._repos.facilitators.restore(facilitator.pk)
+            self._log_deletion(
+                event_id=event_id,
+                facilitator_id=facilitator.pk,
+                user_id=user_id,
+                deleted=False,
+            )
+
+    def _log_deletion(
+        self, *, event_id: int, facilitator_id: int, user_id: int | None, deleted: bool
+    ) -> None:
+        # Taking a facilitator out of the program is the largest state change
+        # this panel makes. `deleted_at` records when and a restore erases even
+        # that, so the log is the only trace of who.
+        change: ContentFieldChange = {
+            "field": "deleted",
+            "field_id": None,
+            "old": "" if deleted else _DELETED_LOG_VALUE,
+            "new": _DELETED_LOG_VALUE if deleted else "",
+        }
+        log_facilitator_changes(
+            repo=self._repos.facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            changes=[change],
         )
-        self._repos.facilitators.set_flag(facilitator.pk, flagged=flagged)
 
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int
