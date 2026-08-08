@@ -12,6 +12,11 @@ read — a quality review it posted, a triage it wrote — also earns the branch
 ``pr::cr``. Nothing is ever pushed: the report says which branches are waiting
 for that, and pushing stays yours.
 
+A pull request labelled ``pr::wait`` is left alone entirely: it is dropped at
+the listing, so nothing checks it out and it appears nowhere in the report.
+That is how you park a branch for a night — or for a month — without closing
+it.
+
 The review is one inline comment per action item, anchored to the code it is
 about, and the branch is labelled ``pr::thermo`` once it is posted. That label
 is the only thing standing between a branch and another review: drop it after
@@ -60,6 +65,7 @@ from .shell import (
     QA_LABEL,
     STASHED,
     THERMO_LABEL,
+    WAIT_LABEL,
     ahead,
     commit,
     label,
@@ -88,6 +94,7 @@ from .state import (
     run_with,
     spent,
     summary,
+    wears,
     work_with,
 )
 
@@ -116,9 +123,12 @@ async def list_prs(run: Run) -> Transition:
     except ValidationError as error:
         unreadable = f"gh returned something unreadable: {error}"
         return goto(report, run_with(run, stopped=unreadable))
+    # Dropped here rather than skipped later, so a waiting branch is never
+    # checked out, never counted as reached, and never in the report at all.
+    wanted = [pull for pull in pulls if not wears(pull, WAIT_LABEL)]
     # Oldest-modified first: the branch that has been drifting from its base the
     # longest is the one most likely to need the night.
-    queue = sorted(pulls, key=modified)
+    queue = sorted(wanted, key=modified)
     return goto(next_pr, run_with(run, queue=queue))
 
 

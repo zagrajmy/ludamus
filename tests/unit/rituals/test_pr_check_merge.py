@@ -16,8 +16,8 @@ from ludamus.edges.rituals.pr_check import (
     set_aside,
     sync_branch,
 )
-from ludamus.edges.rituals.shell import LIST
-from ludamus.edges.rituals.state import PullRequest, Run, Work
+from ludamus.edges.rituals.shell import LIST, WAIT_LABEL
+from ludamus.edges.rituals.state import Label, PullRequest, Run, Work
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -41,6 +41,30 @@ class TestListPrs:
 
         assert transition == goto(next_pr, Run(bound=3, queue=[pull, fresher]))
         assert trial.shell.commands == [LIST]
+
+    # Parked, not deferred: it never enters the queue, so it is not reported as
+    # "not reached" either.
+    def test_a_branch_labelled_to_wait_is_dropped_before_the_queue(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        waiting = pull.model_copy(
+            update={"number": 9, "labels": [Label(name=WAIT_LABEL)]}
+        )
+        trial.shell.replies(when="gh pr list*", stdout=_listed(waiting, pull))
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert transition == goto(next_pr, Run(bound=3, queue=[pull]))
+
+    def test_a_branch_wearing_other_labels_is_still_taken(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        labelled = pull.model_copy(update={"labels": [Label(name="pr::thermo")]})
+        trial.shell.replies(when="gh pr list*", stdout=_listed(labelled))
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert transition == goto(next_pr, Run(bound=3, queue=[labelled]))
 
     def test_gh_failing_reports_rather_than_raising(self, trial: Trial) -> None:
         trial.shell.replies(when="gh pr list*", exit_code=1, stderr="no auth\n")

@@ -20,6 +20,16 @@ class PrCheck(BaseModel):
     bound: Bound = 3
 
 
+# `gh --json labels` hands back an object per label; the name is the whole
+# question here.
+class Label(BaseModel):
+    name: str
+
+
+class Labels(BaseModel):
+    labels: list[Label]
+
+
 # Aliased rather than renamed downstream: `gh --json` picks the spelling, and
 # one mapping here beats camelCase running through every step.
 class PullRequest(BaseModel):
@@ -31,19 +41,17 @@ class PullRequest(BaseModel):
     branch: str = Field(alias="headRefName")
     base: str = Field(alias="baseRefName")
     updated_at: str = Field(alias="updatedAt")
+    # As they stood at the listing. Only the wait label is read from here, and
+    # only once: everything later re-reads gh, because this ritual adds labels
+    # of its own as it goes.
+    labels: list[Label] = []
 
 
 PULLS: TypeAdapter[list[PullRequest]] = TypeAdapter(list[PullRequest])
 
 
-# `gh pr view --json labels` hands back an object per label; the name is the
-# whole question here.
-class Label(BaseModel):
-    name: str
-
-
-class Labels(BaseModel):
-    labels: list[Label]
+def wears(pull: PullRequest, name: str) -> bool:
+    return any(label.name == name for label in pull.labels)
 
 
 class Checked(BaseModel):

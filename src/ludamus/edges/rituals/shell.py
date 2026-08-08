@@ -12,9 +12,11 @@ from vekna.folio.shell import ShellResult, shell
 DEVCHECK = "mise run devcheck"
 COVERAGE = "mise run diff-cover"
 
+# `labels` rides along so the wait label can be read without a call per pull
+# request: the listing is the only place every open branch is in hand at once.
 LIST = (
     "gh pr list --author @me --state open "
-    "--json number,title,headRefName,baseRefName,url,updatedAt"
+    "--json number,title,headRefName,baseRefName,url,updatedAt,labels"
 )
 
 # This branch has had its review. Inline review comments are invisible to
@@ -28,6 +30,11 @@ QA_LABEL = "pr::qa"
 # earlier night does not earn the label again — the label marks the night's
 # work, not the branch's history.
 CR_LABEL = "pr::cr"
+# Hands off this one. It is read at the listing and nowhere else, so a branch
+# wearing it is never taken, never touched, and never reported on — which is
+# the whole point: it is how you keep a pull request out of the night without
+# closing it.
+WAIT_LABEL = "pr::wait"
 
 STASHED = "stashed"
 
