@@ -86,6 +86,7 @@ tingle = "^0.4.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
+vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.4.0" }
 
 [tool.black]
 line-length = 88
@@ -153,7 +154,7 @@ DEP002 = [
     "whitenoise",
     "django-storages",
 ]
-DEP004 = ["debug_toolbar"]
+DEP004 = ["debug_toolbar", "vekna"]
 
 # MYPY
 
@@ -533,6 +534,8 @@ ignore_names = [
     "deleted_at",
     "modification_time",
     "test_func",
+    # Vekna rituals
+    "pr_check",
 ]
 
 ignore_decorators = [
