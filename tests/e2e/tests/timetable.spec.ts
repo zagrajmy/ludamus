@@ -117,15 +117,24 @@ test.describe("Timetable", () => {
     const days = page.locator(".timetable-day-grid");
     await expect(timetable).toHaveCount(1);
     await expect(days).toHaveCount(2);
-    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(1);
+    // Every day owns its axis, so its column spans only its own slots. One
+    // shared axis would have to span the union of the days, and a session split
+    // at midnight puts 00:00 on one and 24:00 on the other.
+    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(2);
     await expect(timetable.getByText("Time", { exact: true })).toHaveCount(1);
     await expect(page.getByLabel("Day:")).toHaveValue("all");
     await expect(timetable.locator(".timetable-day-header h2")).toHaveCount(2);
 
-    const timeAxisPosition = await timetable
+    // Each axis sits immediately left of the day it labels.
+    const axisRights = await timetable
       .locator(".timetable-time-axis")
-      .evaluate((axis) => getComputedStyle(axis).position);
-    expect(timeAxisPosition).toBe("sticky");
+      .evaluateAll((axes) => axes.map((axis) => axis.getBoundingClientRect().right));
+    const dayLefts = await days.evaluateAll((items) =>
+      items.map((item) => item.getBoundingClientRect().left),
+    );
+    expect(axisRights[0]).toBeGreaterThan(dayLefts[0]);
+    expect(axisRights[1]).toBeGreaterThan(dayLefts[1]);
+    expect(axisRights[0]).toBeLessThan(dayLefts[1]);
 
     const dates = await days.evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-date") ?? ""),
@@ -183,6 +192,46 @@ test.describe("Timetable", () => {
     await timetable.screenshot({
       path: "test-results/timetable-all-days-compact.png",
     });
+  });
+
+  test("a track filter still shows the other track's booking in a shared room", async ({
+    page,
+  }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // The track pk belongs to the seed, so read it off the switcher.
+    const trackValue = await page
+      .getByLabel("Track:")
+      .locator("option", { hasText: "RPG Track" })
+      .first()
+      .getAttribute("value");
+    await page.goto(`/panel/event/sunhaven-festival/timetable/?track=${trackValue}&date=all`);
+
+    // "Board Game Night" belongs to the other track but occupies a room this
+    // one also uses. Hiding it is how two tracks end up in one room at once.
+    // It draws as an ordinary card -- no owner label, no separate treatment.
+    const foreign = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(foreign).toBeVisible({ timeout: 10000 });
+    await expect(foreign).toHaveAttribute("draggable", "true");
+
+    await foreign.click();
+    await expect(page.locator("#left-pane").getByText("Board Game Night")).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("a grid block opens its details from the keyboard", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const block = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(block).toBeVisible({ timeout: 10000 });
+
+    await block.focus();
+    await page.keyboard.press("Enter");
+
+    const leftPane = page.locator("#left-pane");
+    await expect(leftPane.getByText("Session details")).toBeVisible({ timeout: 5000 });
+    await expect(leftPane.getByText("Board Game Night")).toBeVisible();
   });
 
   // Read off the page instead of restating bootstrap_timetable.py: every column
@@ -671,9 +720,7 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({ timeout: 5000 });
 
     // Confirm — the button flips to the "Undo confirmation" state.
     await leftPane.getByRole("button", { name: "Confirm program item" }).click();

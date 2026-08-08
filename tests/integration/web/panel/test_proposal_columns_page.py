@@ -18,10 +18,8 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from tests.integration.conftest import EventFactory
-from tests.integration.utils import PageMatcher, assert_response
-from tests.integration.web.panel.helpers import panel_context
-
-_PAGE_SIZES = [10, 20, 50, 100]
+from tests.integration.utils import assert_response
+from tests.integration.web.panel.helpers import PROPOSAL_FILTER_CONTEXT, panel_context
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
 
@@ -76,23 +74,7 @@ def _list_page_context(event, *, category, session, columns, column_values):
     return {
         **_base_context(event, active_tab="list"),
         "deleted_proposals": [],
-        "all_tracks": [],
-        "managed_track_pks": set(),
-        "filter_track_pk": None,
-        "filter_track_multi": False,
-        "filter_track_value": "",
-        "page_obj": PageMatcher(number=1, num_pages=1),
-        "page_sizes": _PAGE_SIZES,
-        "filter_category_pk": None,
-        "filter_status": None,
-        "filter_sort": "",
-        "statuses": [
-            ("pending", "Pending"),
-            ("accepted", "Accepted"),
-            ("on_hold", "On hold"),
-            ("rejected", "Rejected"),
-            ("scheduled", "Scheduled"),
-        ],
+        **PROPOSAL_FILTER_CONTEXT,
         "stats": {
             "hosts_count": 0,
             "pending_proposals": 1,

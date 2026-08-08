@@ -84,6 +84,21 @@ class TestProposalDeleteActionView:
         assert dead.deleted_at is not None
         assert not ScheduleChangeLog.objects.filter(session_id=session.pk).exists()
 
+    def test_post_returns_to_the_filtered_list(self, panel_client, event):
+        session = make_proposal(event)
+        back = (
+            reverse("panel:proposals", kwargs={"slug": event.slug}) + "?status=rejected"
+        )
+
+        response = panel_client.post(self.get_url(event, session.pk), {"next": back})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Proposal deleted.")],
+            url=back,
+        )
+
     def test_post_frees_timetable_slot_and_retains_participations(
         self, panel_client, active_user, event
     ):

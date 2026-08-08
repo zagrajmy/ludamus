@@ -271,10 +271,7 @@ class Services:
     @cached_property
     def session_confirmation(self) -> SessionConfirmationService:
         return SessionConfirmationService(
-            self._transaction,
-            self._repos.agenda_items,
-            self._repos.sessions,
-            self._repos.tracks,
+            self._transaction, self._repos.agenda_items, self._repos.sessions
         )
 
     @cached_property
