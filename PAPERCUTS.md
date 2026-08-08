@@ -316,3 +316,10 @@ If you fix a papercut, remove it.
   permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
   works, pushing needs the user to run it (or the file's mode fixed to 0644
   root:root).
+- 2026-08-08: Weekly flaky-test scan found
+  test_print_document_title_names_the_document_and_the_event
+  (test_page_metadata.py) failed twice on unrelated main commits (0f90b147f6,
+  3a2f9f5c5a) this week with AttributeError: 'HttpResponseRedirect' object has
+  no attribute 'context_data', then passed again with no related fix; could
+  not reproduce in 3 local full-suite pytest -n auto runs. Quarantined with a
+  skip pending root-cause.

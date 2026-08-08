@@ -2,6 +2,7 @@ import re
 from http import HTTPStatus
 from pathlib import Path
 
+import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -105,6 +106,16 @@ class TestPageTitle:
 
         assert _title(response) == f"Sphere settings • {sphere.name}"
 
+    @pytest.mark.skip(
+        reason=(
+            "Flaky under pytest-xdist: fails ~1/15 CI runs with "
+            "AttributeError: 'HttpResponseRedirect' object has no attribute "
+            "'context_data', i.e. the print view redirects instead of "
+            "rendering. Root cause not yet pinned down — see the flaky-test "
+            "report for the investigation. Quarantined rather than deleted "
+            "so the coverage gap stays visible."
+        )
+    )
     def test_print_document_title_names_the_document_and_the_event(
         self, manager_client, event, sphere
     ):
