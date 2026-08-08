@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from vekna.folio.coding import CodingOpts, CodingOutputError, Session, coding
 from vekna.folio.coding_claude import ClaudeOptions
 
-from .shell import DEVCHECK
+from .shell import PR_FIX
 
 THERMO_TITLE = "Thermo-nuclear code quality review"
 _THERMO_SKILL = "~/.claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
@@ -182,9 +182,7 @@ def resolve(*, base: str, branch: str, files: str) -> str:
 # moment an assertion diff over a dict lands in it, and str.format would raise
 # on the first one.
 def fix_gates(output: str) -> str:
-    return (
-        f"`{DEVCHECK}` is this project's gate, and it is red.\n\n{_FIX_GATES}{output}"
-    )
+    return f"`{PR_FIX}` is this project's gate, and it is red.\n\n{_FIX_GATES}{output}"
 
 
 class Fallen(BaseModel):

@@ -73,7 +73,7 @@ class TestSetAside:
     def test_uncommitted_work_is_stashed_under_a_name_the_report_says(
         self, trial: Trial, work: Work
     ) -> None:
-        aside = work.model_copy(update={"note": "`mise run devcheck` is still red"})
+        aside = work.model_copy(update={"note": "`mise run pr-fix` is still red"})
         trial.shell.replies(when=_RELEASE, stdout="stashed\n")
         trial.shell.replies(when=_AHEAD, stdout="1\n")
 
@@ -89,7 +89,7 @@ class TestSetAside:
                             "outcome": "blocked",
                             "unpushed": 1,
                             "note": (
-                                "`mise run devcheck` is still red; stashed as "
+                                "`mise run pr-fix` is still red; stashed as "
                                 '"pr_check left feature unfinished"'
                             ),
                         }
@@ -203,7 +203,7 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature*")
         trial.shell.replies(when="git merge --no-edit*")
-        trial.shell.replies(when="mise run devcheck")
+        trial.shell.replies(when="mise run pr-fix")
         trial.shell.replies(when="mise run diff-cover")
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
@@ -248,9 +248,9 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature*")
         trial.shell.replies(when="git merge --no-edit*")
-        trial.shell.replies(when="mise run devcheck", exit_code=1, stdout="red")
-        trial.shell.replies(when="mise run devcheck", exit_code=1, stdout="still red")
-        trial.shell.replies(when="mise run devcheck")
+        trial.shell.replies(when="mise run pr-fix", exit_code=1, stdout="red")
+        trial.shell.replies(when="mise run pr-fix", exit_code=1, stdout="still red")
+        trial.shell.replies(when="mise run pr-fix")
         trial.shell.replies(when="mise run diff-cover")
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)

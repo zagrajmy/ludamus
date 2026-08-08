@@ -262,14 +262,36 @@ env.PYTHONPATH = "src"
 [tasks.check]
 run = [{ task = "format" }, { task = "lint" }]
 
+[tasks.pr-fix]
+description = "Pull Request Formatting and Readiness Check"
+run = [
+    "mise install",
+    "poetry install",
+    { task = "format" },
+    { task = "messages" },
+    { task = "lint" },
+    { task = "messages-check" },
+    "aube install --no-optional",
+    "aube exec varlock scan",
+    { task = "lint-client" },
+    { task = "ts-check:ios" },
+    { task = "fallow" },
+    { task = "test:py:cov", args = [
+        '-xvv',
+        '--fail-under=97',
+    ] },
+]
+
 [tasks.devcheck]
 run = [
     "poetry install",
     { task = "format" },
+    { task = "messages" },
     { task = "lint:djlint" },
     { task = "lint:py" },
     { task = "test:py:cov", args = [
         '-xvv',
+        '--fail-under=98',
     ] },
     "coverage xml",
     "diff-cover coverage.xml --compare-branch=main --fail-under=100",

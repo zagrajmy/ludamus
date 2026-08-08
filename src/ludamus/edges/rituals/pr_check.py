@@ -60,8 +60,8 @@ from .shell import (
     CONTINUE_MERGE,
     COVERAGE,
     CR_LABEL,
-    DEVCHECK,
     LIST,
+    PR_FIX,
     QA_LABEL,
     STASHED,
     THERMO_LABEL,
@@ -214,11 +214,11 @@ async def resolve_conflicts(work: Work) -> Transition:
 
 @step
 async def gate_check(work: Work) -> Transition:
-    gates = await shell(DEVCHECK)
+    gates = await shell(PR_FIX)
     if gates.exit_code == 0:
         return goto(finish_merge, cleared(work, gate_check.name))
     if exhausted(work, gate_check.name):
-        return goto(set_aside, work_with(work, note=f"`{DEVCHECK}` is still red"))
+        return goto(set_aside, work_with(work, note=f"`{PR_FIX}` is still red"))
     if fallen := await ask(fix_gates(said(gates)), key=f"gates-{work.pr.number}"):
         return goto(report, abandoned(work, fallen.reason))
     return goto(gate_check, charged(work, gate_check.name))

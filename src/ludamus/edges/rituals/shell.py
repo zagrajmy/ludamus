@@ -9,7 +9,7 @@ import shlex
 from vekna.folio.shell import ShellResult, shell
 
 # This project's two gates, by the names this project gives them.
-DEVCHECK = "mise run devcheck"
+PR_FIX = "mise run pr-fix"
 COVERAGE = "mise run diff-cover"
 
 # `labels` rides along so the wait label can be read without a call per pull

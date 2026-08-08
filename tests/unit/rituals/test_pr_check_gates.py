@@ -11,7 +11,7 @@ from ludamus.edges.rituals.pr_check import (
     quality_review,
     set_aside,
 )
-from ludamus.edges.rituals.shell import COVERAGE, DEVCHECK
+from ludamus.edges.rituals.shell import COVERAGE, PR_FIX
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -34,18 +34,18 @@ class TestGateCheck:
         self, trial: Trial, work: Work
     ) -> None:
         spent = work.model_copy(update={"budgets": {"gate_check": 2}})
-        trial.shell.replies(when=DEVCHECK)
+        trial.shell.replies(when=PR_FIX)
 
         transition = trial.walk(gate_check, spent)
 
         assert transition == goto(finish_merge, work)
-        assert trial.shell.commands == [DEVCHECK]
+        assert trial.shell.commands == [PR_FIX]
 
     def test_a_red_gate_hands_both_streams_to_the_agent(
         self, trial: Trial, work: Work
     ) -> None:
         trial.shell.replies(
-            when=DEVCHECK, exit_code=1, stdout="E501 line too long", stderr="1 failed"
+            when=PR_FIX, exit_code=1, stdout="E501 line too long", stderr="1 failed"
         )
         trial.coding.replies("fixed it")
 
@@ -63,12 +63,12 @@ class TestGateCheck:
         self, trial: Trial, work: Work
     ) -> None:
         spent = work.model_copy(update={"budgets": {"gate_check": 3}})
-        trial.shell.replies(when=DEVCHECK, exit_code=1, stdout="still red")
+        trial.shell.replies(when=PR_FIX, exit_code=1, stdout="still red")
 
         transition = trial.walk(gate_check, spent)
 
         assert transition == goto(
-            set_aside, spent.model_copy(update={"note": f"`{DEVCHECK}` is still red"})
+            set_aside, spent.model_copy(update={"note": f"`{PR_FIX}` is still red"})
         )
         assert not trial.coding.prompts
 
