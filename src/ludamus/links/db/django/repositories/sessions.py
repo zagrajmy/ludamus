@@ -880,6 +880,8 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             ).distinct()
         if filters.category_pk is not None:
             qs = qs.filter(category__pk=filters.category_pk)
+        if filters.facilitator_pks:
+            qs = qs.filter(facilitators__pk__in=filters.facilitator_pks).distinct()
         if filters.search:
             qs = qs.filter(
                 Q(title__icontains=filters.search)

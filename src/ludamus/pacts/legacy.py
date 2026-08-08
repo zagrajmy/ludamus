@@ -179,6 +179,7 @@ class UnscheduledSessionFilter(BaseModel):
     max_duration_minutes: int | None = None
     category_pk: int | None = None
     available_on: date | None = None
+    facilitator_pks: set[int] = set()
 
 
 class SessionListItemDTO(BaseModel):
@@ -978,9 +979,13 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> AgendaItemDTO: ...
     @staticmethod
-    def list_by_event(event_pk: int) -> list[AgendaItemDTO]: ...
+    def list_by_event(
+        event_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]: ...
     @staticmethod
-    def list_by_track(track_pk: int) -> list[AgendaItemDTO]: ...
+    def list_by_track(
+        track_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
     @staticmethod

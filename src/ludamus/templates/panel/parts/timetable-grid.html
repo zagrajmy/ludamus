@@ -17,19 +17,21 @@
                 ({% translate "total" %} {{ grid.total_spaces }})
             </span>
             {% if grid.page > 1 %}
+                {% querystring room_page=grid.page|add:"-1" as prev_page_qs %}
                 <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'-1' }}"
+                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{{ prev_page_qs }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'-1' }}"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}{{ prev_page_qs }}"
                         class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">← {% translate "Previous" %}</button>
             {% endif %}
             {% if grid.page < grid.total_pages %}
+                {% querystring room_page=grid.page|add:"1" as next_page_qs %}
                 <button type="button"
-                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'1' }}"
+                        hx-get="{% url 'panel:timetable-grid-part' slug=slug %}{{ next_page_qs }}"
                         hx-target="#timetable-grid"
                         hx-swap="innerHTML"
-                        hx-push-url="{% url 'panel:timetable' slug=slug %}?track={{ filter_track_pk|default:'' }}&date={{ grid.date_selection|date:'Y-m-d'|default:grid.date_selection }}&room_page={{ grid.page|add:'1' }}"
+                        hx-push-url="{% url 'panel:timetable' slug=slug %}{{ next_page_qs }}"
                         class="text-sm underline underline-offset-3 decoration-foreground-muted/50 hover:no-underline">{% translate "Next" %} →</button>
             {% endif %}
         </div>
@@ -48,6 +50,8 @@
     row across the whole calendar and rows can be read straight across.
     {% endcomment %}
     <div class="timetable-calendar max-h-[calc(100dvh-5rem)] overflow-auto overscroll-x-contain border border-border rounded-lg select-none"
+         role="region"
+         aria-label="{% translate 'Schedule' %}"
          data-timetable-days
          style="--day-strip-tracks: {% for day in grid.days %}var(--timetable-time-column) repeat({{ grid.spaces|length }}, minmax(var(--timetable-column-min), 1fr)) {% endfor %};
                 --day-count: {{ grid.days|length }};

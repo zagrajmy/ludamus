@@ -373,6 +373,7 @@ class FacilitatorActionError(Exception):
 
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
+    pks: set[int] | None
     accreditation: str | None
     # True lists the deleted facilitators instead of the live ones — the two
     # never mix, so a restore is always a deliberate visit to the bin.
@@ -381,6 +382,7 @@ class FacilitatorListFilters(TypedDict, total=False):
     organizer_id: int | None
     organizer_unassigned: bool | None
     sort: str | None
+    limit: int | None
 
 
 class HasPk(Protocol):
