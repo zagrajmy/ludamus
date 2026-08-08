@@ -30,6 +30,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.durations import build_duration, parse_duration
 from ludamus.pacts.submissions import (
     DurationSpec,
     EntityRef,
@@ -79,7 +80,8 @@ class OptionEntity(TypedDict):
 
 class OptionDuration(TypedDict):
     option: str
-    iso: str
+    hours: int | None
+    minutes: int | None
 
 
 class OverrideRow(TypedDict):
@@ -391,16 +393,20 @@ def _option_entities(
 def _option_durations(
     question: SourceQuestion, target: QuestionTarget | None
 ) -> list[OptionDuration]:
-    # One row per source option, pre-filled with the operator-typed ISO 8601
-    # duration so the (hidden) editor is ready the moment the row becomes a
-    # session-duration target. A blank ISO leaves that option unmapped: the
+    # One row per source option, pre-filled with the length the operator picked
+    # so the (hidden) editor is ready the moment the row becomes a
+    # session-duration target. A blank length leaves that option unmapped: the
     # importer then skips rows whose answer hits this option.
     configured = target.values if target else {}
     rows: list[OptionDuration] = []
     for option in question.options:
         spec = configured.get(option)
-        iso = spec.iso if isinstance(spec, DurationSpec) else ""
-        rows.append({"option": option, "iso": iso})
+        hours, minutes = parse_duration(
+            spec.iso if isinstance(spec, DurationSpec) else ""
+        )
+        rows.append(
+            {"option": option, "hours": hours or None, "minutes": minutes or None}
+        )
     return rows
 
 
@@ -493,18 +499,27 @@ def _time_slot_values_from_post(
 
 
 def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, QuestionValue]:
-    # Per-option ISO duration rows submit parallel arrays; a blank ISO drops
-    # that option (its answers will be skipped at import time).
+    # Per-option duration rows submit parallel arrays of hours and minutes; a
+    # zero-length option is dropped (its answers will be skipped at import
+    # time). ISO is composed here, never typed by the operator.
     values: dict[str, QuestionValue] = {}
     rows = zip(
-        post.getlist(f"droption_{index}"), post.getlist(f"driso_{index}"), strict=False
+        post.getlist(f"droption_{index}"),
+        post.getlist(f"drhours_{index}"),
+        post.getlist(f"drminutes_{index}"),
+        strict=False,
     )
-    for option, iso in rows:
-        clean_iso = iso.strip()
-        if not (option and clean_iso):
+    for option, hours, minutes in rows:
+        iso = build_duration(hours=_positive_int(hours), minutes=_positive_int(minutes))
+        if not (option and iso):
             continue
-        values[option] = DurationSpec(iso=clean_iso)
+        values[option] = DurationSpec(iso=iso)
     return values
+
+
+def _positive_int(raw: str) -> int:
+    text = (raw or "").strip()
+    return int(text) if text.isdigit() else 0
 
 
 def _entity_map_from_post(

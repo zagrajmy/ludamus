@@ -91,8 +91,10 @@ def build_session_details_form(
         "display_name": forms.CharField(label=_("Presenter name"), max_length=255),
     }
 
-    if durations:
-        duration_choices = [(d, format_duration(d)) for d in durations]
+    # A duration nothing can read is left out: an option is worth offering only
+    # when it can be labelled with a length.
+    duration_choices = [(d, label) for d in durations if (label := format_duration(d))]
+    if duration_choices:
         fields["duration"] = forms.ChoiceField(
             label=_("Duration"), choices=[("", "---"), *duration_choices]
         )

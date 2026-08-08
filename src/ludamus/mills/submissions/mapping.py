@@ -11,6 +11,7 @@ from unidecode import unidecode
 
 from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
+from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,
@@ -188,8 +189,10 @@ def _duration_iso(target: QuestionTarget, header: str, answer: str) -> str:
     if not answer.strip():
         return ""
     spec = target.values.get(answer)
-    if isinstance(spec, DurationSpec) and spec.iso:
-        return spec.iso
+    # Recipes saved before the length steppers existed can hold a hand-typed
+    # spec, so it is normalized rather than trusted.
+    if isinstance(spec, DurationSpec) and (iso := normalize_duration(spec.iso)):
+        return iso
     return _skip(f"{header}: unmapped duration answer '{answer}'")
 
 

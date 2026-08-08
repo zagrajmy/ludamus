@@ -193,7 +193,7 @@
     <div class="recipe-durations mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "session.duration" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         <p class="text-xs text-foreground-muted">
-            {% translate "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 min). Answers without a mapping are skipped at import time." %}
+            {% translate "Set how long each source answer means. Answers left at zero are skipped at import time." %}
         </p>
         {% for dur in row.option_durations %}
             <div class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
@@ -201,14 +201,24 @@
                 <input type="hidden"
                        name="droption_{{ row.index }}"
                        value="{{ dur.option }}">
-                <input type="text"
-                       name="driso_{{ row.index }}"
-                       value="{{ dur.iso }}"
-                       aria-label="{% translate "ISO 8601 duration" %}"
-                       placeholder="PT1H30M"
-                       pattern="PT(\d+H)?(\d+M)?"
-                       title="PT1H30M"
-                       class="w-full rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                <div class="flex items-center gap-2">
+                    <input type="number"
+                           name="drhours_{{ row.index }}"
+                           value="{{ dur.hours|default_if_none:"" }}"
+                           min="0"
+                           max="24"
+                           aria-label="{% translate "Hours" %}"
+                           class="w-16 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                    <span class="text-sm text-foreground-muted">{% translate "h" %}</span>
+                    <input type="number"
+                           name="drminutes_{{ row.index }}"
+                           value="{{ dur.minutes|default_if_none:"" }}"
+                           min="0"
+                           max="59"
+                           aria-label="{% translate "Minutes" %}"
+                           class="w-16 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
+                    <span class="text-sm text-foreground-muted">{% translate "min" %}</span>
+                </div>
             </div>
         {% endfor %}
     </div>

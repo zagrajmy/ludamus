@@ -20,11 +20,14 @@ class TestFormatDuration:
         assert not format_duration(None)  # type: ignore[arg-type]
 
     def test_invalid_format(self) -> None:
-        assert format_duration("invalid") == "invalid"
+        assert not format_duration("invalid")
 
     def test_pt_only(self) -> None:
-        # PT with no hours or minutes - regex matches but both groups are None
-        assert format_duration("PT") == "PT"
+        assert not format_duration("PT")
+
+    @pytest.mark.parametrize("stored", ("P4H", "50min", "110m", "PT1H30MJUNK"))
+    def test_unreadable_value_is_not_echoed(self, stored: str) -> None:
+        assert not format_duration(stored)
 
     @pytest.mark.parametrize(
         ("iso", "expected"),

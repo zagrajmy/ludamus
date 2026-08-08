@@ -62,10 +62,12 @@
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
                     {% endif %}
-                    {% if data.session.duration %}
-                        {% icon "clock" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
-                        <span class="shrink-0">{{ data.session.duration|format_duration }}</span>
-                    {% endif %}
+                    {% with duration_label=data.session.duration|format_duration %}
+                        {% if duration_label %}
+                            {% icon "clock" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
+                            <span class="shrink-0">{{ duration_label }}</span>
+                        {% endif %}
+                    {% endwith %}
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
                     {% if data.is_pending_proposal %}

@@ -34,6 +34,7 @@ from ludamus.pacts import (
     UploadedFileProtocol,
     WizardData,
 )
+from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
@@ -350,7 +351,9 @@ class ProposeSessionService:
                 title=title,
                 slug=slug,
                 description=description,
-                duration=str(session_data.get("duration") or ""),
+                # Whatever the source calls a duration ("50min", "110m") is
+                # normalized on the way in: storage holds ISO or nothing.
+                duration=normalize_duration(str(session_data.get("duration") or "")),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),

@@ -310,8 +310,8 @@ class TestEventImportProposalView:
                     {"option": "18+", "name": "18+", "slug": "18"},
                 ],
                 "option_durations": [
-                    {"option": "do 16", "iso": ""},
-                    {"option": "18+", "iso": ""},
+                    {"option": "do 16", "hours": None, "minutes": None},
+                    {"option": "18+", "hours": None, "minutes": None},
                 ],
                 "overrides": [{"raw": "", "replacement": ""}],
                 "catchall_name": "",
@@ -3245,7 +3245,7 @@ class TestImportRowSavePostHelpers:
         # An unrecognised field type falls back to text.
         assert settings.definitions.personal_fields["phone"].type == "text"
 
-    def test_post_saves_duration_target_and_skips_blank_iso(
+    def test_post_saves_duration_target_and_skips_blank_length(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -3259,7 +3259,8 @@ class TestImportRowSavePostHelpers:
                 "question_0": "Length",
                 "target_0": "session.duration",
                 "droption_0": ["30 min", "blank"],
-                "driso_0": ["PT30M", "  "],
+                "drhours_0": ["", ""],
+                "drminutes_0": ["30", "  "],
             },
         )
 
@@ -3269,8 +3270,9 @@ class TestImportRowSavePostHelpers:
             integration.settings_json
         ).questions["Length"]
         assert target.to == "session.duration"
-        # The blank-ISO option is dropped; only the mapped one survives.
+        # The zero-length option is dropped; only the mapped one survives.
         assert set(target.values) == {"30 min"}
+        assert target.values["30 min"].iso == "PT30M"
 
     def test_post_skips_blank_time_slot_row(
         self, panel_client, event, connection_with_secret

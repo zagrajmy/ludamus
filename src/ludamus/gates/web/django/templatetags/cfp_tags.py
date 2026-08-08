@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Any
 
 from django import template
@@ -8,6 +7,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.pacts.durations import parse_duration
 
 if TYPE_CHECKING:
     from ludamus.pacts import SessionDTO
@@ -154,28 +154,6 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
     return str(value)
 
 
-def parse_duration(iso_duration: str) -> tuple[int, int]:
-    """Split an ISO 8601 duration into hours and minutes.
-
-    Returns:
-        (hours, minutes), both 0 for anything unparsable.
-    """
-    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso_duration or "")):
-        return 0, 0
-    return int(match.group(1) or 0), int(match.group(2) or 0)
-
-
-def build_duration(*, hours: int, minutes: int) -> str:
-    """Compose an ISO 8601 duration, empty when both parts are zero.
-
-    Returns:
-        A string like "PT1H30M", "PT45M" or "".
-    """
-    if not hours and not minutes:
-        return ""
-    return "PT" + (f"{hours}H" if hours else "") + (f"{minutes}M" if minutes else "")
-
-
 @register.filter
 def format_duration(iso_duration: str) -> str:
     """Format ISO 8601 duration string to human-readable format.
@@ -184,11 +162,9 @@ def format_duration(iso_duration: str) -> str:
         iso_duration: ISO 8601 duration string (e.g., "PT1H45M", "PT30M", "PT2H")
 
     Returns:
-        Human-readable duration (e.g., "1h 45min", "30min", "2h")
+        Human-readable duration ("1h 45min", "30min", "2h"), empty when the
+        stored value is unreadable — a raw ISO string is never shown.
     """
-    if not iso_duration:
-        return ""
-
     hours, minutes = parse_duration(iso_duration)
 
     if hours and minutes:
@@ -197,4 +173,4 @@ def format_duration(iso_duration: str) -> str:
         return f"{hours}h"
     if minutes:
         return f"{minutes}min"
-    return iso_duration
+    return ""

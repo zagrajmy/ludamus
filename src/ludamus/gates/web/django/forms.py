@@ -18,11 +18,9 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.templatetags.cfp_tags import (
-    build_duration,
-    format_duration,
-)
+from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.durations import build_duration
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
@@ -686,15 +684,19 @@ class _ComposedDurationForm(SessionEditForm):
 
 def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
     # No configured durations means the steppers are the whole control, so the
-    # inherited free-text field is dropped (a None entry removes it).
-    if not durations:
+    # inherited free-text field is dropped (a None entry removes it). A stored
+    # duration nothing can read is dropped too: an option is worth offering
+    # only when it can be labelled with a length.
+    if not (
+        labelled := [(d, label) for d in durations if (label := format_duration(d))]
+    ):
         return None
     return forms.ChoiceField(
         required=False,
         label=_("Duration"),
         choices=[
             ("", "---"),
-            *((d, format_duration(d)) for d in durations),
+            *labelled,
             # Kept last: the template reveals the steppers with a CSS
             # :last-child selector rather than JavaScript.
             (CUSTOM_DURATION, _("Custom")),
