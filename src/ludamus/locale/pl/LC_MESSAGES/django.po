@@ -4735,8 +4735,8 @@ msgid "Nothing matches your search."
 msgstr "Nic nie pasuje do wyszukiwania."
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
-msgid "Type a name to find someone."
-msgstr "Wpisz imię, aby kogoś znaleźć."
+msgid "Start typing to find someone."
+msgstr "Zacznij pisać, aby kogoś znaleźć."
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
 msgid "More matches than fit — keep typing to narrow them."

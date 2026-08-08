@@ -715,7 +715,7 @@ test.describe("Timetable", () => {
       .locator("[data-menu-panel]");
 
     // Nothing is offered until you type -- the roster is never shipped whole.
-    await expect(panel.getByText("Type a name to find someone.")).toBeVisible();
+    await expect(panel.getByText("Start typing to find someone.")).toBeVisible();
 
     await panel.getByPlaceholder("Search…").fill("Alice");
     const option = panel.getByRole("checkbox", { name: /Alice/ });
