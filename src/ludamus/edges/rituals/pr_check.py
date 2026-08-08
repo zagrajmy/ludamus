@@ -68,6 +68,7 @@ from .shell import (
     WAIT_LABEL,
     ahead,
     commit,
+    coverage_report,
     label,
     quoted,
     release,
@@ -248,11 +249,13 @@ async def finish_merge(work: Work) -> Transition:
 @step
 async def cover(work: Work) -> Transition:
     measured = await shell(COVERAGE)
-    output = said(measured)
-    # The report's own word for a line no test reached. Read from the output
+    output = coverage_report(measured)
+    # The report's own words for a line no test reached. Read from the output
     # rather than the exit code, which is also non-zero for a threshold this
-    # ritual has no business moving.
-    if "Missing" in output:
+    # ritual has no business moving. Both words and not just "Missing": the
+    # summary block below the listing says "Missing: 0 lines" on a clean report
+    # too, so the bare word matches every run there is.
+    if "Missing lines" in output:
         if exhausted(work, cover.name):
             return goto(
                 set_aside,
