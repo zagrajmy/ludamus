@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from django import template
 from django.utils import timezone
@@ -11,9 +11,6 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 
 if TYPE_CHECKING:
     from ludamus.pacts import ProposalCategoryDTO, SessionDTO
-
-Key = TypeVar("Key")
-Value = TypeVar("Value")
 
 register = template.Library()
 
@@ -29,14 +26,14 @@ def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
 
 
 @register.filter
-def cfp_status(category: ProposalCategoryDTO) -> dict[str, str]:  # type: ignore[misc]
+def cfp_status(category: ProposalCategoryDTO) -> dict[str, str]:
     """Return status info for a proposal category.
 
     Returns:
         Dict with 'label' and 'class' keys for styling the status badge.
     """
     start_time = category.start_time
-    end_time = category.end_times
+    end_time = category.end_time
 
     if not start_time and not end_time:
         return {"label": _("Not set"), "class": "bg-gray-100 text-gray-600"}
@@ -85,7 +82,7 @@ def content_field_label(field_key: str) -> str:
 
 
 @register.filter
-def get_item[Key, Value](dictionary: dict[Key, Value], key: Key) -> Value:
+def get_item[Key, Value](dictionary: dict[Key, Value], key: Key) -> Value | None:
     """Get an item from a dictionary by key.
 
     Returns:

@@ -91,7 +91,10 @@ def _recover_from_404(request: HttpRequest) -> HttpResponse | None:
     return None
 
 
-def custom_404(request: HttpRequest, _exception: Exception | None) -> HttpResponse:
+def custom_404(
+    request: HttpRequest,
+    exception: Exception | None,  # ruff: ignore [unused-function-argument]
+) -> HttpResponse:
     if (recovered := _recover_from_404(request)) is not None:
         return recovered
 

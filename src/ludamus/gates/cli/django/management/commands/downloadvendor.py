@@ -31,8 +31,9 @@ class Command(BaseCommand):
 
     help = "Download vendor dependencies to static/vendor/ with SHA-384 verification"
 
-    @staticmethod
-    def add_arguments(parser: ArgumentParser) -> None:
+    def add_arguments(  # ruff: ignore [no-self-use]
+        self, parser: ArgumentParser
+    ) -> None:
         """Add command arguments."""
         parser.add_argument(
             "--force",
