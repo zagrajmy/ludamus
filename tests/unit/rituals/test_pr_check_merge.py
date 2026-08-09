@@ -14,6 +14,7 @@ from ludamus.edges.rituals.pr_check import (
     report,
     resolve_conflicts,
     set_aside,
+    stand_down,
     sync_branch,
 )
 from ludamus.edges.rituals.shell import LIST, WAIT_LABEL
@@ -257,7 +258,9 @@ class TestResolveConflicts:
         assert transition == goto(gate_check, work)
         assert not trial.coding.prompts
 
-    def test_a_spent_budget_sets_the_branch_aside_without_asking_again(
+    # The merge is abandoned, not the pull request: the branch goes back to
+    # where it stood and is read there.
+    def test_a_spent_budget_stands_the_branch_down_without_asking_again(
         self, trial: Trial, work: Work
     ) -> None:
         spent = work.model_copy(update={"budgets": {"resolve_conflicts": 3}})
@@ -266,7 +269,7 @@ class TestResolveConflicts:
         transition = trial.walk(resolve_conflicts, spent)
 
         assert transition == goto(
-            set_aside,
+            stand_down,
             spent.model_copy(update={"note": "the merge conflicts were not resolved"}),
         )
         assert not trial.coding.prompts

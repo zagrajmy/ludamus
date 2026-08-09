@@ -4,6 +4,7 @@ Command text and nothing else: every function here builds a string a step runs,
 so what a step does stays readable as a decision rather than as quoting.
 """
 
+import re
 import shlex
 
 from vekna.folio.shell import ShellResult, shell
@@ -11,6 +12,16 @@ from vekna.folio.shell import ShellResult, shell
 # This project's two gates, by the names this project gives them.
 PR_FIX = "mise run pr-fix"
 COVERAGE = "mise run diff-cover"
+
+
+# What a step actually runs a gate as. `CI=1` puts every tool in the chain into
+# its log shape rather than its terminal one — no colour, no cursor tricks, and
+# Playwright's own CI settings, which retry a failure before calling it one.
+# Held apart from the names above because those are what the prompts say and
+# what you would type yourself; nobody needs to read the prefix.
+def plain(task: str) -> str:
+    return f"CI=1 {task}"
+
 
 # `labels` rides along so the wait label can be read without a call per pull
 # request: the listing is the only place every open branch is in hand at once.
@@ -82,9 +93,10 @@ def _tail(text: str) -> str:
 # Each stream gets the budget on its own rather than sharing one, because mise
 # puts its own task chatter on stderr and the tool's verdict on stdout, and a
 # shared budget is won by whichever stream is longer — which is the chatter.
-# Trimmed here rather than at each prompt, because every caller does the same
-# two things with this — hand it to an agent, or put it in the report — and both
-# want the verdict, not the transcript.
+# Trimmed here rather than at each prompt, because every caller of this hands it
+# to an agent and they all want the same thing: enough of the end to diagnose
+# from. What the report puts in front of a person is `verdict` below, which is a
+# different question and a much smaller answer.
 def said(result: ShellResult) -> str:
     return "\n".join(
         _tail(part) for part in (result.stdout, result.stderr) if part.strip()
@@ -100,6 +112,46 @@ def said(result: ShellResult) -> str:
 def coverage_report(result: ShellResult) -> str:
     _, banner, rest = result.stdout.partition(BANNER)
     return banner + rest if banner else said(result)
+
+
+# What a report row can carry, counted in lines because this one is read by a
+# person: a dozen is the tail every tool in these chains puts its tally in.
+VERDICT_LINES = 12
+
+# Cursor moves and colour. `plain` above stops most of these being written at
+# all; this is for the tools that colour anyway, and for a log captured before
+# anyone thought about it.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
+
+
+# The one-screen answer to "what went wrong", for the report rather than for an
+# agent. Only one stream, unlike `said`: stdout is where every tool in these
+# chains says how it ended — pytest's short summary, ruff's count, Playwright's
+# tally — while stderr carries mise's task chatter and, under e2e, a web server
+# logging every request it served, which is thousands of lines of nothing.
+# Where stdout said nothing at all, stderr is all there is, and that is the task
+# that died before it started.
+# Blank lines go too: a progress reporter writing over itself leaves hundreds of
+# them, and they would spend the whole allowance saying nothing.
+def verdict(result: ShellResult) -> str:
+    spoken = result.stdout if result.stdout.strip() else result.stderr
+    lines = [
+        stripped
+        for line in _ANSI.sub("", spoken).splitlines()
+        if (stripped := line.rstrip())
+    ]
+    return "\n".join(lines[-VERDICT_LINES:])
+
+
+# Timings, counts and timestamps differ on every run, so two runs of the same
+# broken suite never match character for character. What is left once the digits
+# go is the failing test's name and the tool that named it, which is the thing
+# worth recognising twice.
+# ponytail: a different failure at the same file and a different line collides
+# with this. What that costs is one branch's repair attempts skipped, and the
+# report still says what it saw — worth more than a check that never fires.
+def same_verdict(one: str, other: str) -> bool:
+    return bool(one) and re.sub(r"\d+", "", one) == re.sub(r"\d+", "", other)
 
 
 def commit(message: str) -> str:

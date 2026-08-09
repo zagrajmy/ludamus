@@ -73,6 +73,11 @@ class Run(BaseModel):
     queue: list[PullRequest] = []
     checked: list[Checked] = []
     stopped: str = ""
+    # The verdict of the last gate this run gave up on, carried across branches
+    # so the next one can recognise it. A night where the same thing is broken
+    # everywhere — an unreachable host, a browser that will not start — is a
+    # night that should pay for that answer once, not once per pull request.
+    seen: str = ""
 
 
 # One pull request in flight. `budgets` dies with this payload, which is what "a
@@ -84,6 +89,10 @@ class Work(BaseModel):
     budgets: dict[str, int] = {}
     merging: bool = False
     note: str = ""
+    # This branch will not be made green tonight, and is being read anyway. The
+    # reading steps that follow need to know: a branch nobody can merge must not
+    # come out labelled ready to test.
+    blocked: bool = False
 
 
 class TriageItem(BaseModel):
@@ -105,7 +114,7 @@ class Triaged(BaseModel):
 
 class Closed(BaseModel):
     work: Work
-    outcome: Literal["qa", "triage"]
+    outcome: Literal["qa", "triage", "blocked"]
 
 
 class Report(BaseModel):
@@ -128,28 +137,33 @@ def run_with(
     queue: list[PullRequest] | None = None,
     checked: list[Checked] | None = None,
     stopped: str | None = None,
+    seen: str | None = None,
 ) -> Run:
     return Run(
         bound=run.bound,
         queue=run.queue if queue is None else queue,
         checked=run.checked if checked is None else checked,
         stopped=run.stopped if stopped is None else stopped,
+        seen=run.seen if seen is None else seen,
     )
 
 
 def work_with(
     work: Work,
     *,
+    run: Run | None = None,
     budgets: dict[str, int] | None = None,
     merging: bool | None = None,
     note: str | None = None,
+    blocked: bool | None = None,
 ) -> Work:
     return Work(
-        run=work.run,
+        run=work.run if run is None else run,
         pr=work.pr,
         budgets=work.budgets if budgets is None else budgets,
         merging=work.merging if merging is None else merging,
         note=work.note if note is None else note,
+        blocked=work.blocked if blocked is None else blocked,
     )
 
 

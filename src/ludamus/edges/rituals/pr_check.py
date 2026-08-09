@@ -12,6 +12,13 @@ read — a quality review it posted, a triage it wrote — also earns the branch
 ``pr::cr``. Nothing is ever pushed: the report says which branches are waiting
 for that, and pushing stays yours.
 
+A branch the gates would not go green on is still read. It stands down rather
+than stopping: the worktree is released, so the reading happens on the last
+commit that was any good, and then it is reviewed and triaged like any other
+before being reported blocked. What it does not get is ``pr::qa``, because
+nobody can test a branch that will not build. This is not a gate and does not
+try to fail fast — an hour more spent is worth a pull request read properly.
+
 A pull request labelled ``pr::wait`` is left alone entirely: it is dropped at
 the listing, so nothing checks it out and it appears nowhere in the report.
 That is how you park a branch for a night — or for a month — without closing
@@ -34,8 +41,11 @@ Both still print the report first, then fail the cast.
 
 Budgets are per step and per branch: a step may be retried ``--bound`` times,
 going green clears its count, and moving to the next pull request clears them
-all. A step that runs out gives up on that pull request only — the worktree is
-released, the branch is reported blocked, and the next one starts.
+all. A step that runs out stops trying to fix that pull request only: the
+worktree is released, the branch stands down into the reading above, and it is
+reported blocked. A verdict a step already gave up on once is not paid for
+twice — the next branch whose gate says the same thing stands down without
+spending its budget on an answer this run already has.
 """
 
 from pydantic import ValidationError
@@ -70,10 +80,13 @@ from .shell import (
     commit,
     coverage_report,
     label,
+    plain,
     quoted,
     release,
     said,
+    same_verdict,
     stash_name,
+    verdict,
 )
 from .state import (
     PULLS,
@@ -201,7 +214,7 @@ async def resolve_conflicts(work: Work) -> Transition:
         return goto(gate_check, cleared(work, resolve_conflicts.name))
     if exhausted(work, resolve_conflicts.name):
         return goto(
-            set_aside, work_with(work, note="the merge conflicts were not resolved")
+            stand_down, work_with(work, note="the merge conflicts were not resolved")
         )
     if fallen := await ask(
         resolve(base=work.pr.base, branch=work.pr.branch, files=unmerged.stdout),
@@ -215,11 +228,29 @@ async def resolve_conflicts(work: Work) -> Transition:
 
 @step
 async def gate_check(work: Work) -> Transition:
-    gates = await shell(PR_FIX)
+    # Captured rather than streamed, and run `plain`: what comes back here is
+    # read twice over — once by an agent, once by you in the morning — and a
+    # terminal recording is neither.
+    gates = await shell(plain(PR_FIX), stream=False)
     if gates.exit_code == 0:
         return goto(finish_merge, cleared(work, gate_check.name))
+    said_now = verdict(gates)
+    # Asked before the first repair and not after, so this reads "the branch
+    # arrived broken the same way", never "the agent failed to fix it twice".
+    if not spent(work, gate_check.name) and same_verdict(said_now, work.run.seen):
+        return goto(
+            stand_down,
+            work_with(work, note=f"`{PR_FIX}` is red as it already was:\n{said_now}"),
+        )
     if exhausted(work, gate_check.name):
-        return goto(set_aside, work_with(work, note=f"`{PR_FIX}` is still red"))
+        return goto(
+            stand_down,
+            work_with(
+                work,
+                note=f"`{PR_FIX}` is still red:\n{said_now}",
+                run=run_with(work.run, seen=said_now),
+            ),
+        )
     if fallen := await ask(fix_gates(said(gates)), key=f"gates-{work.pr.number}"):
         return goto(report, abandoned(work, fallen.reason))
     return goto(gate_check, charged(work, gate_check.name))
@@ -248,36 +279,60 @@ async def finish_merge(work: Work) -> Transition:
 
 @step
 async def cover(work: Work) -> Transition:
-    measured = await shell(COVERAGE)
+    measured = await shell(plain(COVERAGE), stream=False)
     output = coverage_report(measured)
-    # The report's own words for a line no test reached. Read from the output
-    # rather than the exit code, which is also non-zero for a threshold this
-    # ritual has no business moving. Both words and not just "Missing": the
-    # summary block below the listing says "Missing: 0 lines" on a clean report
-    # too, so the bare word matches every run there is.
-    if "Missing lines" in output:
-        if exhausted(work, cover.name):
-            return goto(
-                set_aside,
-                work_with(work, note=f"`{COVERAGE}` still reports missing lines"),
-            )
-        if fallen := await ask(COVER + output, key=f"cover-{work.pr.number}"):
-            return goto(report, abandoned(work, fallen.reason))
-        return goto(cover, charged(work, cover.name))
-    if measured.exit_code:
-        reason = f"`{COVERAGE}` failed without naming missing lines"
-        return goto(set_aside, work_with(work, note=f"{reason}: {output}"))
-    # Only where tests were actually written: most branches pass here first
-    # time, and a commit rite that can never commit anything is noise in the
-    # tree.
-    if spent(work, cover.name):
-        landed = await shell(commit("test: cover the lines this branch changes"))
-        if landed.exit_code:
-            return goto(
-                set_aside,
-                work_with(work, note=f"could not commit the tests: {said(landed)}"),
-            )
-    return goto(quality_review, cleared(work, cover.name))
+    # The report's own words for a line no test reached, and read from the
+    # output rather than the exit code because the exit code does not carry it:
+    # this task runs `diff-cover` with no `--fail-under`, so a run that names
+    # missing lines still ends 0. Both words and not just "Missing": the summary
+    # block below the listing says "Missing: 0 lines" on a clean report too, so
+    # the bare word matches every run there is.
+    missing = "Missing lines" in output
+    if not missing and measured.exit_code == 0:
+        # Only where tests were actually written: most branches pass here first
+        # time, and a commit rite that can never commit anything is noise in the
+        # tree.
+        if spent(work, cover.name):
+            landed = await shell(commit("test: cover the lines this branch changes"))
+            if landed.exit_code:
+                return goto(
+                    set_aside,
+                    work_with(work, note=f"could not commit the tests: {said(landed)}"),
+                )
+        return goto(quality_review, cleared(work, cover.name))
+    said_now = verdict(measured)
+    # Only ever a red suite, never a coverage gap: what lines a branch left
+    # uncovered is that branch's own business, and two of them missing lines in
+    # the same file look identical from here. A suite that will not pass is the
+    # thing that repeats across a night.
+    if (
+        not missing
+        and not spent(work, cover.name)
+        and same_verdict(said_now, work.run.seen)
+    ):
+        return goto(
+            stand_down,
+            work_with(work, note=f"`{COVERAGE}` failed as it already did:\n{said_now}"),
+        )
+    if exhausted(work, cover.name):
+        left = "still reports missing lines" if missing else "is still red"
+        return goto(
+            stand_down,
+            work_with(
+                work,
+                note=f"`{COVERAGE}` {left}:\n{said_now}",
+                run=work.run if missing else run_with(work.run, seen=said_now),
+            ),
+        )
+    # Two different jobs down one budget, because they are the same step going
+    # round: lines this branch left uncovered are written up as tests, and a
+    # suite that will not pass at all is repaired like any other red gate. The
+    # second used to end the branch here — a red suite names no missing lines,
+    # so it was read as the coverage tool failing rather than the branch.
+    asking = COVER + output if missing else fix_gates(said(measured), gate=COVERAGE)
+    if fallen := await ask(asking, key=f"cover-{work.pr.number}"):
+        return goto(report, abandoned(work, fallen.reason))
+    return goto(cover, charged(work, cover.name))
 
 
 # The one step with no budget and no loop, because there is nothing here to
@@ -306,7 +361,12 @@ async def quality_review(work: Work) -> Transition:
     if any(one.name == THERMO_LABEL for one in labels.labels):
         return goto(read_comments, work)
     if fallen := await ask(
-        thermo(number=work.pr.number, base=work.pr.base), key=f"review-{work.pr.number}"
+        thermo(
+            number=work.pr.number,
+            base=work.pr.base,
+            blocked=work.note if work.blocked else "",
+        ),
+        key=f"review-{work.pr.number}",
     ):
         return goto(report, abandoned(work, fallen.reason))
     marked = await shell(label(THERMO_LABEL, CR_LABEL, number=work.pr.number))
@@ -328,8 +388,12 @@ async def read_comments(work: Work) -> Transition:
     if isinstance(notes, Misread):
         unreadable = f"the triage was unreadable: {notes.reason}"
         return goto(set_aside, work_with(work, note=unreadable))
-    # Nothing to triage is an answer, and the good one: the branch goes to QA.
+    # Nothing to triage is an answer, and the good one: the branch goes to QA —
+    # unless it is one nobody can build, which is not a branch to hand a tester
+    # however clean its reviews are.
     if not notes.items:
+        if work.blocked:
+            return goto(finish_pr, Closed(work=work, outcome="blocked"))
         return goto(mark_qa, work)
     return goto(write_triage, Triaged(work=work, notes=notes))
 
@@ -375,9 +439,15 @@ async def write_triage(triaged: Triaged) -> Transition:
     if marked.exit_code:
         reason = f"could not add the {CR_LABEL} label: {said(marked)}"
         return goto(set_aside, work_with(work, note=reason))
+    # Both, where the branch is blocked: what stopped it and what its reviewers
+    # want are two different things the morning needs, and the row has one note.
+    told = "; ".join(part for part in (work.note, counted(triaged.notes)) if part)
     return goto(
         finish_pr,
-        Closed(work=work_with(work, note=counted(triaged.notes)), outcome="triage"),
+        Closed(
+            work=work_with(work, note=told),
+            outcome="blocked" if work.blocked else "triage",
+        ),
     )
 
 
@@ -398,15 +468,34 @@ async def finish_pr(closed: Closed) -> Transition:
     return goto(next_pr, run_with(run, checked=[*run.checked, row]))
 
 
-@step
-async def set_aside(work: Work) -> Transition:
+# Giving the worktree back, and what that has to say for itself. Both endings
+# below do this and only one of them stops here, so it is written once.
+async def _released(work: Work) -> str:
     released = await shell(release(work.pr.branch))
     parts = [work.note]
     if released.exit_code:
         parts.append(f"the worktree could not be released: {said(released)}")
     elif released.stdout.strip() == STASHED:
         parts.append(f'stashed as "{stash_name(work.pr.branch)}"')
-    note = "; ".join(part for part in parts if part)
+    return "; ".join(part for part in parts if part)
+
+
+# A branch that will not go green, which is not the same as a branch that
+# cannot be read. The worktree goes back first — half a repair is not something
+# to review and not something to commit a triage on top of — and then it takes
+# the same reading every other pull request gets. It is the steps above this
+# that cannot come here: a checkout that failed leaves you standing on the base
+# branch, and there is nothing there to review.
+@step
+async def stand_down(work: Work) -> Transition:
+    return goto(
+        quality_review, work_with(work, note=await _released(work), blocked=True)
+    )
+
+
+@step
+async def set_aside(work: Work) -> Transition:
+    note = await _released(work)
     row = Checked(
         number=work.pr.number,
         branch=work.pr.branch,
