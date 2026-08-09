@@ -1,5 +1,6 @@
 import pytest
 
+from ludamus.edges.rituals.ship import Branch
 from ludamus.edges.rituals.state import PullRequest, Run, Work
 
 
@@ -22,3 +23,8 @@ def pull() -> PullRequest:
 @pytest.fixture
 def work() -> Work:
     return Work(run=Run(bound=3), pr=_pull())
+
+
+@pytest.fixture
+def branch() -> Branch:
+    return Branch(name="feature", bound=2)

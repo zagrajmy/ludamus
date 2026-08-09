@@ -108,18 +108,22 @@ The triage:
 
 """
 
-# Held apart from the prompt below only to keep its braces out of an f-string.
+# Held apart from the prompts below only to keep its braces out of an f-string.
 # GraphQL rather than `pulls/<number>/comments`, because the REST endpoint
 # carries no resolution state at all: it answers a settled thread and a live one
 # identically, and a night that cannot tell them apart re-triages work that was
 # already closed.
-_THREADS = """\
+# The two ids are for `ship`, which answers these threads and resolves them: the
+# mutation takes `id` and the reply endpoint takes `databaseId`, and an agent
+# that has to go back for either has already guessed at one. The triage reading
+# below ignores both.
+THREADS = """\
 gh api graphql -f query='query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       reviewThreads(first: 100) { nodes {
-        isResolved path line
-        comments(first: 50) { nodes { author { login } body } } } } } } }' \\
+        id isResolved path line
+        comments(first: 50) { nodes { databaseId author { login } body } } } } } } }' \\
   -f owner=<owner> -f repo=<repo> -F number=<number>\
 """
 
@@ -137,7 +141,7 @@ Read the review threads with `gh` — `gh pr view --json reviews,comments` for
 what sits on the pull request itself, and this for the inline threads, which the
 first command does not return:
 
-{_THREADS}
+{THREADS}
 
 A node with `isResolved: true` is a thread somebody has already settled. Skip
 it and everything in it. Then read the code each remaining comment points at.
