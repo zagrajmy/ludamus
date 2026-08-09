@@ -27,6 +27,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -286,7 +287,7 @@ class Sphere(models.Model):
 
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
-    managers = models.ManyToManyField(User)
+    managers = models.ManyToManyField(User, through="SphereMembership")
     # Branding fallback — used on printables when an event has no logo of its own
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
     enabled_pages = models.JSONField(
@@ -309,6 +310,28 @@ class Sphere(models.Model):
     @property
     def logo_url(self) -> str:
         return self.logo.url if self.logo else ""
+
+
+class SphereMembership(models.Model):
+    sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    role = models.CharField(
+        max_length=20,
+        choices=[(r.value, r.name.title()) for r in SphereRole],
+        default=SphereRole.MANAGER,
+    )
+
+    class Meta:
+        # This is the table Django auto-created for `Sphere.managers` before
+        # roles existed, adopted as-is: same name, and `unique_together`
+        # rather than a UniqueConstraint because that is the index already
+        # sitting on it. The switch to an explicit through model is then a
+        # single ADD COLUMN.
+        db_table = "sphere_managers"
+        unique_together = (("sphere", "user"),)
+
+    def __str__(self) -> str:
+        return f"{self.user_id} is {self.role} of sphere {self.sphere_id}"
 
 
 class Event(models.Model):

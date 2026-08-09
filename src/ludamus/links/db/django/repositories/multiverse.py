@@ -1,7 +1,12 @@
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 
-from ludamus.links.db.django.models import Announcement, Connection, Sphere
+from ludamus.links.db.django.models import (
+    Announcement,
+    Connection,
+    Sphere,
+    SphereMembership,
+)
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.pacts import (
     NotFoundError,
@@ -20,6 +25,7 @@ from ludamus.pacts.multiverse import (
     DuplicateConnectionDisplayNameError,
     SphereDirectoryRepositoryProtocol,
     SphereListItemDTO,
+    SphereRole,
 )
 
 
@@ -58,16 +64,30 @@ class SphereRepository(
         return SphereDTO.model_validate(sphere)
 
     @staticmethod
-    def is_manager(sphere_id: int, user_slug: str) -> bool:
-        return Sphere.objects.filter(id=sphere_id, managers__slug=user_slug).exists()
+    def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None:
+        role = (
+            SphereMembership.objects.filter(sphere_id=sphere_id, user__slug=user_slug)
+            .values_list("role", flat=True)
+            .first()
+        )
+        return SphereRole(role) if role else None
 
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]:
-        try:
-            sphere = Sphere.objects.get(pk=sphere_id)
-        except Sphere.DoesNotExist as err:
-            raise NotFoundError from err
-        return [UserDTO.model_validate(u) for u in sphere.managers.order_by("name")]
+        if not Sphere.objects.filter(pk=sphere_id).exists():
+            raise NotFoundError
+        # Only managers: this list is who a track can be handed to, and a
+        # comms member has no business owning one.
+        return [
+            UserDTO.model_validate(membership.user)
+            for membership in (
+                SphereMembership.objects.filter(
+                    sphere_id=sphere_id, role=SphereRole.MANAGER
+                )
+                .select_related("user")
+                .order_by("user__name")
+            )
+        ]
 
     @staticmethod
     def update(sphere_id: int, data: SphereUpdateData) -> None:

@@ -8,10 +8,12 @@ reports the slug and sphere domain it needs.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.links.db.django.models import Event
+from ludamus.links.db.django.models import Event, SphereMembership
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     PrintablesReminderDTO,
     PrintablesReminderRecipientDTO,
@@ -27,24 +29,32 @@ class PrintablesReminderRepository(PrintablesReminderRepositoryProtocol):
     def list_pending_reminders(
         *, now: datetime, lead_time: timedelta
     ) -> list[PrintablesReminderDTO]:
-        events = (
+        events = list(
             Event.objects.filter(
                 start_time__gt=now,
                 start_time__lte=now + lead_time,
                 printables_last_printed_at__isnull=True,
                 printables_reminder_sent_at__isnull=True,
-            )
-            .select_related("sphere__site")
-            .prefetch_related("sphere__managers")
+            ).select_related("sphere__site")
         )
+        # Printing is a manager's chore; comms members don't get nagged about
+        # it. One query for every sphere on the sweep, keyed by sphere.
+        recipients_by_sphere: dict[int, list[PrintablesReminderRecipientDTO]] = (
+            defaultdict(list)
+        )
+        for membership in SphereMembership.objects.filter(
+            sphere_id__in={event.sphere_id for event in events}, role=SphereRole.MANAGER
+        ).select_related("user"):
+            if membership.user.email:
+                recipients_by_sphere[membership.sphere_id].append(
+                    PrintablesReminderRecipientDTO(
+                        user_id=membership.user.pk, email=membership.user.email
+                    )
+                )
+
         reminders: list[PrintablesReminderDTO] = []
         for event in events:
-            recipients = [
-                PrintablesReminderRecipientDTO(user_id=manager.pk, email=manager.email)
-                for manager in event.sphere.managers.all()
-                if manager.email
-            ]
-            if not recipients:
+            if not (recipients := recipients_by_sphere[event.sphere_id]):
                 continue
             reminders.append(
                 PrintablesReminderDTO(

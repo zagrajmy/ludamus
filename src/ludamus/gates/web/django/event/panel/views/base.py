@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
@@ -8,9 +8,10 @@ from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
-from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.access import passes_panel_access
 from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
 from ludamus.pacts.legacy import NotFoundError, RedirectError
+from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
@@ -25,8 +26,12 @@ class EventPanelRequest(HttpRequest):
 class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
     request: EventPanelRequest
 
+    # What this page's buttons stand for. A view whose writes a narrower role
+    # may perform names that capability instead; it never names the role.
+    write_capability: ClassVar[Capability] = Capability.PANEL_WRITE
+
     def test_func(self) -> bool:
-        return has_panel_access(self.request)
+        return passes_panel_access(self.request, write_capability=self.write_capability)
 
 
 class EventContextMixin:

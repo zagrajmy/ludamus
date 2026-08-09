@@ -42,6 +42,7 @@ from ludamus.pacts.chronology import (
     SpaceTimeConflictError,
 )
 from ludamus.pacts.legacy import resolve_uploaded_file_field
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import (
     ImportRow,
     ImportSettings,
@@ -251,7 +252,7 @@ class ProposalAcceptanceService:
         user = self._active_users.read(user_slug)
         if user.is_superuser:
             return True
-        return self._spheres.is_manager(sphere_id, user_slug)
+        return self._spheres.manager_role(sphere_id, user_slug) is SphereRole.MANAGER
 
     def accept_session(
         self,

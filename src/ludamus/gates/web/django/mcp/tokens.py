@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 
 from ludamus.pacts.mcp import ActorContext, ToolScope
+from ludamus.pacts.multiverse import SphereRole
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
@@ -84,8 +85,11 @@ def authenticate_organizer(request: RootRequest) -> ActorContext | None:
     if row is None:
         return None
     slug, is_superuser = row
-    if not is_superuser and not request.services.sphere_panel.is_manager(
-        sphere_id, slug
+    # Organizer tools write, so a comms member's read-only role isn't enough.
+    if (
+        not is_superuser
+        and request.services.sphere_panel.manager_role(sphere_id, slug)
+        is not SphereRole.MANAGER
     ):
         return None
     return ActorContext(user_id=user_id, scope=ToolScope.ORGANIZER, sphere_id=sphere_id)

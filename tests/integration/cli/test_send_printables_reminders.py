@@ -3,8 +3,9 @@ from datetime import UTC, datetime, timedelta
 from django.core.management import call_command
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Notification
+from ludamus.links.db.django.models import Notification, SphereMembership
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import EventFactory, UserFactory
 
 
@@ -88,6 +89,21 @@ class TestSendPrintablesReminders:
             call_command("send_printables_reminders")
 
         assert mailoutbox == []
+
+    def test_skips_comms_members(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+        event = _event_starting_in(sphere, timedelta(days=1))
+
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
+
+        assert mailoutbox == []
+        event.refresh_from_db()
+        assert event.printables_reminder_sent_at is None
 
     def test_skips_managers_without_email_and_leaves_event_unmarked(
         self, sphere, mailoutbox, django_capture_on_commit_callbacks

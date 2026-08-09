@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import FacilitatorListFilters
 
@@ -769,7 +770,7 @@ class SphereRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> SphereDTO: ...
     @staticmethod
-    def is_manager(sphere_id: int, user_slug: str) -> bool: ...
+    def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
     @staticmethod

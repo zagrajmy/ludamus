@@ -7,6 +7,8 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
+from ludamus.specs.permissions import ROLE_CAPABILITIES
+
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EventDTO,
@@ -21,11 +23,13 @@ if TYPE_CHECKING:
         AnnouncementData,
         AnnouncementDTO,
         AnnouncementsRepositoryProtocol,
+        Capability,
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
         EncryptorProtocol,
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
+        SphereRole,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -141,8 +145,12 @@ class SpherePanelService:
         self._spheres = spheres
         self._events = events
 
-    def is_manager(self, sphere_id: int, user_slug: str) -> bool:
-        return self._spheres.is_manager(sphere_id, user_slug)
+    def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
+        return self._spheres.manager_role(sphere_id, user_slug)
+
+    def can(self, *, sphere_id: int, user_slug: str, capability: Capability) -> bool:
+        role = self._spheres.manager_role(sphere_id, user_slug)
+        return role is not None and capability in ROLE_CAPABILITIES[role]
 
     def list_events(self, sphere_id: int) -> list[EventDTO]:
         return self._events.list_by_sphere(sphere_id)
