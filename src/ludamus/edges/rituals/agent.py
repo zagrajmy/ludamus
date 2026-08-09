@@ -163,10 +163,35 @@ threads are a review like any other: triage what they say.
 """
 
 
-def thermo(*, number: int, base: str) -> str:
+# A branch the gates could not make green is reviewed anyway, and then the
+# review's first instinct is to report the red gate — an action item saying what
+# the report already says, on a thread somebody has to close by hand. So the
+# reason is quoted in, as a thing already known rather than a thing to find.
+def _already_known(reason: str) -> str:
+    return (
+        f"""\
+
+This branch is already known not to be green, and that is being handled apart
+from this review:
+
+{reason}
+
+Do not raise that, or anything downstream of it, as an action item. Review the
+code on its own terms.
+"""
+        if reason
+        else ""
+    )
+
+
+# `reason`, not `blocked`: what this takes is the sentence saying what stopped
+# the branch, and `Work.blocked` a module over is the boolean saying that one
+# did. Two different things are not going to share a name across two files.
+def thermo(*, number: int, base: str, reason: str = "") -> str:
     return f"""\
 Review the changes this pull request adds ({base}...HEAD) with the
 thermo-nuclear code quality review: read {_THERMO_SKILL} and follow it.
+{_already_known(reason)}
 
 Post every action item as an inline review comment of its own on pull request
 #{number}, anchored to the code it is about, so each one is a thread that can be
@@ -210,8 +235,8 @@ def resolve(*, base: str, branch: str, files: str) -> str:
 # Concatenated, not formatted: the gate's own output is full of braces the
 # moment an assertion diff over a dict lands in it, and str.format would raise
 # on the first one.
-def fix_gates(output: str) -> str:
-    return f"`{PR_FIX}` is this project's gate, and it is red.\n\n{_FIX_GATES}{output}"
+def fix_gates(output: str, *, gate: str = PR_FIX) -> str:
+    return f"`{gate}` is this project's gate, and it is red.\n\n{_FIX_GATES}{output}"
 
 
 class Fallen(BaseModel):

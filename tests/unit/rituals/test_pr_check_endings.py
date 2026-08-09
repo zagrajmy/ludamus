@@ -13,6 +13,7 @@ from ludamus.edges.rituals.pr_check import (
     report,
     set_aside,
 )
+from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, QA_LABEL, plain
 from ludamus.edges.rituals.state import (
     Checked,
     Closed,
@@ -20,6 +21,7 @@ from ludamus.edges.rituals.state import (
     PullRequest,
     Report,
     Run,
+    TriageItem,
     TriageNotes,
     Work,
 )
@@ -123,6 +125,43 @@ class TestSetAside:
             ),
         )
 
+    # A branch that stood down and then failed a reading step has two things to
+    # say, and the second must not cost it the first: the morning has to hear
+    # the red gate, not only the `gh` call that came after it.
+    def test_a_branch_that_stood_down_keeps_its_reason_through_a_later_failure(
+        self, trial: Trial, work: Work
+    ) -> None:
+        stood = work.model_copy(
+            update={
+                "reason": f"`{PR_FIX}` is still red:\n1 failed",
+                "note": "gh could not read the labels: no such pull request",
+                "blocked": True,
+            }
+        )
+        trial.shell.replies(when=_RELEASE)
+        trial.shell.replies(when=_AHEAD, stdout="1\n")
+
+        transition = trial.walk(set_aside, stood)
+
+        assert transition == goto(
+            next_pr,
+            Run(
+                bound=3,
+                checked=[
+                    _QA_ROW.model_copy(
+                        update={
+                            "outcome": "blocked",
+                            "unpushed": 1,
+                            "note": (
+                                f"`{PR_FIX}` is still red:\n1 failed; "
+                                "gh could not read the labels: no such pull request"
+                            ),
+                        }
+                    )
+                ],
+            ),
+        )
+
     def test_a_worktree_that_will_not_release_says_so_in_the_note(
         self, trial: Trial, work: Work
     ) -> None:
@@ -179,6 +218,20 @@ class TestReport:
         )
         assert "unknown" in trial.deltas[0]
 
+    # The rows are a scannable list, and a verdict is a dozen lines of someone
+    # else's output. It goes under the row, not through it.
+    def test_a_verdict_in_a_note_is_indented_under_its_row(self, trial: Trial) -> None:
+        blocked = _QA_ROW.model_copy(
+            update={
+                "outcome": "blocked",
+                "note": f"`{PR_FIX}` is still red:\n1 failed\n2 passed",
+            }
+        )
+
+        trial.walk(report, Run(bound=3, checked=[blocked]))
+
+        assert "is still red:\n      1 failed\n      2 passed" in trial.deltas[0]
+
     # The summary goes out before the failure is raised, which is the whole
     # reason every ending routes here rather than raising where it happened.
     def test_a_stopped_run_prints_the_report_and_then_fails_the_cast(
@@ -203,8 +256,8 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature*")
         trial.shell.replies(when="git merge --no-edit*")
-        trial.shell.replies(when="mise run pr-fix")
-        trial.shell.replies(when="mise run diff-cover")
+        trial.shell.replies(when=plain(PR_FIX))
+        trial.shell.replies(when=plain(COVERAGE))
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
@@ -248,10 +301,10 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature*")
         trial.shell.replies(when="git merge --no-edit*")
-        trial.shell.replies(when="mise run pr-fix", exit_code=1, stdout="red")
-        trial.shell.replies(when="mise run pr-fix", exit_code=1, stdout="still red")
-        trial.shell.replies(when="mise run pr-fix")
-        trial.shell.replies(when="mise run diff-cover")
+        trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="red")
+        trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="still red")
+        trial.shell.replies(when=plain(PR_FIX))
+        trial.shell.replies(when=plain(COVERAGE))
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
@@ -270,6 +323,83 @@ class TestWholeCast:
         assert trial.steps.count("gate_check") == _GATE_ROUNDS
         assert trial.coding.calls[0].resume is None
         assert trial.coding.calls[1].resume == "s1"
+
+    # This is not a gate and does not fail fast: a pull request nobody can build
+    # still has reviewers waiting on it, so the branch stands down and takes the
+    # same reading as any other before it is reported blocked.
+    def test_a_branch_that_will_not_go_green_is_still_reviewed_and_triaged(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        trial.shell.replies(
+            when="gh pr list*", stdout=json.dumps([pull.model_dump(by_alias=True)])
+        )
+        trial.shell.replies(when="git status --porcelain")
+        trial.shell.replies(when="git fetch*")
+        trial.shell.replies(when="git checkout feature*")
+        trial.shell.replies(when="git merge --no-edit*")
+        trial.shell.replies(
+            when=plain(PR_FIX), exit_code=1, stdout="1 failed", always=True
+        )
+        trial.shell.replies(when=_RELEASE)
+        trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
+        trial.shell.replies(when="gh pr edit*", always=True)
+        trial.shell.replies(when="git add -A*", always=True)
+        trial.shell.replies(when=_AHEAD, stdout="3\n")
+        trial.coding.replies("tried", when="*is this project's gate*", always=True)
+        trial.coding.replies("posted the review", when="Review the changes*")
+        trial.coding.replies(
+            TriageNotes(
+                items=[
+                    TriageItem(
+                        where="src/thing.py", what="the guard is missing", priority="p1"
+                    )
+                ]
+            ),
+            when="Read the open*",
+        )
+        trial.coding.replies("wrote triage.md", when="Write triage.md*")
+
+        result = trial.cast(pr_check, PrCheck(bound=1))
+
+        assert result == Report(
+            checked=[
+                _QA_ROW.model_copy(
+                    update={
+                        "outcome": "blocked",
+                        "unpushed": 3,
+                        "note": (
+                            "`mise run pr-fix` is still red:\n1 failed; "
+                            "p1: 1, p2: 0, p3: 0"
+                        ),
+                    }
+                )
+            ],
+            to_push=["feature"],
+            # A branch nobody could make green is the clearest thing on the list
+            # there is to do, and this one carries a triage.md as well.
+            to_fix=["feature"],
+        )
+        assert trial.steps == [
+            "list_prs",
+            "next_pr",
+            "check_clean",
+            "sync_branch",
+            "merge_base",
+            "gate_check",
+            "gate_check",
+            "stand_down",
+            "quality_review",
+            "read_comments",
+            "write_triage",
+            "finish_pr",
+            "next_pr",
+            "report",
+        ]
+        # Never `pr::qa`: nobody can test a branch that will not build.
+        assert not any(QA_LABEL in command for command in trial.shell.commands)
+        # And the review is told what already stopped it, so it does not spend an
+        # action item on a thing the report says.
+        assert "already known not to be green" in trial.coding.prompts[1]
 
     # Fatal by design, and the report still comes out first.
     def test_a_dirty_worktree_fails_the_cast_after_the_report(
