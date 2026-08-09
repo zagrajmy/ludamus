@@ -39,9 +39,9 @@ happy path + one edge case tested.
 
 ## Debt metrics (tingle)
 
-`tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
-legacy LOC, …). `tingle stat --diff` / `tingle report --diff` show what your
-branch adds vs `main`.
+`tingle.toml` counts debt (suppression comments, `Any`, files still touching
+`request.di.uow`, legacy and old-subdomain files, …). `tingle stat --diff` /
+`tingle report --diff` show what your branch adds vs `main`.
 
 `tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
 grow on net — paying debt in one offsets taking it on in another. Read the
