@@ -191,21 +191,21 @@ ranges = ["config"]
 
 [[metrics]]
 name = "request-di-uow"
-type = "regex_count"
+type = "regex_spread"
 group = "refactoring"
 pattern = 'request\.di\.uow'
 
 [[metrics]]
-name = "legacy-loc"
-type = "line_count"
+name = "legacy-files"
+type = "file_count"
 group = "refactoring"
 ranges = ["legacy-code"]
 
 # Old subdomain names (noun/verb migration): chronology+submissions -> event,
 # crowd -> user, multiverse -> sphere, notice_board -> encounter
 [[metrics]]
-name = "old-subdomain-loc"
-type = "line_count"
+name = "old-subdomain-files"
+type = "file_count"
 group = "refactoring"
 ranges = ["old-subdomain-modules"]
 
