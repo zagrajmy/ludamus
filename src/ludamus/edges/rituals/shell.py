@@ -15,10 +15,18 @@ COVERAGE = "mise run diff-cover"
 
 
 # What a step actually runs a gate as. `CI=1` puts every tool in the chain into
-# its log shape rather than its terminal one — no colour, no cursor tricks, and
-# Playwright's own CI settings, which retry a failure before calling it one.
+# its log shape rather than its terminal one — no colour, no cursor tricks.
 # Held apart from the names above because those are what the prompts say and
 # what you would type yourself; nobody needs to read the prefix.
+# It is not only the rendering, and the rest is worth knowing before you read a
+# gate's answer as the answer you would have got yourself. `tests/e2e` reads the
+# same variable in five places: a failure is retried twice before it counts, so
+# green here means green within three tries; workers are pinned to two rather
+# than half the cores, so the e2e half of `COVERAGE` is slower; the reporter
+# becomes GitHub's; `test.only` is refused; and Playwright will not attach to a
+# server already on the port, which holds only because `COVERAGE` kills one
+# first. `global-teardown.ts` reads it too, and turns an empty client-coverage
+# report from a shrug into a failure.
 def plain(task: str) -> str:
     return f"CI=1 {task}"
 
@@ -70,6 +78,18 @@ def quoted(value: str) -> str:
     return shlex.quote(value)
 
 
+# Cursor moves and colour. `plain` above stops most of these being written at
+# all; this is for the tools that colour anyway, and for a log captured before
+# anyone thought about it. Stripped off everything this module hands on, agent
+# and report alike: an escape code is not something either reader wants, and in
+# `said` it is budget spent on cursor positions.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
+
+
+def _plain_text(text: str) -> str:
+    return _ANSI.sub("", text)
+
+
 # The budget buys whole lines, and the last line is bought whether it fits or
 # not: a tool that pretty-prints a value onto one long line would otherwise
 # spend the budget and hand back nothing.
@@ -99,7 +119,9 @@ def _tail(text: str) -> str:
 # different question and a much smaller answer.
 def said(result: ShellResult) -> str:
     return "\n".join(
-        _tail(part) for part in (result.stdout, result.stderr) if part.strip()
+        _tail(_plain_text(part))
+        for part in (result.stdout, result.stderr)
+        if part.strip()
     )
 
 
@@ -118,11 +140,6 @@ def coverage_report(result: ShellResult) -> str:
 # person: a dozen is the tail every tool in these chains puts its tally in.
 VERDICT_LINES = 12
 
-# Cursor moves and colour. `plain` above stops most of these being written at
-# all; this is for the tools that colour anyway, and for a log captured before
-# anyone thought about it.
-_ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
-
 
 # The one-screen answer to "what went wrong", for the report rather than for an
 # agent. Only one stream, unlike `said`: stdout is where every tool in these
@@ -137,7 +154,7 @@ def verdict(result: ShellResult) -> str:
     spoken = result.stdout if result.stdout.strip() else result.stderr
     lines = [
         stripped
-        for line in _ANSI.sub("", spoken).splitlines()
+        for line in _plain_text(spoken).splitlines()
         if (stripped := line.rstrip())
     ]
     return "\n".join(lines[-VERDICT_LINES:])
@@ -152,6 +169,13 @@ def verdict(result: ShellResult) -> str:
 # report still says what it saw — worth more than a check that never fires.
 def same_verdict(one: str, other: str) -> bool:
     return bool(one) and re.sub(r"\d+", "", one) == re.sub(r"\d+", "", other)
+
+
+# Against everything the run has given up on, not just the last one: two things
+# broken at once — a host that will not resolve and a browser that will not
+# start — alternate down the queue, and a memo of one recognises neither.
+def already_seen(one: str, seen: list[str]) -> bool:
+    return any(same_verdict(one, other) for other in seen)
 
 
 def commit(message: str) -> str:

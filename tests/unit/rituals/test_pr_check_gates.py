@@ -99,8 +99,8 @@ class TestGateCheck:
             stand_down,
             spent.model_copy(
                 update={
-                    "note": f"`{PR_FIX}` is still red:\nstill red",
-                    "run": Run(bound=3, seen="still red"),
+                    "reason": f"`{PR_FIX}` is still red:\nstill red",
+                    "run": Run(bound=3, seen=["still red"]),
                 }
             ),
         )
@@ -111,7 +111,7 @@ class TestGateCheck:
     def test_a_failure_this_run_gave_up_on_is_not_repaired_again(
         self, trial: Trial, work: Work
     ) -> None:
-        again = work.model_copy(update={"run": Run(bound=3, seen=_RED)})
+        again = work.model_copy(update={"run": Run(bound=3, seen=[_RED])})
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout=_RED_AGAIN)
 
         transition = trial.walk(gate_check, again)
@@ -119,7 +119,7 @@ class TestGateCheck:
         assert transition == goto(
             stand_down,
             again.model_copy(
-                update={"note": f"`{PR_FIX}` is red as it already was:\n{_RED_AGAIN}"}
+                update={"reason": f"`{PR_FIX}` is red as it already was:\n{_RED_AGAIN}"}
             ),
         )
         assert not trial.coding.prompts
@@ -131,7 +131,7 @@ class TestGateCheck:
         self, trial: Trial, work: Work
     ) -> None:
         tried = work.model_copy(
-            update={"budgets": {"gate_check": 1}, "run": Run(bound=3, seen=_RED)}
+            update={"budgets": {"gate_check": 1}, "run": Run(bound=3, seen=[_RED])}
         )
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout=_RED_AGAIN)
         trial.coding.replies("tried again")
@@ -229,8 +229,8 @@ class TestCover:
             stand_down,
             spent.model_copy(
                 update={
-                    "note": f"`{COVERAGE}` is still red:\n{_RED}",
-                    "run": Run(bound=3, seen=_RED),
+                    "reason": f"`{COVERAGE}` is still red:\n{_RED}",
+                    "run": Run(bound=3, seen=[_RED]),
                 }
             ),
         )
@@ -313,7 +313,7 @@ class TestCover:
                 # own business, and two of them missing lines in the same file
                 # would look like one standing failure from here.
                 update={
-                    "note": f"`{COVERAGE}` still reports missing lines:\n{_MISSING}"
+                    "reason": f"`{COVERAGE}` still reports missing lines:\n{_MISSING}"
                 }
             ),
         )

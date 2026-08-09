@@ -270,6 +270,8 @@ class TestResolveConflicts:
 
         assert transition == goto(
             stand_down,
-            spent.model_copy(update={"note": "the merge conflicts were not resolved"}),
+            spent.model_copy(
+                update={"reason": "the merge conflicts were not resolved"}
+            ),
         )
         assert not trial.coding.prompts

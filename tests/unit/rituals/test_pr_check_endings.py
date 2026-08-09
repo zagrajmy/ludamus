@@ -125,6 +125,43 @@ class TestSetAside:
             ),
         )
 
+    # A branch that stood down and then failed a reading step has two things to
+    # say, and the second must not cost it the first: the morning has to hear
+    # the red gate, not only the `gh` call that came after it.
+    def test_a_branch_that_stood_down_keeps_its_reason_through_a_later_failure(
+        self, trial: Trial, work: Work
+    ) -> None:
+        stood = work.model_copy(
+            update={
+                "reason": f"`{PR_FIX}` is still red:\n1 failed",
+                "note": "gh could not read the labels: no such pull request",
+                "blocked": True,
+            }
+        )
+        trial.shell.replies(when=_RELEASE)
+        trial.shell.replies(when=_AHEAD, stdout="1\n")
+
+        transition = trial.walk(set_aside, stood)
+
+        assert transition == goto(
+            next_pr,
+            Run(
+                bound=3,
+                checked=[
+                    _QA_ROW.model_copy(
+                        update={
+                            "outcome": "blocked",
+                            "unpushed": 1,
+                            "note": (
+                                f"`{PR_FIX}` is still red:\n1 failed; "
+                                "gh could not read the labels: no such pull request"
+                            ),
+                        }
+                    )
+                ],
+            ),
+        )
+
     def test_a_worktree_that_will_not_release_says_so_in_the_note(
         self, trial: Trial, work: Work
     ) -> None:
@@ -180,6 +217,20 @@ class TestReport:
             Report(checked=[unknown], to_push=["feature"], to_fix=["feature"])
         )
         assert "unknown" in trial.deltas[0]
+
+    # The rows are a scannable list, and a verdict is a dozen lines of someone
+    # else's output. It goes under the row, not through it.
+    def test_a_verdict_in_a_note_is_indented_under_its_row(self, trial: Trial) -> None:
+        blocked = _QA_ROW.model_copy(
+            update={
+                "outcome": "blocked",
+                "note": f"`{PR_FIX}` is still red:\n1 failed\n2 passed",
+            }
+        )
+
+        trial.walk(report, Run(bound=3, checked=[blocked]))
+
+        assert "is still red:\n      1 failed\n      2 passed" in trial.deltas[0]
 
     # The summary goes out before the failure is raised, which is the whole
     # reason every ending routes here rather than raising where it happened.
@@ -324,6 +375,9 @@ class TestWholeCast:
                 )
             ],
             to_push=["feature"],
+            # A branch nobody could make green is the clearest thing on the list
+            # there is to do, and this one carries a triage.md as well.
+            to_fix=["feature"],
         )
         assert trial.steps == [
             "list_prs",

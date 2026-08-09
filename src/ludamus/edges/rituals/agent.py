@@ -184,11 +184,14 @@ code on its own terms.
     )
 
 
-def thermo(*, number: int, base: str, blocked: str = "") -> str:
+# `reason`, not `blocked`: what this takes is the sentence saying what stopped
+# the branch, and `Work.blocked` a module over is the boolean saying that one
+# did. Two different things are not going to share a name across two files.
+def thermo(*, number: int, base: str, reason: str = "") -> str:
     return f"""\
 Review the changes this pull request adds ({base}...HEAD) with the
 thermo-nuclear code quality review: read {_THERMO_SKILL} and follow it.
-{_already_known(blocked)}
+{_already_known(reason)}
 
 Post every action item as an inline review comment of its own on pull request
 #{number}, anchored to the code it is about, so each one is a thread that can be

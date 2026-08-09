@@ -5,6 +5,7 @@ from vekna.folio.shell import ShellResult
 from ludamus.edges.rituals.shell import (
     BUDGET,
     VERDICT_LINES,
+    already_seen,
     coverage_report,
     said,
     same_verdict,
@@ -41,6 +42,12 @@ class TestSaid:
         assert said(_ran(stdout="E501 too long", stderr="1 failed")) == (
             "E501 too long\n1 failed"
         )
+
+    # The agent pays for what it reads, and a cursor move is not worth a token.
+    def test_colour_and_cursor_moves_are_stripped(self) -> None:
+        coloured = "\x1b[1A\x1b[2K\x1b[31m1 failed\x1b[39m"
+
+        assert said(_ran(stdout=coloured)) == "1 failed"
 
     def test_a_trailing_newline_is_not_a_line(self) -> None:
         assert said(_ran(stdout="E501 too long\n", stderr="1 failed\n")) == (
@@ -132,6 +139,21 @@ class TestSameVerdict:
     # round the repair loop like any other.
     def test_an_empty_verdict_matches_nothing(self) -> None:
         assert not same_verdict("", "")
+
+
+class TestAlreadySeen:
+    # Two things broken at once alternate down the queue, and a memo of one
+    # recognises neither.
+    def test_a_verdict_the_run_gave_up_on_earlier_is_still_recognised(self) -> None:
+        assert already_seen(
+            "1 failed (6.8m)", ["could not resolve host", "1 failed (5.5m)"]
+        )
+
+    def test_a_new_failure_is_not(self) -> None:
+        assert not already_seen("2 errors", ["could not resolve host", "1 failed"])
+
+    def test_a_run_that_has_given_up_on_nothing_recognises_nothing(self) -> None:
+        assert not already_seen("1 failed", [])
 
 
 class TestCoverageReport:

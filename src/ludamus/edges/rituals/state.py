@@ -73,11 +73,15 @@ class Run(BaseModel):
     queue: list[PullRequest] = []
     checked: list[Checked] = []
     stopped: str = ""
-    # The verdict of the last gate this run gave up on, carried across branches
+    # Every verdict a gate on this run has given up on, carried across branches
     # so the next one can recognise it. A night where the same thing is broken
     # everywhere — an unreachable host, a browser that will not start — is a
     # night that should pay for that answer once, not once per pull request.
-    seen: str = ""
+    # One list for both gates rather than one apiece: `pr-fix` and `diff-cover`
+    # run the same unit suite, so a test that kills one kills the other, and a
+    # branch whose coverage run says what last branch's gate run said is stopped
+    # by the same thing. Recognising it across the two is the point, not a leak.
+    seen: list[str] = []
 
 
 # One pull request in flight. `budgets` dies with this payload, which is what "a
@@ -89,6 +93,13 @@ class Work(BaseModel):
     budgets: dict[str, int] = {}
     merging: bool = False
     note: str = ""
+    # What stopped this branch, in the words of whatever stopped it. Written
+    # once, by the step that gave up, and never written over: a branch that
+    # stands down goes on to be reviewed and triaged like any other, and every
+    # ending down there sets `note` for its own purposes. Read by two people who
+    # want different things — the review agent, which is told not to raise it,
+    # and the morning, which is told it first.
+    reason: str = ""
     # This branch will not be made green tonight, and is being read anyway. The
     # reading steps that follow need to know: a branch nobody can merge must not
     # come out labelled ready to test.
@@ -137,7 +148,7 @@ def run_with(
     queue: list[PullRequest] | None = None,
     checked: list[Checked] | None = None,
     stopped: str | None = None,
-    seen: str | None = None,
+    seen: list[str] | None = None,
 ) -> Run:
     return Run(
         bound=run.bound,
@@ -155,6 +166,7 @@ def work_with(
     budgets: dict[str, int] | None = None,
     merging: bool | None = None,
     note: str | None = None,
+    reason: str | None = None,
     blocked: bool | None = None,
 ) -> Work:
     return Work(
@@ -163,6 +175,7 @@ def work_with(
         budgets=work.budgets if budgets is None else budgets,
         merging=work.merging if merging is None else merging,
         note=work.note if note is None else note,
+        reason=work.reason if reason is None else reason,
         blocked=work.blocked if blocked is None else blocked,
     )
 
@@ -172,6 +185,13 @@ def work_with(
 # only shape of the three that carries a type.
 def modified(pull: PullRequest) -> str:
     return pull.updated_at
+
+
+# What a row has to say, in the order the morning wants it: why the branch
+# stopped first, then whatever the ending that built the row has to add. Every
+# ending goes through here, so no ending can write over another's half.
+def telling(work: Work, *extra: str) -> str:
+    return "; ".join(part for part in (work.reason, work.note, *extra) if part)
 
 
 def counted(notes: TriageNotes) -> str:
@@ -242,7 +262,12 @@ def _names(items: list[str]) -> str:
 
 def _line(row: Checked) -> str:
     ahead = "unknown" if row.unpushed is None else f"{row.unpushed} unpushed"
-    note = f" — {row.note}" if row.note else ""
+    # A blocked row's note carries the gate's verdict, which is a dozen lines of
+    # someone else's output. Indented under the row rather than run into it: the
+    # rows are a scannable list, and a note that starts in column zero ends that
+    # list wherever it lands.
+    wrapped = row.note.replace("\n", "\n      ")
+    note = f" — {wrapped}" if row.note else ""
     return f"  #{row.number} {row.branch}: {_OUTCOME[row.outcome]}, {ahead}{note}"
 
 
@@ -254,7 +279,12 @@ def report_card(run: Run) -> Report:
         to_push=[
             row.branch for row in run.checked if row.unpushed is None or row.unpushed
         ],
-        to_fix=[row.branch for row in run.checked if row.outcome == "triage"],
+        # Blocked counts as needing fixing, whether or not a triage was written:
+        # a branch nobody could make green is the clearest thing on the list
+        # there is to do, and one that also carries a triage.md has two.
+        to_fix=[
+            row.branch for row in run.checked if row.outcome in {"triage", "blocked"}
+        ],
         ready=[row.branch for row in run.checked if row.outcome == "qa"],
         not_reached=[pull.branch for pull in run.queue],
         failed=run.stopped,
