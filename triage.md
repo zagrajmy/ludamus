@@ -105,7 +105,15 @@ never disagree.
 Verify: `mise run lint:hk` (markdownlint) green; re-read the paragraph against
 `tingle list` output — every metric family named in prose exists.
 
-### 5. `legacy-files`: keep a LOC metric alongside the file count
+### 5. `legacy-files`: keep a LOC metric alongside the file count — REJECTED
+
+Rejected: LOC metrics are false positives. A PR that only fixes a bug in legacy
+code often grows the file, and that is not debt taken on — it does not mean the
+bugfix should have extracted the module first. The file count moves only when a
+legacy module is really created or removed, which is the number to shrink.
+tingle is meant to be helpful, not mean.
+
+Original proposal below, kept for the record.
 
 `file_count_diff` counts created minus deleted files. `adapters/web/django/
 views.py` (1,773 lines, inside `ranges.legacy-code`) can grow to 3,000 without
@@ -139,7 +147,12 @@ Verify:
 - Scratch commit appending 50 lines to `adapters/web/django/views.py` →
   `tingle stat --diff` +50, `tingle check` fails. Discard.
 
-### 6. `old-subdomain-files`: add a LOC metric on the same range
+### 6. `old-subdomain-files`: add a LOC metric on the same range — REJECTED
+
+Rejected for the same reason as item 5. The cliff-shaped offset is a real
+downside of `policy = "sum"`, not a reason to gate on line counts.
+
+Original proposal below, kept for the record.
 
 `ranges.old-subdomain-modules` is five package trees, and a rename is one
 `git mv`, so the metric sits flat through every incremental step and then drops
@@ -166,7 +179,8 @@ Verify:
 - Scratch commit moving one module out of `chronology/` into an `event/` path →
   `--diff` shows a proportional LOC drop and −1 file. Discard.
 
-Items 3, 5 and 6 are one `tingle.toml` commit; item 4 rides with it.
+Item 3 is the only `tingle.toml` change left. Item 4 shipped separately
+(`90912b91` — the paragraph now describes the metrics that exist today).
 
 ## P3 — issue tracker write-up (nothing opened, nothing edited)
 
