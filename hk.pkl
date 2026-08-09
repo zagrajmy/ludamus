@@ -31,6 +31,7 @@ local linters = new Mapping<String, Step> {
       ".agents/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
+      "zagrajmy-landing-notes.md",
     )
     check = "codespell --toml=pyproject.toml {{files}}"
   }

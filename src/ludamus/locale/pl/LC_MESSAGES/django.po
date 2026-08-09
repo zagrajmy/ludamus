@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-06 01:30+0200\n"
+"POT-Creation-Date: 2026-08-09 12:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6160,6 +6160,10 @@ msgid "Publish"
 msgstr "Publikacja"
 
 #: src/ludamus/templates/landing/scena.html
+msgid "The programme grid, scrollable sideways"
+msgstr "Siatka programu, przewijana w bok"
+
+#: src/ludamus/templates/landing/scena.html
 msgid "Proposal inbox"
 msgstr "Skrzynka zgłoszeń"
 
@@ -6294,12 +6298,12 @@ msgstr ""
 #: src/ludamus/templates/landing/spotkanie.html
 msgid ""
 "A preview of an encounter page: Brass: Birmingham on Thursday — tiles with "
-"the game, time, place, and free seats, a participant list, a countdown, and "
-"a link to share."
+"the game, time, place, and free seats, a participant list, a countdown of 2 "
+"days, 7 hours and 58 minutes left until the encounter, and a link to share."
 msgstr ""
 "Podgląd strony spotkania: Brass: Birmingham na czwartek — kafelki z grą, "
-"terminem, miejscem i wolnymi miejscami, lista uczestników, odliczanie i link "
-"do udostępnienia."
+"terminem, miejscem i wolnymi miejscami, lista uczestników, odliczanie 2 dni, "
+"7 godzin i 58 minut do spotkania, i link do udostępnienia."
 
 #: src/ludamus/templates/landing/spotkanie.html
 msgid "Piotrek invites you to an encounter"
@@ -6372,10 +6376,6 @@ msgstr "M"
 msgctxt "countdown seconds"
 msgid "S"
 msgstr "S"
-
-#: src/ludamus/templates/landing/spotkanie.html
-msgid "2 days, 7 hours and 58 minutes left until the encounter."
-msgstr "Do spotkania zostały 2 dni, 7 godzin i 58 minut."
 
 #: src/ludamus/templates/landing/zapisy_grupowe.html
 msgid "Enrollment and waiting lists"
@@ -9747,6 +9747,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "2 days, 7 hours and 58 minutes left until the encounter."
+#~ msgstr "Do spotkania zostały 2 dni, 7 godzin i 58 minut."
 
 #~ msgid "They trusted us"
 #~ msgstr "Zaufali nam"

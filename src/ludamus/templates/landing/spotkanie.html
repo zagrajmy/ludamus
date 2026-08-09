@@ -33,10 +33,11 @@
                 {% blocktranslate trimmed %}
                     A preview of an encounter page: Brass: Birmingham on Thursday — tiles
                     with the game, time, place, and free seats, a participant list, a
-                    countdown, and a link to share.
+                    countdown of 2 days, 7 hours and 58 minutes left until the encounter,
+                    and a link to share.
                 {% endblocktranslate %}
             </span>
-            <div class="card p-5">
+            <div class="card p-5" aria-hidden="true">
                 <p class="italic text-[0.85rem] text-foreground-secondary">{% translate "Piotrek invites you to an encounter" %}</p>
                 <h3 class="text-[1.3rem] font-bold tracking-[-0.01em] mt-[0.35rem] mb-4">{% translate "Brass: Birmingham on Thursday" %}</h3>
                 <div class="grid grid-cols-2 gap-[0.6rem] max-[410px]:grid-cols-1">
@@ -172,7 +173,6 @@
                             <div class="text-[0.62rem] font-semibold text-foreground-muted mt-[0.3rem]">{% translate "S" context "countdown seconds" %}</div>
                         </div>
                     </div>
-                    <span class="sr-only">{% translate "2 days, 7 hours and 58 minutes left until the encounter." %}</span>
                 </div>
             </div>
         </div>
