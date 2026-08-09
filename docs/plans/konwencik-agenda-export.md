@@ -119,8 +119,8 @@ A session is exported when all of these hold:
 
 Confirmation is deliberately not a filter. **The schedule is the king** — if
 an organizer put a session on the timetable, it is program, and Konwencik
-shows what the timetable shows. There is no `confirmed_only` setting to get
-out of sync with one of its two triggers.
+shows what the timetable shows. A setting for this would only give the manual
+button and the scheduled tick two different answers.
 
 **A session running past midnight is one row.** Konwencik reads an `end`
 earlier than `start` as "ends the next day" (confirmed by Konwencik). So
@@ -241,10 +241,10 @@ class KonwencikExportSettings(BaseModel):
     export_lock_time: datetime | None = None
 ```
 
-There is no track priority. `Track.Meta.ordering` is `["name"]`, so a session
-in several public tracks takes the alphabetically first one for both `block`
-and `icon_background_color` — deterministic with no storage, no form column
-and no per-event data entry.
+A session in several public tracks takes the alphabetically first one for both
+`block` and `icon_background_color`. `Track.Meta.ordering` is `["name"]`, so
+the repository's own order decides: deterministic with no stored ranking, no
+form column and no per-event data entry.
 
 **One port, in a neutral place.** `SheetWriterProtocol` and
 `SheetExportError` live in `pacts/discounts.py` today; if `mills/konwencik.py`
@@ -301,9 +301,9 @@ manual floor — the `send_printables_reminders` arrangement.
 
 **The cadence is one constant, not a per-event knob.** The plan's own
 argument is that re-running is free: the export is a full rewrite, nothing
-accumulates and there is no state to keep between ticks. A
-`sync_interval_minutes` setting would be a second scheduler on top of the
-cron, with last-run bookkeeping existing only to throttle it. The sweep is
+accumulates and there is no state to keep between ticks. A per-event interval
+would be a second scheduler on top of the cron, with last-run bookkeeping
+existing only to throttle it. The sweep is
 already bounded by sync-on and event-not-long-finished, so call volume tracks
 live events. One `KONWENCIK_EXPORT_SCHEDULE` constant beside the other
 schedules; if quota turns out to be the real constraint, that constant is
