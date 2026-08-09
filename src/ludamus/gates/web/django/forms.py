@@ -18,9 +18,13 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
 from ludamus.pacts.discounts import DiscountKind
-from ludamus.pacts.durations import build_duration
+from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    build_duration,
+    duration_choices,
+)
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
@@ -621,8 +625,16 @@ class TrackForm(forms.Form):
     )
 
 
+CUSTOM_DURATION = "custom"
+
+
 class SessionEditForm(forms.Form):
-    """Form for editing session fields by an organizer."""
+    """Form for editing session fields by an organizer.
+
+    The length is entered as hours plus minutes and composed into the one ISO
+    duration a session stores; a subclass may add a `duration` picker of the
+    lengths its category offers, and then the steppers cover only "Custom".
+    """
 
     title = forms.CharField(
         max_length=255,
@@ -648,7 +660,15 @@ class SessionEditForm(forms.Form):
         help_text=_("Empty or 0 = no limit"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
-    duration = forms.CharField(required=False, label=_("Duration"))
+    # Not a field: the name a subclass's picker takes. Declared so the shared
+    # duration partial can ask whether there is one to render.
+    duration = None
+    duration_hours = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
+    )
+    duration_minutes = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
+    )
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -656,15 +676,6 @@ class SessionEditForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-
-CUSTOM_DURATION = "custom"
-MAX_DURATION_HOURS = 23
-MAX_DURATION_MINUTES = 59
-
-
-class _ComposedDurationForm(SessionEditForm):
-    # A session stores one ISO duration, but the organizer may type it as hours
-    # plus minutes, so the composed value has to land back on `duration`.
     # Returns nothing: the composed value is written straight into
     # cleaned_data, which Django keeps when clean() returns None.
     def clean(self) -> None:
@@ -683,13 +694,9 @@ class _ComposedDurationForm(SessionEditForm):
 
 
 def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
-    # No configured durations means the steppers are the whole control, so the
-    # inherited free-text field is dropped (a None entry removes it). A stored
-    # duration nothing can read is dropped too: an option is worth offering
-    # only when it can be labelled with a length.
-    if not (
-        labelled := [(d, label) for d in durations if (label := format_duration(d))]
-    ):
+    # No configured durations means the steppers are the whole control, so no
+    # picker is added at all.
+    if not (labelled := duration_choices(durations)):
         return None
     return forms.ChoiceField(
         required=False,
@@ -722,13 +729,6 @@ def create_proposal_form(
         )
     }
 
-    attrs["duration_hours"] = forms.IntegerField(
-        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
-    )
-    attrs["duration_minutes"] = forms.IntegerField(
-        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
-    )
-
     custom_required = build_dynamic_fields(
         fields=attrs, requirements=requirements, prefix="session"
     )
@@ -739,7 +739,7 @@ def create_proposal_form(
         "custom_required_keys": custom_required,
     }
     return type(
-        "ProposalCreateForm", (CustomAnswerFormMixin, _ComposedDurationForm), namespace
+        "ProposalCreateForm", (CustomAnswerFormMixin, SessionEditForm), namespace
     )
 
 

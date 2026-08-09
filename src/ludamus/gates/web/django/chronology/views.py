@@ -48,6 +48,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import SpaceTimeConflictError
+from ludamus.pacts.durations import parse_duration
 
 from .forms import (
     SessionCoverImageForm,
@@ -916,6 +917,7 @@ class SessionEditView(LoginRequiredMixin, View):
 
     @staticmethod
     def _initial_form(ctx: SessionSelfEditContext) -> SessionEditForm:
+        hours, minutes = parse_duration(ctx.session.duration)
         return SessionEditForm(
             initial={
                 "title": ctx.session.title,
@@ -924,7 +926,8 @@ class SessionEditView(LoginRequiredMixin, View):
                 "contact_email": ctx.session.contact_email,
                 "participants_limit": ctx.session.participants_limit,
                 "min_age": ctx.session.min_age,
-                "duration": ctx.session.duration,
+                "duration_hours": hours or None,
+                "duration_minutes": minutes or None,
                 "cover_image": ctx.session.cover_image_url or None,
             }
         )

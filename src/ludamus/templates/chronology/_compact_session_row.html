@@ -26,9 +26,9 @@
         <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
               title="{{ data.location_label }}">
             {{ data.loc.space_name }}
-            {% if data.session.duration %}
-                · {{ data.session.duration|format_duration }}
-            {% endif %}
+            {% with duration_label=data.session.duration|format_duration %}
+                {% if duration_label %}· {{ duration_label }}{% endif %}
+            {% endwith %}
             {% if data.session.min_age > 0 %}
                 · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
             {% endif %}

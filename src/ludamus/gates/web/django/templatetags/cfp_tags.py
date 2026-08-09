@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
     from ludamus.pacts import ProposalCategoryDTO, SessionDTO
@@ -154,23 +154,4 @@ def format_field_value(value: object) -> str:
     return str(value)
 
 
-@register.filter
-def format_duration(iso_duration: str) -> str:
-    """Format ISO 8601 duration string to human-readable format.
-
-    Args:
-        iso_duration: ISO 8601 duration string (e.g., "PT1H45M", "PT30M", "PT2H")
-
-    Returns:
-        Human-readable duration ("1h 45min", "30min", "2h"), empty when the
-        stored value is unreadable — a raw ISO string is never shown.
-    """
-    hours, minutes = parse_duration(iso_duration)
-
-    if hours and minutes:
-        return f"{hours}h {minutes}min"
-    if hours:
-        return f"{hours}h"
-    if minutes:
-        return f"{minutes}min"
-    return ""
+register.filter("format_duration", format_duration)

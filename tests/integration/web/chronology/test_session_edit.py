@@ -74,6 +74,31 @@ class TestSessionEditViewGet:
             },
         )
 
+    def test_stored_duration_prefills_the_steppers(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.duration = "PT1H30M"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+        # The facilitator is offered hours and minutes, never the stored ISO.
+        initial = response.context_data["form"].initial
+        assert (initial["duration_hours"], initial["duration_minutes"]) == (1, 30)
+
     def test_anonymous_redirected_to_login(self, client, event, owned_session):
         url = _url(event, owned_session)
 
@@ -179,6 +204,58 @@ class TestSessionEditViewPost:
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
         assert owned_session.display_name == "Updated name"
+
+    def test_htmx_post_composes_duration_from_the_steppers(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url,
+            data=self._data(duration_hours="1", duration_minutes="30"),
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.duration == "PT1H30M"
+
+    def test_htmx_post_without_a_length_leaves_the_duration_unset(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.duration = "PT2H"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url, data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert not owned_session.duration
 
     def test_post_uploads_cover_image(self, authenticated_client, event, owned_session):
         url = _url(event, owned_session)

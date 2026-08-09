@@ -30,7 +30,12 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.durations import build_duration, parse_duration
+from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    build_duration,
+    parse_duration,
+)
 from ludamus.pacts.submissions import (
     DurationSpec,
     EntityRef,
@@ -80,8 +85,10 @@ class OptionEntity(TypedDict):
 
 class OptionDuration(TypedDict):
     option: str
-    hours: int | None
-    minutes: int | None
+    # Blank rather than "0": the steppers render the string as-is, and an
+    # unmapped option has to come up empty.
+    hours: str
+    minutes: str
 
 
 class OverrideRow(TypedDict):
@@ -405,7 +412,11 @@ def _option_durations(
             spec.iso if isinstance(spec, DurationSpec) else ""
         )
         rows.append(
-            {"option": option, "hours": hours or None, "minutes": minutes or None}
+            {
+                "option": option,
+                "hours": str(hours) if hours else "",
+                "minutes": str(minutes) if minutes else "",
+            }
         )
     return rows
 
@@ -510,16 +521,21 @@ def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, Questio
         strict=False,
     )
     for option, hours, minutes in rows:
-        iso = build_duration(hours=_positive_int(hours), minutes=_positive_int(minutes))
+        iso = build_duration(
+            hours=_bounded_int(hours, MAX_DURATION_HOURS),
+            minutes=_bounded_int(minutes, MAX_DURATION_MINUTES),
+        )
         if not (option and iso):
             continue
         values[option] = DurationSpec(iso=iso)
     return values
 
 
-def _positive_int(raw: str) -> int:
+def _bounded_int(raw: str, maximum: int) -> int:
+    # The steppers' `max` is client-side only, so the bound is enforced here
+    # too; anything that is not a plain number reads as unset.
     text = (raw or "").strip()
-    return int(text) if text.isdigit() else 0
+    return min(int(text), maximum) if text.isdigit() else 0
 
 
 def _entity_map_from_post(
@@ -684,6 +700,8 @@ class EventImportReviewView(_ImportTabView):
             )
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["session_columns"] = SESSION_COLUMNS
+            context["max_duration_hours"] = MAX_DURATION_HOURS
+            context["max_duration_minutes"] = MAX_DURATION_MINUTES
             context["rows"] = [
                 _row(
                     index=index,

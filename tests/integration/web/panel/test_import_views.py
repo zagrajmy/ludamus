@@ -35,6 +35,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from ludamus.pacts.submissions import (
     EntityRef,
     ImportLogStatus,
@@ -310,8 +311,8 @@ class TestEventImportProposalView:
                     {"option": "18+", "name": "18+", "slug": "18"},
                 ],
                 "option_durations": [
-                    {"option": "do 16", "hours": None, "minutes": None},
-                    {"option": "18+", "hours": None, "minutes": None},
+                    {"option": "do 16", "hours": "", "minutes": ""},
+                    {"option": "18+", "hours": "", "minutes": ""},
                 ],
                 "overrides": [{"raw": "", "replacement": ""}],
                 "catchall_name": "",
@@ -818,6 +819,8 @@ class TestEventImportProposalView:
                 "active_tab": "review",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "session_columns": SESSION_COLUMNS,
+                "max_duration_hours": MAX_DURATION_HOURS,
+                "max_duration_minutes": MAX_DURATION_MINUTES,
                 "rows": [],
                 "edit_row": None,
                 "edit_nav": None,
@@ -3273,6 +3276,40 @@ class TestImportRowSavePostHelpers:
         # The zero-length option is dropped; only the mapped one survives.
         assert set(target.values) == {"30 min"}
         assert target.values["30 min"].iso == "PT30M"
+
+    def test_post_bounds_duration_beyond_what_the_steppers_allow(
+        self, panel_client, event, connection_with_secret
+    ):
+        integration = make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+
+        response = panel_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Length",
+                "target_0": "session.duration",
+                "droption_0": ["huge", "junk"],
+                "drhours_0": ["99", "-5"],
+                "drminutes_0": ["90", "abc"],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
+        integration.refresh_from_db()
+        target = ImportSettings.model_validate_json(
+            integration.settings_json
+        ).questions["Length"]
+        # The `max` attributes are client-side only, so the server caps too —
+        # and a non-number reads as unset, which drops the option.
+        assert set(target.values) == {"huge"}
+        assert target.values["huge"].iso == "PT23H59M"
 
     def test_post_skips_blank_time_slot_row(
         self, panel_client, event, connection_with_secret
