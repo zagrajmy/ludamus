@@ -36,4 +36,21 @@ test.describe("Proposal form layout", () => {
     await page.setViewportSize({ width: 480, height: 900 });
     expect(await columnCount(page)).toBe(1);
   });
+
+  // The organizer's own form is unbounded. A `max` attribute here is what
+  // produced a bare browser tooltip on a ceiling the category carried for
+  // submitters — 255 in the reported case, 6 in this fixture. Assert the
+  // rendered attribute: that, not the field's Python state, is what blocked
+  // them.
+  test("leaves the participants limit uncapped", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/proposals/create/");
+
+    const limit = page.getByLabel("Participants Limit");
+    await expect(limit).toBeVisible();
+    await expect(limit).not.toHaveAttribute("max");
+
+    await limit.fill("500");
+    expect(await limit.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);
+    await expect(page.getByText(/Empty or 0 = no limit/)).toBeVisible();
+  });
 });

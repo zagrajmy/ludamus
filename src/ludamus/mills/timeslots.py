@@ -19,6 +19,9 @@ type SlotWindow = tuple[datetime, datetime]
 
 
 def interval_windows(*, start: datetime, end: datetime, tz: tzinfo) -> list[SlotWindow]:
+    # An interval spanning multiple local dates contributes one (start, end)
+    # window to each date it touches, clamped to that date's [00:00, 24:00)
+    # range. One definition of "a day", shared by slots and by scheduled items.
     local_start = start.astimezone(tz)
     local_end = end.astimezone(tz)
     windows: list[SlotWindow] = []

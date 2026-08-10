@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html, format_html_join
 
 if TYPE_CHECKING:
     from django.forms import BaseForm, BoundField
@@ -17,14 +16,11 @@ def render_form_errors(form: BaseForm) -> str:
     Returns:
         HTML string of non-field errors, or empty string if none.
     """
-    if not form.non_field_errors():
-        return ""
-
-    errors_html = [
-        format_html('<div class="alert alert-danger text-sm mb-4">{}</div>', error)
-        for error in form.non_field_errors()
-    ]
-    return mark_safe("\n".join(errors_html))  # ruff:ignore[suspicious-mark-safe-usage]
+    return format_html_join(
+        "\n",
+        '<div class="alert alert-danger text-sm mb-4">{}</div>',
+        ((error,) for error in form.non_field_errors()),
+    )
 
 
 def render_help_text(field: BoundField) -> str:
@@ -47,12 +43,8 @@ def render_errors(field: BoundField) -> str:
     Returns:
         HTML string of error messages, or empty string if none.
     """
-    if not field.errors:
-        return ""
-
-    errors_html = [
-        format_html('<p class="text-xs mt-1 text-danger">{}</p>', error)
-        for error in field.errors
-    ]
-
-    return "\n".join(errors_html)
+    return format_html_join(
+        "\n",
+        '<p class="text-xs mt-1 text-danger">{}</p>',
+        ((error,) for error in field.errors),
+    )

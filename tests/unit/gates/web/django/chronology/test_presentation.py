@@ -1,9 +1,9 @@
 import sys
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
-from zoneinfo import ZoneInfo
 
 import pytest
+from django.utils import timezone
 
 from ludamus.gates.web.django.chronology.event_presentation import SessionData
 from ludamus.gates.web.django.chronology.schedule import (
@@ -13,8 +13,6 @@ from ludamus.gates.web.django.chronology.schedule import (
 )
 from ludamus.pacts import AgendaItemDTO
 from ludamus.pacts.legacy import SessionFieldValueDTO
-
-_SCHEDULE_TZ = ZoneInfo("Europe/Warsaw")
 
 
 def _make_session_data(
@@ -179,7 +177,7 @@ class TestBuildScheduleDays:
             )
         )
 
-        days = build_schedule_days({1: pending, 2: scheduled}, tz=_SCHEDULE_TZ)
+        days = build_schedule_days({1: pending, 2: scheduled})
 
         assert len(days) == 1
         assert days[0].hours[0].sessions == [scheduled]
@@ -187,16 +185,17 @@ class TestBuildScheduleDays:
     def test_only_pending_proposals_yield_no_days(self):
         pending = _make_session_data(agenda_item=None)
 
-        assert not build_schedule_days({1: pending}, tz=_SCHEDULE_TZ)
+        assert not build_schedule_days({1: pending})
 
 
 class TestNightSessions:
     @staticmethod
     def _night_session() -> SessionData:
+        tz = timezone.get_current_timezone()
         return _make_session_data(
             agenda_item=AgendaItemDTO(
-                start_time=datetime(2026, 7, 10, 22, tzinfo=_SCHEDULE_TZ),
-                end_time=datetime(2026, 7, 11, 2, tzinfo=_SCHEDULE_TZ),
+                start_time=datetime(2026, 7, 10, 22, tzinfo=tz),
+                end_time=datetime(2026, 7, 11, 2, tzinfo=tz),
                 pk=1,
                 session_confirmed=True,
             ),
@@ -206,19 +205,13 @@ class TestNightSessions:
     def test_session_crossing_midnight_lands_on_both_days(self):
         night = self._night_session()
 
-        days = build_schedule_days({1: night}, tz=_SCHEDULE_TZ)
+        days = build_schedule_days({1: night})
 
         assert [[hour.start.hour for hour in day.hours] for day in days] == [[22], [0]]
         assert [day.hours[0].sessions for day in days] == [[night], [night]]
-        assert [(day.windows[1][0].hour, day.windows[1][1].hour) for day in days] == [
-            (22, 0),
-            (0, 2),
-        ]
 
     def test_room_lanes_clip_the_night_session_at_midnight(self):
-        days = build_room_lanes(
-            build_schedule_days({1: self._night_session()}, tz=_SCHEDULE_TZ)
-        )
+        days = build_room_lanes(build_schedule_days({1: self._night_session()}))
 
         assert [[mark.start.hour for mark in day.hour_marks] for day in days] == [
             [22, 23],

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta, tzinfo
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from math import ceil
-from operator import itemgetter
 from typing import TYPE_CHECKING
 
-from django.utils.timezone import get_current_timezone
+from django.utils import timezone
 
-from ludamus.mills.timeslots import SlotWindow, interval_windows
+from ludamus.mills.timeslots import interval_windows
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
@@ -22,10 +21,20 @@ class ScheduleHour:
 
 
 @dataclass
+class ScheduleTile:
+    # One session as it appears on one local date, already clipped to it. Night
+    # program belongs to both sides of midnight, so a session crossing it makes
+    # two tiles; every consumer reads the clipped window instead of redoing it.
+    data: SessionData
+    start: datetime
+    end: datetime
+
+
+@dataclass
 class ScheduleDay:
-    first_start: datetime
+    day_start: datetime
     hours: list[ScheduleHour]
-    windows: dict[int, SlotWindow] = field(default_factory=dict)
+    tiles: list[ScheduleTile]
 
 
 @dataclass
@@ -46,38 +55,46 @@ class RoomLaneHourMark:
 
 @dataclass
 class RoomLaneDay:
-    first_start: datetime
+    day_start: datetime
     rooms: list[str]
     hour_marks: list[RoomLaneHourMark]
     tiles: list[RoomLaneTile]
 
 
-def build_schedule_days(
-    sessions_data: dict[int, SessionData], *, tz: tzinfo | None = None
-) -> list[ScheduleDay]:
-    zone = get_current_timezone() if tz is None else tz
-    by_hour: dict[datetime, list[tuple[datetime, SessionData, SlotWindow, int]]] = (
-        defaultdict(list)
+def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
+    tz = timezone.get_current_timezone()
+    # Sorted once, on the pair: the item carries the sort key and the narrowing
+    # to a scheduled item, so nothing downstream re-sorts or re-checks for None.
+    scheduled = sorted(
+        (
+            (data.agenda_item, data)
+            for data in sessions_data.values()
+            if data.agenda_item is not None
+        ),
+        key=lambda pair: pair[0].start_time,
     )
-    for data in sessions_data.values():
-        if (item := data.agenda_item) is None:
-            continue
-        for window in interval_windows(
-            start=item.start_time, end=item.end_time, tz=zone
+    tiles_by_date: dict[date, list[ScheduleTile]] = defaultdict(list)
+    for item, data in scheduled:
+        for window_start, window_end in interval_windows(
+            start=item.start_time, end=item.end_time, tz=tz
         ):
-            hour = window[0].replace(minute=0, second=0, microsecond=0)
-            by_hour[hour].append((item.start_time, data, window, item.pk))
+            tiles_by_date[window_start.date()].append(
+                ScheduleTile(data=data, start=window_start, end=window_end)
+            )
 
     days: list[ScheduleDay] = []
-    for hour in sorted(by_hour):
-        entries = sorted(by_hour[hour], key=itemgetter(0))
-        if not days or days[-1].first_start.date() != hour.date():
-            days.append(ScheduleDay(first_start=hour, hours=[]))
-        day = days[-1]
-        day.windows.update((pk, window) for _, _, window, pk in entries)
-        day.hours.append(
-            ScheduleHour(start=hour, sessions=[data for _, data, _, _ in entries])
-        )
+    for day in sorted(tiles_by_date):
+        tiles = tiles_by_date[day]
+        by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
+        for tile in tiles:
+            by_hour[tile.start.replace(minute=0, second=0, microsecond=0)].append(
+                tile.data
+            )
+        hours = [
+            ScheduleHour(start=start, sessions=by_hour[start])
+            for start in sorted(by_hour)
+        ]
+        days.append(ScheduleDay(day_start=hours[0].start, hours=hours, tiles=tiles))
     return days
 
 
@@ -112,48 +129,43 @@ def _room_key(data: SessionData) -> tuple[str, str, str]:
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
-        keys = sorted({_room_key(data) for hour in day.hours for data in hour.sessions})
+        keys = sorted({_room_key(tile.data) for tile in day.tiles})
         name_counts = Counter(name for name, _, _ in keys)
         rooms = [
             f"{name} ({parent})" if name_counts[name] > 1 and parent else name
             for name, _, parent in keys
         ]
         col_index = {key: index + 1 for index, key in enumerate(keys)}
-        day_start = day.hours[0].start
+
+        day_start = day.day_start
+        day_end = max(tile.end for tile in day.tiles)
+        hour_count = ceil((day_end - day_start).total_seconds() / 3600)
         session_hours = {hour.start for hour in day.hours}
-        tiles: list[RoomLaneTile] = []
-        day_end = day_start
-        for hour in day.hours:
-            for data in hour.sessions:
-                if data.agenda_item is None:
-                    continue
-                visible_start, visible_end = day.windows[data.agenda_item.pk]
-                day_end = max(day_end, visible_end)
-                start_hour = int((visible_start - day_start).total_seconds() // 3600)
-                span = max(
-                    1,
-                    ceil((visible_end - day_start).total_seconds() / 3600) - start_hour,
-                )
-                tiles.append(
-                    RoomLaneTile(
-                        data=data,
-                        slot_hour=hour.start,
-                        col=col_index[_room_key(data)],
-                        row_start=start_hour + 1,
-                        row_span=span,
-                    )
-                )
-        marks = [
+        hour_marks = [
             RoomLaneHourMark(
                 start=(mark := day_start + timedelta(hours=offset)),
                 row=offset + 1,
                 has_sessions=mark in session_hours,
             )
-            for offset in range(ceil((day_end - day_start).total_seconds() / 3600))
+            for offset in range(hour_count)
         ]
+
+        tiles: list[RoomLaneTile] = []
+        for tile in day.tiles:
+            start_hour = int((tile.start - day_start).total_seconds() // 3600)
+            end_offset = (tile.end - day_start).total_seconds() / 3600
+            tiles.append(
+                RoomLaneTile(
+                    data=tile.data,
+                    slot_hour=tile.start.replace(minute=0, second=0, microsecond=0),
+                    col=col_index[_room_key(tile.data)],
+                    row_start=start_hour + 1,
+                    row_span=max(1, ceil(end_offset) - start_hour),
+                )
+            )
         lane_days.append(
             RoomLaneDay(
-                first_start=day.first_start, rooms=rooms, hour_marks=marks, tiles=tiles
+                day_start=day_start, rooms=rooms, hour_marks=hour_marks, tiles=tiles
             )
         )
     return lane_days

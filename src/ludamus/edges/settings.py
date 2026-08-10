@@ -552,6 +552,15 @@ LOGGING = {
             "level": "WARNING" if IS_PRODUCTION else "INFO",
             "propagate": False,
         },
+        # runserver logs a line per request, every static asset included. A
+        # human watching a dev server wants that; the e2e suite produces
+        # thousands of them around the one line saying which test failed, and
+        # they are what a captured run hands on to whoever reads it next.
+        "django.server": {
+            "handlers": ["console"],
+            "level": "WARNING" if IN_TESTS else "INFO",
+            "propagate": False,
+        },
     },
 }
 

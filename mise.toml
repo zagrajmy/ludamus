@@ -89,7 +89,7 @@ run = "ast-grep scan --error src tests"
 
 [tasks."lint:djlint"]
 description = "Lint Django templates and check formatting (no changes)"
-run = "djlint src --lint --check --format-css --format-js --profile=django"
+run = "djlint src --quiet --lint --check --format-css --format-js --profile=django"
 
 [tasks."lint:impeccable"]
 run = "python scripts/impeccable_lint.py"
@@ -262,14 +262,48 @@ env.PYTHONPATH = "src"
 [tasks.check]
 run = [{ task = "format" }, { task = "lint" }]
 
+[tasks.pr-fix]
+description = "Pull Request Formatting and Readiness Check"
+run = [
+    "mise install",
+    "poetry install",
+    { task = "format" },
+    { task = "messages" },
+    { task = "lint" },
+    { task = "messages-check" },
+    "aube install --no-optional",
+    "aube exec varlock scan",
+    { task = "lint-client" },
+    { task = "ts-check:ios" },
+    { task = "test:py:cov", args = [
+        '-xvv',
+        '--fail-under=97',
+    ] },
+]
+
 [tasks.devcheck]
-run = [{ task = "lint:djlint" }, { task = "check:py" }]
+run = [
+    "poetry install",
+    { task = "format:py" },
+    { task = "format:djlint" },
+    { task = "messages" },
+    { task = "lint:djlint" },
+    { task = "lint:py" },
+    { task = "test:py:cov", args = [
+        '-xvv',
+        '--fail-under=98',
+    ] },
+    "coverage xml",
+    "diff-cover coverage.xml --compare-branch=main --fail-under=100",
+    { task = "lint:tingle" },
+]
 
 [tasks.fullcheck]
 env.E2E_SKIP_IOS = "1"
 run = [
     "poetry install",
-    { task = "devcheck" },
+    { task = "format" },
+    { task = "lint" },
     { task = "diff-cover" },
     { task = "lint:tingle" },
 ]
