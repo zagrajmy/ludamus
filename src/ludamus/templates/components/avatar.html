@@ -27,7 +27,17 @@
                 {% endif %}
             </div>
             {% if is_danger %}
-                <span class="absolute -bottom-0.5 -right-0.5 rounded-full bg-danger p-0.5 ring-2 ring-white dark:ring-neutral-900"
+                {# The 5px overhang sits this 14px badge on the avatar's own border #}
+                {# rather than tucking it inside — see the derivation in #}
+                {# components/guild_notch.html, which places the guild mark on the #}
+                {# opposite corner by the same rule. Rows holding an avatar must #}
+                {# not clip, or the overhang is shaved. #}
+                {# z-10 so an overlapping stack (-space-x-*) cannot bury the #}
+                {# warning: later avatars paint over earlier ones, right where this #}
+                {# sits. The wrapper above is relative with z-index auto, which is #}
+                {# not a stacking context, so this competes with those siblings #}
+                {# directly instead of lifting the whole avatar over its own notch. #}
+                <span class="absolute -bottom-[5px] -right-[5px] z-10 rounded-full bg-danger p-0.5 ring-2 ring-white dark:ring-neutral-900"
                       aria-hidden="true">{% icon "exclamation-triangle" class="size-2.5 text-white" variant="mini" %}</span>
             {% endif %}
         </div>

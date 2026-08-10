@@ -28,12 +28,12 @@
                 {# the transition's first frame. #}
                 <h3 class="w-fit text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
                     data-morph="title">{{ data.session.title }}</h3>
-                {# overflow-x-clip, not overflow-hidden: this row has to contain a #}
-                {# long presenter name horizontally, but the avatar's guild notch #}
-                {# and warning badge hang ~2px below it and were being shaved off. #}
-                {# `clip` on one axis leaves the other visible — `hidden` would #}
-                {# coerce overflow-y to `auto` and keep cutting them. #}
-                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-x-clip">
+                {# This row must not clip: the avatar's warning badge and guild #}
+                {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
+                {# which shaved them. Nothing here needs it — the name bounds itself #}
+                {# with max-w + truncate, and the card's own overflow-hidden is the #}
+                {# backstop, 20px of padding away from the avatar. #}
+                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
                     <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
                         {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
