@@ -1,16 +1,24 @@
 {% comment %}
 The guild mark as a notch tucked into a presenter's avatar.
 
-Owns one decision: which corner the notch takes, and how big it is. The
-avatar's own warning badge (components/avatar.html, shown when the viewer has
-shadowbanned that person) sits in the bottom-right, so when it is present the
-notch moves to the bottom-left and shrinks.
+Owns one decision: which corner the notch takes. The avatar's own warning badge
+(components/avatar.html, shown when the viewer has shadowbanned that person)
+sits in the bottom-right, so when it is present the notch takes the bottom-left.
 
-It has to shrink as well as move. Measured in a browser: a full-size 1.35rem
-notch on a size-8 avatar spans x=123→144.6 while the badge starts at x=143, so
-opposite corners alone still overlap by 1.6px across the badge's full height.
-At size-4 they clear by 4px, and size-4 is the size the mark already takes on
-the compact row and the room lane, so it is not a new dimension.
+The notch mirrors that badge deliberately — `size-3.5` and a 0.5 inset against
+the badge's `size-2.5` icon in `p-0.5` at `-bottom-0.5 -right-0.5`. Both are
+14x14 boxes hanging 2px off the avatar, so a flagged avatar reads as a matched
+pair rather than a large disc beside a small triangle.
+
+The insets are not quite mirror images, and that is deliberate. The rows that
+hold the avatar are `overflow-hidden` — they stop a long presenter name spilling
+the card — and their left edge sits exactly on the avatar's, so anything hanging
+off to the left is cut while the same overhang on the right has 300-odd px of row
+to spill into. So the bottom-left notch sits flush (`left-0`) and only the
+bottom-right one hangs (`-right-0.5`). Both then lose the same 2px off the bottom
+that the badge has always lost, and neither shows a shaved edge. Giving those
+rows room to render the decorations whole is a change to card layout, not to
+this component.
 
 Surfaces that render the mark beside the name rather than on the avatar
 (_compact_session_row.html, _room_lane_tile.html) include guild_mark.html
@@ -22,7 +30,7 @@ Variables:
   ring     knockout ring matching the surface behind the notch
 {% endcomment %}
 {% if flagged %}
-    {% include "components/guild_mark.html" with guild=guild size="size-4" extra_class="absolute -bottom-1 -left-1" ring=ring %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.5 left-0" ring=ring %}
 {% else %}
-    {% include "components/guild_mark.html" with guild=guild extra_class="absolute -bottom-1 -right-1" ring=ring %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.5 -right-0.5" ring=ring %}
 {% endif %}
