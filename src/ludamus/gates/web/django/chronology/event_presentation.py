@@ -95,6 +95,11 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # equality assertions over this dataclass keep passing for guild-less
     # sessions, which is the overwhelming majority.
     guild: GuildMarkDTO | None = None
+    # True when the *viewer* shadowbanned the presenter — viewer-relative, like
+    # ParticipationInfo.is_shadowbanned, never global moderation state. Drives
+    # the avatar's warning badge, which decides the guild mark's corner. Set
+    # from a pk, and a presenter-less session's stand-in pk 0 never matches.
+    presenter_is_shadowbanned: bool = False
 
     @property
     def is_pending_proposal(self) -> bool:
@@ -348,6 +353,7 @@ def present_session_modal(
         is_ongoing=dto.is_ongoing,
         is_ended=dto.is_ended,
         guild=guild,
+        presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
     )
     return mask_session_card(
         card, event_banned=event_banned, banned_presenter_ids=banned_presenter_ids

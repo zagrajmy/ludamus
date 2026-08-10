@@ -22,7 +22,9 @@
             data-morph="title">{{ data.session.title }}</h4>
         <div class="flex min-w-0 items-center gap-0.75 text-xs text-foreground-muted">
             <span class="shrink-0" data-morph="avatar">
-                {% include "components/avatar.html" with user=data.presenter size="size-5" %}
+                {# No corner rule here: the mark sits beside the name, not on the #}
+                {# avatar, so the warning badge has bottom-right to itself. #}
+                {% include "components/avatar.html" with user=data.presenter size="size-5" danger_ring=data.presenter_is_shadowbanned %}
             </span>
             {% include "components/guild_mark.html" with guild=data.guild size="size-4" %}
             <span class="truncate" data-morph="host">{{ data.session.display_name }}</span>

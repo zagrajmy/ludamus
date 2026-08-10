@@ -30,8 +30,15 @@
                     data-morph="title">{{ data.session.title }}</h3>
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-hidden">
                     <span class="shrink-0 relative" data-morph="avatar">
-                        {% include "components/avatar.html" with user=data.presenter size="size-8" %}
-                        {% include "components/guild_mark.html" with guild=data.guild extra_class="absolute -bottom-1 -right-1" ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
+                        {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
+                        {# The warning badge owns bottom-right, so the mark steps #}
+                        {# aside to bottom-left. It also shrinks: at full size the #}
+                        {# two still overlap by ~2px across a 32px avatar, and #}
+                        {# size-4 is the size the mark already takes on the #}
+                        {# compact row and the room lane. #}
+                        {% with mark_corner=data.presenter_is_shadowbanned|yesno:"absolute -bottom-1 -left-1,absolute -bottom-1 -right-1" mark_size=data.presenter_is_shadowbanned|yesno:"size-4,size-[1.35rem]" %}
+                            {% include "components/guild_mark.html" with guild=data.guild extra_class=mark_corner size=mark_size ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
+                        {% endwith %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"

@@ -660,6 +660,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 ),
                 session=SessionDTO.model_validate(session),
                 presenter=presenter,
+                presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
                 track_names=[t.name for t in session.tracks.all() if t.is_public],
                 category_name=session.category.name if session.category else "",
