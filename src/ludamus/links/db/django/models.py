@@ -349,7 +349,15 @@ class GuildMembership(models.Model):
     # `sphere` is denormalised off `guild` so one presenter cannot end up in two
     # guilds of the same sphere: the card shows a single mark, and a database
     # constraint is the only way to keep that true under concurrent assignment.
-    # Kept in step by GuildRepository.assign_member, which is the sole writer.
+    # Django cannot express UniqueConstraint over a join, so the column has to
+    # exist for that constraint to exist.
+    #
+    # The cost is that `sphere_id` and `guild.sphere_id` can disagree, which no
+    # constraint here forbids — a composite FK to `guild(sphere_id, id)` would,
+    # but SQLite cannot ALTER-ADD a foreign key, so it would be Postgres-only
+    # and unenforced in tests. GuildRepository.assign_member is the sole writer
+    # and guards the pair; every sphere-scoped read filters on both columns so a
+    # mismatched row cannot surface a foreign guild even if one appears.
     sphere = models.ForeignKey(
         Sphere, on_delete=models.CASCADE, related_name="guild_memberships"
     )

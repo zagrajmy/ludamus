@@ -72,11 +72,9 @@
                     <p class="text-sm text-foreground-muted mb-4">
                         {% blocktranslate %}A guild's mark shows beside its members' names on every programme card they present.{% endblocktranslate %}
                     </p>
-                    <a href="{% url 'multiverse:panel:guild-create' %}"
-                       class="btn btn-primary inline-flex items-center">
-                        {% icon "plus" class="w-4 h-4 mr-2" %}
-                        {% translate "New guild" %}
-                    </a>
+                    {% url 'multiverse:panel:guild-create' as create_url %}
+                    {% translate "New guild" as create_label %}
+                    {% tessera_button create_label href=create_url icon="plus" %}
                 </div>
             {% endif %}
         {% endtab_shell_body %}

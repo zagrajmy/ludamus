@@ -134,8 +134,11 @@ class GuildRepository(GuildRepositoryProtocol):
 
     @staticmethod
     def read_member_guild(*, sphere_id: int, user_pk: int) -> GuildSummaryDTO | None:
+        # Both sphere columns, not just the membership's: see marks_for_users.
         membership = (
-            GuildMembership.objects.filter(sphere_id=sphere_id, member_id=user_pk)
+            GuildMembership.objects.filter(
+                sphere_id=sphere_id, guild__sphere_id=sphere_id, member_id=user_pk
+            )
             .select_related("guild")
             .first()
         )
@@ -175,8 +178,15 @@ class GuildRepository(GuildRepositoryProtocol):
         # pk. Empty in, empty out — no query for a page of guild-less sessions.
         if not user_pks:
             return {}
+        # Both `sphere_id` and `guild__sphere_id`, deliberately redundant. The
+        # membership's own sphere is what the unique constraint needs, but it is
+        # denormalised, so nothing in the schema stops a row pairing sphere A
+        # with a guild from sphere B. Only assign_member writes these rows and
+        # it guards the pair, but this is a public page: if that guard is ever
+        # bypassed, the join is what keeps a foreign sphere's mark off the card
+        # rather than repository discipline. One extra join on an indexed FK.
         memberships = GuildMembership.objects.filter(
-            sphere_id=sphere_id, member_id__in=user_pks
+            sphere_id=sphere_id, guild__sphere_id=sphere_id, member_id__in=user_pks
         ).select_related("guild")
         return {
             membership.member_id: GuildMarkDTO(

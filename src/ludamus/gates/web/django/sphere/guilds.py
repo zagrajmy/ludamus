@@ -202,7 +202,7 @@ class GuildMemberRemoveActionView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def post(
-        self, _request: MultiverseRequest, pk: int, membership_pk: int
+        self, _request: MultiverseRequest, *, pk: int, membership_pk: int
     ) -> HttpResponse:
         _read_guild(self.request, pk)
         if self.request.services.guilds.remove_member(

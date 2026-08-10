@@ -305,6 +305,26 @@ class TestMarksForUsers:
                 sphere_id=sphere.pk, user_pks=[m.pk for m in members]
             )
 
+    def test_excludes_a_row_whose_guild_belongs_to_another_sphere(
+        self, sphere, other_sphere
+    ):
+        # `GuildMembership.sphere` is denormalised, so nothing in the schema
+        # stops a row pairing this sphere with a foreign guild. assign_member
+        # never writes one; this builds it directly to prove the read filters on
+        # both columns, because the card that renders it is public.
+        foreign = _guild(other_sphere)
+        member = UserFactory()
+        GuildMembership.objects.create(sphere=sphere, guild=foreign, member=member)
+
+        assert (
+            GuildRepository.marks_for_users(sphere_id=sphere.pk, user_pks=[member.pk])
+            == {}
+        )
+        assert (
+            GuildRepository.read_member_guild(sphere_id=sphere.pk, user_pk=member.pk)
+            is None
+        )
+
     def test_excludes_memberships_from_another_sphere(self, sphere, other_sphere):
         foreign = _guild(other_sphere)
         member = UserFactory()
