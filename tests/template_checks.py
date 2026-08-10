@@ -75,7 +75,6 @@ class MissingTemplateVariableFilter(logging.Filter):
         #   * a tag that resolves with ignore_failures, which is what
         #     `{% firstof a b c %}` does for every argument.
         # Both are opt-in at the point of use, so both are allowed through.
-        #
         # Walk f_back rather than inspect.stack(): stack() resolves source
         # context (linecache read + module lookup) for every frame, and we
         # only need each frame's locals. It fires on every failed template
