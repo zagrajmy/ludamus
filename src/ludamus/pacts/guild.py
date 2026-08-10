@@ -54,10 +54,6 @@ class GuildMemberDTO(BaseModel):
     full_name: str
     email: str
     slug: str
-    # Machine-generated (auth0|…, connected|…, anon_…) and never shown, but
-    # components/avatar.html resolves it as the last fallback in its name
-    # chain, and Django resolves every branch of a `|default:` chain.
-    username: str
     avatar_url: str = ""
 
 

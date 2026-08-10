@@ -240,7 +240,6 @@ class TestGuildEditPageView:
                             full_name=presenter.full_name,
                             email="marek@example.com",
                             slug=presenter.slug,
-                            username="auth0|marek",
                             avatar_url=display_avatar_url(presenter),
                         )
                     ],

@@ -44,7 +44,6 @@ def _member_dto(membership: GuildMembership) -> GuildMemberDTO:
         full_name=member.full_name,
         email=member.email,
         slug=member.slug,
-        username=member.username,
         avatar_url=display_avatar_url(member),
     )
 
