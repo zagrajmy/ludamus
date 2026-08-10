@@ -1,7 +1,7 @@
 # The guild mark yields the avatar's bottom-right corner to the shadowban
-# warning badge. The corner itself is two Tailwind classes chosen by `yesno` in
-# the card and modal templates; what these tests pin is the flag that drives it,
-# which is where a wrong user id or a reversed ban direction would show up.
+# warning badge. Which corner it takes is components/guild_notch.html's job;
+# what these tests pin is the flag that drives it, which is where a wrong user
+# id or a reversed ban direction would show up.
 from http import HTTPStatus
 
 import pytest
@@ -23,20 +23,29 @@ def _modal_url(event, session_id):
     )
 
 
-def _cards(response):
-    return [
-        card for cards in response.context_data["hour_data"].values() for card in cards
-    ]
+# Matches the modal context by the presenter-warning flag alone;
+# test_session_modal.py asserts that context exhaustively.
+class ModalPresenterFlag:
+    def __init__(self, *, flagged: bool) -> None:
+        self.flagged = flagged
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, dict):
+            return NotImplemented
+        data = other.get("data")
+        return getattr(data, "presenter_is_shadowbanned", None) is self.flagged
+
+    def __hash__(self) -> int:
+        return hash(self.flagged)
+
+    def __repr__(self) -> str:
+        return f"ModalPresenterFlag({self.flagged!r})"
 
 
+# Matches the event page context by each card's presenter-warning flag, in
+# order. test_event_page.py asserts that context exhaustively. Comparing the
+# whole list also means a page that rendered no cards cannot pass.
 class PresenterFlags:
-    """Matches the event page context by each card's presenter-warning flag.
-
-    test_event_page.py asserts that context exhaustively; this looks at the one
-    field these tests are about, plus the card count so an empty page cannot
-    pass by rendering nothing.
-    """
-
     def __init__(self, flags: list[bool]) -> None:
         self.flags = flags
 
@@ -106,7 +115,12 @@ class TestEventPage:
 
         response = authenticated_client.get(_event_url(event))
 
-        assert [card.presenter_is_shadowbanned for card in _cards(response)] == [False]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=PresenterFlags([False]),
+            template_name=["chronology/event.html"],
+        )
 
     def test_an_anonymous_viewer_has_nobody_shadowbanned(
         self, client, event, presenter
@@ -148,11 +162,21 @@ class TestSessionModal:
 
         response = authenticated_client.get(_modal_url(event, agenda_item.session.pk))
 
-        assert response.context_data["data"].presenter_is_shadowbanned is True
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ModalPresenterFlag(flagged=True),
+            template_name="chronology/parts/session-modal.html",
+        )
 
     def test_modal_is_unflagged_without_a_shadowban(
         self, authenticated_client, event, agenda_item, presenter
     ):
         response = authenticated_client.get(_modal_url(event, agenda_item.session.pk))
 
-        assert response.context_data["data"].presenter_is_shadowbanned is False
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=ModalPresenterFlag(flagged=False),
+            template_name="chronology/parts/session-modal.html",
+        )

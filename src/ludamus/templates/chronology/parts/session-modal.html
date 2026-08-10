@@ -54,12 +54,7 @@
                 <div class="flex items-center gap-3 mb-6 flex-wrap">
                     <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
-                        {# The warning badge owns bottom-right, so the mark steps #}
-                        {# aside to bottom-left, and shrinks to clear it — see #}
-                        {# _session_card.html for the measurement. #}
-                        {% with mark_corner=data.presenter_is_shadowbanned|yesno:"absolute -bottom-1 -left-1,absolute -bottom-1 -right-1" mark_size=data.presenter_is_shadowbanned|yesno:"size-4,size-[1.35rem]" %}
-                            {% include "components/guild_mark.html" with guild=data.guild extra_class=mark_corner size=mark_size ring="ring-2 ring-bg-secondary" %}
-                        {% endwith %}
+                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
                     </span>
                     {# flex-1 zeroes this group's flex basis so the outer row never #}
                     {# wraps it whole — a long room path breaks inside the group, #}
