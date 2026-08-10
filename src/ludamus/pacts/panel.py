@@ -227,6 +227,13 @@ class FacilitatorListContextDTO:
 
 
 @dataclass
+class FacilitatorFilterOptionsDTO:
+    facilitators: list[FacilitatorListItemDTO]
+    columns: list[PanelColumnDTO]
+    has_more: bool
+
+
+@dataclass
 class FacilitatorCreateData:
     """A new facilitator as the create form spelled it.
 
@@ -282,6 +289,9 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def filter_options(
+        self, *, event_id: int, search: str, pinned: set[int], limit: int
+    ) -> FacilitatorFilterOptionsDTO: ...
     def merge_basket(
         self, *, event_id: int, slugs: list[str]
     ) -> list[FacilitatorListItemDTO]: ...

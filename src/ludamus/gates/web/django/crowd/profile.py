@@ -211,9 +211,7 @@ class ProfileCompanionDeleteActionView(
     success_url = reverse_lazy("web:crowd:profile-parties")
     template_name_suffix = "_confirm_delete"
 
-    def form_valid(
-        self, form: forms.Form  # ruff: ignore[unused-method-argument]
-    ) -> HttpResponseRedirect:
+    def form_valid(self, _form: forms.Form) -> HttpResponseRedirect:
         success_url = self.get_success_url()
         self.request.services.companions.delete(
             manager_slug=self.request.context.current_user_slug,

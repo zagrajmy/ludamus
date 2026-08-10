@@ -120,7 +120,7 @@ def _svg_element_is_safe(element: Element) -> bool:
     return True
 
 
-def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
+def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
     uploaded.seek(0)
     try:
         # fromstring, not parse: parse() takes a filename too, so passing an
@@ -141,7 +141,7 @@ def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
         raise ValidationError(_gettext("Invalid or unsafe SVG file."))
 
 
-def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
+def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
     uploaded.seek(0)
     try:
         with Image.open(uploaded) as pil_image:
@@ -160,14 +160,14 @@ def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
     )
 
 
-def _looks_like_svg(uploaded: UploadedFile) -> bool:
+def _looks_like_svg(uploaded: UploadedFile[bytes]) -> bool:
     uploaded.seek(0)
     head: bytes = uploaded.read(64)
     uploaded.seek(0)
     return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
 
 
-def validate_uploaded_logo(uploaded: UploadedFile | None) -> None:
+def validate_uploaded_logo(uploaded: UploadedFile[bytes] | None) -> None:
     if not uploaded:
         return
     validate_uploaded_image_size(uploaded)

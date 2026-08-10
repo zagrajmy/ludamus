@@ -40,7 +40,7 @@ class TabShellBodyNode(template.Node):
 @register.tag
 def tab_shell_body(parser: Parser, token: Token) -> TabShellBodyNode:
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("end_tab_shell_body",))
+    nodelist = parser.parse(("endtab_shell_body",))
     parser.delete_first_token()
     return TabShellBodyNode(nodelist, attrs)
 
@@ -69,6 +69,6 @@ def tab_shell(parser: Parser, token: Token) -> TabShellNode:
     if len(bits) != _TAB_SHELL_TOKEN_LENGTH:
         msg = "'tab_shell' tag requires exactly one tabs partial"
         raise template.TemplateSyntaxError(msg)
-    nodelist = parser.parse(("end_tab_shell",))
+    nodelist = parser.parse(("endtab_shell",))
     parser.delete_first_token()
     return TabShellNode(nodelist, parser.compile_filter(bits[1]))
