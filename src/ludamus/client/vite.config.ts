@@ -60,6 +60,7 @@ export default defineConfig({
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "panel-columns": resolve(rootDir, "src/panel-columns.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
+        prologue: resolve(rootDir, "src/prologue.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),

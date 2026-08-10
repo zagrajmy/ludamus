@@ -43,6 +43,11 @@ env = environ.Env(
     GS_BUCKET_NAME=(str, ""),
     GS_CREDENTIALS_JSON=(str, ""),
     GS_LOCATION=(str, ""),
+    # PostHog (Prologue) — public project key; analytics is off when unset.
+    # Host is env-swappable so a first-party reverse proxy can replace the
+    # EU ingestion endpoint without a code change.
+    POSTHOG_API_KEY=(str, ""),
+    POSTHOG_HOST=(str, "https://eu.i.posthog.com"),
     # Membership API
     MEMBERSHIP_API_BASE_URL=(str, ""),
     MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
@@ -202,6 +207,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
+                "ludamus.gates.web.django.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
                 "django.contrib.auth.context_processors.auth",
@@ -328,6 +334,13 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 
+# Analytics (Prologue — PostHog). The client bundles posthog-js with its
+# no-external build, so the browser only ever *connects* to POSTHOG_HOST;
+# no third-party script is loaded. Consent gating lives in
+# src/ludamus/client/src/prologue.ts.
+POSTHOG_API_KEY = env("POSTHOG_API_KEY")
+POSTHOG_HOST = env("POSTHOG_HOST")
+
 INTERNAL_IPS = [
     # ...
     "127.0.0.1",
@@ -370,6 +383,11 @@ CSP_POLICY: dict[str, list[str]] = {
     "form-action": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
 }
+
+# posthog-js is bundled (no-external build), so PostHog only needs the
+# ingestion host in connect-src — script-src stays nonce-only.
+if POSTHOG_API_KEY:
+    CSP_POLICY["connect-src"].append(POSTHOG_HOST)
 
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or

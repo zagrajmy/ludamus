@@ -1,0 +1,30 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    Consent gate for PostHog analytics (Prologue). Rendered only when
+    POSTHOG_API_KEY is configured; src/prologue.ts un-hides it while no
+    choice is stored and wires the buttons. Both choices are deliberately
+    equal-weight secondary buttons — no dark patterns.
+{% endcomment %}
+<section id="consent-banner"
+         class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg-secondary/95 backdrop-blur-lg"
+         aria-label="{% translate "Analytics consent" %}"
+         hidden>
+    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <p class="text-sm text-foreground-secondary grow [&_a]:text-primary [&_a]:hover:underline">
+            {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
+            {% blocktranslate trimmed %}
+                With your consent we use PostHog analytics — including session
+                replays with all inputs masked — to see how the site is used and
+                to fix errors faster. Nothing is stored before you agree.
+                Details in the <a href="{{ privacy_url }}">Privacy Policy</a>.
+            {% endblocktranslate %}
+        </p>
+        <div class="flex flex-col-reverse sm:flex-row gap-2 shrink-0">
+            {% translate "Decline analytics" as decline_label %}
+            {% translate "Allow analytics" as allow_label %}
+            {% tessera_button decline_label button_type="button" variant="secondary" data_consent_choice="declined" %}
+            {% tessera_button allow_label button_type="button" variant="secondary" data_consent_choice="accepted" %}
+        </div>
+    </div>
+</section>

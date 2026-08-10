@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-07 21:48+0200\n"
+"POT-Creation-Date: 2026-08-11 01:15+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3283,6 +3283,10 @@ msgstr ""
 "href=\"%(license_url)s\">licencji AGPL-3.0</a>."
 
 #: src/ludamus/templates/base.html
+msgid "Analytics settings"
+msgstr "Ustawienia analityki"
+
+#: src/ludamus/templates/base.html
 msgid "Brand"
 msgstr "Marka"
 
@@ -4651,6 +4655,31 @@ msgstr "%(name_value)s (oznaczony)"
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Analytics consent"
+msgstr "Zgoda na analitykę"
+
+#: src/ludamus/templates/components/consent-banner.html
+#, python-format
+msgid ""
+"With your consent we use PostHog analytics — including session replays with "
+"all inputs masked — to see how the site is used and to fix errors faster. "
+"Nothing is stored before you agree. Details in the <a "
+"href=\"%(privacy_url)s\">Privacy Policy</a>."
+msgstr ""
+"Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+"zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, i "
+"szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+"Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Decline analytics"
+msgstr "Odrzuć analitykę"
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Allow analytics"
+msgstr "Włącz analitykę"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -8836,6 +8865,7 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Nothing to filter by yet."
 #~ msgstr "Nie ma jeszcze czego filtrować."
+
 #, python-format
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
 #~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"

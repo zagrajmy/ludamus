@@ -153,6 +153,11 @@
                                     {% endblocktranslate %}
                                 </p>
                                 <div class="flex flex-wrap justify-center sm:justify-end gap-4">
+                                    {% if posthog_config %}
+                                        <button type="button"
+                                                data-consent-reopen
+                                                class="hover:underline text-primary">{% translate "Analytics settings" %}</button>
+                                    {% endif %}
                                     <a href="{% url 'web:brand' %}" class="hover:underline text-primary">{% translate "Brand" %}</a>
                                     <a href="mailto:{{ SUPPORT_EMAIL }}"
                                        class="hover:underline text-primary">{% translate "Contact" %}</a>
@@ -169,6 +174,10 @@
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
+        {% if posthog_config %}
+            {% include "components/consent-banner.html" %}
+            {{ posthog_config|json_script:"posthog-config" }}
+        {% endif %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
@@ -176,6 +185,9 @@
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         {% vite_asset 'src/sound.ts' %}
+        {% if posthog_config %}
+            {% vite_asset 'src/prologue.ts' %}
+        {% endif %}
         {% block extra_scripts %}
         {% endblock extra_scripts %}
     </body>
