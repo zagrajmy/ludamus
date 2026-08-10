@@ -351,7 +351,6 @@ class GuildMembership(models.Model):
     # constraint is the only way to keep that true under concurrent assignment.
     # Django cannot express UniqueConstraint over a join, so the column has to
     # exist for that constraint to exist.
-    #
     # The cost is that `sphere_id` and `guild.sphere_id` can disagree, which no
     # constraint here forbids — a composite FK to `guild(sphere_id, id)` would,
     # but SQLite cannot ALTER-ADD a foreign key, so it would be Postgres-only
