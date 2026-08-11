@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final, Literal, get_args
+from typing import TYPE_CHECKING, Final, Literal, TypedDict, get_args
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -15,12 +15,8 @@ if TYPE_CHECKING:
 
 # Every value `active_nav` can take — one per entry in the panel sidebar
 # (`panel/base.html`). A value outside this set highlights nothing, silently.
-# Most producers assign into `dict[str, Any]`/`dict[str, object]` contexts no
-# type checker sees, so `{% sidebar_link %}` checks both ends at render time.
-# `PanelColumnSet` is the one producer annotated with this. `_TimeSlotsContext`
-# and `_DiscountsContext` could be too, but each import is a line of chronology
-# legacy LOC and `tingle check` has no room for two — even a comment saying so
-# in those files costs the same budget.
+# Most producers assign into loosely typed context mappings no type checker
+# sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[
     "index",
     "cfp",
@@ -37,6 +33,13 @@ PanelNav = Literal[
     "sphere-settings",
 ]
 PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
+
+
+# Every panel context carries one, so the name is declared once here rather than
+# repeated as a bare `str` in each view module's TypedDict.
+class PanelNavContext(TypedDict):
+    active_nav: PanelNav
+
 
 # Every sidebar category. A category with no collapse rules in `panel/base.html`
 # renders a fully wired toggle that visibly does nothing, so `TestSidebarCoverage`

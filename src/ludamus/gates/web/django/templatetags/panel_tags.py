@@ -22,7 +22,7 @@ register = template.Library()
 @register.simple_block_tag
 def sidebar_cat(
     content: SafeString, *, key: str, label: str, extra_class: str = ""
-) -> str:
+) -> SafeString:
     if key not in PANEL_CAT_KEYS:
         msg = (
             f"sidebar_cat got key={key!r}, which is not a panel sidebar category;"
@@ -51,9 +51,12 @@ def sidebar_link(
     key: str | None = None,
     new_tab: bool = False,
     **url_kwargs: str,
-) -> str:
+) -> SafeString:
     if key is not None and key not in PANEL_NAV_KEYS:
-        msg = f"sidebar_link got key={key!r}, which is not a panel nav key"
+        msg = (
+            f"sidebar_link got key={key!r}, which is not a panel nav key;"
+            f" expected one of {sorted(PANEL_NAV_KEYS)}"
+        )
         raise template.TemplateSyntaxError(msg)
 
     # A different exception type because this is the view's mistake, not the

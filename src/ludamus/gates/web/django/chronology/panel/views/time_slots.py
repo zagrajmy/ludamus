@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, TypedDict, assert_never
+from typing import TYPE_CHECKING, assert_never
 from urllib.parse import urlencode
 
 from django.contrib import messages
@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.forms import TimeSlotForm
+from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.event import TimeSlotValidationError
 
@@ -32,8 +33,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO, TimeSlotDTO
 
 
-class _TimeSlotsContext(TypedDict):
-    active_nav: str
+class _TimeSlotsContext(PanelNavContext):
     active_tab: str
     tab_urls: dict[str, str]
     time_slots: list[TimeSlotDTO]

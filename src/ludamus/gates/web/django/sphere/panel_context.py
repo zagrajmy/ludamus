@@ -5,10 +5,11 @@
 # multiverse-specific.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, Literal
 
 from django.urls import reverse
 
+from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.mills.event import is_proposal_active
 
 # The four tabs in _sphere_tabs_nav.html. Closed for the same reason as the
@@ -26,11 +27,10 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
 
 
-class SphereSidebar(TypedDict):
+class SphereSidebar(PanelNavContext):
     events: Sequence[EventDTO]
     current_event: EventDTO | None
     is_proposal_active: bool
-    active_nav: PanelNav
 
 
 class SphereSettings(SphereSidebar):
