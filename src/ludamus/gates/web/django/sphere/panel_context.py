@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypedDict
 
+from django.urls import reverse
+
 from ludamus.mills.event import is_proposal_active
 
 if TYPE_CHECKING:
@@ -25,6 +27,7 @@ class SphereSidebar(TypedDict):
 
 class SphereSettings(SphereSidebar):
     active_tab: str
+    tab_urls: dict[str, str]
 
 
 def sphere_sidebar_context(
@@ -64,12 +67,21 @@ def sphere_settings_context(
     fails silently: a tab strip rendered without `active_tab` selects nothing
     rather than raising.
 
+    Tab hrefs are reversed here rather than in the template. `{% url … as … %}`
+    swallows NoReverseMatch and yields `href=""`, so a renamed route would point
+    the whole strip at the current page without a word; `reverse` raises. This
+    also keeps the strip shaped like the eight other `*_tab_urls` producers.
+
     Returns:
-        The sidebar keys plus the tab strip's `active_tab`. Tab hrefs are not
-        here — they take no arguments, so `_sphere_tabs_nav.html` reverses them
-        itself.
+        The sidebar keys plus the tab strip's `active_tab` and hrefs.
     """
     return {
         **sphere_sidebar_context(request, active_nav="sphere-settings"),
         "active_tab": active_tab,
+        "tab_urls": {
+            "general": reverse("multiverse:panel:sphere-settings"),
+            "announcements": reverse("multiverse:panel:announcements"),
+            "connections": reverse("multiverse:panel:connections"),
+            "mcp": reverse("multiverse:panel:mcp-token"),
+        },
     }

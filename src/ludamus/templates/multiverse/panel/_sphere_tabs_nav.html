@@ -1,26 +1,16 @@
 {% load i18n tessera %}
-{% comment %}
-Tab hrefs are reversed here rather than passed in: every sphere-settings route
-takes no arguments, so a `tab_urls` dict in the context would only restate what
-this template already hardcodes as tab keys — and every test asserting that
-context would have to mirror it.
-{% endcomment %}
 {% translate "Sphere settings sections" as t_tablist_label %}
 {% tabs aria_label=t_tablist_label %}
-    {% url 'multiverse:panel:sphere-settings' as general_url %}
-    {% tab "general" href=general_url %}
+    {% tab "general" href=tab_urls.general %}
         {% translate "General" %}
     {% endtab %}
-    {% url 'multiverse:panel:announcements' as announcements_url %}
-    {% tab "announcements" href=announcements_url %}
+    {% tab "announcements" href=tab_urls.announcements %}
         {% translate "Organization announcements" %}
     {% endtab %}
-    {% url 'multiverse:panel:connections' as connections_url %}
-    {% tab "connections" href=connections_url %}
+    {% tab "connections" href=tab_urls.connections %}
         {% translate "Import connections" %}
     {% endtab %}
-    {% url 'multiverse:panel:mcp-token' as mcp_url %}
-    {% tab "mcp" href=mcp_url %}
+    {% tab "mcp" href=tab_urls.mcp %}
         {% translate "MCP access" %}
     {% endtab %}
 {% endtabs %}
