@@ -82,7 +82,9 @@ class TestSidebarLink:
             ' label="Guilds" key="guild" %}'
         )
 
-        with pytest.raises(TemplateSyntaxError, match="guild"):
+        # Anchored on the quoted key: a bare "guild" also matches the "guilds"
+        # in the expected-set list the message prints.
+        with pytest.raises(TemplateSyntaxError, match="key='guild'"):
             tpl.render(Context())
 
     def test_an_active_nav_no_page_sets_names_the_view(
