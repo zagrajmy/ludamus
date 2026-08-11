@@ -6,8 +6,11 @@
 # underscore. See scripts/djlint_underscore_end.py for why the rule is copied
 # rather than delegated to.
 #
-# The module is imported by name, so `scripts` has to be on PYTHONPATH; the
-# djlint tasks in mise.toml put it there.
+# The module is imported by name, so `scripts` has to be on PYTHONPATH. djlint
+# runs from three places and all three set it: the `lint:djlint` and
+# `format:djlint` tasks in mise.toml, and the `djlint` step in hk.pkl. A
+# missing module aborts the djlint run, so a fourth caller fails loudly rather
+# than quietly dropping the rule.
 - rule:
     name: T038U
     message: Block tag has no matching end tag.

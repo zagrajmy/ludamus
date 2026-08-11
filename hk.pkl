@@ -42,8 +42,14 @@ local linters = new Mapping<String, Step> {
   }
 
   // Django templates — lint + format check in one djlint run (mirrors the djlint mise task)
+  //
+  // PYTHONPATH carries `scripts` because .djlint_rules.yaml registers T038U by
+  // module name and djlint imports it with plain importlib. This has to match
+  // the env on the djlint tasks in mise.toml: djlint runs from both, and a
+  // missing module aborts the run rather than skipping the rule.
   ["djlint"] {
     glob = List("src/**/*.html")
+    env = new Mapping<String, String> { ["PYTHONPATH"] = "src:scripts" }
     check = "djlint {{files}} --lint --check --format-css --format-js --profile=django"
     fix = "djlint {{files}} --lint --reformat --format-css --format-js --profile=django"
   }
