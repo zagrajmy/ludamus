@@ -81,6 +81,9 @@ class TestSidebarLink:
 
         html = tpl.render(Context({"evil": '"><script>alert(1)</script>'}))
 
+        # Both halves matter: dropping the label entirely would satisfy the
+        # negative assertion on its own.
+        assert "&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in html
         assert "<script>" not in html
 
 
