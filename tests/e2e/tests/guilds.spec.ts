@@ -144,9 +144,7 @@ test.describe("Guilds", () => {
 
   // Guilds is reached from the sidebar, not by typing the URL every other test
   // uses. Without this, deleting the sidebar entry breaks nothing in CI.
-  test("a manager reaches guilds from the sidebar of another sphere page", async ({
-    page,
-  }) => {
+  test("a manager reaches guilds from the sidebar of another sphere page", async ({ page }) => {
     await page.goto("/multiverse/panel/");
 
     // The page's own <nav> is the site navbar; the sidebar lives in the aside.
@@ -154,14 +152,13 @@ test.describe("Guilds", () => {
     await sidebar.getByRole("link", { name: "Guilds", exact: true }).click();
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/$/);
-    await expect(
-      page.getByRole("heading", { name: "Guilds", level: 2 }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Guilds", level: 2 })).toBeVisible();
     // Sphere settings owns the highlight on the page we came from; arriving at
     // Guilds has to move it, which is the whole point of the nav entry.
-    await expect(
-      sidebar.getByRole("link", { name: "Guilds", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
+    await expect(sidebar.getByRole("link", { name: "Guilds", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await expect(
       sidebar.getByRole("link", { name: "Sphere settings", exact: true }),
     ).not.toHaveAttribute("aria-current", "page");
