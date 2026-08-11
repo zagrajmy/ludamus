@@ -3090,7 +3090,8 @@ msgstr "Ten prowadzący już należy do tej gildii."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "No account matches that email or Discord username."
-msgstr "Żadne konto nie pasuje do tego adresu e-mail ani nazwy w Discordzie."
+msgstr ""
+"Żadne konto nie pasuje do tego adresu e-mail ani nazwy użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "More than one account matches. Use the exact email address."
@@ -3098,7 +3099,7 @@ msgstr "Pasuje więcej niż jedno konto. Podaj dokładny adres e-mail."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Give an email or Discord username."
-msgstr "Podaj adres e-mail lub nazwę w Discordzie."
+msgstr "Podaj adres e-mail lub nazwę użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Presenter removed."
