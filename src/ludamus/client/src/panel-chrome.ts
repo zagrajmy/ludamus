@@ -23,14 +23,32 @@ const toggleFold = (): void => {
   }
 };
 
+// `catc-<cat>` on <html> is the *collapsed* marker, so it is the negation of
+// the header's aria-expanded.
+const isCollapsed = (cat: string): boolean =>
+  document.documentElement.classList.contains(`catc-${cat}`);
+
 const toggleCategory = (el: HTMLElement): void => {
   const cat = el.closest<HTMLElement>("[data-cat]")?.dataset.cat;
   if (!cat) return;
-  const active = document.documentElement.classList.toggle(`catc-${cat}`);
+  const collapsed = document.documentElement.classList.toggle(`catc-${cat}`);
+  el.setAttribute("aria-expanded", String(!collapsed));
   try {
-    localStorage.setItem(`panel-cat-${cat}`, active ? "1" : "0");
+    localStorage.setItem(`panel-cat-${cat}`, collapsed ? "1" : "0");
   } catch {
     // Storage unavailable — collapse state still works for this page load.
+  }
+};
+
+// The head script restores the collapsed set before paint, but the sidebar does
+// not exist yet at that point, so the headers ship as aria-expanded="true" and
+// are reconciled here.
+const syncCategoryHeaders = (): void => {
+  for (const header of document.querySelectorAll<HTMLElement>(
+    '.sidebar-cat-header[data-action="toggle-category"]',
+  )) {
+    const cat = header.closest<HTMLElement>("[data-cat]")?.dataset.cat;
+    if (cat) header.setAttribute("aria-expanded", String(!isCollapsed(cat)));
   }
 };
 
@@ -80,3 +98,5 @@ document.body.addEventListener("htmx:afterRequest", (e) => {
   if (!url || !target) return;
   htmx.ajax("GET", url, { swap: "outerHTML", target });
 });
+
+syncCategoryHeaders();

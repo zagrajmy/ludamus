@@ -103,6 +103,14 @@ class TestSidebarCat:
         body = html.split('class="sidebar-cat-body')[1]
         assert 'href="/multiverse/panel/guilds/"' in body
 
+    def test_points_the_header_at_the_region_it_collapses(self) -> None:
+        html = Template(CATEGORY).render(Context())
+
+        assert 'aria-controls="sidebar-cat-sphere"' in html
+        assert 'id="sidebar-cat-sphere"' in html
+        # panel-chrome.ts corrects this on load from the restored collapsed set.
+        assert 'aria-expanded="true"' in html
+
     def test_links_inside_still_see_the_active_nav(self) -> None:
         html = Template(CATEGORY).render(Context({"active_nav": "guilds"}))
 

@@ -8,6 +8,10 @@ The collapse rule is `display: none` on `.sidebar-cat-body` (panel/base.html),
 so every link belongs inside it — one left outside stays visible under a
 collapsed header.
 
+`aria-expanded` ships as "true" and is corrected by panel-chrome.ts on load,
+because the collapsed set lives in localStorage: the head script can apply the
+`catc-*` classes before paint, but it runs before this markup exists.
+
 Variables:
   key          the data-cat value the collapse CSS keys off
   label        category heading
@@ -21,10 +25,13 @@ what precedes it, and CSS already can.
 <div class="sidebar-cat" data-cat="{{ key }}">
     <button type="button"
             title="{{ toggle_label }}"
+            aria-expanded="true"
+            aria-controls="sidebar-cat-{{ key }}"
             class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
             data-action="toggle-category">
         <span>{{ label }}</span>
         <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
     </button>
-    <div class="sidebar-cat-body flex flex-col gap-0.5">{{ links }}</div>
+    <div id="sidebar-cat-{{ key }}"
+         class="sidebar-cat-body flex flex-col gap-0.5">{{ links }}</div>
 </div>
