@@ -1,0 +1,82 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Guilds" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Guilds" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% url 'multiverse:panel:guild-create' as create_url %}
+    {% translate "New guild" as create_label %}
+    {% tessera_button create_label href=create_url icon="plus" %}
+{% endblock header_actions %}
+{% block content %}
+    {% tab_shell "multiverse/panel/_sphere_tabs_nav.html" %}
+        {% tab_shell_body %}
+            {% if guilds %}
+                {% tessera_table %}
+                    <caption class="sr-only">{% translate "Guilds in this sphere" %}</caption>
+                    <thead class="bg-bg-tertiary rounded-t-lg">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-semibold text-foreground tracking-wider">
+                                {% translate "Guild" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-semibold text-foreground tracking-wider">
+                                {% translate "Presenters" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-semibold text-foreground tracking-wider">
+                                {% translate "Actions" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {% for guild in guilds %}
+                            <tr class="hover:bg-bg-tertiary">
+                                <td class="px-6 py-4 text-sm font-medium text-foreground">
+                                    <span class="flex items-center gap-3">
+                                        {% include "multiverse/panel/guilds/_mark.html" with guild=guild size="size-8" %}
+                                        {{ guild.name }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary tabular-nums">{{ guild.member_count }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    {% translate "Row actions" as t_row_actions %}
+                                    <div role="group" aria-label="{{ t_row_actions }}">
+                                        <a href="{% url 'multiverse:panel:guild-edit' pk=guild.pk %}"
+                                           class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
+                                            {% icon "pencil-square" class="w-4 h-4 mr-1" %}
+                                            {% translate "Edit" %}
+                                        </a>
+                                        <a href="{% url 'multiverse:panel:guild-delete' pk=guild.pk %}"
+                                           class="text-danger hover:text-danger/80 inline-flex items-center">
+                                            {% icon "trash" class="w-4 h-4 mr-1" %}
+                                            {% translate "Delete" %}
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                {% endtessera_table %}
+            {% else %}
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted mb-1">{% translate "No guilds yet." %}</p>
+                    <p class="text-sm text-foreground-muted mb-4">
+                        {% blocktranslate %}A guild's mark shows beside its members' names on every programme card they present.{% endblocktranslate %}
+                    </p>
+                    {% url 'multiverse:panel:guild-create' as create_url %}
+                    {% translate "New guild" as create_label %}
+                    {% tessera_button create_label href=create_url icon="plus" %}
+                </div>
+            {% endif %}
+        {% endtab_shell_body %}
+    {% endtab_shell %}
+{% endblock content %}

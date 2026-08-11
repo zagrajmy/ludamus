@@ -1,5 +1,8 @@
-"""Shared helpers for multiverse panel views."""
-
+# Sidebar and tab context shared by every sphere-panel page. The pages
+# themselves still live under `multiverse/` and are reached as
+# `multiverse:panel:*`; this helper moved ahead of them because the guild pages
+# in this package need it too, and it is sphere infrastructure, not
+# multiverse-specific.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -42,6 +45,7 @@ def sphere_panel_context(
             "general": reverse("multiverse:panel:sphere-settings"),
             "connections": reverse("multiverse:panel:connections"),
             "announcements": reverse("multiverse:panel:announcements"),
+            "guilds": reverse("multiverse:panel:guilds"),
             "mcp": reverse("multiverse:panel:mcp-token"),
         },
     }

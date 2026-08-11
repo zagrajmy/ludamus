@@ -333,6 +333,15 @@ If you fix a papercut, remove it.
   permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
   works, pushing needs the user to run it (or the file's mode fixed to 0644
   root:root).
+- 2026-08-07: docs/agents/sandbox.md documents the python3.14 install as
+  apt+deadsnakes, but the CC-web egress proxy 403s ppa.launchpadcontent.net, so
+  mise install leaves no 3.14 and the Python suite can't run. 3.13 is not a
+  fallback — the code relies on 3.14 PEP 649 deferred annotations
+  (pacts/legacy.py:229 uses SessionStatus 35 lines before its definition), so
+  imports NameError. I wrongly concluded the sandbox couldn't run tests at all.
+  `uv python install 3.14` fetches python-build-standalone from GitHub releases
+  (reachable) in ~4s; worth making that the documented fallback in the
+  SessionStart hook.
 - 2026-08-02: `mise run test:py -- PATHS` appends the paths to the task's fixed
   'pytest -n auto tests/integration tests/unit', so a targeted run silently
   becomes the whole suite. Had to kill it and call .venv/bin/pytest directly.
