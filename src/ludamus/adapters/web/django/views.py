@@ -53,6 +53,7 @@ from ludamus.gates.web.django.entities import (
     RootRequest,
     UserInfo,
 )
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
@@ -1057,13 +1058,25 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         return user_data
 
     def _render_enroll_actions(
-        self, session: Session, *, enroll_error: str = ""
+        self, session: Session, *, enroll_error: str = "", notice: str = ""
     ) -> HttpResponse:
-        # The single card-footer fragment the event page swaps in place after an
-        # inline (HX-Request) self-enroll; state is re-read fresh from the DB.
+        # The modal-footer fragment, swapped in place after an inline
+        # (HX-Request) self-enroll; state is re-read fresh from the DB. Same
+        # decision as the modal's GET, but over the viewer alone — the modal
+        # counts a companion's seat as theirs, and this control can only post
+        # the viewer's. Such a seat is released on the group page.
         viewer_pk = self.request.context.current_user_id
-        viewer_participations = SessionParticipation.objects.filter(
-            session=session, user_id=viewer_pk
+        statuses = set(
+            SessionParticipation.objects.filter(
+                session=session, user_id=viewer_pk
+            ).values_list("status", flat=True)
+        )
+        actions = build_enroll_actions(
+            is_enrollment_available=session.is_enrollment_available,
+            is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
+            is_full=session.is_full,
+            user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
+            user_waiting=SessionParticipationStatus.WAITING in statuses,
         )
         return TemplateResponse(
             self.request,
@@ -1072,21 +1085,12 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "event_slug": session.event.slug,
                 "session_pk": session.pk,
                 "viewer_pk": viewer_pk,
-                "can_act": True,
-                "is_enrollment_available": session.is_enrollment_available,
-                "user_enrolled": (
-                    viewer_participations.filter(
-                        status=SessionParticipationStatus.CONFIRMED
-                    ).exists()
-                ),
-                "user_waiting": (
-                    viewer_participations.filter(
-                        status=SessionParticipationStatus.WAITING
-                    ).exists()
-                ),
-                "is_full": session.is_full,
-                "is_unlimited": session.effective_participants_limit == 0,
+                "actions": actions,
                 "enroll_error": enroll_error,
+                # Giving up the last thing you held on a shut window leaves
+                # nothing to render, so the flash is the only confirmation
+                # there is. Otherwise the swapped-in badge says it better.
+                "notice": notice if actions is None else "",
             },
         )
 
@@ -1188,10 +1192,10 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             raise
 
         if is_htmx:
-            # The swapped-in state badge is the confirmation, so consume the
-            # success flash rather than leaking it onto the next full page load.
-            self._drain_messages()
-            return self._render_enroll_actions(session)
+            # Drained either way, so a flash never leaks onto the next full
+            # page load; the fragment shows it only when it has no badge to
+            # confirm with.
+            return self._render_enroll_actions(session, notice=self._drain_messages())
         return redirect("web:chronology:event", slug=session.event.slug)
 
     def _household(self, roster: EnrollmentRoster) -> list[RosterMember]:
