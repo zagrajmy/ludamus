@@ -1,10 +1,21 @@
-"""Tests for the panel chrome's sidebar_link tag."""
+"""Tests for the panel chrome's sidebar tags and the nav vocabulary they close."""
+
+import re
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.template import Context, Template, TemplateSyntaxError
-from django.urls import NoReverseMatch
+from django.template.loader import get_template
+from django.urls import NoReverseMatch, resolve
 
+from ludamus.gates.web.django.panel import PANEL_CAT_KEYS, PANEL_NAV_KEYS
+
+if TYPE_CHECKING:
+    from django.test import RequestFactory
+
+GUILDS_URL = "/multiverse/panel/guilds/"
 GUILDS = (
     "{% load panel_tags %}"
     '{% sidebar_link url="multiverse:panel:guilds" icon="identification"'
@@ -16,13 +27,13 @@ class TestSidebarLink:
     def test_marks_the_entry_whose_key_is_the_active_nav(self) -> None:
         html = Template(GUILDS).render(Context({"active_nav": "guilds"}))
 
-        assert 'href="/multiverse/panel/guilds/"' in html
+        assert f'href="{GUILDS_URL}"' in html
         assert 'aria-current="page"' in html
 
     def test_leaves_other_entries_unmarked(self) -> None:
         html = Template(GUILDS).render(Context({"active_nav": "sphere-settings"}))
 
-        assert 'href="/multiverse/panel/guilds/"' in html
+        assert f'href="{GUILDS_URL}"' in html
         assert 'aria-current="page"' not in html
 
     def test_a_keyless_entry_is_never_current(self) -> None:
@@ -73,9 +84,21 @@ class TestSidebarLink:
         with pytest.raises(TemplateSyntaxError, match="guild"):
             tpl.render(Context())
 
-    def test_an_active_nav_no_page_sets_blames_the_view(self) -> None:
-        # This check is the whole reason the ~50 untyped producers are left
-        # untyped, so it needs a test of its own.
+    def test_an_active_nav_no_page_sets_names_the_view(
+        self, rf: RequestFactory
+    ) -> None:
+        # The branch that fires in production: a TemplateResponse renders after
+        # the view returns, so the message is the only thing left naming it.
+        request = rf.get(GUILDS_URL)
+        request.resolver_match = resolve(GUILDS_URL)
+
+        with pytest.raises(ImproperlyConfigured, match="multiverse:panel:guilds"):
+            Template(GUILDS).render(
+                Context({"active_nav": "guildz", "request": request})
+            )
+
+    def test_an_active_nav_no_page_sets_still_raises_without_a_request(self) -> None:
+        # Direct renders have no request to blame; the check still has to fire.
         with pytest.raises(ImproperlyConfigured, match="a panel view put"):
             Template(GUILDS).render(Context({"active_nav": "guildz"}))
 
@@ -111,7 +134,7 @@ class TestSidebarCat:
         # The collapse rule hides .sidebar-cat-body, so a link outside it would
         # stay visible under a collapsed header.
         body = html.split('class="sidebar-cat-body')[1]
-        assert 'href="/multiverse/panel/guilds/"' in body
+        assert f'href="{GUILDS_URL}"' in body
 
     def test_points_the_header_at_the_region_it_collapses(self) -> None:
         html = Template(CATEGORY).render(Context())
@@ -128,9 +151,10 @@ class TestSidebarCat:
 
 
 class TestSidebarCatKey:
-    def test_a_category_the_stylesheet_cannot_collapse_fails_loudly(self) -> None:
-        # A key with no collapse rules renders a toggle that visibly does
-        # nothing — the same dead-but-plausible failure sidebar_link guards.
+    def test_a_key_that_is_not_a_category_fails_loudly(self) -> None:
+        # panel/base.html generates collapse rules from PANEL_CAT_KEYS, so a key
+        # outside it renders a toggle that visibly does nothing — the same
+        # dead-but-plausible failure sidebar_link guards.
         tpl = Template(
             "{% load panel_tags %}"
             '{% sidebar_cat key="reports" label="Reports" %}{% endsidebar_cat %}'
@@ -138,3 +162,47 @@ class TestSidebarCatKey:
 
         with pytest.raises(TemplateSyntaxError, match="reports"):
             tpl.render(Context())
+
+
+def _sidebar_source() -> str:
+    origin = get_template("panel/base.html").origin
+    assert origin.name  # a filesystem-loaded template always has one
+
+    return Path(origin.name).read_text(encoding="utf-8")
+
+
+# The two Literals are only a single source of truth if `base.html` names every
+# member. `{% sidebar_link %}` catches the other direction — a key or an
+# active_nav outside the set — but a member nothing claims is invisible to it: a
+# nav key no entry uses leaves its page silently unhighlighted, and a category
+# with no collapse rules renders a toggle that does nothing. These read template
+# source rather than rendered markup, which is source hygiene, not a UI
+# assertion; the rendered side is Playwright's.
+class TestSidebarCoverage:
+    def test_every_nav_key_has_a_sidebar_entry(self) -> None:
+        source = _sidebar_source()
+
+        keys = set(re.findall(r'{% sidebar_link [^%]*key="([^"]+)"', source))
+
+        assert keys == PANEL_NAV_KEYS
+
+    def test_every_category_has_a_sidebar_entry(self) -> None:
+        source = _sidebar_source()
+
+        cats = set(re.findall(r'{% sidebar_cat key="([^"]+)"', source))
+
+        assert cats == PANEL_CAT_KEYS
+
+    # Both halves, because a category keeps its `html.catc-<key> ` prefix in one
+    # rule when the other is missing — a hidden body under an unrotated chevron.
+    def test_every_category_has_collapse_rules(self) -> None:
+        source = _sidebar_source()
+
+        missing = {
+            f"{key}/{part}"
+            for key in PANEL_CAT_KEYS
+            for part in ("sidebar-cat-body", "sidebar-cat-chevron")
+            if f'html.catc-{key} [data-cat="{key}"] .{part}' not in source
+        }
+
+        assert not missing

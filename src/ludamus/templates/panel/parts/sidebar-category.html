@@ -5,13 +5,14 @@ block tag. The links inside are rendered by the caller's context, so
 `active_nav` still reaches them.
 
 Variables:
-  key    the data-cat value; panel/base.html's collapse rules and
-         panel-chrome.ts both key off it, and sidebar_cat rejects a value
-         those rules don't cover
-  label  category heading, and the button's accessible name
-  links  the rendered sidebar_link entries
+  key          the data-cat value; panel/base.html carries this category's
+               collapse rules and panel-chrome.ts keys its localStorage
+               entry off it
+  label        category heading, and the button's accessible name
+  links        the rendered sidebar_link entries
+  extra_class  layout classes from the caller, e.g. the Sphere separator
 {% endcomment %}
-<div class="sidebar-cat" data-cat="{{ key }}">
+<div class="sidebar-cat {{ extra_class }}" data-cat="{{ key }}">
     <button type="button"
             aria-expanded="true"
             aria-controls="sidebar-cat-{{ key }}"

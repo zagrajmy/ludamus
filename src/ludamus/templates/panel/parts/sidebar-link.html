@@ -3,8 +3,11 @@
 One entry in the panel sidebar. Rendered by the sidebar_link tag
 (gates/web/django/templatetags/panel_tags.py), which reverses the href and
 resolves `active` before handing this a closed context — the same split as
-the tab tag and components/tab-link.html. Nothing here is read from ambient
-context, so there is no include-without-`only` trap.
+the tab tag and components/tab-link.html.
+
+It lives under panel/parts/ rather than components/ because .sidebar-link and
+data-cat are panel vocabulary: only panel/base.html's stylesheet and
+panel-chrome.ts know what they mean, so no non-panel page could reuse these.
 
 The highlight styles off `[aria-current=page]` rather than re-testing `active`,
 so "highlighted" and "is the current page" cannot drift apart — the same trick

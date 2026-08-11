@@ -115,15 +115,7 @@ the sphere.{% endcomment %}
         .sidebar-cat-chevron {
             transition: transform 0.15s ease;
         }
-
-        /* Sphere leads the sidebar when there is no event; otherwise it follows
-           the event categories and takes a rule to separate it from them. */
-        #sidebar [data-cat="sphere"]:not(:first-child) {
-            margin-top: 1rem;
-            padding-top: 0.5rem;
-            border-top: 1px solid var(--color-border);
-        }
-
+        {# One pair per PanelCat member; TestSidebarCoverage checks none is missing. #}
         html.catc-program [data-cat="program"] .sidebar-cat-body,
         html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
         html.catc-settings [data-cat="settings"] .sidebar-cat-body,
@@ -186,8 +178,7 @@ the sphere.{% endcomment %}
                 </button>
             </div>
             {# Labelled because the site navbar is a <nav> too — without this both landmarks read as plain "navigation". #}
-            {% translate "Panel sections" as t_panel_sections %}
-            <nav aria-label="{{ t_panel_sections }}"
+            <nav aria-label="{% translate "Panel sections" %}"
                  class="sidebar-section px-2 gap-0.5 flex flex-col">
                 {% block sidebar_nav %}
                     {% if current_event %}
@@ -227,7 +218,8 @@ the sphere.{% endcomment %}
                         {% endsidebar_cat %}
                     {% endif %}
                     {% translate "Sphere" as t_sphere %}
-                    {% sidebar_cat key="sphere" label=t_sphere %}
+                    {# Sphere leads the sidebar when there is no event; otherwise it follows the event categories and takes a rule to separate it from them. #}
+                    {% sidebar_cat key="sphere" label=t_sphere extra_class="not-first:mt-4 not-first:pt-2 not-first:border-t not-first:border-border" %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}

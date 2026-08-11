@@ -18,35 +18,29 @@ if TYPE_CHECKING:
 register = template.Library()
 
 
-# One collapsible category of the panel sidebar, wrapping its links. Extracted
-# for the same reason as `{% sidebar_link %}`: the header markup was four
-# byte-identical copies of a 148-character class attribute.
+# One collapsible category of the panel sidebar, wrapping its links.
 @register.simple_block_tag
-def sidebar_cat(content: SafeString, *, key: str, label: str) -> str:
+def sidebar_cat(
+    content: SafeString, *, key: str, label: str, extra_class: str = ""
+) -> str:
     if key not in PANEL_CAT_KEYS:
         msg = (
-            f"sidebar_cat got key={key!r}, which panel/base.html has no collapse"
-            f" rules for; add them there or use one of {sorted(PANEL_CAT_KEYS)}"
+            f"sidebar_cat got key={key!r}, which is not a panel sidebar category;"
+            f" expected one of {sorted(PANEL_CAT_KEYS)}"
         )
         raise template.TemplateSyntaxError(msg)
 
     return render_to_string(
-        "components/sidebar-category.html",
-        {"key": key, "label": label, "links": content},
+        "panel/parts/sidebar-category.html",
+        {"key": key, "label": label, "links": content, "extra_class": extra_class},
     )
 
 
-# One entry in the panel sidebar. `key` is the `active_nav` value that marks
-# this entry current; a link that is never "where you are" (Print Materials
-# opens a new tab and leaves the panel) passes none.
-# Nothing here fails by rendering something plausible-but-dead. `{% url … as … %}`
-# would swallow a renamed route and leave `href=""`, so the route is reversed
-# here, where `reverse` raises. And a misspelling on either side of the highlight
-# comparison would simply never match, so both are checked against the closed
-# set — this tag is where the ~50 views that set `active_nav` and the 14 call
-# sites that name a `key` meet, and the only place that can check them.
-# Resolving `active` here also hands the partial a closed context, the same
-# split as `{% tab %}` in tessera/tabs.py.
+# One entry in the panel sidebar. `key` is the `active_nav` value that marks this
+# entry current; a link that is never "where you are" (Print Materials opens a
+# new tab and leaves the panel) passes none. The route is reversed here rather
+# than with `{% url … as … %}`, which swallows `NoReverseMatch` and leaves
+# `href=""`.
 @register.simple_tag(takes_context=True)
 def sidebar_link(
     context: Context,
@@ -62,17 +56,23 @@ def sidebar_link(
         msg = f"sidebar_link got key={key!r}, which is not a panel nav key"
         raise template.TemplateSyntaxError(msg)
 
-    # Separate exception type because this one is the *view's* mistake, not the
-    # template's, and the traceback should not read as a markup error.
+    # A different exception type because this is the view's mistake, not the
+    # template's. The message names the route because a TemplateResponse renders
+    # after the view has returned, so the traceback no longer does. getattr
+    # rather than a narrowing annotation: `context.get` hands back Any, so an
+    # annotation would only look checked, and this must not raise inside an
+    # error path.
     if (active_nav := context.get("active_nav")) not in {None, *PANEL_NAV_KEYS}:
+        match = getattr(context.get("request"), "resolver_match", None)
+        blame = f"the view serving {match.view_name}" if match else "a panel view"
         msg = (
-            f"a panel view put active_nav={active_nav!r} in the context, which is"
-            f" not a panel nav key; expected one of {sorted(PANEL_NAV_KEYS)}"
+            f"{blame} put active_nav={active_nav!r} in the context, which is not"
+            f" a panel nav key; expected one of {sorted(PANEL_NAV_KEYS)}"
         )
         raise ImproperlyConfigured(msg)
 
     return render_to_string(
-        "components/sidebar-link.html",
+        "panel/parts/sidebar-link.html",
         {
             "href": reverse(url, kwargs=url_kwargs),
             "icon": icon,
