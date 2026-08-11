@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
@@ -11,6 +11,7 @@ from django.template.loader import get_template
 from django.urls import NoReverseMatch, resolve
 
 from ludamus.gates.web.django.panel import PANEL_CAT_KEYS, PANEL_NAV_KEYS
+from ludamus.gates.web.django.sphere.panel_context import SphereTab
 
 if TYPE_CHECKING:
     from django.test import RequestFactory
@@ -152,9 +153,9 @@ class TestSidebarCat:
 
 class TestSidebarCatKey:
     def test_a_key_that_is_not_a_category_fails_loudly(self) -> None:
-        # panel/base.html generates collapse rules from PANEL_CAT_KEYS, so a key
-        # outside it renders a toggle that visibly does nothing — the same
-        # dead-but-plausible failure sidebar_link guards.
+        # A key with no collapse rules in panel/base.html renders a toggle that
+        # visibly does nothing — the same dead-but-plausible failure
+        # sidebar_link guards.
         tpl = Template(
             "{% load panel_tags %}"
             '{% sidebar_cat key="reports" label="Reports" %}{% endsidebar_cat %}'
@@ -164,11 +165,15 @@ class TestSidebarCatKey:
             tpl.render(Context())
 
 
-def _sidebar_source() -> str:
-    origin = get_template("panel/base.html").origin
+def _template_source(name: str) -> str:
+    origin = get_template(name).origin
     assert origin.name  # a filesystem-loaded template always has one
 
     return Path(origin.name).read_text(encoding="utf-8")
+
+
+def _sidebar_source() -> str:
+    return _template_source("panel/base.html")
 
 
 # The two Literals are only a single source of truth if `base.html` names every
@@ -192,6 +197,16 @@ class TestSidebarCoverage:
         cats = set(re.findall(r'{% sidebar_cat key="([^"]+)"', source))
 
         assert cats == PANEL_CAT_KEYS
+
+    # `SphereTab` has the same open end: a tab whose key is not in the Literal
+    # asks for a `tab_urls` entry that does not exist, and `{{ tab_urls.typo }}`
+    # renders "" — pointing the tab at the current page instead of raising.
+    def test_every_sphere_tab_is_in_the_literal(self) -> None:
+        source = _template_source("multiverse/panel/_sphere_tabs_nav.html")
+
+        tabs = set(re.findall(r'{% tab "([^"]+)"', source))
+
+        assert tabs == frozenset(get_args(SphereTab))
 
     # Both halves, because a category keeps its `html.catc-<key> ` prefix in one
     # rule when the other is missing — a hidden body under an unrotated chevron.

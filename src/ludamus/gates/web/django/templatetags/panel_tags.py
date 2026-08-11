@@ -57,12 +57,10 @@ def sidebar_link(
         raise template.TemplateSyntaxError(msg)
 
     # A different exception type because this is the view's mistake, not the
-    # template's. The message names the route because a TemplateResponse renders
-    # after the view has returned, so the traceback no longer does. getattr
-    # rather than a narrowing annotation: `context.get` hands back Any, so an
-    # annotation would only look checked, and this must not raise inside an
-    # error path.
-    if (active_nav := context.get("active_nav")) not in {None, *PANEL_NAV_KEYS}:
+    # template's, and the message names the route because a TemplateResponse
+    # renders after the view has returned, so the traceback no longer does.
+    active_nav = context.get("active_nav")
+    if active_nav is not None and active_nav not in PANEL_NAV_KEYS:
         match = getattr(context.get("request"), "resolver_match", None)
         blame = f"the view serving {match.view_name}" if match else "a panel view"
         msg = (

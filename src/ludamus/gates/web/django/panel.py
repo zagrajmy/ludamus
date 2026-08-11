@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 # (`panel/base.html`). A value outside this set highlights nothing, silently.
 # Most producers assign into `dict[str, Any]`/`dict[str, object]` contexts no
 # type checker sees, so `{% sidebar_link %}` checks both ends at render time.
+# `PanelColumnSet` is the one producer annotated with this. `_TimeSlotsContext`
+# and `_DiscountsContext` could be too, but each import is a line of chronology
+# legacy LOC and `tingle check` has no room for two — even a comment saying so
+# in those files costs the same budget.
 PanelNav = Literal[
     "index",
     "cfp",

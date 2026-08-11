@@ -12,7 +12,8 @@ Variables:
   links        the rendered sidebar_link entries
   extra_class  layout classes from the caller, e.g. the Sphere separator
 {% endcomment %}
-<div class="sidebar-cat {{ extra_class }}" data-cat="{{ key }}">
+<div class="sidebar-cat{% if extra_class|default:"" %} {{ extra_class }}{% endif %}"
+     data-cat="{{ key }}">
     <button type="button"
             aria-expanded="true"
             aria-controls="sidebar-cat-{{ key }}"
