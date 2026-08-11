@@ -9,7 +9,7 @@ class GuildForm(forms.Form):
     logo = logo_field(
         help_text=_(
             "The mark shown beside members' names on programme cards. Square, "
-            "one colour, no lettering — it renders at about 19 px. Max 8 MB. "
+            "one colour, no lettering — it renders as small as 14 px. Max 8 MB. "
             "SVG, PNG, WebP, JPG, or AVIF."
         )
     )

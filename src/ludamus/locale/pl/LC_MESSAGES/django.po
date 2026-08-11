@@ -2965,11 +2965,11 @@ msgstr "Nazwa gildii"
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid ""
 "The mark shown beside members' names on programme cards. Square, one colour, "
-"no lettering — it renders at about 19 px. Max 8 MB. SVG, PNG, WebP, JPG, or "
-"AVIF."
+"no lettering — it renders as small as 14 px. Max 8 MB. SVG, PNG, WebP, JPG, "
+"or AVIF."
 msgstr ""
 "Znak pokazywany obok nazwisk członków na kartach programu. Kwadrat, jeden "
-"kolor, bez napisów — renderuje się w około 19 px. Maks. 8 MB. SVG, PNG, "
+"kolor, bez napisów — renderuje się nawet w 14 px. Maks. 8 MB. SVG, PNG, "
 "WebP, JPG lub AVIF."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
