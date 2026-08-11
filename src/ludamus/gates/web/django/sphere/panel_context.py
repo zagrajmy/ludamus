@@ -5,7 +5,7 @@
 # multiverse-specific.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from django.urls import reverse
 
@@ -15,20 +15,15 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ludamus.gates.web.django.multiverse.access import MultiverseRequest
+    from ludamus.gates.web.django.panel import PanelNav
     from ludamus.pacts import EventDTO
-
-# Sphere pages that are their own sidebar entry. The template compares
-# `active_nav` against the `key` each `{% sidebar_link %}` declares, and a
-# mismatch just fails to highlight anything — so the set is closed here and
-# every producer is checked against it.
-SphereNav = Literal["guilds", "sphere-settings"]
 
 
 class SphereSidebar(TypedDict):
     events: Sequence[EventDTO]
     current_event: EventDTO | None
     is_proposal_active: bool
-    active_nav: SphereNav
+    active_nav: PanelNav
 
 
 class SphereSettings(SphereSidebar):
@@ -40,7 +35,7 @@ class SphereSettings(SphereSidebar):
 # sidebar (rendered from `panel/base.html`) has something to link to. A sphere
 # with no events gracefully hides the event-scoped items.
 def sphere_sidebar_context(
-    request: MultiverseRequest, *, active_nav: SphereNav
+    request: MultiverseRequest, *, active_nav: PanelNav
 ) -> SphereSidebar:
     events = request.services.sphere_panel.list_events(
         request.context.current_sphere_id

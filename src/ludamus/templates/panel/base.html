@@ -116,6 +116,14 @@ the sphere.{% endcomment %}
             transition: transform 0.15s ease;
         }
 
+        /* Sphere leads the sidebar when there is no event; otherwise it follows
+           the event categories and takes a rule to separate it from them. */
+        [data-cat="sphere"]:not(:first-child) {
+            margin-top: 1rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--color-border);
+        }
+
         html.catc-program [data-cat="program"] .sidebar-cat-body,
         html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
         html.catc-settings [data-cat="settings"] .sidebar-cat-body,
@@ -177,85 +185,55 @@ the sphere.{% endcomment %}
                     {% include "panel/parts/sidebar-icon.html" with icon_class="size-5" %}
                 </button>
             </div>
-            <nav class="sidebar-section px-2 gap-0.5 flex flex-col">
+            {# Labelled because the site navbar is a <nav> too — without this both landmarks read as plain "navigation". #}
+            {% translate "Panel sections" as t_panel_sections %}
+            <nav aria-label="{{ t_panel_sections }}"
+                 class="sidebar-section px-2 gap-0.5 flex flex-col">
                 {% block sidebar_nav %}
                     {% translate "Toggle category" as t_toggle_cat %}
                     {% if current_event %}
                         {% translate "Dashboard" as t_dashboard %}
                         {% sidebar_link url="panel:event-index" slug=current_event.slug icon="home" label=t_dashboard key="index" %}
-                        <div class="sidebar-cat" data-cat="program">
-                            <button type="button"
-                                    title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    data-action="toggle-category">
-                                <span>{% translate "Program" %}</span>
-                                <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
-                            </button>
-                            <div class="sidebar-cat-body flex flex-col gap-0.5">
-                                {% translate "Call for Proposals" as t_cfp %}
-                                {% sidebar_link url="panel:cfp" slug=current_event.slug icon="rectangle-stack" label=t_cfp key="cfp" %}
-                                {% translate "Proposals" as t_proposals %}
-                                {% sidebar_link url="panel:proposals" slug=current_event.slug icon="document-text" label=t_proposals key="proposals" %}
-                                {% translate "Facilitators" as t_facilitators %}
-                                {% sidebar_link url="panel:facilitators" slug=current_event.slug icon="user-group" label=t_facilitators key="facilitators" %}
-                                {% translate "Discounts" as t_discounts %}
-                                {% sidebar_link url="panel:discounts" slug=current_event.slug icon="ticket" label=t_discounts key="discounts" %}
-                                {% translate "Google Docs Import" as t_google_docs_import %}
-                                {% sidebar_link url="panel:import" slug=current_event.slug icon="arrow-down-tray" label=t_google_docs_import key="import" %}
-                            </div>
-                        </div>
-                        <div class="sidebar-cat" data-cat="schedule">
-                            <button type="button"
-                                    title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    data-action="toggle-category">
-                                <span>{% translate "Schedule" context "Sidebar category" %}</span>
-                                <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
-                            </button>
-                            <div class="sidebar-cat-body flex flex-col gap-0.5">
-                                {% translate "Venues" as t_venues %}
-                                {% sidebar_link url="panel:venues" slug=current_event.slug icon="building-office-2" label=t_venues key="venues" %}
-                                {% translate "Tracks" as t_tracks %}
-                                {% sidebar_link url="panel:tracks" slug=current_event.slug icon="tag" label=t_tracks key="tracks" %}
-                                {% translate "Schedule" as t_timetable %}
-                                {% sidebar_link url="panel:timetable" slug=current_event.slug icon="calendar-days" label=t_timetable key="timetable" %}
-                                {% translate "Print Materials" as t_print %}
-                                {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
-                                {% sidebar_link url="web:chronology:event-print" slug=current_event.slug icon="printer" label=t_print new_tab=True %}
-                            </div>
-                        </div>
-                        <div class="sidebar-cat" data-cat="settings">
-                            <button type="button"
-                                    title="{{ t_toggle_cat }}"
-                                    class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                    data-action="toggle-category">
-                                <span>{% translate "Settings" %}</span>
-                                <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
-                            </button>
-                            <div class="sidebar-cat-body flex flex-col gap-0.5">
-                                {% translate "Event Settings" as t_event_settings %}
-                                {% sidebar_link url="panel:event-settings" slug=current_event.slug icon="cog-6-tooth" label=t_event_settings key="settings" %}
-                            </div>
+                        {% translate "Program" as t_program %}
+                        {% sidebar_cat key="program" label=t_program toggle_label=t_toggle_cat %}
+                            {% translate "Call for Proposals" as t_cfp %}
+                            {% sidebar_link url="panel:cfp" slug=current_event.slug icon="rectangle-stack" label=t_cfp key="cfp" %}
+                            {% translate "Proposals" as t_proposals %}
+                            {% sidebar_link url="panel:proposals" slug=current_event.slug icon="document-text" label=t_proposals key="proposals" %}
+                            {% translate "Facilitators" as t_facilitators %}
+                            {% sidebar_link url="panel:facilitators" slug=current_event.slug icon="user-group" label=t_facilitators key="facilitators" %}
+                            {% translate "Discounts" as t_discounts %}
+                            {% sidebar_link url="panel:discounts" slug=current_event.slug icon="ticket" label=t_discounts key="discounts" %}
+                            {% translate "Google Docs Import" as t_google_docs_import %}
+                            {% sidebar_link url="panel:import" slug=current_event.slug icon="arrow-down-tray" label=t_google_docs_import key="import" %}
+                        {% endsidebar_cat %}
+                        {% translate "Schedule" context "Sidebar category" as t_schedule_cat %}
+                        {% sidebar_cat key="schedule" label=t_schedule_cat toggle_label=t_toggle_cat %}
+                            {% translate "Venues" as t_venues %}
+                            {% sidebar_link url="panel:venues" slug=current_event.slug icon="building-office-2" label=t_venues key="venues" %}
+                            {% translate "Tracks" as t_tracks %}
+                            {% sidebar_link url="panel:tracks" slug=current_event.slug icon="tag" label=t_tracks key="tracks" %}
+                            {% translate "Schedule" as t_timetable %}
+                            {% sidebar_link url="panel:timetable" slug=current_event.slug icon="calendar-days" label=t_timetable key="timetable" %}
+                            {% translate "Print Materials" as t_print %}
+                            {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
+                            {% sidebar_link url="web:chronology:event-print" slug=current_event.slug icon="printer" label=t_print new_tab=True %}
+                        {% endsidebar_cat %}
+                        {% translate "Settings" as t_settings %}
+                        {% sidebar_cat key="settings" label=t_settings toggle_label=t_toggle_cat %}
+                            {% translate "Event Settings" as t_event_settings %}
+                            {% sidebar_link url="panel:event-settings" slug=current_event.slug icon="cog-6-tooth" label=t_event_settings key="settings" %}
                             {% translate "Bans" as t_bans %}
                             {% sidebar_link url="panel:bans" slug=current_event.slug icon="no-symbol" label=t_bans key="bans" %}
-                        </div>
+                        {% endsidebar_cat %}
                     {% endif %}
-                    <div class="sidebar-cat {% if current_event %}mt-4 pt-2 border-t border-border{% endif %}"
-                         data-cat="sphere">
-                        <button type="button"
-                                title="{{ t_toggle_cat }}"
-                                class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
-                                data-action="toggle-category">
-                            <span>{% translate "Sphere" %}</span>
-                            <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
-                        </button>
-                        <div class="sidebar-cat-body flex flex-col gap-0.5">
-                            {% translate "Guilds" as t_guilds %}
-                            {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
-                            {% translate "Sphere settings" as t_sphere_settings %}
-                            {% sidebar_link url="multiverse:panel:sphere-settings" icon="cog-6-tooth" label=t_sphere_settings key="sphere-settings" %}
-                        </div>
-                    </div>
+                    {% translate "Sphere" as t_sphere %}
+                    {% sidebar_cat key="sphere" label=t_sphere toggle_label=t_toggle_cat %}
+                        {% translate "Guilds" as t_guilds %}
+                        {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
+                        {% translate "Sphere settings" as t_sphere_settings %}
+                        {% sidebar_link url="multiverse:panel:sphere-settings" icon="cog-6-tooth" label=t_sphere_settings key="sphere-settings" %}
+                    {% endsidebar_cat %}
                 {% endblock sidebar_nav %}
             </nav>
         </aside>

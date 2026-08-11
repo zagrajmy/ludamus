@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, Literal, get_args
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -12,6 +12,28 @@ from ludamus.pacts.submissions import RequirementSelectionDTO
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
+
+# Every value `active_nav` can take — one per entry in the panel sidebar
+# (`panel/base.html`). Both ends of the comparison are closed against it: views
+# are typed, and `{% sidebar_link %}` checks its `key` at render time, since the
+# call sites are template literals no type checker reads. A key that matches
+# nothing highlights nothing, silently, which is the whole failure mode.
+PanelNav = Literal[
+    "index",
+    "cfp",
+    "proposals",
+    "facilitators",
+    "discounts",
+    "import",
+    "venues",
+    "tracks",
+    "timetable",
+    "settings",
+    "bans",
+    "guilds",
+    "sphere-settings",
+]
+PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
 
 
 def parse_requirement_selection(

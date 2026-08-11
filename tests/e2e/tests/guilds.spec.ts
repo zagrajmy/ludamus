@@ -147,8 +147,8 @@ test.describe("Guilds", () => {
   test("a manager reaches guilds from the sidebar of another sphere page", async ({ page }) => {
     await page.goto("/multiverse/panel/");
 
-    // The page's own <nav> is the site navbar; the sidebar lives in the aside.
-    const sidebar = page.getByRole("complementary");
+    // The site navbar is a <nav> too, so the sidebar is picked by its label.
+    const sidebar = page.getByRole("navigation", { name: "Panel sections" });
     const settings = sidebar.getByRole("link", {
       name: "Sphere settings",
       exact: true,

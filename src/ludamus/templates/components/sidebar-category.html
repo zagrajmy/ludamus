@@ -1,0 +1,30 @@
+{% load tessera %}
+{% comment %}
+One collapsible category of the panel sidebar. Rendered by the sidebar_cat
+block tag (gates/web/django/templatetags/panel_tags.py); the links inside it
+are rendered by the caller's context, so `active_nav` still reaches them.
+
+The collapse rule is `display: none` on `.sidebar-cat-body` (panel/base.html),
+so every link belongs inside it — one left outside stays visible under a
+collapsed header.
+
+Variables:
+  key          the data-cat value the collapse CSS keys off
+  label        category heading
+  toggle_label accessible name for the collapse button
+  links        the rendered sidebar_link entries
+
+The rule that separates Sphere from the event categories is a stylesheet rule
+in panel/base.html, keyed off Sphere not being first — a category cannot know
+what precedes it, and CSS already can.
+{% endcomment %}
+<div class="sidebar-cat" data-cat="{{ key }}">
+    <button type="button"
+            title="{{ toggle_label }}"
+            class="sidebar-cat-header sidebar-fold-hide flex w-full items-center justify-between px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-foreground-muted hover:text-foreground active:scale-100!"
+            data-action="toggle-category">
+        <span>{{ label }}</span>
+        <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
+    </button>
+    <div class="sidebar-cat-body flex flex-col gap-0.5">{{ links }}</div>
+</div>

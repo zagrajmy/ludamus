@@ -1,7 +1,7 @@
 """Tests for the panel chrome's sidebar_link tag."""
 
 import pytest
-from django.template import Context, Template
+from django.template import Context, Template, TemplateSyntaxError
 from django.urls import NoReverseMatch
 
 GUILDS = (
@@ -60,6 +60,18 @@ class TestSidebarLink:
         with pytest.raises(NoReverseMatch):
             tpl.render(Context())
 
+    def test_a_key_no_page_sets_fails_loudly(self) -> None:
+        # The counterpart of the route check: a key outside the closed set would
+        # otherwise just never match active_nav, and nothing would highlight.
+        tpl = Template(
+            "{% load panel_tags %}"
+            '{% sidebar_link url="multiverse:panel:guilds" icon="identification"'
+            ' label="Guilds" key="guild" %}'
+        )
+
+        with pytest.raises(TemplateSyntaxError, match="guild"):
+            tpl.render(Context())
+
     def test_escapes_the_label(self) -> None:
         tpl = Template(
             "{% load panel_tags %}"
@@ -70,3 +82,28 @@ class TestSidebarLink:
         html = tpl.render(Context({"evil": '"><script>alert(1)</script>'}))
 
         assert "<script>" not in html
+
+
+CATEGORY = (
+    "{% load panel_tags %}"
+    '{% sidebar_cat key="sphere" label="Sphere" toggle_label="Toggle" %}'
+    '{% sidebar_link url="multiverse:panel:guilds" icon="identification"'
+    ' label="Guilds" key="guilds" %}'
+    "{% endsidebar_cat %}"
+)
+
+
+class TestSidebarCat:
+    def test_wraps_its_links_in_the_collapsible_body(self) -> None:
+        html = Template(CATEGORY).render(Context())
+
+        assert 'data-cat="sphere"' in html
+        # The collapse rule hides .sidebar-cat-body, so a link outside it would
+        # stay visible under a collapsed header.
+        body = html.split('class="sidebar-cat-body')[1]
+        assert 'href="/multiverse/panel/guilds/"' in body
+
+    def test_links_inside_still_see_the_active_nav(self) -> None:
+        html = Template(CATEGORY).render(Context({"active_nav": "guilds"}))
+
+        assert 'aria-current="page"' in html

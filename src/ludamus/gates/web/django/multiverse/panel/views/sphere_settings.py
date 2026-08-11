@@ -28,18 +28,18 @@ class SphereSettingsPageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
-        context = sphere_settings_context(self.request, active_tab="general")
         sphere = self.request.services.sphere_panel.read(
             self.request.context.current_sphere_id
         )
-        context["form"] = SphereSettingsForm(
+        form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
                 "logo": sphere.logo_url or None,
             }
         )
+        base = sphere_settings_context(self.request, active_tab="general")
         return TemplateResponse(
-            self.request, "multiverse/panel/sphere-settings.html", context
+            self.request, "multiverse/panel/sphere-settings.html", base | {"form": form}
         )
 
     def post(self, _request: MultiverseRequest) -> HttpResponse:
