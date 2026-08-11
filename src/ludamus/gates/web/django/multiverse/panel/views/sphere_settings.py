@@ -15,7 +15,7 @@ from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
-from ludamus.gates.web.django.sphere.panel_context import sphere_panel_context
+from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
-        context = sphere_panel_context(self.request, active_tab="general")
+        context = sphere_settings_context(self.request, active_tab="general")
         sphere = self.request.services.sphere_panel.read(
             self.request.context.current_sphere_id
         )

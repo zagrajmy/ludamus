@@ -1,0 +1,26 @@
+{% load tessera %}
+{% comment %}
+One entry in the panel sidebar.
+
+Reads `active_nav` from the surrounding context rather than taking an `active`
+flag, the way components/tab-link.html reads `active_tab` — so a caller states
+which page it *is*, not whether it happens to be current. Include without
+`only`, or the highlight silently never fires.
+
+Variables:
+  href     destination
+  icon     heroicon name
+  label    visible text; also the title attribute
+  key      the `active_nav` value that highlights this entry. Omit for a link
+           that is never "where you are" — Print Materials opens a new tab and
+           leaves the panel, so it has no active state.
+  new_tab  open in a new tab
+{% endcomment %}
+<a href="{{ href }}"
+   {% if new_tab %}target="_blank" rel="noopener"{% endif %}
+   {% if key and key == active_nav %}aria-current="page"{% endif %}
+   title="{{ label }}"
+   class="sidebar-link flex text-sm items-center px-2 py-3 {% if key and key == active_nav %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
+    {% icon icon class="size-4.5 mr-2" %}
+    <span class="sidebar-label">{{ label }}</span>
+</a>

@@ -181,12 +181,8 @@ the sphere.{% endcomment %}
                     {% translate "Toggle category" as t_toggle_cat %}
                     {% if current_event %}
                         {% translate "Dashboard" as t_dashboard %}
-                        <a href="{% url 'panel:event-index' slug=current_event.slug %}"
-                           title="{{ t_dashboard }}"
-                           class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'index' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                            {% icon "home" class="size-4.5 mr-2" %}
-                            <span class="sidebar-label">{{ t_dashboard }}</span>
-                        </a>
+                        {% url 'panel:event-index' slug=current_event.slug as t_dashboard_url %}
+                        {% include "components/sidebar-link.html" with key="index" href=t_dashboard_url icon="home" label=t_dashboard %}
                         <div class="sidebar-cat" data-cat="program">
                             <button type="button"
                                     title="{{ t_toggle_cat }}"
@@ -197,40 +193,20 @@ the sphere.{% endcomment %}
                             </button>
                             <div class="sidebar-cat-body flex flex-col gap-0.5">
                                 {% translate "Call for Proposals" as t_cfp %}
-                                <a href="{% url 'panel:cfp' slug=current_event.slug %}"
-                                   title="{{ t_cfp }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'cfp' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "rectangle-stack" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_cfp }}</span>
-                                </a>
+                                {% url 'panel:cfp' slug=current_event.slug as t_cfp_url %}
+                                {% include "components/sidebar-link.html" with key="cfp" href=t_cfp_url icon="rectangle-stack" label=t_cfp %}
                                 {% translate "Proposals" as t_proposals %}
-                                <a href="{% url 'panel:proposals' slug=current_event.slug %}"
-                                   title="{{ t_proposals }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'proposals' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "document-text" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_proposals }}</span>
-                                </a>
+                                {% url 'panel:proposals' slug=current_event.slug as t_proposals_url %}
+                                {% include "components/sidebar-link.html" with key="proposals" href=t_proposals_url icon="document-text" label=t_proposals %}
                                 {% translate "Facilitators" as t_facilitators %}
-                                <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-                                   title="{{ t_facilitators }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'facilitators' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "user-group" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_facilitators }}</span>
-                                </a>
+                                {% url 'panel:facilitators' slug=current_event.slug as t_facilitators_url %}
+                                {% include "components/sidebar-link.html" with key="facilitators" href=t_facilitators_url icon="user-group" label=t_facilitators %}
                                 {% translate "Discounts" as t_discounts %}
-                                <a href="{% url 'panel:discounts' slug=current_event.slug %}"
-                                   title="{{ t_discounts }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'discounts' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "ticket" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_discounts }}</span>
-                                </a>
+                                {% url 'panel:discounts' slug=current_event.slug as t_discounts_url %}
+                                {% include "components/sidebar-link.html" with key="discounts" href=t_discounts_url icon="ticket" label=t_discounts %}
                                 {% translate "Google Docs Import" as t_google_docs_import %}
-                                <a href="{% url 'panel:import' slug=current_event.slug %}"
-                                   title="{{ t_google_docs_import }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'import' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "arrow-down-tray" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_google_docs_import }}</span>
-                                </a>
+                                {% url 'panel:import' slug=current_event.slug as t_google_docs_import_url %}
+                                {% include "components/sidebar-link.html" with key="import" href=t_google_docs_import_url icon="arrow-down-tray" label=t_google_docs_import %}
                             </div>
                         </div>
                         <div class="sidebar-cat" data-cat="schedule">
@@ -243,36 +219,18 @@ the sphere.{% endcomment %}
                             </button>
                             <div class="sidebar-cat-body flex flex-col gap-0.5">
                                 {% translate "Venues" as t_venues %}
-                                <a href="{% url 'panel:venues' slug=current_event.slug %}"
-                                   title="{{ t_venues }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'venues' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "building-office-2" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_venues }}</span>
-                                </a>
+                                {% url 'panel:venues' slug=current_event.slug as t_venues_url %}
+                                {% include "components/sidebar-link.html" with key="venues" href=t_venues_url icon="building-office-2" label=t_venues %}
                                 {% translate "Tracks" as t_tracks %}
-                                <a href="{% url 'panel:tracks' slug=current_event.slug %}"
-                                   title="{{ t_tracks }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'tracks' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "tag" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_tracks }}</span>
-                                </a>
+                                {% url 'panel:tracks' slug=current_event.slug as t_tracks_url %}
+                                {% include "components/sidebar-link.html" with key="tracks" href=t_tracks_url icon="tag" label=t_tracks %}
                                 {% translate "Schedule" as t_timetable %}
-                                <a href="{% url 'panel:timetable' slug=current_event.slug %}"
-                                   title="{{ t_timetable }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'timetable' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "calendar-days" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_timetable }}</span>
-                                </a>
+                                {% url 'panel:timetable' slug=current_event.slug as t_timetable_url %}
+                                {% include "components/sidebar-link.html" with key="timetable" href=t_timetable_url icon="calendar-days" label=t_timetable %}
                                 {% translate "Print Materials" as t_print %}
                                 {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
-                                <a href="{% url 'web:chronology:event-print' slug=current_event.slug %}"
-                                   target="_blank"
-                                   rel="noopener"
-                                   title="{{ t_print }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary rounded-lg transition hover:duration-0">
-                                    {% icon "printer" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_print }}</span>
-                                </a>
+                                {% url 'web:chronology:event-print' slug=current_event.slug as t_print_url %}
+                                {% include "components/sidebar-link.html" with href=t_print_url icon="printer" label=t_print new_tab=True %}
                             </div>
                         </div>
                         <div class="sidebar-cat" data-cat="settings">
@@ -285,20 +243,12 @@ the sphere.{% endcomment %}
                             </button>
                             <div class="sidebar-cat-body flex flex-col gap-0.5">
                                 {% translate "Event Settings" as t_event_settings %}
-                                <a href="{% url 'panel:event-settings' slug=current_event.slug %}"
-                                   title="{{ t_event_settings }}"
-                                   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'settings' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                    {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
-                                    <span class="sidebar-label">{{ t_event_settings }}</span>
-                                </a>
+                                {% url 'panel:event-settings' slug=current_event.slug as t_event_settings_url %}
+                                {% include "components/sidebar-link.html" with key="settings" href=t_event_settings_url icon="cog-6-tooth" label=t_event_settings %}
                             </div>
                             {% translate "Bans" as t_bans %}
-                            <a href="{% url 'panel:bans' slug=current_event.slug %}"
-                               title="{{ t_bans }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'bans' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "no-symbol" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_bans }}</span>
-                            </a>
+                            {% url 'panel:bans' slug=current_event.slug as t_bans_url %}
+                            {% include "components/sidebar-link.html" with key="bans" href=t_bans_url icon="no-symbol" label=t_bans %}
                         </div>
                     {% endif %}
                     <div class="sidebar-cat {% if current_event %}mt-4 pt-2 border-t border-border{% endif %}"
@@ -312,19 +262,11 @@ the sphere.{% endcomment %}
                         </button>
                         <div class="sidebar-cat-body flex flex-col gap-0.5">
                             {% translate "Guilds" as t_guilds %}
-                            <a href="{% url 'multiverse:panel:guilds' %}"
-                               title="{{ t_guilds }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'guilds' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "identification" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_guilds }}</span>
-                            </a>
+                            {% url 'multiverse:panel:guilds' as t_guilds_url %}
+                            {% include "components/sidebar-link.html" with key="guilds" href=t_guilds_url icon="identification" label=t_guilds %}
                             {% translate "Sphere settings" as t_sphere_settings %}
-                            <a href="{% url 'multiverse:panel:sphere-settings' %}"
-                               title="{{ t_sphere_settings }}"
-                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'sphere-settings' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
-                                {% icon "cog-6-tooth" class="size-4.5 mr-2" %}
-                                <span class="sidebar-label">{{ t_sphere_settings }}</span>
-                            </a>
+                            {% url 'multiverse:panel:sphere-settings' as t_sphere_settings_url %}
+                            {% include "components/sidebar-link.html" with key="sphere-settings" href=t_sphere_settings_url icon="cog-6-tooth" label=t_sphere_settings %}
                         </div>
                     </div>
                 {% endblock sidebar_nav %}

@@ -5,35 +5,44 @@
 # multiverse-specific.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-from django.urls import reverse
+from typing import TYPE_CHECKING, TypedDict
 
 from ludamus.mills.event import is_proposal_active
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.gates.web.django.multiverse.access import MultiverseRequest
-
-# One alias rather than repeating `dict[str, Any]` per builder: a template
-# context is untyped by nature, and naming it keeps the `Any` to a single use.
-type PanelContext = dict[str, Any]
+    from ludamus.pacts import EventDTO
 
 
-def sphere_panel_nav(request: MultiverseRequest, *, active_nav: str) -> PanelContext:
-    """Build sidebar-only context for a sphere-scoped panel page.
+class SphereSidebar(TypedDict):
+    events: Sequence[EventDTO]
+    current_event: EventDTO | None
+    is_proposal_active: bool
+    active_nav: str
 
-    For sphere pages that are their own sidebar entry rather than a tab inside
-    Sphere settings — Guilds is one. `current_event` defaults to the most
-    recent sphere event so the event panel sidebar (rendered from
-    `panel/base.html`) has something to link to. When the sphere has no events
-    the sidebar gracefully hides event-scoped items.
+
+class SphereSettings(SphereSidebar):
+    active_tab: str
+
+
+def sphere_sidebar_context(
+    request: MultiverseRequest, *, active_nav: str
+) -> SphereSidebar:
+    """Build context for a sphere page that is its own sidebar entry.
+
+    Guilds is one. `current_event` defaults to the most recent sphere event so
+    the event panel sidebar (rendered from `panel/base.html`) has something to
+    link to. When the sphere has no events the sidebar gracefully hides
+    event-scoped items.
 
     Returns:
-        Context dict with `events`, `current_event`, `is_proposal_active` and
-        `active_nav`.
+        The sidebar keys, with `active_nav` naming the entry to highlight.
     """
-    sphere_id = request.context.current_sphere_id
-    events = request.services.sphere_panel.list_events(sphere_id)
+    events = request.services.sphere_panel.list_events(
+        request.context.current_sphere_id
+    )
     current_event = events[0] if events else None
 
     return {
@@ -46,21 +55,21 @@ def sphere_panel_nav(request: MultiverseRequest, *, active_nav: str) -> PanelCon
     }
 
 
-def sphere_panel_context(
+def sphere_settings_context(
     request: MultiverseRequest, *, active_tab: str
-) -> PanelContext:
-    """Build sidebar + tabs context for a page inside Sphere settings.
+) -> SphereSettings:
+    """Build context for a page inside Sphere settings.
+
+    Named apart from `sphere_sidebar_context` because passing the wrong one
+    fails silently: a tab strip rendered without `active_tab` selects nothing
+    rather than raising.
 
     Returns:
-        `sphere_panel_nav`'s keys plus the settings tabs (`active_tab`,
-        `tab_urls`).
+        The sidebar keys plus the tab strip's `active_tab`. Tab hrefs are not
+        here — they take no arguments, so `_sphere_tabs_nav.html` reverses them
+        itself.
     """
-    return sphere_panel_nav(request, active_nav="sphere-settings") | {
+    return {
+        **sphere_sidebar_context(request, active_nav="sphere-settings"),
         "active_tab": active_tab,
-        "tab_urls": {
-            "general": reverse("multiverse:panel:sphere-settings"),
-            "connections": reverse("multiverse:panel:connections"),
-            "announcements": reverse("multiverse:panel:announcements"),
-            "mcp": reverse("multiverse:panel:mcp-token"),
-        },
     }

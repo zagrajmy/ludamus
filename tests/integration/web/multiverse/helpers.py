@@ -12,17 +12,11 @@ if TYPE_CHECKING:
 
 PERMISSION_ERROR = "You don't have permission to access the sphere panel."
 
-TAB_URLS = {
-    "general": "/multiverse/panel/",
-    "connections": "/multiverse/panel/connections/",
-    "announcements": "/multiverse/panel/announcements/",
-    "mcp": "/multiverse/panel/mcp/",
-}
 
-
-# Sidebar-only context, for sphere pages that are their own nav entry rather
-# than a tab inside Sphere settings.
-def sphere_panel_nav_context(*, active_nav: str) -> dict:
+# Mirrors gates.web.django.sphere.panel_context. Kept deliberately small: tab
+# hrefs are reversed in the template now, so there is no URL table to keep in
+# step here.
+def sphere_sidebar_context(*, active_nav: str) -> dict:
     return {
         "events": [],
         "current_event": None,
@@ -31,10 +25,9 @@ def sphere_panel_nav_context(*, active_nav: str) -> dict:
     }
 
 
-def sphere_panel_context(*, active_tab: str) -> dict:
-    return sphere_panel_nav_context(active_nav="sphere-settings") | {
-        "active_tab": active_tab,
-        "tab_urls": TAB_URLS,
+def sphere_settings_context(*, active_tab: str) -> dict:
+    return sphere_sidebar_context(active_nav="sphere-settings") | {
+        "active_tab": active_tab
     }
 
 

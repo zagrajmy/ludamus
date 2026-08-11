@@ -16,7 +16,7 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.multiverse.panel.forms import ConnectionForm
-from ludamus.gates.web.django.sphere.panel_context import sphere_panel_context
+from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts import NotFoundError, RedirectError
 from ludamus.pacts.multiverse import (
     ConnectionInUseError,
@@ -51,7 +51,7 @@ class ConnectionsPageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/connections/list.html",
             {
-                **sphere_panel_context(self.request, active_tab="connections"),
+                **sphere_settings_context(self.request, active_tab="connections"),
                 "connections": connections,
             },
         )
@@ -67,7 +67,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/connections/create.html",
             {
-                **sphere_panel_context(self.request, active_tab="connections"),
+                **sphere_settings_context(self.request, active_tab="connections"),
                 "form": ConnectionForm(is_create=True),
             },
         )
@@ -79,7 +79,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
                 self.request,
                 "multiverse/panel/connections/create.html",
                 {
-                    **sphere_panel_context(self.request, active_tab="connections"),
+                    **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
                 },
             )
@@ -96,7 +96,7 @@ class ConnectionCreatePageView(SphereAccessMixin, View):
                 self.request,
                 "multiverse/panel/connections/create.html",
                 {
-                    **sphere_panel_context(self.request, active_tab="connections"),
+                    **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
                 },
             )
@@ -121,7 +121,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/connections/edit.html",
             {
-                **sphere_panel_context(self.request, active_tab="connections"),
+                **sphere_settings_context(self.request, active_tab="connections"),
                 "form": form,
                 "connection": connection,
             },
@@ -140,7 +140,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
                 self.request,
                 "multiverse/panel/connections/edit.html",
                 {
-                    **sphere_panel_context(self.request, active_tab="connections"),
+                    **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
                     "connection": connection,
                 },
@@ -161,7 +161,7 @@ class ConnectionEditPageView(SphereAccessMixin, View):
                 self.request,
                 "multiverse/panel/connections/edit.html",
                 {
-                    **sphere_panel_context(self.request, active_tab="connections"),
+                    **sphere_settings_context(self.request, active_tab="connections"),
                     "form": form,
                     "connection": connection,
                 },
@@ -186,7 +186,7 @@ class ConnectionDeletePageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/connections/delete.html",
             {
-                **sphere_panel_context(self.request, active_tab="connections"),
+                **sphere_settings_context(self.request, active_tab="connections"),
                 "connection": connection,
             },
         )
