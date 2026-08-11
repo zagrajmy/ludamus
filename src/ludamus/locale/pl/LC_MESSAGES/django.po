@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-11 13:56+0200\n"
+"POT-Creation-Date: 2026-08-11 17:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6398,10 +6398,6 @@ msgstr "Przełącz pasek boczny"
 msgid "Panel sections"
 msgstr "Sekcje panelu"
 
-#: src/ludamus/templates/panel/base.html
-msgid "Toggle category"
-msgstr "Przełącz kategorię"
-
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
 msgstr "Pulpit"
@@ -8312,14 +8308,8 @@ msgstr "Ostatnia modyfikacja"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #, python-format
-msgid ""
-"\n"
-"                            Scheduled in %(space)s, %(start)s – %(end)s\n"
-"                        "
-msgstr ""
-"\n"
-"                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
-"                        "
+msgid "Scheduled in %(space)s, %(start)s – %(end)s"
+msgstr "Zaplanowano w %(space)s, %(start)s – %(end)s"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "View on timetable"
@@ -8327,14 +8317,8 @@ msgstr "Zobacz w harmonogramie"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #, python-format
-msgid ""
-"\n"
-"                            Imported via %(name)s on %(at)s\n"
-"                        "
-msgstr ""
-"\n"
-"                            Zaimportowano przez %(name)s — %(at)s\n"
-"                        "
+msgid "Imported via %(name)s on %(at)s"
+msgstr "Zaimportowano przez %(name)s — %(at)s"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "View import log"
@@ -9042,6 +9026,29 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Toggle category"
+#~ msgstr "Przełącz kategorię"
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                            Scheduled in %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                            Imported via %(name)s on %(at)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaimportowano przez %(name)s — %(at)s\n"
+#~ "                        "
 
 #~ msgid "Nothing to filter by yet."
 #~ msgstr "Nie ma jeszcze czego filtrować."

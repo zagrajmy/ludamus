@@ -5,11 +5,18 @@
 # multiverse-specific.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from django.urls import reverse
 
 from ludamus.mills.event import is_proposal_active
+
+# The four tabs in _sphere_tabs_nav.html. Closed for the same reason as the
+# nav keys: a strip whose `active_tab` matches no tab selects nothing, and a
+# `tab_urls` key the template does not ask for resolves to "" — pointing the
+# tab at the current page. Reversing in Python catches a renamed *route*;
+# this catches a renamed *key*.
+SphereTab = Literal["general", "announcements", "connections", "mcp"]
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -27,8 +34,8 @@ class SphereSidebar(TypedDict):
 
 
 class SphereSettings(SphereSidebar):
-    active_tab: str
-    tab_urls: dict[str, str]
+    active_tab: SphereTab
+    tab_urls: dict[SphereTab, str]
 
 
 # `current_event` defaults to the most recent sphere event so the event panel
@@ -58,7 +65,7 @@ def sphere_sidebar_context(
 # reverses in Python — `{% url … as … %}` would swallow a renamed route and
 # point the whole strip at the current page.
 def sphere_settings_context(
-    request: MultiverseRequest, *, active_tab: str
+    request: MultiverseRequest, *, active_tab: SphereTab
 ) -> SphereSettings:
     return {
         **sphere_sidebar_context(request, active_nav="sphere-settings"),

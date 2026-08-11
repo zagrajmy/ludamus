@@ -6,6 +6,10 @@ resolves `active` before handing this a closed context — the same split as
 the tab tag and components/tab-link.html. Nothing here is read from ambient
 context, so there is no include-without-`only` trap.
 
+The highlight styles off `[aria-current=page]` rather than re-testing `active`,
+so "highlighted" and "is the current page" cannot drift apart — the same trick
+components/tab-shell-bar.html uses with `[aria-selected=true]`.
+
 Variables:
   href     resolved destination
   icon     heroicon name
@@ -17,7 +21,7 @@ Variables:
    {% if new_tab %}target="_blank" rel="noopener"{% endif %}
    {% if active %}aria-current="page"{% endif %}
    title="{{ label }}"
-   class="sidebar-link flex text-sm items-center px-2 py-3 {% if active %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
+   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary aria-[current=page]:text-foreground aria-[current=page]:bg-bg-secondary dark:aria-[current=page]:bg-bg-tertiary rounded-lg transition hover:duration-0">
     {% icon icon class="size-4.5 mr-2" %}
     <span class="sidebar-label">{{ label }}</span>
 </a>

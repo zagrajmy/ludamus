@@ -14,10 +14,12 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 
 # Every value `active_nav` can take — one per entry in the panel sidebar
-# (`panel/base.html`). Both ends of the comparison are closed against it: views
-# are typed, and `{% sidebar_link %}` checks its `key` at render time, since the
-# call sites are template literals no type checker reads. A key that matches
-# nothing highlights nothing, silently, which is the whole failure mode.
+# (`panel/base.html`). A value outside this set highlights nothing, silently,
+# which is the whole failure mode. `{% sidebar_link %}` is the one place that
+# can catch it: the ~50 chronology views that set `active_nav` assign into
+# `dict[str, Any]`/`dict[str, object]` contexts and are *not* type-checked, and
+# the 14 `key=` call sites are template literals no type checker reads. So both
+# ends are checked there, at render time.
 PanelNav = Literal[
     "index",
     "cfp",
@@ -34,6 +36,15 @@ PanelNav = Literal[
     "sphere-settings",
 ]
 PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
+
+# Every sidebar category. Closed for the same reason, but against a stylesheet
+# rather than a comparison: the collapse rules in `panel/base.html` enumerate
+# `html.catc-<key> [data-cat="<key>"] .sidebar-cat-body` by hand, so a category
+# outside this set renders a fully wired toggle — chevron, aria-expanded,
+# localStorage write — that visibly does nothing. Add a key here and you must
+# add the two rules there.
+PanelCat = Literal["program", "schedule", "settings", "sphere"]
+PANEL_CAT_KEYS: Final = frozenset(get_args(PanelCat))
 
 
 def parse_requirement_selection(

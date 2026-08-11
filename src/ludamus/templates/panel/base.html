@@ -118,7 +118,7 @@ the sphere.{% endcomment %}
 
         /* Sphere leads the sidebar when there is no event; otherwise it follows
            the event categories and takes a rule to separate it from them. */
-        [data-cat="sphere"]:not(:first-child) {
+        #sidebar [data-cat="sphere"]:not(:first-child) {
             margin-top: 1rem;
             padding-top: 0.5rem;
             border-top: 1px solid var(--color-border);
@@ -190,12 +190,11 @@ the sphere.{% endcomment %}
             <nav aria-label="{{ t_panel_sections }}"
                  class="sidebar-section px-2 gap-0.5 flex flex-col">
                 {% block sidebar_nav %}
-                    {% translate "Toggle category" as t_toggle_cat %}
                     {% if current_event %}
                         {% translate "Dashboard" as t_dashboard %}
                         {% sidebar_link url="panel:event-index" slug=current_event.slug icon="home" label=t_dashboard key="index" %}
                         {% translate "Program" as t_program %}
-                        {% sidebar_cat key="program" label=t_program toggle_label=t_toggle_cat %}
+                        {% sidebar_cat key="program" label=t_program %}
                             {% translate "Call for Proposals" as t_cfp %}
                             {% sidebar_link url="panel:cfp" slug=current_event.slug icon="rectangle-stack" label=t_cfp key="cfp" %}
                             {% translate "Proposals" as t_proposals %}
@@ -208,7 +207,7 @@ the sphere.{% endcomment %}
                             {% sidebar_link url="panel:import" slug=current_event.slug icon="arrow-down-tray" label=t_google_docs_import key="import" %}
                         {% endsidebar_cat %}
                         {% translate "Schedule" context "Sidebar category" as t_schedule_cat %}
-                        {% sidebar_cat key="schedule" label=t_schedule_cat toggle_label=t_toggle_cat %}
+                        {% sidebar_cat key="schedule" label=t_schedule_cat %}
                             {% translate "Venues" as t_venues %}
                             {% sidebar_link url="panel:venues" slug=current_event.slug icon="building-office-2" label=t_venues key="venues" %}
                             {% translate "Tracks" as t_tracks %}
@@ -220,7 +219,7 @@ the sphere.{% endcomment %}
                             {% sidebar_link url="web:chronology:event-print" slug=current_event.slug icon="printer" label=t_print new_tab=True %}
                         {% endsidebar_cat %}
                         {% translate "Settings" as t_settings %}
-                        {% sidebar_cat key="settings" label=t_settings toggle_label=t_toggle_cat %}
+                        {% sidebar_cat key="settings" label=t_settings %}
                             {% translate "Event Settings" as t_event_settings %}
                             {% sidebar_link url="panel:event-settings" slug=current_event.slug icon="cog-6-tooth" label=t_event_settings key="settings" %}
                             {% translate "Bans" as t_bans %}
@@ -228,7 +227,7 @@ the sphere.{% endcomment %}
                         {% endsidebar_cat %}
                     {% endif %}
                     {% translate "Sphere" as t_sphere %}
-                    {% sidebar_cat key="sphere" label=t_sphere toggle_label=t_toggle_cat %}
+                    {% sidebar_cat key="sphere" label=t_sphere %}
                         {% translate "Guilds" as t_guilds %}
                         {% sidebar_link url="multiverse:panel:guilds" icon="identification" label=t_guilds key="guilds" %}
                         {% translate "Sphere settings" as t_sphere_settings %}

@@ -23,16 +23,21 @@ const toggleFold = (): void => {
   }
 };
 
-// `catc-<cat>` on <html> is the *collapsed* marker, so it is the negation of
-// the header's aria-expanded.
-const isCollapsed = (cat: string): boolean =>
-  document.documentElement.classList.contains(`catc-${cat}`);
+const categoryOf = (el: HTMLElement): string | undefined =>
+  el.closest<HTMLElement>("[data-cat]")?.dataset.cat;
+
+// `catc-<cat>` on <html> is the *collapsed* marker, so aria-expanded is its
+// negation. Stated once, so the toggle and the on-load sync cannot drift.
+const setExpanded = (header: HTMLElement, cat: string): void => {
+  const collapsed = document.documentElement.classList.contains(`catc-${cat}`);
+  header.setAttribute("aria-expanded", String(!collapsed));
+};
 
 const toggleCategory = (el: HTMLElement): void => {
-  const cat = el.closest<HTMLElement>("[data-cat]")?.dataset.cat;
+  const cat = categoryOf(el);
   if (!cat) return;
   const collapsed = document.documentElement.classList.toggle(`catc-${cat}`);
-  el.setAttribute("aria-expanded", String(!collapsed));
+  setExpanded(el, cat);
   try {
     localStorage.setItem(`panel-cat-${cat}`, collapsed ? "1" : "0");
   } catch {
@@ -42,13 +47,15 @@ const toggleCategory = (el: HTMLElement): void => {
 
 // The head script restores the collapsed set before paint, but the sidebar does
 // not exist yet at that point, so the headers ship as aria-expanded="true" and
-// are reconciled here.
+// are reconciled here. Module scope is deliberate: `{% vite_asset %}` emits
+// `type="module"`, which is deferred, so the DOM is parsed — waiting for
+// DOMContentLoaded would only widen the window in which the attribute lies.
 const syncCategoryHeaders = (): void => {
   for (const header of document.querySelectorAll<HTMLElement>(
     '.sidebar-cat-header[data-action="toggle-category"]',
   )) {
-    const cat = header.closest<HTMLElement>("[data-cat]")?.dataset.cat;
-    if (cat) header.setAttribute("aria-expanded", String(!isCollapsed(cat)));
+    const cat = categoryOf(header);
+    if (cat) setExpanded(header, cat);
   }
 };
 

@@ -1,6 +1,7 @@
 """Tests for the panel chrome's sidebar_link tag."""
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.template import Context, Template, TemplateSyntaxError
 from django.urls import NoReverseMatch
 
@@ -22,7 +23,7 @@ class TestSidebarLink:
         html = Template(GUILDS).render(Context({"active_nav": "sphere-settings"}))
 
         assert 'href="/multiverse/panel/guilds/"' in html
-        assert "aria-current" not in html
+        assert 'aria-current="page"' not in html
 
     def test_a_keyless_entry_is_never_current(self) -> None:
         # Print Materials leaves the panel, so no page it lands on is "here".
@@ -32,11 +33,11 @@ class TestSidebarLink:
             ' icon="printer" label="Print" new_tab=True %}'
         )
 
-        html = tpl.render(Context({"active_nav": ""}))
+        html = tpl.render(Context())
 
         assert 'target="_blank"' in html
         assert 'rel="noopener"' in html
-        assert "aria-current" not in html
+        assert 'aria-current="page"' not in html
 
     def test_passes_leftover_kwargs_to_the_route(self) -> None:
         tpl = Template(
@@ -72,6 +73,12 @@ class TestSidebarLink:
         with pytest.raises(TemplateSyntaxError, match="guild"):
             tpl.render(Context())
 
+    def test_an_active_nav_no_page_sets_blames_the_view(self) -> None:
+        # This check is the whole reason the ~50 untyped producers are left
+        # untyped, so it needs a test of its own.
+        with pytest.raises(ImproperlyConfigured, match="a panel view put"):
+            Template(GUILDS).render(Context({"active_nav": "guildz"}))
+
     def test_escapes_the_label(self) -> None:
         tpl = Template(
             "{% load panel_tags %}"
@@ -89,7 +96,7 @@ class TestSidebarLink:
 
 CATEGORY = (
     "{% load panel_tags %}"
-    '{% sidebar_cat key="sphere" label="Sphere" toggle_label="Toggle" %}'
+    '{% sidebar_cat key="sphere" label="Sphere" %}'
     '{% sidebar_link url="multiverse:panel:guilds" icon="identification"'
     ' label="Guilds" key="guilds" %}'
     "{% endsidebar_cat %}"
@@ -118,3 +125,16 @@ class TestSidebarCat:
         html = Template(CATEGORY).render(Context({"active_nav": "guilds"}))
 
         assert 'aria-current="page"' in html
+
+
+class TestSidebarCatKey:
+    def test_a_category_the_stylesheet_cannot_collapse_fails_loudly(self) -> None:
+        # A key with no collapse rules renders a toggle that visibly does
+        # nothing — the same dead-but-plausible failure sidebar_link guards.
+        tpl = Template(
+            "{% load panel_tags %}"
+            '{% sidebar_cat key="reports" label="Reports" %}{% endsidebar_cat %}'
+        )
+
+        with pytest.raises(TemplateSyntaxError, match="reports"):
+            tpl.render(Context())
