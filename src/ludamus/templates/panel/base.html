@@ -253,7 +253,7 @@ the sphere.{% endcomment %}
         Pages that run their cards to the viewport edge below sm mark their
         wrapper `.panel-bleed`; the rules live in index.css next to `.card`.
         {% endcomment %}
-        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5{% if active_nav == 'cfp' or active_nav == 'timetable' or active_nav == 'settings' or active_nav == 'sphere-settings' %} [&_.tab-shell]:border-0{% endif %}">
+        <main class="panel-main flex min-h-0 min-w-0 flex-1 flex-col [&_.tab-shell]:rounded-t-none [&_.tab-shell-bar]:pt-1.5 max-sm:[&_.tab-shell-bar]:px-1.5 max-sm:[&_.tab-shell-body]:px-1.5">
             <!-- Top Bar -->
             {% comment %}Header CTAs go icon-only below sm — the glyph carries the
             action and the title beside it gets the width back. The label goes
@@ -340,7 +340,12 @@ the sphere.{% endcomment %}
                      aria-live="polite"
                      aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
             {% endif %}
-            <div class="relative z-0 flex min-h-0 flex-1 flex-col">
+            {# A tab shell the page puts straight in here is flush with the panel
+            chrome, so its own border would double the chrome's edge. Pages that
+            inset their shell (inside a `p-3 sm:p-4` wrapper, say) keep it. This
+            used to be a list of the nav keys that happened to render a flush
+            shell, which the layout had no way to keep true. #}
+            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:border-0">
                 {% block content %}
                 {% endblock content %}
             </div>
