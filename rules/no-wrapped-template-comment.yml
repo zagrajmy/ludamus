@@ -1,0 +1,21 @@
+id: no-wrapped-template-comment
+language: html
+severity: error
+rule:
+  kind: document
+  regex: '(?m)\{#[^#\n]*(?:#+[^#}\n][^#\n]*)*#*$'
+message: |
+  A {# #} comment must open and close on one line.
+  Django's lexer matches it without re.DOTALL, so a wrapped one is not a
+  comment — the whole thing renders as page text.
+note: |
+  Use {% comment %}...{% endcomment %} for multi-line, or one self-closing
+  {# ... #} per line. To find it: grep -n '{#' the file and look for a line
+  with no closing #}.
+
+  This matches the whole document rather than a narrower node on purpose.
+  tree-sitter splits text at '<', so a one-line comment mentioning a tag —
+  {# the navbar is a <nav> too #} — looks unclosed to a node-scoped rule.
+
+  djlint cannot catch this at all: its own comment pattern is DOTALL, so it
+  reads the wrapped form as a valid comment and skips the region.
