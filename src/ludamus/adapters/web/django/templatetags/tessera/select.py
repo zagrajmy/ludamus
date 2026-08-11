@@ -65,13 +65,13 @@ class SelectNode(template.Node):
 
 @register.tag("select")
 def do_select(parser: Parser, token: Token) -> SelectNode:
-    """Parse ``{% select ... %}...{% endselect %}``.
+    """Parse ``{% select ... %}...{% end_select %}``.
 
     Returns:
         A SelectNode that renders a themed ``<select>`` wrapping its body.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("endselect",))
+    nodelist = parser.parse(("end_select",))
     parser.delete_first_token()
 
     return SelectNode(nodelist, attrs)

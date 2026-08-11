@@ -56,7 +56,7 @@
                                             <option value="{{ value }}"
                                                     {% if filter_accreditation == value %}selected{% endif %}>{{ label }}</option>
                                         {% endfor %}
-                                    {% endselect %}
+                                    {% end_select %}
                                 </div>
                                 <div class="w-full sm:w-48 min-w-0">
                                     {% translate "Organizer" as t_organizer %}
@@ -68,7 +68,7 @@
                                                 {% if filter_organizer == "unassigned" %}selected{% endif %}>
                                             {% translate "Nobody" %}
                                         </option>
-                                    {% endselect %}
+                                    {% end_select %}
                                 </div>
                                 {% for field in filterable_fields %}
                                     {% with pk_str=field.pk|stringformat:"s" %}
@@ -84,7 +84,7 @@
                                                                 {{ option.label }}
                                                             </option>
                                                         {% endfor %}
-                                                    {% endselect %}
+                                                    {% end_select %}
                                                 {% else %}
                                                     <div class="flex items-center h-9">
                                                         {% include "components/checkbox-field.html" with name=field_name id=field_id value="true" checked=filter_fields|get_item:field.pk aria_label=field.name only %}
@@ -264,7 +264,7 @@
                                         </tr>
                                     {% endfor %}
                                 </tbody>
-                            {% endtessera_table %}
+                            {% end_tessera_table %}
                             {% include "panel/parts/_pagination.html" %}
                         {% elif filters_active %}
                             <div class="card p-8 text-center">
@@ -281,8 +281,8 @@
                             </div>
                         {% endif %}
                     </div>
-                {% endtab_shell_body %}
-            {% endtab_shell %}
+                {% end_tab_shell_body %}
+            {% end_tab_shell %}
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

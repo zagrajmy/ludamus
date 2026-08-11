@@ -87,7 +87,7 @@
                                 </tr>
                             {% endfor %}
                         </tbody>
-                    {% endtessera_table %}
+                    {% end_tessera_table %}
                 {% else %}
                     <div class="card p-8 text-center">
                         <p class="text-foreground-muted mb-4">
@@ -98,8 +98,8 @@
                         {% tessera_button t_create href=create_url icon="plus" %}
                     </div>
                 {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
     {% else %}
         <div class="card p-8 text-center">
             <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

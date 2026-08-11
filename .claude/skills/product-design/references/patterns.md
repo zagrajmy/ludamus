@@ -19,9 +19,9 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | Action / link button | `{% tessera_button "Save" %}` | `href=` makes it a link; `variant="primary"/"secondary"/"danger"`, `size=`, `icon=`, `disabled`, `full_width_mobile`. The raw classes are `.btn .btn-primary` etc. |
 | Icon | `{% icon "calendar" %}` | Heroicons. `variant="outline"/"solid"/"mini"/"micro"`, `class="w-5 h-5"`. |
 | Icon-only button | `.icon-btn` + `{% icon %}` + `<span class="sr-only">` | **Must** carry an accessible name (`sr-only` span or `aria-label`). Enforced by `rules/icon-btn-accessible-name.yml`. Variants: `.icon-btn-primary`, `.icon-btn-danger`. |
-| Custom `<select>` | `{% select id=.. name=.. %}<option>…{% endselect %}` | Slot-based, for selects not backed by a form field. Registered as a djlint custom block. |
-| Data table | `{% tessera_table %}<thead>…<tbody>…{% endtessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. |
-| Tab navigation | `{% tabs %}{% tab "key" icon=.. href=.. active=.. %}Label{% endtab %}{% endtabs %}` | For navigation between related views. Tabs are *navigation* — use links, not buttons. |
+| Custom `<select>` | `{% select id=.. name=.. %}<option>…{% end_select %}` | Slot-based, for selects not backed by a form field. Registered as a djlint custom block. |
+| Data table | `{% tessera_table %}<thead>…<tbody>…{% end_tessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. |
+| Tab navigation | `{% tabs %}{% tab "key" icon=.. href=.. active=.. %}Label{% end_tab %}{% end_tabs %}` | For navigation between related views. Tabs are *navigation* — use links, not buttons. |
 | Avatar | `{% include "components/avatar.html" with user=.. size="size-12" %}` | Size via Tailwind `size-*`. |
 
 Other ready-made component templates live in

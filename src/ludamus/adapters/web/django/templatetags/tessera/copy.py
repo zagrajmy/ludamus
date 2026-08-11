@@ -57,7 +57,7 @@ _VARIANT_CLASSES = {
 }
 
 
-@register.simple_block_tag
+@register.simple_block_tag(end_name="end_tessera_copy")
 def tessera_copy(
     content: str,
     copy: str,
@@ -79,7 +79,7 @@ def tessera_copy(
         {% tessera_copy share_url variant="menu-item" %}
             {% icon "clipboard-document" variant="solid" class="h-4 w-4" %}
             {% translate "Copy link" %}
-        {% endtessera_copy %}
+        {% end_tessera_copy %}
     """
     copied_label = copied_label or gettext("Copied!")
     if variant not in _VARIANT_CLASSES:

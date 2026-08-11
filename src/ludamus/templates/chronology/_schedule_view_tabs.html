@@ -6,8 +6,8 @@
     {# keeps the accessible name. #}
     {% tab "list" icon="list-bullet" href=schedule_list_url active=schedule_view_is_list %}
         <span class="sr-only sm:not-sr-only">{% translate "List" %}</span>
-    {% endtab %}
+    {% end_tab %}
     {% tab "rooms" icon="table-cells" href=schedule_rooms_url active=schedule_view_is_rooms %}
         <span class="sr-only sm:not-sr-only">{% translate "Rooms" %}</span>
-    {% endtab %}
-{% endtabs %}
+    {% end_tab %}
+{% end_tabs %}

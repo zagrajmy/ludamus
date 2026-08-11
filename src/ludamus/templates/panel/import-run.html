@@ -141,7 +141,7 @@
                         </form>
                     </div>
                 </div>
-            {% endtab_shell_body %}
+            {% end_tab_shell_body %}
         {% else %}
             {% tab_shell_body %}
                 <div class="card p-8 text-center">
@@ -149,14 +149,14 @@
                         {% translate "No import integrations yet. Add one in Settings → Integrations to import proposals from an external form." %}
                     </p>
                 </div>
-            {% endtab_shell_body %}
+            {% end_tab_shell_body %}
         {% endif %}
     {% else %}
         {% tab_shell_body %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
             </div>
-        {% endtab_shell_body %}
+        {% end_tab_shell_body %}
     {% endif %}
 {% endblock content %}
 {% block extra_scripts %}

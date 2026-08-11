@@ -29,7 +29,7 @@
             {% tab_shell_body %}
                 {% translate "No changes recorded yet." as t_empty %}
                 {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names empty_text=t_empty item_header="" revertible_pks="" slug="" csrf_token=csrf_token only %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
     {% endif %}
 {% endblock content %}

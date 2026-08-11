@@ -55,7 +55,7 @@
                                                 {% if facilitator.user_id %}
                                                     <span class="text-foreground-muted">· {% translate "Linked" %}</span>
                                                 {% endif %}
-                                            {% endradio %}
+                                            {% end_radio %}
                                         {% endfor %}
                                     </fieldset>
                                 </div>
@@ -74,7 +74,7 @@
                                                     {% for name, checked in name_choices %}
                                                         {% radio name="display_name" value=name checked=checked %}
                                                             {{ name }}
-                                                        {% endradio %}
+                                                        {% end_radio %}
                                                     {% endfor %}
                                                 </fieldset>
                                             {% endif %}
@@ -85,7 +85,7 @@
                                                         {% radio name="accreditation_type" value=value checked=checked %}
                                                             {{ label }}
                                                             <span class="text-foreground-muted">· {{ sources }}</span>
-                                                        {% endradio %}
+                                                        {% end_radio %}
                                                     {% endfor %}
                                                 </fieldset>
                                             {% endif %}
@@ -97,7 +97,7 @@
                                                             {% radio name="personal_"|add:pk_str value=holder_pk checked=checked %}
                                                                 {{ label }}
                                                                 <span class="text-foreground-muted">· {{ sources }}</span>
-                                                            {% endradio %}
+                                                            {% end_radio %}
                                                         {% endfor %}
                                                     {% endwith %}
                                                 </fieldset>
@@ -185,8 +185,8 @@
                             </div>
                         </form>
                     {% endif %}
-                {% endtab_shell_body %}
-            {% endtab_shell %}
+                {% end_tab_shell_body %}
+            {% end_tab_shell %}
         {% endif %}
     </div>
 {% endblock content %}

@@ -27,7 +27,7 @@
                                     {{ track.name }}
                                 </option>
                             {% endfor %}
-                        {% endselect %}
+                        {% end_select %}
                     </form>
                 {% endif %}
             </div>
@@ -152,8 +152,8 @@
                 </section>
                 {% include "panel/parts/confirmation-orphan-warning.html" with count=dashboard.without_facilitator_count %}
             {% endif %}
-        {% endtab_shell_body %}
-    {% endtab_shell %}
+        {% end_tab_shell_body %}
+    {% end_tab_shell %}
 {% endblock content %}
 {% block extra_scripts %}
     {% vite_asset 'src/filter-autosubmit.ts' %}

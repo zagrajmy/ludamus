@@ -69,6 +69,10 @@ pytest-cov = "^7.0.0"
 pytest-django = "^4.11.1"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
+# Imported directly by scripts/djlint_underscore_end.py, the copy of djlint's
+# T038 rule. djlint compiles its patterns with regex, not stdlib re, and the
+# copy has to use the same flavour.
+regex = "^2026.7.19"
 responses = "^0.26.0"
 ruff = "^0.16.0"
 types-authlib = "^1.7.2.20260724"
@@ -134,7 +138,9 @@ template_extensions = 'html'
 # DJLINT
 
 [tool.djlint]
-ignore = "H021,H031,H037,D018"
+# T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
+# `{% end_name %}` closers as well as `{% endname %}`.
+ignore = "H021,H031,H037,D018,T038"
 custom_blocks = "select,radio,document_title,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
@@ -154,7 +160,10 @@ DEP002 = [
     "whitenoise",
     "django-storages",
 ]
-DEP004 = ["debug_toolbar", "vekna"]
+# djlint and regex: scripts/djlint_underscore_end.py is a djlint plugin, so it
+# imports the linter it extends and the regex flavour djlint compiles its
+# patterns with. Lint-time only, never at runtime.
+DEP004 = ["debug_toolbar", "djlint", "regex", "vekna"]
 
 # MYPY
 
