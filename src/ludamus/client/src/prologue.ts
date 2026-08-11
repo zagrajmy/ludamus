@@ -5,12 +5,14 @@
 // (keeps the strict CSP: only connect-src needs the PostHog ingestion host).
 //
 // Consent states (stored under STORAGE_KEY in localStorage):
-// - unset:      PostHog runs with in-memory persistence only — no cookies,
-//               no localStorage, no session recording — and the banner shows.
-// - "accepted": durable persistence, capturing opted in, session recording
-//               with every input masked.
-// - "declined": PostHog is not initialized at all on later page loads; if it
-//               was already running in memory mode this pageload, it opts out.
+// - unset:      PostHog is not initialized at all — no events leave the
+//               browser — and the banner shows. The banner's "nothing is
+//               stored before you agree" promise depends on this staying
+//               literally true.
+// - "accepted": initialized with durable persistence, capturing opted in,
+//               session recording with every input masked.
+// - "declined": PostHog is never initialized; withdrawing consent on a
+//               pageload where it already runs opts out and stops recording.
 import posthog from "posthog-js/dist/module.full.no-external";
 
 const STORAGE_KEY = "prologue.consent";
@@ -34,15 +36,14 @@ const readConsent = (): Consent => {
   return stored === "accepted" || stored === "declined" ? stored : null;
 };
 
-const initPosthog = (config: PosthogServerConfig, consented: boolean): void => {
+const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
     api_host: config.host,
     capture_exceptions: true,
     defaults: "2025-05-24",
     disable_external_dependency_loading: true,
-    disable_session_recording: !consented,
     disable_surveys: true,
-    persistence: consented ? "localStorage+cookie" : "memory",
+    persistence: "localStorage+cookie",
     session_recording: {
       maskAllInputs: true,
       maskTextSelector: "[data-ph-mask]",
@@ -58,7 +59,7 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
       posthog.opt_in_capturing();
       posthog.startSessionRecording();
     } else {
-      initPosthog(config, true);
+      initPosthog(config);
     }
   } else if (posthog.__loaded) {
     posthog.stopSessionRecording();
@@ -71,7 +72,7 @@ const init = (): void => {
   if (!config) return;
 
   const consent = readConsent();
-  if (consent !== "declined") initPosthog(config, consent === "accepted");
+  if (consent === "accepted") initPosthog(config);
 
   const banner = document.getElementById("consent-banner");
   if (!(banner instanceof HTMLElement)) return;
