@@ -1,6 +1,9 @@
 paranoid: true
 allowBuilds:
   fallow: true
+  # posthog-js transitive dep; its postinstall only prints the funding
+  # banner — install without ever executing the script.
+  core-js: false
 packages:
   - "./src/ludamus/client"
   - "./tests/e2e"
