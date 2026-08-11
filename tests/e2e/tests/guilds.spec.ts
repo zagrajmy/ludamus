@@ -149,18 +149,22 @@ test.describe("Guilds", () => {
 
     // The page's own <nav> is the site navbar; the sidebar lives in the aside.
     const sidebar = page.getByRole("complementary");
+    const settings = sidebar.getByRole("link", {
+      name: "Sphere settings",
+      exact: true,
+    });
+    await expect(settings).toHaveAttribute("aria-current", "page");
+
     await sidebar.getByRole("link", { name: "Guilds", exact: true }).click();
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/$/);
     await expect(page.getByRole("heading", { name: "Guilds", level: 2 })).toBeVisible();
-    // Sphere settings owns the highlight on the page we came from; arriving at
+    // Sphere settings owned the highlight on the page we came from; arriving at
     // Guilds has to move it, which is the whole point of the nav entry.
     await expect(sidebar.getByRole("link", { name: "Guilds", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    await expect(
-      sidebar.getByRole("link", { name: "Sphere settings", exact: true }),
-    ).not.toHaveAttribute("aria-current", "page");
+    await expect(settings).not.toHaveAttribute("aria-current", "page");
   });
 });

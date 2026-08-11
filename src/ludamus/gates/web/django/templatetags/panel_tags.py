@@ -14,6 +14,15 @@ if TYPE_CHECKING:
 register = template.Library()
 
 
+# One entry in the panel sidebar. `key` is the `active_nav` value that marks
+# this entry current; a link that is never "where you are" (Print Materials
+# opens a new tab and leaves the panel) passes none. Leftover kwargs are the
+# route's URL kwargs.
+# Reversing here rather than in the template is the point: `{% url … as … %}`
+# swallows NoReverseMatch and renders `href=""`, so a renamed route would
+# silently aim every sidebar entry at the current page. `reverse` raises.
+# Resolving `active` here too hands the partial a closed context, the same
+# split as `{% tab %}` in tessera/tabs.py.
 @register.simple_tag(takes_context=True)
 def sidebar_link(
     context: Context,
@@ -21,41 +30,17 @@ def sidebar_link(
     url: str,
     icon: str,
     label: str,
-    key: str = "",
-    slug: str | None = None,
+    key: str | None = None,
     new_tab: bool = False,
+    **url_kwargs: str,
 ) -> str:
-    """Render one entry in the panel sidebar.
-
-    Reverses in Python rather than letting the template do `{% url … as … %}`,
-    which swallows NoReverseMatch and renders `href=""` — a renamed route would
-    silently point every sidebar entry at the current page. `reverse` raises.
-
-    Resolving `active` here and handing the partial a closed context is how
-    `{% tab %}` works (`tessera/tabs.py`): the caller says which page this *is*,
-    never whether it is current, and the partial reads nothing ambient.
-
-    Args:
-        context: rendering context; read for `active_nav`.
-        url: route name to reverse.
-        icon: heroicon name.
-        label: visible text, also the title attribute.
-        key: the `active_nav` value that marks this entry current. Omit for a
-            link that is never "where you are" — Print Materials opens a new
-            tab and leaves the panel.
-        slug: event slug, for the event-scoped routes that take one.
-        new_tab: open in a new tab.
-
-    Returns:
-        HTML string of the sidebar anchor.
-    """
     return render_to_string(
         "components/sidebar-link.html",
         {
-            "href": reverse(url, kwargs={"slug": slug} if slug else {}),
+            "href": reverse(url, kwargs=url_kwargs),
             "icon": icon,
             "label": label,
-            "active": bool(key) and key == context.get("active_nav"),
+            "active": key is not None and key == context.get("active_nav"),
             "new_tab": new_tab,
         },
     )

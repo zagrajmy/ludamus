@@ -5,7 +5,7 @@
 # multiverse-specific.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from django.urls import reverse
 
@@ -17,12 +17,18 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.multiverse.access import MultiverseRequest
     from ludamus.pacts import EventDTO
 
+# Sphere pages that are their own sidebar entry. The template compares
+# `active_nav` against the `key` each `{% sidebar_link %}` declares, and a
+# mismatch just fails to highlight anything — so the set is closed here and
+# every producer is checked against it.
+SphereNav = Literal["guilds", "sphere-settings"]
+
 
 class SphereSidebar(TypedDict):
     events: Sequence[EventDTO]
     current_event: EventDTO | None
     is_proposal_active: bool
-    active_nav: str
+    active_nav: SphereNav
 
 
 class SphereSettings(SphereSidebar):
@@ -30,19 +36,12 @@ class SphereSettings(SphereSidebar):
     tab_urls: dict[str, str]
 
 
+# `current_event` defaults to the most recent sphere event so the event panel
+# sidebar (rendered from `panel/base.html`) has something to link to. A sphere
+# with no events gracefully hides the event-scoped items.
 def sphere_sidebar_context(
-    request: MultiverseRequest, *, active_nav: str
+    request: MultiverseRequest, *, active_nav: SphereNav
 ) -> SphereSidebar:
-    """Build context for a sphere page that is its own sidebar entry.
-
-    Guilds is one. `current_event` defaults to the most recent sphere event so
-    the event panel sidebar (rendered from `panel/base.html`) has something to
-    link to. When the sphere has no events the sidebar gracefully hides
-    event-scoped items.
-
-    Returns:
-        The sidebar keys, with `active_nav` naming the entry to highlight.
-    """
     events = request.services.sphere_panel.list_events(
         request.context.current_sphere_id
     )
@@ -58,23 +57,14 @@ def sphere_sidebar_context(
     }
 
 
+# Named apart from `sphere_sidebar_context` because passing the wrong one fails
+# silently: a tab strip rendered without `active_tab` selects nothing rather
+# than raising. Hrefs are reversed here for the same reason `{% sidebar_link %}`
+# reverses in Python — `{% url … as … %}` would swallow a renamed route and
+# point the whole strip at the current page.
 def sphere_settings_context(
     request: MultiverseRequest, *, active_tab: str
 ) -> SphereSettings:
-    """Build context for a page inside Sphere settings.
-
-    Named apart from `sphere_sidebar_context` because passing the wrong one
-    fails silently: a tab strip rendered without `active_tab` selects nothing
-    rather than raising.
-
-    Tab hrefs are reversed here rather than in the template. `{% url … as … %}`
-    swallows NoReverseMatch and yields `href=""`, so a renamed route would point
-    the whole strip at the current page without a word; `reverse` raises. This
-    also keeps the strip shaped like the eight other `*_tab_urls` producers.
-
-    Returns:
-        The sidebar keys plus the tab strip's `active_tab` and hrefs.
-    """
     return {
         **sphere_sidebar_context(request, active_nav="sphere-settings"),
         "active_tab": active_tab,

@@ -1,10 +1,10 @@
 {% load tessera %}
 {% comment %}
-One entry in the panel sidebar. Rendered by {% templatetag openblock %} sidebar_link {% templatetag closeblock %}
+One entry in the panel sidebar. Rendered by the sidebar_link tag
 (gates/web/django/templatetags/panel_tags.py), which reverses the href and
 resolves `active` before handing this a closed context — the same split as
-{% templatetag openblock %} tab {% templatetag closeblock %} / components/tab-link.html. Nothing here is read from
-ambient context, so there is no include-without-`only` trap.
+the tab tag and components/tab-link.html. Nothing here is read from ambient
+context, so there is no include-without-`only` trap.
 
 Variables:
   href     resolved destination
