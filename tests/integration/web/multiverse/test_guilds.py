@@ -12,10 +12,10 @@ from tests.integration.conftest import PNG_BYTES, SphereFactory, UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_panel_nav_context,
 )
 
-GUILDS_PANEL_CONTEXT = sphere_panel_context(active_tab="guilds")
+GUILDS_PANEL_CONTEXT = sphere_panel_nav_context(active_nav="guilds")
 LIST_URL = reverse("multiverse:panel:guilds")
 
 

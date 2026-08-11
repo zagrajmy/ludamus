@@ -311,6 +311,13 @@ the sphere.{% endcomment %}
                             <span class="sidebar-cat-chevron">{% icon "chevron-down" class="w-4 h-4" %}</span>
                         </button>
                         <div class="sidebar-cat-body flex flex-col gap-0.5">
+                            {% translate "Guilds" as t_guilds %}
+                            <a href="{% url 'multiverse:panel:guilds' %}"
+                               title="{{ t_guilds }}"
+                               class="sidebar-link flex text-sm items-center px-2 py-3 {% if active_nav == 'guilds' %}text-foreground bg-bg-secondary dark:bg-bg-tertiary{% else %}text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary{% endif %} rounded-lg transition hover:duration-0">
+                                {% icon "identification" class="size-4.5 mr-2" %}
+                                <span class="sidebar-label">{{ t_guilds }}</span>
+                            </a>
                             {% translate "Sphere settings" as t_sphere_settings %}
                             <a href="{% url 'multiverse:panel:sphere-settings' %}"
                                title="{{ t_sphere_settings }}"

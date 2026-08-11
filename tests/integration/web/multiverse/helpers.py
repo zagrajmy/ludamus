@@ -16,17 +16,23 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
     "announcements": "/multiverse/panel/announcements/",
-    "guilds": "/multiverse/panel/guilds/",
     "mcp": "/multiverse/panel/mcp/",
 }
 
 
-def sphere_panel_context(*, active_tab: str) -> dict:
+# Sidebar-only context, for sphere pages that are their own nav entry rather
+# than a tab inside Sphere settings.
+def sphere_panel_nav_context(*, active_nav: str) -> dict:
     return {
         "events": [],
         "current_event": None,
         "is_proposal_active": False,
-        "active_nav": "sphere-settings",
+        "active_nav": active_nav,
+    }
+
+
+def sphere_panel_context(*, active_tab: str) -> dict:
+    return sphere_panel_nav_context(active_nav="sphere-settings") | {
         "active_tab": active_tab,
         "tab_urls": TAB_URLS,
     }

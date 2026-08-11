@@ -15,7 +15,7 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
-from ludamus.gates.web.django.sphere.panel_context import sphere_panel_context
+from ludamus.gates.web.django.sphere.panel_context import sphere_panel_nav
 from ludamus.pacts import RedirectError
 from ludamus.pacts.guild import AssignMemberOutcome
 from ludamus.pacts.legacy import resolve_uploaded_file_field
@@ -59,10 +59,7 @@ class GuildsPageView(SphereAccessMixin, View):
         return TemplateResponse(
             self.request,
             "multiverse/panel/guilds/list.html",
-            {
-                **sphere_panel_context(self.request, active_tab="guilds"),
-                "guilds": guilds,
-            },
+            {**sphere_panel_nav(self.request, active_nav="guilds"), "guilds": guilds},
         )
 
 
@@ -91,7 +88,7 @@ class GuildCreatePageView(SphereAccessMixin, View):
         return TemplateResponse(
             self.request,
             "multiverse/panel/guilds/create.html",
-            {**sphere_panel_context(self.request, active_tab="guilds"), "form": form},
+            {**sphere_panel_nav(self.request, active_nav="guilds"), "form": form},
         )
 
 
@@ -124,7 +121,7 @@ class GuildEditPageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/guilds/edit.html",
             {
-                **sphere_panel_context(self.request, active_tab="guilds"),
+                **sphere_panel_nav(self.request, active_nav="guilds"),
                 "guild": guild,
                 "form": form,
                 "member_form": GuildMemberForm(),
@@ -140,7 +137,7 @@ class GuildDeletePageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/guilds/delete.html",
             {
-                **sphere_panel_context(self.request, active_tab="guilds"),
+                **sphere_panel_nav(self.request, active_nav="guilds"),
                 "guild": _read_guild(self.request, pk),
             },
         )
