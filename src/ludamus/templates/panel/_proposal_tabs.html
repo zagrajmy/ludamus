@@ -1,5 +1,9 @@
 {% load i18n tessera %}
 {% tabs %}
-{% tab "list" href=tab_urls.list %}{% translate "List" %}{% end_tab %}
-{% tab "columns" href=tab_urls.columns %}{% translate "Columns" %}{% end_tab %}
-{% end_tabs %}
+    {% tab "list" href=tab_urls.list %}
+        {% translate "List" %}
+    {% endtab %}
+    {% tab "columns" href=tab_urls.columns %}
+        {% translate "Columns" %}
+    {% endtab %}
+{% endtabs %}

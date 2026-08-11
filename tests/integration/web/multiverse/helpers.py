@@ -16,6 +16,7 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "connections": "/multiverse/panel/connections/",
     "announcements": "/multiverse/panel/announcements/",
+    "guilds": "/multiverse/panel/guilds/",
     "mcp": "/multiverse/panel/mcp/",
 }
 

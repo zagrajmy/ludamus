@@ -12,16 +12,21 @@
     A `button`, not a focusable div: opening the detail pane is the card's
     whole job, and a button activates on Enter and Space without a keyboard
     handler of our own. Drag-to-reschedule rides along on top of it.
+
+    `duration_minutes` is how tall the block is here -- a session crossing
+    midnight is clipped to the day it is drawn on -- while `data-duration`
+    carries the session's real length, so a drag reschedules the whole session
+    rather than the fragment.
 {% endcomment %}
 {% timetable_tone pos.state as tone %}
 <button type="button"
         class="timetable-session absolute block text-left rounded-md overflow-hidden cursor-pointer border text-xs opacity-85 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary {{ tone.surface }}"
         draggable="true"
         data-session-pk="{{ pos.agenda_item.session_id }}"
-        data-duration="{{ pos.duration_minutes }}"
+        data-duration="{{ pos.agenda_item.session_duration_minutes }}"
         data-confirmed="{{ pos.agenda_item.session_confirmed|yesno:'true,false' }}"
         title="{{ pos.agenda_item.session_title }}"
-        hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}?track={{ filter_track_pk|default:'' }}&date={{ date_value }}"
+        hx-get="{% url 'panel:timetable-session-detail-part' slug=slug pk=pos.agenda_item.session_id %}{% querystring %}"
         hx-target="#left-pane"
         hx-swap="outerHTML"
         style="--offset: {{ pos.start_minutes }};

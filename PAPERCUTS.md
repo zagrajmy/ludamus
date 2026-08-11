@@ -256,6 +256,14 @@ If you fix a papercut, remove it.
   /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
   nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
   credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: mise run shots fails on this machine: Chrome aborts with 'No
+  usable sandbox' before writing DevToolsActivePort. Playwright (test:e2e)
+  launches fine, so the wrapper needs --no-sandbox or a note pointing at the e2e
+  screenshots instead.
+- 2026-08-02: Firefox e2e project cannot launch on this machine: every firefox
+  test dies with 'browserContext.newPage: Test timeout' during page setup, while
+  chromium passes. Makes a full 'mise run test:e2e' unusable locally; had to run
+  --project=chromium to get a signal.
 - 2026-08-01: e2e: Firefox project fails locally with 'browserContext.newPage:
   Test timeout' on every spec (even untouched ones like sound.spec.ts); only
   chromium is runnable here, so a local full 'mise run test:e2e' always ends red
@@ -293,6 +301,15 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-04: Running any mise task with cwd inside .venv/src/vekna fails with
+  'Config files in .../vekna/mise.toml are not trusted' instead of running the
+  repo task. A git-sourced Poetry dependency ships its own mise.toml into the
+  venv and mise's config discovery walks up into it. Needs a 'mise trust' note
+  in docs/agents/sandbox.md.
+- 2026-08-03: mise run lint-client fails locally with 'Cannot find module
+  eslint-plugin-sonarjs' — the dep resolves to an 'invalid' link under
+  node_modules/.aube. CI is fine; only the local run is blocked, so frontend
+  lint can't be verified before pushing.
 - 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
   python-brace-format' flags: the local xgettext strips them, but main and CI
   both keep them. Regenerating the catalog silently drops the flags, so after
@@ -316,6 +333,20 @@ If you fix a papercut, remove it.
   permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
   works, pushing needs the user to run it (or the file's mode fixed to 0644
   root:root).
+- 2026-08-07: docs/agents/sandbox.md documents the python3.14 install as
+  apt+deadsnakes, but the CC-web egress proxy 403s ppa.launchpadcontent.net, so
+  mise install leaves no 3.14 and the Python suite can't run. 3.13 is not a
+  fallback — the code relies on 3.14 PEP 649 deferred annotations
+  (pacts/legacy.py:229 uses SessionStatus 35 lines before its definition), so
+  imports NameError. I wrongly concluded the sandbox couldn't run tests at all.
+  `uv python install 3.14` fetches python-build-standalone from GitHub releases
+  (reachable) in ~4s; worth making that the documented fallback in the
+  SessionStart hook.
+- 2026-08-02: `mise run test:py -- PATHS` appends the paths to the task's fixed
+  'pytest -n auto tests/integration tests/unit', so a targeted run silently
+  becomes the whole suite. Had to kill it and call .venv/bin/pytest directly.
+  Calling pytest directly then needs `PYTHONPATH=src` and `. ./.env.test`
+  sourced by hand — two more retries before a targeted run started.
 - 2026-08-08: Weekly flaky-test scan found
   test_print_document_title_names_the_document_and_the_event
   (test_page_metadata.py) failed twice on unrelated main commits (0f90b147f6,

@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
+    from django.utils.functional import _StrPromise
     from lxml.etree import _Element as Element
 
     from ludamus.pacts import SessionFieldRequirementDTO
@@ -119,7 +120,7 @@ def _svg_element_is_safe(element: Element) -> bool:
     return True
 
 
-def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
+def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
     uploaded.seek(0)
     try:
         # fromstring, not parse: parse() takes a filename too, so passing an
@@ -140,7 +141,7 @@ def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
         raise ValidationError(_gettext("Invalid or unsafe SVG file."))
 
 
-def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
+def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
     uploaded.seek(0)
     try:
         with Image.open(uploaded) as pil_image:
@@ -159,14 +160,14 @@ def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
     )
 
 
-def _looks_like_svg(uploaded: UploadedFile) -> bool:
+def _looks_like_svg(uploaded: UploadedFile[bytes]) -> bool:
     uploaded.seek(0)
     head: bytes = uploaded.read(64)
     uploaded.seek(0)
     return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
 
 
-def validate_uploaded_logo(uploaded: UploadedFile | None) -> None:
+def validate_uploaded_logo(uploaded: UploadedFile[bytes] | None) -> None:
     if not uploaded:
         return
     validate_uploaded_image_size(uploaded)
@@ -187,11 +188,19 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
-def _logo_field() -> forms.FileField:
+def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField:
+    # Public like cover_image_field(): the guild panel lives in another module
+    # and must not restate the accepted types or the contain-fit hint.
     return forms.FileField(
         required=False,
         label=_("Logo"),
-        help_text=_(
+        # Attached here rather than in each form's clean_logo: a logo field
+        # cannot then exist without its validation. Django short-circuits the
+        # False (clear) case before validators run, and validate_uploaded_logo
+        # early-returns on empty, so behaviour is unchanged.
+        validators=[validate_uploaded_logo],
+        help_text=help_text
+        or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
         widget=forms.ClearableFileInput(
@@ -231,7 +240,7 @@ class EventSettingsForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     cover_image = cover_image_field()
-    logo = _logo_field()
+    logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -285,11 +294,6 @@ class EventSettingsForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
-
 
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
@@ -299,12 +303,7 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
-    logo = _logo_field()
-
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
+    logo = logo_field()
 
 
 class ProposalSettingsForm(forms.Form):

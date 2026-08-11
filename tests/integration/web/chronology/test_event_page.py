@@ -19,7 +19,11 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
     build_display_field_row,
 )
-from ludamus.gates.web.django.chronology.schedule import ScheduleDay, ScheduleHour
+from ludamus.gates.web.django.chronology.schedule import (
+    ScheduleDay,
+    ScheduleHour,
+    ScheduleTile,
+)
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
@@ -35,6 +39,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
+from ludamus.mills.timeslots import local_day_windows
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
@@ -204,8 +209,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -320,8 +332,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(
@@ -475,22 +494,25 @@ class TestEventPageView:
         # expected day grouping with the same local-date rule the view uses.
         expected_dates = sorted(
             {
-                timezone.localtime(start).date()
-                for start in (
-                    now - timedelta(hours=3),
-                    now - timedelta(hours=1),
-                    day_one,
-                    day_one + timedelta(days=1),
+                window_start.date()
+                for start, end in (
+                    (now - timedelta(hours=3), now - timedelta(hours=2)),
+                    (now - timedelta(hours=1), now + timedelta(hours=1)),
+                    (day_one, day_one + timedelta(hours=4)),
+                    (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
+                )
+                for window_start, __ in local_day_windows(
+                    start, end, timezone.get_current_timezone()
                 )
             }
         )
         assert [
-            timezone.localtime(day.first_start).date() for day in days
+            timezone.localtime(day.day_start).date() for day in days
         ] == expected_dates
         [day_one_entry] = [
             day
             for day in days
-            if timezone.localtime(day.first_start).date()
+            if timezone.localtime(day.day_start).date()
             == timezone.localtime(day_one).date()
         ]
         [morning_slot, afternoon_slot] = day_one_entry.hours
@@ -643,8 +665,15 @@ class TestEventPageView:
             minute=0, second=0, microsecond=0
         )
         schedule_day = ScheduleDay(
-            first_start=agenda_item.start_time,
+            day_start=hour_start,
             hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
+            tiles=[
+                ScheduleTile(
+                    data=session_data,
+                    start=timezone.localtime(agenda_item.start_time),
+                    end=timezone.localtime(agenda_item.end_time),
+                )
+            ],
         )
         url = self._get_url(event.slug)
         assert_response(

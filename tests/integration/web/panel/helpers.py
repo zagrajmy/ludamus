@@ -263,16 +263,6 @@ def grid_with(
     # what a multi-day event with one slot per day renders.
     space_dtos = [SpaceDTO.model_validate(space) for space in spaces]
     sessions = sessions_by_space or {}
-    labels = (
-        [
-            TimeLabelDTO(
-                time=day_start + timedelta(minutes=offset), offset_minutes=offset
-            )
-            for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
-        ]
-        if day_start
-        else []
-    )
     day_starts = (
         [day_start + timedelta(days=offset) for offset in range(extra_days + 1)]
         if day_start
@@ -291,6 +281,13 @@ def grid_with(
                 for space in space_dtos
             ],
             event_start_iso=start.isoformat(),
+            total_minutes=total_minutes,
+            time_labels=[
+                TimeLabelDTO(
+                    time=start + timedelta(minutes=offset), offset_minutes=offset
+                )
+                for offset in range(0, total_minutes + 1, TIMETABLE_SLOT_MINUTES)
+            ],
         )
         for index, start in enumerate(day_starts)
     ]
@@ -302,8 +299,6 @@ def grid_with(
             else []
         ),
         days=days,
-        time_labels=labels,
-        total_minutes=total_minutes,
         slot_minutes=TIMETABLE_SLOT_MINUTES,
         snap_minutes=TIMETABLE_SNAP_MINUTES,
         page=page,

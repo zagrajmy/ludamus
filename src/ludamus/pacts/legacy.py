@@ -178,6 +178,7 @@ class UnscheduledSessionFilter(BaseModel):
     max_duration_minutes: int | None = None
     category_pk: int | None = None
     available_on: date | None = None
+    facilitator_pks: set[int] = set()
 
 
 class SessionListItemDTO(BaseModel):
@@ -775,7 +776,7 @@ class SphereRepositoryProtocol(Protocol):
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
-class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
+class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def create(
         session_data: SessionData,
@@ -977,9 +978,13 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> AgendaItemDTO: ...
     @staticmethod
-    def list_by_event(event_pk: int) -> list[AgendaItemDTO]: ...
+    def list_by_event(
+        event_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]: ...
     @staticmethod
-    def list_by_track(track_pk: int) -> list[AgendaItemDTO]: ...
+    def list_by_track(
+        track_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
     @staticmethod
@@ -1040,9 +1045,7 @@ class SpaceRepositoryProtocol(Protocol):
     def lock(pk: int) -> None: ...
 
 
-class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-methods]
-    Protocol
-):
+class ProposalCategoryRepositoryProtocol(Protocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
@@ -1530,7 +1533,7 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
-class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
+class UnitOfWorkProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
     @staticmethod

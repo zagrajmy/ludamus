@@ -16,31 +16,21 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from urllib.parse import urlparse  # ruff:ignore[module-import-not-at-top-of-file]
+from urllib.parse import urlparse
 
-from django.conf import settings  # ruff:ignore[module-import-not-at-top-of-file]
-from django.contrib.flatpages.models import (  # ruff:ignore[module-import-not-at-top-of-file]
-    FlatPage,
-)
-from django.contrib.sessions.backends.db import (  # ruff:ignore[module-import-not-at-top-of-file]
-    SessionStore,
-)
-from django.contrib.sites.models import (  # ruff:ignore[module-import-not-at-top-of-file]
-    Site,
-)
-from django.core.management import (  # ruff:ignore[module-import-not-at-top-of-file]
-    call_command,
-)
-from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
-from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
-    get_current_timezone,
-)
+from django.conf import settings
+from django.contrib.flatpages.models import FlatPage
+from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sites.models import Site
+from django.core.management import call_command
+from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
     EnrollmentConfig,
@@ -58,11 +48,8 @@ from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at
     TimeSlot,
     User,
 )
-from ludamus.pacts import SessionStatus  # ruff:ignore[module-import-not-at-top-of-file]
-from ludamus.pacts.legacy import (  # ruff:ignore[module-import-not-at-top-of-file]
-    NotificationKind,
-    SessionParticipationStatus,
-)
+from ludamus.pacts import SessionStatus
+from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
 def _create_site(domain: str, *, name: str) -> tuple[Site, Sphere]:
@@ -357,6 +344,164 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
+def _schedule(event: Event, space: Space, session: Session, *, hour: int) -> AgendaItem:
+    return AgendaItem.objects.create(
+        space=space,
+        session=session,
+        session_confirmed=True,
+        start_time=event.start_time + timedelta(hours=hour),
+        end_time=event.start_time + timedelta(hours=hour + 2),
+    )
+
+
+def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
+    SessionParticipation.objects.create(session=session, user=user, status=status.value)
+
+
+# playwright.config.ts allows two retries on CI, so three attempts in all.
+_E2E_ATTEMPTS = 3
+
+
+# Seats held on an event with no enrollment config: the window that let the
+# viewer in has shut, but giving a seat or a waiting place up has to stay
+# possible so it can reach the next person. Driven by
+# resign-after-close.auth.spec.ts.
+def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
+    event = _create_event(
+        sphere,
+        name="Closed Enrollment Convention",
+        slug="closed-enrollment",
+        description="Enrollment window already shut.",
+        start_offset=timedelta(days=20),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Closed Venue", slug="closed-venue")
+    area = _create_area(venue, name="Closed Area", slug="closed-area")
+    space = _create_space(area, name="Closed Room", slug="closed-room", capacity=5)
+    # Releasing a seat with the window shut is irreversible, so the spec cannot
+    # restore what it consumes. One session per possible attempt (CI allows two
+    # retries) keeps a retry testing the feature rather than the leftovers.
+    for attempt in range(1, _E2E_ATTEMPTS + 1):
+        held = Session.objects.create(
+            event=event,
+            display_name="Closed GM",
+            title=f"Late Resignation Demo {attempt}",
+            slug=f"late-resignation-demo-{attempt}",
+            description="A session whose enrollment window has already closed.",
+            participants_limit=5,
+            min_age=0,
+        )
+        _schedule(event, space, held, hour=attempt - 1)
+        _seat(held, tester, SessionParticipationStatus.CONFIRMED)
+
+        waiting = Session.objects.create(
+            event=event,
+            display_name="Closed GM",
+            title=f"Late Waiting List Demo {attempt}",
+            slug=f"late-waiting-list-demo-{attempt}",
+            description="A waiting place left over after the window shut.",
+            participants_limit=1,
+            min_age=0,
+        )
+        _schedule(event, space, waiting, hour=_E2E_ATTEMPTS + attempt)
+        _seat(waiting, tester, SessionParticipationStatus.WAITING)
+
+
+# A seat on a convention that is already over. Nothing can be handed over any
+# more, so the footer drops its controls and the info tab states the seat in
+# words instead — the only state that banner is reachable in.
+def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
+    event = _create_event(
+        sphere,
+        name="Last Year's Convention",
+        slug="past-convention",
+        description="A convention that has already happened.",
+        start_offset=timedelta(days=-30),
+        duration_hours=8,
+        publication_offset=timedelta(days=60),
+    )
+    venue = _create_venue(event, name="Past Venue", slug="past-venue")
+    area = _create_area(venue, name="Past Area", slug="past-area")
+    space = _create_space(area, name="Past Room", slug="past-room", capacity=5)
+    session = Session.objects.create(
+        event=event,
+        display_name="Past GM",
+        title="Finished Session Demo",
+        slug="finished-session-demo",
+        description="A session the tester attended.",
+        participants_limit=5,
+        min_age=0,
+    )
+    _schedule(event, space, session, hour=0)
+    _seat(session, tester, SessionParticipationStatus.CONFIRMED)
+
+    # The waiting variant of the same banner, which is otherwise unreachable.
+    never_promoted = Session.objects.create(
+        event=event,
+        display_name="Past GM",
+        title="Finished Waiting Demo",
+        slug="finished-waiting-demo",
+        description="A session the tester never got into.",
+        participants_limit=1,
+        min_age=0,
+    )
+    _schedule(event, space, never_promoted, hour=3)
+    _seat(never_promoted, tester, SessionParticipationStatus.WAITING)
+
+
+# The two ways *in*, both on an open window: a session with room offers a seat,
+# a full one offers the waiting list. Driven by enroll-states.auth.spec.ts.
+def _create_enroll_states_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Enroll States Convention",
+        slug="enroll-states",
+        description="Both ways into a session, side by side.",
+        start_offset=timedelta(days=25),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+        enrollment_banner="Enrollment is open",
+    )
+    venue = _create_venue(event, name="States Venue", slug="states-venue")
+    area = _create_area(venue, name="States Area", slug="states-area")
+    space = _create_space(area, name="States Room", slug="states-room", capacity=5)
+    free = Session.objects.create(
+        event=event,
+        display_name="States GM",
+        title="Seat Available Demo",
+        slug="seat-available-demo",
+        description="A session with room left.",
+        participants_limit=5,
+        min_age=0,
+    )
+    _schedule(event, space, free, hour=0)
+
+    full = Session.objects.create(
+        event=event,
+        display_name="States GM",
+        title="Waiting List Only Demo",
+        slug="waiting-list-only-demo",
+        description="A session with every seat taken.",
+        participants_limit=1,
+        min_age=0,
+    )
+    _schedule(event, space, full, hour=3)
+    _seat(
+        full,
+        User.objects.create_user(
+            username="e2e-seat-taker",
+            email="e2e-seat-taker@test.local",
+            password="e2e-seat-taker-123",
+            name="E2E Seat Taker",
+            slug="e2e-seat-taker",
+        ),
+        SessionParticipationStatus.CONFIRMED,
+    )
+    # The seat is taken by its own user, never the tester, so both sessions
+    # keep offering the tester a way in however often the spec runs.
+
+
 # Dedicated event for the backoffice panel e2e tests. panel.spec mutates
 # venues, CFP config and facilitators, so it gets its own event — keeping
 # autumn-open read-only for the public-page specs makes the suite safe to run
@@ -483,7 +628,7 @@ def main() -> None:
     _ensure_spheres_for_all_sites()
 
     # Test user for authenticated e2e tests
-    _create_test_user()
+    tester = _create_test_user()
 
     superuser = User.objects.create_superuser(
         username="admin",
@@ -501,6 +646,15 @@ def main() -> None:
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
+
+    # Seats held after the enrollment window shut, for the late-resignation e2e.
+    _create_closed_enrollment_scenario(sphere, tester=tester)
+
+    # A seat on a finished convention, for the past-session banner e2e.
+    _create_past_enrollment_scenario(sphere, tester=tester)
+
+    # Both ways in on an open window, for the enroll-states e2e.
+    _create_enroll_states_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
