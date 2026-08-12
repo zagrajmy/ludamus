@@ -13,6 +13,7 @@ from ludamus.mills.slugs import unique_slug
 from ludamus.mills.submissions.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
+    log_facilitator_deletion,
 )
 from ludamus.pacts import FacilitatorData, NotFoundError, PersonalDataFieldValueData
 from ludamus.pacts.panel import (
@@ -65,10 +66,6 @@ def _unique(values: list[str]) -> list[str]:
 
 
 _FILTERABLE_FIELD_TYPES = {"select", "checkbox"}
-
-# Change-log values are stored raw (accreditation types land as "guest"), so the
-# deletion flag does too; the History tab labels it at render time.
-_DELETED_LOG_VALUE = "yes"
 
 
 type _FieldValue = str | list[str] | bool
@@ -723,21 +720,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     def _log_deletion(
         self, *, event_id: int, facilitator_id: int, user_id: int | None, deleted: bool
     ) -> None:
-        # Taking a facilitator out of the program is the largest state change
-        # this panel makes. `deleted_at` records when and a restore erases even
-        # that, so the log is the only trace of who.
-        change: ContentFieldChange = {
-            "field": "deleted",
-            "field_id": None,
-            "old": "" if deleted else _DELETED_LOG_VALUE,
-            "new": _DELETED_LOG_VALUE if deleted else "",
-        }
-        log_facilitator_changes(
+        log_facilitator_deletion(
             repo=self._repos.facilitator_change_logs,
             event_id=event_id,
             facilitator_id=facilitator_id,
             user_id=user_id,
-            changes=[change],
+            deleted=deleted,
         )
 
     def assign_organizer(

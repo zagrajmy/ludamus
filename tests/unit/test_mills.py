@@ -1093,6 +1093,10 @@ class _ImportServiceMocks:
         return mock
 
     @pytest.fixture
+    def facilitator_change_logs(self):
+        return MagicMock()
+
+    @pytest.fixture
     def log_entries(self):
         return MagicMock()
 
@@ -1107,6 +1111,7 @@ class _ImportServiceMocks:
         tracks,
         categories,
         facilitators,
+        facilitator_change_logs,
         log_entries,
     ):
         return ImportRepos(
@@ -1118,6 +1123,7 @@ class _ImportServiceMocks:
             tracks,
             categories,
             facilitators,
+            facilitator_change_logs,
             log_entries,
         )
 
@@ -1277,6 +1283,38 @@ class TestProposalImportService(_ImportServiceMocks):
         facilitators.create.assert_not_called()
         facilitators.restore.assert_called_once_with(55)
         assert sessions.create.call_args.kwargs["facilitator_ids"] == [55]
+
+    def test_run_logs_the_restore_it_made(
+        self, service, event_integrations, facilitator_change_logs, facilitators
+    ):
+        # Without this the panel shows the facilitator alive while History's
+        # last word is still "deleted", with nobody having undone anything.
+        event_integrations.get.return_value = MagicMock(
+            settings_json=(
+                '{"questions": {"Title": {"to": "session.title"},'
+                ' "Nick": {"to": "facilitator.display_name"}},'
+                ' "facilitator_key_columns": ["Email"]}'
+            )
+        )
+        event_integrations.fetch_responses.return_value = _rows(
+            [{"Title": "My Talk", "Nick": "GM Bob", "Email": "bob@x.z"}]
+        )
+        facilitators.find_by_ident.return_value = _facilitator_match(
+            55, deleted_at=datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        )
+
+        service.run(sphere_id=1, event_id=2, integration_pk=3)
+
+        facilitator_change_logs.create.assert_called_once_with(
+            {
+                "event_id": 2,
+                "facilitator_id": 55,
+                "user_id": None,
+                "changes": [
+                    {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
+                ],
+            }
+        )
 
     def test_run_adopts_a_pre_ident_facilitator_and_stamps_the_ident(
         self, service, event_integrations, sessions, facilitators

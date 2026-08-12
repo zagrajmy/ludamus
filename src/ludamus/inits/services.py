@@ -462,6 +462,7 @@ class Services:
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
+            self._repos.facilitator_change_logs,
             self._repos.import_log_entries,
         )
 

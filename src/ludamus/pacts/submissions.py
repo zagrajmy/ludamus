@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
+        FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
         FieldUsageSummary,
@@ -301,6 +302,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
+    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
     log_entries: ImportLogEntryRepositoryProtocol
 
 
