@@ -26,8 +26,8 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     FACILITATOR_COLUMNS,
-    column_values,
     column_views,
+    facilitator_column_values,
 )
 from ludamus.gates.web.django.dynamic_fields import (
     answered_value,
@@ -70,13 +70,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
     from django.utils.functional import _StrPromise
 
-    from ludamus.pacts import (
-        FacilitatorListItemDTO,
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-    )
-    from ludamus.pacts.panel import FacilitatorPanelServiceProtocol, PanelColumnDTO
+    from ludamus.pacts import FieldDescriptor, FieldValue, OrganizerFieldDTO
 
 
 # A tampered `?organizer=` value falls back to "all", so the toolbar never
@@ -158,23 +152,6 @@ def _personal_entries(
     ]
 
 
-def _build_column_values(
-    *,
-    panel: FacilitatorPanelServiceProtocol,
-    facilitators: Sequence[FacilitatorListItemDTO],
-    columns: Sequence[PanelColumnDTO],
-) -> dict[int, dict[str, str]]:
-    return column_values(
-        rows=facilitators,
-        columns=columns,
-        builtins=FACILITATOR_COLUMNS,
-        raw_values=panel.column_values(
-            facilitator_ids=[f.pk for f in facilitators],
-            field_ids=[c.field.pk for c in columns if c.field is not None],
-        ),
-    )
-
-
 def _merge_error_message(reason: MergeErrorReason) -> str:
     # Built per call so gettext resolves in the active request language.
     messages_by_reason = {
@@ -230,7 +207,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         pagination = pagination_context(self.request, list_context.facilitators)
         page_obj = pagination["page_obj"]
 
-        cells = _build_column_values(
+        cells = facilitator_column_values(
             panel=self.request.services.facilitator_panel,
             facilitators=list(page_obj.object_list),
             columns=list_context.columns,

@@ -1,29 +1,45 @@
 {% load avatar_tags i18n tessera %}
 {# Reusable avatar: expects "user" (UserDTO/User) and optional "size", "danger_ring". #}
+{# The name falls back through firstof, not a |default: chain: Django resolves #}
+{# every argument of a |default: chain eagerly, and a missing one raises #}
+{# VariableDoesNotExist out of the render rather than degrading — so any DTO #}
+{# passed here had to carry every field in the chain, displayed or not. firstof #}
+{# resolves with ignore_failures, so a caller only needs the fields it has. #}
 {# For interactive use (link/button), pass size="size-11" (44px) or wrap with padding to meet the touch-target minimum. #}
 {% with size_class=size|default:"size-8" text_class="text-xs" border_class="border border-white/80 dark:border-neutral-900" is_danger=danger_ring|default:False %}
     {% if user %}
-        {% with name_value=user.full_name|default:user.name|default:user.username|default:"" %}
-            <div class="{{ size_class }} shrink-0 relative" role="img" aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
-                <div class="absolute inset-0 {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full overflow-hidden">
-                    <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
-                         aria-hidden="true">
-                        <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
-                    </div>
-                    {% if user.avatar_url %}
-                        <img src="{{ user.avatar_url }}"
-                             alt=""
-                             width="32"
-                             height="32"
-                             class="absolute inset-0 h-full w-full object-cover"
-                             loading="lazy">
-                    {% endif %}
+        {% firstof user.full_name user.name user.username "" as name_value %}
+        <div class="{{ size_class }} shrink-0 relative" role="img" aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
+            <div class="absolute inset-0 {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full overflow-hidden">
+                <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
+                     aria-hidden="true">
+                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
                 </div>
-                {% if is_danger %}
-                    <span class="absolute -bottom-0.5 -right-0.5 rounded-full bg-danger p-0.5 ring-2 ring-white dark:ring-neutral-900"
-                          aria-hidden="true">{% icon "exclamation-triangle" class="size-2.5 text-white" variant="mini" %}</span>
+                {% if user.avatar_url %}
+                    {# data-avatar-image: avatar.ts hides the image when it fails to load, so the initials below show through instead of a broken-image glyph. #}
+                    <img src="{{ user.avatar_url }}"
+                         alt=""
+                         width="32"
+                         height="32"
+                         class="absolute inset-0 h-full w-full object-cover"
+                         loading="lazy"
+                         data-avatar-image>
                 {% endif %}
             </div>
-        {% endwith %}
+            {% if is_danger %}
+                {# The 5px overhang sits this 14px badge on the avatar's own border #}
+                {# rather than tucking it inside — see the derivation in #}
+                {# components/guild_notch.html, which places the guild mark on the #}
+                {# opposite corner by the same rule. Rows holding an avatar must #}
+                {# not clip, or the overhang is shaved. #}
+                {# z-10 so an overlapping stack (-space-x-*) cannot bury the #}
+                {# warning: later avatars paint over earlier ones, right where this #}
+                {# sits. The wrapper above is relative with z-index auto, which is #}
+                {# not a stacking context, so this competes with those siblings #}
+                {# directly instead of lifting the whole avatar over its own notch. #}
+                <span class="absolute -bottom-[5px] -right-[5px] z-10 rounded-full bg-danger p-0.5 ring-2 ring-white dark:ring-neutral-900"
+                      aria-hidden="true">{% icon "exclamation-triangle" class="size-2.5 text-white" variant="mini" %}</span>
+            {% endif %}
+        </div>
     {% endif %}
 {% endwith %}

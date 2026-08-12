@@ -47,6 +47,7 @@ from ludamus.mills.event import (
     LandingService,
 )
 from ludamus.mills.event_settings import EventSettingsService
+from ludamus.mills.guild import GuildService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -172,6 +173,10 @@ class Services:
         )
 
     @cached_property
+    def guilds(self) -> GuildService:
+        return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
     def parties(self) -> PartyService:
         return PartyService(
             self._transaction, self._repos.parties, DjangoUserNotifier()
@@ -279,10 +284,7 @@ class Services:
     @cached_property
     def session_confirmation(self) -> SessionConfirmationService:
         return SessionConfirmationService(
-            self._transaction,
-            self._repos.agenda_items,
-            self._repos.sessions,
-            self._repos.tracks,
+            self._transaction, self._repos.agenda_items, self._repos.sessions
         )
 
     @cached_property

@@ -47,6 +47,7 @@ if TYPE_CHECKING:
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
+    from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -115,6 +116,8 @@ class ServicesProtocol(Protocol):
     def profile(self) -> ProfileServiceProtocol: ...
     @property
     def companions(self) -> CompanionsServiceProtocol: ...
+    @property
+    def guilds(self) -> GuildServiceProtocol: ...
     @property
     def parties(self) -> PartyServiceProtocol: ...
     @property

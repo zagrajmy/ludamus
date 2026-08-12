@@ -58,6 +58,11 @@ _timetable_urlpatterns = [
         name="timetable-conflicts-part",
     ),
     path(
+        "parts/facilitator-options/",
+        timetable.TimetableFacilitatorOptionsPartView.as_view(),
+        name="timetable-facilitator-options-part",
+    ),
+    path(
         "do/assign/", timetable.TimetableAssignView.as_view(), name="timetable-assign"
     ),
     path(
@@ -83,16 +88,6 @@ _timetable_urlpatterns = [
         "do/confirm/",
         timetable.TimetableConfirmView.as_view(),
         name="timetable-confirm",
-    ),
-    path(
-        "do/confirm-all/",
-        timetable.TimetableConfirmAllView.as_view(),
-        name="timetable-confirm-all",
-    ),
-    path(
-        "do/confirm-block/",
-        timetable.TimetableConfirmBlockView.as_view(),
-        name="timetable-confirm-block",
     ),
     path(
         "confirmations/",

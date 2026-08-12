@@ -37,6 +37,7 @@ export default defineConfig({
       input: {
         actions: resolve(rootDir, "src/actions.ts"),
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
+        avatar: resolve(rootDir, "src/avatar.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
@@ -55,6 +56,7 @@ export default defineConfig({
         landing: resolve(rootDir, "src/landing.ts"),
         menu: resolve(rootDir, "src/menu.ts"),
         modal: resolve(rootDir, "src/modal.ts"),
+        "multiselect-filter": resolve(rootDir, "src/multiselect-filter.ts"),
         "nav-progress": resolve(rootDir, "src/nav-progress.ts"),
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "panel-columns": resolve(rootDir, "src/panel-columns.ts"),

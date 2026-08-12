@@ -21,6 +21,16 @@
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary) 8%, transparent);
   }
 
+  /* Tree depth drives the indent, so the nesting reads without a guide line. */
+  .multiselect-option {
+    padding-inline-start: calc(0.5rem + var(--depth, 0) * 1rem);
+  }
+
+  /* Assign mode takes the filter bar out of reach; the fade says so. */
+  .filter-bar-inert {
+    opacity: 0.5;
+  }
+
   .filter-badge.is-visible {
     display: inline-block;
     animation: filter-chip-in 0.2s ease-out;

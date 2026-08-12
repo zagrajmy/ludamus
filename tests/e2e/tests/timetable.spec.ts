@@ -110,6 +110,23 @@ test.describe("Timetable", () => {
       .toBeGreaterThan(0);
   });
 
+  test("a session scheduled outside the slot it asked for is flagged on the grid", async ({
+    page,
+  }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // A slot violation is a milder thing than a conflict and says so: its own
+    // marker and colour, distinct from the over-capacity block on day one.
+    const misplaced = page.locator(".timetable-session", { hasText: "Misplaced Demo Game" });
+    await expect(misplaced).toContainText("⏰");
+    await expect(misplaced).toHaveClass(/border-warning/);
+    await expect(misplaced).not.toHaveClass(/border-danger/);
+
+    const overflow = page.locator(".timetable-session", { hasText: "Overflow Demo Game" });
+    await expect(overflow).toContainText("⚠");
+    await expect(overflow).toHaveClass(/border-danger/);
+  });
+
   test("all days stay side-by-side and assign into the selected day", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
 
@@ -117,15 +134,24 @@ test.describe("Timetable", () => {
     const days = page.locator(".timetable-day-grid");
     await expect(timetable).toHaveCount(1);
     await expect(days).toHaveCount(2);
-    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(1);
+    // Every day owns its axis, so its column spans only its own slots. One
+    // shared axis would have to span the union of the days, and a session split
+    // at midnight puts 00:00 on one and 24:00 on the other.
+    await expect(timetable.locator(".timetable-time-axis")).toHaveCount(2);
     await expect(timetable.getByText("Time", { exact: true })).toHaveCount(1);
     await expect(page.getByLabel("Day:")).toHaveValue("all");
     await expect(timetable.locator(".timetable-day-header h2")).toHaveCount(2);
 
-    const timeAxisPosition = await timetable
+    // Each axis sits immediately left of the day it labels.
+    const axisRights = await timetable
       .locator(".timetable-time-axis")
-      .evaluate((axis) => getComputedStyle(axis).position);
-    expect(timeAxisPosition).toBe("sticky");
+      .evaluateAll((axes) => axes.map((axis) => axis.getBoundingClientRect().right));
+    const dayLefts = await days.evaluateAll((items) =>
+      items.map((item) => item.getBoundingClientRect().left),
+    );
+    expect(axisRights[0]).toBeGreaterThan(dayLefts[0]);
+    expect(axisRights[1]).toBeGreaterThan(dayLefts[1]);
+    expect(axisRights[0]).toBeLessThan(dayLefts[1]);
 
     const dates = await days.evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-date") ?? ""),
@@ -185,14 +211,57 @@ test.describe("Timetable", () => {
     });
   });
 
+  test("a track filter still shows the other track's booking in a shared room", async ({
+    page,
+  }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    // The track pk belongs to the seed, so read it off the switcher.
+    const trackValue = await page
+      .getByLabel("Track:")
+      .locator("option", { hasText: "RPG Track" })
+      .first()
+      .getAttribute("value");
+    await page.goto(`/panel/event/sunhaven-festival/timetable/?track=${trackValue}&date=all`);
+
+    // "Board Game Night" belongs to the other track but occupies a room this
+    // one also uses. Hiding it is how two tracks end up in one room at once.
+    // It draws as an ordinary card -- no owner label, no separate treatment.
+    const foreign = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(foreign).toBeVisible({ timeout: 10000 });
+    await expect(foreign).toHaveAttribute("draggable", "true");
+
+    await foreign.click();
+    await expect(page.locator("#left-pane").getByText("Board Game Night")).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("a grid block opens its details from the keyboard", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?date=all");
+
+    const block = page.getByRole("button", { name: /Board Game Night/ });
+    await expect(block).toBeVisible({ timeout: 10000 });
+
+    await block.focus();
+    await page.keyboard.press("Enter");
+
+    const leftPane = page.locator("#left-pane");
+    await expect(leftPane.getByText("Session details")).toBeVisible({ timeout: 5000 });
+    await expect(leftPane.getByText("Board Game Night")).toBeVisible();
+  });
+
   // Read off the page instead of restating bootstrap_timetable.py: every column
-  // names itself after its room. Groups are also how a fieldset and a details
-  // surface, so only the named ones are ours -- and every later lookup asks for
-  // a specific room, which those two can never answer to.
-  const roomColumns = (page: Page, room: string) => page.getByRole("group", { name: room });
+  // names itself after its room. Scoped to the calendar because a group is also
+  // how a fieldset, a details surface, and the room filter's option list
+  // surface -- and that filter is named after rooms too.
+  const calendar = (page: Page) => page.getByRole("region", { name: "Schedule" });
+
+  const roomColumns = (page: Page, room: string) =>
+    calendar(page).getByRole("group", { name: room });
 
   const roomNames = async (page: Page) => {
-    const names = await page
+    const names = await calendar(page)
       .getByRole("group")
       .evaluateAll((groups) => [
         ...new Set(groups.map((group) => group.getAttribute("aria-label")).filter(Boolean)),
@@ -218,7 +287,7 @@ test.describe("Timetable", () => {
   const expectAlignedColumns = async (page: Page, rooms: string[]) => {
     expect(rooms.length, "rooms to check").toBeGreaterThan(0);
     for (const room of rooms) {
-      const labels = page.getByText(room, { exact: true });
+      const labels = page.locator(".timetable-room-cell").getByText(room, { exact: true });
       const columns = roomColumns(page, room);
       const dayCount = await columns.count();
       expect(dayCount, `columns for ${room}`).toBeGreaterThan(0);
@@ -252,6 +321,7 @@ test.describe("Timetable", () => {
     // after it off the column it labels.
     expect(rooms.length, "a room left to check after renaming the first").toBeGreaterThan(1);
     await page
+      .locator(".timetable-room-cell")
       .getByText(rooms[0], { exact: true })
       .first()
       .evaluate((name) => {
@@ -289,6 +359,7 @@ test.describe("Timetable", () => {
         .first()
         .boundingBox())!;
       const name = (await page
+        .locator(".timetable-room-cell")
         .getByText(rooms[grabbed - 1], { exact: true })
         .first()
         .boundingBox())!;
@@ -305,7 +376,9 @@ test.describe("Timetable", () => {
     await expectWidth(resized);
 
     await page.reload();
-    await expect(page.getByText(rooms[0], { exact: true }).first()).toBeVisible();
+    await expect(
+      page.locator(".timetable-room-cell").getByText(rooms[0], { exact: true }).first(),
+    ).toBeVisible();
     await expectWidth(resized);
 
     // Every border resizes, but one handle carries focus and the ARIA contract,
@@ -352,6 +425,22 @@ test.describe("Timetable", () => {
     await expect(
       page.getByRole("region", { name: "Sessions to assign" }).getByText("Storytelling Workshop"),
     ).toBeVisible();
+  });
+
+  test("session cards are draggable and carry their duration", async ({ page }) => {
+    const sessionListLoaded = page.waitForResponse(
+      (r) => r.url().includes("/parts/sessions/") && r.status() === 200,
+    );
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+    await sessionListLoaded;
+
+    const card = page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator("[data-session-pk]")
+      .first();
+
+    await expect(card).toHaveAttribute("draggable", "true");
+    await expect(card).toHaveAttribute("data-duration", /^\d+$/);
   });
 
   // --- Session Search ---
@@ -541,6 +630,149 @@ test.describe("Timetable", () => {
     await expect(page.locator("#assign-mode-banner")).toHaveClass(/hidden/);
   });
 
+  test("assignment mode makes the filter bar inert", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await expect(
+      page.getByRole("region", { name: "Sessions to assign" }).getByText("RPG Introduction"),
+    ).toBeVisible({ timeout: 10000 });
+
+    const filterBar = page.locator("#filter-bar");
+    await expect(filterBar).not.toHaveAttribute("inert", /.*/);
+
+    await page
+      .getByRole("region", { name: "Sessions to assign" })
+      .locator("[data-session-pk]", {
+        hasText: "RPG Introduction",
+      })
+      .click();
+
+    const leftPane = page.locator("#left-pane");
+    await expect(leftPane.getByText("Session details")).toBeVisible({ timeout: 5000 });
+
+    await leftPane.getByRole("button", { name: "Assign" }).click();
+
+    // Filters would submit the page and drop the armed session.
+    await expect(filterBar).toHaveAttribute("inert", /.*/);
+
+    await page.keyboard.press("Escape");
+
+    await expect(filterBar).not.toHaveAttribute("inert", /.*/);
+  });
+
+  // --- Room filter ---
+
+  test("room filter narrows the grid to the picked room", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
+
+    await page.getByRole("button", { name: "Rooms" }).click();
+
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Rooms" })
+      .locator("[data-menu-panel]");
+    // Branches are offered alongside leaves, so a floor can be picked whole.
+    await expect(panel.getByRole("group", { name: "Rooms" })).toContainText("Meadowbrook Pavilion");
+
+    await page.screenshot({
+      path: "test-results/timetable-room-filter-open.png",
+      fullPage: true,
+    });
+
+    await panel.getByPlaceholder("Search…").fill("willow");
+    await expect(panel.getByText("Garden Table", { exact: true })).toBeHidden();
+
+    await panel.getByRole("checkbox", { name: "Willow Table" }).check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page.getByRole("button", { name: "Rooms" })).toContainText("1");
+    expect(await roomNames(page)).toEqual(["Willow Table"]);
+  });
+
+  test("picking a branch keeps its rooms, and Clear restores all of them", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/?space=");
+
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Rooms" })
+      .locator("[data-menu-panel]");
+
+    await page.getByRole("button", { name: "Rooms" }).click();
+    await panel.getByRole("checkbox", { name: "Festival Hall" }).check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    // Festival Hall is a branch: both of its rooms stay.
+    await expect(page.getByRole("button", { name: "Rooms" })).toContainText("1");
+    expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
+
+    await page.getByRole("button", { name: "Rooms" }).click();
+    await panel.getByRole("link", { name: "Clear" }).click();
+
+    await expect(page.getByRole("button", { name: "Rooms" })).not.toContainText("1");
+    expect(await roomNames(page)).toEqual(["Garden Table", "Willow Table"]);
+  });
+
+  // --- Facilitator filter ---
+
+  test("facilitator filter searches on the server and narrows the grid", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await page.getByRole("button", { name: "Facilitators" }).click();
+
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Facilitators" })
+      .locator("[data-menu-panel]");
+
+    // Nothing is offered until you type -- the roster is never shipped whole.
+    await expect(panel.getByText("Start typing to find someone.")).toBeVisible();
+
+    await panel.getByPlaceholder("Search…").fill("Alice");
+    const option = panel.getByRole("checkbox", { name: /Alice/ });
+    await expect(option).toBeVisible({ timeout: 10000 });
+
+    await page.screenshot({
+      path: "test-results/timetable-facilitator-filter-open.png",
+      fullPage: true,
+    });
+
+    await option.check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page.getByRole("button", { name: "Facilitators" })).toContainText("1");
+
+    // Alice's items stay on the grid; Bob's are gone from it and from the
+    // unassigned list.
+    const sessionList = page.getByRole("region", { name: "Sessions to assign" });
+    await expect(sessionList.getByText("Dungeon Crawl")).toBeVisible({ timeout: 10000 });
+    await expect(sessionList.getByText("All Days Workshop")).toHaveCount(0);
+  });
+
+  test("a picked facilitator stays picked across a second search", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+
+    await page.getByRole("button", { name: "Facilitators" }).click();
+    const panel = page
+      .locator("[data-multiselect-filter]", { hasText: "Facilitators" })
+      .locator("[data-menu-panel]");
+    const search = panel.getByPlaceholder("Search…");
+
+    await search.fill("Alice");
+    await panel.getByRole("checkbox", { name: /Alice/ }).check();
+
+    // The rows are the form controls, so a second search must bring the first
+    // pick back with it or Apply would quietly lose it.
+    await search.fill("Bob");
+    await expect(panel.getByRole("checkbox", { name: /Bob/ })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(panel.getByRole("checkbox", { name: /Alice/ })).toBeChecked();
+
+    await panel.getByRole("checkbox", { name: /Bob/ }).check();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page.getByRole("button", { name: "Facilitators" })).toContainText("2");
+  });
+
   // --- Assign and Unassign Flow ---
 
   test("assigns a session by clicking grid column", async ({ page }) => {
@@ -655,9 +887,7 @@ test.describe("Timetable", () => {
     await expect(gridSession).toBeVisible({ timeout: 10000 });
     await gridSession.click();
 
-    await expect(leftPane.getByRole("button", { name: "Confirm program item" })).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(leftPane.getByText("Program item not confirmed")).toBeVisible({ timeout: 5000 });
 
     // Confirm — the button flips to the "Undo confirmation" state.
     await leftPane.getByRole("button", { name: "Confirm program item" }).click();

@@ -15,6 +15,7 @@ from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     FacilitatorCreateData,
+    FacilitatorFilterOptionsDTO,
     FacilitatorListQuery,
     FacilitatorMergeContextDTO,
     FacilitatorMergeData,
@@ -96,6 +97,19 @@ class TestListContextFieldFilters:
         )
 
         assert not context.field_filters
+
+
+class TestFilterOptions:
+    def test_no_search_and_nobody_picked_reads_nothing(self):
+        repos = MagicMock()
+        service = FacilitatorPanelService(object(), repos)
+
+        found = service.filter_options(event_id=1, search="", pinned=set(), limit=25)
+
+        assert found == FacilitatorFilterOptionsDTO(
+            facilitators=[], columns=[], has_more=False
+        )
+        assert not repos.mock_calls
 
 
 class _FakeTransaction:

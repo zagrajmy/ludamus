@@ -1,0 +1,40 @@
+{% load i18n %}
+{% comment %}
+A guild's uploaded mark on a white plate.
+
+The plate is a squircle, inheriting the global `corner-shape: superellipse(1.8)`
+from index.css rather than opting out of it. On an avatar it sits next to the
+warning badge (components/avatar.html), which is the same 14px box with the same
+knockout ring, so sharing the corner shape makes the two read as a matched pair
+instead of two unrelated stickers.
+
+The plate is white in both themes: an uploaded mark is often a dark silhouette
+on transparency, which would vanish against the dark card surface.
+
+The image is inset to the plate's inscribed square so a full-bleed square upload
+keeps its corners instead of being clipped by the curve. For a superellipse the
+exponent is 2**1.8 ≈ 3.48, so the inscribed square runs to
+(1/2)**(1/3.48) ≈ 0.82 of the box — wider than a circle's 0.707, which is why
+this is 82% and not the 72% a round plate needed.
+
+Renders nothing when the guild has no mark yet — the feature is the mark, and
+two-letter initials at this size are illegible.
+
+Variables:
+  guild        needs .name and .logo_url
+  size         Tailwind size-* class. Default suits the avatar notch.
+  extra_class  positioning, e.g. the notch's absolute corner placement
+  ring         knockout ring matching the surface behind it, when overlapping
+{% endcomment %}
+{% if guild and guild.logo_url %}
+    <span class="{{ size|default:'size-[1.35rem]' }} {{ extra_class }} shrink-0 grid place-items-center overflow-hidden rounded-full bg-white {{ ring }}"
+          role="img"
+          aria-label="{% blocktranslate with name=guild.name %}Guild: {{ name }}{% endblocktranslate %}">
+        <img src="{{ guild.logo_url }}"
+             alt=""
+             width="22"
+             height="22"
+             loading="lazy"
+             class="size-[82%] object-contain">
+    </span>
+{% endif %}

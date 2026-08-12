@@ -2,22 +2,24 @@ import pytest
 
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceNodeDTO
+from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 
 
-def _node(pk, name, children=()):
+def _node(*, pk, name, children=()):
     kids = list(children)
-    return SpaceNodeDTO(
-        pk=pk,
-        event_id=1,
-        parent_id=None,
-        name=name,
-        slug=name.lower(),
-        capacity=None,
-        description="",
-        order=0,
-        depth=1,
+    return SpaceTreeNodeDTO(
+        space=SpaceRecordDTO(
+            pk=pk,
+            event_id=1,
+            parent_id=None,
+            name=name,
+            slug=name.lower(),
+            capacity=None,
+            description="",
+            order=0,
+        ),
         is_leaf=not kids,
+        track_names=[],
         children=kids,
     )
 
@@ -34,14 +36,14 @@ def _service():
     # Budynek A > {Parter > Sala 1, Pietro > Sala 2}; Budynek B > Hala
     tree = [
         _node(
-            1,
-            "Budynek A",
+            pk=1,
+            name="Budynek A",
             children=[
-                _node(10, "Parter", children=[_node(100, "Sala 1")]),
-                _node(20, "Piętro", children=[_node(200, "Sala 2")]),
+                _node(pk=10, name="Parter", children=[_node(pk=100, name="Sala 1")]),
+                _node(pk=20, name="Piętro", children=[_node(pk=200, name="Sala 2")]),
             ],
         ),
-        _node(2, "Budynek B", children=[_node(30, "Hala")]),
+        _node(pk=2, name="Budynek B", children=[_node(pk=30, name="Hala")]),
     ]
     return VenuesService(_Tree(tree))
 
@@ -77,14 +79,14 @@ def _space_tree_service(with_sessions=()):
     # Budynek A > {Parter > Sala 1, Piętro > Sala 2}; Budynek B > Hala
     tree = [
         _node(
-            1,
-            "Budynek A",
+            pk=1,
+            name="Budynek A",
             children=[
-                _node(10, "Parter", children=[_node(100, "Sala 1")]),
-                _node(20, "Piętro", children=[_node(200, "Sala 2")]),
+                _node(pk=10, name="Parter", children=[_node(pk=100, name="Sala 1")]),
+                _node(pk=20, name="Piętro", children=[_node(pk=200, name="Sala 2")]),
             ],
         ),
-        _node(2, "Budynek B", children=[_node(30, "Hala")]),
+        _node(pk=2, name="Budynek B", children=[_node(pk=30, name="Hala")]),
     ]
     return SpaceTreeService(None, _ReparentRepo(tree, with_sessions))
 

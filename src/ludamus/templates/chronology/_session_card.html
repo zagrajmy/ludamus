@@ -28,9 +28,15 @@
                 {# the transition's first frame. #}
                 <h3 class="w-fit text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
                     data-morph="title">{{ data.session.title }}</h3>
-                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-hidden">
-                    <span class="shrink-0" data-morph="avatar">
-                        {% include "components/avatar.html" with user=data.presenter size="size-8" %}
+                {# This row must not clip: the avatar's warning badge and guild #}
+                {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
+                {# which shaved them. Nothing here needs it — the name bounds itself #}
+                {# with max-w + truncate, and the card's own overflow-hidden is the #}
+                {# backstop, 20px of padding away from the avatar. #}
+                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
+                    <span class="shrink-0 relative" data-morph="avatar">
+                        {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
+                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"
@@ -49,8 +55,8 @@
                 </div>
             </header>
             {% if data.session.description %}
+                {# Deliberately not a morph group: see session-modal.html. #}
                 <p class="pointer-events-auto select-text text-sm mb-2 line-clamp-3 text-foreground-primary"
-                   data-morph="desc"
                    data-session-description>{{ data.session.description }}</p>
             {% endif %}
             <div class="relative" data-morph="tags">{% include "chronology/session_tags.html" %}</div>
@@ -99,5 +105,13 @@
                 </div>
             </div>
         </div>
+        {# Anchor for the modal's footer bar, which has nothing to morph from. As #}
+        {# a new-only group it materialised at a scaled-down slot inside the card #}
+        {# and slid across to the modal — from the far right, for a card in the #}
+        {# last column. Pairing it with a zero-height strip on the card's bottom #}
+        {# edge gives the group an old geometry to interpolate from, so it grows #}
+        {# out of that edge and tracks the sheet's bottom instead. Renders #}
+        {# nothing: it exists only to be captured. #}
+        <div class="h-0" aria-hidden="true" data-morph="footer"></div>
     </div>
 </article>

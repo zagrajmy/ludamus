@@ -2,31 +2,16 @@
 
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts import EventDTO, TrackListItemDTO
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _base_context(event, *, rooms=0):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": rooms,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "tracks",
-    }
+from ludamus.pacts import TrackListItemDTO
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 class TestTracksPageView:
@@ -41,63 +26,43 @@ class TestTracksPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:tracks", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_get_ok_empty(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_empty(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/tracks.html",
-            context_data={**_base_context(event), "tracks": []},
+            context_data={**panel_context(event, active_nav="tracks"), "tracks": []},
         )
 
-    def test_get_shows_tracks_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_shows_tracks_in_context(self, panel_client, event):
         track = Track.objects.create(
             event=event, name="Morning Track", slug="morning-track", is_public=True
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/tracks.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="tracks"),
                 "tracks": [
                     TrackListItemDTO(
                         pk=track.pk,
@@ -112,9 +77,8 @@ class TestTracksPageView:
         )
 
     def test_get_shows_assigned_spaces_and_managers(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="Morning Track", slug="morning-track", is_public=True
         )
@@ -122,14 +86,14 @@ class TestTracksPageView:
         track.spaces.add(space)
         track.managers.add(active_user)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/tracks.html",
             context_data={
-                **_base_context(event, rooms=1),
+                **panel_context(event, active_nav="tracks", rooms_count=1),
                 "tracks": [
                     TrackListItemDTO(
                         pk=track.pk,

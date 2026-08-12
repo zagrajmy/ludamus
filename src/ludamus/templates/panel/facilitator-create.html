@@ -15,12 +15,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:facilitators' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit" form="facilitator-create-form" class="btn btn-primary">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create Facilitator" %}
-            </button>
+            {% url 'panel:facilitators' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Create Facilitator" as create_label %}
+            {% tessera_button create_label form="facilitator-create-form" icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
