@@ -61,8 +61,7 @@ class FormInitialMatcher:
         actual = getattr(other, "initial", {})
         return {key: actual.get(key) for key in self.initial} == self.initial
 
-    def __hash__(self) -> int:
-        return hash(frozenset(self.initial.items()))
+    __hash__ = None
 
     def __repr__(self) -> str:
         return f"FormInitialMatcher({self.initial})"

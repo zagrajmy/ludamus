@@ -195,31 +195,23 @@
         <p class="text-xs text-foreground-muted">
             {% translate "Set how long each source answer means. Answers left at zero are skipped at import time." %}
         </p>
+        {% translate "Hours" as hours_label %}
+        {% translate "Minutes" as minutes_label %}
         {% for dur in row.option_durations %}
-            <div class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
-                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</p>
+            <fieldset class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
+                <legend class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</legend>
                 <input type="hidden"
                        name="droption_{{ row.index }}"
                        value="{{ dur.option }}">
                 <div class="flex items-center gap-2">
-                    <input type="number"
-                           name="drhours_{{ row.index }}"
-                           value="{{ dur.hours }}"
-                           min="0"
-                           max="{{ max_duration_hours }}"
-                           aria-label="{% translate "Hours" %}"
-                           class="w-16 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                    <span class="text-sm text-foreground-muted">{% translate "h" %}</span>
-                    <input type="number"
-                           name="drminutes_{{ row.index }}"
-                           value="{{ dur.minutes }}"
-                           min="0"
-                           max="{{ max_duration_minutes }}"
-                           aria-label="{% translate "Minutes" %}"
-                           class="w-16 rounded-lg border border-border bg-bg-secondary px-2 py-1 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-                    <span class="text-sm text-foreground-muted">{% translate "min" %}</span>
+                    {% with idx=row.index|stringformat:"s" %}
+                        {% include "components/stepper-field.html" with name="drhours_"|add:idx value=dur.hours min="0" max=max_duration_hours|stringformat:"s" aria_label=hours_label %}
+                        <span class="text-sm text-foreground-muted">{% translate "h" %}</span>
+                        {% include "components/stepper-field.html" with name="drminutes_"|add:idx value=dur.minutes min="0" max=max_duration_minutes|stringformat:"s" aria_label=minutes_label %}
+                        <span class="text-sm text-foreground-muted">{% translate "min" %}</span>
+                    {% endwith %}
                 </div>
-            </div>
+            </fieldset>
         {% endfor %}
     </div>
     <div class="recipe-overrides mt-3 max-w-xl space-y-2 sm:ml-20 {% if row.selected == "ignore" %}hidden{% endif %}"
