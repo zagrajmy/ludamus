@@ -275,6 +275,9 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
         context["facilitator"] = detail.facilitator
         context["linked_user"] = detail.linked_user
+        context["guild"] = self.request.services.guilds.mark_for_user(
+            sphere_id=current_event.sphere_id, user_pk=detail.facilitator.user_id
+        )
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
             AccreditationType(detail.facilitator.accreditation_type)
         ]
