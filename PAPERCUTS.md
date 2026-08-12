@@ -376,3 +376,6 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
+  expecting a targeted run; the task ignores trailing path args and ran all 3990
+  tests (4 min). 'mise run test:unit -- -k Name' works instead.
