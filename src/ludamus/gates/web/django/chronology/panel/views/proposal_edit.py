@@ -34,7 +34,6 @@ from ludamus.gates.web.django.dynamic_fields import (
     unfold_custom_answers,
 )
 from ludamus.gates.web.django.forms import CUSTOM_DURATION, create_proposal_form
-from ludamus.gates.web.django.templatetags.cfp_tags import parse_duration
 from ludamus.pacts import (
     NotFoundError,
     PersonalDataFieldValueData,
@@ -44,6 +43,7 @@ from ludamus.pacts import (
     SessionStatus,
     SessionUpdateData,
 )
+from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
 from ludamus.pacts.panel import ProposalDraft
 from ludamus.pacts.services import DatabaseConstraintError

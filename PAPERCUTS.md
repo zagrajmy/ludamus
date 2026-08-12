@@ -361,6 +361,15 @@ If you fix a papercut, remove it.
   pushing. Worked around it with `npm i oxfmt@0.56.0` in a scratch dir, run from
   the repo root so it picks up .oxfmtrc.json — that plain npm install is
   reachable is worth documenting in docs/agents/sandbox.md.
+- 2026-08-12: compiling the PL catalog (mise run messages-compile) reddens 5
+  guild tests: sphere/guilds.py builds its message constants at import with
+  gettext (not lazy), so they freeze to Polish while the tests assert English.
+  CI never compiles the .mo, so it is green there. Deleted the local .mo to
+  match CI.
+- 2026-08-12: markdownlint's pre-commit autofix rewrites a line that begins with
+  an issue reference (#834) into '# 834', turning it into an H1 and then failing
+  MD022/MD025 on its own fix. Had to rewrap the paragraph so no line starts with
+  '#'.
 - 2026-08-12: `pkill -f "django runserver"` killed my own shell — the pattern
   matches the tool's command line too, so the bash call died with exit 144 mid-
   script (twice, once leaving a half-written file). Killing the dev server
@@ -376,7 +385,3 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
-- 2026-08-12: Ran 'mise run messages-compile' after editing django.po; the
-  generated (gitignored) django.mo made integration tests render Polish and 5
-  message assertions in tests/integration/web/multiverse/test_guilds.py failed.
-  Had to rm the .mo to get green again.

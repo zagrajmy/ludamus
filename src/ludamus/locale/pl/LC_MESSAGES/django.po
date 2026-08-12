@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 17:02+0200\n"
+"POT-Creation-Date: 2026-08-12 18:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -846,7 +846,6 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/proposal-duration.html
@@ -1413,6 +1412,10 @@ msgstr "Nie znaleziono integracji importu."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Invalid row submission."
 msgstr "Nieprawidłowe dane wiersza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Enter a length as whole hours (0-23) and minutes (0-59)."
+msgstr "Podaj długość w pełnych godzinach (0-23) i minutach (0-59)."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Question saved."
@@ -2725,6 +2728,17 @@ msgid "Minimum Age"
 msgstr "Minimalny Wiek"
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Hours"
+msgstr "Godziny"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Minutes"
+msgstr "Minuty"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Enter how long the session lasts."
 msgstr "Podaj, ile trwa punkt programu."
 
@@ -2741,15 +2755,6 @@ msgstr "— Wybierz kategorię —"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Invalid category selection."
 msgstr "Nieprawidłowy wybór kategorii."
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/print.html
-msgid "Hours"
-msgstr "Godziny"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Minutes"
-msgstr "Minuty"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Standard"
@@ -6575,10 +6580,12 @@ msgid "Define how long sessions of this category can be."
 msgstr "Określ jak długo mogą trwać punkty programu w tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "h"
 msgstr "h"
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "min"
 msgstr "min"
 
@@ -7802,15 +7809,11 @@ msgstr "Domyślny dla odpowiedzi własnych"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid ""
-"Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
-"min). Answers without a mapping are skipped at import time."
+"Set how long each source answer means. Answers left at zero are skipped at "
+"import time."
 msgstr ""
-"Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla 1 "
-"g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
-
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "ISO 8601 duration"
-msgstr "Czas trwania ISO 8601"
+"Ustaw, jaką długość oznacza każda odpowiedź źródłowa. Odpowiedzi z zerową "
+"długością są pomijane przy imporcie."
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid ""
@@ -9041,6 +9044,16 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid ""
+#~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
+#~ "min). Answers without a mapping are skipped at import time."
+#~ msgstr ""
+#~ "Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla "
+#~ "1 g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+
+#~ msgid "ISO 8601 duration"
+#~ msgstr "Czas trwania ISO 8601"
 
 #~ msgid "Toggle category"
 #~ msgstr "Przełącz kategorię"
