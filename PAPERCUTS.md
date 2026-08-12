@@ -376,3 +376,7 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-12: Ran 'mise run messages-compile' after editing django.po; the
+  generated (gitignored) django.mo made integration tests render Polish and 5
+  message assertions in tests/integration/web/multiverse/test_guilds.py failed.
+  Had to rm the .mo to get green again.
