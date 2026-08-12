@@ -80,8 +80,10 @@ export default defineConfig({
           proxy: {
             server: proxyServer,
             // The proxy only fronts external egress; localhost (the app
-            // under test) and 127.0.0.1 must bypass it.
-            bypass: "localhost,127.0.0.1",
+            // under test) and 127.0.0.1 must bypass it. Sphere hosts are
+            // subdomains of it (another.localhost), and neither the proxy's
+            // allowlist nor a bare "localhost" rule covers those.
+            bypass: "localhost,*.localhost,127.0.0.1",
           },
         }
       : {}),
