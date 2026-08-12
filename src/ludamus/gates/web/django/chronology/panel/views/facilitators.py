@@ -364,6 +364,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 display_name=display_name,
                 base_slug=slugify(display_name),
                 accreditation_type=form.cleaned_data["accreditation_type"],
+                multi_session=form.cleaned_data["multi_session"],
                 organizer_id=(
                     self.request.context.current_user_id
                     if form.cleaned_data["assign_me"]
@@ -409,6 +410,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             initial={
                 "accreditation_type": facilitator.accreditation_type,
                 "internal_comment": facilitator.internal_comment,
+                "multi_session": facilitator.multi_session,
             }
         )
         context["field_descriptors"] = _stored_descriptors(detail.personal_data_items)
@@ -460,6 +462,7 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             data=FacilitatorUpdateData(
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 internal_comment=form.cleaned_data["internal_comment"],
+                multi_session=form.cleaned_data["multi_session"],
             ),
             entries=entries,
             user_id=self.request.context.current_user_id,

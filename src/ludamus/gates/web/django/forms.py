@@ -749,6 +749,11 @@ ACCREDITATION_TYPE_LABELS = {
 ACCREDITATION_TYPE_CHOICES = [
     (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
 ]
+MULTI_SESSION_LABEL = _("Runs program points in parallel")
+MULTI_SESSION_HELP = _(
+    "For a guild or the organizer crew — the timetable stops reporting"
+    " overlapping program points as a clash."
+)
 
 
 class FacilitatorForm(forms.Form):
@@ -767,6 +772,9 @@ class FacilitatorForm(forms.Form):
         initial=AccreditationType.NONE,
         required=False,
         label=_("Accreditation type"),
+    )
+    multi_session = forms.BooleanField(
+        required=False, label=MULTI_SESSION_LABEL, help_text=MULTI_SESSION_HELP
     )
     assign_me = forms.BooleanField(
         initial=True,
@@ -794,6 +802,9 @@ class FacilitatorEditForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         label=_("Internal comment"),
         help_text=_("Visible to organizers only."),
+    )
+    multi_session = forms.BooleanField(
+        required=False, label=MULTI_SESSION_LABEL, help_text=MULTI_SESSION_HELP
     )
 
     def clean_accreditation_type(self) -> str:

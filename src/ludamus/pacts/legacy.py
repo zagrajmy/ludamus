@@ -79,6 +79,7 @@ class FacilitatorDTO(BaseModel):
     event_id: int
     ident: str = ""
     internal_comment: str = ""
+    multi_session: bool = False
     organizer_id: int | None = None
     # Annotated by the single-facilitator reads, so a page showing the
     # organizer needs no second lookup. `create` and `update` return the row
@@ -94,6 +95,7 @@ class FacilitatorData(TypedDict, total=False):
     display_name: str
     event_id: int
     ident: str
+    multi_session: bool
     organizer_id: int | None
     slug: str
     user_id: int | None
@@ -103,6 +105,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
     internal_comment: str
+    multi_session: bool
     organizer_id: int | None
     user_id: int | None
 

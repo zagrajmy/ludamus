@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 17:02+0200\n"
+"POT-Creation-Date: 2026-08-12 19:44+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -643,37 +643,30 @@ msgid "%(name)s (manages their own enrollment)"
 msgstr "%(name)s (zarządza swoimi zapisami)"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Seat held (awaiting their approval): {}"
 msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Guests you bring: {}"
 msgstr "Goście, których zabierasz: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Bring fewer "
 "guests or use the waiting list for account holders."
@@ -682,7 +675,6 @@ msgstr ""
 "Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -978,6 +970,7 @@ msgstr "Tak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/base.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
 msgid "No"
 msgstr "Nie"
 
@@ -1167,7 +1160,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1894,7 +1886,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -1903,7 +1894,6 @@ msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -2760,6 +2750,20 @@ msgstr "Gość"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Honorary"
 msgstr "Honorowa"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Runs program points in parallel"
+msgstr "Prowadzi punkty programu równolegle"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"For a guild or the organizer crew — the timetable stops reporting "
+"overlapping program points as a clash."
+msgstr ""
+"Dla gildii lub ekipy organizatorów — harmonogram przestaje zgłaszać "
+"nakładające się punkty programu jako kolizję."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
@@ -6978,6 +6982,14 @@ msgid ""
 msgstr ""
 "Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest nazwa "
 "wyświetlana zgłoszenia."
+
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid ""
+"The timetable does not report overlapping program points of this facilitator "
+"as a clash."
+msgstr ""
+"Harmonogram nie zgłasza nakładających się punktów programu tego twórcy jako "
+"kolizji."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html

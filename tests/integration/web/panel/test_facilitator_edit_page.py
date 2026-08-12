@@ -217,6 +217,24 @@ class TestFacilitatorEditPageView:
             }
         ]
 
+    def test_post_marks_facilitator_as_multi_session(
+        self, panel_client, active_user, event
+    ):
+        facilitator = make_facilitator(event)
+
+        panel_client.post(
+            self.get_url(event),
+            data={"accreditation_type": "none", "multi_session": "on"},
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.multi_session
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert log.changes == [
+            {"field": "multi_session", "field_id": None, "old": False, "new": True}
+        ]
+
     def test_get_preselects_current_accreditation_type(self, panel_client, event):
         make_facilitator(event, accreditation_type="guest")
 

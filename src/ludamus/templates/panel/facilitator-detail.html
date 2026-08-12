@@ -54,6 +54,19 @@
                                     </dd>
                                 </div>
                                 <div>
+                                    <dt class="text-xs text-foreground-muted">{% translate "Runs program points in parallel" %}</dt>
+                                    <dd class="text-foreground">
+                                        {% if facilitator.multi_session %}
+                                            {% translate "Yes" %}
+                                        {% else %}
+                                            {% translate "No" %}
+                                        {% endif %}
+                                    </dd>
+                                    <p class="mt-1 text-xs text-foreground-muted">
+                                        {% translate "The timetable does not report overlapping program points of this facilitator as a clash." %}
+                                    </p>
+                                </div>
+                                <div>
                                     <dt class="text-xs text-foreground-muted">{% translate "Linked User" %}</dt>
                                     <dd class="text-foreground">
                                         {% if linked_user %}

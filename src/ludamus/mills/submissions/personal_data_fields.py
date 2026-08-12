@@ -296,6 +296,16 @@ class PersonalDataFieldValueService:
                         "new": internal_comment,
                     }
                 )
+            multi_session = data.get("multi_session")
+            if multi_session is not None and facilitator.multi_session != multi_session:
+                changes.append(
+                    {
+                        "field": "multi_session",
+                        "field_id": None,
+                        "old": facilitator.multi_session,
+                        "new": multi_session,
+                    }
+                )
             self._facilitators.update(facilitator_id, data)
             storable = self._storable(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries

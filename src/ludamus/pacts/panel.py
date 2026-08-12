@@ -244,6 +244,7 @@ class FacilitatorCreateData:
     display_name: str
     base_slug: str
     accreditation_type: str
+    multi_session: bool = False
     organizer_id: int | None = None
     values: dict[int, str | list[str] | bool] = field(default_factory=dict)
 
