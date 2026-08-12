@@ -39,6 +39,7 @@ from ludamus.gates.web.django.forms import (
     FacilitatorEditForm,
     FacilitatorForm,
 )
+from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.mills.panel_facilitators import (
     MIN_MERGE_FACILITATORS,
     accreditation_reconcile,
@@ -207,16 +208,22 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         pagination = pagination_context(self.request, list_context.facilitators)
         page_obj = pagination["page_obj"]
 
+        facilitators = list(page_obj.object_list)
+        attach_facilitator_guild_marks(
+            facilitators,
+            guilds=self.request.services.guilds,
+            sphere_id=current_event.sphere_id,
+        )
         cells = facilitator_column_values(
             panel=self.request.services.facilitator_panel,
-            facilitators=list(page_obj.object_list),
+            facilitators=facilitators,
             columns=list_context.columns,
         )
 
         context["active_nav"] = "facilitators"
         context["active_tab"] = "list"
         context["tab_urls"] = facilitator_tab_urls(slug)
-        context["facilitators"] = list(page_obj.object_list)
+        context["facilitators"] = facilitators
         context.update(pagination)
         context["columns"] = column_views(list_context.columns, FACILITATOR_COLUMNS)
         context["column_values"] = cells

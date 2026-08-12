@@ -173,14 +173,16 @@
                                                         {% if forloop.first %}
                                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                                                aria-label="{{ facilitator.display_name }}"
-                                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
+                                                               class="text-primary hover:text-primary/80">
+                                                                {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:50 %}
+                                                            </a>
                                                             {% if facilitator.flagged_for_deletion %}
                                                                 <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
                                                                     {% translate "Flagged" %}
                                                                 </span>
                                                             {% endif %}
                                                         {% else %}
-                                                            {{ value|truncatechars:40 }}
+                                                            {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:40 %}
                                                         {% endif %}
                                                     </td>
                                                 {% endwith %}

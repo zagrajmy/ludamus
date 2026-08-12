@@ -4,6 +4,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.guild import GuildMarkDTO
 from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
 
 
@@ -13,6 +14,9 @@ class FacilitatorListItemDTO(BaseModel):
     accreditation_type: str
     display_name: str
     flagged_for_deletion: bool = False
+    # Attached by the panel view, not the ORM: null covers both "no linked
+    # account" and "account, no guild" — the Linked User column tells them apart.
+    guild: GuildMarkDTO | None = None
     organizer_id: int | None = None
     # Annotated by `list_by_event`; null when nobody took the facilitator on.
     organizer_name: str | None = None

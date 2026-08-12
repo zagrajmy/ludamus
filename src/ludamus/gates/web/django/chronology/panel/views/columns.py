@@ -107,6 +107,8 @@ FACILITATOR_COLUMNS: dict[str, BuiltinColumn[FacilitatorListItemDTO]] = builtin_
             label=gettext_lazy("Linked User"),
             cell=lambda f: _("Linked") if f.user_id else _("None"),
         ),
+        # No cell: a mark is an image, so the template draws it.
+        "guild": BuiltinColumn(label=gettext_lazy("Guild"), kind="guild"),
         "sessions": BuiltinColumn(
             label=gettext_lazy("Sessions"), cell=lambda f: str(f.session_count)
         ),
