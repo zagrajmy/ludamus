@@ -3,9 +3,13 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views.facilitators import (
+    BULK_FACILITATOR_ACTIONS,
+)
 from ludamus.links.db.django.models import Facilitator
 from tests.integration.conftest import ProposalCategoryFactory, SessionFactory
 from tests.integration.utils import assert_response
@@ -16,6 +20,16 @@ _HAS_SESSIONS_ERROR = (
     "This facilitator is named on sessions, deleted ones included. Remove them"
     " from those sessions first."
 )
+
+
+# The state the selected facilitator has to be in for each action to apply.
+# A new entry in `BULK_FACILITATOR_ACTIONS` KeyErrors here until it is listed.
+_ACTION_NEEDS_DELETED = {
+    "delete": None,
+    "restore": _DELETED_AT,
+    "mark-guest": None,
+    "merge": None,
+}
 
 
 def _make_facilitator(event, slug, **kwargs):
@@ -122,6 +136,32 @@ class TestFacilitatorBulkActionView:
         assert alice.deleted_at is None
         assert alice.accreditation_type == "guest"
 
+    @pytest.mark.parametrize("action", BULK_FACILITATOR_ACTIONS)
+    def test_post_handles_every_offered_action(
+        self, authenticated_client, active_user, sphere, event, action
+    ):
+        # An action added to the tuple without a branch in `_apply` used to
+        # restore the whole selection and report success. Now it fails here.
+        sphere.managers.add(active_user)
+        _make_facilitator(event, "alice", deleted_at=_ACTION_NEEDS_DELETED[action])
+
+        response = authenticated_client.post(
+            self.get_url(event), {"action": action, "facilitator_slugs": ["alice"]}
+        )
+
+        if action == "merge":
+            expected_url = (
+                reverse("panel:facilitator-merge", kwargs={"slug": event.slug})
+                + "?facilitator_slugs=alice"
+            )
+            expected_messages = ()
+        else:
+            expected_url = reverse("panel:facilitators", kwargs={"slug": event.slug})
+            expected_messages = ((messages.SUCCESS, "1 facilitator updated."),)
+        assert_response(
+            response, HTTPStatus.FOUND, messages=expected_messages, url=expected_url
+        )
+
     def test_post_keeps_the_facilitators_that_run_sessions(
         self, authenticated_client, active_user, sphere, event
     ):
@@ -212,11 +252,25 @@ class TestFacilitatorBulkActionView:
             reverse("panel:facilitators", kwargs={"slug": event.slug}) + "?deleted=true"
         )
 
-        safe = authenticated_client.post(
+        response = authenticated_client.post(
             self.get_url(event),
             {"action": "delete", "facilitator_slugs": ["alice"], "next": next_url},
         )
-        unsafe = authenticated_client.post(
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "1 facilitator updated.")],
+            url=next_url,
+        )
+
+    def test_post_rejects_offsite_next_url(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        _make_facilitator(event, "alice", deleted_at=_DELETED_AT)
+
+        response = authenticated_client.post(
             self.get_url(event),
             {
                 "action": "restore",
@@ -225,5 +279,9 @@ class TestFacilitatorBulkActionView:
             },
         )
 
-        assert safe.url == next_url
-        assert unsafe.url == reverse("panel:facilitators", kwargs={"slug": event.slug})
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "1 facilitator updated.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )

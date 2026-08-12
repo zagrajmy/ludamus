@@ -736,7 +736,7 @@ class FacilitatorUnassignOrganizerActionView(_FacilitatorActionView):
         )
 
 
-_BULK_FACILITATOR_ACTIONS = ("delete", "restore", "mark-guest", "merge")
+BULK_FACILITATOR_ACTIONS = ("delete", "restore", "mark-guest", "merge")
 
 
 class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
@@ -754,7 +754,7 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
             self.request, reverse("panel:facilitators", kwargs={"slug": slug})
         )
         action = self.request.POST.get("action", "")
-        if action not in _BULK_FACILITATOR_ACTIONS:
+        if action not in BULK_FACILITATOR_ACTIONS:
             messages.error(self.request, _("Unknown bulk action."))
             return redirect(back)
 
@@ -775,7 +775,11 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
         refused: Counter[OrganizerActionRefusal] = Counter()
         for facilitator_slug in slugs:
             try:
-                self._apply(action, current_event.pk, facilitator_slug)
+                self._apply(
+                    action=action,
+                    event_id=current_event.pk,
+                    facilitator_slug=facilitator_slug,
+                )
             except NotFoundError:
                 missing += 1
             except FacilitatorActionError as exc:
@@ -788,7 +792,7 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
         self._report(applied=applied, missing=missing, refused=refused)
         return redirect(back)
 
-    def _apply(self, action: str, event_id: int, facilitator_slug: str) -> None:
+    def _apply(self, *, action: str, event_id: int, facilitator_slug: str) -> None:
         panel = self.request.services.facilitator_panel
         if action == "mark-guest":
             panel.set_accreditation(
@@ -803,12 +807,19 @@ class FacilitatorBulkActionView(PanelAccessMixin, EventContextMixin, View):
                 facilitator_slug=facilitator_slug,
                 user_id=self.request.context.current_user_id,
             )
-        else:
+        elif action == "restore":
             panel.restore(
                 event_id=event_id,
                 facilitator_slug=facilitator_slug,
                 user_id=self.request.context.current_user_id,
             )
+        else:
+            # `post` already checked the membership, so this is unreachable
+            # from the web: it exists so an action added to the tuple without
+            # a branch here fails in the suite instead of silently restoring
+            # the whole selection.
+            msg = f"unhandled bulk facilitator action: {action!r}"
+            raise ValueError(msg)
 
     def _report(
         self, *, applied: int, missing: int, refused: Counter[OrganizerActionRefusal]
