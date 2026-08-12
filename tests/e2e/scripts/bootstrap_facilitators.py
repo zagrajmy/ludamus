@@ -6,9 +6,7 @@ Creates three facilitators on both the ``autumn-open`` and
   - Alice Morgan (alice-morgan)
   - Alice Morgan Copy (alice-morgan-copy)  — duplicate, used in merge tests
   - Bob Chen (bob-chen)
-
-``frostfire-con`` also gets Dana Reyes, linked to an account of her own, so the
-panel's guild column has a row that can actually join a guild.
+  - Dana Reyes (dana-reyes) — ``frostfire-con`` only, linked to an account
 
 Run after ``bootstrap_data.py`` (which creates both events).
 Idempotent — safe to re-run.

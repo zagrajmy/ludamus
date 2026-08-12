@@ -940,8 +940,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         facilitators = Facilitator.objects.filter(
             event_id=event_id, slug__in=facilitator_slugs
         ).annotate(
-            session_count=Count("sessions", distinct=True),
-            user_email=F("user__email"),
+            session_count=Count("sessions", distinct=True), user_email=F("user__email")
         )
         by_slug = {f.slug: f for f in facilitators}
         # The caller's order is the answer's order; a slug this event doesn't
