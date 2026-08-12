@@ -72,7 +72,7 @@ test.describe("Guilds", () => {
       mimeType: "image/png",
       buffer: PNG_BYTES,
     });
-    await expect(shownFileName(logoDropzone(page))).toHaveText("mark.png");
+    await expect(shownFileName(logoDropzone(page), "mark.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, logoDropzone(page));
     await page.getByRole("button", { name: "Create guild" }).click();
 

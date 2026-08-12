@@ -47,7 +47,7 @@ test.describe("Event cover image upload", () => {
 
     await expect(uploadPrompt).toBeHidden();
     await expect(dropzone.getByRole("button", { name: "Remove image" })).toBeVisible();
-    await expect(shownFileName(dropzone)).toHaveText("cover.png");
+    await expect(shownFileName(dropzone, "cover.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
@@ -56,7 +56,7 @@ test.describe("Event cover image upload", () => {
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await expect(coverDropzone(page).getByText("Click to upload")).toBeHidden();
     await expect(coverDropzone(page).getByRole("button", { name: "Remove image" })).toBeVisible();
-    await expect(shownFileName(coverDropzone(page))).toHaveText("cover.png");
+    await expect(shownFileName(coverDropzone(page), "cover.png")).toBeVisible();
   });
 
   test("manager uploads event logo via the dropzone", async ({ page }) => {
@@ -72,14 +72,14 @@ test.describe("Event cover image upload", () => {
       buffer: PNG_BYTES,
     });
 
-    await expect(shownFileName(dropzone)).toHaveText("mark.png");
+    await expect(shownFileName(dropzone, "mark.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
 
     await page.goto("/panel/event/lakeside-weekend/settings/");
-    await expect(shownFileName(logoDropzone(page))).toHaveText("mark.png");
+    await expect(shownFileName(logoDropzone(page), "mark.png")).toBeVisible();
   });
 
   test("manager removes a saved cover via the clear button", async ({ page }) => {

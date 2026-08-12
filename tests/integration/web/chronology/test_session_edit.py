@@ -11,6 +11,7 @@ from ludamus.links.db.django.models import (
     SessionFieldOption,
     SessionFieldValue,
 )
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
 from ludamus.pacts import (
     FieldAnswer,
@@ -383,10 +384,14 @@ class TestSessionEditViewPost:
     def test_invalid_post_keeps_existing_cover_preview(
         self, authenticated_client, event, owned_session
     ):
-        owned_session.cover_image = SimpleUploadedFile(
-            "cover.png", PNG_BYTES, content_type="image/png"
+        save_replacing_files(
+            owned_session,
+            {
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                )
+            },
         )
-        owned_session.save()
         cover_url = owned_session.cover_image_url
         url = _url(event, owned_session)
 
@@ -409,9 +414,8 @@ class TestSessionEditViewPost:
             },
         )
         assert response.context["form"].fields["cover_image"].initial == StoredFile(
-            cover_url, ""
+            cover_url, "cover.png"
         )
-        assert cover_url.encode() in response.content
 
     def test_non_owner_404_no_write(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)

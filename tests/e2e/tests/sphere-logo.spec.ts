@@ -46,7 +46,7 @@ test.describe("Sphere logo upload", () => {
     });
 
     await expect(dropzone.getByText("Click to upload")).toBeHidden();
-    await expect(shownFileName(dropzone)).toHaveText("brand.svg");
+    await expect(shownFileName(dropzone, "brand.svg")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
@@ -56,7 +56,7 @@ test.describe("Sphere logo upload", () => {
     const preview = logoDropzone(page).locator("[data-dropzone-preview]");
     await expect(preview).toHaveAttribute("src", /\.svg$/);
     await expect(preview).toHaveJSProperty("naturalWidth", 60);
-    await expect(shownFileName(logoDropzone(page))).toHaveText("brand.svg");
+    await expect(shownFileName(logoDropzone(page), "brand.svg")).toBeVisible();
   });
 
   test("rejects an SVG carrying a script", async ({ page }) => {
