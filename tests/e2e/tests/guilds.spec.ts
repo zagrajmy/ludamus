@@ -141,4 +141,30 @@ test.describe("Guilds", () => {
     await expect(page.getByText(/Invalid or unsafe SVG file/i)).toBeVisible();
     await expect(page.getByLabel("Guild name")).toHaveValue(GUILD);
   });
+
+  // Guilds is reached from the sidebar, not by typing the URL every other test
+  // uses. Without this, deleting the sidebar entry breaks nothing in CI.
+  test("a manager reaches guilds from the sidebar of another sphere page", async ({ page }) => {
+    await page.goto("/multiverse/panel/");
+
+    // The site navbar is a <nav> too, so the sidebar is picked by its label.
+    const sidebar = page.getByRole("navigation", { name: "Panel sections" });
+    const settings = sidebar.getByRole("link", {
+      name: "Sphere settings",
+      exact: true,
+    });
+    await expect(settings).toHaveAttribute("aria-current", "page");
+
+    await sidebar.getByRole("link", { name: "Guilds", exact: true }).click();
+
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/$/);
+    await expect(page.getByRole("heading", { name: "Guilds", level: 2 })).toBeVisible();
+    // Sphere settings owned the highlight on the page we came from; arriving at
+    // Guilds has to move it, which is the whole point of the nav entry.
+    await expect(sidebar.getByRole("link", { name: "Guilds", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(settings).not.toHaveAttribute("aria-current", "page");
+  });
 });

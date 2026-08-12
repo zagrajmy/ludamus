@@ -347,3 +347,17 @@ If you fix a papercut, remove it.
   becomes the whole suite. Had to kill it and call .venv/bin/pytest directly.
   Calling pytest directly then needs `PYTHONPATH=src` and `. ./.env.test`
   sourced by hand — two more retries before a targeted run started.
+- 2026-08-11: Burned a CI round because `djlint <path> --check` and the
+  `lint:djlint` task disagree. The task is
+  `djlint src --quiet --lint --check --format-css --format-js --profile=django`,
+  and `--format-css` is what reformats CSS inside `<style>` blocks — without it
+  my template checked clean locally and failed on CI, naming a file I had just
+  checked. Nothing in the local output hints that a flag is missing. Copying the
+  task's exact argv is the only reliable check when mise itself is unavailable;
+  worth a line in docs/agents/sandbox.md next to the oxfmt note below.
+- 2026-08-11: Hand-wrote a Playwright test and CI's `checks` job failed on oxfmt
+  formatting. oxfmt only runs through `aube exec` inside lint:hk, which the
+  sandbox's egress proxy blocks, so there is no way to format TS locally before
+  pushing. Worked around it with `npm i oxfmt@0.56.0` in a scratch dir, run from
+  the repo root so it picks up .oxfmtrc.json — that plain npm install is
+  reachable is worth documenting in docs/agents/sandbox.md.

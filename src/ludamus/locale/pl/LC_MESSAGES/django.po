@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-11 06:24+0200\n"
+"POT-Creation-Date: 2026-08-11 17:39+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5676,13 +5676,6 @@ msgid "General"
 msgstr "Ogólne"
 
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
-#: src/ludamus/templates/multiverse/panel/guilds/delete.html
-#: src/ludamus/templates/multiverse/panel/guilds/edit.html
-#: src/ludamus/templates/multiverse/panel/guilds/list.html
-msgid "Guilds"
-msgstr "Gildie"
-
-#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Import connections"
 msgstr "Połączenia importu"
@@ -5803,6 +5796,13 @@ msgstr "Utwórz gildię"
 #: src/ludamus/templates/multiverse/panel/guilds/delete.html
 msgid "Delete guild"
 msgstr "Usuń gildię"
+
+#: src/ludamus/templates/multiverse/panel/guilds/delete.html
+#: src/ludamus/templates/multiverse/panel/guilds/edit.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/base.html
+msgid "Guilds"
+msgstr "Gildie"
 
 #: src/ludamus/templates/multiverse/panel/guilds/delete.html
 #, python-format
@@ -6395,8 +6395,8 @@ msgid "Toggle sidebar"
 msgstr "Przełącz pasek boczny"
 
 #: src/ludamus/templates/panel/base.html
-msgid "Toggle category"
-msgstr "Przełącz kategorię"
+msgid "Panel sections"
+msgstr "Sekcje panelu"
 
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
@@ -8308,14 +8308,8 @@ msgstr "Ostatnia modyfikacja"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #, python-format
-msgid ""
-"\n"
-"                            Scheduled in %(space)s, %(start)s – %(end)s\n"
-"                        "
-msgstr ""
-"\n"
-"                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
-"                        "
+msgid "Scheduled in %(space)s, %(start)s – %(end)s"
+msgstr "Zaplanowano w %(space)s, %(start)s – %(end)s"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "View on timetable"
@@ -8323,14 +8317,8 @@ msgstr "Zobacz w harmonogramie"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 #, python-format
-msgid ""
-"\n"
-"                            Imported via %(name)s on %(at)s\n"
-"                        "
-msgstr ""
-"\n"
-"                            Zaimportowano przez %(name)s — %(at)s\n"
-"                        "
+msgid "Imported via %(name)s on %(at)s"
+msgstr "Zaimportowano przez %(name)s — %(at)s"
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "View import log"
@@ -9038,6 +9026,29 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Toggle category"
+#~ msgstr "Przełącz kategorię"
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                            Scheduled in %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                            Imported via %(name)s on %(at)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaimportowano przez %(name)s — %(at)s\n"
+#~ "                        "
 
 #~ msgid "Nothing to filter by yet."
 #~ msgstr "Nie ma jeszcze czego filtrować."

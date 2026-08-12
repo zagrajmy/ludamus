@@ -21,6 +21,7 @@ from ludamus.gates.web.django.forms import (
     DiscountExportForm,
     DiscountForm,
 )
+from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.discounts import (
     DiscountData,
@@ -49,8 +50,7 @@ class _DiscountRow(TypedDict):
     discount: DiscountDTO | None
 
 
-class _DiscountsContext(TypedDict):
-    active_nav: str
+class _DiscountsContext(PanelNavContext):
     assignments: list[_DiscountAssignment]
     rows: list[_DiscountRow]
 
