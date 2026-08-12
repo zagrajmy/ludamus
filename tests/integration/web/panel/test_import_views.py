@@ -3267,35 +3267,6 @@ class TestImportRowSavePostHelpers:
             },
         )
 
-        assert response.status_code == HTTPStatus.FOUND
-        integration.refresh_from_db()
-        target = ImportSettings.model_validate_json(
-            integration.settings_json
-        ).questions["Length"]
-        assert target.to == "session.duration"
-        # The zero-length option is dropped; only the mapped one survives.
-        assert set(target.values) == {"30 min"}
-        assert target.values["30 min"].iso == "PT30M"
-
-    def test_post_bounds_duration_beyond_what_the_steppers_allow(
-        self, panel_client, event, connection_with_secret
-    ):
-        integration = make_integration(
-            event, connection_with_secret, display_name="Puller"
-        )
-
-        response = panel_client.post(
-            _row_save_url(event, integration),
-            data={
-                "index": "0",
-                "question_0": "Length",
-                "target_0": "session.duration",
-                "droption_0": ["huge", "junk"],
-                "drhours_0": ["99", "-5"],
-                "drminutes_0": ["90", "abc"],
-            },
-        )
-
         assert_response(
             response,
             HTTPStatus.FOUND,
@@ -3306,10 +3277,48 @@ class TestImportRowSavePostHelpers:
         target = ImportSettings.model_validate_json(
             integration.settings_json
         ).questions["Length"]
-        # The `max` attributes are client-side only, so the server caps too —
-        # and a non-number reads as unset, which drops the option.
-        assert set(target.values) == {"huge"}
-        assert target.values["huge"].iso == "PT23H59M"
+        assert target.to == "session.duration"
+        # The zero-length option is dropped; only the mapped one survives.
+        assert set(target.values) == {"30 min"}
+        assert target.values["30 min"].iso == "PT30M"
+
+    @pytest.mark.parametrize(
+        ("hours", "minutes"),
+        (("99", "30"), ("-5", "30"), ("1", "abc"), ("9" * 4301, "30")),
+    )
+    def test_post_rejects_duration_the_steppers_would_not_allow(
+        self, panel_client, event, connection_with_secret, hours, minutes
+    ):
+        integration = make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        before = integration.settings_json
+
+        response = panel_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Length",
+                "target_0": "session.duration",
+                "droption_0": ["huge"],
+                "drhours_0": [hours],
+                "drminutes_0": [minutes],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"{_review_url(event, integration)}?edit=0",
+            messages=[
+                (
+                    messages.ERROR,
+                    "Enter a length as whole hours (0-23) and minutes (0-59).",
+                )
+            ],
+        )
+        integration.refresh_from_db()
+        assert integration.settings_json == before
 
     def test_post_skips_blank_time_slot_row(
         self, panel_client, event, connection_with_secret

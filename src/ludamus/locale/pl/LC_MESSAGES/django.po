@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 16:02+0200\n"
+"POT-Creation-Date: 2026-08-12 18:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1397,6 +1397,10 @@ msgstr "Nie znaleziono integracji importu."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Invalid row submission."
 msgstr "Nieprawidłowe dane wiersza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Enter a length as whole hours (0-23) and minutes (0-59)."
+msgstr "Podaj długość w pełnych godzinach (0-23) i minutach (0-59)."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Question saved."

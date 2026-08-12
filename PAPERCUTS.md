@@ -361,3 +361,8 @@ If you fix a papercut, remove it.
   pushing. Worked around it with `npm i oxfmt@0.56.0` in a scratch dir, run from
   the repo root so it picks up .oxfmtrc.json — that plain npm install is
   reachable is worth documenting in docs/agents/sandbox.md.
+- 2026-08-12: compiling the PL catalog (mise run messages-compile) reddens 5
+  guild tests: sphere/guilds.py builds its message constants at import with
+  gettext (not lazy), so they freeze to Polish while the tests assert English.
+  CI never compiles the .mo, so it is green there. Deleted the local .mo to
+  match CI.

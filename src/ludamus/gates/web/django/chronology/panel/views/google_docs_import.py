@@ -522,8 +522,8 @@ def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, Questio
     )
     for option, hours, minutes in rows:
         iso = build_duration(
-            hours=_bounded_int(hours, MAX_DURATION_HOURS),
-            minutes=_bounded_int(minutes, MAX_DURATION_MINUTES),
+            hours=_checked_int(hours, MAX_DURATION_HOURS),
+            minutes=_checked_int(minutes, MAX_DURATION_MINUTES),
         )
         if not (option and iso):
             continue
@@ -531,11 +531,35 @@ def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, Questio
     return values
 
 
-def _bounded_int(raw: str, maximum: int) -> int:
+class _InvalidDurationError(ValueError):
+    pass
+
+
+def _store_definition(
+    *, settings: ImportSettings, target: QuestionTarget, post: QueryDict, index: int
+) -> None:
+    to = target.to or ""
+    if to.startswith("personal."):
+        settings.definitions.personal_fields[to.removeprefix("personal.")] = (
+            _definition_from_post(post, index)
+        )
+    elif to.startswith("field."):
+        settings.definitions.session_fields[to.removeprefix("field.")] = (
+            _definition_from_post(post, index)
+        )
+
+
+def _checked_int(raw: str, maximum: int) -> int:
     # The steppers' `max` is client-side only, so the bound is enforced here
-    # too; anything that is not a plain number reads as unset.
-    text = (raw or "").strip()
-    return min(int(text), maximum) if text.isdigit() else 0
+    # too. Out of range or not a plain number is rejected rather than coerced:
+    # a silently clamped or dropped length is a wrong mapping the operator was
+    # told had saved. Blank stays "unset". The length test runs before `int()`
+    # so an absurdly long field cannot trip `sys.get_int_max_str_digits()`.
+    if not (text := (raw or "").strip()):
+        return 0
+    if not text.isdigit() or len(text) > len(str(maximum)) or int(text) > maximum:
+        raise _InvalidDurationError
+    return int(text)
 
 
 def _entity_map_from_post(
@@ -751,28 +775,28 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import-review", slug=slug, pk=active.pk)
         index = int(raw_index)
         settings = ImportSettings.model_validate_json(active.settings_json or "{}")
-        target = _target_from_post(self.request.POST, index)
+        review_url = reverse(
+            "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
+        )
+        try:
+            target = _target_from_post(self.request.POST, index)
+        except _InvalidDurationError:
+            messages.error(
+                self.request,
+                _("Enter a length as whole hours (0-23) and minutes (0-59)."),
+            )
+            return redirect(f"{review_url}?edit={index}")
         target.confirmed = True
         settings.questions[question] = target
-        if target.to and target.to.startswith("personal."):
-            slug_part = target.to.removeprefix("personal.")
-            settings.definitions.personal_fields[slug_part] = _definition_from_post(
-                self.request.POST, index
-            )
-        elif target.to and target.to.startswith("field."):
-            slug_part = target.to.removeprefix("field.")
-            settings.definitions.session_fields[slug_part] = _definition_from_post(
-                self.request.POST, index
-            )
+        _store_definition(
+            settings=settings, target=target, post=self.request.POST, index=index
+        )
         self.request.services.event_integrations.save_settings(
             event_id=current_event.pk,
             pk=active.pk,
             settings_json=settings.model_dump_json(),
         )
         messages.success(self.request, _("Question saved."))
-        review_url = reverse(
-            "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
-        )
         if self.request.POST.get("stay"):
             # "Just save" — operator is iterating on this question (typically
             # overrides) and wants to land back on the same edit view.
