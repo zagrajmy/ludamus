@@ -628,13 +628,6 @@ CUSTOM_DURATION = "custom"
 
 
 class SessionEditForm(forms.Form):
-    """Form for editing session fields by an organizer.
-
-    The length is entered as hours plus minutes and composed into the one ISO
-    duration a session stores; a subclass may add a `duration` picker of the
-    lengths its category offers, and then the steppers cover only "Custom".
-    """
-
     title = forms.CharField(
         max_length=255,
         strip=True,

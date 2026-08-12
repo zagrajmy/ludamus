@@ -1,10 +1,3 @@
-"""The stored shape of a session length.
-
-`Session.duration` and `ProposalCategory.durations` hold ISO 8601 durations.
-That format is a storage detail every writer normalizes into and every reader
-leaves: it must not reach a screen, organizer's or participant's.
-"""
-
 from __future__ import annotations
 
 import re
@@ -17,6 +10,9 @@ MINUTES_PER_HOUR = 60
 MAX_DURATION_HOURS = 23
 MAX_DURATION_MINUTES = 59
 
+# `Session.duration` and `ProposalCategory.durations` hold ISO 8601 durations.
+# That shape is a storage detail: every writer normalizes into it, every reader
+# leaves it, and it must not reach a screen.
 _CANONICAL_DURATION_RE = re.compile(r"PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?")
 _LOOSE_DURATION_RE = re.compile(
     r"p?t?\s*(?:(?P<hours>\d+)\s*h(?:ours?|rs?)?)?"
