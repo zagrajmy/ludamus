@@ -771,7 +771,7 @@ def _create_user_config_from_api(
     )
 
 
-def get_or_create_user_enrollment_config(  # ruff:ignore[too-many-arguments]
+def get_or_create_user_enrollment_config(
     *,
     enrollment_config: EnrollmentConfigDTO,
     user_email: str,

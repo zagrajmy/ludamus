@@ -47,51 +47,51 @@
             {# List of bans #}
             {% if bans %}
                 {% tessera_table %}
-                <thead class="bg-bg-tertiary">
-                    <tr>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Person" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Reason" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Banned on" %}
-                        </th>
-                        <th scope="col"
-                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
-                            {% translate "Actions" %}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="bg-bg-secondary divide-y divide-border">
-                    {% for ban in bans %}
+                    <thead class="bg-bg-tertiary">
                         <tr>
-                            <td class="px-6 py-3 text-sm font-medium text-foreground">{{ ban.user_name }}</td>
-                            <td class="px-6 py-3 text-sm text-foreground-muted">{{ ban.reason|default:"—" }}</td>
-                            <td class="px-6 py-3 text-sm text-foreground-muted">{{ ban.created_at|date:"SHORT_DATE_FORMAT" }}</td>
-                            <td class="px-6 py-3 text-right">
-                                <form method="post"
-                                      action="{% url 'panel:ban-delete' slug=current_event.slug pk=ban.pk %}"
-                                      data-confirm="{% translate "Remove this ban?" %}">
-                                    {% csrf_token %}
-                                    {% translate "Remove" as t_remove %}
-                                    {% tessera_button t_remove variant="secondary" size="sm" full_width_mobile=False %}
-                                </form>
-                            </td>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Person" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Reason" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Banned on" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Actions" %}
+                            </th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            {% end_tessera_table %}
-        {% else %}
-            <div class="text-center py-8">
-                {% icon "no-symbol" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
-                <h5 class="text-foreground-muted font-medium">{% translate "Nobody is banned from this event" %}</h5>
-            </div>
+                    </thead>
+                    <tbody class="bg-bg-secondary divide-y divide-border">
+                        {% for ban in bans %}
+                            <tr>
+                                <td class="px-6 py-3 text-sm font-medium text-foreground">{{ ban.user_name }}</td>
+                                <td class="px-6 py-3 text-sm text-foreground-muted">{{ ban.reason|default:"—" }}</td>
+                                <td class="px-6 py-3 text-sm text-foreground-muted">{{ ban.created_at|date:"SHORT_DATE_FORMAT" }}</td>
+                                <td class="px-6 py-3 text-right">
+                                    <form method="post"
+                                          action="{% url 'panel:ban-delete' slug=current_event.slug pk=ban.pk %}"
+                                          data-confirm="{% translate "Remove this ban?" %}">
+                                        {% csrf_token %}
+                                        {% translate "Remove" as t_remove %}
+                                        {% tessera_button t_remove variant="secondary" size="sm" full_width_mobile=False %}
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                {% endtessera_table %}
+            {% else %}
+                <div class="text-center py-8">
+                    {% icon "no-symbol" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                    <h5 class="text-foreground-muted font-medium">{% translate "Nobody is banned from this event" %}</h5>
+                </div>
+            {% endif %}
         {% endif %}
-    {% endif %}
-</div>
+    </div>
 {% endblock content %}

@@ -8,12 +8,12 @@ from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
-        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
@@ -94,6 +94,11 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
 
 
 SCHEDULED_FILTER = "scheduled"
+
+# Explicit "no status filter" value. An absent param means the pending backlog,
+# so "show everything" has to travel in the query — forms, the Clear link and
+# post-action redirects all echo it back.
+STATUS_ALL = "all"
 
 
 @dataclass
@@ -222,6 +227,13 @@ class FacilitatorListContextDTO:
 
 
 @dataclass
+class FacilitatorFilterOptionsDTO:
+    facilitators: list[FacilitatorListItemDTO]
+    columns: list[PanelColumnDTO]
+    has_more: bool
+
+
+@dataclass
 class FacilitatorCreateData:
     """A new facilitator as the create form spelled it.
 
@@ -277,6 +289,9 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def filter_options(
+        self, *, event_id: int, search: str, pinned: set[int], limit: int
+    ) -> FacilitatorFilterOptionsDTO: ...
     def merge_basket(
         self, *, event_id: int, slugs: list[str]
     ) -> list[FacilitatorListItemDTO]: ...

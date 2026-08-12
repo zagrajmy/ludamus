@@ -168,9 +168,7 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         settings.save(update_fields=["description"])
 
 
-class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
-    ProposalCategoryRepositoryProtocol
-):
+class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
         base_slug = slugify(name)
         slug = self.generate_unique_slug(event_id, base_slug)
@@ -890,7 +888,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         qs = Facilitator.objects.filter(event_id=event_id).annotate(
             session_count=Count("sessions", distinct=True),
             organizer_name=F("organizer__name"),
+            user_email=F("user__email"),
         )
+
+        if pks := filters.get("pks"):
+            qs = qs.filter(pk__in=pks)
 
         if search := filters.get("search"):
             # Text personal-data values are stored JSON-encoded; match both the
@@ -922,6 +924,11 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
 
         ordered = _order_facilitators(qs, filters.get("sort") or "name")
+        # A picker asks for one row more than it shows, so "there are more"
+        # costs no extra COUNT -- and a one-letter search never drags the whole
+        # roster into memory to throw most of it away.
+        if limit := filters.get("limit"):
+            ordered = ordered[:limit]
         return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
 
     @staticmethod
@@ -932,7 +939,9 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
             return []
         facilitators = Facilitator.objects.filter(
             event_id=event_id, slug__in=facilitator_slugs
-        ).annotate(session_count=Count("sessions", distinct=True))
+        ).annotate(
+            session_count=Count("sessions", distinct=True), user_email=F("user__email")
+        )
         by_slug = {f.slug: f for f in facilitators}
         # The caller's order is the answer's order; a slug this event doesn't
         # have drops out rather than raising.

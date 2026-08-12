@@ -37,8 +37,13 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
+    from ludamus.gates.web.django.panel import PanelNav
     from ludamus.pacts import FacilitatorListItemDTO, SessionListItemDTO
-    from ludamus.pacts.panel import PanelColumnDTO, PanelColumnServiceProtocol
+    from ludamus.pacts.panel import (
+        FacilitatorPanelServiceProtocol,
+        PanelColumnDTO,
+        PanelColumnServiceProtocol,
+    )
 
 TEXT_KIND = "text"
 
@@ -102,6 +107,7 @@ FACILITATOR_COLUMNS: dict[str, BuiltinColumn[FacilitatorListItemDTO]] = builtin_
             label=gettext_lazy("Linked User"),
             cell=lambda f: _("Linked") if f.user_id else _("None"),
         ),
+        "guild": BuiltinColumn(label=gettext_lazy("Guild"), kind="guild"),
         "sessions": BuiltinColumn(
             label=gettext_lazy("Sessions"), cell=lambda f: str(f.session_count)
         ),
@@ -174,12 +180,31 @@ def column_values[RowT: PanelRowProtocol](
     return values
 
 
+def facilitator_column_values(
+    *,
+    panel: FacilitatorPanelServiceProtocol,
+    facilitators: Sequence[FacilitatorListItemDTO],
+    columns: Sequence[PanelColumnDTO],
+) -> dict[int, dict[str, str]]:
+    # Lives here rather than on either page because the facilitator list and
+    # the timetable's facilitator picker both render these cells.
+    return column_values(
+        rows=facilitators,
+        columns=columns,
+        builtins=FACILITATOR_COLUMNS,
+        raw_values=panel.column_values(
+            facilitator_ids=[f.pk for f in facilitators],
+            field_ids=[c.field.pk for c in columns if c.field is not None],
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class PanelColumnSet:
     """Everything one list's columns chooser differs by."""
 
     builtins: Mapping[str, ColumnMetaProtocol]
-    active_nav: str
+    active_nav: PanelNav
     tab_urls: Callable[[str], dict[str, str]]
     template: str
     list_route: str

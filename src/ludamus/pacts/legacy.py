@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import FacilitatorListFilters
 
@@ -106,21 +107,6 @@ class FacilitatorUpdateData(TypedDict, total=False):
     user_id: int | None
 
 
-class FacilitatorListItemDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    accreditation_type: str
-    display_name: str
-    flagged_for_deletion: bool = False
-    organizer_id: int | None = None
-    # Annotated by `list_by_event`; null when nobody took the facilitator on.
-    organizer_name: str | None = None
-    pk: int
-    session_count: int
-    slug: str
-    user_id: int | None
-
-
 class PromotionMode(StrEnum):
     AUTO = auto()
     OFFER_CLAIM = auto()
@@ -178,6 +164,7 @@ class UnscheduledSessionFilter(BaseModel):
     max_duration_minutes: int | None = None
     category_pk: int | None = None
     available_on: date | None = None
+    facilitator_pks: set[int] = set()
 
 
 class SessionListItemDTO(BaseModel):
@@ -775,7 +762,7 @@ class SphereRepositoryProtocol(Protocol):
     def update(sphere_id: int, data: SphereUpdateData) -> None: ...
 
 
-class SessionRepositoryProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
+class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def create(
         session_data: SessionData,
@@ -918,8 +905,6 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]: ...
     @staticmethod
-    def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]: ...
-    @staticmethod
     def list_manager_names_by_event(event_pk: int) -> dict[int, list[str]]: ...
     @staticmethod
     def list_manager_names_by_tracks(
@@ -979,9 +964,13 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> AgendaItemDTO: ...
     @staticmethod
-    def list_by_event(event_pk: int) -> list[AgendaItemDTO]: ...
+    def list_by_event(
+        event_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]: ...
     @staticmethod
-    def list_by_track(track_pk: int) -> list[AgendaItemDTO]: ...
+    def list_by_track(
+        track_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
     @staticmethod
@@ -993,10 +982,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
-    @staticmethod
-    def confirm_all_by_event(event_pk: int) -> None: ...
-    @staticmethod
-    def confirm_all_by_track(track_pk: int) -> None: ...
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
     @staticmethod
@@ -1046,9 +1031,7 @@ class SpaceRepositoryProtocol(Protocol):
     def lock(pk: int) -> None: ...
 
 
-class ProposalCategoryRepositoryProtocol(  # ruff: ignore[too-many-public-methods]
-    Protocol
-):
+class ProposalCategoryRepositoryProtocol(Protocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO: ...
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
@@ -1536,7 +1519,7 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
-class UnitOfWorkProtocol(Protocol):  # ruff:ignore[too-many-public-methods]
+class UnitOfWorkProtocol(Protocol):
     @staticmethod
     def atomic() -> AbstractContextManager[None]: ...
     @staticmethod

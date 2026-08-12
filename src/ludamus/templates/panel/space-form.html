@@ -25,7 +25,7 @@
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <div class="card max-w-xl p-6">
+        <div class="card card-body max-w-xl">
             <form method="post" action="" class="space-y-4" data-submit-once>
                 {% csrf_token %}
                 {% tessera_form form %}

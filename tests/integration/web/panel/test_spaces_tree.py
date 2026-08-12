@@ -10,33 +10,14 @@ from django.urls import reverse
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts import EventDTO
-from ludamus.pacts.venues import SpaceNodeDTO
+from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _base_context(event, *, rooms=0):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": rooms,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "venues",
-    }
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import assert_not_a_manager, panel_context
 
 
-def _node(space, *, depth, is_leaf, children=None, track_names=None):
-    return SpaceNodeDTO(
+def _record(space):
+    return SpaceRecordDTO(
         pk=space.pk,
         event_id=space.event_id,
         parent_id=space.parent_id,
@@ -46,7 +27,12 @@ def _node(space, *, depth, is_leaf, children=None, track_names=None):
         description=space.description,
         location=space.location,
         order=space.order,
-        depth=depth,
+    )
+
+
+def _node(space, *, is_leaf, children=None, track_names=None):
+    return SpaceTreeNodeDTO(
+        space=_record(space),
         is_leaf=is_leaf,
         track_names=track_names or [],
         children=children or [],
@@ -73,19 +59,12 @@ class TestSpacesTreePage:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_non_manager_redirected(self, authenticated_client, event):
         response = authenticated_client.get(_venues_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
     def test_empty_tree(self, manager_client, event):
         response = manager_client.get(_venues_url(event))
@@ -94,7 +73,7 @@ class TestSpacesTreePage:
             response,
             HTTPStatus.OK,
             template_name="panel/spaces.html",
-            context_data={**_base_context(event), "tree": []},
+            context_data={**panel_context(event, active_nav="venues"), "tree": []},
         )
 
     def test_renders_nested_tree(self, manager_client, event):
@@ -110,14 +89,9 @@ class TestSpacesTreePage:
             HTTPStatus.OK,
             template_name="panel/spaces.html",
             context_data={
-                **_base_context(event, rooms=2),
+                **panel_context(event, active_nav="venues", rooms_count=2),
                 "tree": [
-                    _node(
-                        root,
-                        depth=1,
-                        is_leaf=False,
-                        children=[_node(leaf, depth=2, is_leaf=True)],
-                    )
+                    _node(root, is_leaf=False, children=[_node(leaf, is_leaf=True)])
                 ],
             },
         )
@@ -137,11 +111,10 @@ class TestSpacesTreePage:
             HTTPStatus.OK,
             template_name="panel/spaces.html",
             context_data={
-                **_base_context(event, rooms=1),
+                **panel_context(event, active_nav="venues", rooms_count=1),
                 "tree": [
                     _node(
                         leaf,
-                        depth=1,
                         is_leaf=True,
                         track_names=["Board Games", "Card Games", "Larp", "RPG"],
                     )
@@ -205,8 +178,8 @@ class TestSpaceCreate:
             template_name="panel/spaces.html",
             messages=[(messages.SUCCESS, "Space created successfully.")],
             context_data={
-                **_base_context(event, rooms=1),
-                "tree": [_node(room, depth=1, is_leaf=True)],
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "tree": [_node(room, is_leaf=True)],
             },
         )
 
@@ -271,7 +244,7 @@ class TestSpaceCreate:
             HTTPStatus.OK,
             template_name="panel/space-form.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="venues"),
                 "parent": None,
                 "node": None,
                 "form": ANY,
@@ -308,8 +281,8 @@ class TestSpaceCreate:
             HTTPStatus.OK,
             template_name="panel/space-form.html",
             context_data={
-                **_base_context(event, rooms=1),
-                "parent": _node(parent, depth=1, is_leaf=True),
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "parent": _record(parent),
                 "node": None,
                 "form": ANY,
             },
@@ -365,9 +338,9 @@ class TestSpaceEdit:
             HTTPStatus.OK,
             template_name="panel/space-form.html",
             context_data={
-                **_base_context(event, rooms=1),
+                **panel_context(event, active_nav="venues", rooms_count=1),
                 "parent": None,
-                "node": _node(node, depth=1, is_leaf=True),
+                "node": _record(node),
                 "form": ANY,
             },
         )
@@ -451,9 +424,9 @@ class TestSpaceEdit:
             HTTPStatus.OK,
             template_name="panel/space-form.html",
             context_data={
-                **_base_context(event, rooms=2),
+                **panel_context(event, active_nav="venues", rooms_count=2),
                 "parent": None,
-                "node": _node(root, depth=1, is_leaf=False),
+                "node": _record(root),
                 "form": ANY,
             },
         )
@@ -481,9 +454,9 @@ class TestSpaceEdit:
             HTTPStatus.OK,
             template_name="panel/space-form.html",
             context_data={
-                **_base_context(event, rooms=8),
+                **panel_context(event, active_nav="venues", rooms_count=8),
                 "parent": None,
-                "node": _node(node, depth=1, is_leaf=True),
+                "node": _record(node),
                 "form": ANY,
             },
         )
@@ -509,9 +482,9 @@ class TestSpaceEdit:
             HTTPStatus.OK,
             template_name="panel/space-form.html",
             context_data={
-                **_base_context(event, rooms=2),
+                **panel_context(event, active_nav="venues", rooms_count=2),
                 "parent": None,
-                "node": _node(child, depth=2, is_leaf=True),
+                "node": _record(child),
                 "form": ANY,
             },
         )
@@ -682,8 +655,8 @@ class TestSpaceCopy:
             HTTPStatus.OK,
             template_name="panel/space-copy.html",
             context_data={
-                **_base_context(event, rooms=1),
-                "node": _node(node, depth=1, is_leaf=True),
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "node": _record(node),
                 "form": ANY,
             },
         )

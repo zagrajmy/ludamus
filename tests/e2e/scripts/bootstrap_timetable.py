@@ -29,16 +29,14 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from django.utils import timezone  # ruff:ignore[module-import-not-at-top-of-file]
-from django.utils.timezone import (  # ruff:ignore[module-import-not-at-top-of-file]
-    get_current_timezone,
-)
+from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
     Facilitator,
@@ -167,6 +165,40 @@ def main() -> None:
     # auto-selection in the proposals page, hiding proposals from other tracks.
     track.spaces.set([space_a, space_b])
 
+    # A second track sharing a room with the first, with one session already
+    # scheduled there. Filtering the timetable by the RPG track has to keep
+    # showing this booking, or the two tracks collide unseen.
+    other_track, _ = Track.objects.get_or_create(
+        event=event,
+        slug="board-games-track",
+        defaults={"name": "Board Games Track", "is_public": False},
+    )
+    other_track.spaces.set([space_b])
+    foreign_session, created = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-foreign-booking",
+        defaults={
+            "title": "Board Game Night",
+            "display_name": "Casey Rivers",
+            "description": "Booked by the other track, in a shared room.",
+            "duration": "PT1H",
+            "participants_limit": 4,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    if created:
+        foreign_session.tracks.add(other_track)
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=foreign_session,
+        defaults={
+            "start_time": slot_day_two.start_time,
+            "end_time": slot_day_two.start_time + timedelta(hours=1),
+        },
+    )
+
     # Facilitators for this event (the conflict test needs a shared host).
     alice, _ = Facilitator.objects.get_or_create(
         event=event,
@@ -177,6 +209,44 @@ def main() -> None:
         event=event,
         slug="bob-chen",
         defaults={"display_name": "Bob Chen", "user": None},
+    )
+
+    # Scheduled on the second day while it asked for the first one, so the grid
+    # marks a preferred-slot violation. Alone in its column, well within the
+    # room's capacity and with a facilitator of its own — every other way of
+    # flagging a block would overrule the warning this one is here to show.
+    misplaced, _ = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-misplaced-demo",
+        defaults={
+            "title": "Misplaced Demo Game",
+            "display_name": "Cleo Vance",
+            "description": "Scheduled outside the day it asked for.",
+            "duration": "PT1H",
+            "participants_limit": 6,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    cleo, _ = Facilitator.objects.get_or_create(
+        event=event,
+        slug="cleo-vance",
+        defaults={"display_name": "Cleo Vance", "user": None},
+    )
+    misplaced.tracks.add(track)
+    misplaced.facilitators.add(cleo)
+    misplaced.time_slots.set([slot_day_one])
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=misplaced,
+        defaults={
+            "session_confirmed": False,
+            # The hour after the other track's booking, so the two share a room
+            # without clashing -- a clash would outrank the slot warning.
+            "start_time": slot_day_two.start_time + timedelta(hours=1),
+            "end_time": slot_day_two.end_time,
+        },
     )
 
     # Accepted (unscheduled) sessions for assigning via the timetable

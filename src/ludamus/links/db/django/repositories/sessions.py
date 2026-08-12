@@ -110,6 +110,17 @@ def annotate_session_participation_counts(
     )
 
 
+def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    # A session without tracks is public (events that don't use tracks at all);
+    # one with tracks needs at least one public track. Exists() rather than
+    # Count("tracks"): a third aggregate over a m2m fans out the joins and
+    # inflates the participation counts annotated alongside.
+    return queryset.filter(
+        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
+        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
+    )
+
+
 def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
     # str(space) walks the whole ancestor chain, so eager-load every level up to
     # the max nesting depth to avoid per-row parent queries.
@@ -198,9 +209,7 @@ def _session_modal_dto(
     )
 
 
-class SessionRepository(  # ruff:ignore[too-many-public-methods]
-    SessionRepositoryProtocol, SessionModalRepositoryProtocol
-):
+class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtocol):
     @staticmethod
     def read_modal(
         *,
@@ -848,6 +857,8 @@ class SessionRepository(  # ruff:ignore[too-many-public-methods]
             ).distinct()
         if filters.category_pk is not None:
             qs = qs.filter(category__pk=filters.category_pk)
+        if filters.facilitator_pks:
+            qs = qs.filter(facilitators__pk__in=filters.facilitator_pks).distinct()
         if filters.search:
             qs = qs.filter(
                 Q(title__icontains=filters.search)

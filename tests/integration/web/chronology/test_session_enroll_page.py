@@ -14,6 +14,11 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     SessionUserParticipationData,
 )
+from ludamus.gates.web.django.event.enroll_presentation import (
+    EnrollActions,
+    SeatBadge,
+    build_enroll_actions,
+)
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -2429,19 +2434,24 @@ class TestSessionEnrollInline:
         user_enrolled=False,
         user_waiting=False,
         is_full=False,
+        is_enrollment_available=True,
+        is_ended=False,
         enroll_error="",
+        notice="",
     ):
         return {
             "event_slug": session.event.slug,
             "session_pk": session.pk,
             "viewer_pk": viewer_pk,
-            "can_act": True,
-            "is_enrollment_available": True,
-            "user_enrolled": user_enrolled,
-            "user_waiting": user_waiting,
-            "is_full": is_full,
-            "is_unlimited": False,
+            "actions": build_enroll_actions(
+                is_enrollment_available=is_enrollment_available,
+                is_ended=is_ended,
+                is_full=is_full,
+                user_enrolled=user_enrolled,
+                user_waiting=user_waiting,
+            ),
             "enroll_error": enroll_error,
+            "notice": notice,
         }
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -2455,13 +2465,31 @@ class TestSessionEnrollInline:
             HTTP_HX_REQUEST="true",
         )
 
+        # Spelled out rather than re-derived through _ctx: every other case
+        # builds its expectation by calling the function under test, which
+        # cannot catch a swap between two parameters that are both False.
         assert_response(
             response,
             HTTPStatus.OK,
             template_name=self.FRAGMENT,
-            context_data=self._ctx(
-                session=session, viewer_pk=staff_user.id, user_enrolled=True
-            ),
+            context_data={
+                "event_slug": session.event.slug,
+                "session_pk": session.pk,
+                "viewer_pk": staff_user.id,
+                "actions": EnrollActions(
+                    submit_value="cancel",
+                    submit_label="Cancel",
+                    submit_icon="x-mark",
+                    badge=SeatBadge(
+                        text_class="text-success-text",
+                        label="You're enrolled",
+                        icon="check-circle",
+                    ),
+                    group_label="Enroll with others…",
+                ),
+                "enroll_error": "",
+                "notice": "",
+            },
             messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
             contains=['value="cancel"'],
             not_contains=['value="enroll"', 'value="waitlist"'],
@@ -2501,6 +2529,124 @@ class TestSessionEnrollInline:
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session
         ).exists()
+
+    def test_htmx_cancel_without_enrollment_config_leaves_nothing_to_do(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # No enrollment_config fixture: the window is shut, so the swapped-back
+        # fragment offers no way in — the same decision the modal's GET makes.
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "cancel"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                is_enrollment_available=False,
+                # Nothing held and no way back in, so the fragment has no badge
+                # to confirm with — the flash carries it instead of vanishing.
+                notice=f"Cancelled: {staff_user.name}",
+            ),
+            messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
+        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=session
+        ).exists()
+
+    # A rejected post re-renders the fragment with the viewer's seat intact,
+    # which is the only way to observe is_ended on this path: a successful
+    # cancel leaves nothing held, and then the guard returns None either way.
+    @staticmethod
+    def _invalid_choice_errors(name):
+        return [
+            (messages.ERROR, f"Invalid choice for {name}: bogus"),
+            (messages.WARNING, "Please review the enrollment options below."),
+        ]
+
+    def test_htmx_error_before_the_end_keeps_the_way_out(
+        self, staff_user, agenda_item, staff_client
+    ):
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "bogus"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                user_enrolled=True,
+                is_enrollment_available=False,
+                enroll_error=(
+                    f"Invalid choice for {staff_user.name}: bogus "
+                    "Please review the enrollment options below."
+                ),
+            ),
+            messages=self._invalid_choice_errors(staff_user.name),
+        )
+
+    def test_htmx_error_on_an_ended_session_offers_nothing(
+        self, staff_user, agenda_item, staff_client
+    ):
+        # Same post, only the end time differs: wiring is_ended=False in the
+        # view instead of the agenda item would leave a live control here.
+        session = agenda_item.session
+        agenda_item.start_time = datetime.now(tz=UTC) - timedelta(hours=3)
+        agenda_item.end_time = datetime.now(tz=UTC) - timedelta(hours=1)
+        agenda_item.save(update_fields=["start_time", "end_time"])
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "bogus"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data=self._ctx(
+                session=session,
+                viewer_pk=staff_user.id,
+                user_enrolled=True,
+                is_enrollment_available=False,
+                is_ended=True,
+                enroll_error=(
+                    f"Invalid choice for {staff_user.name}: bogus "
+                    "Please review the enrollment options below."
+                ),
+            ),
+            messages=self._invalid_choice_errors(staff_user.name),
+        )
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_htmx_waitlist_on_full_session(self, staff_user, agenda_item, staff_client):
