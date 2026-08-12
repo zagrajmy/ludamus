@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
@@ -178,6 +179,18 @@ _ASSIGN_MESSAGES = {
 }
 
 
+def _add_member_return(request: MultiverseRequest, guild_pk: int) -> str:
+    # The guild page is where a manager assigns from normally. The Facilitators
+    # list posts here too and wants its own filters back, so it sends `next`.
+    fallback = reverse("multiverse:panel:guild-edit", kwargs={"pk": guild_pk})
+    next_url = request.POST.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return fallback
+
+
 class GuildMemberAddActionView(SphereAccessMixin, View):
     request: MultiverseRequest
 
@@ -186,7 +199,7 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
         form = GuildMemberForm(self.request.POST)
         if not form.is_valid():
             messages.error(self.request, _("Give an email or Discord username."))
-            return redirect("multiverse:panel:guild-edit", pk=pk)
+            return redirect(_add_member_return(self.request, pk))
 
         outcome = self.request.services.guilds.assign_member(
             sphere_id=self.request.context.current_sphere_id,
@@ -195,7 +208,7 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
         )
         notice = _ASSIGN_MESSAGES[outcome]
         messages.add_message(self.request, notice.level, notice.text)
-        return redirect("multiverse:panel:guild-edit", pk=pk)
+        return redirect(_add_member_return(self.request, pk))
 
 
 class GuildMemberRemoveActionView(SphereAccessMixin, View):

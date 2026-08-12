@@ -1018,6 +1018,12 @@ msgid "None"
 msgstr "Brak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Guild"
+msgstr "Gildia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -2672,10 +2678,12 @@ msgstr "Nazwa bloku programowego jest wymagana."
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
-msgid "Public tracks are shown to proposers in the submission wizard."
+msgid ""
+"Public tracks are shown to proposers in the submission wizard, and their "
+"sessions appear on the event schedule."
 msgstr ""
 "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
-"propozycji."
+"propozycji, a ich punkty programu pojawiają się w harmonogramie wydarzenia."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Title is required."
@@ -5780,6 +5788,7 @@ msgstr "Brak połączeń."
 
 #: src/ludamus/templates/multiverse/panel/guilds/create.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 msgid "New guild"
 msgstr "Nowa gildia"
 
@@ -5861,10 +5870,6 @@ msgstr "Nikogo jeszcze w tej gildii."
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "Guilds in this sphere"
 msgstr "Gildie w tej sferze"
-
-#: src/ludamus/templates/multiverse/panel/guilds/list.html
-msgid "Guild"
-msgstr "Gildia"
 
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "No guilds yet."
@@ -7596,6 +7601,15 @@ msgstr "Dostępne"
 msgid "Available columns"
 msgstr "Dostępne kolumny"
 
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
+#, python-format
+msgid "Attach %(name)s to a guild"
+msgstr "Przypisz %(name)s do gildii"
+
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
+msgid "This sphere has no guilds yet."
+msgstr "Ta sfera nie ma jeszcze żadnych gildii."
+
 #: src/ludamus/templates/panel/parts/_pagination.html
 #, python-format
 msgid ""
@@ -8963,12 +8977,13 @@ msgstr "Czym są bloki programowe?"
 #: src/ludamus/templates/panel/tracks.html
 msgid ""
 "Tracks let you group proposals by thematic area. Public tracks are shown to "
-"proposers in the submission wizard; private tracks are for internal "
-"categorization only."
+"proposers in the submission wizard and their sessions appear on the event "
+"schedule; sessions in private tracks stay off it."
 msgstr ""
 "Bloki programowe pozwalają grupować propozycje tematycznie. Publiczne bloki "
-"są widoczne dla zgłaszających w kreatorze propozycji; prywatne służą "
-"wyłącznie do wewnętrznej kategoryzacji."
+"są widoczne dla zgłaszających w kreatorze propozycji, a ich punkty programu "
+"pojawiają się w harmonogramie wydarzenia; punkty programu z prywatnych "
+"bloków się w nim nie pojawiają."
 
 #: src/ludamus/templates/panel/tracks.html
 msgid "Visibility"

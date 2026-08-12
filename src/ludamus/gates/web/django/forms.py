@@ -620,7 +620,10 @@ class TrackForm(forms.Form):
     is_public = forms.BooleanField(
         required=False,
         initial=True,
-        help_text=_("Public tracks are shown to proposers in the submission wizard."),
+        help_text=_(
+            "Public tracks are shown to proposers in the submission wizard, and"
+            " their sessions appear on the event schedule."
+        ),
     )
 
 
