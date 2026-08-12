@@ -23,14 +23,39 @@ const toggleFold = (): void => {
   }
 };
 
+const categoryOf = (el: HTMLElement): string | undefined =>
+  el.closest<HTMLElement>("[data-cat]")?.dataset.cat;
+
+// `catc-<cat>` on <html> is the *collapsed* marker, so aria-expanded is its
+// negation. Stated once, so the toggle and the on-load sync cannot drift.
+const setExpanded = (header: HTMLElement, cat: string): void => {
+  const collapsed = document.documentElement.classList.contains(`catc-${cat}`);
+  header.setAttribute("aria-expanded", String(!collapsed));
+};
+
 const toggleCategory = (el: HTMLElement): void => {
-  const cat = el.closest<HTMLElement>("[data-cat]")?.dataset.cat;
+  const cat = categoryOf(el);
   if (!cat) return;
-  const active = document.documentElement.classList.toggle(`catc-${cat}`);
+  const collapsed = document.documentElement.classList.toggle(`catc-${cat}`);
+  setExpanded(el, cat);
   try {
-    localStorage.setItem(`panel-cat-${cat}`, active ? "1" : "0");
+    localStorage.setItem(`panel-cat-${cat}`, collapsed ? "1" : "0");
   } catch {
     // Storage unavailable — collapse state still works for this page load.
+  }
+};
+
+// The head script restores the collapsed set before paint, but the sidebar does
+// not exist yet at that point, so the headers ship as aria-expanded="true" and
+// are reconciled here. Module scope is deliberate: `{% vite_asset %}` emits
+// `type="module"`, which is deferred, so the DOM is parsed — waiting for
+// DOMContentLoaded would only widen the window in which the attribute lies.
+const syncCategoryHeaders = (): void => {
+  for (const header of document.querySelectorAll<HTMLElement>(
+    '.sidebar-cat-header[data-action="toggle-category"]',
+  )) {
+    const cat = categoryOf(header);
+    if (cat) setExpanded(header, cat);
   }
 };
 
@@ -80,3 +105,5 @@ document.body.addEventListener("htmx:afterRequest", (e) => {
   if (!url || !target) return;
   htmx.ajax("GET", url, { swap: "outerHTML", target });
 });
+
+syncCategoryHeaders();

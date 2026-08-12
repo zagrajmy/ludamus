@@ -12,6 +12,8 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
 from ludamus.links.db.django.models import (
+    Guild,
+    GuildMembership,
     SessionField,
     SessionFieldValue,
     SessionParticipation,
@@ -26,6 +28,7 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -676,3 +679,35 @@ class TestSessionModalComponentView:
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
+
+
+class TestGuildMarkInTheModal:
+    def test_modal_carries_the_presenters_guild(
+        self, active_user, agenda_item, client, event, sphere
+    ):
+        session = agenda_item.session
+        guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    guild=GuildMarkDTO(pk=guild.pk, name="Topory", logo_url=""),
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "enroll_actions": None,
+            },
+        )
+
+    # A presenter-less modal — the mark_for_user(user_pk=None) short circuit —
+    # is already exercised by test_renders_session_without_presenter above,
+    # whose expected SessionData carries the default guild=None.

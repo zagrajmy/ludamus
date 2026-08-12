@@ -56,7 +56,7 @@ class MissingTemplateVariableFilter(logging.Filter):
             if lookup_info and lookup_info in self.ignored_lookups:
                 return False
 
-            if self._has_default_filter_on_simple_var():
+            if self._is_deliberately_optional():
                 return True
 
             # Extract additional context from the exception
@@ -68,7 +68,13 @@ class MissingTemplateVariableFilter(logging.Filter):
             ) from None
         return False
 
-    def _has_default_filter_on_simple_var(self) -> bool:
+    def _is_deliberately_optional(self) -> bool:
+        # Two ways a template says "this variable may be absent", and neither is
+        # the bug this filter hunts for:
+        #   * a `|default:` filter on a simple variable;
+        #   * a tag that resolves with ignore_failures, which is what
+        #     `{% firstof a b c %}` does for every argument.
+        # Both are opt-in at the point of use, so both are allowed through.
         # Walk f_back rather than inspect.stack(): stack() resolves source
         # context (linecache read + module lookup) for every frame, and we
         # only need each frame's locals. It fires on every failed template
@@ -77,6 +83,8 @@ class MissingTemplateVariableFilter(logging.Filter):
         while frame is not None:
             local_self = frame.f_locals.get("self")
             if isinstance(local_self, FilterExpression):
+                if frame.f_locals.get("ignore_failures") is True:
+                    return True
                 var = local_self.var
                 if hasattr(var, "lookups") and var.lookups and len(var.lookups) == 1:
                     for func, _args in local_self.filters:
