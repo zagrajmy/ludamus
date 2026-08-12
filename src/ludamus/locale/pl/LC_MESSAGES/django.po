@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-11 17:39+0200\n"
+"POT-Creation-Date: 2026-08-12 17:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1025,6 +1025,12 @@ msgstr "Powiązany"
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "None"
 msgstr "Brak"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Guild"
+msgstr "Gildia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/templates/chronology/event.html
@@ -5786,6 +5792,7 @@ msgstr "Brak połączeń."
 
 #: src/ludamus/templates/multiverse/panel/guilds/create.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 msgid "New guild"
 msgstr "Nowa gildia"
 
@@ -5867,10 +5874,6 @@ msgstr "Nikogo jeszcze w tej gildii."
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "Guilds in this sphere"
 msgstr "Gildie w tej sferze"
-
-#: src/ludamus/templates/multiverse/panel/guilds/list.html
-msgid "Guild"
-msgstr "Gildia"
 
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "No guilds yet."
@@ -7599,6 +7602,15 @@ msgstr "Dostępne"
 #: src/ludamus/templates/panel/parts/_columns_chooser.html
 msgid "Available columns"
 msgstr "Dostępne kolumny"
+
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
+#, python-format
+msgid "Attach %(name)s to a guild"
+msgstr "Przypisz %(name)s do gildii"
+
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
+msgid "This sphere has no guilds yet."
+msgstr "Ta sfera nie ma jeszcze żadnych gildii."
 
 #: src/ludamus/templates/panel/parts/_pagination.html
 #, python-format

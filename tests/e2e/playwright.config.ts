@@ -102,6 +102,7 @@ export default defineConfig({
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
+        /facilitator-guild\.spec\.ts/,
         /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,

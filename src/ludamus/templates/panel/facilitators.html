@@ -160,7 +160,7 @@
                                 </thead>
                                 <tbody class="divide-y divide-border">
                                     {% for facilitator in facilitators %}
-                                        <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+                                        <tr class="group/row hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
                                             <td class="px-6 py-4">
                                                 {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
                                                 {% include "components/checkbox-field.html" with name="facilitator_slugs" value=facilitator.slug form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
@@ -173,15 +173,18 @@
                                                         {% if forloop.first %}
                                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                                                aria-label="{{ facilitator.display_name }}"
-                                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
+                                                               class="text-primary hover:text-primary/80">
+                                                                {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:50 %}
+                                                            </a>
                                                             {% if facilitator.flagged_for_deletion %}
                                                                 <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
                                                                     {% translate "Flagged" %}
                                                                 </span>
                                                             {% endif %}
                                                         {% else %}
-                                                            {{ value|truncatechars:40 }}
+                                                            {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:40 %}
                                                         {% endif %}
+                                                        {% include "panel/parts/_facilitator_guild_attach.html" with column=column facilitator=facilitator %}
                                                     </td>
                                                 {% endwith %}
                                             {% endfor %}

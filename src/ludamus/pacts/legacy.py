@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import FacilitatorListFilters
 
@@ -103,21 +104,6 @@ class FacilitatorUpdateData(TypedDict, total=False):
     display_name: str
     internal_comment: str
     organizer_id: int | None
-    user_id: int | None
-
-
-class FacilitatorListItemDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    accreditation_type: str
-    display_name: str
-    flagged_for_deletion: bool = False
-    organizer_id: int | None = None
-    # Annotated by `list_by_event`; null when nobody took the facilitator on.
-    organizer_name: str | None = None
-    pk: int
-    session_count: int
-    slug: str
     user_id: int | None
 
 
