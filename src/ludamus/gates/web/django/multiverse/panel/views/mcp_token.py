@@ -13,7 +13,7 @@ from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
-from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
+from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -35,7 +35,7 @@ class OrganizerMcpTokenPageView(SphereAccessMixin, View):
         return TemplateResponse(self.request, TEMPLATE, self._context(token=token))
 
     def _context(self, *, token: str | None) -> dict[str, Any]:
-        return sphere_panel_context(self.request, active_tab="mcp") | {
+        return sphere_settings_context(self.request, active_tab="mcp") | {
             "token": token,
             "endpoint_url": self.request.build_absolute_uri(
                 reverse("mcp:organizer-endpoint")

@@ -55,6 +55,7 @@ from ludamus.gates.web.django.entities import (
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -660,6 +661,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 ),
                 session=SessionDTO.model_validate(session),
                 presenter=presenter,
+                presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
                 track_names=[t.name for t in session.tracks.all() if t.is_public],
                 category_name=session.category.name if session.category else "",
@@ -719,6 +721,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Set user participation data for authenticated users and anonymous users
         self._set_user_participations(sessions_data, event_sessions)
+        attach_guild_marks(
+            sessions_data,
+            guilds=self.request.services.guilds,
+            sphere_id=self.request.context.current_sphere_id,
+        )
 
         return sessions_data
 
