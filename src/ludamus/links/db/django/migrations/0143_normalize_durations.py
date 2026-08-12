@@ -53,7 +53,7 @@ def normalize_stored_durations(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0141_eventpanelsettings_proposal_columns")]
+    dependencies = [("db_main", "0142_guild_guildmembership")]
 
     operations = [
         migrations.RunPython(normalize_stored_durations, migrations.RunPython.noop)
