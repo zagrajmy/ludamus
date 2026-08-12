@@ -57,6 +57,7 @@ test.describe("Sphere logo upload", () => {
     const preview = logoDropzone(page).locator("[data-dropzone-preview]");
     await expect(preview).toHaveAttribute("src", /\.svg$/);
     await expect(preview).toHaveJSProperty("naturalWidth", 60);
+    await expect(shownFileName(page)).toHaveText("brand.svg");
   });
 
   test("rejects an SVG carrying a script", async ({ page }) => {

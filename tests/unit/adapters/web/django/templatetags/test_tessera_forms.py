@@ -150,7 +150,23 @@ class TestFileInput:
         form = ImageFieldForm(initial={"photo": _FieldFileStub()})
         html = tessera_field(form["photo"])
         assert "/media/events/cover.png" in html
-        assert "events/cover.png" in html
+        assert "cover.png" in html
+
+    def test_hides_hashed_storage_basename(self) -> None:
+        form = ImageFieldForm(
+            initial={"photo": "/media/events/0123456789abcdef0123456789abcdef.png"}
+        )
+        html = tessera_field(form["photo"])
+        assert ">0123456789abcdef0123456789abcdef.png<" not in html
+
+    def test_shows_original_name_from_uuid_directory_path(self) -> None:
+        form = ImageFieldForm(
+            initial={
+                "photo": "/media/events/0123456789abcdef0123456789abcdef/poster.png"
+            }
+        )
+        html = tessera_field(form["photo"])
+        assert ">poster.png<" in html
 
     def test_previews_image_only_file_field_as_image(self) -> None:
         class LogoForm(forms.Form):

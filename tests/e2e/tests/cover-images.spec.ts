@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 
+import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
 import { expect, test } from "./helpers/fixtures";
 
 const PNG_BYTES = Buffer.from(
@@ -19,6 +20,9 @@ const coverImageInput = (page: Page) => page.getByLabel("Cover image", { exact: 
 const coverDropzone = (page: Page) =>
   coverImageInput(page).locator("xpath=ancestor::label[@data-dropzone]");
 
+const shownFileName = (page: Page) =>
+  coverDropzone(page).locator("[data-dropzone-name]").filter({ visible: true });
+
 test.describe.configure({ mode: "serial" });
 
 test.describe("Event cover image upload", () => {
@@ -30,6 +34,7 @@ test.describe("Event cover image upload", () => {
   });
 
   test("manager uploads cover image via the dropzone", async ({ page }) => {
+    await installCspViolationCollector(page);
     await page.goto("/panel/event/lakeside-weekend/settings/");
 
     const dropzone = coverDropzone(page);
@@ -44,6 +49,8 @@ test.describe("Event cover image upload", () => {
 
     await expect(uploadPrompt).toBeHidden();
     await expect(dropzone.getByRole("button", { name: "Remove image" })).toBeVisible();
+    await expect(shownFileName(page)).toHaveText("cover.png");
+    await assertNoCspViolations(page);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
@@ -51,6 +58,7 @@ test.describe("Event cover image upload", () => {
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await expect(coverDropzone(page).getByText("Click to upload")).toBeHidden();
     await expect(coverDropzone(page).getByRole("button", { name: "Remove image" })).toBeVisible();
+    await expect(shownFileName(page)).toHaveText("cover.png");
   });
 
   test("manager removes a saved cover via the clear button", async ({ page }) => {

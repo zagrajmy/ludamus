@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from posixpath import basename
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
@@ -12,6 +13,15 @@ from django.template.loader import render_to_string
 if TYPE_CHECKING:
     from django.forms import BoundField
 
+_HASHED_BASENAME = re.compile(r"^[0-9a-f]{32}(?:\.[a-z0-9]+)?$", re.IGNORECASE)
+
+
+def _display_name(path: str) -> str:
+    name = unquote(basename(urlsplit(path).path))
+    if not name or _HASHED_BASENAME.fullmatch(name):
+        return ""
+    return name
+
 
 def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     # A bound file (FieldFile) exposes `.url`; an initial passed as a plain
@@ -20,9 +30,9 @@ def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     if not initial:
         return None, ""
     if (url := getattr(initial, "url", None)) is not None:
-        return url, str(initial)
+        return url, _display_name(str(initial))
     if isinstance(initial, str):
-        return initial, unquote(basename(urlsplit(initial).path))
+        return initial, _display_name(initial)
     return None, ""
 
 
