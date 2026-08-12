@@ -183,8 +183,10 @@ rather than silencing.
 
 ## p3 — issue-tracker write-up
 
-Searched `gh issue list --state all` (~180 issues). Nothing opened or edited
-below.
+Searched `gh issue list --state all` (~180 issues). Filed: A → #832, D → #833,
+E → #834, G → #835. Commented: B and C on #820, plus a pointer on #821. Item F
+rode along with p2 item 1. Effort and priority project fields were not set —
+the token has no `read:project` scope.
 
 ### A. `duration = None` sentinel on `SessionEditForm`
 
