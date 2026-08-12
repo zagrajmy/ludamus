@@ -124,9 +124,11 @@
                                     <span class="text-sm text-foreground-muted mr-1">
                                         {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
                                     </span>
-                                    {# Deleted and live never mix, so neither do their actions: every
-                               action below reads through the alive-only list and would report
-                               the rows on screen as missing in the other mode. #}
+                                    {% comment %}
+                                        Deleted and live never mix, so neither do their actions: every
+                                        action below reads through the alive-only list and would report
+                                        the rows on screen as missing in the other mode.
+                                    {% endcomment %}
                                     {% if filter_deleted %}
                                         <button type="submit"
                                                 name="action"
@@ -193,9 +195,11 @@
                                             {% endfor %}
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div class="inline-flex items-center gap-3 justify-end">
-                                                    {# A deleted row answers to restore only: every other action
-                                           reads through the alive-only manager and would come back
-                                           "not found" about the row on screen. #}
+                                                    {% comment %}
+                                                        A deleted row answers to restore only: every other action
+                                                        reads through the alive-only manager and would come back
+                                                        "not found" about the row on screen.
+                                                    {% endcomment %}
                                                     {% if not facilitator.deleted_at %}
                                                         {% if not facilitator.organizer_id %}
                                                             <form method="post"
@@ -253,9 +257,11 @@
                                                             </button>
                                                         </form>
                                                     {% else %}
-                                                        {# Always submittable: the service owns "named on sessions ⇒
-                                               not deletable" and answers at click time, when a session
-                                               may have been attached since this page rendered. #}
+                                                        {% comment %}
+                                                            Always submittable: the service owns "named on sessions ⇒
+                                                            not deletable" and answers at click time, when a session
+                                                            may have been attached since this page rendered.
+                                                        {% endcomment %}
                                                         <form method="post"
                                                               action="{% url 'panel:facilitator-delete' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                                               data-confirm="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}? They disappear from the program; you can restore them later.{% endblocktranslate %}"
