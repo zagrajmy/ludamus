@@ -7,6 +7,21 @@ from pydantic import BaseModel, ConfigDict
 from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
 
 
+class FacilitatorListItemDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    accreditation_type: str
+    display_name: str
+    flagged_for_deletion: bool = False
+    organizer_id: int | None = None
+    # Annotated by `list_by_event`; null when nobody took the facilitator on.
+    organizer_name: str | None = None
+    pk: int
+    session_count: int
+    slug: str
+    user_id: int | None
+
+
 class TimeSlotValidationError(StrEnum):
     START_NOT_BEFORE_END = "start_not_before_end"
     OUTSIDE_EVENT_DATES = "outside_event_dates"
