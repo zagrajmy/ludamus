@@ -9,10 +9,10 @@ from ludamus.pacts.multiverse import ConnectionDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_settings_context,
 )
 
-CONNECTIONS_PANEL_CONTEXT = sphere_panel_context(active_tab="connections")
+CONNECTIONS_PANEL_CONTEXT = sphere_settings_context(active_tab="connections")
 
 
 class TestConnectionsPageView:

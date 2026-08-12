@@ -344,3 +344,31 @@ If you fix a papercut, remove it.
   git-credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch.
   Also, no local Postgres and no docker, so 'mise run test:postgres' errors on
   connection refused for all 7 marked tests.
+- 2026-08-07: docs/agents/sandbox.md documents the python3.14 install as
+  apt+deadsnakes, but the CC-web egress proxy 403s ppa.launchpadcontent.net, so
+  mise install leaves no 3.14 and the Python suite can't run. 3.13 is not a
+  fallback — the code relies on 3.14 PEP 649 deferred annotations
+  (pacts/legacy.py:229 uses SessionStatus 35 lines before its definition), so
+  imports NameError. I wrongly concluded the sandbox couldn't run tests at all.
+  `uv python install 3.14` fetches python-build-standalone from GitHub releases
+  (reachable) in ~4s; worth making that the documented fallback in the
+  SessionStart hook.
+- 2026-08-02: `mise run test:py -- PATHS` appends the paths to the task's fixed
+  'pytest -n auto tests/integration tests/unit', so a targeted run silently
+  becomes the whole suite. Had to kill it and call .venv/bin/pytest directly.
+  Calling pytest directly then needs `PYTHONPATH=src` and `. ./.env.test`
+  sourced by hand — two more retries before a targeted run started.
+- 2026-08-11: Burned a CI round because `djlint <path> --check` and the
+  `lint:djlint` task disagree. The task is
+  `djlint src --quiet --lint --check --format-css --format-js --profile=django`,
+  and `--format-css` is what reformats CSS inside `<style>` blocks — without it
+  my template checked clean locally and failed on CI, naming a file I had just
+  checked. Nothing in the local output hints that a flag is missing. Copying the
+  task's exact argv is the only reliable check when mise itself is unavailable;
+  worth a line in docs/agents/sandbox.md next to the oxfmt note below.
+- 2026-08-11: Hand-wrote a Playwright test and CI's `checks` job failed on oxfmt
+  formatting. oxfmt only runs through `aube exec` inside lint:hk, which the
+  sandbox's egress proxy blocks, so there is no way to format TS locally before
+  pushing. Worked around it with `npm i oxfmt@0.56.0` in a scratch dir, run from
+  the repo root so it picks up .oxfmtrc.json — that plain npm install is
+  reachable is worth documenting in docs/agents/sandbox.md.

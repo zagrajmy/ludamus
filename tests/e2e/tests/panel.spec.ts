@@ -177,6 +177,29 @@ test.describe("Backoffice Panel", () => {
     await page.mouse.up();
   });
 
+  test("reports the panel category's collapsed state to assistive tech", async ({ page }) => {
+    await page.goto("/panel/");
+
+    const category = page.getByRole("button", { name: "Program" });
+    const links = page.locator(`#${await category.getAttribute("aria-controls")}`);
+    await expect(category).toHaveAttribute("aria-expanded", "true");
+    await expect(links).toBeVisible();
+
+    await category.click();
+
+    await expect(category).toHaveAttribute("aria-expanded", "false");
+    await expect(links).toBeHidden();
+
+    // The collapsed set is restored from localStorage before paint, but the
+    // header ships as expanded — a reload has to reconcile the two.
+    await page.reload();
+
+    await expect(page.getByRole("button", { name: "Program" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
   test("keeps the sidebar toggle at the top while scrolling", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 320 });
     await page.goto("/panel/");
