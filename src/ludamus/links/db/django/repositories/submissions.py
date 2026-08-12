@@ -1048,7 +1048,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
 
     @staticmethod
     def lock(pk: int) -> None:
-        # Held across the `has_sessions` check and the soft delete. Every path
+        # Held across the `has_any_session` check and the soft delete. Every path
         # that puts a facilitator on a session takes the same row lock first,
         # so the two serialize: either the check sees the assignment, or the
         # assignment waits and then finds a deleted row. Without it `atomic()`
@@ -1057,7 +1057,7 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         Facilitator.all_objects.select_for_update().filter(pk=pk).first()
 
     @staticmethod
-    def has_sessions(pk: int) -> bool:
+    def has_any_session(pk: int) -> bool:
         # Deleted sessions hold a deletion up too: session deletion is
         # reversible, so a restored session would come back naming a deleted
         # facilitator and lose its byline with nothing saying why. The session

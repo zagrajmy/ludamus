@@ -192,6 +192,9 @@ class SessionListItemDTO(BaseModel):
     pk: int
     status: "SessionStatus"
     title: str
+    # Only the lists that reach deleted rows set this — the facilitator detail
+    # page does, because a deleted session still blocks deleting a facilitator.
+    is_deleted: bool = False
 
 
 class AgendaItemDTO(BaseModel):
@@ -1342,7 +1345,7 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def lock(pk: int) -> None: ...
     @staticmethod
-    def has_sessions(pk: int) -> bool: ...
+    def has_any_session(pk: int) -> bool: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

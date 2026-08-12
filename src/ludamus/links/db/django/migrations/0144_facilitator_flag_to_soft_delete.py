@@ -12,7 +12,7 @@ def flag_to_deleted_at(apps, schema_editor):
     # Reversible: a dead row flags again.
     facilitator = apps.get_model("db_main", "Facilitator")
     # Any session at all holds the conversion up, deleted ones included —
-    # matching `FacilitatorRepository.has_sessions`. A deleted session is
+    # matching `FacilitatorRepository.has_any_session`. A deleted session is
     # restorable, so converting its facilitator here would hand the restore a
     # session with a missing byline.
     running_a_session = facilitator.objects.filter(sessions__isnull=False).values("pk")

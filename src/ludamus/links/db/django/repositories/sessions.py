@@ -369,8 +369,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]:
+        # Through `all_objects`: a deleted session holds up deleting the
+        # facilitator, so the page that refuses the deletion has to name it.
         qs = (
-            Session.objects.filter(facilitators__id=facilitator_id)
+            Session.all_objects.filter(facilitators__id=facilitator_id)
             .select_related("category")
             .annotate(
                 is_scheduled=Exists(
@@ -388,6 +390,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
+                is_deleted=s.deleted_at is not None,
             )
             for s in qs
         ]

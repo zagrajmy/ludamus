@@ -717,8 +717,8 @@ _FACILITATOR_PK = 7
 
 
 class FakeDeletionRepo:
-    def __init__(self, *, has_sessions=False):
-        self._has_sessions = has_sessions
+    def __init__(self, *, has_any_session=False):
+        self._has_any_session = has_any_session
         self.soft_deleted = _NOT_CALLED
         self.restored = _NOT_CALLED
         self.calls = []
@@ -732,9 +732,9 @@ class FakeDeletionRepo:
     def read_including_deleted(self, _event_id, _slug):
         return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
 
-    def has_sessions(self, pk):
-        self.calls.append(("has_sessions", pk))
-        return self._has_sessions
+    def has_any_session(self, pk):
+        self.calls.append(("has_any_session", pk))
+        return self._has_any_session
 
     def soft_delete(self, pk):
         self.soft_deleted = pk
@@ -763,7 +763,7 @@ def _logged_changes(logs):
 
 class TestFacilitatorDeletion:
     def test_a_facilitator_running_sessions_is_not_deleted(self):
-        facilitators = FakeDeletionRepo(has_sessions=True)
+        facilitators = FakeDeletionRepo(has_any_session=True)
         service, logs = _deletion_service(facilitators)
 
         refusal = _refusal(lambda: service.delete(event_id=1, facilitator_slug="alice"))
@@ -782,7 +782,7 @@ class TestFacilitatorDeletion:
 
         assert facilitators.calls == [
             ("lock", _FACILITATOR_PK),
-            ("has_sessions", _FACILITATOR_PK),
+            ("has_any_session", _FACILITATOR_PK),
         ]
 
     def test_a_facilitator_without_sessions_is_deleted(self):

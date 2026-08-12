@@ -229,14 +229,14 @@ class TestFacilitatorRepositoryHasSessions:
         event = EventFactory.create()
         facilitator = _facilitator(event)
 
-        assert FacilitatorRepository.has_sessions(facilitator.pk) is False
+        assert FacilitatorRepository.has_any_session(facilitator.pk) is False
 
     def test_a_facilitator_running_a_session_has_sessions(self):
         event = EventFactory.create()
         facilitator = _facilitator(event)
         _session(event).facilitators.add(facilitator)
 
-        assert FacilitatorRepository.has_sessions(facilitator.pk) is True
+        assert FacilitatorRepository.has_any_session(facilitator.pk) is True
 
     def test_a_deleted_session_counts_too(self):
         # It is restorable, and a restore that brought back a session with a
@@ -247,7 +247,7 @@ class TestFacilitatorRepositoryHasSessions:
         session.facilitators.add(facilitator)
         session.soft_delete()
 
-        assert FacilitatorRepository.has_sessions(facilitator.pk) is True
+        assert FacilitatorRepository.has_any_session(facilitator.pk) is True
 
 
 class TestFacilitatorRepositorySessionCount:

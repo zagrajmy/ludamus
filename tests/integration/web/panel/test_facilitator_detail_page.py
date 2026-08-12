@@ -170,6 +170,54 @@ class TestFacilitatorDetailPageView:
             contains=[f'href="{proposal_url}"', "Attached Session"],
         )
 
+    def test_get_lists_the_deleted_sessions_that_block_a_deletion(
+        self, panel_client, event
+    ):
+        # The refusal says "deleted ones included", so the page has to show
+        # which ones — otherwise nothing in the facilitator UI names them.
+        facilitator = make_facilitator(event)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Dead Session",
+            slug="dead-session",
+            participants_limit=4,
+            status="pending",
+            deleted_at=_DELETED_AT,
+        )
+        session.facilitators.add(facilitator)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [
+                    SessionListItemDTO(
+                        category_name="RPG",
+                        creation_time=session.creation_time,
+                        display_name="Host",
+                        is_deleted=True,
+                        is_scheduled=False,
+                        pk=session.pk,
+                        status=SessionStatus.PENDING,
+                        title="Dead Session",
+                    )
+                ],
+            },
+        )
+
     def test_get_shows_linked_user_name_and_email(self, panel_client, event):
         linked = UserFactory(name="Bob Builder", email="bob@example.com")
         facilitator = make_facilitator(event, user=linked)

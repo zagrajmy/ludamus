@@ -116,7 +116,12 @@
                                             <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=session.pk %}"
                                                class="text-primary hover:underline truncate"
                                                title="{{ session.title }}">{{ session.title }}</a>
-                                            {% include "panel/_proposal_status_badge.html" with status=session.status %}
+                                            <span class="flex items-center gap-2 shrink-0">
+                                                {% if session.is_deleted %}
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">{% translate "Deleted" %}</span>
+                                                {% endif %}
+                                                {% include "panel/_proposal_status_badge.html" with status=session.status %}
+                                            </span>
                                         </li>
                                     {% endfor %}
                                 </ul>

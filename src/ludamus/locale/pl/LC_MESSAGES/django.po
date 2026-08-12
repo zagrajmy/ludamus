@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 16:34+0200\n"
+"POT-Creation-Date: 2026-08-12 18:41+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3151,6 +3151,7 @@ msgid "Tracks"
 msgstr "Bloki programowe"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Deleted"
 msgstr "Usunięty"

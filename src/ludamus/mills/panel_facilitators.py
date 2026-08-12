@@ -691,7 +691,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             # between the two would otherwise leave this facilitator deleted
             # and still named on the program.
             self._repos.facilitators.lock(facilitator.pk)
-            if self._repos.facilitators.has_sessions(facilitator.pk):
+            if self._repos.facilitators.has_any_session(facilitator.pk):
                 raise FacilitatorActionError(OrganizerActionRefusal.HAS_SESSIONS)
             self._repos.facilitators.soft_delete(facilitator.pk)
             self._log_deletion(
