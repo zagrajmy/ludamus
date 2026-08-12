@@ -305,7 +305,7 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             "participants_limit": session.participants_limit,
             "min_age": session.min_age,
             "category_id": session.category_id,
-            "cover_image": session.cover_image_url or None,
+            "cover_image": session.stored_cover,
             "duration": duration.selected,
             "duration_hours": duration.hours,
             "duration_minutes": duration.minutes,

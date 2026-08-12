@@ -228,7 +228,7 @@ class EncounterEditPageView(LoginRequiredMixin, View):
                 "end_time": self._format_dt(encounter.end_time),
                 "place": encounter.place,
                 "max_participants": encounter.max_participants,
-                "header_image": encounter.header_image_url or None,
+                "header_image": encounter.stored_header,
             }
         )
         return TemplateResponse(

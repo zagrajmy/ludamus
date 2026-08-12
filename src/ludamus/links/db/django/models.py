@@ -27,6 +27,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -289,6 +290,9 @@ class Sphere(models.Model):
     managers = models.ManyToManyField(User)
     # Branding fallback — used on printables when an event has no logo of its own
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    logo_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -322,6 +326,9 @@ class Guild(models.Model):
     # FileField, not ImageField: the mark is usually an SVG, which Pillow (and
     # therefore ImageField's clean) rejects. validate_uploaded_logo covers it.
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    logo_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     members: models.ManyToManyField[User, GuildMembership] = models.ManyToManyField(
         User, through="GuildMembership", related_name="guilds"
     )
@@ -388,8 +395,14 @@ class Event(models.Model):
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    cover_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     # Branding — shown on printables (the public /print page)
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    logo_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -946,6 +959,9 @@ class Session(SoftDeleteModel):
     # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
     # purge the stored file during hard garbage-collection of dead sessions.
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    cover_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     duration = models.CharField(
         max_length=20,
         default="",
@@ -1531,6 +1547,9 @@ class Encounter(models.Model):
     max_participants = models.PositiveIntegerField(default=0)
     share_code = models.CharField(max_length=6, unique=True)
     header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    header_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:

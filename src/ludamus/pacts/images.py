@@ -1,7 +1,6 @@
-import re
-from posixpath import basename
 from typing import NamedTuple
-from urllib.parse import unquote, urlsplit
+
+from pydantic import BaseModel
 
 
 class ImageFormat(NamedTuple):
@@ -30,11 +29,40 @@ SVG_SUFFIX = ".svg"
 LOGO_ACCEPT = f"{IMAGE_ACCEPT},{SVG_MIME}"
 UPLOAD_SUFFIXES = IMAGE_SUFFIXES | {SVG_SUFFIX}
 
-_HASHED_BASENAME = re.compile(r"^[0-9a-f]{32}(?:\.[a-z0-9]+)?$", re.IGNORECASE)
+ORIGINAL_FILENAME_MAX_LENGTH = 255
 
 
-def stored_file_display_name(path: str) -> str:
-    name = unquote(basename(urlsplit(path).path))
-    if not name or _HASHED_BASENAME.fullmatch(name):
-        return ""
-    return name
+class StoredFile(NamedTuple):
+    url: str
+    original_name: str = ""
+
+
+def stored_file(url: str, original_name: str = "") -> StoredFile | None:
+    return StoredFile(url, original_name) if url else None
+
+
+class HasStoredCover(BaseModel):
+    cover_image_url: str = ""
+    cover_image_original_name: str = ""
+
+    @property
+    def stored_cover(self) -> StoredFile | None:
+        return stored_file(self.cover_image_url, self.cover_image_original_name)
+
+
+class HasStoredLogo(BaseModel):
+    logo_url: str = ""
+    logo_original_name: str = ""
+
+    @property
+    def stored_logo(self) -> StoredFile | None:
+        return stored_file(self.logo_url, self.logo_original_name)
+
+
+class HasStoredHeader(BaseModel):
+    header_image_url: str = ""
+    header_image_original_name: str = ""
+
+    @property
+    def stored_header(self) -> StoredFile | None:
+        return stored_file(self.header_image_url, self.header_image_original_name)

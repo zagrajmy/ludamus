@@ -46,6 +46,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.images import StoredFile, stored_file
 
 from .forms import (
     SessionCoverImageForm,
@@ -108,9 +109,9 @@ def _stash_wizard_cover(
     )
 
 
-def _wizard_cover_initial(wizard: dict[str, Any]) -> str | None:
+def _wizard_cover_initial(wizard: dict[str, Any]) -> StoredFile | None:
     if (path := wizard.get(_WIZARD_COVER_KEY)) and default_storage.exists(path):
-        return default_storage.url(path)
+        return stored_file(default_storage.url(path), PurePosixPath(path).name)
     return None
 
 
@@ -925,7 +926,7 @@ class SessionEditView(LoginRequiredMixin, View):
                 "min_age": ctx.session.min_age,
                 "duration_hours": hours or None,
                 "duration_minutes": minutes or None,
-                "cover_image": ctx.session.cover_image_url or None,
+                "cover_image": ctx.session.stored_cover,
             }
         )
 

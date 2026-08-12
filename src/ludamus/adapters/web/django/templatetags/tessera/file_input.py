@@ -7,23 +7,18 @@ from typing import TYPE_CHECKING
 from django.forms import ImageField
 from django.template.loader import render_to_string
 
-from ludamus.pacts.images import stored_file_display_name
-
 if TYPE_CHECKING:
     from django.forms import BoundField
 
 
 def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
-    # A bound file (FieldFile) exposes `.url`; an initial passed as a plain
-    # URL string (e.g. from a DTO that doesn't carry the model file) is used
-    # as the URL directly, deriving a display name from its path.
     if not initial:
         return None, ""
-    if (url := getattr(initial, "url", None)) is not None:
-        return url, stored_file_display_name(str(initial))
-    if isinstance(initial, str):
-        return initial, stored_file_display_name(initial)
-    return None, ""
+    url = getattr(initial, "url", None)
+    if isinstance(url, str) and url:
+        name = getattr(initial, "original_name", "")
+        return url, name if isinstance(name, str) else ""
+    return (initial, "") if isinstance(initial, str) else (None, "")
 
 
 def render_file_input(field: BoundField) -> str:

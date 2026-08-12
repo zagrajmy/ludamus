@@ -34,7 +34,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
-                "logo": sphere.logo_url or None,
+                "logo": sphere.stored_logo,
             }
         )
         base = sphere_settings_context(self.request, active_tab="general")

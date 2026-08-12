@@ -1,16 +1,45 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
+from django.db.models import Model
 from django.db.models.fields.files import FieldFile
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping
+from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 
-    from django.db.models import Model
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 logger = logging.getLogger(__name__)
+
+
+def original_filename(name: str) -> str:
+    return Path(name.replace("\\", "/")).name[:ORIGINAL_FILENAME_MAX_LENGTH]
+
+
+def bind_original_names(instance: Model, field_names: Iterable[str]) -> list[str]:
+    original_keys = []
+    for field in field_names:
+        current = getattr(instance, field, None)
+        if not isinstance(current, FieldFile):
+            continue
+        original_key = f"{field}_original_name"
+        setattr(
+            instance,
+            original_key,
+            original_filename(current.name or "") if current else "",
+        )
+        original_keys.append(original_key)
+    return original_keys
+
+
+def persist[T: Model, V](model: type[T], data: Mapping[str, V]) -> T:
+    instance = model(**data)
+    bind_original_names(instance, data)
+    instance.save()
+    return instance
 
 
 def delete_stored_file(field_file: FieldFile, old_name: str) -> None:
@@ -34,7 +63,8 @@ def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
 
     for key, value in data.items():
         setattr(instance, key, value)
-    instance.save(update_fields=list(data.keys()))
+    original_keys = bind_original_names(instance, data)
+    instance.save(update_fields=[*data.keys(), *original_keys])
 
     for field, old_name in old_names.items():
         field_file = getattr(instance, field)

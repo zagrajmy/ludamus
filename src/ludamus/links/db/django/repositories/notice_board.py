@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from django.db.models import Q
 
 from ludamus.links.db.django.models import Encounter, EncounterRSVP
-from ludamus.links.db.django.repositories.storage import save_replacing_files
+from ludamus.links.db.django.repositories.storage import persist, save_replacing_files
 from ludamus.pacts import (
     EncounterData,
     EncounterDTO,
@@ -17,7 +17,7 @@ from ludamus.pacts import (
 class EncounterRepository(EncounterRepositoryProtocol):
     @staticmethod
     def create(data: EncounterData) -> EncounterDTO:
-        encounter = Encounter.objects.create(**data)
+        encounter = persist(Encounter, data)
         return EncounterDTO.model_validate(encounter)
 
     @staticmethod

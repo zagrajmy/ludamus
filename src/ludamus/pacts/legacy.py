@@ -13,6 +13,7 @@ from typing import (
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.images import HasStoredCover, HasStoredHeader, HasStoredLogo
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -199,12 +200,11 @@ class AgendaItemDTO(BaseModel):
     category_name: str | None = None
 
 
-class SessionDTO(BaseModel):
+class SessionDTO(HasStoredCover):
     model_config = ConfigDict(from_attributes=True)
 
     category_id: int | None
     contact_email: str
-    cover_image_url: str = ""
     creation_time: datetime
     description: str
     duration: str = ""
@@ -434,13 +434,12 @@ class SiteDTO(BaseModel):
     pk: int
 
 
-class SphereDTO(BaseModel):
+class SphereDTO(HasStoredLogo):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
-    logo_url: str = ""
     name: str
     pk: int
     site: SiteDTO
@@ -459,15 +458,13 @@ class SessionSelfEditContext:
     facilitators: list[FacilitatorDTO]
 
 
-class EventDTO(BaseModel):
+class EventDTO(HasStoredCover, HasStoredLogo):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
     auto_confirm_sessions: bool = False
-    cover_image_url: str = ""
     description: str
     end_time: datetime
-    logo_url: str = ""
     name: str
     pk: int
     proposal_end_time: datetime | None
@@ -496,7 +493,7 @@ class EventListItemDTO(BaseModel):
     start_time: datetime
 
 
-class EncounterDTO(BaseModel):
+class EncounterDTO(HasStoredHeader):
     model_config = ConfigDict(from_attributes=True)
 
     creation_time: datetime
@@ -504,7 +501,6 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
-    header_image_url: str = ""
     max_participants: int
     pk: int
     place: str

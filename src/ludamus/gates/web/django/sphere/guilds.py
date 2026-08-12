@@ -106,8 +106,7 @@ class GuildEditPageView(SphereAccessMixin, View):
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
         guild = _read_guild(self.request, pk)
         return self._render(
-            guild,
-            GuildForm(initial={"name": guild.name, "logo": guild.logo_url or None}),
+            guild, GuildForm(initial={"name": guild.name, "logo": guild.stored_logo})
         )
 
     def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:

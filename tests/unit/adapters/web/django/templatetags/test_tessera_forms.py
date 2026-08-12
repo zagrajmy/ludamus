@@ -21,6 +21,7 @@ from ludamus.adapters.web.django.templatetags.tessera.form_select import render_
 from ludamus.adapters.web.django.templatetags.tessera.input import render_input
 from ludamus.adapters.web.django.templatetags.tessera.label import render_label
 from ludamus.adapters.web.django.templatetags.tessera.textarea import render_textarea
+from ludamus.pacts.images import StoredFile
 
 
 class SimpleForm(forms.Form):
@@ -123,13 +124,6 @@ class TestTesseraField:
         assert "We won&#x27;t share this" in html or "We won't share this" in html
 
 
-class _FieldFileStub:
-    url = "/media/events/cover.png"
-
-    def __str__(self) -> str:
-        return "events/cover.png"
-
-
 class ImageFieldForm(forms.Form):
     photo = forms.ImageField(required=False)
 
@@ -144,29 +138,22 @@ class TestFileInput:
         form = ImageFieldForm(initial={"photo": "/media/events/My%20Cover.png"})
         html = tessera_field(form["photo"])
         assert "/media/events/My%20Cover.png" in html
-        assert "My Cover.png" in html  # display name decoded from the URL path
+        assert ">My Cover.png<" not in html
 
-    def test_previews_initial_bound_file(self) -> None:
-        form = ImageFieldForm(initial={"photo": _FieldFileStub()})
+    def test_previews_stored_file_with_original_name(self) -> None:
+        form = ImageFieldForm(
+            initial={"photo": StoredFile("/media/events/abc.png", "poster.png")}
+        )
         html = tessera_field(form["photo"])
-        assert "/media/events/cover.png" in html
-        assert "cover.png" in html
+        assert "/media/events/abc.png" in html
+        assert ">poster.png<" in html
 
-    def test_hides_hashed_storage_basename(self) -> None:
+    def test_url_string_does_not_show_storage_basename(self) -> None:
         form = ImageFieldForm(
             initial={"photo": "/media/events/0123456789abcdef0123456789abcdef.png"}
         )
         html = tessera_field(form["photo"])
         assert ">0123456789abcdef0123456789abcdef.png<" not in html
-
-    def test_shows_original_name_from_uuid_directory_path(self) -> None:
-        form = ImageFieldForm(
-            initial={
-                "photo": "/media/events/0123456789abcdef0123456789abcdef/poster.png"
-            }
-        )
-        html = tessera_field(form["photo"])
-        assert ">poster.png<" in html
 
     def test_previews_image_only_file_field_as_image(self) -> None:
         class LogoForm(forms.Form):
