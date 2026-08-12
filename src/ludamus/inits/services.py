@@ -271,6 +271,7 @@ class Services:
             self._repos.sessions,
             self._repos.session_fields,
             self._repos.content_change_logs,
+            self._repos.agenda_items,
         )
 
     @cached_property

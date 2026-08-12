@@ -809,6 +809,7 @@ class ProposalFormPageView(_ProposalFormBase):
                     track_ids=self._collect_track_ids(current_event.pk),
                     time_slot_ids=self._collect_time_slot_ids(current_event.pk),
                     remove_field_ids=remove_field_ids,
+                    resize_agenda_item=True,
                 ),
             )
 

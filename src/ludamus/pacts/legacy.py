@@ -1442,12 +1442,16 @@ class SessionContentEditData:
     # `field_values` None leaves dynamic answers untouched (partial POST guard).
     # `remove_field_ids` drops answers to fields the session's category no
     # longer asks for — the only edit the panel allows on those.
+    # `resize_agenda_item` lets a duration change move the scheduled block's
+    # end time. Only the organizer panel sets it; a facilitator's self-edit
+    # writes the session row alone and leaves the timetable to the organizer.
     update: SessionUpdateData
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
     track_ids: list[int] | None = None
     time_slot_ids: list[int] | None = None
     remove_field_ids: list[int] | None = None
+    resize_agenda_item: bool = False
 
 
 class ContentChangeLogDTO(BaseModel):

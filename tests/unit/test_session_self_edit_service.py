@@ -36,16 +36,17 @@ def _build(*, presenter_id, event_override, sphere_default):
     session_fields.list_by_event.return_value = []
     spheres = MagicMock()
     spheres.read.return_value = MagicMock(allow_facilitator_session_edit=sphere_default)
+    agenda_items = MagicMock()
     content_edit = SessionContentEditService(
-        transaction, sessions, session_fields, MagicMock()
+        transaction, sessions, session_fields, MagicMock(), agenda_items
     )
     service = SessionSelfEditService(sessions, session_fields, spheres, content_edit)
-    return service, sessions, transaction
+    return service, sessions, transaction, agenda_items
 
 
 class TestUpdate:
     def test_writes_session_and_field_values_atomically(self):
-        service, sessions, transaction = _build(
+        service, sessions, transaction, _agenda_items = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
         field_values = [{"session_id": 5, "field_id": 1, "value": "x"}]
@@ -73,7 +74,7 @@ class TestUpdate:
         sessions.save_field_values.assert_called_once_with(5, field_values)
 
     def test_passes_uploaded_cover_image_through(self):
-        service, sessions, _ = _build(
+        service, sessions, _, _agenda_items = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
         cover = _FakeUpload()
@@ -85,7 +86,7 @@ class TestUpdate:
         assert sessions.update.call_args.args[1]["cover_image"] is cover
 
     def test_clears_cover_image_when_false(self):
-        service, sessions, _ = _build(
+        service, sessions, _, _agenda_items = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
 
@@ -108,7 +109,7 @@ class TestUpdate:
         )
 
     def test_leaves_cover_image_untouched_when_absent(self):
-        service, sessions, _ = _build(
+        service, sessions, _, _agenda_items = _build(
             presenter_id=10, event_override=None, sphere_default=True
         )
 
@@ -116,8 +117,22 @@ class TestUpdate:
 
         assert "cover_image" not in sessions.update.call_args.args[1]
 
+    def test_duration_change_leaves_the_scheduled_block_alone(self):
+        service, sessions, _, agenda_items = _build(
+            presenter_id=10, event_override=None, sphere_default=True
+        )
+        sessions.read.return_value = MagicMock(presenter_id=10, duration="PT1H")
+
+        service.update(
+            5, 10, {"title": "T", "display_name": "D", "duration": "PT2H"}, []
+        )
+
+        assert sessions.update.call_args.args[1]["duration"] == "PT2H"
+        agenda_items.read_by_session.assert_not_called()
+        agenda_items.update.assert_not_called()
+
     def test_raises_when_not_allowed(self):
-        service, sessions, _ = _build(
+        service, sessions, _, _agenda_items = _build(
             presenter_id=10, event_override=False, sphere_default=True
         )
 
