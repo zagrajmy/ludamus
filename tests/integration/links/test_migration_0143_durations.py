@@ -13,8 +13,7 @@ normalize_stored_durations = import_module(
 ).normalize_stored_durations
 
 
-@pytest.fixture
-def apps_before_0143():
+def _apps_before_0143():
     return (
         MigrationLoader(connection)
         .project_state(("db_main", "0142_guild_guildmembership"))
@@ -24,9 +23,7 @@ def apps_before_0143():
 
 @pytest.mark.django_db
 class TestNormalizeStoredDurations:
-    def test_rewrites_what_it_can_read_and_empties_the_rest(
-        self, caplog, apps_before_0143
-    ):
+    def test_rewrites_what_it_can_read_and_empties_the_rest(self, caplog):
         session = SessionFactory.create(duration="P4H")
         unreadable = SessionFactory.create(duration="2h30")
         deleted = SessionFactory.create(duration="5 maja")
@@ -34,7 +31,7 @@ class TestNormalizeStoredDurations:
         category = ProposalCategoryFactory.create(durations=["1h", "junk", "PT30M"])
 
         with caplog.at_level(logging.INFO):
-            normalize_stored_durations(apps_before_0143, None)
+            normalize_stored_durations(_apps_before_0143(), None)
 
         session.refresh_from_db()
         unreadable.refresh_from_db()
@@ -53,11 +50,11 @@ class TestNormalizeStoredDurations:
             record.msg for record in caplog.records
         }
 
-    def test_leaves_canonical_values_alone(self, caplog, apps_before_0143):
+    def test_leaves_canonical_values_alone(self, caplog):
         session = SessionFactory.create(duration="PT1H30M")
 
         with caplog.at_level(logging.INFO):
-            normalize_stored_durations(apps_before_0143, None)
+            normalize_stored_durations(_apps_before_0143(), None)
 
         session.refresh_from_db()
         assert session.duration == "PT1H30M"
