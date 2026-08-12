@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from vekna.trial import Trial
 
 _AHEAD = "test feature = *"
+_PUSH = "git push origin feature"
+_WROTE_TRIAGE = "cd *test -f .local/triage-feature.md"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.
 _GATE_ROUNDS = 3
@@ -261,6 +263,7 @@ class TestWholeCast:
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
+        trial.shell.replies(when=_PUSH)
         trial.shell.replies(when="test -f qa.md")
         trial.shell.replies(when=_AHEAD, stdout="2\n")
         trial.coding.replies("posted the review", when="Review the changes*")
@@ -281,6 +284,7 @@ class TestWholeCast:
             "gate_check",
             "finish_merge",
             "cover",
+            "push_work",
             "quality_review",
             "read_comments",
             "mark_qa",
@@ -308,6 +312,7 @@ class TestWholeCast:
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
+        trial.shell.replies(when=_PUSH)
         trial.shell.replies(when="test -f qa.md")
         trial.shell.replies(when=_AHEAD, stdout="2\n")
         trial.coding.replies("tried", when="*is this project's gate*", always=True)
@@ -344,6 +349,7 @@ class TestWholeCast:
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
+        trial.shell.replies(when=_PUSH)
         trial.shell.replies(when=_AHEAD, stdout="3\n")
         trial.coding.replies("tried", when="*is this project's gate*", always=True)
         trial.coding.replies("posted the review", when="Review the changes*")
@@ -357,7 +363,8 @@ class TestWholeCast:
             ),
             when="Read the open*",
         )
-        trial.coding.replies("wrote triage.md", when="Write triage.md*")
+        trial.coding.replies("wrote the triage", when="Write `.local*")
+        trial.shell.replies(when=_WROTE_TRIAGE)
 
         result = trial.cast(pr_check, PrCheck(bound=1))
 
@@ -376,7 +383,7 @@ class TestWholeCast:
             ],
             to_push=["feature"],
             # A branch nobody could make green is the clearest thing on the list
-            # there is to do, and this one carries a triage.md as well.
+            # there is to do, and this one was triaged as well.
             to_fix=["feature"],
         )
         assert trial.steps == [
@@ -388,6 +395,7 @@ class TestWholeCast:
             "gate_check",
             "gate_check",
             "stand_down",
+            "push_work",
             "quality_review",
             "read_comments",
             "write_triage",

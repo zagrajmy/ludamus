@@ -14,7 +14,13 @@ from ludamus.edges.rituals.pr_check import (
     set_aside,
     write_triage,
 )
-from ludamus.edges.rituals.shell import CR_LABEL, QA_LABEL, THERMO_LABEL
+from ludamus.edges.rituals.shell import (
+    CR_LABEL,
+    QA_LABEL,
+    THERMO_LABEL,
+    rooted,
+    triage_path,
+)
 from ludamus.edges.rituals.state import (
     Closed,
     Run,
@@ -32,10 +38,7 @@ _QA_COMMIT = (
     "git add -A && (git diff --cached --quiet || "
     "git commit -m 'docs: manual test scenarios for this branch')"
 )
-_TRIAGE_COMMIT = (
-    "git add -A && (git diff --cached --quiet || "
-    "git commit -m 'docs: triage of the open review comments')"
-)
+_TRIAGE_FILE = rooted(f"test -f {triage_path('feature')}")
 _NOTES = TriageNotes(
     items=[
         TriageItem(where="src/thing.py", what="the guard is missing", priority="p1"),
@@ -224,8 +227,8 @@ class TestWriteTriage:
     def test_the_notes_reach_the_agent_and_the_tally_rides_out(
         self, trial: Trial, work: Work
     ) -> None:
-        trial.coding.replies("wrote triage.md")
-        trial.shell.replies(when="git add -A*")
+        trial.coding.replies("wrote the triage")
+        trial.shell.replies(when=_TRIAGE_FILE)
         trial.shell.replies(when="gh pr edit*")
 
         transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))
@@ -237,17 +240,37 @@ class TestWriteTriage:
                 outcome="triage",
             ),
         )
+        # Left in `.local` and never committed: the file is a note to `ship`,
+        # not part of the branch.
         assert trial.shell.commands == [
-            _TRIAGE_COMMIT,
+            _TRIAGE_FILE,
             f"gh pr edit 7 --add-label {CR_LABEL}",
         ]
         assert "the guard is missing" in trial.coding.prompts[0]
+
+    # The label promises a triage, so the file is asked for by name: nothing is
+    # committed here, and an agent that answered without writing would otherwise
+    # earn the branch a promise nobody can keep.
+    def test_a_triage_that_was_never_written_sets_the_branch_aside(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.coding.replies("thought about it")
+        trial.shell.replies(when=_TRIAGE_FILE, exit_code=1)
+
+        transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))
+
+        assert transition == goto(
+            set_aside,
+            work.model_copy(
+                update={"note": f"the agent wrote no {triage_path('feature')}"}
+            ),
+        )
 
     def test_a_label_that_will_not_go_on_sets_the_branch_aside(
         self, trial: Trial, work: Work
     ) -> None:
         trial.coding.replies("wrote it")
-        trial.shell.replies(when="git add -A*")
+        trial.shell.replies(when=_TRIAGE_FILE)
         trial.shell.replies(when="gh pr edit*", exit_code=1, stderr="rate limited")
 
         transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))

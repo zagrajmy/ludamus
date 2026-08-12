@@ -8,7 +8,7 @@ from ludamus.edges.rituals.pr_check import (
     cover,
     finish_merge,
     gate_check,
-    quality_review,
+    push_work,
     set_aside,
     stand_down,
 )
@@ -272,7 +272,7 @@ class TestCover:
 
         transition = trial.walk(cover, work)
 
-        assert transition == goto(quality_review, work)
+        assert transition == goto(push_work, work)
         assert not trial.coding.prompts
 
     def test_a_first_pass_with_nothing_missing_commits_nothing(
@@ -283,7 +283,7 @@ class TestCover:
         transition = trial.walk(cover, work)
 
         # A commit rite that can never commit anything is noise in the tree.
-        assert transition == goto(quality_review, work)
+        assert transition == goto(push_work, work)
         assert trial.shell.commands == [plain(COVERAGE)]
 
     def test_tests_that_were_written_are_committed_and_the_budget_cleared(
@@ -295,7 +295,7 @@ class TestCover:
 
         transition = trial.walk(cover, spent)
 
-        assert transition == goto(quality_review, work)
+        assert transition == goto(push_work, work)
         assert trial.shell.commands == [plain(COVERAGE), _TEST_COMMIT]
 
     def test_a_spent_budget_stands_the_branch_down(

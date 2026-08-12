@@ -147,10 +147,10 @@ class TestSyncBranch:
         assert transition == goto(merge_base, work)
         assert trial.shell.commands == [
             (
-                "git fetch --prune https-origin && git checkout main && "
-                "git pull --ff-only https-origin main"
+                "git fetch --prune origin && git checkout main && "
+                "git pull --ff-only origin main"
             ),
-            "git checkout feature && git merge --ff-only https-origin/feature",
+            "git checkout feature && git merge --ff-only origin/feature",
         ]
 
     def test_a_base_that_will_not_update_ends_the_whole_run(

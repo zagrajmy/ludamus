@@ -1,15 +1,23 @@
-"""Pushing one branch, and what happens to the triage it carries."""
+"""Taking one triaged branch, working through it, and shipping what comes out."""
 
+import json
 from typing import TYPE_CHECKING
 
 import pytest
 from vekna.lexicon import RitualError, done, goto
 
-from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, plain
+from ludamus.edges.rituals.agent import triage_work
+from ludamus.edges.rituals.shell import (
+    COVERAGE,
+    LIST,
+    PR_FIX,
+    TRIAGE_GLOB,
+    WAIT_LABEL,
+    plain,
+    rooted,
+    triage_path,
+)
 from ludamus.edges.rituals.ship import (
-    AHEAD,
-    DIFF,
-    FETCH,
     Branch,
     Instructed,
     Landing,
@@ -21,8 +29,6 @@ from ludamus.edges.rituals.ship import (
     look,
     paged,
     pick,
-    push_branch,
-    read_triage,
     ship,
     work,
 )
@@ -31,30 +37,90 @@ if TYPE_CHECKING:
     from vekna.trial import Trial
 
 _STATUS = "git status --porcelain"
+_HERE = "git rev-parse --abbrev-ref HEAD"
+_LS = rooted(f"ls -1 {TRIAGE_GLOB} 2>/dev/null")
+_TRIAGE = triage_path("feature")
+_CAT = paged(rooted(f"cat {_TRIAGE}"))
 _REPORT = "Diff Coverage\nsrc/thing.py (80.0%): Missing lines 12-14\n"
 _COVERED = "Diff Coverage\nTotal: 10 lines\nMissing: 0 lines\n"
 
 
+def _listing(*branches: str, waiting: str = "") -> str:
+    rows = [
+        {
+            "number": number,
+            "title": f"Add {name}",
+            "url": f"https://github.com/fancysnake/ludamus/pull/{number}",
+            "headRefName": name,
+            "baseRefName": "main",
+            # Ascending with the listing, so the first name given is also the
+            # one that has been waiting longest.
+            "updatedAt": f"2026-08-0{number}T22:00:00Z",
+            "labels": [{"name": WAIT_LABEL}] if name == waiting else [],
+        }
+        for number, name in enumerate(branches, start=1)
+    ]
+    return json.dumps(rows)
+
+
+def _triaged(*branches: str) -> str:
+    return "".join(f"{triage_path(name)}\n" for name in branches)
+
+
 class TestPick:
-    def test_the_first_branch_ahead_is_taken(
+    def test_the_branch_you_are_standing_on_is_preferred(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when=_STATUS)
-        trial.shell.replies(when=FETCH)
-        trial.shell.replies(when=AHEAD, stdout="feature\n")
+        trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
+        trial.shell.replies(when=_LS, stdout=_triaged("older", "feature"))
+        trial.shell.replies(when=_HERE, stdout="feature\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == goto(look, branch)
 
-    def test_nothing_ahead_ends_the_cast(self, trial: Trial) -> None:
+    # Somebody else's terminal is on the other one, and neither cast has to know
+    # that to leave it alone.
+    def test_a_branch_you_are_not_on_is_taken_oldest_first(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
-        trial.shell.replies(when=FETCH)
-        trial.shell.replies(when=AHEAD, stdout="\n")
+        trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
+        trial.shell.replies(when=_LS, stdout=_triaged("older", "feature"))
+        trial.shell.replies(when=_HERE, stdout="main\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
-        assert transition == done(Shipped())
+        assert transition == goto(look, Branch(name="older", bound=2))
+
+    def test_a_pull_request_without_a_triage_is_not_taken(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=_LS, exit_code=2)
+
+        transition = trial.walk(pick, Ship(bound=2))
+
+        assert transition == done(Shipped(outcome="nothing"))
+
+    # The label is how a branch is parked, and a triage sitting in `.local` does
+    # not un-park it.
+    def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
+        trial.shell.replies(when=_LS, stdout=_triaged("feature"))
+
+        transition = trial.walk(pick, Ship(bound=2))
+
+        assert transition == done(Shipped(outcome="nothing"))
+
+    # This cast ends in a commit and a push on whatever branch it takes.
+    def test_main_is_never_taken(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("main"))
+        trial.shell.replies(when=_LS, stdout=_triaged("main"))
+
+        transition = trial.walk(pick, Ship(bound=2))
+
+        assert transition == done(Shipped(outcome="nothing"))
 
     # Everything below this line moves a branch under you and commits what it
     # finds, so work left in the tree is work that would end up on it.
@@ -62,13 +128,6 @@ class TestPick:
         trial.shell.replies(when=_STATUS, stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
-            trial.walk(pick, Ship(bound=2))
-
-    def test_a_failed_fetch_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
-        trial.shell.replies(when=FETCH, exit_code=1, stderr="no route to host")
-
-        with pytest.raises(RitualError, match="could not fetch"):
             trial.walk(pick, Ship(bound=2))
 
     # A tree it could not read is not a tree it may call clean.
@@ -80,36 +139,69 @@ class TestPick:
 
     def test_a_failed_listing_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
-        trial.shell.replies(when=FETCH)
-        trial.shell.replies(when=AHEAD, exit_code=1, stderr="bad format")
+        trial.shell.replies(when=LIST, exit_code=1, stderr="rate limited")
 
-        with pytest.raises(RitualError, match="could not list the branches"):
+        with pytest.raises(RitualError, match="could not list your pull requests"):
+            trial.walk(pick, Ship(bound=2))
+
+    def test_a_listing_that_cannot_be_read_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout="{}")
+
+        with pytest.raises(RitualError, match="something unreadable"):
+            trial.walk(pick, Ship(bound=2))
+
+    def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=_LS, stdout=_triaged("feature"))
+        trial.shell.replies(when=_HERE, exit_code=128, stderr="no HEAD")
+
+        with pytest.raises(RitualError, match="could not read the current branch"):
             trial.walk(pick, Ship(bound=2))
 
 
 class TestLook:
-    def test_the_diff_is_shown_before_the_question(
+    def test_the_triage_is_shown_before_the_questions(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=paged(DIFF))
-        trial.decide.answers(answer=True)
+        trial.shell.replies(when=_CAT)
+        trial.decide.answers(answer=True, when="work on feature?")
+        trial.decide.answers(answer="fix p1, file p3", when="*done with it?*")
 
         transition = trial.walk(look, branch)
 
-        assert transition == goto(push_branch, branch)
-        assert trial.shell.commands[-1] == paged(DIFF)
+        assert transition == goto(
+            work,
+            Instructed(branch=branch, prompt=triage_work(_TRIAGE) + "fix p1, file p3"),
+        )
+        assert _CAT in trial.shell.commands
 
-    def test_saying_no_ends_the_cast_without_pushing(
+    # The standing prompt is a complete instruction on its own, so saying
+    # nothing is saying "do that".
+    def test_saying_nothing_sends_the_standing_instruction(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=paged(DIFF))
-        trial.decide.answers(answer=False)
+        trial.shell.replies(when=_CAT)
+        trial.decide.answers(answer=True, when="work on feature?")
+        trial.decide.answers(answer="", when="*done with it?*")
 
         transition = trial.walk(look, branch)
 
-        assert transition == done(Shipped(branch="feature"))
+        assert transition == goto(
+            work, Instructed(branch=branch, prompt=triage_work(_TRIAGE))
+        )
+
+    def test_saying_no_ends_the_cast(self, trial: Trial, branch: Branch) -> None:
+        trial.shell.replies(when="git checkout*")
+        trial.shell.replies(when=_CAT)
+        trial.decide.answers(answer=False, when="work on feature?")
+
+        transition = trial.walk(look, branch)
+
+        assert transition == done(Shipped(outcome="declined", branch="feature"))
 
     def test_a_failed_checkout_fails_the_cast(
         self, trial: Trial, branch: Branch
@@ -120,59 +212,18 @@ class TestLook:
             trial.walk(look, branch)
 
 
-class TestPushBranch:
-    def test_a_branch_without_a_triage_is_done_once_pushed(
-        self, trial: Trial, branch: Branch
-    ) -> None:
-        trial.shell.replies(when="git push")
-        trial.shell.replies(when="test -f triage.md", exit_code=1)
-
-        transition = trial.walk(push_branch, branch)
-
-        assert transition == done(Shipped(branch="feature", pushed=True))
-
-    def test_a_triage_is_read_next(self, trial: Trial, branch: Branch) -> None:
-        trial.shell.replies(when="git push")
-        trial.shell.replies(when="test -f triage.md")
-
-        transition = trial.walk(push_branch, branch)
-
-        assert transition == goto(read_triage, branch)
-
-    def test_a_failed_push_fails_the_cast(self, trial: Trial, branch: Branch) -> None:
-        trial.shell.replies(when="git push", exit_code=1, stderr="rejected")
-
-        with pytest.raises(RitualError, match="could not push feature"):
-            trial.walk(push_branch, branch)
-
-
-class TestReadTriage:
-    def test_what_you_say_opens_the_first_round(
-        self, trial: Trial, branch: Branch
-    ) -> None:
-        trial.shell.replies(when=paged("cat triage.md"))
-        trial.decide.answers(answer="fix p1, file p3")
-
-        transition = trial.walk(read_triage, branch)
-
-        assert transition == goto(
-            work,
-            Instructed(branch=branch, instructions="fix p1, file p3", opening=True),
-        )
-
-
 class TestWork:
-    def test_the_opening_round_says_what_the_job_is(
+    def test_the_prompt_is_sent_as_it_was_assembled(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.coding.replies("resolved two threads")
 
         transition = trial.walk(
-            work, Instructed(branch=branch, instructions="fix p1", opening=True)
+            work, Instructed(branch=branch, prompt=triage_work(_TRIAGE) + "fix p1")
         )
 
         assert transition == goto(hand_back, branch)
-        assert "triage.md" in trial.coding.prompts[0]
+        assert _TRIAGE in trial.coding.prompts[0]
         assert trial.coding.prompts[0].endswith("fix p1")
 
     # The agent is mid-thread by then, and repeating the standing instructions
@@ -183,7 +234,7 @@ class TestWork:
         trial.coding.replies("done")
 
         transition = trial.walk(
-            work, Instructed(branch=branch, instructions="also rename it")
+            work, Instructed(branch=branch, prompt="also rename it")
         )
 
         assert transition == goto(hand_back, branch)
@@ -195,7 +246,7 @@ class TestWork:
         self, trial: Trial, branch: Branch
     ) -> None:
         with pytest.raises(RitualError, match="stopped mid-flight"):
-            trial.walk(work, Instructed(branch=branch, instructions="fix p1"))
+            trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
 
 
 class TestHandBack:
@@ -215,7 +266,7 @@ class TestHandBack:
         transition = trial.walk(hand_back, branch)
 
         assert transition == goto(
-            work, Instructed(branch=branch, instructions="drop the helper")
+            work, Instructed(branch=branch, prompt="drop the helper")
         )
 
 
@@ -283,11 +334,11 @@ class TestLand:
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git add*")
-        trial.shell.replies(when="git push")
+        trial.shell.replies(when="git push*")
 
         transition = trial.walk(land, branch)
 
-        assert transition == done(Shipped(branch="feature", pushed=True, triaged=True))
+        assert transition == done(Shipped(outcome="shipped", branch="feature"))
 
     def test_a_failed_commit_fails_the_cast(self, trial: Trial, branch: Branch) -> None:
         trial.shell.replies(when="git add*", exit_code=1, stderr="hook refused")
@@ -297,57 +348,40 @@ class TestLand:
 
     def test_a_failed_push_fails_the_cast(self, trial: Trial, branch: Branch) -> None:
         trial.shell.replies(when="git add*")
-        trial.shell.replies(when="git push", exit_code=1, stderr="rejected")
+        trial.shell.replies(when="git push*", exit_code=1, stderr="rejected")
 
         with pytest.raises(RitualError, match="could not push feature"):
             trial.walk(land, branch)
 
 
 class TestShip:
-    def test_a_branch_with_no_triage_is_pushed_and_that_is_all(
-        self, trial: Trial
-    ) -> None:
+    def test_a_night_with_no_triage_ends_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
-        trial.shell.replies(when=FETCH)
-        trial.shell.replies(when=AHEAD, stdout="feature\n")
-        trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=paged(DIFF))
-        trial.decide.answers(answer=True)
-        trial.shell.replies(when="git push")
-        trial.shell.replies(when="test -f triage.md", exit_code=1)
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=_LS, exit_code=2)
 
         result = trial.cast(ship, Ship(bound=2))
 
-        assert result == Shipped(branch="feature", pushed=True)
-        assert trial.steps == ["pick", "look", "push_branch"]
+        assert result == Shipped(outcome="nothing")
+        assert trial.steps == ["pick"]
 
     def test_a_triaged_branch_goes_all_the_way_to_the_gates(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
-        trial.shell.replies(when=FETCH)
-        trial.shell.replies(when=AHEAD, stdout="feature\n")
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=_LS, stdout=_triaged("feature"))
+        trial.shell.replies(when=_HERE, stdout="feature\n")
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=paged(DIFF))
-        trial.decide.answers(answer=True, when="push feature?")
-        trial.shell.replies(when="git push", always=True)
-        trial.shell.replies(when="test -f triage.md")
-        trial.shell.replies(when=paged("cat triage.md"))
+        trial.shell.replies(when=_CAT)
+        trial.decide.answers(answer=True, when="work on feature?")
         trial.decide.answers(answer="fix p1 and p2", when="*done with it?*")
         trial.coding.replies("resolved the threads")
         trial.decide.answers(answer="ship", when="*ship it?*")
         trial.shell.replies(when=plain(PR_FIX))
         trial.shell.replies(when=plain(COVERAGE), stdout=_COVERED)
         trial.shell.replies(when="git add*")
+        trial.shell.replies(when="git push*")
 
         result = trial.cast(ship, Ship(bound=2))
 
-        assert result == Shipped(branch="feature", pushed=True, triaged=True)
-        assert trial.steps == [
-            "pick",
-            "look",
-            "push_branch",
-            "read_triage",
-            "work",
-            "hand_back",
-            "gates",
-            "land",
-        ]
+        assert result == Shipped(outcome="shipped", branch="feature")
+        assert trial.steps == ["pick", "look", "work", "hand_back", "gates", "land"]

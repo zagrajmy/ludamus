@@ -4,13 +4,21 @@
 
 Every pull request you have open is taken in turn, oldest-modified first: its
 base branch is merged in, the gates are made green, the coverage gap is closed,
-a quality review is posted unless the branch already carries ``pr::thermo``, and
-the open review comments are triaged. A branch ends the night either labelled
-``pr::qa`` with a ``qa.md`` of manual scenarios, or carrying a ``triage.md``
-that says what still has to be done. Whatever this run put in front of you to
-read — a quality review it posted, a triage it wrote — also earns the branch
-``pr::cr``. Nothing is ever pushed: the report says which branches are waiting
-for that, and pushing stays yours.
+the night's work is pushed, a quality review is posted unless the branch already
+carries ``pr::thermo``, and the open review comments are triaged. A branch ends
+the night either labelled ``pr::qa`` with a ``qa.md`` of manual scenarios, or
+with a triage in ``.local`` saying what still has to be done. Whatever this run
+put in front of you to read — a quality review it posted, a triage it wrote —
+also earns the branch ``pr::cr``.
+
+The push comes before the review and not after: an inline review comment has to
+anchor to a line of the pull request's diff, and a line that exists only in this
+clone is a line GitHub answers 422 on. So a review of unpushed work is a review
+that loses half its comments to the fallback.
+
+The triage is written to ``.local/triage-<branch>.md``, which is gitignored: it
+is a note from the night to the morning, and a branch should not carry a commit
+adding it and another taking it back out. ``ship`` is what reads it.
 
 A branch the gates would not go green on is still read. It stands down rather
 than stopping: the worktree is released, so the reading happens on the last
@@ -62,7 +70,6 @@ from .agent import (
     COVER,
     QA,
     READING,
-    TRIAGE_FILE,
     TRIAGE_READ,
     Fallen,
     Misread,
@@ -71,12 +78,14 @@ from .agent import (
     fix_gates,
     resolve,
     thermo,
+    triage_file,
 )
 from .shell import (
     CONTINUE_MERGE,
     COVERAGE,
     CR_LABEL,
     LIST,
+    MISSING,
     PR_FIX,
     QA_LABEL,
     STASHED,
@@ -90,8 +99,10 @@ from .shell import (
     plain,
     quoted,
     release,
+    rooted,
     said,
     stash_name,
+    triage_path,
     verdict,
 )
 from .state import (
@@ -178,8 +189,8 @@ async def check_clean(work: Work) -> Transition:
 async def sync_branch(work: Work) -> Transition:
     pull = work.pr
     synced = await shell(
-        f"git fetch --prune https-origin && git checkout {quoted(pull.base)}"
-        f" && git pull --ff-only https-origin {quoted(pull.base)}"
+        f"git fetch --prune origin && git checkout {quoted(pull.base)}"
+        f" && git pull --ff-only origin {quoted(pull.base)}"
     )
     if synced.exit_code:
         reason = f"could not update {pull.base}: {said(synced)}"
@@ -189,7 +200,7 @@ async def sync_branch(work: Work) -> Transition:
     # point of the report. A branch that has genuinely diverged stops here.
     taken = await shell(
         f"git checkout {quoted(pull.branch)} && "
-        f"git merge --ff-only {quoted(f'https-origin/{pull.branch}')}"
+        f"git merge --ff-only {quoted(f'origin/{pull.branch}')}"
     )
     if taken.exit_code:
         return goto(
@@ -288,13 +299,7 @@ async def finish_merge(work: Work) -> Transition:
 async def cover(work: Work) -> Transition:
     measured = await shell(plain(COVERAGE), stream=False)
     output = coverage_report(measured)
-    # The report's own words for a line no test reached, and read from the
-    # output rather than the exit code because the exit code does not carry it:
-    # this task runs `diff-cover` with no `--fail-under`, so a run that names
-    # missing lines still ends 0. Both words and not just "Missing": the summary
-    # block below the listing says "Missing: 0 lines" on a clean report too, so
-    # the bare word matches every run there is.
-    missing = "Missing lines" in output
+    missing = MISSING in output
     if not missing and measured.exit_code == 0:
         # Only where tests were actually written: most branches pass here first
         # time, and a commit rite that can never commit anything is noise in the
@@ -306,7 +311,7 @@ async def cover(work: Work) -> Transition:
                     set_aside,
                     work_with(work, note=f"could not commit the tests: {said(landed)}"),
                 )
-        return goto(quality_review, cleared(work, cover.name))
+        return goto(push_work, cleared(work, cover.name))
     said_now = verdict(measured)
     # Two different jobs down one budget, because they are the same step going
     # round: lines this branch left uncovered are written up as tests, and a
@@ -345,6 +350,26 @@ async def cover(work: Work) -> Transition:
     if fallen := await ask(asking, key=f"cover-{work.pr.number}"):
         return goto(report, abandoned(work, fallen.reason))
     return goto(cover, charged(work, cover.name))
+
+
+# Everything the night made of this branch goes up before it is reviewed: an
+# inline comment has to name a line of the pull request's diff, and work sitting
+# in this clone is not in it. The remote is named rather than left to the
+# branch's upstream, because a branch this run created a merge on may have none.
+# Not fatal, and not `set_aside`: a push that will not go through — someone
+# else's commit on the branch, a network that is gone — costs the review its
+# anchors and nothing else, and a review of code you can still read is worth
+# more than a branch dropped for the night. What is left behind says so twice
+# over: in this note, and in the row's own `unpushed`, which is counted off git
+# at the end whoever left it there.
+@step
+async def push_work(work: Work) -> Transition:
+    pushed = await shell(f"git push origin {quoted(work.pr.branch)}")
+    if pushed.exit_code:
+        left = f"could not push: {said(pushed)}"
+        joined = "; ".join(part for part in (work.note, left) if part)
+        return goto(quality_review, work_with(work, note=joined))
+    return goto(quality_review, work)
 
 
 # The one step with no budget and no loop, because there is nothing here to
@@ -432,17 +457,21 @@ async def mark_qa(work: Work) -> Transition:
     return goto(finish_pr, Closed(work=work, outcome="qa"))
 
 
+# The triage is left in `.local`, not on the branch: it is a note from the night
+# to whoever runs `ship` in the morning, and a commit adding it is a commit
+# somebody has to take back out. Nothing to commit, so what stands in for the
+# commit's evidence is asking for the file by name — an agent that answered
+# without writing anything would otherwise earn the branch a `pr::cr` promising
+# a triage that is not there.
 @step
 async def write_triage(triaged: Triaged) -> Transition:
     work = triaged.work
-    if fallen := await ask(TRIAGE_FILE + triaged.notes.model_dump_json(indent=2)):
+    path = triage_path(work.pr.branch)
+    if fallen := await ask(triage_file(path) + triaged.notes.model_dump_json(indent=2)):
         return goto(report, abandoned(work, fallen.reason))
-    landed = await shell(commit("docs: triage of the open review comments"))
-    if landed.exit_code:
-        return goto(
-            set_aside,
-            work_with(work, note=f"could not commit triage.md: {said(landed)}"),
-        )
+    written = await shell(rooted(f"test -f {quoted(path)}"))
+    if written.exit_code:
+        return goto(set_aside, work_with(work, note=f"the agent wrote no {path}"))
     marked = await shell(label(CR_LABEL, number=work.pr.number))
     if marked.exit_code:
         reason = f"could not add the {CR_LABEL} label: {said(marked)}"
@@ -498,9 +527,7 @@ async def _released(work: Work) -> str:
 # branch, and there is nothing there to review.
 @step
 async def stand_down(work: Work) -> Transition:
-    return goto(
-        quality_review, work_with(work, note=await _released(work), blocked=True)
-    )
+    return goto(push_work, work_with(work, note=await _released(work), blocked=True))
 
 
 @step

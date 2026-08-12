@@ -251,7 +251,7 @@ def abandoned(work: Work, reason: str) -> Run:
 
 _OUTCOME = {
     "qa": f"ready to test ({QA_LABEL})",
-    "triage": "triage.md written",
+    "triage": "triage written",
     "blocked": "blocked",
 }
 
@@ -281,7 +281,7 @@ def report_card(run: Run) -> Report:
         ],
         # Blocked counts as needing fixing, whether or not a triage was written:
         # a branch nobody could make green is the clearest thing on the list
-        # there is to do, and one that also carries a triage.md has two.
+        # there is to do, and one that was also triaged has two.
         to_fix=[
             row.branch for row in run.checked if row.outcome in {"triage", "blocked"}
         ],

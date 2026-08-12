@@ -73,9 +73,37 @@ BUDGET = 4000
 # at all. See `coverage_report`.
 BANNER = "Diff Coverage"
 
+# The report's own words for a line no test reached, and read from the output
+# rather than the exit code because the exit code does not carry it: the task
+# runs `diff-cover` with no `--fail-under`, so a run that names missing lines
+# still ends 0. Both words and not just "Missing": the summary block below the
+# listing says "Missing: 0 lines" on a clean report too, so the bare word
+# matches every run there is.
+MISSING = "Missing lines"
+
+# Where a night's triage is left. Gitignored, and one file per branch: a triage
+# is a note between two rituals rather than part of the branch, and committing
+# it means somebody taking it back out once the work is done.
+TRIAGE_DIR = ".local"
+TRIAGE_GLOB = f"{TRIAGE_DIR}/triage-*.md"
+
 
 def quoted(value: str) -> str:
     return shlex.quote(value)
+
+
+# Slashes become dashes: a branch name is a path and this is one file.
+# ponytail: `a/b` and `a-b` land on the same name. Two branches that close
+# together, both open, both triaged the same night, is not a thing that happens
+# here; if it did, the cost is one triage read twice.
+def triage_path(branch: str) -> str:
+    return f"{TRIAGE_DIR}/triage-{branch.replace('/', '-')}.md"
+
+
+# Everything above names a path from the repository root, and a cast started
+# from a subdirectory would resolve it against wherever you were standing.
+def rooted(command: str) -> str:
+    return f'cd "$(git rev-parse --show-toplevel)" && {command}'
 
 
 # Cursor moves and colour. `plain` above stops most of these being written at
@@ -234,7 +262,7 @@ def release(branch: str) -> str:
 async def ahead(branch: str) -> int | None:
     counted = await shell(
         f'test {quoted(branch)} = "$(git rev-parse --abbrev-ref HEAD)" && '
-        f"git rev-list --count {quoted(f'https-origin/{branch}..HEAD')}",
+        f"git rev-list --count {quoted(f'origin/{branch}..HEAD')}",
         stream=False,
     )
     if counted.exit_code:
