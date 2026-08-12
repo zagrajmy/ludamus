@@ -426,7 +426,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     def facilitator_history(
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
+        # Reads a dead row on purpose: who deleted the facilitator and when is
+        # exactly what the History tab is opened for.
+        facilitator = self._repos.facilitators.read_including_deleted(
             event_id, facilitator_slug
         )
         # ponytail: filters the event-wide log in Python; per-facilitator DB

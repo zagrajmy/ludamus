@@ -11,7 +11,12 @@ from ludamus.mills.panel_facilitators import (
     kept_field_values,
     name_reconcile,
 )
-from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO
+from ludamus.pacts import (
+    FacilitatorChangeLogDTO,
+    FacilitatorDTO,
+    NotFoundError,
+    OrganizerFieldDTO,
+)
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     FacilitatorCreateData,
@@ -813,3 +818,42 @@ class TestFacilitatorDeletion:
         assert _logged_changes(logs) == [
             {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
         ]
+
+
+class FakeDeadFacilitatorRepo:
+    @staticmethod
+    def read_by_event_and_slug(_event_id, _slug):
+        raise NotFoundError
+
+    @staticmethod
+    def read_including_deleted(_event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK, display_name="Alice")
+
+
+class TestFacilitatorHistory:
+    def test_a_deleted_facilitator_still_has_a_history(self):
+        deletion_log = FacilitatorChangeLogDTO.model_construct(
+            facilitator_id=_FACILITATOR_PK,
+            changes=[{"field": "deleted", "field_id": None, "old": "", "new": "yes"}],
+        )
+        logs = MagicMock()
+        logs.list_by_event.return_value = [
+            deletion_log,
+            FacilitatorChangeLogDTO.model_construct(facilitator_id=_FACILITATOR_PK + 1),
+        ]
+        repos = FacilitatorPanelRepos(
+            facilitators=FakeDeadFacilitatorRepo(),
+            personal_data_fields=FakeFieldsRepo([]),
+            personal_data_field_values=object(),
+            facilitator_change_logs=logs,
+            panel_settings=FakeSettingsRepo(),
+            sessions=object(),
+            users=object(),
+        )
+        service = FacilitatorPanelService(_FakeTransaction(), repos)
+
+        name, entries = service.facilitator_history(
+            event_id=1, facilitator_slug="alice"
+        )
+
+        assert (name, entries) == ("Alice", [deletion_log])
