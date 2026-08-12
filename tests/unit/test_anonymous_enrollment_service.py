@@ -269,6 +269,17 @@ class TestValidation:
         assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
         assert excinfo.value.event_slug == "conv"
 
+    def test_enroll_unscheduled_is_rejected(self):
+        repo = FakeRepo(
+            session=_session_ctx(has_agenda_item=False), event_slugs={_EVENT_ID: "conv"}
+        )
+        service = _service(repo=repo)
+
+        with pytest.raises(AnonymousEnrollmentError) as excinfo:
+            service.enroll(_request(), "Ala")
+
+        assert _error_code(excinfo) == AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG
+
     def test_session_from_other_event(self):
         repo = FakeRepo(
             session=_session_ctx(event_id=_EVENT_ID + 1),
@@ -344,6 +355,18 @@ class TestGetEnrollPage:
 
         assert page.enrollment_status == SessionParticipationStatus.WAITING
         assert page.is_enrolled is True
+
+    def test_unscheduled_page_shows_when_already_enrolled(self):
+        repo = FakeRepo(
+            session=_session_ctx(has_agenda_item=False),
+            participation_status=SessionParticipationStatus.CONFIRMED,
+            event_slugs={_EVENT_ID: "conv"},
+        )
+        service = _service(repo=repo)
+
+        page = service.get_enroll_page(_request())
+
+        assert page.enrollment_status == SessionParticipationStatus.CONFIRMED
 
     def test_closed_enrollment_without_enrollment_raises(self):
         repo = FakeRepo(
@@ -480,6 +503,19 @@ class TestCancel:
         result = service.cancel(_request(), "Ala")
 
         assert result.cancelled is True
+
+    def test_cancel_after_agenda_item_removed(self):
+        repo = FakeRepo(
+            session=_session_ctx(has_agenda_item=False),
+            participation_status=SessionParticipationStatus.CONFIRMED,
+            event_slugs={_EVENT_ID: "conv"},
+        )
+        service = _service(repo=repo)
+
+        result = service.cancel(_request(), "Ala")
+
+        assert result.cancelled is True
+        assert repo.deleted == [(_SESSION_ID, _USER_PK)]
 
 
 class TestLoadByCode:

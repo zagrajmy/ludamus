@@ -803,8 +803,6 @@ def _guest_participations(
 
 
 def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
-    # Callers reach here only for scheduled sessions: _get_session_or_redirect
-    # already redirects unscheduled ones (no AgendaItem) before this runs.
     return any(
         config.allow_anonymous_enrollment and config.is_session_eligible(session)
         for config in event.get_active_enrollment_configs()
@@ -827,7 +825,9 @@ def _get_session_or_redirect(
     viewer_id = request.context.current_user_id
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         fake_full_session(session)
-    if not AgendaItem.objects.filter(session_id=session.pk).exists():
+    if not AgendaItem.objects.filter(session_id=session.pk).exists() and not (
+        session.session_participations.filter(user_id=viewer_id).exists()
+    ):
         raise RedirectError(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),

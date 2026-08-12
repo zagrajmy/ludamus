@@ -665,18 +665,17 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
                 participants_limit=raw_session.participants_limit
             ),
         )
-        # Unscheduled sessions (no agenda item) have no enrollment to join.
-        if not session.has_agenda_item:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
-                event_slug=self._anonymous_event_slug(request),
-            )
         if (
             request.anonymous_event_id is None
             or session.event_id != request.anonymous_event_id
         ):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION,
+                event_slug=self._anonymous_event_slug(request),
+            )
+        if not session.has_agenda_item and require_active_enrollment:
+            raise AnonymousEnrollmentError(
+                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
                 event_slug=self._anonymous_event_slug(request),
             )
         if require_active_enrollment and not session.allows_anonymous_enrollment:
@@ -692,6 +691,17 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.USER_NOT_FOUND
             ) from None
+        if (
+            not session.has_agenda_item
+            and self._enrollment_repository.read_participation_status(
+                session_id=session.session_id, user_id=user.pk
+            )
+            is None
+        ):
+            raise AnonymousEnrollmentError(
+                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
+                event_slug=self._anonymous_event_slug(request),
+            )
         return session, user
 
     def _anonymous_event_slug(
