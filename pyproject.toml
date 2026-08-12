@@ -135,7 +135,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,radio,document_title,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -479,6 +479,7 @@ exclude = [
 ignore_names = [
     # Used in templates
     "bookmark_count",
+    "button_class",
     "filter_categories",
     "has_guests",
     "has_secret",
@@ -540,6 +541,7 @@ ignore_names = [
 
 ignore_decorators = [
     "@register.filter",
+    "@register.simple_block_tag",
     "@register.simple_tag",
     "@register.tag",
     "@admin.register",

@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
     from django.utils.functional import _StrPromise
 
+    from ludamus.gates.web.django.panel import PanelNav
     from ludamus.pacts import FacilitatorListItemDTO, SessionListItemDTO
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
@@ -202,7 +203,7 @@ class PanelColumnSet:
     """Everything one list's columns chooser differs by."""
 
     builtins: Mapping[str, ColumnMetaProtocol]
-    active_nav: str
+    active_nav: PanelNav
     tab_urls: Callable[[str], dict[str, str]]
     template: str
     list_route: str

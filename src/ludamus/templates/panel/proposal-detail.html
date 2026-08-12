@@ -91,219 +91,221 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
-        <nav class="mb-4 text-sm">
-            <ol class="flex items-center space-x-2">
-                <li>
-                    <a href="{{ back_url }}"
-                       class="text-foreground-muted hover:text-primary">{% translate "Proposals" %}</a>
-                </li>
-                <li class="text-foreground-muted/50">/</li>
-                <li class="text-foreground font-medium">{{ proposal.title }}</li>
-            </ol>
-        </nav>
-        {% tab_shell "panel/_detail_tabs.html" %}
-            {% tab_shell_body %}
-                <div class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-muted">
-                    <span>{% translate "Slug" %}: <span class="font-mono select-all">{{ proposal.slug }}</span></span>
-                    <span>{% translate "Created" %}: {{ proposal.creation_time|date:"DATETIME_FORMAT" }}</span>
-                    <span>{% translate "Last modified" %}: {{ proposal.modification_time|date:"DATETIME_FORMAT" }}</span>
-                </div>
-                {% if agenda_item %}
-                    <div class="card mb-6">
-                        <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <p class="text-sm text-foreground">
-                                {% blocktranslate with space=agenda_item.space_name start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
-                            Scheduled in {{ space }}, {{ start }} – {{ end }}
-                        {% endblocktranslate %}
-                            </p>
-                            <a class="btn btn-tertiary text-sm"
-                               href="{% url 'panel:timetable' slug=current_event.slug %}?date={{ agenda_item.start_time|date:'Y-m-d' }}">{% translate "View on timetable" %}</a>
+    <div class="p-3 sm:p-4">
+        {% if current_event %}
+            <nav class="mb-4 text-sm">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="{{ back_url }}"
+                           class="text-foreground-muted hover:text-primary">{% translate "Proposals" %}</a>
+                    </li>
+                    <li class="text-foreground-muted/50">/</li>
+                    <li class="text-foreground font-medium">{{ proposal.title }}</li>
+                </ol>
+            </nav>
+            {% tab_shell "panel/_detail_tabs.html" %}
+                {% tab_shell_body %}
+                    <div class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-muted">
+                        <span>{% translate "Slug" %}: <span class="font-mono select-all">{{ proposal.slug }}</span></span>
+                        <span>{% translate "Created" %}: {{ proposal.creation_time|date:"DATETIME_FORMAT" }}</span>
+                        <span>{% translate "Last modified" %}: {{ proposal.modification_time|date:"DATETIME_FORMAT" }}</span>
+                    </div>
+                    {% if agenda_item %}
+                        <div class="card mb-6">
+                            <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <p class="text-sm text-foreground">
+                                    {% blocktranslate trimmed with space=agenda_item.space_name start=agenda_item.start_time|date:"DATETIME_FORMAT" end=agenda_item.end_time|date:"TIME_FORMAT" %}
+                                        Scheduled in {{ space }}, {{ start }} – {{ end }}
+                                    {% endblocktranslate %}
+                                </p>
+                                <a class="btn btn-tertiary text-sm"
+                                   href="{% url 'panel:timetable' slug=current_event.slug %}?date={{ agenda_item.start_time|date:'Y-m-d' }}">{% translate "View on timetable" %}</a>
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
-                {% if import_log_entry and import_log_integration %}
-                    <div class="card mb-6">
-                        <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <p class="text-sm text-foreground-muted">
-                                {% blocktranslate with name=import_log_integration.display_name at=import_log_entry.attempted_at|date:"DATETIME_FORMAT" %}
-                            Imported via {{ name }} on {{ at }}
-                        {% endblocktranslate %}
-                            </p>
-                            <a class="btn btn-tertiary text-sm"
-                               href="{% url 'panel:import-log' slug=current_event.slug pk=import_log_integration.pk %}?focus={{ import_log_entry.pk }}">{% translate "View import log" %}</a>
+                    {% endif %}
+                    {% if import_log_entry and import_log_integration %}
+                        <div class="card mb-6">
+                            <div class="card-body flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <p class="text-sm text-foreground-muted">
+                                    {% blocktranslate trimmed with name=import_log_integration.display_name at=import_log_entry.attempted_at|date:"DATETIME_FORMAT" %}
+                                        Imported via {{ name }} on {{ at }}
+                                    {% endblocktranslate %}
+                                </p>
+                                <a class="btn btn-tertiary text-sm"
+                                   href="{% url 'panel:import-log' slug=current_event.slug pk=import_log_integration.pk %}?focus={{ import_log_entry.pk }}">{% translate "View import log" %}</a>
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
-                <div class="card mb-6">
-                    <div class="card-body">
-                        <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Presenter" %}</h3>
-                        <p class="text-foreground">{{ proposal.display_name }}</p>
-                        {% if presenter %}
-                            <p class="text-foreground-muted text-sm mt-1">{{ presenter.name }} · {{ presenter.email }}</p>
-                        {% endif %}
-                        {% if proposal.contact_email %}
-                            <dl class="mt-3">
-                                <dt class="text-xs text-foreground-muted">{% translate "Contact Email" %}</dt>
-                                <dd class="text-foreground">
-                                    <a href="mailto:{{ proposal.contact_email }}"
-                                       class="text-primary hover:underline">{{ proposal.contact_email }}</a>
-                                </dd>
-                            </dl>
-                        {% endif %}
-                    </div>
-                </div>
-                {% if proposal.cover_image_url %}
-                    <div class="card mb-6 overflow-hidden">
-                        <img src="{{ proposal.cover_image_url }}"
-                             alt="{{ proposal.title }}"
-                             width="960"
-                             height="540"
-                             class="aspect-video w-full object-cover">
-                    </div>
-                {% endif %}
-                {% if proposal.description %}
+                    {% endif %}
                     <div class="card mb-6">
                         <div class="card-body">
-                            <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Description" %}</h3>
-                            <p class="text-foreground whitespace-pre-wrap">{{ proposal.description }}</p>
+                            <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Presenter" %}</h3>
+                            <p class="text-foreground">{{ proposal.display_name }}</p>
+                            {% if presenter %}
+                                <p class="text-foreground-muted text-sm mt-1">{{ presenter.name }} · {{ presenter.email }}</p>
+                            {% endif %}
+                            {% if proposal.contact_email %}
+                                <dl class="mt-3">
+                                    <dt class="text-xs text-foreground-muted">{% translate "Contact Email" %}</dt>
+                                    <dd class="text-foreground">
+                                        <a href="mailto:{{ proposal.contact_email }}"
+                                           class="text-primary hover:underline">{{ proposal.contact_email }}</a>
+                                    </dd>
+                                </dl>
+                            {% endif %}
                         </div>
                     </div>
-                {% endif %}
-                <div class="card mb-6">
-                    <div class="card-body">
-                        <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Details" %}</h3>
-                        <dl class="grid grid-cols-2 gap-4">
-                            {% if category_name %}
-                                <div>
-                                    <dt class="text-xs text-foreground-muted">{% translate "Category" %}</dt>
-                                    <dd class="text-foreground">
-                                        {{ category_name }}
-                                    </dd>
-                                </div>
-                            {% endif %}
-                            <div>
-                                <dt class="text-xs text-foreground-muted">{% translate "Participants Limit" %}</dt>
-                                <dd class="text-foreground">
-                                    {{ proposal.participants_limit|default_if_none:"—" }}
-                                </dd>
+                    {% if proposal.cover_image_url %}
+                        <div class="card mb-6 overflow-hidden">
+                            <img src="{{ proposal.cover_image_url }}"
+                                 alt="{{ proposal.title }}"
+                                 width="960"
+                                 height="540"
+                                 class="aspect-video w-full object-cover">
+                        </div>
+                    {% endif %}
+                    {% if proposal.description %}
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Description" %}</h3>
+                                <p class="text-foreground whitespace-pre-wrap">{{ proposal.description }}</p>
                             </div>
-                            {% with duration_label=proposal.duration|format_duration %}
-                                {% if duration_label %}
+                        </div>
+                    {% endif %}
+                    <div class="card mb-6">
+                        <div class="card-body">
+                            <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Details" %}</h3>
+                            <dl class="grid grid-cols-2 gap-4">
+                                {% if category_name %}
                                     <div>
-                                        <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
+                                        <dt class="text-xs text-foreground-muted">{% translate "Category" %}</dt>
                                         <dd class="text-foreground">
-                                            {{ duration_label }}
+                                            {{ category_name }}
                                         </dd>
                                     </div>
                                 {% endif %}
-                            {% endwith %}
-                            {% if proposal.min_age %}
                                 <div>
-                                    <dt class="text-xs text-foreground-muted">{% translate "Minimum Age" %}</dt>
+                                    <dt class="text-xs text-foreground-muted">{% translate "Participants Limit" %}</dt>
                                     <dd class="text-foreground">
-                                        {{ proposal.min_age }}
+                                        {{ proposal.participants_limit|default_if_none:"—" }}
                                     </dd>
                                 </div>
-                            {% endif %}
-                        </dl>
-                    </div>
-                </div>
-                {% if proposal_tracks %}
-                    <div class="card mb-6">
-                        <div class="card-body">
-                            <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Tracks" %}</h3>
-                            <div class="flex flex-wrap gap-2">
-                                {% for t in proposal_tracks %}
-                                    <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=t.slug %}"
-                                       class="inline-flex items-center rounded-full border border-border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
-                                        {{ t.name }}
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-                {% if preferred_time_slots %}
-                    <div class="card mb-6">
-                        <div class="card-body">
-                            <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Preferred time slots" %}</h3>
-                            <ul class="space-y-1">
-                                {% for ts in preferred_time_slots %}
-                                    <li class="text-foreground text-sm">
-                                        {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    </div>
-                {% endif %}
-                {% if field_values %}
-                    <div class="card mb-6">
-                        <div class="card-body">
-                            <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Session Fields" %}</h3>
-                            <dl class="space-y-3">
-                                {% for fv in field_values %}
+                                {% with duration_label=proposal.duration|format_duration %}
+                                    {% if duration_label %}
+                                        <div>
+                                            <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
+                                            <dd class="text-foreground">
+                                                {{ duration_label }}
+                                            </dd>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                                {% if proposal.min_age %}
                                     <div>
-                                        <dt class="text-xs text-foreground-muted">{{ fv.field_name }}</dt>
+                                        <dt class="text-xs text-foreground-muted">{% translate "Minimum Age" %}</dt>
                                         <dd class="text-foreground">
-                                            {{ fv.value|format_field_value }}
+                                            {{ proposal.min_age }}
                                         </dd>
                                     </div>
-                                {% endfor %}
+                                {% endif %}
                             </dl>
                         </div>
                     </div>
-                {% endif %}
-                <div class="card mb-6">
-                    <div class="card-body">
-                        <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitators" %}</h3>
-                        {% if facilitators %}
-                            <ul class="space-y-1">
-                                {% for f in facilitators %}
-                                    <li class="text-sm">
-                                        <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=f.slug %}"
-                                           class="text-primary hover:underline">{{ f.display_name }}</a>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="text-foreground-muted text-sm">{% translate "No facilitators assigned." %}</p>
-                        {% endif %}
-                    </div>
-                </div>
-                {% if schedule_logs %}
+                    {% if proposal_tracks %}
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Tracks" %}</h3>
+                                <div class="flex flex-wrap gap-2">
+                                    {% for t in proposal_tracks %}
+                                        <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=t.slug %}"
+                                           class="inline-flex items-center rounded-full border border-border px-3 py-1 text-sm text-foreground hover:border-primary hover:text-primary">
+                                            {{ t.name }}
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if preferred_time_slots %}
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Preferred time slots" %}</h3>
+                                <ul class="space-y-1">
+                                    {% for ts in preferred_time_slots %}
+                                        <li class="text-foreground text-sm">
+                                            {{ ts.start_time|date:"DATETIME_FORMAT" }} – {{ ts.end_time|date:"DATETIME_FORMAT" }}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if field_values %}
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h3 class="text-sm font-medium text-foreground-muted mb-2">{% translate "Session Fields" %}</h3>
+                                <dl class="space-y-3">
+                                    {% for fv in field_values %}
+                                        <div>
+                                            <dt class="text-xs text-foreground-muted">{{ fv.field_name }}</dt>
+                                            <dd class="text-foreground">
+                                                {{ fv.value|format_field_value }}
+                                            </dd>
+                                        </div>
+                                    {% endfor %}
+                                </dl>
+                            </div>
+                        </div>
+                    {% endif %}
                     <div class="card mb-6">
                         <div class="card-body">
-                            <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Schedule changes" %}</h3>
-                            <ul class="space-y-2 text-sm">
-                                {% for log in schedule_logs %}
-                                    <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <span class="text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"DATETIME_FORMAT" }}</span>
-                                        {% if log.action == "assign" %}
-                                            <span class="text-success-text font-medium">{% translate "Assigned" %}</span>
-                                        {% elif log.action == "unassign" %}
-                                            <span class="text-danger-text font-medium">{% translate "Removed" %}</span>
-                                        {% elif log.action == "revert" %}
-                                            <span class="text-warning-text font-medium">{% translate "Reverted" %}</span>
-                                        {% endif %}
-                                        <span class="text-foreground-secondary">
-                                            {% if log.old_space_name and log.new_space_name %}
-                                                {{ log.old_space_name }} → {{ log.new_space_name }}
-                                            {% elif log.new_space_name %}
-                                                → {{ log.new_space_name }}
-                                            {% elif log.old_space_name %}
-                                                {{ log.old_space_name }} →
-                                            {% endif %}
-                                        </span>
-                                        <span class="text-foreground-muted">· {{ log.user_name|default:"—" }}</span>
-                                    </li>
-                                {% endfor %}
-                            </ul>
+                            <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Facilitators" %}</h3>
+                            {% if facilitators %}
+                                <ul class="space-y-1">
+                                    {% for f in facilitators %}
+                                        <li class="text-sm">
+                                            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=f.slug %}"
+                                               class="text-primary hover:underline">{{ f.display_name }}</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-foreground-muted text-sm">{% translate "No facilitators assigned." %}</p>
+                            {% endif %}
                         </div>
                     </div>
-                {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
-    {% endif %}
+                    {% if schedule_logs %}
+                        <div class="card mb-6">
+                            <div class="card-body">
+                                <h3 class="text-sm font-medium text-foreground-muted mb-4">{% translate "Schedule changes" %}</h3>
+                                <ul class="space-y-2 text-sm">
+                                    {% for log in schedule_logs %}
+                                        <li class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                            <span class="text-foreground-muted whitespace-nowrap">{{ log.creation_time|date:"DATETIME_FORMAT" }}</span>
+                                            {% if log.action == "assign" %}
+                                                <span class="text-success-text font-medium">{% translate "Assigned" %}</span>
+                                            {% elif log.action == "unassign" %}
+                                                <span class="text-danger-text font-medium">{% translate "Removed" %}</span>
+                                            {% elif log.action == "revert" %}
+                                                <span class="text-warning-text font-medium">{% translate "Reverted" %}</span>
+                                            {% endif %}
+                                            <span class="text-foreground-secondary">
+                                                {% if log.old_space_name and log.new_space_name %}
+                                                    {{ log.old_space_name }} → {{ log.new_space_name }}
+                                                {% elif log.new_space_name %}
+                                                    → {{ log.new_space_name }}
+                                                {% elif log.old_space_name %}
+                                                    {{ log.old_space_name }} →
+                                                {% endif %}
+                                            </span>
+                                            <span class="text-foreground-muted">· {{ log.user_name|default:"—" }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% endif %}
+    </div>
 {% endblock content %}

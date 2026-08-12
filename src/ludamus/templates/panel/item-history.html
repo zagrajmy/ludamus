@@ -14,22 +14,24 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    {% if current_event %}
-        <nav class="mb-4 text-sm">
-            <ol class="flex items-center space-x-2">
-                <li>
-                    <a href="{{ back_url }}"
-                       class="text-foreground-muted hover:text-primary">{{ back_label }}</a>
-                </li>
-                <li class="text-foreground-muted/50">/</li>
-                <li class="text-foreground font-medium">{{ item_name }}</li>
-            </ol>
-        </nav>
-        {% tab_shell "panel/_detail_tabs.html" %}
-            {% tab_shell_body %}
-                {% translate "No changes recorded yet." as t_empty %}
-                {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names empty_text=t_empty item_header="" revertible_pks="" slug="" csrf_token=csrf_token only %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
-    {% endif %}
+    <div class="p-3 sm:p-4">
+        {% if current_event %}
+            <nav class="mb-4 text-sm">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="{{ back_url }}"
+                           class="text-foreground-muted hover:text-primary">{{ back_label }}</a>
+                    </li>
+                    <li class="text-foreground-muted/50">/</li>
+                    <li class="text-foreground font-medium">{{ item_name }}</li>
+                </ol>
+            </nav>
+            {% tab_shell "panel/_detail_tabs.html" %}
+                {% tab_shell_body %}
+                    {% translate "No changes recorded yet." as t_empty %}
+                    {% include "panel/parts/_change-log-table.html" with logs=logs field_names=field_names empty_text=t_empty item_header="" revertible_pks="" slug="" csrf_token=csrf_token only %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% endif %}
+    </div>
 {% endblock content %}
