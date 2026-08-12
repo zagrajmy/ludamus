@@ -581,9 +581,8 @@ class EnrollmentConfig(models.Model):
             True if session can be enrolled in under this config.
         """
         if self.limit_to_end_time:
-            if not hasattr(session, "agenda_item"):
-                return False
-            return session.agenda_item.start_time < self.end_time
+            agenda_item = getattr(session, "agenda_item", None)
+            return agenda_item is not None and agenda_item.start_time < self.end_time
 
         return True
 
@@ -874,10 +873,11 @@ class SessionManager(AliveManager["Session"]):
     def conflicted_user_ids(self, session: Session, user_ids: list[int]) -> set[int]:
         if not user_ids:
             return set()
-        if not hasattr(session, "agenda_item"):
+        agenda_item = getattr(session, "agenda_item", None)
+        if agenda_item is None:
             return set()
-        start = session.agenda_item.start_time
-        end = session.agenda_item.end_time
+        start = agenda_item.start_time
+        end = agenda_item.end_time
         # Superset-safe: never misses a genuine conflict; extra ids the join might
         # return are harmless since callers only probe membership of their own user_ids.
         return set(
