@@ -361,3 +361,18 @@ If you fix a papercut, remove it.
   pushing. Worked around it with `npm i oxfmt@0.56.0` in a scratch dir, run from
   the repo root so it picks up .oxfmtrc.json — that plain npm install is
   reachable is worth documenting in docs/agents/sandbox.md.
+- 2026-08-12: `pkill -f "django runserver"` killed my own shell — the pattern
+  matches the tool's command line too, so the bash call died with exit 144 mid-
+  script (twice, once leaving a half-written file). Killing the dev server
+  needs the pid from `ps -eo pid,cmd | grep "[d]jango runserver"`.
+- 2026-08-12: Ran `vite build` while a hand-started `django runserver` was up,
+  so the running process kept serving the old hashed CSS filename the build had
+  just deleted. Pages rendered unstyled and a Playwright hover-opacity
+  assertion failed as if the CSS were missing — it was a 404. `mise run
+  test:e2e:serve` watches the manifest and bounces itself; a hand-rolled
+  runserver doesn't, so restart it after every client build.
+- 2026-08-12: Asserting a flash message in Playwright is a race. Flashes are
+  `data-flash="transient"` and flash.ts removes them 5s after load, which a
+  slow local page load can outlast — `expect(getByText("Guild created."))`
+  timed out while the row it announced was right there. Assert the durable page
+  state instead.
