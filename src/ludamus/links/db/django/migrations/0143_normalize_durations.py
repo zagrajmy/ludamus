@@ -1,6 +1,9 @@
+import logging
 import re
 
 from django.db import migrations
+
+logger = logging.getLogger(__name__)
 
 # Frozen copy of `pacts.durations.normalize_duration` as it stood when this
 # migration was written. A migration that called the live function would
@@ -34,12 +37,25 @@ def normalize_stored_durations(apps, schema_editor):
     # that sees every row — unlike `Session.objects` everywhere else. That is
     # what we want: restoring a session must not bring an unreadable duration
     # back with it.
+    # The old value is overwritten in place, so the log is the only record of
+    # what a row said before. Deploy output is what "which sessions lost their
+    # length?" gets answered from.
+    sessions_changed = sessions_emptied = 0
     for session in session_model.objects.exclude(duration="").iterator():
         if (normalized := _normalize(session.duration)) != session.duration:
+            logger.info(
+                "0143: session %s duration %r -> %r",
+                session.pk,
+                session.duration,
+                normalized,
+            )
+            sessions_changed += 1
+            sessions_emptied += not normalized
             session.duration = normalized
             session.save(update_fields=["duration"])
 
     category_model = apps.get_model("db_main", "ProposalCategory")
+    categories_changed = entries_dropped = 0
     for category in category_model.objects.iterator():
         normalized_durations = [
             normalized
@@ -47,8 +63,25 @@ def normalize_stored_durations(apps, schema_editor):
             if (normalized := _normalize(duration))
         ]
         if normalized_durations != category.durations:
+            logger.info(
+                "0143: category %s durations %r -> %r",
+                category.pk,
+                category.durations,
+                normalized_durations,
+            )
+            categories_changed += 1
+            entries_dropped += len(category.durations or []) - len(normalized_durations)
             category.durations = normalized_durations
             category.save(update_fields=["durations"])
+
+    logger.info(
+        "0143: %s sessions rewritten (%s emptied), %s categories rewritten"
+        " (%s entries dropped)",
+        sessions_changed,
+        sessions_emptied,
+        categories_changed,
+        entries_dropped,
+    )
 
 
 class Migration(migrations.Migration):
