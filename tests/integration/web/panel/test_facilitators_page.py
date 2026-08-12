@@ -19,7 +19,7 @@ from ludamus.links.db.django.models import (
     PersonalDataFieldValue,
 )
 from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
-from ludamus.pacts.guild import GuildMarkDTO
+from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -127,6 +127,7 @@ def _base_context(event):
             (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
         ],
         "columns": _DEFAULT_COLUMNS,
+        "guild_options": [],
         "column_values": {},
         "filterable_fields": [],
         "filter_fields": {},
@@ -217,6 +218,12 @@ class TestFacilitatorsPageView:
         Facilitator.objects.create(
             event=event, display_name="Imported", slug="imported", user=None
         )
+        # An account but no guild yet — the row that gets offered the way in, so
+        # this is also what renders the attach popover.
+        joinable = UserFactory()
+        Facilitator.objects.create(
+            event=event, display_name="Jonasz", slug="jonasz", user=joinable
+        )
 
         response = panel_client.get(self.get_url(event))
 
@@ -229,6 +236,7 @@ class TestFacilitatorsPageView:
                 pk=rows[0].pk,
                 slug="hanna",
                 user_id=member.pk,
+                user_email=member.email,
                 session_count=0,
             ),
             FacilitatorListItemDTO(
@@ -237,6 +245,15 @@ class TestFacilitatorsPageView:
                 pk=rows[1].pk,
                 slug="imported",
                 user_id=None,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Jonasz",
+                pk=rows[2].pk,
+                slug="jonasz",
+                user_id=joinable.pk,
+                user_email=joinable.email,
                 session_count=0,
             ),
         ]
@@ -248,6 +265,11 @@ class TestFacilitatorsPageView:
                 **_base_context(event),
                 "facilitators": expected,
                 "column_values": _column_values(expected),
+                "guild_options": [
+                    GuildSummaryDTO(
+                        pk=guild.pk, name="Topory", slug="topory", member_count=1
+                    )
+                ],
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
             },

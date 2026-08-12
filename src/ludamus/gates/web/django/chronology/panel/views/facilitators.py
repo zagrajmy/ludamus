@@ -208,12 +208,10 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         pagination = pagination_context(self.request, list_context.facilitators)
         page_obj = pagination["page_obj"]
 
+        guilds = self.request.services.guilds
+        sphere_id = current_event.sphere_id
         facilitators = list(page_obj.object_list)
-        attach_facilitator_guild_marks(
-            facilitators,
-            guilds=self.request.services.guilds,
-            sphere_id=current_event.sphere_id,
-        )
+        attach_facilitator_guild_marks(facilitators, guilds=guilds, sphere_id=sphere_id)
         cells = facilitator_column_values(
             panel=self.request.services.facilitator_panel,
             facilitators=facilitators,
@@ -226,6 +224,7 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         context["facilitators"] = facilitators
         context.update(pagination)
         context["columns"] = column_views(list_context.columns, FACILITATOR_COLUMNS)
+        context["guild_options"] = guilds.list_for_sphere(sphere_id=sphere_id)
         context["column_values"] = cells
         context["filterable_fields"] = list_context.filterable_fields
         context["filter_fields"] = {

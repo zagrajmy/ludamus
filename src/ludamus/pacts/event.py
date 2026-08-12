@@ -24,6 +24,9 @@ class FacilitatorListItemDTO(BaseModel):
     session_count: int
     slug: str
     user_id: int | None
+    # The identifier guild-member-add takes, so the panel can attach this
+    # facilitator without a second lookup. Null when no account is linked.
+    user_email: str | None = None
 
 
 class TimeSlotValidationError(StrEnum):
