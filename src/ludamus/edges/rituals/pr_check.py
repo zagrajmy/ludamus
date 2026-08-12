@@ -364,7 +364,7 @@ async def cover(work: Work) -> Transition:
 # at the end whoever left it there.
 @step
 async def push_work(work: Work) -> Transition:
-    pushed = await shell(f"git push origin {quoted(work.pr.branch)}")
+    pushed = await shell(f"git push https-origin {quoted(work.pr.branch)}")
     if pushed.exit_code:
         left = f"could not push: {said(pushed)}"
         joined = "; ".join(part for part in (work.note, left) if part)

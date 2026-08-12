@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from vekna.trial import Trial
 
 _AHEAD = "test feature = *"
-_PUSH = "git push origin feature"
+_PUSH = "git push https-origin feature"
 _WROTE_TRIAGE = "cd *test -f .local/triage-feature.md"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.

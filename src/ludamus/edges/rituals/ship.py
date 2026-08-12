@@ -256,8 +256,10 @@ async def land(branch: Branch) -> Transition:
     )
     # The remote by name, as `pr_check` pushes it: what this ends on is the same
     # branch that ritual put up, and neither of them is going to guess at an
-    # upstream the other did not set.
+    # upstream the other did not set. `https-origin` and not `origin`, because
+    # the sandbox a ritual runs in remaps root to `nobody`, and ssh refuses an
+    # `/etc/ssh/ssh_config.d` it reads as owned by a stranger.
     await _ran(
-        f"git push origin {quoted(branch.name)}", f"could not push {branch.name}"
+        f"git push https-origin {quoted(branch.name)}", f"could not push {branch.name}"
     )
     return done(Shipped(outcome="shipped", branch=branch.name))
