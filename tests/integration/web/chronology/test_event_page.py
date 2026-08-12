@@ -39,7 +39,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
-from ludamus.mills.timeslots import local_day_windows
+from ludamus.mills.timeslots import interval_windows
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
@@ -501,8 +501,8 @@ class TestEventPageView:
                     (day_one, day_one + timedelta(hours=4)),
                     (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
                 )
-                for window_start, __ in local_day_windows(
-                    start, end, timezone.get_current_timezone()
+                for window_start, __ in interval_windows(
+                    start=start, end=end, tz=timezone.get_current_timezone()
                 )
             }
         )
