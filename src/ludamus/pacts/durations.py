@@ -24,7 +24,7 @@ _LOOSE_DURATION_RE = re.compile(
 )
 
 
-def parse_duration(iso_duration: str) -> tuple[int, int]:
+def parse_duration(iso_duration: str | None) -> tuple[int, int]:
     if not (match := _CANONICAL_DURATION_RE.fullmatch(iso_duration or "")):
         return 0, 0
     return int(match["hours"] or 0), int(match["minutes"] or 0)
@@ -52,7 +52,7 @@ def normalize_duration(text: str) -> str:
     )
 
 
-def format_duration(iso_duration: str) -> str:
+def format_duration(iso_duration: str | None) -> str:
     # Empty when the stored value is unreadable — a raw ISO string is never
     # shown, so callers guard on the label rather than on the stored value.
     hours, minutes = parse_duration(iso_duration)

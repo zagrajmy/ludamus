@@ -98,7 +98,7 @@ class TestFormatDuration:
         assert format_duration(iso) == expected
 
     def test_none_value(self) -> None:
-        assert not format_duration(None)  # type: ignore[arg-type]
+        assert not format_duration(None)
 
     @pytest.mark.parametrize(
         "stored", ("", "PT", "invalid", "P4H", "50min", "110m", "PT1H30MJUNK")
