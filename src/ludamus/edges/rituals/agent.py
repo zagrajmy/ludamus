@@ -172,9 +172,12 @@ resolved, so that nothing is triaged twice:
 - Filed: use the `issue-maker` skill to open the issue, reply with its link,
   resolve the thread.
 
-Reply on a thread with its first comment's `databaseId`:
+Reply on a thread with the pull request's number and the thread's first
+comment's `databaseId`. Both parts are needed — the path without the number
+answers 404:
 
-    gh api repos/{{owner}}/{{repo}}/pulls/comments/<databaseId>/replies -f body=<text>
+    gh api repos/{{owner}}/{{repo}}/pulls/<number>/comments/<databaseId>/replies \\
+      -f body=<text>
 
 Write `{{owner}}/{{repo}}` literally — gh fills both in. Then resolve it:
 
