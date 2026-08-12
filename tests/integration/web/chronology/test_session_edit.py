@@ -25,7 +25,11 @@ from tests.integration.conftest import (
     SessionFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    FormInitialMatcher,
+    assert_response,
+    assert_response_404,
+)
 
 FRAGMENT = "chronology/parts/session-edit-form.html"
 
@@ -89,15 +93,14 @@ class TestSessionEditViewGet:
             template_name=FRAGMENT,
             context_data={
                 "session": _expected_session(owned_session),
-                "form": ANY,
+                # The facilitator is offered hours and minutes, never the
+                # stored ISO.
+                "form": FormInitialMatcher(duration_hours=1, duration_minutes=30),
                 "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
         )
-        # The facilitator is offered hours and minutes, never the stored ISO.
-        initial = response.context_data["form"].initial
-        assert (initial["duration_hours"], initial["duration_minutes"]) == (1, 30)
 
     def test_anonymous_redirected_to_login(self, client, event, owned_session):
         url = _url(event, owned_session)
