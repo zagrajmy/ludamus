@@ -1,4 +1,7 @@
+import re
+from posixpath import basename
 from typing import NamedTuple
+from urllib.parse import unquote, urlsplit
 
 
 class ImageFormat(NamedTuple):
@@ -26,3 +29,12 @@ SVG_MIME = "image/svg+xml"
 SVG_SUFFIX = ".svg"
 LOGO_ACCEPT = f"{IMAGE_ACCEPT},{SVG_MIME}"
 UPLOAD_SUFFIXES = IMAGE_SUFFIXES | {SVG_SUFFIX}
+
+_HASHED_BASENAME = re.compile(r"^[0-9a-f]{32}(?:\.[a-z0-9]+)?$", re.IGNORECASE)
+
+
+def stored_file_display_name(path: str) -> str:
+    name = unquote(basename(urlsplit(path).path))
+    if not name or _HASHED_BASENAME.fullmatch(name):
+        return ""
+    return name
