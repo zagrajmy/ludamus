@@ -68,6 +68,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
+    hide_private_track_sessions,
     with_session_card_relations,
 )
 from ludamus.mills.enrollment import (
@@ -284,10 +285,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         if not self.object.is_published and not has_panel_access(self.request):
             raise Http404
 
-        # Get all sessions for this event that are published
+        # Get all sessions for this event that are published. A private track
+        # is unlisted here for everyone, panel access included, so a manager
+        # previewing the page sees the schedule participants will get.
         event_sessions = annotate_session_participation_counts(
             with_session_card_relations(
-                Session.objects.filter(event=self.object, agenda_item__isnull=False)
+                hide_private_track_sessions(
+                    Session.objects.filter(event=self.object, agenda_item__isnull=False)
+                )
             )
         ).order_by("agenda_item__start_time")
 

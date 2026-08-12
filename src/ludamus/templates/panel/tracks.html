@@ -9,7 +9,7 @@
 {% endblock page_title %}
 {% block page_title_adornment %}
     {% translate "What are tracks?" as t_info_title %}
-    {% translate "Tracks let you group proposals by thematic area. Public tracks are shown to proposers in the submission wizard; private tracks are for internal categorization only." as t_info_body %}
+    {% translate "Tracks let you group proposals by thematic area. Public tracks are shown to proposers in the submission wizard and their sessions appear on the event schedule; sessions in private tracks stay off it." as t_info_body %}
     {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
 {% endblock page_title_adornment %}
 {% block page_subtitle %}
