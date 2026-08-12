@@ -390,6 +390,7 @@ def facilitator_list_item_dto(facilitator, *, session_count=0):
         session_count=session_count,
         slug=facilitator.slug,
         user_id=facilitator.user_id,
+        user_email=facilitator.user.email if facilitator.user_id else None,
     )
 
 
