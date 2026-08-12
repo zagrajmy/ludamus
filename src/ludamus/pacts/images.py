@@ -1,6 +1,5 @@
+from pathlib import PurePosixPath
 from typing import NamedTuple
-
-from pydantic import BaseModel
 
 
 class ImageFormat(NamedTuple):
@@ -32,6 +31,10 @@ UPLOAD_SUFFIXES = IMAGE_SUFFIXES | {SVG_SUFFIX}
 ORIGINAL_FILENAME_MAX_LENGTH = 255
 
 
+def original_filename(name: str) -> str:
+    return PurePosixPath(name.replace("\\", "/")).name[:ORIGINAL_FILENAME_MAX_LENGTH]
+
+
 class StoredFile(NamedTuple):
     url: str
     original_name: str = ""
@@ -39,30 +42,3 @@ class StoredFile(NamedTuple):
 
 def stored_file(url: str, original_name: str = "") -> StoredFile | None:
     return StoredFile(url, original_name) if url else None
-
-
-class HasStoredCover(BaseModel):
-    cover_image_url: str = ""
-    cover_image_original_name: str = ""
-
-    @property
-    def stored_cover(self) -> StoredFile | None:
-        return stored_file(self.cover_image_url, self.cover_image_original_name)
-
-
-class HasStoredLogo(BaseModel):
-    logo_url: str = ""
-    logo_original_name: str = ""
-
-    @property
-    def stored_logo(self) -> StoredFile | None:
-        return stored_file(self.logo_url, self.logo_original_name)
-
-
-class HasStoredHeader(BaseModel):
-    header_image_url: str = ""
-    header_image_original_name: str = ""
-
-    @property
-    def stored_header(self) -> StoredFile | None:
-        return stored_file(self.header_image_url, self.header_image_original_name)

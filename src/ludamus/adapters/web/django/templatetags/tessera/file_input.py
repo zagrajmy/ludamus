@@ -7,18 +7,16 @@ from typing import TYPE_CHECKING
 from django.forms import ImageField
 from django.template.loader import render_to_string
 
+from ludamus.pacts.images import StoredFile
+
 if TYPE_CHECKING:
     from django.forms import BoundField
 
 
 def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
-    if not initial:
-        return None, ""
-    url = getattr(initial, "url", None)
-    if isinstance(url, str) and url:
-        name = getattr(initial, "original_name", "")
-        return url, name if isinstance(name, str) else ""
-    return (initial, "") if isinstance(initial, str) else (None, "")
+    if isinstance(initial, StoredFile):
+        return initial.url, initial.original_name
+    return None, ""
 
 
 def render_file_input(field: BoundField) -> str:

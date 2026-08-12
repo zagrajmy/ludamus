@@ -13,7 +13,6 @@ from typing import (
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.fields import OrganizerFieldDTO
-from ludamus.pacts.images import HasStoredCover, HasStoredHeader, HasStoredLogo
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -200,7 +199,7 @@ class AgendaItemDTO(BaseModel):
     category_name: str | None = None
 
 
-class SessionDTO(HasStoredCover):
+class SessionDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     category_id: int | None
@@ -217,6 +216,8 @@ class SessionDTO(HasStoredCover):
     slug: str
     status: SessionStatus
     title: str
+    cover_image_url: str = ""
+    cover_image_original_name: str = ""
 
 
 class PendingSessionTimeSlotDTO(BaseModel):
@@ -434,7 +435,7 @@ class SiteDTO(BaseModel):
     pk: int
 
 
-class SphereDTO(HasStoredLogo):
+class SphereDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool = True
@@ -443,6 +444,8 @@ class SphereDTO(HasStoredLogo):
     name: str
     pk: int
     site: SiteDTO
+    logo_url: str = ""
+    logo_original_name: str = ""
 
 
 class SphereUpdateData(TypedDict, total=False):
@@ -458,7 +461,7 @@ class SessionSelfEditContext:
     facilitators: list[FacilitatorDTO]
 
 
-class EventDTO(HasStoredCover, HasStoredLogo):
+class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     allow_facilitator_session_edit: bool | None = None
@@ -475,6 +478,10 @@ class EventDTO(HasStoredCover, HasStoredLogo):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
+    cover_image_url: str = ""
+    cover_image_original_name: str = ""
+    logo_url: str = ""
+    logo_original_name: str = ""
 
 
 class EventListItemDTO(BaseModel):
@@ -493,7 +500,7 @@ class EventListItemDTO(BaseModel):
     start_time: datetime
 
 
-class EncounterDTO(HasStoredHeader):
+class EncounterDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     creation_time: datetime
@@ -508,6 +515,8 @@ class EncounterDTO(HasStoredHeader):
     sphere_id: int
     start_time: datetime
     title: str
+    header_image_url: str = ""
+    header_image_original_name: str = ""
 
 
 class EncounterRSVPDTO(BaseModel):

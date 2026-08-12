@@ -16,6 +16,7 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
+from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         form = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
-                "logo": sphere.stored_logo,
+                "logo": stored_file(sphere.logo_url, sphere.logo_original_name),
             }
         )
         base = sphere_settings_context(self.request, active_tab="general")

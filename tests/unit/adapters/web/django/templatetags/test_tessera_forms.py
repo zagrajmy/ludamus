@@ -134,12 +134,6 @@ class TestFileInput:
         assert 'type="file"' in html
         assert "/media/" not in html
 
-    def test_previews_initial_passed_as_url_string(self) -> None:
-        form = ImageFieldForm(initial={"photo": "/media/events/My%20Cover.png"})
-        html = tessera_field(form["photo"])
-        assert "/media/events/My%20Cover.png" in html
-        assert ">My Cover.png<" not in html
-
     def test_previews_stored_file_with_original_name(self) -> None:
         form = ImageFieldForm(
             initial={"photo": StoredFile("/media/events/abc.png", "poster.png")}
@@ -148,11 +142,16 @@ class TestFileInput:
         assert "/media/events/abc.png" in html
         assert ">poster.png<" in html
 
-    def test_url_string_does_not_show_storage_basename(self) -> None:
+    def test_hashed_storage_key_previews_without_a_filename(self) -> None:
         form = ImageFieldForm(
-            initial={"photo": "/media/events/0123456789abcdef0123456789abcdef.png"}
+            initial={
+                "photo": StoredFile(
+                    "/media/events/0123456789abcdef0123456789abcdef.png", ""
+                )
+            }
         )
         html = tessera_field(form["photo"])
+        assert "/media/events/0123456789abcdef0123456789abcdef.png" in html
         assert ">0123456789abcdef0123456789abcdef.png<" not in html
 
     def test_previews_image_only_file_field_as_image(self) -> None:
@@ -164,7 +163,9 @@ class TestFileInput:
                 ),
             )
 
-        form = LogoForm(initial={"logo": "/media/spheres/logo.svg"})
+        form = LogoForm(
+            initial={"logo": StoredFile("/media/spheres/logo.svg", "logo.svg")}
+        )
         html = tessera_field(form["logo"])
         assert 'data-state="image"' in html
 
@@ -172,14 +173,14 @@ class TestFileInput:
         class AttachmentForm(forms.Form):
             attachment = forms.FileField(required=False)
 
-        form = AttachmentForm(initial={"attachment": "/media/docs/notes.pdf"})
+        form = AttachmentForm(
+            initial={"attachment": StoredFile("/media/docs/notes.pdf", "notes.pdf")}
+        )
         html = tessera_field(form["attachment"])
         assert 'data-state="file"' in html
 
     def test_ignores_initial_of_unexpected_type(self) -> None:
-        # A value that is neither a file (no `.url`) nor a URL string yields no
-        # preview rather than rendering a broken image.
-        form = ImageFieldForm(initial={"photo": object()})
+        form = ImageFieldForm(initial={"photo": "/media/events/abc.png"})
         html = tessera_field(form["photo"])
         assert 'type="file"' in html
         assert "/media/" not in html

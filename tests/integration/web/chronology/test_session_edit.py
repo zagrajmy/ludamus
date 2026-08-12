@@ -18,6 +18,7 @@ from ludamus.pacts import (
     OrganizerFieldOptionDTO,
     SessionDTO,
 )
+from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,
@@ -407,7 +408,9 @@ class TestSessionEditViewPost:
                 "saved": False,
             },
         )
-        assert response.context["form"].fields["cover_image"].initial == cover_url
+        assert response.context["form"].fields["cover_image"].initial == StoredFile(
+            cover_url, ""
+        )
         assert cover_url.encode() in response.content
 
     def test_non_owner_404_no_write(self, authenticated_client, event):

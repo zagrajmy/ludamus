@@ -339,10 +339,11 @@ class TestProposeSessionPageView:
             },
             format="multipart",
         )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        cover_path = wizard["cover_image_temp"]
         cover_url = default_storage.url(cover_path)
+        assert wizard["cover_image_temp_name"] == "cover.png"
+        assert "cover.png" not in cover_path
 
         response = authenticated_client.post(
             self._get_details_url(event.slug),

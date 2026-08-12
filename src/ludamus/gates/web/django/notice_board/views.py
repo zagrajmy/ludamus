@@ -27,6 +27,7 @@ from ludamus.mills import (
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
 from ludamus.pacts.encounter import RSVPOutcome
+from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 from .forms import EncounterForm
@@ -228,7 +229,9 @@ class EncounterEditPageView(LoginRequiredMixin, View):
                 "end_time": self._format_dt(encounter.end_time),
                 "place": encounter.place,
                 "max_participants": encounter.max_participants,
-                "header_image": encounter.stored_header,
+                "header_image": stored_file(
+                    encounter.header_image_url, encounter.header_image_original_name
+                ),
             }
         )
         return TemplateResponse(

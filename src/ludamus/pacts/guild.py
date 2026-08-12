@@ -22,8 +22,6 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.images import HasStoredLogo
-
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import UploadedFileProtocol
 
@@ -91,12 +89,14 @@ class GuildSummaryDTO(BaseModel):
     member_count: int = 0
 
 
-class GuildDTO(HasStoredLogo):
+class GuildDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     pk: int
     name: str
     slug: str
+    logo_url: str = ""
+    logo_original_name: str = ""
     members: list[GuildMemberDTO]
 
 

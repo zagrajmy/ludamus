@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 
-import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
+import { installCspViolationCollector } from "./helpers/csp";
+import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
 const PNG_BYTES = Buffer.from(
@@ -16,12 +17,9 @@ const GIF_BYTES = Buffer.from(
 );
 
 const coverImageInput = (page: Page) => page.getByLabel("Cover image", { exact: true });
-
-const coverDropzone = (page: Page) =>
-  coverImageInput(page).locator("xpath=ancestor::label[@data-dropzone]");
-
-const shownFileName = (page: Page) =>
-  coverDropzone(page).locator("[data-dropzone-name]").filter({ visible: true });
+const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
+const coverDropzone = (page: Page) => labeledDropzone(page, "Cover image");
+const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
 
 test.describe.configure({ mode: "serial" });
 
@@ -49,8 +47,8 @@ test.describe("Event cover image upload", () => {
 
     await expect(uploadPrompt).toBeHidden();
     await expect(dropzone.getByRole("button", { name: "Remove image" })).toBeVisible();
-    await expect(shownFileName(page)).toHaveText("cover.png");
-    await assertNoCspViolations(page);
+    await expect(shownFileName(dropzone)).toHaveText("cover.png");
+    await assertDropzoneBlobPreview(page, dropzone);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
@@ -58,7 +56,30 @@ test.describe("Event cover image upload", () => {
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await expect(coverDropzone(page).getByText("Click to upload")).toBeHidden();
     await expect(coverDropzone(page).getByRole("button", { name: "Remove image" })).toBeVisible();
-    await expect(shownFileName(page)).toHaveText("cover.png");
+    await expect(shownFileName(coverDropzone(page))).toHaveText("cover.png");
+  });
+
+  test("manager uploads event logo via the dropzone", async ({ page }) => {
+    await installCspViolationCollector(page);
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+
+    const dropzone = logoDropzone(page);
+    await expect(dropzone.getByText("Click to upload")).toBeVisible();
+
+    await logoInput(page).setInputFiles({
+      name: "mark.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+
+    await expect(shownFileName(dropzone)).toHaveText("mark.png");
+    await assertDropzoneBlobPreview(page, dropzone);
+
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
+
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await expect(shownFileName(logoDropzone(page))).toHaveText("mark.png");
   });
 
   test("manager removes a saved cover via the clear button", async ({ page }) => {

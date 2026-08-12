@@ -1,45 +1,31 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from django.db.models import Model
 from django.db.models.fields.files import FieldFile
 
-from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.images import original_filename
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Mapping
+
+    from django.db.models import Model
 
 logger = logging.getLogger(__name__)
 
 
-def original_filename(name: str) -> str:
-    return Path(name.replace("\\", "/")).name[:ORIGINAL_FILENAME_MAX_LENGTH]
-
-
-def bind_original_names(instance: Model, field_names: Iterable[str]) -> list[str]:
-    original_keys = []
-    for field in field_names:
-        current = getattr(instance, field, None)
-        if not isinstance(current, FieldFile):
+def with_original_names[T: Model, V](
+    model: type[T], data: Mapping[str, V]
+) -> dict[str, V | str]:
+    written: dict[str, V | str] = dict(data)
+    for field, value in data.items():
+        companion = f"{field}_original_name"
+        if not hasattr(model, companion):
             continue
-        original_key = f"{field}_original_name"
-        setattr(
-            instance,
-            original_key,
-            original_filename(current.name or "") if current else "",
-        )
-        original_keys.append(original_key)
-    return original_keys
-
-
-def persist[T: Model, V](model: type[T], data: Mapping[str, V]) -> T:
-    instance = model(**data)
-    bind_original_names(instance, data)
-    instance.save()
-    return instance
+        name = getattr(value, "name", "") if value else ""
+        written[companion] = original_filename(name) if name else ""
+    return written
 
 
 def delete_stored_file(field_file: FieldFile, old_name: str) -> None:
@@ -61,10 +47,10 @@ def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
         if isinstance(current := getattr(instance, key, None), FieldFile)
     }
 
-    for key, value in data.items():
+    written = with_original_names(type(instance), data)
+    for key, value in written.items():
         setattr(instance, key, value)
-    original_keys = bind_original_names(instance, data)
-    instance.save(update_fields=[*data.keys(), *original_keys])
+    instance.save(update_fields=list(written))
 
     for field, old_name in old_names.items():
         field_file = getattr(instance, field)
