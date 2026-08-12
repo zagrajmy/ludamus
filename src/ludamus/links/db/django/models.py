@@ -873,8 +873,7 @@ class SessionManager(AliveManager["Session"]):
     def conflicted_user_ids(self, session: Session, user_ids: list[int]) -> set[int]:
         if not user_ids:
             return set()
-        agenda_item = getattr(session, "agenda_item", None)
-        if agenda_item is None:
+        if (agenda_item := getattr(session, "agenda_item", None)) is None:
             return set()
         start = agenda_item.start_time
         end = agenda_item.end_time
