@@ -366,3 +366,7 @@ If you fix a papercut, remove it.
   gettext (not lazy), so they freeze to Polish while the tests assert English.
   CI never compiles the .mo, so it is green there. Deleted the local .mo to
   match CI.
+- 2026-08-12: markdownlint's pre-commit autofix rewrites a line that begins with
+  an issue reference (#834) into '# 834', turning it into an H1 and then failing
+  MD022/MD025 on its own fix. Had to rewrap the paragraph so no line starts with
+  '#'.
