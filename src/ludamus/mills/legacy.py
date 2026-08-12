@@ -351,8 +351,6 @@ class ProposeSessionService:
                 title=title,
                 slug=slug,
                 description=description,
-                # Whatever the source calls a duration ("50min", "110m") is
-                # normalized on the way in: storage holds ISO or nothing.
                 duration=normalize_duration(str(session_data.get("duration") or "")),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),

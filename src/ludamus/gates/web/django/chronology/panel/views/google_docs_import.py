@@ -28,16 +28,19 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     import_tab_urls,
 )
+from ludamus.gates.web.django.event.panel.import_durations import (
+    OptionDuration,
+    duration_values_from_post,
+    option_durations,
+)
 from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
     MAX_DURATION_MINUTES,
-    build_duration,
-    parse_duration,
+    InvalidDurationError,
 )
 from ludamus.pacts.submissions import (
-    DurationSpec,
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -81,14 +84,6 @@ class OptionEntity(TypedDict):
     option: str
     name: str
     slug: str
-
-
-class OptionDuration(TypedDict):
-    option: str
-    # Blank rather than "0": the steppers render the string as-is, and an
-    # unmapped option has to come up empty.
-    hours: str
-    minutes: str
 
 
 class OverrideRow(TypedDict):
@@ -218,7 +213,7 @@ def _row(
         # track/category target.
         "option_windows": _option_windows(question, target),
         "option_entities": _option_entities(question, target),
-        "option_durations": _option_durations(question, target),
+        "option_durations": option_durations(question, target),
         "overrides": _override_rows(target),
         "catchall_name": target.catchall.name if target and target.catchall else "",
         "catchall_slug": target.catchall.slug if target and target.catchall else "",
@@ -397,30 +392,6 @@ def _option_entities(
     return rows
 
 
-def _option_durations(
-    question: SourceQuestion, target: QuestionTarget | None
-) -> list[OptionDuration]:
-    # One row per source option, pre-filled with the length the operator picked
-    # so the (hidden) editor is ready the moment the row becomes a
-    # session-duration target. A blank length leaves that option unmapped: the
-    # importer then skips rows whose answer hits this option.
-    configured = target.values if target else {}
-    rows: list[OptionDuration] = []
-    for option in question.options:
-        spec = configured.get(option)
-        hours, minutes = parse_duration(
-            spec.iso if isinstance(spec, DurationSpec) else ""
-        )
-        rows.append(
-            {
-                "option": option,
-                "hours": str(hours) if hours else "",
-                "minutes": str(minutes) if minutes else "",
-            }
-        )
-    return rows
-
-
 def _override_rows(target: QuestionTarget | None) -> list[OverrideRow]:
     # One row per saved override, plus a single blank row so the (hidden)
     # editor is ready to fill the moment the operator opens it. Overrides are
@@ -476,6 +447,20 @@ def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
     )
 
 
+def _store_definition(
+    *, settings: ImportSettings, target: QuestionTarget, post: QueryDict, index: int
+) -> None:
+    to = target.to or ""
+    if to.startswith("personal."):
+        settings.definitions.personal_fields[to.removeprefix("personal.")] = (
+            _definition_from_post(post, index)
+        )
+    elif to.startswith("field."):
+        settings.definitions.session_fields[to.removeprefix("field.")] = (
+            _definition_from_post(post, index)
+        )
+
+
 def _time_slot_values_from_post(
     post: QueryDict, index: int
 ) -> dict[str, QuestionValue]:
@@ -507,59 +492,6 @@ def _time_slot_values_from_post(
         for option, windows in grouped.items()
     }
     return result
-
-
-def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, QuestionValue]:
-    # Per-option duration rows submit parallel arrays of hours and minutes; a
-    # zero-length option is dropped (its answers will be skipped at import
-    # time). ISO is composed here, never typed by the operator.
-    values: dict[str, QuestionValue] = {}
-    rows = zip(
-        post.getlist(f"droption_{index}"),
-        post.getlist(f"drhours_{index}"),
-        post.getlist(f"drminutes_{index}"),
-        strict=False,
-    )
-    for option, hours, minutes in rows:
-        iso = build_duration(
-            hours=_checked_int(hours, MAX_DURATION_HOURS),
-            minutes=_checked_int(minutes, MAX_DURATION_MINUTES),
-        )
-        if not (option and iso):
-            continue
-        values[option] = DurationSpec(iso=iso)
-    return values
-
-
-class _InvalidDurationError(ValueError):
-    pass
-
-
-def _store_definition(
-    *, settings: ImportSettings, target: QuestionTarget, post: QueryDict, index: int
-) -> None:
-    to = target.to or ""
-    if to.startswith("personal."):
-        settings.definitions.personal_fields[to.removeprefix("personal.")] = (
-            _definition_from_post(post, index)
-        )
-    elif to.startswith("field."):
-        settings.definitions.session_fields[to.removeprefix("field.")] = (
-            _definition_from_post(post, index)
-        )
-
-
-def _checked_int(raw: str, maximum: int) -> int:
-    # The steppers' `max` is client-side only, so the bound is enforced here
-    # too. Out of range or not a plain number is rejected rather than coerced:
-    # a silently clamped or dropped length is a wrong mapping the operator was
-    # told had saved. Blank stays "unset". The length test runs before `int()`
-    # so an absurdly long field cannot trip `sys.get_int_max_str_digits()`.
-    if not (text := (raw or "").strip()):
-        return 0
-    if not text.isdigit() or len(text) > len(str(maximum)) or int(text) > maximum:
-        raise _InvalidDurationError
-    return int(text)
 
 
 def _entity_map_from_post(
@@ -609,7 +541,7 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     if choice == "session.duration":
         return QuestionTarget(
             to=choice,
-            values=_duration_values_from_post(post, index),
+            values=duration_values_from_post(post, index),
             overrides=overrides,
         )
     if choice.startswith("session.") or choice == "facilitator.display_name":
@@ -780,7 +712,7 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
         )
         try:
             target = _target_from_post(self.request.POST, index)
-        except _InvalidDurationError:
+        except InvalidDurationError:
             messages.error(
                 self.request,
                 _("Enter a length as whole hours (0-23) and minutes (0-59)."),

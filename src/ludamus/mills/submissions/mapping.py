@@ -189,8 +189,6 @@ def _duration_iso(target: QuestionTarget, header: str, answer: str) -> str:
     if not answer.strip():
         return ""
     spec = target.values.get(answer)
-    # Recipes saved before the length steppers existed can hold a hand-typed
-    # spec, so it is normalized rather than trusted.
     if isinstance(spec, DurationSpec) and (iso := normalize_duration(spec.iso)):
         return iso
     return _skip(f"{header}: unmapped duration answer '{answer}'")

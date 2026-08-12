@@ -1,11 +1,17 @@
 import pytest
 
 from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    InvalidDurationError,
     build_duration,
     duration_choices,
+    duration_from_parts,
     format_duration,
     normalize_duration,
     parse_duration,
+    parse_duration_part,
+    stepper_parts,
 )
 
 
@@ -22,6 +28,52 @@ class TestParseDuration:
     )
     def test_unreadable_value(self, stored: str) -> None:
         assert parse_duration(stored) == (0, 0)
+
+
+class TestParseDurationPart:
+    def test_blank_is_unset(self) -> None:
+        assert parse_duration_part("", maximum=MAX_DURATION_HOURS) == 0
+        assert parse_duration_part("  ", maximum=MAX_DURATION_MINUTES) == 0
+
+    def test_plain_number(self) -> None:
+        hours = MAX_DURATION_HOURS // 2
+        assert parse_duration_part(str(hours), maximum=MAX_DURATION_HOURS) == hours
+
+    @pytest.mark.parametrize("raw", ("24", "60", "-1", "1.5", "1e2", "abc", "01x"))
+    def test_out_of_range_or_not_a_number(self, raw: str) -> None:
+        with pytest.raises(InvalidDurationError):
+            parse_duration_part(raw, maximum=MAX_DURATION_HOURS)
+
+    def test_overlong_digit_string_is_rejected(self) -> None:
+        with pytest.raises(InvalidDurationError):
+            parse_duration_part("1" * 20, maximum=MAX_DURATION_HOURS)
+
+
+class TestStepperParts:
+    @pytest.mark.parametrize(
+        ("iso", "expected"),
+        (
+            ("PT1H30M", ("1", "30")),
+            ("PT2H", ("2", "")),
+            ("PT45M", ("", "45")),
+            ("", ("", "")),
+            ("P4H", ("", "")),
+        ),
+    )
+    def test_blank_when_zero(self, iso: str, expected: tuple[str, str]) -> None:
+        assert stepper_parts(iso) == expected
+
+
+class TestDurationFromParts:
+    def test_composition(self) -> None:
+        assert duration_from_parts(hours="1", minutes="30") == "PT1H30M"
+
+    def test_blank_is_unset(self) -> None:
+        assert not duration_from_parts(hours="", minutes="")
+
+    def test_invalid_part_is_rejected(self) -> None:
+        with pytest.raises(InvalidDurationError):
+            duration_from_parts(hours="24", minutes="0")
 
 
 class TestBuildDuration:

@@ -10,9 +10,6 @@ MINUTES_PER_HOUR = 60
 MAX_DURATION_HOURS = 23
 MAX_DURATION_MINUTES = 59
 
-# `Session.duration` and `ProposalCategory.durations` hold ISO 8601 durations.
-# That shape is a storage detail: every writer normalizes into it, every reader
-# leaves it, and it must not reach a screen.
 _CANONICAL_DURATION_RE = re.compile(r"PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?")
 _LOOSE_DURATION_RE = re.compile(
     r"p?t?\s*(?:(?P<hours>\d+)\s*h(?:ours?|rs?)?)?"
@@ -20,10 +17,34 @@ _LOOSE_DURATION_RE = re.compile(
 )
 
 
+class InvalidDurationError(ValueError):
+    pass
+
+
 def parse_duration(iso_duration: str | None) -> tuple[int, int]:
     if not (match := _CANONICAL_DURATION_RE.fullmatch(iso_duration or "")):
         return 0, 0
     return int(match["hours"] or 0), int(match["minutes"] or 0)
+
+
+def parse_duration_part(raw: str, *, maximum: int) -> int:
+    if not (text := (raw or "").strip()):
+        return 0
+    if not text.isdigit() or len(text) > len(str(maximum)) or int(text) > maximum:
+        raise InvalidDurationError
+    return int(text)
+
+
+def stepper_parts(iso: str) -> tuple[str, str]:
+    hours, minutes = parse_duration(iso)
+    return (str(hours) if hours else "", str(minutes) if minutes else "")
+
+
+def duration_from_parts(*, hours: str, minutes: str) -> str:
+    return build_duration(
+        hours=parse_duration_part(hours, maximum=MAX_DURATION_HOURS),
+        minutes=parse_duration_part(minutes, maximum=MAX_DURATION_MINUTES),
+    )
 
 
 def build_duration(*, hours: int, minutes: int) -> str:
@@ -35,12 +56,6 @@ def build_duration(*, hours: int, minutes: int) -> str:
 
 
 def normalize_duration(text: str) -> str:
-    # Durations arrive in whatever shape their author felt like — "P4H",
-    # "50min", "110m". Read the hour and minute parts and rebuild canonically.
-    # The match is anchored: text the pattern cannot consume whole ("2h30",
-    # "1.5h", "5 maja") normalizes to "" (unset) rather than to a plausible
-    # guess, because a wrong length on screen is indistinguishable from a
-    # right one.
     if not (match := _LOOSE_DURATION_RE.fullmatch((text or "").strip().lower())):
         return ""
     return build_duration(
@@ -49,8 +64,6 @@ def normalize_duration(text: str) -> str:
 
 
 def format_duration(iso_duration: str | None) -> str:
-    # Empty when the stored value is unreadable — a raw ISO string is never
-    # shown, so callers guard on the label rather than on the stored value.
     hours, minutes = parse_duration(iso_duration)
 
     if hours and minutes:
@@ -63,6 +76,4 @@ def format_duration(iso_duration: str | None) -> str:
 
 
 def duration_choices(durations: Sequence[str]) -> list[tuple[str, str]]:
-    # A duration nothing can read is left out: an option is worth offering only
-    # when it can be labelled with a length.
     return [(d, label) for d in durations if (label := format_duration(d))]
