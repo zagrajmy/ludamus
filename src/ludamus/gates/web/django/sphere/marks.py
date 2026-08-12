@@ -38,8 +38,7 @@ def attach_facilitator_guild_marks(
     # Same one-query-per-page shape as the card version above. Membership hangs
     # off the linked user, and a facilitator imported from a spreadsheet has
     # none, so a page of import-created rows costs no query at all.
-    user_pks = [f.user_id for f in facilitators if f.user_id]
-    if not user_pks:
+    if not (user_pks := [f.user_id for f in facilitators if f.user_id]):
         return
     marks = guilds.marks_for_users(sphere_id=sphere_id, user_pks=user_pks)
     for facilitator in facilitators:
