@@ -268,9 +268,7 @@ class WaitlistPromotionService:
         with self._transaction.atomic():
             if (state := self._participations.lock_and_read_state(session_id)) is None:
                 logger.info(
-                    "Session %s promotes nobody: it is gone, unscheduled, or "
-                    "outside every enrollment window",
-                    session_id,
+                    "Session %s promotes nobody: it is gone or unscheduled", session_id
                 )
                 return result
             if not (parties := select_promotable_parties(state)):

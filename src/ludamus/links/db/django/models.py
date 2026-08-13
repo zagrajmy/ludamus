@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import sys
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
@@ -486,6 +485,18 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
+    def get_allowance_enrollment_configs(self) -> list[EnrollmentConfig]:
+        if active := self.get_active_enrollment_configs():
+            return active
+        now = datetime.now(tz=UTC)
+        ended = [
+            config for config in self.enrollment_configs.all() if config.end_time <= now
+        ]
+        if not ended:
+            return []
+        latest = max(ended, key=lambda config: (config.end_time, config.pk))
+        return [latest]
+
     def get_eligible_enrollment_configs(
         self, session: Session
     ) -> list[EnrollmentConfig]:
@@ -572,20 +583,6 @@ class EnrollmentConfig(models.Model):
     @property
     def is_active(self) -> bool:
         return self.start_time < datetime.now(tz=UTC) < self.end_time
-
-    def get_available_slots(self, session: Session) -> int:
-        """Calculate available enrollment slots for a session based on percentage.
-
-        Returns:
-            Number of available slots for enrollment.
-        """
-        if session.participants_limit == 0:
-            return sys.maxsize
-        effective_limit = math.ceil(
-            session.participants_limit * self.percentage_slots / 100
-        )
-        current_enrolled = session.enrolled_count
-        return max(0, effective_limit - current_enrolled)
 
     def is_session_eligible(self, session: Session) -> bool:
         """Check if session is eligible for enrollment under this config.
