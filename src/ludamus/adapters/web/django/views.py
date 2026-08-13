@@ -1643,8 +1643,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return False
 
         # A cancellation in the same batch frees its held seat (CONFIRMED or
-        # OFFERED) — exactly the statuses get_available_slots already counts as
-        # occupied — so credit it back before checking capacity.
+        # OFFERED both occupy capacity) — credit it back before checking.
         cancelling_user_ids = {
             req.user.pk for req in enrollment_requests if req.choice == "cancel"
         }

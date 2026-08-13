@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import sys
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
@@ -584,20 +583,6 @@ class EnrollmentConfig(models.Model):
     @property
     def is_active(self) -> bool:
         return self.start_time < datetime.now(tz=UTC) < self.end_time
-
-    def get_available_slots(self, session: Session) -> int:
-        """Calculate available enrollment slots for a session based on percentage.
-
-        Returns:
-            Number of available slots for enrollment.
-        """
-        if session.participants_limit == 0:
-            return sys.maxsize
-        effective_limit = math.ceil(
-            session.participants_limit * self.percentage_slots / 100
-        )
-        current_enrolled = session.enrolled_count
-        return max(0, effective_limit - current_enrolled)
 
     def is_session_eligible(self, session: Session) -> bool:
         """Check if session is eligible for enrollment under this config.
