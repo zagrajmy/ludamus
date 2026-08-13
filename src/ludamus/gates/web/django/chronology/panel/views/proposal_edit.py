@@ -44,6 +44,7 @@ from ludamus.pacts import (
     SessionUpdateData,
 )
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import parse_uploaded_file, resolve_uploaded_file_field
 from ludamus.pacts.panel import ProposalDraft
 from ludamus.pacts.services import DatabaseConstraintError
@@ -305,7 +306,9 @@ class _ProposalFormBase(PanelAccessMixin, EventContextMixin, View):
             "participants_limit": session.participants_limit,
             "min_age": session.min_age,
             "category_id": session.category_id,
-            "cover_image": session.cover_image_url or None,
+            "cover_image": stored_file(
+                session.cover_image_url, session.cover_image_original_name
+            ),
             "duration": duration.selected,
             "duration_hours": duration.hours,
             "duration_minutes": duration.minutes,

@@ -1,5 +1,7 @@
 import { type Page } from "@playwright/test";
 
+import { installCspViolationCollector } from "./helpers/csp";
+import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
 // A 1x1 opaque PNG — the mark only has to be a real raster the browser will
@@ -13,6 +15,7 @@ const GUILD = "Topory";
 const PRESENTER_EMAIL = "e2e@test.local";
 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
+const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
 
 const signInAsManager = async (page: Page): Promise<void> => {
   await page.goto("/admin/login/");
@@ -60,6 +63,7 @@ test.describe("Guilds", () => {
   });
 
   test("a manager creates a guild with a mark and sees it in the list", async ({ page }) => {
+    await installCspViolationCollector(page);
     await page.goto("/multiverse/panel/guilds/create/");
 
     await page.getByLabel("Guild name").fill(GUILD);
@@ -68,6 +72,8 @@ test.describe("Guilds", () => {
       mimeType: "image/png",
       buffer: PNG_BYTES,
     });
+    await expect(shownFileName(logoDropzone(page), "mark.png")).toBeVisible();
+    await assertDropzoneBlobPreview(page, logoDropzone(page));
     await page.getByRole("button", { name: "Create guild" }).click();
 
     await expect(page.getByText("Guild created.")).toBeVisible();

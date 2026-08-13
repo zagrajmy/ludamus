@@ -20,7 +20,10 @@ from typing import TYPE_CHECKING
 from django.db.models import Count, F, Q
 
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership, Session
-from ludamus.links.db.django.repositories.storage import save_replacing_files
+from ludamus.links.db.django.repositories.storage import (
+    save_replacing_files,
+    with_original_names,
+)
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.guild import (
@@ -191,12 +194,15 @@ class GuildRepository(GuildRepositoryProtocol):
             name=guild.name,
             slug=guild.slug,
             logo_url=guild.logo_url,
+            logo_original_name=guild.logo_original_name,
             members=members,
         )
 
     @staticmethod
     def create(*, sphere_id: int, data: GuildWriteData) -> int:
-        return Guild.objects.create(sphere_id=sphere_id, **data).pk
+        return Guild.objects.create(
+            sphere_id=sphere_id, **with_original_names(Guild, data)
+        ).pk
 
     @staticmethod
     def slug_exists(*, sphere_id: int, slug: str) -> bool:

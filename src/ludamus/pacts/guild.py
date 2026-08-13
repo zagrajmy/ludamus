@@ -96,6 +96,7 @@ class GuildDTO(BaseModel):
     name: str
     slug: str
     logo_url: str = ""
+    logo_original_name: str = ""
     members: list[GuildMemberDTO]
 
 

@@ -23,6 +23,7 @@ from ludamus.pacts.guild import (
     GuildFacilitatorMemberDTO,
     GuildMembershipMemberDTO,
 )
+from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
@@ -107,7 +108,12 @@ class GuildEditPageView(SphereAccessMixin, View):
         guild = _read_guild(self.request, pk)
         return self._render(
             guild,
-            GuildForm(initial={"name": guild.name, "logo": guild.logo_url or None}),
+            GuildForm(
+                initial={
+                    "name": guild.name,
+                    "logo": stored_file(guild.logo_url, guild.logo_original_name),
+                }
+            ),
         )
 
     def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:

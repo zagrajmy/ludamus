@@ -21,6 +21,7 @@ from ludamus.adapters.web.django.templatetags.tessera.form_select import render_
 from ludamus.adapters.web.django.templatetags.tessera.input import render_input
 from ludamus.adapters.web.django.templatetags.tessera.label import render_label
 from ludamus.adapters.web.django.templatetags.tessera.textarea import render_textarea
+from ludamus.pacts.images import StoredFile
 
 
 class SimpleForm(forms.Form):
@@ -123,13 +124,6 @@ class TestTesseraField:
         assert "We won&#x27;t share this" in html or "We won't share this" in html
 
 
-class _FieldFileStub:
-    url = "/media/events/cover.png"
-
-    def __str__(self) -> str:
-        return "events/cover.png"
-
-
 class ImageFieldForm(forms.Form):
     photo = forms.ImageField(required=False)
 
@@ -140,17 +134,25 @@ class TestFileInput:
         assert 'type="file"' in html
         assert "/media/" not in html
 
-    def test_previews_initial_passed_as_url_string(self) -> None:
-        form = ImageFieldForm(initial={"photo": "/media/events/My%20Cover.png"})
+    def test_previews_stored_file_with_original_name(self) -> None:
+        form = ImageFieldForm(
+            initial={"photo": StoredFile("/media/events/abc.png", "poster.png")}
+        )
         html = tessera_field(form["photo"])
-        assert "/media/events/My%20Cover.png" in html
-        assert "My Cover.png" in html  # display name decoded from the URL path
+        assert "/media/events/abc.png" in html
+        assert ">poster.png<" in html
 
-    def test_previews_initial_bound_file(self) -> None:
-        form = ImageFieldForm(initial={"photo": _FieldFileStub()})
+    def test_hashed_storage_key_previews_without_a_filename(self) -> None:
+        form = ImageFieldForm(
+            initial={
+                "photo": StoredFile(
+                    "/media/events/0123456789abcdef0123456789abcdef.png", ""
+                )
+            }
+        )
         html = tessera_field(form["photo"])
-        assert "/media/events/cover.png" in html
-        assert "events/cover.png" in html
+        assert "/media/events/0123456789abcdef0123456789abcdef.png" in html
+        assert ">0123456789abcdef0123456789abcdef.png<" not in html
 
     def test_previews_image_only_file_field_as_image(self) -> None:
         class LogoForm(forms.Form):
@@ -161,7 +163,9 @@ class TestFileInput:
                 ),
             )
 
-        form = LogoForm(initial={"logo": "/media/spheres/logo.svg"})
+        form = LogoForm(
+            initial={"logo": StoredFile("/media/spheres/logo.svg", "logo.svg")}
+        )
         html = tessera_field(form["logo"])
         assert 'data-state="image"' in html
 
@@ -169,14 +173,14 @@ class TestFileInput:
         class AttachmentForm(forms.Form):
             attachment = forms.FileField(required=False)
 
-        form = AttachmentForm(initial={"attachment": "/media/docs/notes.pdf"})
+        form = AttachmentForm(
+            initial={"attachment": StoredFile("/media/docs/notes.pdf", "notes.pdf")}
+        )
         html = tessera_field(form["attachment"])
         assert 'data-state="file"' in html
 
     def test_ignores_initial_of_unexpected_type(self) -> None:
-        # A value that is neither a file (no `.url`) nor a URL string yields no
-        # preview rather than rendering a broken image.
-        form = ImageFieldForm(initial={"photo": object()})
+        form = ImageFieldForm(initial={"photo": "/media/events/abc.png"})
         html = tessera_field(form["photo"])
         assert 'type="file"' in html
         assert "/media/" not in html

@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from django.http import (
     Http404,
     HttpRequest,
@@ -34,6 +30,12 @@ from ludamus.gates.web.django.dynamic_fields import (
 )
 from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.helpers import get_client_ip
+from ludamus.gates.web.django.propose_cover import (
+    delete_wizard_cover,
+    pop_wizard_cover,
+    stash_wizard_cover,
+    wizard_cover_initial,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
 from ludamus.mills.chronology import SessionEditNotAllowedError
@@ -46,6 +48,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.images import stored_file
 
 from .forms import (
     SessionCoverImageForm,
@@ -89,42 +92,6 @@ def _session_key(event_slug: str) -> str:
     return f"propose_{event_slug}"
 
 
-_WIZARD_COVER_KEY = "cover_image_temp"
-
-
-def _delete_wizard_cover(wizard: dict[str, Any]) -> None:
-    if path := wizard.get(_WIZARD_COVER_KEY):
-        default_storage.delete(path)
-    wizard.pop(_WIZARD_COVER_KEY, None)
-
-
-def _stash_wizard_cover(
-    wizard: dict[str, Any], uploaded_file: UploadedFile[bytes]
-) -> None:
-    _delete_wizard_cover(wizard)
-    name = getattr(uploaded_file, "name", "cover")
-    wizard[_WIZARD_COVER_KEY] = default_storage.save(
-        f"propose-wizard/{uuid4().hex}/{name}", uploaded_file
-    )
-
-
-def _wizard_cover_initial(wizard: dict[str, Any]) -> str | None:
-    if (path := wizard.get(_WIZARD_COVER_KEY)) and default_storage.exists(path):
-        return default_storage.url(path)
-    return None
-
-
-def _pop_wizard_cover(wizard: dict[str, Any]) -> ContentFile[bytes] | None:
-    path = wizard.get(_WIZARD_COVER_KEY)
-    wizard.pop(_WIZARD_COVER_KEY, None)
-    if not path or not default_storage.exists(path):
-        return None
-    with default_storage.open(path) as stored:
-        data = stored.read()
-    default_storage.delete(path)
-    return ContentFile(data, name=PurePosixPath(path).name)
-
-
 def _wizard_image_form(
     wizard: dict[str, Any],
     *,
@@ -132,7 +99,7 @@ def _wizard_image_form(
     files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
 ) -> SessionCoverImageForm:
     if data is None and files is None:
-        initial = _wizard_cover_initial(wizard)
+        initial = wizard_cover_initial(wizard)
         return SessionCoverImageForm(
             initial={"cover_image": initial} if initial else None
         )
@@ -144,9 +111,9 @@ def _apply_wizard_cover_from_form(
 ) -> None:
     cover = image_form.cleaned_data.get("cover_image")
     if cover is False:
-        _delete_wizard_cover(wizard)
+        delete_wizard_cover(wizard)
     elif cover:
-        _stash_wizard_cover(wizard, cover)
+        stash_wizard_cover(wizard, cover)
 
 
 def _timeslot_descriptors(
@@ -577,7 +544,7 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         categories = service.get_categories(event.pk)
 
         old_wizard = request.session.get(_session_key(event_slug), {})
-        _delete_wizard_cover(old_wizard)
+        delete_wizard_cover(old_wizard)
         request.session.pop(_session_key(event_slug), None)
 
         if not _has_category_step(categories):
@@ -640,7 +607,7 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
 
         wizard = request.session.get(_session_key(event_slug), {})
         if wizard.get("category_id") != category.pk:
-            _delete_wizard_cover(wizard)
+            delete_wizard_cover(wizard)
             wizard = {"category_id": category.pk}
         request.session[_session_key(event_slug)] = wizard
 
@@ -859,7 +826,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        cover = _pop_wizard_cover(wizard)
+        cover = pop_wizard_cover(wizard)
         result = service.submit(event, wizard, cover_image=cover)
 
         del request.session[_session_key(event_slug)]
@@ -925,7 +892,9 @@ class SessionEditView(LoginRequiredMixin, View):
                 "min_age": ctx.session.min_age,
                 "duration_hours": hours or None,
                 "duration_minutes": minutes or None,
-                "cover_image": ctx.session.cover_image_url or None,
+                "cover_image": stored_file(
+                    ctx.session.cover_image_url, ctx.session.cover_image_original_name
+                ),
             }
         )
 
@@ -956,8 +925,10 @@ class SessionEditView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
         form = SessionEditForm(self.request.POST, self.request.FILES)
-        if ctx.session.cover_image_url:
-            form.fields["cover_image"].initial = ctx.session.cover_image_url
+        if cover := stored_file(
+            ctx.session.cover_image_url, ctx.session.cover_image_original_name
+        ):
+            form.fields["cover_image"].initial = cover
         # The fields block only posts when the modal rendered it; without the
         # marker the stored answers are left alone rather than blanked.
         submitted = self.request.POST.get("session_fields_submitted") == "1"

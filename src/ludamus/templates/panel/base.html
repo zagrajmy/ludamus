@@ -180,7 +180,7 @@ the sphere.{% endcomment %}
             </div>
             {# Labelled because the site navbar is a <nav> too — without this both landmarks read as plain "navigation". #}
             <nav aria-label="{% translate "Panel sections" %}"
-                 class="sidebar-section px-2 gap-0.5 flex flex-col">
+                 class="sidebar-section px-2 pb-2 gap-0.5 flex flex-col">
                 {% block sidebar_nav %}
                     {% if current_event %}
                         {% translate "Dashboard" as t_dashboard %}
