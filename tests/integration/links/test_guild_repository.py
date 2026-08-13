@@ -390,9 +390,8 @@ class TestMarksForSessions:
 
     def test_does_not_query_for_an_empty_page(self, sphere, django_assert_num_queries):
         with django_assert_num_queries(0):
-            assert (
-                GuildRepository.marks_for_sessions(sphere_id=sphere.pk, session_pks=[])
-                == {}
+            assert not GuildRepository.marks_for_sessions(
+                sphere_id=sphere.pk, session_pks=[]
             )
 
     def test_excludes_a_guild_from_another_sphere(self, sphere, other_sphere):
@@ -408,11 +407,8 @@ class TestMarksForSessions:
         session = SessionFactory(event=event, presenter=None)
         session.facilitators.add(facilitator)
 
-        assert (
-            GuildRepository.marks_for_sessions(
-                sphere_id=sphere.pk, session_pks=[session.pk]
-            )
-            == {}
+        assert not GuildRepository.marks_for_sessions(
+            sphere_id=sphere.pk, session_pks=[session.pk]
         )
 
     def test_prefers_the_presenters_guild_over_a_cofacilitator(self, sphere):

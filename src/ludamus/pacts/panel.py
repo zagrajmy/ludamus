@@ -184,7 +184,7 @@ class ProposalPanelRepos:
 
 
 @dataclass
-class FacilitatorPanelRepos:
+class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
     facilitators: FacilitatorRepositoryProtocol
