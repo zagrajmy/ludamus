@@ -1,14 +1,6 @@
 from datetime import UTC, datetime
 
-from django.db.models import (
-    Count,
-    Exists,
-    IntegerField,
-    OuterRef,
-    Q,
-    QuerySet,
-    Subquery,
-)
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
@@ -22,7 +14,6 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     Space,
-    Track,
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
@@ -63,6 +54,8 @@ from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
+
+from .session_visibility import public_scheduled_sessions
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -150,23 +143,6 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
     )
 
 
-def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs at least one public track. Exists() rather than
-    # Count("tracks"): a third aggregate over a m2m fans out the joins and
-    # inflates the participation counts annotated alongside.
-    return queryset.filter(
-        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
-        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
-    )
-
-
-def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
-    return hide_private_track_sessions(
-        Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
-    )
-
-
 def _party_session_history(
     session: Session, *, viewer_pk: int
 ) -> PartySessionHistoryDTO:
@@ -214,19 +190,17 @@ class EventRepository(EventRepositoryProtocol):
     def list_for_events_page(
         sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]:
-        session_count = Coalesce(
-            Subquery(
-                public_scheduled_sessions(OuterRef("pk"))
-                .order_by()
-                .values("event_id")
-                .annotate(count=Count("pk"))
-                .values("count"),
-                output_field=IntegerField(),
-            ),
-            0,
+        session_count = (
+            public_scheduled_sessions(OuterRef("pk"))
+            .order_by()
+            .values("event_id")
+            .annotate(count=Count("pk"))
+            .values("count")
         )
         events = Event.objects.filter(sphere_id=sphere_id).annotate(
-            session_count=session_count
+            session_count=Coalesce(
+                Subquery(session_count, output_field=IntegerField()), 0
+            )
         )
         if not include_unpublished:
             events = events.filter(publication_time__lte=datetime.now(tz=UTC))
