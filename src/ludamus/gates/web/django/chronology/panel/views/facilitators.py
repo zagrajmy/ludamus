@@ -29,19 +29,16 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_views,
     facilitator_column_values,
 )
-from ludamus.gates.web.django.dynamic_fields import (
-    answered_value,
-    dynamic_fields_form,
-    field_descriptors,
-)
+from ludamus.gates.web.django.dynamic_fields import answered_value
 from ludamus.gates.web.django.event.panel.views.facilitator_actions import (
     FacilitatorActionView,
 )
-from ludamus.gates.web.django.forms import (
-    ACCREDITATION_TYPE_LABELS,
-    FacilitatorEditForm,
-    FacilitatorForm,
+from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
+    PERSONAL_PREFIX,
+    personal_descriptors,
+    personal_fields_form,
 )
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS, FacilitatorForm
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.mills.panel_facilitators import (
     MIN_MERGE_FACILITATORS,
@@ -49,11 +46,7 @@ from ludamus.mills.panel_facilitators import (
     field_reconcile,
     name_reconcile,
 )
-from ludamus.pacts import (
-    FacilitatorUpdateData,
-    NotFoundError,
-    PersonalDataFieldValueData,
-)
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.panel import (
     FacilitatorCreateData,
     FacilitatorListQuery,
@@ -64,81 +57,12 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-
-    from django import forms
-    from django.http import HttpResponse, QueryDict
-
-    from ludamus.pacts import (
-        EventDTO,
-        FacilitatorDTO,
-        FieldDescriptor,
-        FieldValue,
-        OrganizerFieldDTO,
-    )
+    from django.http import HttpResponse
 
 
 # A tampered `?organizer=` value falls back to "all", so the toolbar never
 # shows a selected option the list is not actually filtered by.
 _ORGANIZER_FILTERS = ("mine", "unassigned")
-
-
-_PERSONAL_PREFIX = "personal"
-
-
-def _personal_fields_form(
-    *,
-    fields: Sequence[OrganizerFieldDTO],
-    data: QueryDict | None = None,
-    values: Mapping[str, FieldValue] | None = None,
-) -> forms.Form:
-    # The panel records answers on someone's behalf, so nothing is required
-    # here even when the proposal wizard would demand it.
-    return dynamic_fields_form(
-        prefix=_PERSONAL_PREFIX,
-        fields=[(field, False) for field in fields],
-        data=data,
-        initial=values or {},
-    )
-
-
-def _personal_descriptors(
-    fields: Sequence[OrganizerFieldDTO], form: forms.Form
-) -> list[FieldDescriptor]:
-    return field_descriptors(
-        prefix=_PERSONAL_PREFIX, fields=[(field, False) for field in fields], form=form
-    )
-
-
-def _stored_descriptors(
-    items: Sequence[tuple[OrganizerFieldDTO, FieldValue | None]],
-) -> list[FieldDescriptor]:
-    fields = [field for field, _value in items]
-    return _personal_descriptors(
-        fields,
-        _personal_fields_form(
-            fields=fields,
-            values={field.slug: value for field, value in items if value is not None},
-        ),
-    )
-
-
-def _personal_entries(
-    *,
-    form: forms.Form,
-    fields: Sequence[OrganizerFieldDTO],
-    facilitator_id: int,
-    event_id: int,
-) -> list[PersonalDataFieldValueData]:
-    return [
-        PersonalDataFieldValueData(
-            facilitator_id=facilitator_id,
-            event_id=event_id,
-            field_id=field.pk,
-            value=answered_value(prefix=_PERSONAL_PREFIX, field_def=field, form=form),
-        )
-        for field in fields
-    ]
 
 
 def _merge_error_message(reason: MergeErrorReason) -> str:
@@ -323,8 +247,8 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         fields = self.request.services.facilitator_panel.list_fields(current_event.pk)
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
-        context["field_descriptors"] = _personal_descriptors(
-            fields, _personal_fields_form(fields=fields)
+        context["field_descriptors"] = personal_descriptors(
+            fields, personal_fields_form(fields=fields)
         )
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
@@ -336,11 +260,11 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         service = self.request.services.facilitator_panel
         fields = service.list_fields(current_event.pk)
         form = FacilitatorForm(self.request.POST)
-        fields_form = _personal_fields_form(fields=fields, data=self.request.POST)
+        fields_form = personal_fields_form(fields=fields, data=self.request.POST)
         if not form.is_valid() or not fields_form.is_valid():
             context["active_nav"] = "facilitators"
             context["form"] = form
-            context["field_descriptors"] = _personal_descriptors(fields, fields_form)
+            context["field_descriptors"] = personal_descriptors(fields, fields_form)
             return TemplateResponse(
                 self.request, "panel/facilitator-create.html", context
             )
@@ -359,7 +283,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 ),
                 values={
                     field.pk: answered_value(
-                        prefix=_PERSONAL_PREFIX, field_def=field, form=fields_form
+                        prefix=PERSONAL_PREFIX, field_def=field, form=fields_form
                     )
                     for field in fields
                 },
@@ -368,117 +292,6 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         messages.success(self.request, _("Facilitator created successfully."))
         return redirect("panel:facilitators", slug=slug)
-
-
-class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
-    """Edit an existing facilitator."""
-
-    request: PanelRequest
-
-    def _guild_attach_context(
-        self, *, current_event: EventDTO, facilitator: FacilitatorDTO
-    ) -> dict[str, object]:
-        guilds = self.request.services.guilds
-        sphere_id = current_event.sphere_id
-        return {
-            "guild": guilds.mark_for_facilitator(
-                sphere_id=sphere_id, facilitator_pk=facilitator.pk
-            ),
-            "guild_options": guilds.list_for_sphere(sphere_id=sphere_id),
-        }
-
-    def get(
-        self, _request: PanelRequest, slug: str, facilitator_slug: str
-    ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitators", slug=slug)
-
-        facilitator = detail.facilitator
-        context["active_nav"] = "facilitators"
-        context["facilitator"] = facilitator
-        context["form"] = FacilitatorEditForm(
-            initial={
-                "accreditation_type": facilitator.accreditation_type,
-                "internal_comment": facilitator.internal_comment,
-            }
-        )
-        context["field_descriptors"] = _stored_descriptors(detail.personal_data_items)
-        context.update(
-            self._guild_attach_context(
-                current_event=current_event, facilitator=facilitator
-            )
-        )
-        return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
-
-    def post(
-        self, _request: PanelRequest, slug: str, facilitator_slug: str
-    ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitators", slug=slug)
-
-        facilitator = detail.facilitator
-        form = FacilitatorEditForm(self.request.POST)
-        all_personal_fields = self.request.services.facilitator_panel.list_fields(
-            current_event.pk
-        )
-        fields_form = _personal_fields_form(
-            fields=all_personal_fields, data=self.request.POST
-        )
-        if not form.is_valid() or not fields_form.is_valid():
-            context["active_nav"] = "facilitators"
-            context["facilitator"] = facilitator
-            context["form"] = form
-            context["field_descriptors"] = _personal_descriptors(
-                all_personal_fields, fields_form
-            )
-            context.update(
-                self._guild_attach_context(
-                    current_event=current_event, facilitator=facilitator
-                )
-            )
-            return TemplateResponse(
-                self.request, "panel/facilitator-edit.html", context
-            )
-
-        entries = _personal_entries(
-            form=fields_form,
-            fields=all_personal_fields,
-            facilitator_id=facilitator.pk,
-            event_id=current_event.pk,
-        )
-        self.request.services.personal_data_field_values.update_facilitator(
-            event_id=current_event.pk,
-            facilitator_id=facilitator.pk,
-            data=FacilitatorUpdateData(
-                accreditation_type=form.cleaned_data["accreditation_type"],
-                internal_comment=form.cleaned_data["internal_comment"],
-            ),
-            entries=entries,
-            user_id=self.request.context.current_user_id,
-        )
-
-        messages.success(self.request, _("Facilitator updated successfully."))
-        return redirect(
-            "panel:facilitator-detail", slug=slug, facilitator_slug=facilitator_slug
-        )
 
 
 class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):

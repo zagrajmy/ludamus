@@ -25,6 +25,7 @@ from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
     facilitator_actions,
+    facilitator_edit,
     print_redirects,
     proposal_category_settings,
 )
@@ -421,7 +422,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
-        facilitators.FacilitatorEditPageView.as_view(),
+        facilitator_edit.FacilitatorEditPageView.as_view(),
         name="facilitator-edit",
     ),
     path(
