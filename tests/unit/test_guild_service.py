@@ -44,15 +44,17 @@ class FakeGuilds:
         taken_slugs=(),
     ):
         self.calls = []
-        self._matches = [MEMBER_PK] if matches is None else matches
-        self._facilitator_matches = (
-            [] if facilitator_matches is None else facilitator_matches
-        )
-        self._current = current
-        self._assigns = assigns
-        self._sets_facilitator = sets_facilitator
-        self._deletes = deletes
-        self._taken_slugs = set(taken_slugs)
+        self._cfg = {
+            "matches": [MEMBER_PK] if matches is None else matches,
+            "facilitator_matches": (
+                [] if facilitator_matches is None else facilitator_matches
+            ),
+            "current": current,
+            "assigns": assigns,
+            "sets_facilitator": sets_facilitator,
+            "deletes": deletes,
+            "taken_slugs": set(taken_slugs),
+        }
 
     def list_for_sphere(self, *, sphere_id):
         self.calls.append(("list_for_sphere", sphere_id))
@@ -67,7 +69,7 @@ class FakeGuilds:
 
     def slug_exists(self, *, sphere_id, slug):
         self.calls.append(("slug_exists", sphere_id, slug))
-        return slug in self._taken_slugs
+        return slug in self._cfg["taken_slugs"]
 
     def update(self, *, sphere_id, guild_pk, data):
         self.calls.append(("update", sphere_id, guild_pk, dict(data)))
@@ -75,7 +77,7 @@ class FakeGuilds:
 
     def delete(self, *, sphere_id, guild_pk):
         self.calls.append(("delete", sphere_id, guild_pk))
-        return self._deletes
+        return self._cfg["deletes"]
 
     def list_facilitator_names(self, *, sphere_id):
         self.calls.append(("list_facilitator_names", sphere_id))
@@ -83,25 +85,25 @@ class FakeGuilds:
 
     def find_assignable_users(self, *, identifier):
         self.calls.append(("find_assignable_users", identifier))
-        return self._matches
+        return self._cfg["matches"]
 
     def find_assignable_facilitators(self, *, sphere_id, name):
         self.calls.append(("find_assignable_facilitators", sphere_id, name))
-        return self._facilitator_matches
+        return self._cfg["facilitator_matches"]
 
     def set_facilitator_guild(self, *, sphere_id, facilitator_pk, guild_pk):
         self.calls.append(
             ("set_facilitator_guild", sphere_id, facilitator_pk, guild_pk)
         )
-        return self._sets_facilitator
+        return self._cfg["sets_facilitator"]
 
     def read_member_guild(self, *, sphere_id, user_pk):
         self.calls.append(("read_member_guild", sphere_id, user_pk))
-        return self._current
+        return self._cfg["current"]
 
     def assign_member(self, *, sphere_id, guild_pk, user_pk):
         self.calls.append(("assign_member", sphere_id, guild_pk, user_pk))
-        return self._assigns
+        return self._cfg["assigns"]
 
     def remove_member(self, *, sphere_id, guild_pk, membership_pk):
         self.calls.append(("remove_member", sphere_id, guild_pk, membership_pk))
