@@ -506,8 +506,25 @@ class Event(models.Model):
             if config.is_session_eligible(session)
         ]
 
+    def get_seating_enrollment_configs(
+        self, session: Session
+    ) -> list[EnrollmentConfig]:
+        active_eligible = self.get_eligible_enrollment_configs(session)
+        if active_eligible:
+            return active_eligible
+        now = datetime.now(tz=UTC)
+        ended_eligible = [
+            config
+            for config in self.enrollment_configs.all()
+            if config.end_time <= now and config.is_session_eligible(session)
+        ]
+        if not ended_eligible:
+            return []
+        latest = max(ended_eligible, key=lambda config: (config.end_time, config.pk))
+        return [latest]
+
     def get_most_liberal_config(self, session: Session) -> EnrollmentConfig | None:
-        if not (eligible_configs := self.get_eligible_enrollment_configs(session)):
+        if not (eligible_configs := self.get_seating_enrollment_configs(session)):
             return None
 
         return max(eligible_configs, key=lambda c: c.percentage_slots)
