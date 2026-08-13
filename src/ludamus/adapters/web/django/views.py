@@ -65,10 +65,10 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.links.db.django.repositories.chronology import public_scheduled_sessions
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
-    hide_private_track_sessions,
     with_session_card_relations,
 )
 from ludamus.mills.enrollment import (
@@ -289,11 +289,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # is unlisted here for everyone, panel access included, so a manager
         # previewing the page sees the schedule participants will get.
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(
-                hide_private_track_sessions(
-                    Session.objects.filter(event=self.object, agenda_item__isnull=False)
-                )
-            )
+            with_session_card_relations(public_scheduled_sessions(self.object.pk))
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()

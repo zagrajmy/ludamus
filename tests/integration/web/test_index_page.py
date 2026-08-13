@@ -9,7 +9,7 @@ from django.urls import reverse
 
 from ludamus.adapters.web.django.views import EventInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.links.db.django.models import Announcement
+from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
@@ -97,11 +97,45 @@ class TestEventsPageView:
             template_name=["index.html"],
         )
 
-    def test_session_count_counts_agenda_items(self, client, sphere):
+    def test_session_count_counts_scheduled_sessions(self, client, sphere):
         event = EventFactory(sphere=sphere)
         space = SpaceFactory(event=event)
         AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
         AgendaItemFactory(space=space, session=SessionFactory(category__event=event))
+        SessionFactory(category__event=event)
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [_expected_event_info(event, session_count=2)],
+                "view": ANY,
+            },
+            template_name=["index.html"],
+        )
+
+    def test_session_count_matches_public_schedule(self, client, sphere):
+        event = EventFactory(sphere=sphere)
+        space = SpaceFactory(event=event)
+        public_track = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        untracked = SessionFactory(category__event=event)
+        mixed = SessionFactory(category__event=event)
+        mixed.tracks.add(public_track, private_track)
+        private_only = SessionFactory(category__event=event)
+        private_only.tracks.add(private_track)
+        deleted = SessionFactory(category__event=event)
+        for session in (untracked, mixed, private_only, deleted):
+            AgendaItemFactory(space=space, session=session)
+        deleted.soft_delete()
 
         response = client.get(self.URL)
 
