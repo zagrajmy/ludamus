@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 01:26+0200\n"
+"POT-Creation-Date: 2026-08-13 04:17+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1088,6 +1088,7 @@ msgstr "Kolumny zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
 msgid "Facilitator not found."
 msgstr "Twórca programu nie został znaleziony."
 
@@ -1201,24 +1202,6 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Someone else already handles this facilitator."
-msgstr "Ten twórca programu jest już przypisany do kogoś innego."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "You already handle this facilitator."
-msgstr "Ten twórca programu jest już przypisany do Ciebie."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Nobody handles this facilitator."
-msgstr "Ten twórca programu nie jest do nikogo przypisany."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Only the person handling this facilitator can step down."
-msgstr ""
-"Przypisanie może usunąć tylko osoba, do której twórca programu jest "
-"przypisany."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
 
@@ -1271,19 +1254,6 @@ msgstr "Twórca programu został zaktualizowany."
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Pick a guild."
-msgstr "Wybierz gildię."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Attached to this guild."
-msgstr "Przypisano do tej gildii."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-#: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "Guild not found."
-msgstr "Nie znaleziono gildii."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator flagged for deletion."
@@ -2401,6 +2371,37 @@ msgstr "Zapisano okno zapisów."
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window deleted."
 msgstr "Usunięto okno zapisów."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Someone else already handles this facilitator."
+msgstr "Ten twórca programu jest już przypisany do kogoś innego."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "You already handle this facilitator."
+msgstr "Ten twórca programu jest już przypisany do Ciebie."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Nobody handles this facilitator."
+msgstr "Ten twórca programu nie jest do nikogo przypisany."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Only the person handling this facilitator can step down."
+msgstr ""
+"Przypisanie może usunąć tylko osoba, do której twórca programu jest "
+"przypisany."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Attached to this guild."
+msgstr "Przypisano do tej gildii."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Pick a guild."
+msgstr "Wybierz gildię."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild not found."
+msgstr "Nie znaleziono gildii."
 
 #: src/ludamus/gates/web/django/event/panel/views/proposal_category_settings.py
 msgid "Category updated successfully."
@@ -5836,22 +5837,22 @@ msgstr "Usunąć gildię „%(name)s”?"
 #, python-format
 msgid ""
 "Its mark stops showing on the programme cards of %(counter)s presenter. "
-"Their account and sessions are untouched."
+"Sessions are untouched."
 msgid_plural ""
 "Its mark stops showing on the programme cards of %(counter)s presenters. "
-"Their accounts and sessions are untouched."
+"Sessions are untouched."
 msgstr[0] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Jego konto i punkty programu zostają nietknięte."
+"prowadzącego. Punkty programu zostają nietknięte."
 msgstr[1] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzących. Ich konta i punkty programu zostają nietknięte."
+"prowadzących. Punkty programu zostają nietknięte."
 msgstr[2] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzących. Ich konta i punkty programu zostają nietknięte."
+"prowadzących. Punkty programu zostają nietknięte."
 msgstr[3] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Jego konto i punkty programu zostają nietknięte."
+"prowadzącego. Punkty programu zostają nietknięte."
 
 #: src/ludamus/templates/multiverse/panel/guilds/edit.html
 msgid "Back to guilds"
