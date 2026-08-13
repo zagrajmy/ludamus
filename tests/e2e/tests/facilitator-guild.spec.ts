@@ -74,13 +74,18 @@ test.describe("Facilitator guild marks", () => {
     await page.close();
   });
 
-  test("a facilitator with no account is not offered a guild she cannot join", async ({ page }) => {
+  test("a facilitator with no account can be attached to a guild", async ({ page }) => {
     await createGuild(page);
     await page.goto(FACILITATORS_URL);
 
-    // Membership hangs off the linked account, so every option would fail.
+    await expect(attachButton(page, UNLINKED)).toHaveCount(1);
+    await attachButton(page, UNLINKED).click();
+    await page.getByRole("button", { name: GUILD }).click();
+
+    const row = facilitatorRow(page, UNLINKED);
+    await expect(row.getByRole("img", { name: `Guild: ${GUILD}` })).toBeVisible();
+    await expect(row).toContainText(GUILD);
     await expect(attachButton(page, UNLINKED)).toHaveCount(0);
-    await expect(attachButton(page, LINKED)).toHaveCount(1);
   });
 
   test("the plus stays out of the way until the row is hovered or focused", async ({ page }) => {

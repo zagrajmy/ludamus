@@ -5,11 +5,28 @@ from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Guild, GuildMembership
+from ludamus.gates.web.django.sphere.guilds import RosterRow
+from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts.guild import GuildDTO, GuildMemberDTO, GuildSummaryDTO
-from tests.integration.conftest import PNG_BYTES, SphereFactory, UserFactory
-from tests.integration.utils import assert_login_required, assert_response
+from ludamus.mills.event import is_proposal_active
+from ludamus.pacts import EventDTO
+from ludamus.pacts.guild import (
+    GuildDTO,
+    GuildFacilitatorMemberDTO,
+    GuildMembershipMemberDTO,
+    GuildSummaryDTO,
+)
+from tests.integration.conftest import (
+    PNG_BYTES,
+    EventFactory,
+    SphereFactory,
+    UserFactory,
+)
+from tests.integration.utils import (
+    assert_login_required,
+    assert_response,
+    assert_response_404,
+)
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
     sphere_sidebar_context,
@@ -203,6 +220,7 @@ class TestGuildEditPageView:
                 "guild": GuildDTO(
                     pk=guild.pk, name="Topory", slug="topory", members=[]
                 ),
+                "roster": [],
                 "form": ANY,
                 "member_form": ANY,
             },
@@ -233,17 +251,86 @@ class TestGuildEditPageView:
                     name="Topory",
                     slug="topory",
                     members=[
-                        GuildMemberDTO(
+                        GuildMembershipMemberDTO(
                             membership_pk=membership.pk,
-                            user_pk=presenter.pk,
                             name="Marek",
                             full_name=presenter.full_name,
                             email="marek@example.com",
-                            slug=presenter.slug,
                             avatar_url=display_avatar_url(presenter),
                         )
                     ],
                 ),
+                "roster": [
+                    RosterRow(
+                        member=GuildMembershipMemberDTO(
+                            membership_pk=membership.pk,
+                            name="Marek",
+                            full_name=presenter.full_name,
+                            email="marek@example.com",
+                            avatar_url=display_avatar_url(presenter),
+                        ),
+                        name="Marek",
+                        remove_url=reverse(
+                            "multiverse:panel:guild-member-remove",
+                            kwargs={"pk": guild.pk, "membership_pk": membership.pk},
+                        ),
+                        subtitle="marek@example.com",
+                    )
+                ],
+                "form": ANY,
+                "member_form": ANY,
+            },
+        )
+
+    def test_get_lists_an_accountless_facilitator_on_the_roster(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        event_dto = EventDTO.model_validate(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+
+        response = authenticated_client.get(_edit_url(guild))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/guilds/edit.html",
+            context_data={
+                **GUILDS_PANEL_CONTEXT,
+                "events": [event_dto],
+                "current_event": event_dto,
+                "is_proposal_active": is_proposal_active(event_dto),
+                "guild": GuildDTO(
+                    pk=guild.pk,
+                    name="Topory",
+                    slug="topory",
+                    members=[
+                        GuildFacilitatorMemberDTO(
+                            facilitator_pk=facilitator.pk,
+                            name="Bea",
+                            event_name=event.name,
+                        )
+                    ],
+                ),
+                "roster": [
+                    RosterRow(
+                        member=GuildFacilitatorMemberDTO(
+                            facilitator_pk=facilitator.pk,
+                            name="Bea",
+                            event_name=event.name,
+                        ),
+                        name="Bea",
+                        remove_url=reverse(
+                            "multiverse:panel:guild-facilitator-remove",
+                            kwargs={"pk": guild.pk, "facilitator_pk": facilitator.pk},
+                        ),
+                        subtitle=event.name,
+                    )
+                ],
                 "form": ANY,
                 "member_form": ANY,
             },
@@ -268,6 +355,7 @@ class TestGuildEditPageView:
                 "guild": GuildDTO(
                     pk=guild.pk, name="Topory", slug="topory", members=[]
                 ),
+                "roster": [],
                 "form": ANY,
                 "member_form": ANY,
             },
@@ -532,6 +620,46 @@ class TestGuildMemberRemoveActionView:
             url=_edit_url(guild),
             messages=[(messages.ERROR, "That presenter is not in this guild.")],
         )
+
+
+class TestGuildFacilitatorRosterRemove:
+    def test_post_clears_the_facilitator_guild(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                "multiverse:panel:guild-facilitator-remove",
+                kwargs={"pk": guild.pk, "facilitator_pk": facilitator.pk},
+            )
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id is None
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.SUCCESS, "Presenter removed.")],
+        )
+
+    def test_post_with_an_unknown_kind_is_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+
+        response = authenticated_client.post(
+            f"/multiverse/panel/guilds/{guild.pk}/nope/1/do/remove"
+        )
+
+        assert_response_404(response)
 
 
 class TestGuildMemberAddOutcomes:

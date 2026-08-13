@@ -192,22 +192,71 @@ def _unique_values(values: Iterable[_FieldValue]) -> list[_FieldValue]:
     return unique
 
 
-def _inherited_organizer(
-    target: FacilitatorDTO, sources: Sequence[FacilitatorDTO]
-) -> int | None:
-    """Decide which organizer the merge writes onto the target.
+def _agreed(candidates: Iterable[int | None]) -> int | None:
+    ids = {value for value in candidates if value is not None}
+    return ids.pop() if len(ids) == 1 else None
+
+
+def _inherited(held: int | None, candidates: Iterable[int | None]) -> int | None:
+    """Decide which related id the merge writes onto the target.
 
     Returns:
-        A source's organizer id when the target is unheld and the sources
-        agree on one. Whoever holds the target keeps it — a merge never takes
-        a facilitator away from its organizer — and disagreeing sources cancel
-        out, so the merged row stays unassigned for someone to claim
-        deliberately.
+        A candidate when the target is unset and the candidates agree on one.
+        Whoever holds the target keeps it — a merge never takes a facilitator
+        away from its organizer or guild — and disagreeing sources cancel out,
+        so the merged row stays unassigned for someone to claim deliberately.
     """
-    if target.organizer_id is not None:
+    if held is not None:
         return None
-    ids = {f.organizer_id for f in sources if f.organizer_id is not None}
-    return ids.pop() if len(ids) == 1 else None
+    return _agreed(candidates)
+
+
+def _guild_to_place(
+    *,
+    target_guild_id: int | None,
+    user_id: int | None,
+    has_membership: bool,
+    source_guild_ids: Iterable[int | None],
+) -> int | None:
+    """Pick the guild the merge writes, if any.
+
+    Returns:
+        None when the surviving user already has a membership — that
+        membership is never moved — or when an account-less target already
+        holds the FK and no user is joining. Otherwise the target's FK (to
+        migrate onto a membership) or an agreed source FK for an unheld row.
+    """
+    if has_membership:
+        return None
+    if target_guild_id is not None:
+        return target_guild_id if user_id is not None else None
+    return _agreed(source_guild_ids)
+
+
+def _merge_update(
+    *,
+    target: FacilitatorDTO,
+    sources: Sequence[FacilitatorDTO],
+    data: FacilitatorMergeData,
+    user_pk: int | None,
+) -> FacilitatorUpdateData:
+    update: FacilitatorUpdateData = {
+        "display_name": data.display_name,
+        "accreditation_type": data.accreditation_type,
+    }
+    if user_pk is not None and target.user_id is None:
+        # The lone linked account rides along to the target instead of
+        # vanishing with its deleted source. The FK must clear in the same
+        # UPDATE: a row cannot carry both.
+        update["user_id"] = user_pk
+        update["guild_id"] = None
+    if (
+        inherited := _inherited(
+            target.organizer_id, (source.organizer_id for source in sources)
+        )
+    ) is not None:
+        update["organizer_id"] = inherited
+    return update
 
 
 MIN_MERGE_FACILITATORS = 2
@@ -475,6 +524,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         self,
         *,
         event_id: int,
+        sphere_id: int,
         target_slug: str,
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
@@ -526,17 +576,31 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             # diffs against what the merge actually replaced.
             old_values = values_by_holder[target.pk]
 
-            update: FacilitatorUpdateData = {
-                "display_name": data.display_name,
-                "accreditation_type": data.accreditation_type,
-            }
-            if linked and linked[0].pk != target.pk:
-                # The lone linked account rides along to the target instead of
-                # vanishing with its deleted source.
-                update["user_id"] = linked[0].user_id
-            if (inherited := _inherited_organizer(target, sources)) is not None:
-                update["organizer_id"] = inherited
+            user_pk = linked[0].user_id if linked else None
+            update = _merge_update(
+                target=target, sources=sources, data=data, user_pk=user_pk
+            )
+            membership = (
+                self._repos.guilds.read_member_guild(
+                    sphere_id=sphere_id, user_pk=user_pk
+                )
+                if user_pk is not None
+                else None
+            )
+            guild_pk = _guild_to_place(
+                target_guild_id=target.guild_id,
+                user_id=user_pk,
+                has_membership=membership is not None,
+                source_guild_ids=(source.guild_id for source in sources),
+            )
             self._repos.facilitators.update(target.pk, update)
+            if guild_pk is not None:
+                self._place_guild(
+                    sphere_id=sphere_id,
+                    facilitator_pk=target.pk,
+                    user_pk=user_pk,
+                    guild_pk=guild_pk,
+                )
             if entries:
                 self._repos.personal_data_field_values.save(entries)
             self._repos.sessions.replace_facilitators_in_sessions(source_ids, target.pk)
@@ -667,6 +731,31 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         ):
             raise EmptyColumnSelectionError
         self._repos.panel_settings.update_facilitator_columns(event_id, keys)
+
+    def _place_guild(
+        self, *, sphere_id: int, facilitator_pk: int, user_pk: int | None, guild_pk: int
+    ) -> bool:
+        if user_pk is not None:
+            return self._repos.guilds.assign_member(
+                sphere_id=sphere_id, guild_pk=guild_pk, user_pk=user_pk
+            )
+        return self._repos.guilds.set_facilitator_guild(
+            sphere_id=sphere_id, facilitator_pk=facilitator_pk, guild_pk=guild_pk
+        )
+
+    def assign_guild(
+        self, *, event_id: int, sphere_id: int, facilitator_slug: str, guild_pk: int
+    ) -> bool:
+        with self._transaction.atomic():
+            facilitator = self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
+            return self._place_guild(
+                sphere_id=sphere_id,
+                facilitator_pk=facilitator.pk,
+                user_pk=facilitator.user_id,
+                guild_pk=guild_pk,
+            )
 
     def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
         facilitator = self._repos.facilitators.read_by_event_and_slug(

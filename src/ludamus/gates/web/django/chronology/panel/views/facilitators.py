@@ -34,6 +34,9 @@ from ludamus.gates.web.django.dynamic_fields import (
     dynamic_fields_form,
     field_descriptors,
 )
+from ludamus.gates.web.django.event.panel.views.facilitator_actions import (
+    FacilitatorActionView,
+)
 from ludamus.gates.web.django.forms import (
     ACCREDITATION_TYPE_LABELS,
     FacilitatorEditForm,
@@ -58,18 +61,13 @@ from ludamus.pacts.panel import (
     FacilitatorMergeError,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import (
-    AccreditationType,
-    FacilitatorActionError,
-    OrganizerActionRefusal,
-)
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     from django import forms
     from django.http import HttpResponse, QueryDict
-    from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FieldDescriptor, FieldValue, OrganizerFieldDTO
 
@@ -77,22 +75,6 @@ if TYPE_CHECKING:
 # A tampered `?organizer=` value falls back to "all", so the toolbar never
 # shows a selected option the list is not actually filtered by.
 _ORGANIZER_FILTERS = ("mine", "unassigned")
-# Why the claim or the step-down did not apply. A double-click and a genuine
-# clash are different stories, so they get different messages.
-_ORGANIZER_REFUSALS: dict[OrganizerActionRefusal, _StrPromise] = {
-    OrganizerActionRefusal.ALREADY_TAKEN: gettext_lazy(
-        "Someone else already handles this facilitator."
-    ),
-    OrganizerActionRefusal.ALREADY_YOURS: gettext_lazy(
-        "You already handle this facilitator."
-    ),
-    OrganizerActionRefusal.ALREADY_FREE: gettext_lazy(
-        "Nobody handles this facilitator."
-    ),
-    OrganizerActionRefusal.NOT_ORGANIZER: gettext_lazy(
-        "Only the person handling this facilitator can step down."
-    ),
-}
 
 
 _PERSONAL_PREFIX = "personal"
@@ -274,8 +256,8 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
         context["facilitator"] = detail.facilitator
         context["linked_user"] = detail.linked_user
-        context["guild"] = self.request.services.guilds.mark_for_user(
-            sphere_id=current_event.sphere_id, user_pk=detail.facilitator.user_id
+        context["guild"] = self.request.services.guilds.mark_for_facilitator(
+            sphere_id=current_event.sphere_id, facilitator_pk=detail.facilitator.pk
         )
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
             AccreditationType(detail.facilitator.accreditation_type)
@@ -609,6 +591,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         try:
             self.request.services.facilitator_panel.merge(
                 event_id=current_event.pk,
+                sphere_id=current_event.sphere_id,
                 target_slug=self.request.POST.get("target_slug", ""),
                 facilitator_slugs=basket_slugs,
                 data=FacilitatorMergeData(
@@ -634,40 +617,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:facilitators", slug=slug)
 
 
-class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
-    """Shared POST handler for single-facilitator triage actions."""
-
-    request: PanelRequest
-    http_method_names = ("post",)
-    success_message: str | _StrPromise = ""
-
-    def _apply(self, event_id: int, facilitator_slug: str) -> None:
-        raise NotImplementedError
-
-    def post(
-        self, _request: PanelRequest, slug: str, facilitator_slug: str
-    ) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        back = safe_next_url(
-            self.request, reverse("panel:facilitators", kwargs={"slug": slug})
-        )
-        try:
-            self._apply(current_event.pk, facilitator_slug)
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitators", slug=slug)
-        except FacilitatorActionError as exc:
-            messages.error(self.request, _ORGANIZER_REFUSALS[exc.refusal])
-            return redirect(back)
-
-        messages.success(self.request, self.success_message)
-        return redirect(back)
-
-
-class FacilitatorFlagActionView(_FacilitatorActionView):
+class FacilitatorFlagActionView(FacilitatorActionView):
     """Flag a facilitator for deletion (POST only)."""
 
     success_message = gettext_lazy("Facilitator flagged for deletion.")
@@ -678,7 +628,7 @@ class FacilitatorFlagActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorUnflagActionView(_FacilitatorActionView):
+class FacilitatorUnflagActionView(FacilitatorActionView):
     """Clear a facilitator's deletion flag (POST only)."""
 
     success_message = gettext_lazy("Facilitator unflagged.")
@@ -689,7 +639,7 @@ class FacilitatorUnflagActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorMarkGuestActionView(_FacilitatorActionView):
+class FacilitatorMarkGuestActionView(FacilitatorActionView):
     """Set a facilitator's accreditation to guest (POST only)."""
 
     success_message = gettext_lazy("Facilitator marked as guest.")
@@ -703,7 +653,7 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorAssignOrganizerActionView(_FacilitatorActionView):
+class FacilitatorAssignOrganizerActionView(FacilitatorActionView):
     """Take an unassigned facilitator on as its organizer (POST only)."""
 
     success_message = gettext_lazy("You now handle this facilitator.")
@@ -716,7 +666,7 @@ class FacilitatorAssignOrganizerActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorUnassignOrganizerActionView(_FacilitatorActionView):
+class FacilitatorUnassignOrganizerActionView(FacilitatorActionView):
     """Release a facilitator you organize, so someone else can take it."""
 
     success_message = gettext_lazy("Stepped down.")

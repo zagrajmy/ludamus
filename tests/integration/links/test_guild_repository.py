@@ -1,10 +1,16 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from ludamus.links.db.django.guild import GuildRepository
-from ludamus.links.db.django.models import Guild, GuildMembership
-from ludamus.pacts.guild import GuildMarkDTO
-from tests.integration.conftest import PNG_BYTES, SphereFactory, UserFactory
+from ludamus.links.db.django.guild import GuildRepository, marks_for_users
+from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
+from ludamus.pacts.guild import GuildMarkDTO, GuildMemberKind
+from tests.integration.conftest import (
+    PNG_BYTES,
+    EventFactory,
+    SessionFactory,
+    SphereFactory,
+    UserFactory,
+)
 
 # One membership in each of the two spheres the test sets up.
 MEMBERSHIPS_ACROSS_TWO_SPHERES = 2
@@ -141,8 +147,6 @@ class TestFindAssignableUsers:
         assert result == [user.pk]
 
     def test_matches_discord_username(self):
-        # `username` is machine-generated (auth0|..., connected|...), so the
-        # Discord handle is the only non-email thing a manager can type.
         user = UserFactory(username="auth0|abc", discord_username="marek")
 
         result = GuildRepository.find_assignable_users(identifier="MAREK")
@@ -280,9 +284,7 @@ class TestMarksForUsers:
         stranger = UserFactory()
         GuildMembership.objects.create(sphere=sphere, guild=guild, member=member)
 
-        result = GuildRepository.marks_for_users(
-            sphere_id=sphere.pk, user_pks=[member.pk, stranger.pk]
-        )
+        result = marks_for_users(sphere_id=sphere.pk, user_pks=[member.pk, stranger.pk])
 
         assert result == {
             member.pk: GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")
@@ -290,9 +292,7 @@ class TestMarksForUsers:
 
     def test_does_not_query_for_an_empty_page(self, sphere, django_assert_num_queries):
         with django_assert_num_queries(0):
-            assert (
-                GuildRepository.marks_for_users(sphere_id=sphere.pk, user_pks=[]) == {}
-            )
+            assert marks_for_users(sphere_id=sphere.pk, user_pks=[]) == {}
 
     def test_costs_one_query_for_a_whole_page(self, sphere, django_assert_num_queries):
         guild = _guild(sphere)
@@ -301,25 +301,16 @@ class TestMarksForUsers:
             GuildMembership.objects.create(sphere=sphere, guild=guild, member=member)
 
         with django_assert_num_queries(1):
-            GuildRepository.marks_for_users(
-                sphere_id=sphere.pk, user_pks=[m.pk for m in members]
-            )
+            marks_for_users(sphere_id=sphere.pk, user_pks=[m.pk for m in members])
 
     def test_excludes_a_row_whose_guild_belongs_to_another_sphere(
         self, sphere, other_sphere
     ):
-        # `GuildMembership.sphere` is denormalised, so nothing in the schema
-        # stops a row pairing this sphere with a foreign guild. assign_member
-        # never writes one; this builds it directly to prove the read filters on
-        # both columns, because the card that renders it is public.
         foreign = _guild(other_sphere)
         member = UserFactory()
         GuildMembership.objects.create(sphere=sphere, guild=foreign, member=member)
 
-        assert (
-            GuildRepository.marks_for_users(sphere_id=sphere.pk, user_pks=[member.pk])
-            == {}
-        )
+        assert marks_for_users(sphere_id=sphere.pk, user_pks=[member.pk]) == {}
         assert (
             GuildRepository.read_member_guild(sphere_id=sphere.pk, user_pk=member.pk)
             is None
@@ -332,7 +323,210 @@ class TestMarksForUsers:
             sphere=other_sphere, guild=foreign, member=member
         )
 
-        assert (
-            GuildRepository.marks_for_users(sphere_id=sphere.pk, user_pks=[member.pk])
-            == {}
+        assert marks_for_users(sphere_id=sphere.pk, user_pks=[member.pk]) == {}
+
+
+class TestSetFacilitatorGuild:
+    def test_sets_the_guild_on_an_accountless_facilitator(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Imported", slug="imported", user=None
         )
+
+        assert GuildRepository.set_facilitator_guild(
+            sphere_id=sphere.pk, facilitator_pk=facilitator.pk, guild_pk=guild.pk
+        )
+        assert Facilitator.objects.get(pk=facilitator.pk).guild_id == guild.pk
+
+    def test_refuses_a_guild_from_another_sphere(self, sphere, other_sphere):
+        foreign = _guild(other_sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Imported", slug="imported", user=None
+        )
+
+        assert not GuildRepository.set_facilitator_guild(
+            sphere_id=sphere.pk, facilitator_pk=facilitator.pk, guild_pk=foreign.pk
+        )
+        assert Facilitator.objects.get(pk=facilitator.pk).guild_id is None
+
+    def test_refuses_a_linked_facilitator(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Hanna", slug="hanna", user=UserFactory()
+        )
+
+        assert not GuildRepository.set_facilitator_guild(
+            sphere_id=sphere.pk, facilitator_pk=facilitator.pk, guild_pk=guild.pk
+        )
+        assert Facilitator.objects.get(pk=facilitator.pk).guild_id is None
+        assert not GuildMembership.objects.exists()
+
+
+class TestMarksForSessions:
+    def test_indexes_marks_by_session(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Imported",
+            slug="imported",
+            user=None,
+            guild=guild,
+        )
+        session = SessionFactory(event=event, presenter=None)
+        other = SessionFactory(event=event, presenter=None)
+        session.facilitators.add(facilitator)
+
+        result = GuildRepository.marks_for_sessions(
+            sphere_id=sphere.pk, session_pks=[session.pk, other.pk]
+        )
+
+        assert result == {
+            session.pk: GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")
+        }
+
+    def test_does_not_query_for_an_empty_page(self, sphere, django_assert_num_queries):
+        with django_assert_num_queries(0):
+            assert not GuildRepository.marks_for_sessions(
+                sphere_id=sphere.pk, session_pks=[]
+            )
+
+    def test_excludes_a_guild_from_another_sphere(self, sphere, other_sphere):
+        foreign = _guild(other_sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Imported",
+            slug="imported",
+            user=None,
+            guild=foreign,
+        )
+        session = SessionFactory(event=event, presenter=None)
+        session.facilitators.add(facilitator)
+
+        assert not GuildRepository.marks_for_sessions(
+            sphere_id=sphere.pk, session_pks=[session.pk]
+        )
+
+    def test_prefers_the_presenters_guild_over_a_cofacilitator(self, sphere):
+        presenter_guild = _guild(sphere)
+        other = _guild(sphere, name="Tol Calen", slug="tol-calen")
+        event = EventFactory(sphere=sphere)
+        presenter = UserFactory()
+        GuildMembership.objects.create(
+            sphere=sphere, guild=presenter_guild, member=presenter
+        )
+        cofacilitator = Facilitator.objects.create(
+            event=event, display_name="Aaa", slug="aaa", user=None, guild=other
+        )
+        session = SessionFactory(event=event, presenter=presenter)
+        session.facilitators.add(cofacilitator)
+
+        result = GuildRepository.marks_for_sessions(
+            sphere_id=sphere.pk, session_pks=[session.pk]
+        )
+
+        assert result == {
+            session.pk: GuildMarkDTO(pk=presenter_guild.pk, name="Topory", logo_url="")
+        }
+
+    def test_presenter_less_session_uses_a_linked_facilitators_membership(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        member = UserFactory()
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=member)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Hanna", slug="hanna", user=member
+        )
+        session = SessionFactory(event=event, presenter=None)
+        session.facilitators.add(facilitator)
+
+        result = GuildRepository.marks_for_sessions(
+            sphere_id=sphere.pk, session_pks=[session.pk]
+        )
+
+        assert result == {
+            session.pk: GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")
+        }
+
+
+class TestFacilitatorRoster:
+    def test_lists_an_accountless_facilitator_on_the_roster(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+
+        result = GuildRepository.read(sphere_id=sphere.pk, guild_pk=guild.pk)
+
+        assert result is not None
+        assert [
+            (m.name, m.kind, m.facilitator_pk, m.event_name) for m in result.members
+        ] == [("Bea", GuildMemberKind.FACILITATOR, facilitator.pk, event.name)]
+
+    def test_lists_the_same_person_once_per_event(self, sphere):
+        guild = _guild(sphere)
+        first = EventFactory(sphere=sphere, name="Pyrkon")
+        second = EventFactory(sphere=sphere, name="Kapitularz")
+        pyrkon = Facilitator.objects.create(
+            event=first, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+        kapitularz = Facilitator.objects.create(
+            event=second, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+
+        listed = GuildRepository.list_for_sphere(sphere_id=sphere.pk)
+        roster = GuildRepository.read(sphere_id=sphere.pk, guild_pk=guild.pk)
+
+        assert roster is not None
+        assert listed[0].member_count == len(roster.members)
+        assert [(m.event_name, m.facilitator_pk) for m in roster.members] == [
+            ("Kapitularz", kapitularz.pk),
+            ("Pyrkon", pyrkon.pk),
+        ]
+
+    def test_counts_facilitators_on_the_list(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=UserFactory())
+
+        result = GuildRepository.list_for_sphere(sphere_id=sphere.pk)
+
+        assert [(g.name, g.member_count) for g in result] == [("Topory", 2)]
+
+    def test_counts_a_linked_facilitator_once(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        member = UserFactory()
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=member)
+        Facilitator.objects.create(
+            event=event, display_name=member.name, slug="bea", user=member
+        )
+
+        listed = GuildRepository.list_for_sphere(sphere_id=sphere.pk)
+        roster = GuildRepository.read(sphere_id=sphere.pk, guild_pk=guild.pk)
+
+        assert listed[0].member_count == 1
+        assert roster is not None
+        assert len(roster.members) == 1
+
+    def test_does_not_list_a_linked_facilitator_without_membership(self, sphere):
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=UserFactory()
+        )
+
+        listed = GuildRepository.list_for_sphere(sphere_id=sphere.pk)
+        roster = GuildRepository.read(sphere_id=sphere.pk, guild_pk=guild.pk)
+
+        assert listed[0].member_count == 0
+        assert roster is not None
+        assert roster.members == []

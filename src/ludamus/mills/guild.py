@@ -107,17 +107,40 @@ class GuildService(GuildServiceProtocol):
                 sphere_id=sphere_id, guild_pk=guild_pk, membership_pk=membership_pk
             )
 
-    def marks_for_users(
-        self, *, sphere_id: int, user_pks: list[int]
-    ) -> dict[int, GuildMarkDTO]:
-        return self._guilds.marks_for_users(sphere_id=sphere_id, user_pks=user_pks)
+    def clear_facilitator(
+        self, *, sphere_id: int, guild_pk: int, facilitator_pk: int
+    ) -> bool:
+        with self._transaction.atomic():
+            return self._guilds.clear_facilitator(
+                sphere_id=sphere_id, guild_pk=guild_pk, facilitator_pk=facilitator_pk
+            )
 
-    def mark_for_user(
-        self, *, sphere_id: int, user_pk: int | None
+    def marks_for_facilitators(
+        self, *, sphere_id: int, facilitator_pks: list[int]
+    ) -> dict[int, GuildMarkDTO]:
+        return self._guilds.marks_for_facilitators(
+            sphere_id=sphere_id, facilitator_pks=facilitator_pks
+        )
+
+    def mark_for_facilitator(
+        self, *, sphere_id: int, facilitator_pk: int
+    ) -> GuildMarkDTO | None:
+        return self._guilds.marks_for_facilitators(
+            sphere_id=sphere_id, facilitator_pks=[facilitator_pk]
+        ).get(facilitator_pk)
+
+    def marks_for_sessions(
+        self, *, sphere_id: int, session_pks: list[int]
+    ) -> dict[int, GuildMarkDTO]:
+        return self._guilds.marks_for_sessions(
+            sphere_id=sphere_id, session_pks=session_pks
+        )
+
+    def mark_for_session(
+        self, *, sphere_id: int, session_pk: int
     ) -> GuildMarkDTO | None:
         # A single card (the modal) shouldn't have to unpack a batch dict, and
         # a presenter-less session shouldn't have to guard the call.
-        marks = self._guilds.marks_for_users(
-            sphere_id=sphere_id, user_pks=[user_pk] if user_pk else []
-        )
-        return marks.get(user_pk) if user_pk else None
+        return self._guilds.marks_for_sessions(
+            sphere_id=sphere_id, session_pks=[session_pk]
+        ).get(session_pk)
