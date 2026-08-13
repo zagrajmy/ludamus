@@ -40,8 +40,8 @@ jobs:
         run: .venv/bin/python --version || rm -rf .venv
       - run: mise exec -- poetry install
       - run: mise bootstrap packages apply --yes
-      # hk's oxlint/oxfmt go through `aube exec`; install once here so they
-      # don't cold-start mid-lint (and fight each other for the store lock).
+      # hk's oxlint/oxfmt use `aube exec --no-install`, so a partial
+      # (--no-optional) graph is fine — they will not cold-start mid-lint.
       - run: aube install --no-optional
       - run: mise run lint --jobs "$(nproc)"
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
