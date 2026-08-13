@@ -324,7 +324,7 @@ class TestAssignMember:
         assert outcome == AssignMemberOutcome.ASSIGNED
         assert ("assign_member", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls
 
-    def test_rejects_an_ambiguous_presenter_name(self):
+    def test_assigns_every_accountless_row_sharing_the_name(self):
         guilds = FakeGuilds(
             matches=[],
             facilitator_matches=[
@@ -337,7 +337,25 @@ class TestAssignMember:
             sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Ann"
         )
 
+        assert outcome == AssignMemberOutcome.ASSIGNED
+        assert ("set_facilitator_guild", SPHERE_PK, 1, GUILD_PK) in guilds.calls
+        assert ("set_facilitator_guild", SPHERE_PK, 2, GUILD_PK) in guilds.calls
+
+    def test_rejects_a_name_shared_by_two_linked_accounts(self):
+        guilds = FakeGuilds(
+            matches=[],
+            facilitator_matches=[
+                AssignableFacilitatorRef(pk=1, user_id=10, guild_id=None),
+                AssignableFacilitatorRef(pk=2, user_id=11, guild_id=None),
+            ],
+        )
+
+        outcome = _service(guilds).assign_member(
+            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Ann"
+        )
+
         assert outcome == AssignMemberOutcome.AMBIGUOUS_HANDLE
+        assert not [call for call in guilds.calls if call[0] == "assign_member"]
         assert not [call for call in guilds.calls if call[0] == "set_facilitator_guild"]
 
 

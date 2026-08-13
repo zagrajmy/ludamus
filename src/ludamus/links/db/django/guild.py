@@ -240,9 +240,13 @@ class GuildRepository(GuildRepositoryProtocol):
     ) -> list[AssignableFacilitatorRef]:
         if not (name := name.strip()):
             return []
-        rows = Facilitator.objects.filter(
-            event__sphere_id=sphere_id, display_name__iexact=name
-        ).values_list("pk", "user_id", "guild_id")[:2]
+        rows = (
+            Facilitator.objects.filter(
+                event__sphere_id=sphere_id, display_name__iexact=name
+            )
+            .order_by("pk")
+            .values_list("pk", "user_id", "guild_id")
+        )
         return [
             AssignableFacilitatorRef(pk=pk, user_id=user_id, guild_id=guild_id)
             for pk, user_id, guild_id in rows

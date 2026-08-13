@@ -91,7 +91,13 @@ test.describe("Guilds", () => {
     await expect(page.getByText("Guild created.")).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: GUILD });
-    await row.getByText(GUILD, { exact: true }).click();
+    const nameCell = row.locator("td").first();
+    await expect(nameCell).toContainText(GUILD);
+    const box = await nameCell.boundingBox();
+    if (box === null) {
+      throw new Error("guild row has no box");
+    }
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 
     await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/\d+\/edit\//);
     await expect(page.getByLabel("Guild name")).toHaveValue(GUILD);
@@ -110,6 +116,11 @@ test.describe("Guilds", () => {
       .click();
 
     await expect(page.getByText("Nobody in this guild yet.")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Imported presenters have no account — pick them by the name on the programme.",
+      ),
+    ).toBeVisible();
     await page.getByLabel("Name, email or Discord username").fill(PRESENTER_EMAIL);
     await page.getByRole("button", { name: "Add presenter" }).click();
 

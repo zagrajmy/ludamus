@@ -94,15 +94,15 @@ class GuildService(GuildServiceProtocol):
             )
             if not found:
                 return AssignMemberOutcome.NO_SUCH_USER
-            if len(found) > 1:
+            user_ids = {row.user_id for row in found if row.user_id is not None}
+            if len(user_ids) > 1:
                 return AssignMemberOutcome.AMBIGUOUS_HANDLE
-            row = found[0]
-            if row.user_id is not None:
+            if len(user_ids) == 1:
                 return self._place_user(
-                    sphere_id=sphere_id, guild_pk=guild_pk, user_pk=row.user_id
+                    sphere_id=sphere_id, guild_pk=guild_pk, user_pk=next(iter(user_ids))
                 )
-            return self._place_facilitator(
-                sphere_id=sphere_id, guild_pk=guild_pk, row=row
+            return self._place_accountless(
+                sphere_id=sphere_id, guild_pk=guild_pk, rows=found
             )
 
     def _place_user(
@@ -133,6 +133,21 @@ class GuildService(GuildServiceProtocol):
         if row.guild_id is not None:
             return AssignMemberOutcome.MOVED
         return AssignMemberOutcome.ASSIGNED
+
+    def _place_accountless(
+        self, *, sphere_id: int, guild_pk: int, rows: list[AssignableFacilitatorRef]
+    ) -> AssignMemberOutcome:
+        outcomes = [
+            self._place_facilitator(sphere_id=sphere_id, guild_pk=guild_pk, row=row)
+            for row in rows
+        ]
+        if AssignMemberOutcome.NO_SUCH_USER in outcomes:
+            return AssignMemberOutcome.NO_SUCH_USER
+        if AssignMemberOutcome.ASSIGNED in outcomes:
+            return AssignMemberOutcome.ASSIGNED
+        if AssignMemberOutcome.MOVED in outcomes:
+            return AssignMemberOutcome.MOVED
+        return AssignMemberOutcome.ALREADY_MEMBER
 
     def remove_member(
         self, *, sphere_id: int, guild_pk: int, membership_pk: int

@@ -235,6 +235,23 @@ class TestFindAssignableFacilitators:
             == []
         )
 
+    def test_returns_every_row_with_that_name_in_the_sphere(self, sphere):
+        first = EventFactory(sphere=sphere)
+        second = EventFactory(sphere=sphere)
+        bea_first = Facilitator.objects.create(
+            event=first, display_name="Bea", slug="bea", user=None
+        )
+        bea_second = Facilitator.objects.create(
+            event=second, display_name="Bea", slug="bea", user=None
+        )
+
+        assert GuildRepository.find_assignable_facilitators(
+            sphere_id=sphere.pk, name="Bea"
+        ) == [
+            AssignableFacilitatorRef(pk=bea_first.pk, user_id=None, guild_id=None),
+            AssignableFacilitatorRef(pk=bea_second.pk, user_id=None, guild_id=None),
+        ]
+
 
 class TestAssignMember:
     def test_assigns_a_presenter(self, sphere):

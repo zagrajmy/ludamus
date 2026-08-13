@@ -19,6 +19,7 @@ const GUILD = "Kuźnia";
 const LINKED = "Dana Reyes";
 const UNLINKED = "Bob Chen";
 const FACILITATORS_URL = "/panel/event/frostfire-con/facilitators/";
+const UNLINKED_EDIT_URL = "/panel/event/frostfire-con/facilitators/bob-chen/edit/";
 
 const signInAsManager = async (page: Page): Promise<void> => {
   await page.goto("/admin/login/");
@@ -138,6 +139,46 @@ test.describe("Facilitator guild marks", () => {
     await expect(page.getByRole("heading", { name: LINKED })).toBeVisible();
     await page.getByRole("link", { name: GUILD }).click();
     await expect(page.getByLabel("Guild name")).toHaveValue(GUILD);
+  });
+
+  test("a manager adds an imported presenter by the name on the programme", async ({ page }) => {
+    await createGuild(page);
+    await guildRow(page).getByRole("link", { name: "Edit" }).click();
+
+    await expect(
+      page.getByText(
+        "Imported presenters have no account — pick them by the name on the programme.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.locator("#guild-presenter-suggestions").locator("option[value='Bob Chen']"),
+    ).toHaveCount(1);
+
+    await page.getByLabel("Name, email or Discord username").fill(UNLINKED);
+    await page.getByRole("button", { name: "Add presenter" }).click();
+
+    await expect(page.getByText("Presenter added.")).toBeVisible();
+    const roster = page.getByRole("listitem").filter({ hasText: UNLINKED });
+    await expect(roster.first()).toBeVisible();
+    await page.reload();
+    await expect(roster.first()).toBeVisible();
+  });
+
+  test("a manager attaches a guild from the facilitator edit page", async ({ page }) => {
+    await createGuild(page);
+    await page.goto(UNLINKED_EDIT_URL);
+
+    const plus = page.getByRole("button", { name: `Attach ${UNLINKED} to a guild` });
+    await expect(plus).toBeVisible();
+    await expect(plus).toHaveCSS("opacity", "1");
+    await plus.click();
+    await page.getByRole("button", { name: GUILD }).click();
+
+    await expect(page.getByText("Attached to this guild.")).toBeVisible();
+    await expect(page.getByRole("link", { name: GUILD })).toBeVisible();
+    await expect(plus).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("link", { name: GUILD })).toBeVisible();
   });
 
   test("a facilitator with no guild reads as one on her detail page", async ({ page }) => {
