@@ -95,7 +95,7 @@ run = "djlint src --quiet --lint --check --format-css --format-js --profile=djan
 run = "python scripts/impeccable_lint.py"
 
 [tasks."lint:hk"]
-description = "Run every hk linter on all files (file hygiene, shell, yaml, docker, md)"
+description = "Run every hk linter on all files (incl. djlint, oxfmt, oxlint via aube)"
 run = "hk check --all"
 
 [tasks.lint]
@@ -104,7 +104,6 @@ depends = [
     { task = "lint:py" },
     { task = "lint:hk" },
     { task = "lint:ast-grep" },
-    { task = "lint:djlint" },
     { task = "lint:impeccable" },
 ]
 
@@ -267,11 +266,11 @@ description = "Pull Request Formatting and Readiness Check"
 run = [
     "mise install",
     "poetry install",
+    "aube install --no-optional",
     { task = "format" },
     { task = "messages" },
     { task = "lint" },
     { task = "messages-check" },
-    "aube install --no-optional",
     "aube exec varlock scan",
     { task = "lint-client" },
     { task = "ts-check:ios" },
