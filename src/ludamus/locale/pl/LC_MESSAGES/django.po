@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 06:20+0200\n"
+"POT-Creation-Date: 2026-08-13 07:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1091,6 +1091,7 @@ msgstr "Kolumny zaktualizowane."
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_edit.py
 msgid "Facilitator not found."
 msgstr "Twórca programu nie został znaleziony."
 
@@ -1248,10 +1249,6 @@ msgstr "Twórcy programu"
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
 msgstr "Twórca programu został utworzony."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Facilitator updated successfully."
-msgstr "Twórca programu został zaktualizowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
@@ -2402,6 +2399,10 @@ msgstr "Wybierz gildię."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild not found."
 msgstr "Nie znaleziono gildii."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_edit.py
+msgid "Facilitator updated successfully."
+msgstr "Twórca programu został zaktualizowany."
 
 #: src/ludamus/gates/web/django/event/panel/views/proposal_category_settings.py
 msgid "Category updated successfully."
