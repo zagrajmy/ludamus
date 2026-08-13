@@ -4,13 +4,13 @@
     row link the first column wraps, because any column can be first and a form
     inside an anchor is both invalid and unclickable.
 {% endcomment %}
-{% if column.kind == "guild" and not facilitator.guild %}
+{% if show_attach|default:False or column.kind == "guild" and not facilitator.guild %}
     <span class="relative inline-block align-middle" data-menu>
         {% blocktranslate asvar t_attach with name=facilitator.display_name %}Attach {{ name }} to a guild{% endblocktranslate %}
         {# Lit while its own menu is open, so the pointer can leave the row. #}
         <button type="button"
                 data-menu-button
-                class="icon-btn opacity-0 transition group-hover/row:opacity-100 focus:opacity-100 aria-expanded:opacity-100"
+                class="icon-btn{% if not always_visible|default:False %} opacity-0 transition group-hover/row:opacity-100 focus:opacity-100 aria-expanded:opacity-100{% endif %}"
                 aria-haspopup="true"
                 aria-expanded="false"
                 aria-label="{{ t_attach }}">{% icon "plus" class="w-4 h-4" %}</button>

@@ -18,7 +18,7 @@ A row with a user cannot also carry the FK.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, NamedTuple, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -114,6 +114,12 @@ class GuildMarkDTO(BaseModel):
     logo_url: str = ""
 
 
+class AssignableFacilitatorRef(NamedTuple):
+    pk: int
+    user_id: int | None
+    guild_id: int | None
+
+
 class GuildRepositoryProtocol(Protocol):
     @staticmethod
     def list_for_sphere(*, sphere_id: int) -> list[GuildSummaryDTO]: ...
@@ -128,7 +134,13 @@ class GuildRepositoryProtocol(Protocol):
     @staticmethod
     def delete(*, sphere_id: int, guild_pk: int) -> bool: ...
     @staticmethod
+    def list_facilitator_names(*, sphere_id: int) -> list[str]: ...
+    @staticmethod
     def find_assignable_users(*, identifier: str) -> list[int]: ...
+    @staticmethod
+    def find_assignable_facilitators(
+        *, sphere_id: int, name: str
+    ) -> list[AssignableFacilitatorRef]: ...
     @staticmethod
     def read_member_guild(
         *, sphere_id: int, user_pk: int
@@ -165,6 +177,7 @@ class GuildServiceProtocol(Protocol):
         self, *, sphere_id: int, guild_pk: int, data: GuildWriteData
     ) -> bool: ...
     def delete(self, *, sphere_id: int, guild_pk: int) -> DeleteGuildOutcome: ...
+    def list_facilitator_names(self, *, sphere_id: int) -> list[str]: ...
     def assign_member(
         self, *, sphere_id: int, guild_pk: int, identifier: str
     ) -> AssignMemberOutcome: ...

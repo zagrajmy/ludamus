@@ -295,7 +295,7 @@ the sphere.{% endcomment %}
                             {% block page_title_adornment %}
                             {% endblock page_title_adornment %}
                         </div>
-                        <p class="text-foreground-muted text-sm lg:text-base truncate">
+                        <p class="mt-1 text-foreground-muted text-sm lg:text-base truncate text-box-trim-start">
                             {% block page_subtitle %}
                                 {% if current_event %}{{ current_event.name }}{% endif %}
                             {% endblock page_subtitle %}
@@ -336,7 +336,7 @@ the sphere.{% endcomment %}
             panel chrome, so its own border would double the chrome's edge.
             Pages that inset their shell — inside a `p-3 sm:p-4` wrapper,
             say — keep it.{% endcomment %}
-            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:border-0">
+            <div class="relative z-0 flex min-h-0 flex-1 flex-col [&>.tab-shell]:border-0{% block content_shell_class %}{% endblock %}">
                 {% block content %}
                 {% endblock content %}
             </div>

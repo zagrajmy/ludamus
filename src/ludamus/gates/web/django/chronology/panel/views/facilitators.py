@@ -69,7 +69,13 @@ if TYPE_CHECKING:
     from django import forms
     from django.http import HttpResponse, QueryDict
 
-    from ludamus.pacts import FieldDescriptor, FieldValue, OrganizerFieldDTO
+    from ludamus.pacts import (
+        EventDTO,
+        FacilitatorDTO,
+        FieldDescriptor,
+        FieldValue,
+        OrganizerFieldDTO,
+    )
 
 
 # A tampered `?organizer=` value falls back to "all", so the toolbar never
@@ -369,6 +375,18 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
+    def _guild_attach_context(
+        self, *, current_event: EventDTO, facilitator: FacilitatorDTO
+    ) -> dict[str, object]:
+        guilds = self.request.services.guilds
+        sphere_id = current_event.sphere_id
+        return {
+            "guild": guilds.mark_for_facilitator(
+                sphere_id=sphere_id, facilitator_pk=facilitator.pk
+            ),
+            "guild_options": guilds.list_for_sphere(sphere_id=sphere_id),
+        }
+
     def get(
         self, _request: PanelRequest, slug: str, facilitator_slug: str
     ) -> HttpResponse:
@@ -394,6 +412,11 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             }
         )
         context["field_descriptors"] = _stored_descriptors(detail.personal_data_items)
+        context.update(
+            self._guild_attach_context(
+                current_event=current_event, facilitator=facilitator
+            )
+        )
         return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
 
     def post(
@@ -425,6 +448,11 @@ class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
             context["form"] = form
             context["field_descriptors"] = _personal_descriptors(
                 all_personal_fields, fields_form
+            )
+            context.update(
+                self._guild_attach_context(
+                    current_event=current_event, facilitator=facilitator
+                )
             )
             return TemplateResponse(
                 self.request, "panel/facilitator-edit.html", context

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 04:17+0200\n"
+"POT-Creation-Date: 2026-08-13 06:20+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1026,8 +1026,10 @@ msgid "None"
 msgstr "Brak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
 msgid "Guild"
 msgstr "Gildia"
 
@@ -1984,13 +1986,11 @@ msgid "Party name"
 msgstr "Nazwa drużyny"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/gates/web/django/sphere/forms.py
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Email or Discord username"
 msgstr "Adres email lub nazwa użytkownika Discord"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/gates/web/django/sphere/forms.py
 msgid ""
 "Their account email, or the Discord username they signed up with. They need "
 "a Zagrajmy account."
@@ -3087,6 +3087,16 @@ msgstr ""
 "kolor, bez napisów — renderuje się nawet w 14 px. Maks. 8 MB. SVG, PNG, "
 "WebP, JPG lub AVIF."
 
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Name, email or Discord username"
+msgstr "Imię, adres e-mail lub nazwa użytkownika Discord"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid ""
+"Imported presenters have no account — pick them by the name on the programme."
+msgstr ""
+"Zaimportowani prowadzący nie mają konta — wybierz ich po imieniu z programu."
+
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
 msgstr "Gildia utworzona."
@@ -3112,17 +3122,21 @@ msgid "That presenter is already in this guild."
 msgstr "Ten prowadzący już należy do tej gildii."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "No account matches that email or Discord username."
+msgid "No presenter matches that name, email or Discord username."
 msgstr ""
-"Żadne konto nie pasuje do tego adresu e-mail ani nazwy użytkownika Discord."
+"Żaden prowadzący nie pasuje do tego imienia, adresu e-mail ani nazwy "
+"użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "More than one account matches. Use the exact email address."
-msgstr "Pasuje więcej niż jedno konto. Podaj dokładny adres e-mail."
+msgid ""
+"More than one presenter matches. Use the exact email if they have an account."
+msgstr ""
+"Pasuje więcej niż jeden prowadzący. Podaj dokładny adres e-mail, jeśli mają "
+"konto."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "Give an email or Discord username."
-msgstr "Podaj adres e-mail lub nazwę użytkownika Discord."
+msgid "Give a name, email or Discord username."
+msgstr "Podaj imię, adres e-mail lub nazwę użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Presenter removed."
@@ -4416,6 +4430,7 @@ msgid "Connection:"
 msgstr "Połączenie:"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
+#: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
@@ -5325,6 +5340,7 @@ msgstr ""
 "swój profil."
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
@@ -5590,6 +5606,37 @@ msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
 
 #: src/ludamus/templates/design.html
+msgid ""
+"A hoverable row's background follows the default action — Edit or Details. "
+"Mark that link with data-row-action. Delete and other controls stay their "
+"own targets."
+msgstr ""
+"Kliknięcie tła wiersza otwiera Edycję lub Szczegóły. Oznacz ten link "
+"atrybutem data-row-action. Usuń i pozostałe kontrolki działają osobno."
+
+#: src/ludamus/templates/design.html
+msgid "Example guilds"
+msgstr "Przykładowe gildie"
+
+#: src/ludamus/templates/design.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Actions"
+msgstr "Akcje"
+
+#: src/ludamus/templates/design.html
 msgid "Saved successfully."
 msgstr "Zapisano pomyślnie."
 
@@ -5735,23 +5782,6 @@ msgstr "Edytuj ogłoszenie"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Organization announcements for this sphere"
 msgstr "Ogłoszenia organizacji dla tej sfery"
-
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/multiverse/panel/connections/list.html
-#: src/ludamus/templates/multiverse/panel/guilds/list.html
-#: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/enrollment-settings.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/parts/_change-log-table.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/tracks.html
-msgid "Actions"
-msgstr "Akcje"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Draft"

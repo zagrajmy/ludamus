@@ -223,6 +223,7 @@ class TestGuildEditPageView:
                 "roster": [],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": [],
             },
         )
 
@@ -279,6 +280,7 @@ class TestGuildEditPageView:
                 ],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": [],
             },
         )
 
@@ -333,6 +335,7 @@ class TestGuildEditPageView:
                 ],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": ["Bea"],
             },
         )
 
@@ -358,6 +361,7 @@ class TestGuildEditPageView:
                 "roster": [],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": [],
             },
         )
 
@@ -545,8 +549,32 @@ class TestGuildMemberAddActionView:
             HTTPStatus.FOUND,
             url=_edit_url(guild),
             messages=[
-                (messages.ERROR, "No account matches that email or Discord username.")
+                (
+                    messages.ERROR,
+                    "No presenter matches that name, email or Discord username.",
+                )
             ],
+        )
+
+    def test_post_adds_an_accountless_presenter_by_name(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None
+        )
+
+        response = authenticated_client.post(self._url(guild), {"identifier": "Bea"})
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id == guild.pk
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.SUCCESS, "Presenter added.")],
         )
 
     def test_post_refuses_a_guild_from_another_sphere(
@@ -704,7 +732,10 @@ class TestGuildMemberAddOutcomes:
             messages=[
                 (
                     messages.ERROR,
-                    "More than one account matches. Use the exact email address.",
+                    (
+                        "More than one presenter matches. Use the exact email "
+                        "if they have an account."
+                    ),
                 )
             ],
         )
@@ -721,5 +752,5 @@ class TestGuildMemberAddOutcomes:
             response,
             HTTPStatus.FOUND,
             url=_edit_url(guild),
-            messages=[(messages.ERROR, "Give an email or Discord username.")],
+            messages=[(messages.ERROR, "Give a name, email or Discord username.")],
         )

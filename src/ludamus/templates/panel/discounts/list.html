@@ -70,7 +70,7 @@
                                 {% if row.discount %}
                                     {% url 'panel:discount-edit' slug=current_event.slug pk=row.discount.pk as edit_url %}
                                     {% translate "Edit" as t_edit %}
-                                    {% tessera_button t_edit href=edit_url variant="secondary" size="sm" icon="pencil-square" full_width_mobile=False %}
+                                    {% tessera_button t_edit href=edit_url variant="secondary" size="sm" icon="pencil-square" full_width_mobile=False data_row_action=True %}
                                     <form method="post"
                                           action="{% url 'panel:discount-delete' slug=current_event.slug pk=row.discount.pk %}"
                                           class="inline"
@@ -83,7 +83,7 @@
                                     {% translate "Assign" as t_assign %}
                                     {% with facilitator_pk=row.facilitator.pk|stringformat:"s" %}
                                         {% with assign_href="?assign="|add:facilitator_pk modal_id="discount-assign-modal-"|add:facilitator_pk %}
-                                            {% tessera_button t_assign href=assign_href variant="secondary" size="sm" icon="plus" full_width_mobile=False aria_controls=modal_id aria_haspopup="dialog" %}
+                                            {% tessera_button t_assign href=assign_href variant="secondary" size="sm" icon="plus" full_width_mobile=False aria_controls=modal_id aria_haspopup="dialog" data_row_action=True %}
                                         {% endwith %}
                                     {% endwith %}
                                 {% endif %}

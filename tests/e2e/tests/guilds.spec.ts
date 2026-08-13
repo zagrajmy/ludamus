@@ -84,6 +84,19 @@ test.describe("Guilds", () => {
     await expect(row.locator("img")).toHaveJSProperty("naturalWidth", 1);
   });
 
+  test("clicking a hoverable row opens Edit", async ({ page }) => {
+    await page.goto("/multiverse/panel/guilds/create/");
+    await page.getByLabel("Guild name").fill(GUILD);
+    await page.getByRole("button", { name: "Create guild" }).click();
+    await expect(page.getByText("Guild created.")).toBeVisible();
+
+    const row = page.getByRole("row").filter({ hasText: GUILD });
+    await row.getByText(GUILD, { exact: true }).click();
+
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/\d+\/edit\//);
+    await expect(page.getByLabel("Guild name")).toHaveValue(GUILD);
+  });
+
   test("a manager adds a presenter and can take them out again", async ({ page }) => {
     await page.goto("/multiverse/panel/guilds/create/");
     await page.getByLabel("Guild name").fill(GUILD);
@@ -97,7 +110,7 @@ test.describe("Guilds", () => {
       .click();
 
     await expect(page.getByText("Nobody in this guild yet.")).toBeVisible();
-    await page.getByLabel("Email or Discord username").fill(PRESENTER_EMAIL);
+    await page.getByLabel("Name, email or Discord username").fill(PRESENTER_EMAIL);
     await page.getByRole("button", { name: "Add presenter" }).click();
 
     await expect(page.getByText("Presenter added.")).toBeVisible();
@@ -122,11 +135,11 @@ test.describe("Guilds", () => {
       })
       .click();
 
-    await page.getByLabel("Email or Discord username").fill("nobody@example.com");
+    await page.getByLabel("Name, email or Discord username").fill("nobody@example.com");
     await page.getByRole("button", { name: "Add presenter" }).click();
 
     await expect(
-      page.getByText("No account matches that email or Discord username."),
+      page.getByText("No presenter matches that name, email or Discord username."),
     ).toBeVisible();
     await expect(page.getByText("Nobody in this guild yet.")).toBeVisible();
   });

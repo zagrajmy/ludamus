@@ -17,10 +17,13 @@ class GuildForm(forms.Form):
 
 class GuildMemberForm(forms.Form):
     identifier = forms.CharField(
-        label=_("Email or Discord username"),
+        label=_("Name, email or Discord username"),
         help_text=_(
-            "Their account email, or the Discord username they signed up with. "
-            "They need a Zagrajmy account."
+            "Imported presenters have no account — pick them by the name on the "
+            "programme."
+        ),
+        widget=forms.TextInput(
+            attrs={"list": "guild-presenter-suggestions", "autocomplete": "off"}
         ),
     )
 

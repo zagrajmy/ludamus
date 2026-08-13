@@ -172,6 +172,7 @@
                                                         title="{{ value }}">
                                                         {% if forloop.first %}
                                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                               data-row-action
                                                                aria-label="{{ facilitator.display_name }}"
                                                                class="text-primary hover:text-primary/80">
                                                                 {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:50 %}

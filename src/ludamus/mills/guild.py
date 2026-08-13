@@ -20,6 +20,7 @@ from ludamus.pacts.guild import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.guild import (
+        AssignableFacilitatorRef,
         GuildDTO,
         GuildMarkDTO,
         GuildRepositoryProtocol,
@@ -74,30 +75,64 @@ class GuildService(GuildServiceProtocol):
                 return DeleteGuildOutcome.NOT_FOUND
             return DeleteGuildOutcome.DELETED
 
+    def list_facilitator_names(self, *, sphere_id: int) -> list[str]:
+        return self._guilds.list_facilitator_names(sphere_id=sphere_id)
+
     def assign_member(
         self, *, sphere_id: int, guild_pk: int, identifier: str
     ) -> AssignMemberOutcome:
         with self._transaction.atomic():
             matches = self._guilds.find_assignable_users(identifier=identifier)
-            if not matches:
-                return AssignMemberOutcome.NO_SUCH_USER
             if len(matches) > 1:
                 return AssignMemberOutcome.AMBIGUOUS_HANDLE
-            user_pk = matches[0]
-            # Read the presenter's current guild before writing, so the view can
-            # say "moved from X" instead of silently reassigning them.
-            current = self._guilds.read_member_guild(
-                sphere_id=sphere_id, user_pk=user_pk
+            if len(matches) == 1:
+                return self._place_user(
+                    sphere_id=sphere_id, guild_pk=guild_pk, user_pk=matches[0]
+                )
+            found = self._guilds.find_assignable_facilitators(
+                sphere_id=sphere_id, name=identifier
             )
-            if current is not None and current.pk == guild_pk:
-                return AssignMemberOutcome.ALREADY_MEMBER
-            if not self._guilds.assign_member(
-                sphere_id=sphere_id, guild_pk=guild_pk, user_pk=user_pk
-            ):
+            if not found:
                 return AssignMemberOutcome.NO_SUCH_USER
-            if current is not None:
-                return AssignMemberOutcome.MOVED
-            return AssignMemberOutcome.ASSIGNED
+            if len(found) > 1:
+                return AssignMemberOutcome.AMBIGUOUS_HANDLE
+            row = found[0]
+            if row.user_id is not None:
+                return self._place_user(
+                    sphere_id=sphere_id, guild_pk=guild_pk, user_pk=row.user_id
+                )
+            return self._place_facilitator(
+                sphere_id=sphere_id, guild_pk=guild_pk, row=row
+            )
+
+    def _place_user(
+        self, *, sphere_id: int, guild_pk: int, user_pk: int
+    ) -> AssignMemberOutcome:
+        # Read the presenter's current guild before writing, so the view can
+        # say "moved from X" instead of silently reassigning them.
+        current = self._guilds.read_member_guild(sphere_id=sphere_id, user_pk=user_pk)
+        if current is not None and current.pk == guild_pk:
+            return AssignMemberOutcome.ALREADY_MEMBER
+        if not self._guilds.assign_member(
+            sphere_id=sphere_id, guild_pk=guild_pk, user_pk=user_pk
+        ):
+            return AssignMemberOutcome.NO_SUCH_USER
+        if current is not None:
+            return AssignMemberOutcome.MOVED
+        return AssignMemberOutcome.ASSIGNED
+
+    def _place_facilitator(
+        self, *, sphere_id: int, guild_pk: int, row: AssignableFacilitatorRef
+    ) -> AssignMemberOutcome:
+        if row.guild_id == guild_pk:
+            return AssignMemberOutcome.ALREADY_MEMBER
+        if not self._guilds.set_facilitator_guild(
+            sphere_id=sphere_id, facilitator_pk=row.pk, guild_pk=guild_pk
+        ):
+            return AssignMemberOutcome.NO_SUCH_USER
+        if row.guild_id is not None:
+            return AssignMemberOutcome.MOVED
+        return AssignMemberOutcome.ASSIGNED
 
     def remove_member(
         self, *, sphere_id: int, guild_pk: int, membership_pk: int
