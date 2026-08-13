@@ -231,9 +231,7 @@ class ParticipationPromotionRepository:
     ) -> tuple[dict[str, int], dict[str, int]]:
         emails = {email for email in owner_emails if email}
         domains = {email.split("@")[1] for email in emails if "@" in email}
-        configs = event.get_active_enrollment_configs() or list(
-            event.enrollment_configs.all()
-        )
+        configs = event.get_allowance_enrollment_configs()
         user_allowed: dict[str, int] = {}
         user_rows = UserEnrollmentConfig.objects.filter(
             enrollment_config__in=configs, user_email__in=emails

@@ -486,6 +486,18 @@ class Event(models.Model):
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
 
+    def get_allowance_enrollment_configs(self) -> list[EnrollmentConfig]:
+        if active := self.get_active_enrollment_configs():
+            return active
+        now = datetime.now(tz=UTC)
+        ended = [
+            config for config in self.enrollment_configs.all() if config.end_time <= now
+        ]
+        if not ended:
+            return []
+        latest = max(ended, key=lambda config: (config.end_time, config.pk))
+        return [latest]
+
     def get_eligible_enrollment_configs(
         self, session: Session
     ) -> list[EnrollmentConfig]:

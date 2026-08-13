@@ -124,3 +124,36 @@ class TestPromotionAfterEnrollmentCloses:
         assert not result.promoted
         participation.refresh_from_db()
         assert participation.status == SessionParticipationStatus.WAITING.value
+
+    def test_later_closed_window_rules_override_earlier_ones(
+        self, session, event, waiter
+    ):
+        now = datetime.now(UTC)
+        early = EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=20),
+            end_time=now - timedelta(days=10),
+            percentage_slots=100,
+        )
+        DomainEnrollmentConfig.objects.create(
+            enrollment_config=early,
+            domain=waiter.email.split("@")[1],
+            allowed_slots_per_user=0,
+        )
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=9),
+            end_time=now - timedelta(days=1),
+            percentage_slots=100,
+        )
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        participation.refresh_from_db()
+        assert result.promoted == [participation.pk]
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
