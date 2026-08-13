@@ -11,6 +11,7 @@ reads and participation mutations.
 from __future__ import annotations
 
 import logging
+import sys
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -141,12 +142,6 @@ class ParticipationPromotionRepository:
             return None
         event = session.event
 
-        if (config := event.get_most_liberal_config(session)) is None:
-            logger.info(
-                "Session %s sits outside every active enrollment window", session_id
-            )
-            return None
-
         category = session.category
         mode = (
             PromotionMode(category.promotion_mode)
@@ -219,10 +214,16 @@ class ParticipationPromotionRepository:
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
-            available_seats=config.get_available_slots(session),
+            available_seats=self._available_seats(session),
             waiting=waiting,
             shadowbanned_user_ids=shadowbanned_user_ids,
         )
+
+    @staticmethod
+    def _available_seats(session: Session) -> int:
+        if session.participants_limit == 0:
+            return sys.maxsize
+        return max(0, session.effective_participants_limit - session.enrolled_count)
 
     @staticmethod
     def _config_allowances(
@@ -230,7 +231,9 @@ class ParticipationPromotionRepository:
     ) -> tuple[dict[str, int], dict[str, int]]:
         emails = {email for email in owner_emails if email}
         domains = {email.split("@")[1] for email in emails if "@" in email}
-        configs = event.get_active_enrollment_configs()
+        configs = event.get_active_enrollment_configs() or list(
+            event.enrollment_configs.all()
+        )
         user_allowed: dict[str, int] = {}
         user_rows = UserEnrollmentConfig.objects.filter(
             enrollment_config__in=configs, user_email__in=emails

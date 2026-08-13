@@ -1,9 +1,12 @@
 import logging
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
+    DomainEnrollmentConfig,
+    EnrollmentConfig,
     SessionParticipation,
     SessionParticipationStatus,
 )
@@ -47,14 +50,6 @@ class TestSilentSkipsAreLogged:
         assert "not on the timetable yet" in caplog.text
 
     @pytest.mark.usefixtures("agenda_item")
-    def test_session_outside_every_window_says_so(self, session, caplog):
-        with caplog.at_level(logging.INFO):
-            result = _service().fill_freed_seats(session_id=session.pk)
-
-        assert not result.promoted
-        assert "outside every active enrollment window" in caplog.text
-
-    @pytest.mark.usefixtures("enrollment_config", "agenda_item")
     def test_full_session_reports_seats_and_waiters(self, session, waiter, caplog):
         session.participants_limit = 1
         session.save()
@@ -66,3 +61,66 @@ class TestSilentSkipsAreLogged:
             _service().fill_freed_seats(session_id=session.pk)
 
         assert "0 seats free, 0 waiting" in caplog.text
+
+
+@pytest.mark.usefixtures("agenda_item")
+class TestPromotionAfterEnrollmentCloses:
+    def test_promotes_with_no_enrollment_window(self, session, waiter):
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        participation.refresh_from_db()
+        assert result.promoted == [participation.pk]
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
+
+    def test_promotes_after_window_ends(self, session, event, waiter):
+        now = datetime.now(UTC)
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=10),
+            end_time=now - timedelta(days=1),
+            percentage_slots=100,
+        )
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        participation.refresh_from_db()
+        assert result.promoted == [participation.pk]
+        assert participation.status == SessionParticipationStatus.CONFIRMED.value
+
+    def test_closed_window_still_respects_ticket_allowance(
+        self, session, event, waiter
+    ):
+        now = datetime.now(UTC)
+        closed = EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=10),
+            end_time=now - timedelta(days=1),
+            percentage_slots=100,
+        )
+        DomainEnrollmentConfig.objects.create(
+            enrollment_config=closed,
+            domain=waiter.email.split("@")[1],
+            allowed_slots_per_user=0,
+        )
+        session.participants_limit = 1
+        session.save()
+        participation = SessionParticipation.objects.create(
+            session=session, user=waiter, status=SessionParticipationStatus.WAITING
+        )
+
+        result = _service().fill_freed_seats(session_id=session.pk)
+
+        assert not result.promoted
+        participation.refresh_from_db()
+        assert participation.status == SessionParticipationStatus.WAITING.value
