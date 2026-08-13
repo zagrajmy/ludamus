@@ -4,40 +4,37 @@
     row link the first column wraps, because any column can be first and a form
     inside an anchor is both invalid and unclickable.
 {% endcomment %}
-{% if show_attach|default:False or column.kind == "guild" and not facilitator.guild %}
-    <span class="relative inline-block align-middle" data-menu>
-        {% blocktranslate asvar t_attach with name=facilitator.display_name %}Attach {{ name }} to a guild{% endblocktranslate %}
-        {# Lit while its own menu is open, so the pointer can leave the row. #}
-        <button type="button"
-                data-menu-button
-                class="icon-btn{% if not always_visible|default:False %} opacity-0 transition group-hover/row:opacity-100 focus:opacity-100 aria-expanded:opacity-100{% endif %}"
-                aria-haspopup="true"
-                aria-expanded="false"
-                aria-label="{{ t_attach }}">{% icon "plus" class="w-4 h-4" %}</button>
-        <div data-menu-panel hidden class="absolute left-0 z-10 mt-2">
-            <div {% include "components/menu_surface.html" with extra_class="w-56 rounded-lg border border-border bg-bg-secondary py-1 shadow-lg" %}>
-                {% for option in guild_options %}
-                    <form method="post"
-                          action="{% url 'panel:facilitator-assign-guild' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="guild_pk" value="{{ option.pk }}">
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <button type="submit"
-                                class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                            {% include "components/guild_mark.html" with guild=option size="size-4" %}
-                            {{ option.name }}
-                        </button>
-                    </form>
-                {% empty %}
-                    <p class="px-4 py-2 text-sm text-foreground-muted">{% translate "This sphere has no guilds yet." %}</p>
-                {% endfor %}
-                <hr class="my-1 border-border">
-                <a href="{% url 'multiverse:panel:guild-create' %}"
-                   class="flex items-center gap-2 px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                    {% icon "plus" class="w-4 h-4" %}
-                    {% translate "New guild" %}
-                </a>
-            </div>
+<span class="relative inline-block align-middle" data-menu>
+    {% blocktranslate asvar t_attach with name=facilitator.display_name %}Attach {{ name }} to a guild{% endblocktranslate %}
+    <button type="button"
+            data-menu-button
+            class="icon-btn"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-label="{{ t_attach }}">{% icon "plus" class="w-4 h-4" %}</button>
+    <div data-menu-panel hidden class="absolute left-0 z-10 mt-2">
+        <div {% include "components/menu_surface.html" with extra_class="w-56 rounded-lg border border-border bg-bg-secondary py-1 shadow-lg" %}>
+            {% for option in guild_options %}
+                <form method="post"
+                      action="{% url 'panel:facilitator-assign-guild' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="guild_pk" value="{{ option.pk }}">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                        {% include "components/guild_mark.html" with guild=option size="size-4" %}
+                        {{ option.name }}
+                    </button>
+                </form>
+            {% empty %}
+                <p class="px-4 py-2 text-sm text-foreground-muted">{% translate "This sphere has no guilds yet." %}</p>
+            {% endfor %}
+            <hr class="my-1 border-border">
+            <a href="{% url 'multiverse:panel:guild-create' %}"
+               class="flex items-center gap-2 px-4 py-2 text-left text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                {% icon "plus" class="w-4 h-4" %}
+                {% translate "New guild" %}
+            </a>
         </div>
-    </span>
-{% endif %}
+    </div>
+</span>

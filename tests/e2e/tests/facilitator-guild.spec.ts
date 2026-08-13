@@ -96,17 +96,18 @@ test.describe("Facilitator guild marks", () => {
     // well be over the table — park it off the rows first.
     await page.mouse.move(0, 0);
     const plus = attachButton(page, LINKED);
+    const hoverReveal = plus.locator("xpath=../..");
 
-    await expect(plus).toHaveCSS("opacity", "0");
+    await expect(hoverReveal).toHaveCSS("opacity", "0");
 
     await facilitatorRow(page, LINKED).hover();
-    await expect(plus).toHaveCSS("opacity", "1");
+    await expect(hoverReveal).toHaveCSS("opacity", "1");
 
     // Keyboard users never hover, so focus has to reveal it too.
     await page.mouse.move(0, 0);
-    await expect(plus).toHaveCSS("opacity", "0");
+    await expect(hoverReveal).toHaveCSS("opacity", "0");
     await plus.focus();
-    await expect(plus).toHaveCSS("opacity", "1");
+    await expect(hoverReveal).toHaveCSS("opacity", "1");
   });
 
   test("a manager attaches a facilitator to a guild from the list", async ({ page }) => {
