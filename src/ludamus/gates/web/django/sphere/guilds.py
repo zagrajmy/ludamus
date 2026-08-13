@@ -140,6 +140,9 @@ class GuildEditPageView(SphereAccessMixin, View):
                 "roster": _roster(guild),
                 "form": form,
                 "member_form": GuildMemberForm(),
+                "presenter_names": self.request.services.guilds.list_facilitator_names(
+                    sphere_id=self.request.context.current_sphere_id
+                ),
             },
         )
 
@@ -182,10 +185,14 @@ _ASSIGN_MESSAGES = {
         messages.INFO, _("That presenter is already in this guild.")
     ),
     AssignMemberOutcome.NO_SUCH_USER: _Notice(
-        messages.ERROR, _("No account matches that email or Discord username.")
+        messages.ERROR, _("No presenter matches that name, email or Discord username.")
     ),
     AssignMemberOutcome.AMBIGUOUS_HANDLE: _Notice(
-        messages.ERROR, _("More than one account matches. Use the exact email address.")
+        messages.ERROR,
+        _(
+            "More than one presenter matches. Use the exact email if they "
+            "have an account."
+        ),
     ),
 }
 
@@ -209,7 +216,7 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
         _read_guild(self.request, pk)
         form = GuildMemberForm(self.request.POST)
         if not form.is_valid():
-            messages.error(self.request, _("Give an email or Discord username."))
+            messages.error(self.request, _("Give a name, email or Discord username."))
             return redirect(_add_member_return(self.request, pk))
 
         outcome = self.request.services.guilds.assign_member(

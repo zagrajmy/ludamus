@@ -422,6 +422,12 @@ class TestRenderInput:
         html = render_input(form["name"])
         assert 'placeholder="Enter name"' in html
 
+    def test_passes_datalist_id_from_list_attr(self) -> None:
+        form = SimpleForm()
+        form.fields["name"].widget.attrs["list"] = "guild-presenter-suggestions"
+        html = render_input(form["name"])
+        assert 'list="guild-presenter-suggestions"' in html
+
     def test_respects_explicit_input_type(self) -> None:
         form = SimpleForm()
         form.fields["name"].widget.attrs["type"] = "date"

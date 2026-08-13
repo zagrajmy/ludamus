@@ -27,6 +27,7 @@ from ludamus.links.db.django.repositories.storage import (
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.guild import (
+    AssignableFacilitatorRef,
     GuildDTO,
     GuildFacilitatorMemberDTO,
     GuildMarkDTO,
@@ -222,6 +223,34 @@ class GuildRepository(GuildRepositoryProtocol):
     def delete(*, sphere_id: int, guild_pk: int) -> bool:
         deleted, __ = Guild.objects.filter(pk=guild_pk, sphere_id=sphere_id).delete()
         return bool(deleted)
+
+    @staticmethod
+    def list_facilitator_names(*, sphere_id: int) -> list[str]:
+        return list(
+            Facilitator.objects.filter(event__sphere_id=sphere_id)
+            .exclude(display_name="")
+            .order_by("display_name")
+            .values_list("display_name", flat=True)
+            .distinct()
+        )
+
+    @staticmethod
+    def find_assignable_facilitators(
+        *, sphere_id: int, name: str
+    ) -> list[AssignableFacilitatorRef]:
+        if not (name := name.strip()):
+            return []
+        rows = (
+            Facilitator.objects.filter(
+                event__sphere_id=sphere_id, display_name__iexact=name
+            )
+            .order_by("pk")
+            .values_list("pk", "user_id", "guild_id")
+        )
+        return [
+            AssignableFacilitatorRef(pk=pk, user_id=user_id, guild_id=guild_id)
+            for pk, user_id, guild_id in rows
+        ]
 
     @staticmethod
     def find_assignable_users(*, identifier: str) -> list[int]:

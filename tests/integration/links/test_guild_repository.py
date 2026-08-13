@@ -3,7 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ludamus.links.db.django.guild import GuildRepository, marks_for_users
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
-from ludamus.pacts.guild import GuildMarkDTO, GuildMemberKind
+from ludamus.pacts.guild import AssignableFacilitatorRef, GuildMarkDTO, GuildMemberKind
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,
@@ -184,6 +184,73 @@ class TestFindAssignableUsers:
 
     def test_returns_empty_for_a_blank_handle(self):
         assert GuildRepository.find_assignable_users(identifier="   ") == []
+
+
+class TestListFacilitatorNames:
+    def test_lists_distinct_names_in_the_sphere(self, sphere, other_sphere):
+        event = EventFactory(sphere=sphere)
+        Facilitator.objects.create(event=event, display_name="Bea", slug="bea")
+        Facilitator.objects.create(event=event, display_name="Ann", slug="ann")
+        Facilitator.objects.create(event=event, display_name="Bea", slug="bea-2")
+        Facilitator.objects.create(event=event, display_name="", slug="blank")
+        foreign = EventFactory(sphere=other_sphere)
+        Facilitator.objects.create(event=foreign, display_name="Zoe", slug="zoe")
+
+        assert GuildRepository.list_facilitator_names(sphere_id=sphere.pk) == [
+            "Ann",
+            "Bea",
+        ]
+
+
+class TestFindAssignableFacilitators:
+    def test_matches_display_name_case_insensitively(self, sphere):
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None
+        )
+
+        assert GuildRepository.find_assignable_facilitators(
+            sphere_id=sphere.pk, name="bea"
+        ) == [AssignableFacilitatorRef(pk=facilitator.pk, user_id=None, guild_id=None)]
+
+    def test_ignores_a_facilitator_in_another_sphere(self, sphere, other_sphere):
+        event = EventFactory(sphere=other_sphere)
+        Facilitator.objects.create(event=event, display_name="Bea", slug="bea")
+
+        assert (
+            GuildRepository.find_assignable_facilitators(
+                sphere_id=sphere.pk, name="Bea"
+            )
+            == []
+        )
+
+    def test_returns_empty_for_a_blank_name(self, sphere):
+        event = EventFactory(sphere=sphere)
+        Facilitator.objects.create(event=event, display_name="Bea", slug="bea")
+
+        assert (
+            GuildRepository.find_assignable_facilitators(
+                sphere_id=sphere.pk, name="   "
+            )
+            == []
+        )
+
+    def test_returns_every_row_with_that_name_in_the_sphere(self, sphere):
+        first = EventFactory(sphere=sphere)
+        second = EventFactory(sphere=sphere)
+        bea_first = Facilitator.objects.create(
+            event=first, display_name="Bea", slug="bea", user=None
+        )
+        bea_second = Facilitator.objects.create(
+            event=second, display_name="Bea", slug="bea", user=None
+        )
+
+        assert GuildRepository.find_assignable_facilitators(
+            sphere_id=sphere.pk, name="Bea"
+        ) == [
+            AssignableFacilitatorRef(pk=bea_first.pk, user_id=None, guild_id=None),
+            AssignableFacilitatorRef(pk=bea_second.pk, user_id=None, guild_id=None),
+        ]
 
 
 class TestAssignMember:

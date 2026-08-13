@@ -59,7 +59,7 @@
                         </thead>
                         <tbody class="bg-bg-secondary divide-y divide-border">
                             {% for entry in fields %}
-                                <tr>
+                                <tr class="hover:bg-bg-tertiary">
                                     <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
                                         {{ entry.field.name }}
                                         {% include "components/visibility-badge.html" with is_public=entry.field.is_public %}
@@ -99,6 +99,7 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <a href="{% url 'panel:personal-data-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
+                                           data-row-action
                                            class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
                                         <form method="post"
                                               action="{% url 'panel:personal-data-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"
