@@ -200,6 +200,31 @@ class TestFacilitatorDetailPageView:
             },
         )
 
+    def test_get_shows_the_guild_of_an_accountless_facilitator(
+        self, panel_client, event
+    ):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        facilitator = make_facilitator(event, guild=guild)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": GuildMarkDTO(pk=guild.pk, name="Topory"),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
+
     def test_get_shows_the_organizer(self, panel_client, event):
         organizer = UserFactory(name="Olga Organizer", email="olga@example.com")
         facilitator = make_facilitator(event, organizer=organizer)

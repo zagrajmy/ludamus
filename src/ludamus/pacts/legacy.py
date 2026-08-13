@@ -77,6 +77,7 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    guild_id: int | None = None
     ident: str = ""
     internal_comment: str = ""
     organizer_id: int | None = None
@@ -102,6 +103,7 @@ class FacilitatorData(TypedDict, total=False):
 class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
+    guild_id: int | None
     internal_comment: str
     organizer_id: int | None
     user_id: int | None

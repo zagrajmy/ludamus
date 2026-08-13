@@ -820,6 +820,13 @@ class Facilitator(models.Model):
         blank=True,
         related_name="facilitator_profiles",
     )
+    guild = models.ForeignKey(
+        Guild,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="facilitators",
+    )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
     # Import identity key (hash of the operator-chosen facilitator key columns).
@@ -860,6 +867,10 @@ class Facilitator(models.Model):
                 fields=("event", "ident"),
                 condition=~Q(ident=""),
                 name="facilitator_unique_ident_per_event",
+            ),
+            models.CheckConstraint(
+                condition=Q(guild__isnull=True) | Q(user__isnull=True),
+                name="facilitator_guild_only_when_accountless",
             ),
         )
 

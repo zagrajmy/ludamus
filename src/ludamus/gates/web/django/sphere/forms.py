@@ -23,3 +23,7 @@ class GuildMemberForm(forms.Form):
             "They need a Zagrajmy account."
         ),
     )
+
+
+class FacilitatorAssignGuildForm(forms.Form):
+    guild_pk = forms.IntegerField(min_value=1)

@@ -79,8 +79,16 @@ class FakeGuilds:
         self.calls.append(("remove_member", sphere_id, guild_pk, membership_pk))
         return True
 
-    def marks_for_users(self, *, sphere_id, user_pks):
-        self.calls.append(("marks_for_users", sphere_id, tuple(user_pks)))
+    def clear_facilitator(self, *, sphere_id, guild_pk, facilitator_pk):
+        self.calls.append(("clear_facilitator", sphere_id, guild_pk, facilitator_pk))
+        return True
+
+    def marks_for_facilitators(self, *, sphere_id, facilitator_pks):
+        self.calls.append(("marks_for_facilitators", sphere_id, tuple(facilitator_pks)))
+        return {MEMBER_PK: GuildMarkDTO(pk=GUILD_PK, name="Topory")}
+
+    def marks_for_sessions(self, *, sphere_id, session_pks):
+        self.calls.append(("marks_for_sessions", sphere_id, tuple(session_pks)))
         return {MEMBER_PK: GuildMarkDTO(pk=GUILD_PK, name="Topory")}
 
 
@@ -203,8 +211,6 @@ class TestAssignMember:
         assert not [call for call in guilds.calls if call[0] == "assign_member"]
 
     def test_reports_no_such_user_when_the_guild_is_foreign(self):
-        # The repository refuses a guild outside the sphere; the service must
-        # not translate that into a success.
         guilds = FakeGuilds(assigns=False)
 
         outcome = _service(guilds).assign_member(
@@ -214,26 +220,37 @@ class TestAssignMember:
         assert outcome == AssignMemberOutcome.NO_SUCH_USER
 
 
-class TestMarksForUsers:
-    def test_passes_through_to_the_repository(self):
+class TestMarksForSessions:
+    def test_unwraps_the_single_session(self):
         guilds = FakeGuilds()
 
-        marks = _service(guilds).marks_for_users(
-            sphere_id=SPHERE_PK, user_pks=[MEMBER_PK]
+        mark = _service(guilds).mark_for_session(
+            sphere_id=SPHERE_PK, session_pk=MEMBER_PK
         )
 
-        assert marks == {MEMBER_PK: GuildMarkDTO(pk=GUILD_PK, name="Topory")}
-        assert ("marks_for_users", SPHERE_PK, (MEMBER_PK,)) in guilds.calls
-
-    def test_mark_for_user_unwraps_the_single_presenter(self):
-        guilds = FakeGuilds()
-
-        mark = _service(guilds).mark_for_user(sphere_id=SPHERE_PK, user_pk=MEMBER_PK)
-
         assert mark == GuildMarkDTO(pk=GUILD_PK, name="Topory")
+        assert ("marks_for_sessions", SPHERE_PK, (MEMBER_PK,)) in guilds.calls
 
-    def test_mark_for_user_skips_the_query_for_a_presenter_less_session(self):
+
+class TestRemoveMember:
+    def test_removes_a_membership_row(self):
         guilds = FakeGuilds()
 
-        assert _service(guilds).mark_for_user(sphere_id=SPHERE_PK, user_pk=None) is None
-        assert ("marks_for_users", SPHERE_PK, ()) in guilds.calls
+        removed = _service(guilds).remove_member(
+            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, membership_pk=MEMBERSHIP_PK
+        )
+
+        assert removed is True
+        assert ("remove_member", SPHERE_PK, GUILD_PK, MEMBERSHIP_PK) in guilds.calls
+
+
+class TestClearFacilitator:
+    def test_clears_a_facilitator_row(self):
+        guilds = FakeGuilds()
+
+        removed = _service(guilds).clear_facilitator(
+            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, facilitator_pk=MEMBER_PK
+        )
+
+        assert removed is True
+        assert ("clear_facilitator", SPHERE_PK, GUILD_PK, MEMBER_PK) in guilds.calls

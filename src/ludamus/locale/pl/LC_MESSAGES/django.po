@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 18:28+0200\n"
+"POT-Creation-Date: 2026-08-13 01:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1271,6 +1271,19 @@ msgstr "Twórca programu został zaktualizowany."
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Pick a guild."
+msgstr "Wybierz gildię."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+msgid "Attached to this guild."
+msgstr "Przypisano do tej gildii."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild not found."
+msgstr "Nie znaleziono gildii."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator flagged for deletion."
@@ -3072,10 +3085,6 @@ msgstr ""
 "Znak pokazywany obok nazwisk członków na kartach programu. Kwadrat, jeden "
 "kolor, bez napisów — renderuje się nawet w 14 px. Maks. 8 MB. SVG, PNG, "
 "WebP, JPG lub AVIF."
-
-#: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "Guild not found."
-msgstr "Nie znaleziono gildii."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
