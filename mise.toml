@@ -266,7 +266,7 @@ description = "Pull Request Formatting and Readiness Check"
 run = [
     "mise install",
     "poetry install",
-    "aube install --no-optional",
+    "aube install",
     { task = "format" },
     { task = "messages" },
     { task = "lint" },
