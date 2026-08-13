@@ -65,9 +65,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories.session_visibility import (
-    public_scheduled_sessions,
-)
+from ludamus.links.db.django.repositories.chronology import public_scheduled_sessions
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
